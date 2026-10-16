@@ -169,7 +169,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       quoteGeneration++;
       quoteBusy = false;
       quoteTimer?.cancel();
-      if (widget.active && section == 0) startQuotes();
+      if (widget.active && section == 0) reload();
     }
   }
 
@@ -214,12 +214,13 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       if (snapshot is Map &&
           snapshot['items'] is List &&
           snapshot['positions'] is List) {
-        return [snapshot['items'], snapshot['positions']];
+        return [snapshot['items'], snapshot['positions'], snapshot];
       }
       // Compatibility fallback for previous revisions and bounded failure.
       return await Future.wait([
         cached('/api/v1/me/portfolio/summary'),
         cached('/api/v1/me/journal/positions'),
+        safe('/api/v1/me/cash-position'),
       ]);
     } finally {
       stopwatch.stop();
@@ -524,6 +525,55 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         );
       }
     }
+  }
+
+  String assetWan(Object? value) {
+    if (value == null) return '—';
+    final amount = double.tryParse('$value');
+    if (amount == null || !amount.isFinite) return '—';
+    return '${(amount / 10000).toStringAsFixed(1)} 萬元';
+  }
+
+  Widget assetOverview(Map<String, dynamic> assets) {
+    final cash = fvMap(assets['cash']);
+    final cashText = cash['cash_status'] == 'available'
+        ? assetWan(cash['cash_balance']) : '未設定';
+    final totalText = assets['asset_status'] == 'available'
+        ? assetWan(assets['total_asset_value']) : '待完整估值';
+    return Card(
+      key: const Key('ledger-total-assets'),
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('總資產', style: TextStyle(color: fvInk,
+            fontSize: 16, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('現金部位', style: TextStyle(color: fvMuted, fontSize: 11)),
+                Text(cashText, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: fvInk, fontSize: 20,
+                    fontWeight: FontWeight.w800)),
+              ])),
+            const SizedBox(width: 8),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('現金＋持股市值',
+                  style: TextStyle(color: fvMuted, fontSize: 11)),
+                Text(totalText, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: fvInk, fontSize: 20,
+                    fontWeight: FontWeight.w800)),
+              ])),
+          ]),
+          const SizedBox(height: 5),
+          const Text('萬元／小數一位 · 可至「我的 → 現金部位」修改',
+            style: TextStyle(color: fvMuted, fontSize: 10)),
+        ]),
+      ),
+    );
   }
 
   Widget metricGrid({
@@ -1203,6 +1253,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                   : summary.isEmpty
                       ? <String, dynamic>{}
                       : fvMap(summary.first);
+              final assets = section == 0 && intraday != null
+                  ? intraday!
+                  : values.length > 2 ? fvMap(values[2]) : <String, dynamic>{};
               final coreLoading =
                   snapshot.connectionState != ConnectionState.done;
               final withheld = aggregate['aggregate_status'] == 'withheld';
@@ -1270,6 +1323,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       ),
                     ],
                   ),
+                  if (section == 0) assetOverview(assets),
                   if (section == 0) metricGrid(
                     marketValue: marketValue,
                     unrealized: unrealized,
