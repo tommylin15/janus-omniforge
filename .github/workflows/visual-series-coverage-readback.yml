@@ -14,11 +14,11 @@ jobs:
       - name: Verify read-only exact-preview scope
         run: |
           jq -e '.intent=="read-only-preview-visual-series-coverage" and
-            .source_sha=="536598f2528550fd60c73786597fdf2740860c9e" and
+            .source_sha=="f87ecd481e6ac427e2b08e0ec909decf2f6dd528" and
             .no_data_mutation==true and .no_private_data==true and
-            .symbols==["2330","6488"] and .limit==20' \
+            .symbols==["1513","2327","2382","3231","3711","5876"] and .limit==20 and .metrics==["eps"]' \
             ops/visual-series-coverage-readback.json >/dev/null
-      - name: Read nine published visual metric categories, record gaps without faking data
+      - name: Read six current-year published EPS series, require official 2026 Q1/Q2
         run: |
           python - <<'PY'
           import json, urllib.request, urllib.parse
@@ -29,7 +29,7 @@ jobs:
             build=resp.read(150).decode('ascii').strip()
           if build!=request['source_sha']:
             raise ValueError('fixed_preview_build_id_drift')
-          metrics=('close','pe','pb','yield','foreign','investment_trust','dealer','revenue','eps')
+          metrics=tuple(request['metrics'])
           report={'scope':'public_fixed_preview_only','source_sha':build,
                   'private_read':False,'data_write':False,'items':[]}
           for symbol in request['symbols']:
@@ -53,6 +53,18 @@ jobs:
                            data_as_of=body.get('data_as_of'),
                            source_ids=body.get('source_ids'),
                            missing_reason=body.get('missing_reason'))
+                if metric=='eps':
+                  current=body.get('eps_current_year') or {}
+                  row.update(current_year_status=current.get('status'),
+                             year=current.get('year'),
+                             required_quarters=current.get('required_quarters'),
+                             available_quarters=current.get('available_quarters'),
+                             trailing_four_quarter_status=current.get('trailing_four_quarter_status'))
+                  if (current.get('year')!=2026 or current.get('status')!='ready'
+                      or current.get('required_quarters')!=[1,2]
+                      or not {1,2}.issubset(set(current.get('available_quarters') or []))
+                      or current.get('trailing_four_quarter_status')!='not_certified'):
+                    row.update(status='FAIL_CURRENT_YEAR_MVP',missing_reason='unverified_official_2026_eps')
               except Exception as exc:
                 row.update(status='ERROR',error_type=type(exc).__name__)
               report['items'].append(row)
@@ -62,10 +74,10 @@ jobs:
             'missing':sum(x['status']=='missing' for x in report['items']),
             'unavailable':sum(x['status']=='unavailable' for x in report['items']),
             'error':sum(x['status']=='ERROR' for x in report['items'])}
-          report['status']='PASS_READ_PATH' if report['coverage']['error']==0 else 'PARTIAL'
+          report['status']='PASS_CURRENT_YEAR_API' if all(x['status']=='available' and x.get('current_year_status')=='ready' for x in report['items']) else 'PARTIAL_CURRENT_YEAR_API'
           print(json.dumps(report,ensure_ascii=False,sort_keys=True))
           Path('/tmp/janus-visual-series-coverage.json').write_text(json.dumps(report))
-          if report['coverage']['error']:raise SystemExit(1)
+          if report['status']!='PASS_CURRENT_YEAR_API':raise SystemExit(1)
           PY
       - uses: actions/upload-artifact@v4
         if: always()
