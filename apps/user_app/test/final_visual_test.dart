@@ -1283,6 +1283,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.byKey(const Key('visual-tab-eps')),
       250, scrollable: find.byType(Scrollable).first);
+    // The wrapped seventh chip can straddle the bottom edge at 390x844.
+    await tester.ensureVisible(find.byKey(const Key('visual-tab-eps')));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -100));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('visual-tab-eps')));
     await tester.pumpAndSettle();
     expect(find.textContaining('已發布單季 EPS'), findsOneWidget);
