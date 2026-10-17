@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "becb6a15496959c1f5d3d4985d7b523b652bd3ee",
-  "candidate_release_run": "39019392917",
-  "candidate_deployment_run": "39019791707",
-  "purpose": "Combined DRL-01 EPS/revenue and stock-status/chart-lock release: verify exact-source 0% candidate, automatic OAuth metadata/PKCE and negative User/Admin/MCP boundaries before Jobs/Preview/promotion. No Owner writes or manual consent.",
+  "sha": "7f3e5621d39a99cdb6be622c80636da10f9a391e",
+  "candidate_release_run": "39031856247",
+  "candidate_deployment_run": "39032329887",
+  "purpose": "Dated UI and safe chart diagnosis: exact-source candidate passed; automatic OAuth/PKCE and private negative boundaries before Preview/Jobs/promotion, no Owner writes or manual consent.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 32
+  "attempt": 33
 }
