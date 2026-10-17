@@ -28,6 +28,21 @@ def months_ending(year, month, count):
     return [divmod(value, 12) for value in range(last - count + 1, last + 1)]
 
 
+def valuation_history_months(year, month, *, count=8, offset=0):
+    """One bounded TWSE official valuation slice inside the 61-month 5Y span.
+
+    Backfill callers must page older slices explicitly: normal daily prices,
+    fundamental data and whole-market history keep their existing 36-month
+    ceiling. The extra first calendar month is needed to *prove*, rather than
+    assume, a five-calendar-year observation span.
+    """
+    if not 1 <= month <= 12 or not 1 <= count <= 12 or not 0 <= offset <= 60 or count + offset > 61:
+        raise ValueError("invalid bounded valuation history slice")
+    last = year * 12 + month - 1 - offset
+    return [divmod(value, 12) for value in range(last - count + 1, last + 1)]
+
+
+
 def normalise_monthly(document, symbol, year, month, *, received_at, expected_name):
     result = document.get("result")
     if document.get("code") != 200 or not isinstance(result, dict):
@@ -360,8 +375,20 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
         holidays = {date.fromisoformat(day) for day in schedule.get("holiday_overrides", ())}
         holidays.update(date.fromisoformat(day.strip()) for day in os.environ.get("MARKET_HOLIDAYS", "").split(",") if day.strip())
         target = effective_trading_day(today-timedelta(days=1), holidays=holidays)
-        price_months = int(os.environ.get("JANUS_DATA_SUPPLEMENT_PRICE_MONTHS", "8"))
-        market_months = [(year, month+1) for year, month in months_ending(target.year, target.month, price_months)]
+        if valuation_only:
+            # DRL-01D uses explicit <=12-month chunks instead of an
+            # uncontrolled all-market / five-year single execution.
+            slice_months = int(os.environ.get("JANUS_VALUATION_HISTORY_MONTHS", "8"))
+            slice_offset = int(os.environ.get("JANUS_VALUATION_HISTORY_OFFSET", "0"))
+            market_months = [(year, month+1) for year, month in valuation_history_months(
+                target.year, target.month, count=slice_months, offset=slice_offset)]
+            summary["valuation_periods_requested"] = [
+                f"{year}-{month:02d}" for year, month in market_months
+            ]
+        else:
+            price_months = int(os.environ.get("JANUS_DATA_SUPPLEMENT_PRICE_MONTHS", "8"))
+            market_months = [(year, month+1) for year, month in months_ending(
+                target.year, target.month, price_months)]
         prior_valuation = _rows(core, "valuation", symbols) if not fundamental_only else []
         for symbol in (() if fundamental_only else symbols):
             valuation_batch = []
