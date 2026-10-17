@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "740e54c25842f39ddf0b912c88a82012a851997d",
-  "release_run": "38873919415",
+  "sha": "d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6",
+  "release_run": "38989576990",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
+  "baseline_source_sha": "740e54c25842f39ddf0b912c88a82012a851997d",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:b748d7e3c738ed38ecda866ad74a553dd3670f6eceff898ea8555adbcb7dc792",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:b748d7e3c738ed38ecda866ad74a553dd3670f6eceff898ea8555adbcb7dc792",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:a8d0a4223b0d28ef00aa44405163a861095964f811af94e1a5cc9e9843d3b32c",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:123ede438180490b48fcf0b7553426906303ffeb0b44d59302c0412ef7bd3a08"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:9d87fb5179ff21214fe271a70a5c29b16704edad169c94270fc47b7ac08c2a20",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:9d87fb5179ff21214fe271a70a5c29b16704edad169c94270fc47b7ac08c2a20",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:76d2d896033bc2dbc0a873edb672f3a7166fa40b9718007191dc76523765a157",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:cc43cfb2ce31d0074976076b291fce7e94859a9f26eec350b3b701f87e2301b1"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 21,
-  "safety": "D06 user requests stopping unused Iceberg audit mirroring entirely, preserving PostgreSQL atomic events. Same-source full Release #38873919415, zero-traffic candidate #38874649205 and automated OAuth #38875256474 all SUCCESS. Current restored 8eb immutable rollback image/config baseline; verify fresh full execution fence, lease, Scheduler pause/resume and eight canaries. No API traffic promotion, ledger changes, IAM expansion or new resources. Cleanup runs serialized separately; never deploy over a live execution.",
-  "auth_boundary_run": "38875256474",
-  "automated_oauth_requirement": "Same-source successful automated OAuth #38875256474; no manual owner consent gate.",
+  "request_attempt": 22,
+  "safety": "D01-D05 authorized combined release. Exact source full release, zero-traffic API and automated OAuth passed. Fresh read-only baseline #38992105257 and anonymous OCI source labels confirm 740e54 rollback images/config. Preserve canonical API traffic; shared lease, full execution fence, Scheduler pause/resume and isolated canaries required.",
+  "auth_boundary_run": "38991975400",
+  "automated_oauth_requirement": "Same-source automated OAuth #38991975400; no manual login gate.",
   "authorization": "Authorized existing dev rollout, strictly reversible. Must inspect GCP source config and all executions before actual mutation."
 }
