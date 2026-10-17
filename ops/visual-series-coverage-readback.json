@@ -1,12 +1,19 @@
 {
   "intent": "read-only-preview-visual-series-coverage",
-  "source_sha": "536598f2528550fd60c73786597fdf2740860c9e",
+  "source_sha": "f87ecd481e6ac427e2b08e0ec909decf2f6dd528",
   "symbols": [
-    "2330",
-    "6488"
+    "1513",
+    "2327",
+    "2382",
+    "3231",
+    "3711",
+    "5876"
   ],
   "limit": 20,
   "no_data_mutation": true,
   "no_private_data": true,
-  "reason": "D03 nine bounded official serving visual metrics for TWSE and TPEx on exact verified fixed-preview API. Record status, dates, source IDs, missing, partial, schema and HTTP only; do not publish prices, invent charts, or assert UI screenshot PASS."
+  "reason": "DRL-01 2026Q1/Q2 MVP Core six focus PASS #39000368842, exact source full release #39000704621, 0% candidate #39001127006, OAuth #39001370338, fixed Preview #39001414979; check published read-only 2026 EPS current_year for all six, no TTM claims.",
+  "metrics": [
+    "eps"
+  ]
 }
