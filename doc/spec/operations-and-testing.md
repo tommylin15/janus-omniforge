@@ -2,7 +2,15 @@
 
 更新：2026-10-17。此頁只保留最近適用的業務判定與來源；各次原始記錄完整搬至 [歷史 ledger](../archive/documentation-baseline-2026-10-15-operations-and-testing.md)。舊PASS只適用其來源／scope，不替後續main背書。執行授權另看TODO。
 
-## 個股報價狀態與價格圖阻塞修正（2026-10-17）
+## 日期 UI、真人補驗及正式 100%（2026-10-17 最新）
+
+同一映像來源 `7f3e5621d39a99cdb6be622c80636da10f9a391e`：[完整Release #39031856247](https://github.com/tommylin15/janus-omniforge/actions/runs/39031856247) Python1415 passed／2 deselected、Flutter及四個公開固定GHCR映像PASS；候選 #39032329887、自動auth #39032620084、固定Preview #39032747389、[Jobs #39032863146](https://github.com/tommylin15/janus-omniforge/actions/runs/39032863146) 8次不同canary、[正式promotion #39034273922](https://github.com/tommylin15/janus-omniforge/actions/runs/39034273922) 全SUCCESS。`janus-api-00538-sox`唯一100%，API digest `sha256:77a1529d2b5dfe43864c62c83aa4e797f8b2de33608bdb48b023197591b99e5c`；實際新版→`janus-api-00533-yah`→新版100%回滾演練PASS，保留tags／前版，Scheduler ENABLED、部署lease已釋放。切流後正式與Preview完整build-id匹配，兩邊六股EPS／營收12／12、5876報價available／2026-10-16／54.30及66日價量available讀回PASS，非P95量測。
+
+同源Preview真人手機390×844／桌面1440×1000四頁8／8正向截圖PASS，另確認每日最近20期、營收季度表列合計14,147,272千元、PE季度表列平均、EPS單季不誤加總、交易明細日期倒序與交錯底色。日月季圖表既有時間序／窗口保留。原首次事件歷史kline均HTTP200，未留客戶端原錯誤，不能唯一歸因；本次新首次成功、超時→重試→舊回應不覆蓋回歸與安全錯誤分類已補。詳見 [完整範圍／限制／收據](../archive/stock-live-ui-followup-2026-10-17.md)。私有截圖僅本機忽略目錄，未上傳GitHub。
+
+使用者要求正式100%後停止；本輪只回寫與同步，不啟動其它TODO。D01～D05原豁免／結案維持，未將全量可及性／異常矩陣或DRL其它scope偽標PASS。
+
+## 個股報價狀態與價格圖阻塞修正（2026-10-17，前次來源）
 
 使用者先授權調查／修正兩個已觀察問題，隨後明確要求與 DRL-01 以同 SHA 完整發布及正式切流；不重開 D01～D05。報價卡狀態改讀 `stock-header.price_status`，移除研究分析日期對報價的誤導；沒有正式估值日的 operational 持股顯示「報價估值」與既有行情日，不推造日期。`build_core_service` 將 PostgreSQL serving connection 與 Iceberg reader 分別加鎖，並保護同連線的首頁快照讀取；慢速 fallback 不再持有 serving 鎖。
 

@@ -8,7 +8,15 @@
 
 D01～D05 結案當時唯讀 build-id 為 `d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6`，手機持股可讀 ledger v357／2026-10-16 估值；該次結案沒有新增部署或改 Owner 資料。後續新版發布以下節為準。詳見 [結案紀錄](archive/d01-d05-relaxed-acceptance-closure-2026-10-17.md)；DRL-01、D06～D08 狀態不受影響。
 
-### DRL-01 與兩項個股修正合併切流完成（2026-10-17）
+### 日期 UI／真人補驗正式 100% 完成（2026-10-17 最新）
+
+**正式 API 100% PASS**：映像來源 `7f3e5621d39a99cdb6be622c80636da10f9a391e`，`janus-api-00538-sox`。完整 Release #39031856247、候選 #39032329887、自動 auth #39032620084、固定 Preview #39032747389、Jobs #39032863146（8／8不同canary）、[可逆正式切流 #39034273922](https://github.com/tommylin15/janus-omniforge/actions/runs/39034273922) 全部 SUCCESS；新版→becb前版→新版真實100%回滾演練PASS，舊版保留、Scheduler ENABLED、lease釋放。
+
+新日期 UI 已在同源 Preview 完成真人手機／桌面四頁 **8／8 PASS**；表格日期倒序、交錯底色、季度收合與適用合計／平均正常，月季近兩年、日資料最近20期，圖表時間正序及既有窗口保留。切流後正式與Preview完整SHA相同，六股EPS／營收12／12、5876可用報價及66日價量讀回PASS。原首次事件已窄查歷史HTTP200與新首次成功證據，舊客戶端唯一原因無法追溯證明；已補錯誤分類診斷及超時／重試回歸。詳見 [真人補驗與本次發布](archive/stock-live-ui-followup-2026-10-17.md)。
+
+**使用者指示正式100%後停下：本輪回寫文件、同步GitHub後停止，不啟動其他工作。** D01～D05仍PASS／CLOSED，不新增補驗；DRL-01其它原scope不因本次發布自動完成。
+
+### DRL-01 與兩項個股修正合併切流完成（2026-10-17，前次來源）
 
 **正式 API 100% PASS**：完整映像來源 `becb6a15496959c1f5d3d4985d7b523b652bd3ee`，revision `janus-api-00533-yah`。完整 Release、0% 候選、自動 auth、固定 Preview、四 Jobs／8次 canary 及 [正式可逆切流 #39021547612](https://github.com/tommylin15/janus-omniforge/actions/runs/39021547612) 全部 SUCCESS。切流前後均讀回六股2026 Q1／Q2 EPS、各13期營收、5876報價狀態與66筆價格圖，正式與Preview完整SHA相符；新版→前版→新版回滾演練PASS，Scheduler恢復、部署lease已釋放。
 
