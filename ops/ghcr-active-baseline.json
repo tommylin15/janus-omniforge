@@ -1,15 +1,15 @@
 {
   "status": "VERIFIED_PUBLIC_GHCR_ROLLBACK_BASELINE",
-  "source_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
-  "release_run": "38856837257",
-  "validation_run": "38865347217",
-  "api_revision": "janus-api-00517-ciq",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:b017e38b6ba35829cf3dec99f9e163e65c5312ae847705a2ac70d77ac5fbecff",
+  "source_sha": "d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6",
+  "release_run": "38989576990",
+  "validation_run": "38996111382",
+  "api_revision": "janus-api-00524-tot",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:87ab825b3c7dafa823c3b0c53303be79e014361558ea7c1d8d0166d68038b8a2",
   "job_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:9d87fb5179ff21214fe271a70a5c29b16704edad169c94270fc47b7ac08c2a20",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:9d87fb5179ff21214fe271a70a5c29b16704edad169c94270fc47b7ac08c2a20",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:76d2d896033bc2dbc0a873edb672f3a7166fa40b9718007191dc76523765a157",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:cc43cfb2ce31d0074976076b291fce7e94859a9f26eec350b3b701f87e2301b1"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:62719115cea92f03835a7c5d9829b1034f8f8eaa84875a7a3b1c0e9f555d2634",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:62719115cea92f03835a7c5d9829b1034f8f8eaa84875a7a3b1c0e9f555d2634",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:46017c2d5da3b4bdc72b2c06f17cc46b049b1a508c187590532b8a395617a6ba",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:b5b5ef927b693e25996e6f9a943341aa906887b14dd5b3fd7c2b1a917e55ffdb"
   },
   "job_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,6 +19,6 @@
   },
   "private_historical_config_parity": "NOT_VERIFIED",
   "old_ar_rollback_exercised": false,
-  "observed_evidence": "API 8eb reversible 100% promotion #38865075071, independent live 8eb build/digest/traffic/health/auth boundary #38865347217. Four Jobs 740e54c pinned actual immutable GHCR images/config hashes from Jobs rollout request baseline. This is the 8eb rollback target for d739107 D01-D05 combined release.",
-  "semantics": "Verified 8eb dev canonical 100% revision janus-api-00517-ciq with publicly readable immutable GHCR digest and negative owner boundary. Reversible rollback target for d739107 promotion."
+  "observed_evidence": "d739 GHCR Release #38989576990 SUCCESS, immutable candidate #38991849862 revision janus-api-00524-tot, automated OAuth #38991975400, fixed Preview and Jobs rollout #38992414928, reversible formal 100% promotion #38996111382 SUCCESS. Current f50 candidate 0%-only #39002236278; latest independently read four existing Job images/config #39001249586. Preserve live current canonical d739 as rollback baseline for f50, not older 8eb.",
+  "semantics": "Latest verified pre-f50 canonical dev 100% API revision d739 janus-api-00524-tot, public immutable GHCR digest and OAuth boundary; previous source is suitable for reversible f50 API rollback after live preflight reconfirmation. Historical configuration parity remains NOT_VERIFIED."
 }
