@@ -142,6 +142,27 @@ def summarize_readiness(members, benchmark, prices, financials, focused_prices, 
         indices = {year * 4 + quarter - 1 for year, quarter in periods}
         return any({i, i-1, i-2, i-3}.issubset(indices) for i in indices)
     ready_eps = sum(four_consecutive_quarters(eps[s]) for s in all_names)
+    monthly_by_market = {}
+    eps_by_market = {}
+    for market, names in universe.items():
+        denominator = len(names)
+        monthly_count = sum(expected_months.issubset(monthly[s]) for s in names)
+        eps_count = sum(four_consecutive_quarters(eps[s]) for s in names)
+        monthly_threshold = .90 if market == "TWSE" else .70
+        monthly_coverage = monthly_count / denominator if denominator else None
+        eps_coverage = eps_count / denominator if denominator else None
+        monthly_by_market[market] = {
+            "expected": denominator, "qualified": monthly_count,
+            "coverage": round(monthly_coverage, 6) if monthly_coverage is not None else None,
+            "minimum_coverage": monthly_threshold,
+            "status": "PASS" if monthly_coverage is not None
+                              and monthly_coverage >= monthly_threshold else "PARTIAL",
+        }
+        eps_by_market[market] = {
+            "expected": denominator, "qualified": eps_count,
+            "coverage": round(eps_coverage, 6) if eps_coverage is not None else None,
+            "status": "MEASURED" if denominator else "UNKNOWN",
+        }
     return {
         "schema_version": "data-readiness-ledger.v1",
         "as_of": as_of.isoformat(), "checked_at": datetime.now(timezone.utc).isoformat(),
@@ -152,10 +173,14 @@ def summarize_readiness(members, benchmark, prices, financials, focused_prices, 
                        "status": "PASS" if relevant and focused_count == len(relevant) else "PARTIAL"},
         "monthly_revenue_13": {"expected": len(all_names),
                                "qualified": ready_months,
-                               "status": "MEASURED_NOT_COMPLETE"},
+                               "markets": monthly_by_market,
+                               "status": "PASS" if all(
+                                   m["status"] == "PASS" for m in monthly_by_market.values()
+                               ) else "PARTIAL"},
         "eps_4_comparable": {"expected": len(all_names),
                              "qualified": ready_eps,
-                             "status": "MEASURED_NOT_COMPLETE"},
+                             "markets": eps_by_market,
+                             "status": "MEASURED"},
         "status": "PARTIAL" if (not all(x["status"] == "PASS" for x in summary.values())
                                or focused_count < len(relevant)) else "PRICE_AND_FOCUS_READY_ONLY",
         "historical_pit_certified": False,
