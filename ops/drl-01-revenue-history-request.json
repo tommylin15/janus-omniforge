@@ -3,12 +3,12 @@
   "approved": true,
   "market": "TPEX",
   "months": [
-    "2025-11",
-    "2025-12"
+    "2026-01",
+    "2026-02"
   ],
   "no_new_provider": true,
   "no_owner_mutation": true,
   "no_job_template_change": true,
-  "request_version": 10,
-  "reason": "DRL-01 OTC Sep-Oct2025 full official Core readback PASS #38988370212; serial remaining TPEX 13-month historical coverage, original MOPS, no Owner or Job changes."
+  "request_version": 11,
+  "reason": "DRL-01 TPEX 2025 Sep-Dec four historical months isolated Stage/Core readback PASS; serialize 2026 Jan-Feb via approved MOPS OTC, bounded two-month job."
 }
