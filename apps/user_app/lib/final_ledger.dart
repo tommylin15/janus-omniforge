@@ -1042,6 +1042,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
           alignment: Alignment.centerLeft,
           child: SegmentedButton<int>(
             key: const Key('ledger-record-grouping'),
+            style: SegmentedButton.styleFrom(foregroundColor: fvInk,
+              selectedForegroundColor: Colors.white, selectedBackgroundColor: fvTeal),
             segments: const [
               ButtonSegment(value: 0, label: Text('按月份')),
               ButtonSegment(value: 1, label: Text('按個股')),
@@ -1587,6 +1589,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               );
               return Column(children: [
                 Padding(padding: const EdgeInsets.fromLTRB(18, 8, 18, 0), child: SegmentedButton<int>(
+                    style: SegmentedButton.styleFrom(foregroundColor: fvInk,
+                      selectedForegroundColor: Colors.white, selectedBackgroundColor: fvTeal),
                     segments: const [
                       ButtonSegment(value: 0, label: Text('持股')),
                       ButtonSegment(value: 1, label: Text('紀錄')),

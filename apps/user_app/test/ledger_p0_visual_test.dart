@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:janus_user_app/final_visual_pages.dart';
+import 'package:janus_user_app/final_visual_common.dart';
 import 'package:janus_user_app/main.dart' as legacy;
 
 class HoldingsP0Api extends legacy.Api {
@@ -113,6 +114,9 @@ void main() {
     expect(find.byKey(const Key('ledger-total-assets')), findsOneWidget);
     final assetCard = tester.widget<Card>(find.byKey(const Key('ledger-total-assets')));
     expect(assetCard.color, Colors.white);
+    final navigation = tester.widget<SegmentedButton<int>>(find.byType(SegmentedButton<int>));
+    expect(navigation.style?.foregroundColor?.resolve({}), fvInk);
+    expect(navigation.style?.foregroundColor?.resolve({WidgetState.selected}), Colors.white);
     expect(find.text('現金部位'), findsOneWidget);
     expect(find.text('現金＋持股市值'), findsOneWidget);
     expect(find.text('34.6 萬元'), findsOneWidget);

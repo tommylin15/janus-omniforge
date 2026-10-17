@@ -4,6 +4,8 @@
 
 | 驗收範圍 | 證據 | 判定與限制 |
 |---|---|---|
+| D01～D05 新來源完整 Release | [#38988844578](https://github.com/tommylin15/janus-omniforge/actions/runs/38988844578)，來源 `ebb8d5f00a13d0d99e5be7dd92d90edbf51d773d` | **FULL TESTS／GHCR PASS**：Python 1351 passed、2 deselected，含真實隔離DB現金版本競態；Flutter analyze/test/build及四映像匿名digest PASS。總資產深色可讀性、個股DB-first與GHCR gate已在來源內；candidate／OAuth／Jobs／Preview／正式流量及新版UI尚待同源驗收。 |
+| D04 最新最低權限盤點 | [#38988790519](https://github.com/tommylin15/janus-omniforge/actions/runs/38988790519) | **READBACK PASS ONLY**：VM `e2-micro` RUNNING、instances.get與VM IAM policy讀取PASS；唯一Scheduler ENABLED、每日dump三份、最新2026-10-16。不是SSH／executor／restore交接PASS；安裝 [#38989299705](https://github.com/tommylin15/janus-omniforge/actions/runs/38989299705) 已受理，未終態不重送。 |
 | D01～D05 合併測試（2026-10-17） | [verify #38988061360](https://github.com/tommylin15/janus-omniforge/actions/runs/38988061360)，來源 `1911d228` | **TESTS PASS ONLY**：Python 1343 passed、2 deselected，包含隔離 PostgreSQL 現金 anchor／股利／更正／REVERSAL／冪等／跨 Owner；Flutter完整 analyze/test/build PASS。發布、candidate、auth、Jobs、promote均 skipped；不是發版或業務整包PASS。後續 D05 入口及 UI 修正需另驗新來源。 |
 | D03 真實登入手機檢查（2026-10-17） | 本對話使用者完成登入，正式 `/app/build-id.txt`=`8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699`；390×844 四頁唯讀觀察 | **PARTIAL／發現實作缺口**：持股頁可讀同日2026-10-16總計及ledger v357，關注5/50及價量可讀；總資產卡深色主題低對比、個股持股初始誤顯無持股後逾時顯不可用。修正待新來源發布後重驗；未新增交易或重送重算。未將畫面數值寫入fixture。 |
 | DRL-01 TPEX full market 20-day depth | [#38920178493](https://github.com/tommylin15/janus-omniforge/actions/runs/38920178493) | **PASS TPEX scope**：獨立最新Core100153 OHLCV rows；797/896（88.95%）有至少20日，766股最近20日全具價；來源有官方21有效交易日獨立Stage/Core readback。持股120日與TWSE另驗。 |
