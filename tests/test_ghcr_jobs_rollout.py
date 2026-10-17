@@ -624,3 +624,18 @@ def test_bounded_drain_waits_for_active_execution_without_weakening_fence():
         with pytest.raises(ValueError, match='execution_pagination_loop'):
             rollout.wait_for_terminal_executions()
         sleep.assert_not_called()
+
+
+@pytest.mark.parametrize("argv,category", [
+    (["gh","run","view","123"],"gh_run"),
+    (["gh","api","repos/a/b/actions/runs/1"],"gh_api"),
+    (["skopeo","inspect","--no-creds","docker://ghcr.io/demo:sha-test"],"registry_by_tag"),
+    (["skopeo","inspect","--no-creds","docker://ghcr.io/demo@sha256:abc"],"registry_by_digest"),
+    (["git","show","head:path"],"git_provenance"),
+    (["gcloud","scheduler","jobs","list"],"gcloud_readback"),
+])
+def test_rollout_external_command_failures_are_phase_only_and_do_not_expose_args(argv, category):
+    with patch.object(rollout, "_redacted_command", side_effect=RuntimeError("bounded_command_failed")):
+        with pytest.raises(RuntimeError, match="^bounded_command_failed_" + category + "$") as exc:
+            rollout.command(argv)
+    assert all(str(arg) not in str(exc.value) for arg in argv[2:] if len(str(arg)) > 10)
