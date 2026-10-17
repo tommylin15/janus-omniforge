@@ -14,6 +14,6 @@
   ],
   "target_start": "2024-10",
   "target_end": "2026-10",
-  "deployed_sha": "82625dea8aa731f2645e45bb8d7d8a668df86abf",
-  "reason": "Official two-year TWSE 6-stock/25-month backfill; only after existing dev writer concurrency and exact 82625dea GHCR ingestion Job digest match. No Job template, Owner data, source catalog, paid resource or IAM change."
+  "deployed_sha": "d8a57aa57198e0f383a37125e6b94eb392abe717",
+  "reason": "One-shot DRL-01D two-year official source backfill only after GHCR Jobs rollout run 39050535449 SUCCESS; explicit exact ingestion digest guard; prior failure undefinedtable repaired and full Release 39049811103 PASS."
 }

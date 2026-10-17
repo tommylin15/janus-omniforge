@@ -1,8 +1,9 @@
 name: Janus DRL-01D two-year source readback
 on:
-  push:
-    branches: [main]
-    paths: ['ops/drl-01-valuation-history-request.json']
+  workflow_run:
+    workflows: ['Janus GHCR operations']
+    types: [completed]
+  workflow_dispatch:
 permissions:
   contents: read
   id-token: write
@@ -11,7 +12,12 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
-    if: startsWith(github.event.head_commit.message, 'activate(drl01):')
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.id == 39050535449 &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_sha == '43471a65ca930835a09f139d3bd9813128cd4234'
     runs-on: ubuntu-latest
     environment: dev
     timeout-minutes: 200
