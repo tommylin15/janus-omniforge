@@ -19,8 +19,8 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 24,
-  "safety": "DRL-01 only: 2026 EPS Core six Q1/Q2 PASS #39000368842; serving 12/12 #39001859414; f50 Release #39001930353; f50 candidate #39002236278; negative auth #39017315925 and USER_CONFIRMED_PASS human OAuth/Owner boundary; fixed Preview #39017430466; six-source EPS live API 6/6 #39017516247 PASS. Retain exact d739 immutable rollback images/fingerprints from #39001249586. Strict existing four dev Jobs, scheduler fence, no Owner mutation, shared lease, reversible previous-image exercise, fail closed.",
+  "request_attempt": 25,
+  "safety": "Retry same exact f50 verified source and public rollback after #39017561248 safely failed before any scheduler/image mutation with execution_not_terminal during normal half-hourly dev batch. Strict bounded real terminal drain now waits up to 900 seconds both before and after scheduler pause, retaining lease, source, config/image hashes and rollback. All six public Preview EPS PASS #39017516247, candidate 0%, user human auth confirmed, automatic auth #39017315925.",
   "auth_boundary_run": "39017315925",
   "automated_oauth_requirement": "f50 exact-source automated OAuth and private negative boundary #39017315925 PASS; human positive Owner isolation USER_CONFIRMED_PASS; do not confuse those with EPS serving validation.",
   "authorization": "Authorized existing dev rollout, strictly reversible. Must inspect GCP source config and all executions before actual mutation."
