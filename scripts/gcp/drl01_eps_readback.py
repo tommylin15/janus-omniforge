@@ -13,9 +13,18 @@ from decimal import Decimal,InvalidOperation
 from collections import defaultdict
 from pyiceberg.expressions import In
 from ingestion_core.__main__ import _iceberg_core
-symbols=json.loads(os.environ['DRL01_EPS_SYMBOLS'])
+scope=json.loads(os.environ['DRL01_EPS_SYMBOLS'])
+symbols=scope['audit_symbols']
+year=int(scope['release_year'])
+required=set(scope['required_quarters'])
+as_of=str(scope['as_of'])
+if (year!=2026 or required!={1,2} or as_of!='2026-10-17'
+    or sorted(symbols)!=['1513','2327','2382','3231','3711','5876']):
+    raise ValueError('unexpected_drl_eps_release_scope')
 out={'component':'drl01_eps_period_verification','read_only':True,
-     'status':'PARTIAL','target_count':len(symbols),'qualified_count':0,'quarter_counts':[],
+     'status':'PARTIAL_CURRENT_YEAR','target_count':len(symbols),
+     'qualified_count':0,'mvp_qualified_count':0,'quarter_counts':[],
+     'release_year':year,'required_quarters':sorted(required),
      'owner_mutation':False,'historical_pit_certified':False}
 core=None
 try:
@@ -28,9 +37,11 @@ try:
                          'metric','period_basis','statement_type','unit','value','source_id',
                          'provenance_id','availability_at')).to_arrow().to_pylist()
     periods=defaultdict(set)
+    current=defaultdict(set)
     for row in rows:
         if (row.get('symbol') not in symbols or row.get('source_id')!='mops'
             or not row.get('provenance_id') or not row.get('availability_at')
+            or str(row.get('availability_at'))[:10]>as_of
             or row.get('unit')!='TWD_per_share'
             or row.get('statement_type') not in ('income','financial')):continue
         try:
@@ -45,14 +56,20 @@ try:
             or q==1 and basis in ('','year_to_date')
             and ('每股盈餘' in metric or metric=='eps_year_to_date')):
             periods[row['symbol']].add(y*4+q-1)
+            if y==year:current[row['symbol']].add(q)
     for sym in symbols:
         indices=periods[sym]
         ok=any({i,i-1,i-2,i-3}<=indices for i in indices)
+        mvp_ok=required.issubset(current[sym])
         out['quarter_counts'].append({'symbol':sym,'valid_single_quarters':len(indices),
                                      'four_contiguous':ok,
-                                     'has_2025_q4':2025*4+3 in indices})
+                                     'has_2025_q4':2025*4+3 in indices,
+                                     'current_year_quarters':sorted(current[sym]),
+                                     'mvp_current_year_pass':mvp_ok})
         out['qualified_count']+=int(ok)
-    out['status']='PASS' if out['qualified_count']==len(symbols) else 'PARTIAL_FOUR_QUARTERS'
+        out['mvp_qualified_count']+=int(mvp_ok)
+    out['four_quarter_status']='PASS' if out['qualified_count']==len(symbols) else 'PARTIAL'
+    out['status']='PASS_CURRENT_YEAR' if out['mvp_qualified_count']==len(symbols) else 'PARTIAL_CURRENT_YEAR'
 except Exception as error:
     out['status']='BLOCKED_'+type(error).__name__
 finally:
@@ -66,7 +83,10 @@ def main():
     req=json.loads(Path(sys.argv[1]).read_text())
     if (req.get("intent")!="drl01-existing-mops-eps-history" or req.get("approved") is not True
         or req.get("no_new_provider") is not True or req.get("no_job_template_change") is not True
-        or not isinstance(req.get("symbols"),list) or not 1<=len(req["symbols"])<=2):
+        or not isinstance(req.get("symbols"),list) or not 1<=len(req["symbols"])<=2
+        or req.get("release_year")!=2026 or req.get("required_quarters")!=[1,2]
+        or req.get("as_of")!="2026-10-17"
+        or sorted(req.get("audit_symbols",[]))!=['1513','2327','2382','3231','3711','5876']):
         raise ValueError("unapproved_eps_scope")
     current=job("janus-ingestion-core")
     containers=current["template"]["template"]["containers"]
@@ -74,7 +94,8 @@ def main():
         raise ValueError("job_entrypoint_drift")
     override={"args":(["python"] if not containers[0].get("command") else [])+["-c",PROBE],
               "env":[{"name":"QUEUE_CONSUMER","value":"false"},
-                     {"name":"DRL01_EPS_SYMBOLS","value":json.dumps(req["symbols"])}]}
+                     {"name":"DRL01_EPS_SYMBOLS","value":json.dumps({k:req[k] for k in (
+                         "audit_symbols","release_year","required_quarters","as_of")})}]}
     if containers[0].get("name"):override["name"]=containers[0]["name"]
     op=cloud(f"{ROOT}/jobs/janus-ingestion-core:run",
         {"etag":current["etag"],"overrides":{"taskCount":1,"timeout":"400s",
@@ -110,6 +131,7 @@ def main():
     out={"execution":execution,"receipt":report}
     Path("/tmp/drl01-eps-core-readback.json").write_text(json.dumps(out,sort_keys=True,indent=2)+"\n")
     print(json.dumps(out,sort_keys=True))
-    if report.get("status")!="PASS":raise RuntimeError("eps_four_quarters_partial")
+    if report.get("status")!="PASS_CURRENT_YEAR":
+        raise RuntimeError("eps_current_year_minimum_missing")
 
 if __name__=="__main__":main()
