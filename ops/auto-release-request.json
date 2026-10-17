@@ -1,15 +1,22 @@
 {
   "intent": "automated-full-release",
-  "approved": false,
+  "approved": true,
   "release_type": "full",
   "skip_api_promote": false,
-  "reason": "Template - set approved=true and update reason to trigger release",
+  "reason": "DRL-01A-D official 5Y valuation profile, schema 063 PASS and tested Flutter/serving; reversible dev rollout",
   "notes": {
-    "release_type_options": [
-      "full - Complete release: tests + GHCR + Jobs + API 100%",
-      "jobs-only - Only update Jobs (skip API candidate/promote)",
-      "api-only - Only update API (skip Jobs rollout)"
+    "scope": "existing-dev",
+    "migration": "063_stock_valuation_five_year",
+    "live_accepted_migration_run": 39029732124,
+    "source_focus": [
+      "1513",
+      "2327",
+      "2382",
+      "3231",
+      "3711",
+      "5876"
     ],
-    "skip_api_promote": "Set to true to stop after Jobs rollout without promoting API to 100%"
+    "no_owner_mutation": true,
+    "no_paid_resource": true
   }
 }
