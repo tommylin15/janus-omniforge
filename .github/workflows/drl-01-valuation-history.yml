@@ -1,8 +1,8 @@
 name: Janus DRL-01D five-year source readback
 on:
-  push:
-    branches: [main]
-    paths: ['ops/drl-01-valuation-history-request.json']
+  workflow_run:
+    workflows: ['Janus automated full release']
+    types: [completed]
 permissions:
   contents: read
   id-token: write
@@ -11,6 +11,11 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_sha == 'd18e8943854e0e6e0f7a30d4cc938a6d920afe15' &&
+      github.event.workflow_run.run_attempt == 1
     runs-on: ubuntu-latest
     environment: dev
     timeout-minutes: 200
