@@ -112,93 +112,57 @@ Reports 必須只讀 canonical backend／Private Mart aggregation，並明確呈
 
 交易新增、修改、同步或 position projection 更新後，acceptance 必須驗證 Holdings summary、Ledger summary、Records、Reports、YTD realized PnL 均可刷新，舊 cache 不長時間殘留，且 valuation/as-of 足以判斷 freshness。若採 batch，runtime contract／evidence 需指出 Job 名稱、Scheduler／trigger、頻率、source table、target projection、freshness SLA 與 failure 行為；非 batch 則記錄真正 refresh/invalidation chain。
 
-## 6.3 Admin UI
+## 6.3 Admin v2｜四頁營運後台（WBS-6-ADMIN-OPERATIONAL-CONVERGENCE）
 
-唯一 active Admin frontend 是 `apps/user_app` Flutter／PWA。2026-10-02 已退役的 legacy static HTML／JS Admin 只保留 archive 歷史，不作 fallback、parity gate 或 active runtime。
+唯一 active frontend 為 `apps/user_app` Flutter／PWA，既有 `/api/v1/admin/*` 與 server-side 授權不變。[2026-10-17 Admin v2 決策](../decision-2026-10-17-admin-v2.md) 取代 2026-10-03 的**六頁導航／功能位置**，其授權、audit、retention/owner 安全邊界繼續有效。**目前只是目標契約，不能當成程式已改版。**
 
-主導覽目標：
+**四個主導覽目標（不得另加獨立 AI／個股／市場主頁）：**
 
-- `總覽`
-- `批次`
-- `個股`
-- `市場資訊`
-- `AI 分析`
-- `資料治理`
+1. `總覽`：actionable-exceptions-first；批次／Private Mart／snapshot／DQ／storage／AI 異常摘要及安全 drill-down。
+2. `批次`：唯一 Controller 控制面的可觀察／安全操作 UI；effective schedule、occurrence、workload 真實終態、備份、Private recalculation、Compaction/Cleanup。
+3. `資料品質`：DRL-01、source health、TWSE／TPEx、原 Stock Workbench 的健康與核准 gap repair、原市場資訊、Stage/Core/Mart/必要 Private retention/storage。
+4. `系統設定`：原 AI 分析的模型／評估／CEO profile／Gateway 子頁、Worker、設定版本、授權、稽核與低頻儲存設定。
 
-這次 operational convergence 是**精簡強化既有 Admin**，不是重做整個 shell，也不取消 `個股`／`市場資訊`／`AI 分析`。
+**功能遷移不等於功能退役**：原「個股」和「市場資訊」作為「資料品質」可搜尋詳細區；原「AI 分析」成為「系統設定 → AI 模型與 Gateway」可深連結子頁；原「資料治理」的資料健康／容量在「資料品質」，Private 操作在「批次」，低頻 versioned 配置在「系統設定」。既有 accepted shell、stock search、execution/retry lineage、source health、Mart read、週六 DQ readpath 保留可用；刪 UI／API 前先查 caller、权限、audit、rollback。
 
-### 6.3.1 既有 accepted baseline
+### 6.3.1 主體重構順序與嚴格範圍
 
-以下既有成果保持有效，但不代表新的 operational convergence 已完成：
+**唯一 active queue 是 [TODO ADMIN-V2](../todo.md)**，不得回填新需求到 D01～D06：
 
-- Flutter Admin shell；
-- actionable Overview／Batch 基礎；
-- Stock Workbench 基礎；
-- persisted execution detail、retry classification、retry lineage；
-- source health／Mart persisted read；
-- 週六資料品質結果的 Admin read path。
+- **A0 已核准文件：**統一 TODO、WBS、UI、D07、D08；不代表實作、測試、發布。
+- **A1 Shell：**四頁導航／deep link／390px 與 desktop accessibility、Auth；不得重建 User App。
+- **A2 Controller 運營整合：**只讀承接 D01 Private Mart、D02 snapshot、D04 effective scheduling／backup、D05 deployed SHA/digest/Jobs readback；safe retry 走既有 backend fence。
+- **A3 資料品質：**承接 DRL-01、D02／D03 的資料缺口、stock/market、來源與合法期間；維持現行資料／分析／UI 一條鏈。
+- **A4 治理／設定：**承接 D06 Iceberg maintenance/objects/bytes/受引用保護清理，以及 D04 worker／backup；無可信資料時 unknown。
+- **A5 驗收：**targeted API／Flutter/CI、auth/owner 隔離、真實 GCP dev Admin readback、排程終態與控制面防重、同 SHA 受控發布／回復、手機與桌面。
 
-### 6.3.2 總覽／批次
+D01～D06 的 task、驗收 gate 和後置工作**不因本 WBS 增加**。等它們適用的核心依賴穩定即可開始 A1～A5；D06 全面 I/O matched measurement、DRL 歷史 TTM／五年 PE/PB 不列為 Admin v2 前置阻擋，未知則 unknown。D07／D08 的 **Admin UI 只接入本四頁容器**，不再平行開發六頁 Admin。
 
-- 總覽維持 actionable-exceptions-first，只突出需要處理的 batch／DQ／storage／retention／AI anomaly；正常 execution 不佔主要空間。
-- 批次使用簡單表格／清單，不要求大型 DAG。
-- 每列至少顯示 effective schedule／trigger、latest state、duration／last update、latest success，以及 `查看`、安全 `重試`／`手動執行`。
-- 預設最近 3 天 execution／occurrence，更早歷史以 bounded date/cursor 取得。
-- `enqueue`／dispatch 成功不等於 workload 成功。
+### 6.3.2 總覽／批次契約
 
-目前 controller 的固定 batch：
+- 總覽正常工作不洗版；顯示需處理原因、影響與最後更新，可 deep link 到批次／資料／AI。
+- 批次以 backend + Controller 的 **effective definitions/occurrences**、persisted execution/workload terminal 為準；不在 UI hard-code 2026-10-03 的七種 Job，真實缺少 `deployment_status` 證據不能從 `unknown` 推成健康。
+- `created/enqueued`、`dispatched`、`running`、`succeeded`、`failed`、`partial`、`unknown` 清楚分離；顯示 schedule、trigger、duration、last update、last success，並有 bounded 最近三天／歷史分頁。
+- Manual batch/retry 後端 allowlist + authorization + idempotency + duplicate/dependency/exclusive guard + audit；unsafe/unknown 不盲重送。清理不可直接無保護一鍵執行。
 
-- `ingestion`
-- `data-supplement`
-- `mart`
-- `data-quality`
-- `private`
-- `core-cleanup`
-- `mart-cleanup`
+### 6.3.3 資料品質契約
 
-未來 specialist／monthly retrain／CEO execution 只有 runtime 真正存在後才顯示。
+- 分上市櫃顯示市場官方 coverage：TWSE 合格 ≥90%／TPEx ≥70%，連同分母及 as-of；不把 TPEx ETF 混入四碼上市櫃股票母體。
+- DRL-01 同一份來源只讀顯示持股／關注 ≥120 合格交易日、13 月營收 fiscal_month/YoY、2026Q1/Q2 合格 EPS；舊四連季/TTM 維持 `NOT_CERTIFIED/WAIVED_FOR_MVP`，五年 PE/PB 後置；資料不足不令既有合法單值消失。
+- Stock Workbench 保留 approved dataset gap 修復、來源／snapshot/PIT/provenance 細節；市場 master 依官方 TWSE+TPEx full universe，audit 現有 TWSE-only admin upsert／legacy 500 swap，不能自行擴任意人工寫入權。
+- Stage/Core/Mart/必要 Private、quarantine/retention、objects/bytes、compact/cleanup/protected refs、同負載 I/O 實測；無 telemetry 時 `unknown`。不在 page load 全桶掃描，不新增 metadata catalog 或第二 controller。
+- Admin 不複製前台股價、持股、KD/ATR、合理價圖表或 transaction flows。
 
-### 6.3.3 資料治理
+### 6.3.4 系統設定與 D07／D08 消費契約
 
-`資料治理` 取代原 `進階管理` placeholder，第一版只做單一精簡頁：
+- 模型／Gateway 從實際 effective runtime/readback 取得 provider/model、capability、quota、cooldown、usage、cost/audit；不因 legacy `Codex CLI → OpenRouter → Gemini` 文字推定當前 route 或啟用付費模型。
+- D07 VF-09 五角色 versions/champion、quality/evaluation、baseline/OOS、dirty/reuse、validated artifacts →「系統設定 → AI 模型 → Specialist 品質」，原始數值來源與 missing 狀態可連到「資料品質」；不要求在 D07 新建主導覽。
+- D08 Manual CEO/Gateway profiles/capability/immutable report audit → 同一「系統設定 → AI 模型與 Gateway」子頁；正式 Owner 報告仍在 User history。D07 有效 Fact Pack 及 D08 原 acceptance 不被 Admin 導覽變動降低。
+- Private worker (2–8)／versioned settings、必要授權和 audit 只管理已核准設定；Public retention 不類推 Private。
 
-- Stage／Core／Mart／必要 Private 摘要；
-- active retention contract；
-- coverage／freshness／DQ／quarantine；
-- live objects／active bytes；
-- maintenance／cleanup；
-- protected references／snapshot 摘要；
-- storage growth／anomaly。
+### 6.3.5 完成判定
 
-Public retention 依 `../spec/retention-governance.md`；Private 沒有另外核准 contract 時顯示 `未定義／unknown`，不得套用 Public 規則推測。
-
-第一版不要求 OpenMetadata、DataHub、Airflow、Kestra、Prefect、第二套 scheduler／control plane、metadata catalog、lineage graph 或大型 chart。
-
-### 6.3.4 AI 分析／Analysis Profile
-
-`AI 分析` 保留為獨立主功能。
-
-Admin 後續管理：
-
-- specialist champion／model／version／evaluation；
-- dirty dependency／reuse／reconciliation；
-- monthly retrain／calibration evidence；
-- blocked／partial／insufficient-data；
-- CEO provider approval／auth／health；
-- CEO model／profile／route；
-- DB-backed user capability（例如 `ceo_analysis.request`）；
-- quota／cooldown；
-- usage／cost／audit；
-- immutable CEO report history。
-
-`Codex CLI → OpenRouter → Gemini` 只屬 On-demand CEO／approved escalation，不代表五 specialist daily route。
-
-### 6.3.5 個股／市場資訊／Routing
-
-- `個股` 保留 Stock Workbench、dataset health、gap repair、history、specialist/CEO persisted artifact 檢視。
-- `市場資訊` 保留全上市櫃 universe、ranking、進入／退出、來源與 coverage 狀態。
-- Deep Coverage 只顯示去識別化 symbol demand，不顯示 user-to-symbol mapping。
-- provider／market-source priority 是 backend versioned contract，不由 Flutter hard-code。CEO route 放 `AI 分析`；market route 放 `市場資訊`／`資料治理` detail。
+文件 A0 完成 ≠ Admin v2 工程完成。A1～A5 需逐項對應 GitHub main code、targeted tests/CI、authenticated Admin runtime、真實資料／Jobs/Controller readback、390px/desktop、owner/auth safety、受控部署與 rollback；缺證據維持 PARTIAL／BLOCKED。
 
 ## 6.4 Manual action／auth boundary
 

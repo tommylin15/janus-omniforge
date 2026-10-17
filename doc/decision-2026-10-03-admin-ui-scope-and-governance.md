@@ -1,5 +1,7 @@
 # 2026-10-03 Admin UI 範圍與資料治理呈現決策
 
+> **歷史決策（導覽部分已被取代）**：2026-10-17 使用者改採 [Admin v2 四頁架構](decision-2026-10-17-admin-v2.md)。下文六主頁、保留獨立「個股／市場資訊／AI 分析」僅保存當時決策背景，不得作為新程式的 active UI 任務；安全／retention／owner 隔離／audit 等未衝突原則仍適用。Active TODO／WBS／UI 以更新後文件為準。
+
 ## 決策
 
 Janus Admin 不重做整套資訊架構，也不導入另一套獨立的 metadata／orchestration 後台。既有 Flutter `資料營運中心` 保留為唯一 active Admin frontend，沿用目前 Material 3 shell 與既有 API／execution／retry 能力，採最小合理變更完成營運閉環。

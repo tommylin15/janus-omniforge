@@ -18,6 +18,7 @@
 - [system-development-contract.md](../spec/system-development-contract.md)
 - [wbs-5-intelligence-mart.md](../wbs/wbs-5-intelligence-mart.md)
 - [wbs-6-api-and-apps.md](../wbs/wbs-6-api-and-apps.md)
+- [Admin v2 四頁 UI](../ui/admin.md) 與 [Admin v2 順序決策](../decision-2026-10-17-admin-v2.md)
 - [ceo-omniagent-p0v-integration.md](../ceo-omniagent-p0v-integration.md)
 - [runbook-mart-ai-providers.md](../runbook-mart-ai-providers.md)
 
@@ -31,7 +32,7 @@
 ## 3. 連續執行步驟與交付物
 
 1. 只讀 validated 五角色及官方 canonical 數值，組成有來源、版本、as-of、missing/conflict/stale 的 Fact Pack；LLM 不補 canonical number、不作 publication 決策。
-2. Admin models/profiles/evaluation/immutable history/rollback/capability、health/quota/cooldown/usage/audit；Production Profile 不等於 production GCP。
+2. Admin models/profiles/evaluation/immutable history/rollback/capability、health/quota/cooldown/usage/audit；Production Profile 不等於 production GCP。**沿用 ADMIN-V2「系統設定 → AI 模型與 Gateway」子頁及 D07 模型品質容器，不另建獨立 AI 主選單；正式 Owner 報告與瀏覽歷史留 User UI。**
 3. Owner 明確手動 request→authenticated Janus→既有 Gateway→Gemini→完整 validator→immutable GCS內容hash＋PostgreSQL索引→Owner history/UI freshness/權限讀回。
 4. 報告解釋 thesis、支持/反對訊號、情境、失效條件、來源與 unknown；specialist改版只標 report stale，不默默發新LLM request。
 5. 驗 timeout/cancel/5xx/unknown、冪等與安全 retry；無可用 validated inputs 不生成表面完整的報告。
@@ -40,7 +41,7 @@
 
 **專屬 acceptance：**
 - contract/security：provider endpoint/model/audience、owner isolation、Fact Pack source/數字比對、validator、immutable/idempotency、限制/usage/secret redaction。
-- 真實新手動 Owner request 通過 Gateway/LLM/validator，GCS hash與PG索引一致、Owner history 可授權讀回；Admin profile/capability/rollback/limits獨立 readback。
+- 真實新手動 Owner request 通過 Gateway/LLM/validator，GCS hash與PG索引一致、Owner history 可授權讀回；Admin v2 系統設定內的 profile/capability/rollback/limits 獨立 readback，不以 UI 搬遷取代原 gate。
 - 不把合成 P0-V 技術 PASS 當成正式 Owner publication；部分角色失效有明確 blocked/partial 而非偽造整體成功。
 
 **禁止／安全 guard：**

@@ -18,6 +18,7 @@
 - [system-development-contract.md](../spec/system-development-contract.md)
 - [wbs-5-specialist-engines.md](../wbs/wbs-5-specialist-engines.md)
 - [wbs-5-intelligence-mart.md](../wbs/wbs-5-intelligence-mart.md)
+- [Admin v2 四頁 UI](../ui/admin.md) 與 [Admin v2 順序決策](../decision-2026-10-17-admin-v2.md)（只供 VF-09 呈現契約；不重啟 D01～D06）
 
 **實作入口：**`jobs/intelligence-mart/intelligence_mart/evaluation.py`、`quant_pit.py`、`event_labeling.py`、`scripts/gcp/b9-specialist-oos-quality.py`、月度 retrain artifacts。
 
@@ -33,10 +34,11 @@
 3. Fundamental 先修 EPS、淨利年增、財報期別/可得時點再對 LightGBM；Valuation 修 PE/PB/缺值/異常/同業再比 LightGBM/CatBoost，DCF 資料不足標 unavailable。
 4. Event 先建立有 training-use 許可且真實人審 event/revision、方向、時間、reviewer/label version；分類做 chronological/event-group holdout 與 macro-F1／校準，不把分類機率當漲幅。
 5. 逐角色輸出 baseline、challenger、OOS/不確定性、version/hash、typed provenance/partial/missing、dirty/reuse；正常 inference 0 生成式 LLM token；未有優勢不 promotion。
+6. **VF-09 Admin 消費位置：**只對接既有 ADMIN-V2「系統設定 → AI 模型 → Specialist 品質／版本／OOS」子頁與「資料品質」的缺口 detail；復用 persisted typed artifact/API。不得重建獨立 AI 主導覽或影響 D01～D06 原 acceptance；D07 的模型品質及真實 readback gate 不變。
 
 ## 4. 驗收、禁止事項與失敗恢復
 
-**專屬 acceptance：**
+**專屬 acceptance（模型品質不變；新增的是既有 VF-09 的四頁入口映射，非新模型 gate）：**
 - 資料範圍／時間／標籤/公司行動／洩漏驗證；strict_pit=false 財報比較明確標研究-only，不能誤稱嚴格PIT publication。
 - 所有角色各自同樣本/期限 baseline/challenger OOS、分月/市場/環境、成本後結果與穩定性、保留負面與失敗實驗。
 - GCP Mart 模型／artifact SHA/hash、persisted API、owner isolation、rollback 的 live readback；B9 逐角色判定，不以快取成功替代品質。

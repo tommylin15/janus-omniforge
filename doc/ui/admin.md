@@ -6,18 +6,16 @@ Admin 的目標是 `apps/user_app` 內的 Flutter workspace，與 User 共用 co
 
 2026-10-02 使用者已決定 legacy static HTML／JS Admin 退役，不再作為 fallback，也不再等待 Flutter parity／rollback gate；Flutter／PWA 是唯一 active Admin frontend。Legacy source 的可還原座標保留於 `archive/legacy-static-admin-retired-2026-10-02.md`，除非使用者日後另行決定，不得重新納入 runtime。
 
-2026-10-03 Admin UI scope 依 [`../decision-2026-10-03-admin-ui-scope-and-governance.md`](../decision-2026-10-03-admin-ui-scope-and-governance.md) 收斂。**這不是整套 Admin 重做。** 既有 `個股`、`市場資訊`、`AI 分析` 保留；原 `進階管理` 的產品目標改名為 `資料治理`，承接資料層、retention、storage 與 DQ 的精簡營運視角。
+**2026-10-17 Admin v2 最新目標：**依 [Admin v2 四頁設計決策](../decision-2026-10-17-admin-v2.md)，取代 [2026-10-03 六頁導航](../decision-2026-10-03-admin-ui-scope-and-governance.md) 的主選單與功能位置，但保留既有權限、稽核、資料安全與已接受功能。**這是待實作 UI 契約，非 live Flutter 已切換四頁的聲明。**
 
-主導覽目標固定為：
+主導覽固定為：
 
 1. `總覽`
 2. `批次`
-3. `個股`
-4. `市場資訊`
-5. `AI 分析`
-6. `資料治理`
+3. `資料品質`
+4. `系統設定`
 
-程式／runtime 尚未完成此 rename 前，既有 UI 可能仍顯示 `進階管理`；文件變更本身不得視為 implementation completion。
+原「個股」和「市場資訊」歸「資料品質」搜尋／detail；原「AI 分析」歸「系統設定 → AI 模型與 Gateway」子頁；原「資料治理」按監控、Private 執行與低頻設定分散到資料品質／批次／系統設定，**原能力不能直接砍掉**。不另開第 5 個 AI 或股票主頁。工程順序以 [TODO ADMIN-V2](../todo.md) A1～A5 為準；D01～D06 不加驗收範圍。
 
 ## 9.0.1 Admin interaction 原則
 
@@ -38,6 +36,7 @@ Admin 的目標是 `apps/user_app` 內的 Flutter workspace，與 User 共用 co
 - 最近資料品質結果；
 - Storage／retention anomaly；
 - 需要處理的項目數。
+- 合格的 Private Mart valuation-as-of、D02 snapshot freshness 及有效部署版本可在次層顯示；資料／部署證據不存在時顯示 unknown。
 
 有異常時，至少能辨識「哪一筆、原因、最後更新、是否可安全處理」，並可 drill-down 到對應批次、資料或 AI 詳細資訊。可重試項目才顯示 retry／rerun action；partial success 不得顯示成 full success。
 
@@ -58,15 +57,7 @@ Admin 的目標是 `apps/user_app` 內的 Flutter workspace，與 User 共用 co
 
 預設顯示最近 **3 天** execution／occurrence；更早歷史以日期範圍、cursor 或等價 bounded query 取得。需要快速營運視角時可保留「最近 50 次」preset，但不得成為唯一歷史入口。`enqueue`／dispatch 成功不得顯示成 workload 成功。
 
-目前 GitHub `main` 的 controller 固定批次為：
-
-- `ingestion`
-- `data-supplement`
-- `mart`
-- `data-quality`
-- `private`
-- `core-cleanup`
-- `mart-cleanup`
+**批次清單不能硬編碼舊七支。** 實作時從 `ingestion_core.batch_controller.BATCHES` 的有效定義、PostgreSQL occurrence／execution 及 live runtime 讀回核對（包括現有 backup、compaction 等維護類）；定義存在不代表部署成功。每筆需區分 scheduled／dispatched／running／terminal、unknown／partial 與成功。
 
 UI 應以 backend／controller 的 effective job/occurrence 為準，不再由 Flutter 複製一份排程真相。未來 全市場 screening、dirty specialist update、monthly retrain／reconciliation、On-demand CEO execution 等只有在對應 implementation／runtime 真正存在後才出現，不以 placeholder 假裝可用。
 
@@ -78,26 +69,28 @@ row click／`查看` 才載入結構化 detail。至少顯示 status、safe fail
 
 Manual rerun 必須經 backend allowlist、idempotency／duplicate guard、dependency／exclusive guard 與 audit；cleanup／retention 等具刪除效果的作業不在首頁放置高風險一鍵操作。
 
-## 9.3 個股
+## 9.3 資料品質 → 個股資料健康（原 Stock Workbench）
 
-保留既有 Admin Stock Workbench 與後續既定工作，不因本次治理 UI 收斂而取消。
+原 Stock Workbench **保留功能但不保留獨立主頁**：在「資料品質」以代號／名稱搜尋、檢查 dataset、合法期間、來源、quality gap、approved repair 及 immutable analysis/history。
 
-- 支援代號／中文名稱搜尋、dataset health、gap repair、analysis/read history 等已核准能力。
-- Core 最新交易日、dataset、coverage、row count、null ratio、DQ、freshness、source、snapshot ID 與 updated time 使用結構化欄位，不直接輸出 JSON blob。
-- row expand／`查看` 才載入 quality flags、association、quarantine reason 等詳細資訊；raw payload、object URI、敏感 URL、secret 與完整 upstream traceback 不得提供旁路。
-- 舊 artifact 不可原地修改；重新分析建立新 execution/report。
+- 僅讀既有 Core／Mart／DRL-01 正式 API／provenance；OHLCV 有效 120 個交易日、13 個 fiscal_month、2026Q1/Q2 合格 EPS 與歷史四連季/TTM **未認證**分開顯示，單一合法值可用，不受後置五年 PE/PB 阻斷。
+- Core 交易日、coverage、row count、null ratio、quality flags、published/source time、snapshot ID 等放在結構化 detail；缺值／stale／PENDING／PARTIAL／WAIVED_FOR_MVP 不補 0。
+- 修復請求沿用 backend approved allowlist／execution／audit，重試建立新的執行紀錄；不可繞過官方來源與合法季度/PIT 判斷。
+- Admin 不複製 User 個股價格/KD/估值圖、持股／交易／現金畫面，亦不得在一般 Admin 暴露 Owner 的 user-to-symbol 關係。
 
-## 9.4 市場資訊
 
-保留現有市場資訊頁，用於 全上市櫃 universe／市場資料營運視角。
+## 9.4 資料品質 → 市場與來源（原市場資訊）
 
-- 呈現全上市櫃名冊、可選流動性 ranking、成交量／市場資料、進入／退出、版本與來源狀態。
-- 深度追蹤需求只呈現去識別化 symbol demand、effective time 與 cadence，不顯示 user-to-symbol 關係。
-- source routing 是 backend versioned contract，不由 Flutter hard-code；只有 approved／authorized source 可進 effective route。
+原市場資訊 **移為資料品質子頁**：呈現官方上市／上櫃完整 universe、進出變動、版本、source freshness、已核准的 ranking 及 coverage；不得退回歷史 Liquid 500。
 
-## 9.5 AI 分析
+- 分市場 coverage 附分母、資料 as-of 與 DQ 原因；TWSE ≥90%、TPEx ≥70% 的既有門檻不改，不把債券 ETF 納入一般四碼上市櫃股票分母。
+- Deep Coverage 只顯示去識別化 symbol demand、cadence 與 effective time，不洩露 Owner 關係。
+- Source routing 由 backend versioned contract 決定；調整全市場母體不得以人工 Admin master 操作取代官方導入。
 
-`AI 分析` **保留且與資料治理分開**。它遵守 2026-10-03 Token-first specialist + On-demand CEO 決策，不再把五 specialist 當成每日五個生成式 LLM workers。
+
+## 9.5 系統設定 → AI 模型與 Gateway（原 AI 分析）
+
+原 `AI 分析` 的模型／評估／CEO 管理與可深連結子頁 **保留功能**，但入口歸 `系統設定 → AI 模型與 Gateway`；模型品質中的資料缺口可連至「資料品質」，不再維護第五主頁。遵守 Token-first specialist + On-demand CEO，五 specialist 不是每日五個生成式 LLM workers。D07 的 VF-09 與 D08 後續成果共用此容器。
 
 ### 9.5.1 Specialist management
 
@@ -113,7 +106,7 @@ Admin 後續管理：
 
 ### 9.5.2 On-demand CEO
 
-Codex CLI／OpenRouter／Gemini 既有 adapter／routing／auth／free-gate 成果保留，但 effective product runtime 僅用於 authorized manual On-demand CEO／rare escalation。
+既有 Codex CLI／OpenRouter／Gemini adapter／routing／auth／free-gate 結果保留；**實際 effective provider、model、audience、quota 與 health 必須讀回現行 Janus→Gateway/runtime**，不能因舊文件列出 provider 順序，就宣稱目前 active route。僅核准的 manual On-demand CEO／rare escalation 可使用對應 LLM 路徑。
 
 Admin 後續至少管理：
 
@@ -126,9 +119,9 @@ Admin 後續至少管理：
 
 重新分析建立新 immutable execution/report，不覆寫舊報告。Flutter visibility 不能取代 backend authorization。
 
-## 9.6 資料治理
+## 9.6 資料品質 → 資料治理與儲存
 
-`資料治理` 取代原 `進階管理` placeholder，第一版維持單一精簡頁，不拆成大型 metadata platform。主要包含三區。
+原「資料治理」合併進「資料品質」的治理／儲存 detail；可按資料層與 retention、DQ／freshness、儲存與清理三區檢視。Private queue／cancel/force-fail 等**執行控制**放「批次」；Worker 數量及版本化低頻設定放「系統設定」。不建 metadata platform。
 
 ### 9.6.1 資料層與 Retention
 
@@ -182,13 +175,13 @@ Provider／market-source priority 是 backend versioned routing contract，不�
 
 Routing 不另建高複雜度主頁：
 
-- CEO provider route 放在 `AI 分析` 的進階設定；預設 approved route 依 active TODO 為 `Codex CLI → OpenRouter → Gemini`，只適用 On-demand CEO／approved escalation。
-- market source route 放在 `市場資訊` 或 `資料治理` 的相關 detail。
+- CEO provider route 放在「系統設定 → AI 模型與 Gateway」進階設定；目前實際 active route 以 backend／Gateway 的 effective runtime 和已授權版本為準，不能由過時排序推斷。
+- market source route 放在「資料品質 → 市場與來源」detail；所有實際切換均須經版本化後端核准。
 - 未核准、auth 不可用、paid gate 未授權的 provider/source 可顯示 blocked/disabled，但不得因排序而自動啟用。
 
 ## 9.8 Accessibility／responsive
 
-- Desktop 可使用 `NavigationRail`／單面板 layout；窄螢幕可用 `NavigationDrawer` 或等價單選導覽。
+- Desktop 可使用 `NavigationRail`／單面板 layout；390px 窄螢幕採四入口的 `NavigationDrawer` 或等價單選導覽；Stock/AI 內頁保留深連結與返回位置。
 - 頁面標題與目前分頁名稱必須可見；未選分頁不預抓大型 detail。
 - loading／empty／error／partial／stale／missing／blocked 依全域 UI state contract 明確呈現，不以 sample／placeholder 補成功。
 - 主要操作維持可鍵盤操作與合理 target size；release acceptance 依 `accessibility-and-release.md`。
@@ -205,4 +198,4 @@ Routing 不另建高複雜度主頁：
 - batch／retention／storage telemetry；
 - browser acceptance。
 
-文件更新、Flutter build、API 200 或單次 partial execution 都不能單獨構成 full completion。
+文件更新、Flutter build、API 200 或單次 partial execution 都不能單獨構成 full completion。**A0 文件整併不等於 A1～A5 Admin v2 主要重構完成；既有 D01～D06 與 DRL-01 不因新 Admin UI 被增加驗收條件。**
