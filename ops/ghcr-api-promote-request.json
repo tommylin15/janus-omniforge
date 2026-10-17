@@ -2,13 +2,13 @@
   "intent": "promote-authenticated-reversible-ghcr-dev",
   "approved": true,
   "scope": "existing-dev-janus-api-only",
-  "source_sha": "d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6",
-  "release_run": "38989576990",
-  "jobs_run": "38992414928",
+  "source_sha": "50af946df64b3ee25d2d0a74b73c5584a0a90ff3",
+  "release_run": "39001930353",
+  "jobs_run": "39017773941",
   "rollback_mode": "reversible_ghcr",
-  "baseline_source_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
+  "baseline_source_sha": "d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6",
   "allow_legacy_forward_only": false,
-  "auth_boundary_run": "38991975400",
-  "gate": "D01-D05 combined acceptance PASS. Source d739107 full Release #38989576990, 0% candidate #38991849862, automated OAuth/private boundary #38991975400, fixed Preview janus-api-00524-tot, 4 Jobs reversible rollout #38992414928 all SUCCESS. Preview four-page public API verified: market-home taiex available, stock-header 2330 available, visual-series close/pe/pb/revenue available, auth boundary 401. Previous canonical 8eb API revision janus-api-00517-ciq preserved as rollback baseline. Require live immutable GHCR and build-id verification, current Scheduler+Job no-active-work execution fence, shared lease, new→old→new 100% controlled rehearsal, health/401/traffic/tags readback, and no cash/ledger/config changes.",
-  "retry_attempt": 3
+  "auth_boundary_run": "39017315925",
+  "gate": "User explicitly authorized direct latest dev API 100% after resolving the final DRL-01 EPS blockers. Official Core six 2026Q1/Q2 #39000368842 and published serving 12/12 #39001859414 PASS; f50 full release #39001930353, 0%-candidate #39002236278, automated OAuth #39017315925 plus USER_CONFIRMED_PASS human Owner isolation, fixed Preview #39017430466, six EPS public API live readback #39017516247 6/6 PASS, four existing dev Jobs reversible GHCR rollout #39017773941 PASS (receipt id 12095947315). Previously live canonical d739 100% revision janus-api-00524-tot and old digest GHCR verified with #38996111382. Require exact source and previous GHCR rollback digest, live fence/Scheduler, new→old→new 100% rehearsed reversible traffic, health/401/traffic/tags/build-id readback; do not alter Owner ledger, cash, source data, settings or new resources. Final individual stock page human acceptance is user responsibility after promotion.",
+  "retry_attempt": 4
 }
