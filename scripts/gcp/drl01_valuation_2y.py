@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DRL-01D bounded official TWSE PE/PB 61-month, six-symbol dev backfill.
+"""DRL-01D bounded official TWSE PE/PB 25-month, six-symbol dev backfill.
 
 Only calls the existing deployed ingestion job with temporary execution overrides;
 does not mutate a Job template, Scheduler, owner data, source catalog or images.
@@ -20,20 +20,20 @@ from ghcr_jobs_rollout import ROOT, cloud, job, terminal, wait_for_terminal_exec
 PROJECT = "gen-lang-client-0593591102"
 JOB = "janus-ingestion-core"
 SYMBOLS = ["1513", "2327", "2382", "3231", "3711", "5876"]
-OFFSETS = [(60, 1), (48, 12), (36, 12), (24, 12), (12, 12), (0, 12)]
-RECEIPT = Path("/tmp/drl01-valuation-5y.json")
+OFFSETS = [(24, 1), (12, 12), (0, 12)]
+RECEIPT = Path("/tmp/drl01-valuation-2y.json")
 
 
 def checked(path: str) -> dict:
     data = json.loads(Path(path).read_text(encoding="utf-8"))
-    if (data.get("intent") != "drl01-official-twse-focus-five-year-valuation"
+    if (data.get("intent") != "drl01-official-twse-focus-two-year-valuation"
             or data.get("approved") is not True
             or data.get("no_new_provider") is not True
             or data.get("no_owner_mutation") is not True
             or data.get("no_job_template_mutation") is not True
             or data.get("symbols") != SYMBOLS
             or data.get("target_end") != "2026-10"
-            or data.get("target_start") != "2021-10"
+            or data.get("target_start") != "2024-10"
             or not re.fullmatch(r"[a-f0-9]{40}", str(data.get("deployed_sha", "")))):
         raise ValueError("invalid_drl01_valuation_scope")
     return data
@@ -83,7 +83,7 @@ def log_receipt(execution_name: str) -> dict | None:
 
 def save(report: dict):
     RECEIPT.write_text(json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n")
-    print(json.dumps({"operation":"drl01-valuation-five-year", "status":report["status"],
+    print(json.dumps({"operation":"drl01-valuation-two-year", "status":report["status"],
                       "completed_slices":len(report["slices"]), "remaining_slices":
                       len(OFFSETS)-len(report["slices"])}, sort_keys=True), flush=True)
 
@@ -154,7 +154,7 @@ def run(path: str):
             raise RuntimeError("valuation_receipt_scope_drift")
         relevant=[x for x in observed.get("failures",[]) if x.get("dataset")=="valuation"]
         profile=observed.get("valuation_profile")
-        if not isinstance(profile,dict) or profile.get("status")!="published" or profile.get("profiles")!=12:
+        if not isinstance(profile,dict) or profile.get("status")!="published" or profile.get("profiles")!=12 or profile.get("window_years")!=2:
             raise RuntimeError("drl01_profile_publication_not_verified")
         slice_info={
             "offset":offset, "months":expected_months,
@@ -164,7 +164,7 @@ def run(path: str):
             "core_reused":observed.get("core_reused"),
             "snapshot_ref":observed.get("core_snapshot_id"),
             "valuation_failures":len(relevant),
-            "five_year_ready":profile.get("five_year_ready"),
+            "two_year_ready":profile.get("two_year_ready"),
             "profile_source_rows":profile.get("source_data_scanned"),
             "profile_snapshot_id":profile.get("source_snapshot_id"),
             "failed_pairs":[[x.get("symbol"),x.get("period"),x.get("reason")] for x in relevant][:80],
@@ -172,12 +172,12 @@ def run(path: str):
         }
         report["slices"].append(slice_info)
         save(report)
-    report["status"]=("PASS_FIVE_YEAR_PUBLISHED" if len(report["slices"])==len(OFFSETS)
+    report["status"]=("PASS_TWO_YEAR_PUBLISHED" if len(report["slices"])==len(OFFSETS)
          and not any(s["valuation_failures"] for s in report["slices"])
-         and report["slices"][-1].get("five_year_ready")==12
-         else "PARTIAL_FIVE_YEAR_OR_SOURCE_GAPS")
+         and report["slices"][-1].get("two_year_ready")==12
+         else "PARTIAL_TWO_YEAR_OR_SOURCE_GAPS")
     save(report)
-    if report["status"] != "PASS_FIVE_YEAR_PUBLISHED":
+    if report["status"] != "PASS_TWO_YEAR_PUBLISHED":
         raise RuntimeError("drl01_valuation_source_or_distribution_gaps")
 
 

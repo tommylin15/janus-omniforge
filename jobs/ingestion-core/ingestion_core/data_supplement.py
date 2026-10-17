@@ -29,14 +29,14 @@ def months_ending(year, month, count):
 
 
 def valuation_history_months(year, month, *, count=8, offset=0):
-    """One bounded TWSE official valuation slice inside the 61-month 5Y span.
+    """One bounded TWSE official valuation slice inside the 25-month 2Y span.
 
     Backfill callers must page older slices explicitly: normal daily prices,
     fundamental data and whole-market history keep their existing 36-month
     ceiling. The extra first calendar month is needed to *prove*, rather than
-    assume, a five-calendar-year observation span.
+    assume, a two-calendar-year observation span.
     """
-    if not 1 <= month <= 12 or not 1 <= count <= 12 or not 0 <= offset <= 60 or count + offset > 61:
+    if not 1 <= month <= 12 or not 1 <= count <= 12 or not 0 <= offset <= 24 or count + offset > 25:
         raise ValueError("invalid bounded valuation history slice")
     last = year * 12 + month - 1 - offset
     return [divmod(value, 12) for value in range(last - count + 1, last + 1)]
@@ -377,7 +377,7 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
         target = effective_trading_day(today-timedelta(days=1), holidays=holidays)
         if valuation_only:
             # DRL-01D uses explicit <=12-month chunks instead of an
-            # uncontrolled all-market / five-year single execution.
+            # uncontrolled all-market / two-year single execution.
             slice_months = int(os.environ.get("JANUS_VALUATION_HISTORY_MONTHS", "8"))
             slice_offset = int(os.environ.get("JANUS_VALUATION_HISTORY_OFFSET", "0"))
             market_months = [(year, month+1) for year, month in valuation_history_months(
@@ -475,7 +475,7 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
         summary.update(status=completed.status.value, analysis_execution_id=analysis.execution_id if analysis else None,
                        core_snapshot_id=ready["coreSnapshotId"])
         if valuation_only:
-            # The small versioned PostgreSQL profile serves five-year ranges
+            # The small versioned PostgreSQL profile serves two-year ranges
             # without opening Core on every user chart load. Missing months
             # remain partial_history, never filled or labelled PIT-certified.
             from .valuation_history import publish_focus_profiles

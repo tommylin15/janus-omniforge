@@ -1,8 +1,8 @@
-name: Janus DRL-01D five-year source readback
+name: Janus DRL-01D two-year source readback
 on:
-  workflow_run:
-    workflows: ['Janus automated full release']
-    types: [completed]
+  push:
+    branches: [main]
+    paths: ['ops/drl-01-valuation-history-request.json']
 permissions:
   contents: read
   id-token: write
@@ -11,11 +11,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.head_sha == 'd18e8943854e0e6e0f7a30d4cc938a6d920afe15' &&
-      github.event.workflow_run.run_attempt == 1
+    if: startsWith(github.event.head_commit.message, 'activate(drl01):')
     runs-on: ubuntu-latest
     environment: dev
     timeout-minutes: 200
@@ -26,15 +22,15 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - run: python -m py_compile scripts/gcp/drl01_valuation_5y.py
+      - run: python -m py_compile scripts/gcp/drl01_valuation_2y.py
       - run: sudo apt-get update -qq && sudo apt-get install -y skopeo
-      - run: python scripts/gcp/drl01_valuation_5y.py ops/drl-01-valuation-history-request.json
+      - run: python scripts/gcp/drl01_valuation_2y.py ops/drl-01-valuation-history-request.json
         env:
           PYTHONPATH: .
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: drl01-five-year-valuation-receipt
-          path: /tmp/drl01-valuation-5y.json
+          name: drl01-two-year-valuation-receipt
+          path: /tmp/drl01-valuation-2y.json
           if-no-files-found: ignore
           retention-days: 14

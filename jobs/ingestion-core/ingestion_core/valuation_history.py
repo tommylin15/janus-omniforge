@@ -1,4 +1,4 @@
-"""DRL-01D: verifiable *retrospective* five-year official PE/PB profile.
+"""DRL-01D: verifiable *retrospective* two-year official PE/PB profile.
 
 This is a bounded deterministic research calculation, not a published
 investment signal. Source observation time is not automatically the first
@@ -13,7 +13,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Iterable, Mapping, Any
 
 
-def five_year_profile(rows: Iterable[Mapping[str, Any]], *, symbol: str,
+def two_year_profile(rows: Iterable[Mapping[str, Any]], *, symbol: str,
                       as_of: date, metric: str, max_rows: int = 2000) -> dict[str, Any]:
     if metric not in ("pe_ratio", "pb_ratio"):
         raise ValueError("unsupported_valuation_metric")
@@ -24,17 +24,17 @@ def five_year_profile(rows: Iterable[Mapping[str, Any]], *, symbol: str,
 
     # Explicit leap-day handling: never substitute a 365*5 approximation.
     try:
-        start = as_of.replace(year=as_of.year - 5)
+        start = as_of.replace(year=as_of.year - 2)
     except ValueError:
-        start = as_of.replace(year=as_of.year - 5, day=28)
+        start = as_of.replace(year=as_of.year - 2, day=28)
     common = {
-        "symbol": symbol, "metric": metric,
+        "symbol": symbol, "metric": metric, "window_years": 2,
         "window_start": start.isoformat(), "window_end": as_of.isoformat(),
         "status": "pending", "count": 0, "months_with_valid_observation": 0,
         "earliest": None, "latest": None, "latest_value": None,
         "min": None, "max": None, "percentile_midrank": None,
         "historical_pit_certified": False,
-        "calculation_version": "official-five-year-retrospective-v1",
+        "calculation_version": "official-two-year-retrospective-v1",
     }
     # Conflicting same-day source revisions cannot be silently selected without
     # a version/publication ordering key: exclude those days.
@@ -84,12 +84,12 @@ def five_year_profile(rows: Iterable[Mapping[str, Any]], *, symbol: str,
            "latest_value": str(latest_value),
            "min": str(min(values)), "max": str(max(values)),
            "monthly_points": monthly_points}
-    # At least 48 distinct calendar months and 200 actual daily observations,
-    # with both endpoints, are needed to call this a five-year *distribution*.
+    # At least 18 distinct calendar months and 150 actual daily observations,
+    # with both endpoints, are needed to call this a two-year *distribution*.
     # A single pair of old/new data points does not qualify.
     if not (dates[0] <= start + timedelta(days=31)
             and dates[-1] >= as_of - timedelta(days=30)
-            and months >= 48 and len(series) >= 200):
+            and months >= 18 and len(series) >= 150):
         return {**out, "status": "partial_history"}
     ranks = sorted(values)
 
@@ -115,7 +115,7 @@ def publish_focus_profiles(core: Any, control: Any, *, symbols: list[str],
     """Write two tiny, read-only-serving profiles from one pinned Core snapshot.
 
     Requires versioned 063 migration. Fails closed when unavailable: never
-    invent five-year status in the client or promote research rows to Core.
+    invent two-year status in the client or promote research rows to Core.
     This is called only for the approved TWSE equity focus cohort.
     """
     from pyiceberg.expressions import And, GreaterThanOrEqual, In
@@ -124,15 +124,15 @@ def publish_focus_profiles(core: Any, control: Any, *, symbols: list[str],
     if not symbols or len(symbols) > 50 or any(
         not s.isdigit() or len(s) != 4 for s in symbols
     ):
-        raise ValueError("invalid_five_year_focus")
+        raise ValueError("invalid_two_year_focus")
     table = core.catalog.load_table(core.table_identifier("valuation"))
     snapshot = table.current_snapshot()
     if snapshot is None:
         raise ValueError("no_current_valuation_snapshot")
     try:
-        start = as_of.replace(year=as_of.year - 5)
+        start = as_of.replace(year=as_of.year - 2)
     except ValueError:
-        start = as_of.replace(year=as_of.year - 5, day=28)
+        start = as_of.replace(year=as_of.year - 2, day=28)
     selected = ("symbol", "observed_date", "pe_ratio", "pb_ratio",
                 "source_id", "provenance_id")
     rows = table.scan(
@@ -150,7 +150,7 @@ def publish_focus_profiles(core: Any, control: Any, *, symbols: list[str],
     output = []
     for symbol in symbols:
         for metric in ("pe_ratio", "pb_ratio"):
-            profile = five_year_profile(grouped[symbol], symbol=symbol,
+            profile = two_year_profile(grouped[symbol], symbol=symbol,
                                         metric=metric, as_of=as_of)
             profile.update(
                 source_id="twse",
@@ -162,7 +162,7 @@ def publish_focus_profiles(core: Any, control: Any, *, symbols: list[str],
     with control.connection.transaction():
         with control.connection.cursor() as cursor:
             cursor.executemany(
-                """INSERT INTO control.stock_valuation_five_year(
+                """INSERT INTO control.stock_valuation_two_year(
                        symbol, metric, as_of_date, core_snapshot_id, payload_json)
                    VALUES (%s,%s,%s,%s,%s::jsonb)
                    ON CONFLICT(symbol,metric) DO UPDATE
@@ -170,13 +170,13 @@ def publish_focus_profiles(core: Any, control: Any, *, symbols: list[str],
                        core_snapshot_id=EXCLUDED.core_snapshot_id,
                        payload_json=EXCLUDED.payload_json,
                        updated_at=now()
-                   WHERE EXCLUDED.as_of_date >= control.stock_valuation_five_year.as_of_date""",
+                   WHERE EXCLUDED.as_of_date >= control.stock_valuation_two_year.as_of_date""",
                 output,
             )
     return {
-        "status":"published", "as_of":as_of.isoformat(),
+        "status":"published", "as_of":as_of.isoformat(), "window_years":2,
         "source_snapshot_id":str(snapshot.snapshot_id),
         "symbols":len(symbols), "profiles":len(output),
-        "five_year_ready":sum(json.loads(row[4])["status"] == "ready" for row in output),
+        "two_year_ready":sum(json.loads(row[4])["status"] == "ready" for row in output),
         "source_data_scanned":len(rows),
     }

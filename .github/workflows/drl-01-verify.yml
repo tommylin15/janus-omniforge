@@ -10,6 +10,7 @@ on:
       - 'tests/test_drl01_revenue_history.py'
       - 'tests/test_drl01_valuation_history.py'
       - 'tests/test_drl01_valuation_profile.py'
+      - 'scripts/gcp/drl01_valuation_2y.py'
       - 'tests/test_drl01_valuation_pipeline.py'
       - 'tests/test_drl01_valuation_runner.py'
       - 'packages/web_api/core.py'

@@ -1,4 +1,4 @@
-"""DRL-01D release guards: Core snapshot -> serving-only API; no false five-year."""
+"""DRL-01D release guards: Core snapshot -> serving-only API; no false two-year."""
 import json
 from datetime import date
 from types import SimpleNamespace
@@ -48,17 +48,17 @@ def test_public_pe_reads_only_one_published_profile_not_core():
             {"observed_date":"2026-10-15", "pe_ratio":"38.59","source_id":"twse",
              "provenance_id":"valid"},
         ]
-    def five_year(symbol, metric):
-        calls.append(("five_year",symbol,metric))
-        return {"symbol":symbol, "metric":metric,"status":"partial_history",
+    def two_year(symbol, metric):
+        calls.append(("two_year",symbol,metric))
+        return {"symbol":symbol, "metric":metric,"status":"partial_history", "window_years":2,
                 "historical_pit_certified":False, "count":220, "percentile_midrank":None,
                 "password":"must-not-expose"}
     client=CoreQueryService(disallow_core,serving_series=series,
-                            serving_valuation_profile=five_year)
+                            serving_valuation_profile=two_year)
     report=client.visual_series("2327","pe",limit=12)
     assert report["data_status"]=="available"
-    assert report["five_year_profile"]["status"]=="partial_history"
-    assert "password" not in report["five_year_profile"]
-    assert calls == [("recent","valuation","2327",12),("five_year","2327","pe_ratio")]
+    assert report["two_year_profile"]["status"]=="partial_history"
+    assert "password" not in report["two_year_profile"]
+    assert calls == [("recent","valuation","2327",12),("two_year","2327","pe_ratio")]
     empty=CoreQueryService(disallow_core,serving_series=series)
-    assert empty.visual_series("2327","pb")["five_year_profile"]["status"]=="unavailable"
+    assert empty.visual_series("2327","pb")["two_year_profile"]["status"]=="unavailable"

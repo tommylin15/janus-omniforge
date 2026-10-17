@@ -38,8 +38,8 @@ FvTableSummary _visualTableSummary(String? metric) => switch (metric) {
   _ => FvTableSummary.latest,
 };
 
-Widget _fiveYearValuationCard(Map<String, dynamic> series, String label) {
-  final profile = fvMap(series['five_year_profile']);
+Widget _twoYearValuationCard(Map<String, dynamic> series, String label) {
+  final profile = fvMap(series['two_year_profile']);
   final status = fvText(profile['status'], missing: 'unavailable');
   final ready = status == 'ready';
   final months = fvText(profile['months_with_valid_observation'], missing: '0');
@@ -51,7 +51,7 @@ Widget _fiveYearValuationCard(Map<String, dynamic> series, String label) {
   return fvPanel(child: Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label + (ready ? ' · 五年歷史區間' : status == 'partial_history' ? ' · 已有歷史（未達五年）' : ' · 五年歷史尚未就緒'),
+      Text(label + (ready ? ' · 兩年歷史區間' : status == 'partial_history' ? ' · 已有歷史（未達兩年）' : ' · 兩年歷史尚未就緒'),
           style: const TextStyle(fontWeight: FontWeight.w800, color: fvInk)),
       const SizedBox(height: 6),
       Text('實際 ' + since + ' ～ ' + until + ' · ' + months + ' 個月份、' + count + ' 個有效日',
@@ -65,7 +65,7 @@ Widget _fiveYearValuationCard(Map<String, dynamic> series, String label) {
         if (rank != null) ...[
           const SizedBox(height: 6),
           LinearProgressIndicator(value: (rank / 100).clamp(0.0, 1.0)),
-          Text('最新 ' + fvText(profile['latest_value']) + ' 倍 · 五年歷史分位 ' +
+          Text('最新 ' + fvText(profile['latest_value']) + ' 倍 · 兩年歷史分位 ' +
                rank.toStringAsFixed(1) + '%',
               style: const TextStyle(color: fvMuted, fontSize: 12)),
         ],
@@ -76,7 +76,7 @@ Widget _fiveYearValuationCard(Map<String, dynamic> series, String label) {
         ],
       ] else ...[
         const SizedBox(height: 5),
-        const Text('官方有效歷史不足，暫不發布五年分位；短期 PE/PB 仍可閱讀。',
+        const Text('官方有效歷史不足，暫不發布兩年分位；短期 PE/PB 仍可閱讀。',
             style: TextStyle(color: fvMuted, fontSize: 12)),
       ],
       const SizedBox(height: 4),
@@ -767,7 +767,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                     return Column(children: [
                       fvBoundedState('歷史資料不足：${fvText(result['missing_reason'], missing: '尚未就緒')}'),
                       if (selectedVisual == 'pe' || selectedVisual == 'pb')
-                        _fiveYearValuationCard(result, label),
+                        _twoYearValuationCard(result, label),
                     ]);
                   }
                   return Column(children: [
@@ -818,7 +818,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                     Text('來源：${fvRows(result['source_ids']).join('、')}',
                       style: const TextStyle(color: fvMuted, fontSize: 11)),
                     if (selectedVisual == 'pe' || selectedVisual == 'pb')
-                      _fiveYearValuationCard(result, label),
+                      _twoYearValuationCard(result, label),
                   ]);
                 }),
               ] else

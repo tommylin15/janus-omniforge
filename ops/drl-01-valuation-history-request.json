@@ -1,6 +1,6 @@
 {
-  "intent": "drl01-official-twse-focus-five-year-valuation",
-  "approved": true,
+  "intent": "drl01-official-twse-focus-two-year-valuation",
+  "approved": false,
   "no_new_provider": true,
   "no_owner_mutation": true,
   "no_job_template_mutation": true,
@@ -12,8 +12,8 @@
     "3711",
     "5876"
   ],
-  "target_start": "2021-10",
+  "target_start": "2024-10",
   "target_end": "2026-10",
-  "deployed_sha": "d18e8943854e0e6e0f7a30d4cc938a6d920afe15",
-  "reason": "Approved one-shot DRL01D after exact full dev release, migration 063 PASS, no owner mutation"
+  "deployed_sha": "0000000000000000000000000000000000000000",
+  "reason": "Two-year DRL-01D request inactive until same-SHA GHCR Job release and readiness verification. Prior 5Y Release failed."
 }

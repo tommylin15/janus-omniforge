@@ -299,7 +299,7 @@ class CoreQueryService:
                 "calculation_version": "same-fiscal-month-official-published-v1",
             }
         if metric in {"pe", "pb"}:
-            # Optional ONE-ROW publication read; never construct 5Y percentiles
+            # Optional ONE-ROW publication read; never construct 2Y percentiles
             # from the short chart or query Core/Iceberg at request time.
             profile = None
             if self._serving_valuation_profile is not None:
@@ -310,10 +310,11 @@ class CoreQueryService:
             if (isinstance(profile, Mapping)
                     and profile.get("symbol") == normalized
                     and profile.get("metric") == mapping[metric][2]
-                    and profile.get("status") in {"ready", "partial_history", "pending"}):
-                response["five_year_profile"] = _safe_record(profile)
+                    and profile.get("status") in {"ready", "partial_history", "pending"}
+                    and profile.get("window_years") == 2):
+                response["two_year_profile"] = _safe_record(profile)
             else:
-                response["five_year_profile"] = {
+                response["two_year_profile"] = {
                     "symbol": normalized, "metric": mapping[metric][2],
                     "status": "unavailable" if self._serving_valuation_profile is None else "pending",
                     "historical_pit_certified": False,
