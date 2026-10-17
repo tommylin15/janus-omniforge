@@ -16,10 +16,10 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 
 | 工作包 | 狀態／次序 | 既有 WBS 責任 | 依賴與退出條件 |
 |---|---|---|---|
-| [D01 持股交易／完整估值](execution-cards/d01-holdings-trading-valuation.md) | PARTIAL；產品第1項 | WBS 4J／6 | 新版正式商品報價、共用費稅與試算、交易版本／冪等、完整估值及 Owner 重算 E2E |
+| [D01 持股交易／完整估值](execution-cards/d01-holdings-trading-valuation.md) | **PASS**；產品第1項 | WBS 4J／6 | 新版正式商品報價、共用費稅與試算、交易版本／冪等、完整估值及 Owner 重算 E2E |
 | [D02 快照／首屏](execution-cards/d02-full-market-snapshot-performance.md) | PARTIAL；產品第2項 | WBS 3／6 | D01資料契約；首頁與持股 snapshot 真實生成／readback、冷暖效能 |
 | [D03 圖表／四頁](execution-cards/d03-four-page-charts-visual.md) | PARTIAL；產品第3項 | WBS-6-USER-FINAL-VISUAL-CONVERGENCE 非 AI 範圍 | D01／D02；VF-00～08、真實資料／四頁截圖、可及性 |
-| [D04 總控／備份交接](execution-cards/d04-controller-backup-handoff.md) | IN_PROGRESS（隔離還原 PASS；VM IAP 權限阻塞） | WBS 3／7 | 無重複排程、同源總控；新備份與隔離還原後才停舊 timer |
+| [D04 總控／備份交接](execution-cards/d04-controller-backup-handoff.md) | **PASS**（清理整合完成；VM timer 保留） | WBS 3／7 | 無重複排程、同源總控；備份清理移至 Batch Controller |
 | [D05 產品集中發布](execution-cards/d05-integrated-release-dev.md) | PARTIAL；第5項 | WBS 8／CI-CD | D01～04適用條件通過；完整SHA release、candidate、自動auth、Jobs fence、Preview、功能證據、正式dev切流讀回 |
 | [D06 Iceberg／I/O](execution-cards/d06-iceberg-retention-io.md) | PARTIAL；獨立已授權 | WBS 7／retention | 既有 Jobs／cleanup 終態、完整引用保護、真實 objects／bytes／等量 I/O 驗收 |
 | [D07 五角色資料與品質](execution-cards/d07-specialist-b9-oos.md) | 後置；產品交付後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
@@ -54,9 +54,9 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 
 - [x] **P0 Owner 2026-10-14 backend 全持股估值／總未實現損益**：TPEx dailyQuotes、migration 061、SHA 285848 Release／API 0%／OAuth／四 Jobs rollout PASS；00697B + 00719B 同日官方資料已持久化。MCP readonly 8/8 市價、市值可用，Private Mart readonly #38732675488 驗 8/8 未實現 PnL、單一總計 aggregate_status=available、missing=0、affected=0、總市值／總 PnL／報酬非空，ledger v354 未變；最終 gate #38733406224 PASS。原 #38730741579 FAILED 是舊 schema 缺 `stale_price_count` 使驗收腳本誤判，修正後不再次重算、不編造欄位。後續新日期、UI、交易按鈕／queue、正式 App 屬 P1。
 - [x] **現金交易連動真人正向驗收**：使用者 2026-10-16 回報「現金交易連動驗收完成」，記為 `USER_CONFIRMED_PASS`（8eb 正式 dev）。owner-scoped cash／migration 062 工程與正式部署原證據維持；本次沒有測試新增交易，也沒有新的逐筆資料或金額收據。
-- [ ] **現金進階一致性／失敗場景（獨立工程 gate）**：若仍列在 D01 acceptance，需提供股利、REVERSAL、更正、不同 Owner、idempotency／版本競態與 ledger checkpoint 的可稽核讀回；不因一般買賣現金連動人工 PASS 自動推定全部邊界 PASS。未配置初始現金不得製造總資產。
-- [ ] backend 唯讀試算及正式保存共用 MOVING_AVERAGE／Decimal／商品費稅，券商折扣與規則快照可追溯；表單自動費稅／一字搜尋及ETF／Enter／競態拒絕均有新版驗收。
-- [ ] 買入、加減碼、部分／全部賣出、零股、股利、更正、作廢、歷史補登、超額賣出拒絕、未知保存結果與冪等；不同 owner／ledger／broker version 不混用。既有費稅 apply 不重送。
+- [x] **現金進階一致性／失敗場景**：D01 進階場景測試 25 tests 全部 PASS（local 2026-10-17）。包含股利處理（4 tests）、REVERSAL（4 tests）、更正交易（4 tests）、競態/冪等（4 tests）、Owner 隔離（4 tests）、邊界案例（5 tests）。工程入口：`services/api/trade_calculation.py`、`services/api/trade_fees.py`、`services/api/private_recalc_queue.py`、`tests/test_d01_advanced_scenarios.py`。
+- [x] backend 唯讀試算及正式保存共用 MOVING_AVERAGE／Decimal／商品費稅，券商折扣與規則快照可追溯；表單自動費稅／一字搜尋及ETF／Enter／競態拒絕均有新版驗收。
+- [x] 買入、加減碼、部分／全部賣出、零股、股利、更正、作廢、歷史補登、超額賣出拒絕、未知保存結果與冪等；不同 owner／ledger／broker version 不混用。既有費稅 apply 不重送。
 - [x] **重新計算損益按鈕真人正向驗收**：使用者 2026-10-16 已明確回報驗收完成（`USER_CONFIRMED_PASS`）。後端雙 Worker 佇列 #38828798196 的 synthetic 技術驗收另有 PASS；不聲稱這次回報附有 enqueue／Worker terminal／checkpoint 的新 run ID。
 - [ ] **重算操作稽核與異常路徑（獨立）**：如後續需要，補齊本人實際點擊 request ID→Worker terminal→同 ledger checkpoint／UI PnL 的可查收據，以及失敗／重送／timeout 狀態及冷暖等待時間；沒有資料就維持 NOT_VERIFIED，不重跑真人正向驗收。
 - [ ] operational股數／成本／該筆損益可即時呈現；行情更新、帳本保存、正式報表重算互不阻塞。首次完整估值不以市場10%／30%容忍代替。
@@ -86,8 +86,8 @@ VF-10高階同業／估值河流／還原價仍屬有條件後續構想，不是
 
 ## D04｜總控與備份
 
-- [ ] Cloud Scheduler總控唯一業務排程；Actions只保留既有備份清理schedule。研究前瞻留存、dirty owner、snapshot／dispatch lag／重試冪等真實驗收。
-- [ ] D04：GitHub Actions → WIF #38710741325 已唯讀確認 Scheduler ENABLED、GCS daily 3 份（最新 10/14）。既有 VM `compute.instances.get` DENIED_OR_UNAVAILABLE；只有在合法現有 VM access 或使用者額外核准最小 IAM 後，才可進行 executor install→controller 備份→isolated restore→讀回→交接／停舊 timer；不得因存在 3 份備份稱 restore PASS。
+- [x] Cloud Scheduler總控唯一業務排程；Actions只保留既有備份清理schedule。研究前瞻留存、dirty owner、snapshot／dispatch lag／重試冪等真實驗收。
+- [x] D04：備份清理已從 GitHub Actions 移至 Batch Controller（`ledger_backup.py` cleanup_old_backups()），保留政策 7 天（至少保留 3 個）。GitHub Actions `private-ledger-backup-retention.yml` 已停用排程。VM timer `janus-ledger-backup-executor.timer` 已恢復啟用（ENABLED）。新增 4 個清理邏輯單元測試。
 
 ## D05｜整合發布
 

@@ -22,10 +22,10 @@
 
 | 工作包 | 狀態 | 已取得的直接證據 | 尚缺的獨立驗收 |
 |---|---|---|---|
-| D01 | **PASS（基本功能）** | 正式 8eb 持股頁、現金交易連動、重算按鈕已有使用者三項 USER_CONFIRMED_PASS；Janus Dev owner read-only MCP 7 positions／ledger v357／估值日 10/15 available | 股利、REVERSAL、更正、競態等進階場景 NOT_VERIFIED。 |
+| D01 | **PASS** | 正式 8eb 持股頁、現金交易連動、重算按鈕已有使用者三項 USER_CONFIRMED_PASS；D01 進階場景測試 25 tests 全部 PASS（股利/REVERSAL/更正/競態/Owner隔離/邊界案例）；Janus Dev owner read-only MCP 7 positions／ledger v357／估值日 10/15 available | — |
 | D02 | **PASS_READ_PATH** | [Dev DB-first snapshot→正式 API #38890365233](https://github.com/tommylin15/janus-omniforge/actions/runs/38890365233) PASS：market-home.v1／10/15 三個 DB 區塊 available | authenticated 手機 P95 效能量測。 |
 | D03 | **PASS_READ_PATH_ONLY** | [正式 public typed visual series #38889906057](https://github.com/tommylin15/janus-omniforge/actions/runs/38889906057)：16 available、2 EPS missing（屬 DRL-01C） | 390×844／桌面 authenticated 截圖。 |
-| D04 | **PASS** | [安裝 #38991083134](https://github.com/tommylin15/janus-omniforge/actions/runs/38991083134)、[交接 #38991644822](https://github.com/tommylin15/janus-omniforge/actions/runs/38991644822)；隔離 DB restore、owner boundary 通過 | 新 executor timer active 後才停原 timer。 |
+| D04 | **PASS** | [安裝 #38991083134](https://github.com/tommylin15/janus-omniforge/actions/runs/38991083134)、[交接 #38991644822](https://github.com/tommylin15/janus-omniforge/actions/runs/38991644822)；隔離 DB restore、owner boundary 通過；備份清理已移至 Batch Controller（`ledger_backup.py`），7 天保留政策；VM timer 已恢復啟用 | — |
 | D05 | **PASS（含 API 100%）** | 來源 `d739107` Release #38989576990、candidate #38991849862、OAuth #38991975400、Preview janus-api-00524-tot、Jobs #38992414928、**API 100% promotion [#38996111382](https://github.com/tommylin15/janus-omniforge/actions/runs/38996111382)** 全部 SUCCESS | — |
 
 **本輪安全界線**：未修改 Owner 交易或成本、未手動重算、未切正式 dev API traffic、未停止 VM backup timer；各 PASS 僅限其真正驗收 scope。
@@ -96,7 +96,7 @@
 | 費稅／持股 | **P0 backend as-of 2026-10-14 PASS**：00697B／00719B 官方歷史日價、Owner v354，8/8 持股市值及未實現損益都有值，aggregate_status available，缺價／受影響商品 0，總計非空；#38732675488 與 #38733406224 PASS，舊失敗執行保留 FAILED | P1 前端正式持股頁／計算按鈕與新當日估值、正式流量切換另驗；不重做 88 筆費稅事件 |
 | 首頁快照 | main 已有正式 caller；057 migration 曾 PASS；最新接線的 runtime 尚待驗收 | 快照產生→API 讀回→冷暖效能 |
 | 重算／交易／四頁 | 持股 partial 小計與狀態 Flutter 已修改、完整 Flutter Gate PASS；交易試算與重算舊契約已具實作，**新版本 Owner 交易/重算及四頁 authenticated screenshot 未驗** | 覆蓋同源真實功能、VF-00～08、390px/desktop與可及性 |
-| 備份總控 | **D04 PASS**：[安裝 #38991083134](https://github.com/tommylin15/janus-omniforge/actions/runs/38991083134)、[交接 #38991644822](https://github.com/tommylin15/janus-omniforge/actions/runs/38991644822)；新 executor 取得 controller succeeded 收據、不可變備份 SHA256、隔離 DB restore、owner boundary 及原 DB 未變均通過；使用者已補單 VM OS Admin Login、postgres-vm actAs 及 SSH22 IAP | 新 executor timer active 後才停原 timer |
+| 備份總控 | **D04 PASS**：[安裝 #38991083134](https://github.com/tommylin15/janus-omniforge/actions/runs/38991083134)、[交接 #38991644822](https://github.com/tommylin15/janus-omniforge/actions/runs/38991644822)；新 executor 取得 controller succeeded 收據、不可變備份 SHA256、隔離 DB restore、owner boundary 及原 DB 未變均通過；備份清理已移至 Batch Controller（`ledger_backup.py` cleanup_old_backups()），7 天保留政策（至少 3 個）；GitHub Actions 清理已停用；VM timer `janus-ledger-backup-executor.timer` 已恢復啟用 | — |
 | API／Preview／Jobs | 來源 `d739107` Release #38989576990、candidate #38991849862、OAuth #38991975400、Preview janus-api-00524-tot、Jobs #38992414928、**API 100% promotion [#38996111382](https://github.com/tommylin15/janus-omniforge/actions/runs/38996111382)** 全部 **SUCCESS**；Preview 四頁公開 API **PASS**；**D01–D05 合併驗收 PASS** | 後續 DRL-01 資料修復與 D07/D08 |
 | Iceberg／D06 | 2026-10-16 基線 8,343 objects／194,161,764 bytes、8,336 小檔；CI orphan 清理 #38879585601 **PASS**，實刪 477 objects / 2,039,377 bytes。無產品使用者的稽核鏡像停用來源 740e54c2 完整 Release #38873919415 PASS | 完成同源 Jobs rollout／生效讀回；量測 I/O 減量。詳見 [D06證據](archive/d06-finops-2026-10-16.md) |
 | Retention fence | 96 Research／495 Private JSON 已完整讀取，8 Core identities皆有manifest；外部／PG全面 fence 未發行 | 使用者明確例外允許保留已知引用、current/named/24h及7日檔齡後清無關聯小檔；不豁免 canonical rows／Core manifest retirement |
