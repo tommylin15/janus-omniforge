@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 64,
+  "attempt": 65,
   "reason": "User-authorized dated UI tables/lists: newest-first, two-year monthly/quarterly window, short daily table, striped rows and truthful quarterly listed-observation summaries; preserve chronological charts and same-source full gates before reversible dev rollout. Includes first-chart timeout/retry regression and prior live screenshot investigation.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false

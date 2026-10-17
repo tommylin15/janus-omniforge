@@ -140,8 +140,10 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
       if (current()) {
         if (key == 'kline') {
           // Keep failure evidence without tokens, response bodies or Owner data.
+          final kind = error is TimeoutException ? 'timeout' :
+              error is FormatException ? 'invalid_response' : 'request_failed';
           debugPrint('stock_chart_read_failed symbol=$requestedSymbol '
-              'kind=${error.runtimeType} elapsed_ms=${stopwatch.elapsedMilliseconds}');
+              'kind=$kind elapsed_ms=${stopwatch.elapsedMilliseconds}');
         }
         setState(() => errors.add(key));
       }

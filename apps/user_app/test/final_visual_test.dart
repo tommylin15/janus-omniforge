@@ -1575,7 +1575,7 @@ void main() {
     await tester.pump(const Duration(seconds: 10));
     await tester.pumpAndSettle();
     expect(find.text('價格圖暫時無法使用'), findsOneWidget);
-    expect(messages.single, contains('stock_chart_read_failed symbol=2330 kind=TimeoutException'));
+    expect(messages.single, contains('stock_chart_read_failed symbol=2330 kind=timeout'));
     expect(messages.single, isNot(contains('Bearer')));
     debugPrint = originalPrint;
     expect(find.text('125.00'), findsOneWidget);
