@@ -687,6 +687,28 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                   final label = const {'pe': '本益比', 'pb': '股價淨值比', 'yield': '殖利率',
                     'foreign': '外資買賣超', 'investment_trust': '投信買賣超',
                     'dealer': '自營商買賣超', 'revenue': '月營收', 'eps': '單季 EPS'}[selectedVisual]!;
+                  final usable = points.map(fvMap)
+                      .where((point) => fvChartNumber(point['value']) != null)
+                      .toList();
+                  if (selectedVisual == 'eps' && _usableVisualSeriesPoints(result) == 1 && usable.isNotEmpty) {
+                    // A genuine single-quarter EPS has value even without an
+                    // eligible historical four-quarter/TTM trend.
+                    final latest = usable.last;
+                    final year = fvText(latest['date']).substring(0, 4);
+                    return fvPanel(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('已發布單季 EPS · $year',
+                            style: const TextStyle(fontWeight: FontWeight.w800, color: fvInk)),
+                        const SizedBox(height: 6),
+                        Text('${fvText(latest['value'])} 元／股 · ${fvText(latest['date'])}',
+                            style: const TextStyle(color: fvInk)),
+                        const SizedBox(height: 5),
+                        const Text('目前只有單季合格資料；不推算四季 EPS／TTM。',
+                            style: TextStyle(color: fvMuted, fontSize: 12)),
+                      ],
+                    ));
+                  }
                   if (_usableVisualSeriesPoints(result) < 2) {
                     return fvBoundedState('歷史資料不足：${fvText(result['missing_reason'], missing: '尚未就緒')}');
                   }
@@ -698,6 +720,22 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                         onPressed: () => expandVisual(result, label),
                         icon: const Icon(Icons.open_in_full, color: fvTeal)),
                     ]),
+                    if (selectedVisual == 'eps') Builder(builder: (context) {
+                      final current = fvMap(result['eps_current_year']);
+                      final year = fvText(current['year']);
+                      final quarters = fvRows(current['available_quarters'])
+                          .map((q) => 'Q$q').join('、');
+                      final hasMinimum = current['status'] == 'ready';
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          hasMinimum
+                            ? '$year 年已核實 $quarters 單季 EPS；四季／TTM 尚未驗證'
+                            : '$year 年已核實：${quarters.isEmpty ? '尚無' : quarters}；其餘季度缺值，不推算 TTM',
+                          style: const TextStyle(color: fvMuted, fontSize: 12),
+                        ),
+                      );
+                    }),
                     if (selectedVisual == 'revenue') Builder(builder: (context) {
                       final yoy = fvMap(result['revenue_yoy']);
                       final change = fvNumber(yoy['percent']);
