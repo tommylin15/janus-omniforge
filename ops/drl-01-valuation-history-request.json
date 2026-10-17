@@ -1,6 +1,6 @@
 {
   "intent": "drl01-official-twse-focus-two-year-valuation",
-  "approved": false,
+  "approved": true,
   "no_new_provider": true,
   "no_owner_mutation": true,
   "no_job_template_mutation": true,
@@ -14,6 +14,6 @@
   ],
   "target_start": "2024-10",
   "target_end": "2026-10",
-  "deployed_sha": "0000000000000000000000000000000000000000",
-  "reason": "Two-year DRL-01D request inactive until same-SHA GHCR Job release and readiness verification. Prior 5Y Release failed."
+  "deployed_sha": "82625dea8aa731f2645e45bb8d7d8a668df86abf",
+  "reason": "Official two-year TWSE 6-stock/25-month backfill; only after existing dev writer concurrency and exact 82625dea GHCR ingestion Job digest match. No Job template, Owner data, source catalog, paid resource or IAM change."
 }
