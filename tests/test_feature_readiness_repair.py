@@ -1,5 +1,7 @@
 """Feature-driven data readiness regressions: no new upstream sources."""
 from decimal import Decimal
+from datetime import date
+from unittest.mock import patch
 
 from ingestion_core.first_batch import normalise_monthly_revenue
 from packages.duckdb_query.iceberg import DuckDBIcebergCore
@@ -147,3 +149,46 @@ def test_revenue_yoy_is_only_computed_from_verifiable_same_month_last_year():
         lambda *_: [], serving_series=lambda *_: [{**rows[0], "value": "0"}, rows[1]]
     ).visual_series("2330", "revenue")
     assert zero["revenue_yoy"]["status"] == "missing"
+
+
+def test_current_year_mvp_eps_does_not_require_last_year_q4_or_ttm():
+    # Both due current-year quarters have official source, units and provenance.
+    # A missing 2025Q4 is NOT permission to fabricate a TTM EPS.
+    q1 = _eps(2026, 1, "0.35")
+    q2 = {**_eps(2026, 2, "0.40"), "metric": "eps_single_quarter",
+          "period_basis": "single_quarter", "fiscal_period_end": "2026-06-30"}
+    with patch("packages.web_api.core.datetime") as clock:
+        clock.now.return_value.date.return_value = date(2026, 10, 17)
+        data = CoreQueryService(lambda *_: [], serving_series=lambda *_: [q1, q2]).visual_series("2330", "eps")
+    assert data["data_status"] == "available"
+    assert data["eps_current_year"] == {
+        "year": 2026, "required_quarters": [1, 2],
+        "available_quarters": [1, 2], "status": "ready",
+        "trailing_four_quarter_status": "not_certified",
+        "calculation_version": "official-due-quarters-mvp-v1",
+    }
+    assert data["usable_points"] == 2
+
+
+def test_current_year_mvp_eps_missing_q2_cannot_pass():
+    with patch("packages.web_api.core.datetime") as clock:
+        clock.now.return_value.date.return_value = date(2026, 10, 17)
+        data = CoreQueryService(lambda *_: [], serving_series=lambda *_: [
+            _eps(2026, 1, "-0.35"),
+            _eps(2026, 2, "0.70"),
+        ]).visual_series("2330", "eps")
+    assert data["data_status"] == "partial"
+    assert data["usable_points"] == 1
+    assert data["eps_current_year"]["available_quarters"] == [1]
+    assert data["eps_current_year"]["status"] == "partial"
+    assert data["eps_current_year"]["trailing_four_quarter_status"] == "not_certified"
+
+
+def test_current_year_eps_cannot_pass_on_old_year_only():
+    with patch("packages.web_api.core.datetime") as clock:
+        clock.now.return_value.date.return_value = date(2026, 10, 17)
+        data = CoreQueryService(lambda *_: [], serving_series=lambda *_: [
+            _eps(2025, 1, "0.35"),
+        ]).visual_series("2330", "eps")
+    assert data["eps_current_year"]["available_quarters"] == []
+    assert data["eps_current_year"]["status"] == "partial"
