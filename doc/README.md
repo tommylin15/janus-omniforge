@@ -23,6 +23,8 @@
 
 GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtime evidence 為準；原始設計與核准規格可參考 Drive。差異要明確指出，不自行把其中一方覆蓋成另一方。**
 
+因子資料量與保存期的跨領域對照見 [因子收錄、容量與保存矩陣](spec/factor-coverage-retention-ledger.md)；此表不代表實際資料庫筆數或自動封存已完成。
+
 ## 2. Active 文件地圖
 
 - `PROJECT_RULES.md`：治理、權限、驗證與文件維護規則。
