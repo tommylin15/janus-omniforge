@@ -72,6 +72,8 @@ def test_backup_handoff_push_requires_explicit_phase_and_verified_full_release()
     assert "if: steps.request.outputs.phase == 'handoff'" in source
     assert "sudo systemctl disable --now janus-ledger-backup.timer" in source
     assert source.index("Restore verified immutable backup") < source.index("Handoff only after executor")
+    # gcloud's first-use key generation writes prose to stdout, corrupting JSON receipts.
+    assert source.index('ssh-keygen -q') < source.index('>/tmp/backup-receipt.json')
 
 
 def test_d04_access_preflight_only_tests_permissions_without_granting_them():
