@@ -191,9 +191,17 @@ def apply(receipt):
     mutated=False
     try:
         req=authorized()
+        evidence['phase']='VERIFY_PROVENANCE'
+        save()
         provenance(req)
+        evidence['phase']='VERIFY_LEGACY_WRITERS'
+        save()
         jobs.legacy_writers()
+        evidence['phase']='ACQUIRE_LEASE'
+        save()
         command(LEASE+["acquire"])
+        evidence['phase']='READ_BASELINE'
+        save()
         before=describe()
         candidate=check_candidate(before,req)
         previous_tag=routes(before)[1].get("preview")

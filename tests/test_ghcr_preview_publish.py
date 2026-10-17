@@ -52,6 +52,7 @@ def test_preview_failure_before_mutation_does_not_update_traffic(tmp_path):
     r=json.loads(receipt.read_text())
     assert r["canonical_traffic_write"] is False
     assert r["lease_released"] is False
+    assert r["phase"] == "VERIFY_PROVENANCE"
 
 
 def test_safe_tag_update_and_rollback_use_scoped_gcloud_flags():
