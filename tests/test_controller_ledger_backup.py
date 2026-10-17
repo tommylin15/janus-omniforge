@@ -72,3 +72,17 @@ def test_backup_handoff_push_requires_explicit_phase_and_verified_full_release()
     assert "if: steps.request.outputs.phase == 'handoff'" in source
     assert "sudo systemctl disable --now janus-ledger-backup.timer" in source
     assert source.index("Restore verified immutable backup") < source.index("Handoff only after executor")
+
+
+def test_d04_access_preflight_only_tests_permissions_without_granting_them():
+    import ast
+    import re
+    import yaml
+    path = Path(__file__).parents[1] / '.github/workflows/d04-backup-access-readback.yml'
+    text = path.read_text()
+    assert 'testIamPermissions' in text and 'compute.instances.osLogin' in text
+    assert 'setIamPolicy' not in text.replace('compute.instances.setIamPolicy', '')
+    steps = yaml.safe_load(text)['jobs']['d04-readonly']['steps']
+    for step in steps:
+        for embedded in re.findall(r"python - <<'PY'\n(.*?)\nPY", step.get('run', ''), re.S):
+            ast.parse(embedded)
