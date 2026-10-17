@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "f87ecd481e6ac427e2b08e0ec909decf2f6dd528",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:9f8cfecd59ea56d3687952df1de876de6d2460faa37244eb35f2562926fa379f",
-  "release_run": "39000704621",
-  "candidate_run": "39001127006",
-  "boundary_run": "39001370338",
+  "source_sha": "50af946df64b3ee25d2d0a74b73c5584a0a90ff3",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:4e7011e041c40f13e049814ddd7291044a5ceb32c9a1c16e5e76ac4f5df1aa90",
+  "release_run": "39001930353",
+  "candidate_run": "39002236278",
+  "boundary_run": "39017315925",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "DRL-01 2026 Q1/Q2 EPS 6/6 original Core readback; exact-source full GHCR #39000704621 and immutable 0% candidate #39001127006. Await automated OAuth boundary #39001370338 before fixed Preview. Preserve existing canonical API 100% and existing jobs/scheduler/owner.",
+  "reason": "DRL-01 final 2026 EPS MVP, official Core six Q1/Q2 #39000368842 and serving 12/12 #39001859414 PASS. Typed eps_current_year FastAPI response source 50af full GHCR #39001930353 SUCCESS, immutable 0% candidate #39002236278 SUCCESS, negative OAuth boundary #39017315925 SUCCESS and user manually accepted Owner isolation; publish only fixed Preview and retain old canonical 100%.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 20
+  "attempt": 21
 }
