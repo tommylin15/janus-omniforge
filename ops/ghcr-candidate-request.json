@@ -1,14 +1,14 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "becb6a15496959c1f5d3d4985d7b523b652bd3ee",
-  "release_run": "39019392917",
-  "purpose": "User-authorized combined DRL-01 official 2026 EPS/revenue and stock quote-status/chart-lock candidate. Require exact full release PASS, 0% canonical traffic, shared lease, immutable public GHCR and rollback baseline retained.",
+  "sha": "7f3e5621d39a99cdb6be622c80636da10f9a391e",
+  "release_run": "39031856247",
+  "purpose": "User-authorized dated UI tables/lists and safe chart failure diagnostics; full same-source release PASS, zero canonical traffic, immutable public image and rollback retained.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Require all same-source Python/Flutter/build/public-digest gates in #39019392917 SUCCESS; no Jobs or canonical traffic writes.",
+  "retry_verification": "Require full Python/Flutter, four public digests and release-verify #39031856247 SUCCESS before zero-traffic candidate; no Jobs or canonical traffic writes.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }
