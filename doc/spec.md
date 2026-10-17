@@ -18,6 +18,8 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 
 全上市櫃母體、TWSE缺失率≤10%／TPEx≤30% coverage、批次總控與即時快照見 [新契約](spec/full-market-batch-policy.md)。
 
+新增跨領域 [因子收錄、容量與保存矩陣](spec/factor-coverage-retention-ledger.md)：串接全市場／Deep Coverage／私人資料收錄範圍、估算筆數與 Stage/Core/Mart 到期處置。期限治理權威仍是 [公開資料刪除治理](spec/retention-governance.md)，非獨立歷史搬移授權。
+
 ## 領域路由
 
 | 任務 | 必讀切片 | 條件增讀 |
