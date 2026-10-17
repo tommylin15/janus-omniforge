@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6",
-  "release_run": "38989576990",
+  "sha": "f87ecd481e6ac427e2b08e0ec909decf2f6dd528",
+  "release_run": "39000704621",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "740e54c25842f39ddf0b912c88a82012a851997d",
+  "baseline_source_sha": "d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:9d87fb5179ff21214fe271a70a5c29b16704edad169c94270fc47b7ac08c2a20",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:9d87fb5179ff21214fe271a70a5c29b16704edad169c94270fc47b7ac08c2a20",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:76d2d896033bc2dbc0a873edb672f3a7166fa40b9718007191dc76523765a157",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:cc43cfb2ce31d0074976076b291fce7e94859a9f26eec350b3b701f87e2301b1"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:62719115cea92f03835a7c5d9829b1034f8f8eaa84875a7a3b1c0e9f555d2634",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:62719115cea92f03835a7c5d9829b1034f8f8eaa84875a7a3b1c0e9f555d2634",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:46017c2d5da3b4bdc72b2c06f17cc46b049b1a508c187590532b8a395617a6ba",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:b5b5ef927b693e25996e6f9a943341aa906887b14dd5b3fd7c2b1a917e55ffdb"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 22,
-  "safety": "D01-D05 authorized combined release. Exact source full release, zero-traffic API and automated OAuth passed. Fresh read-only baseline #38992105257 and anonymous OCI source labels confirm 740e54 rollback images/config. Preserve canonical API traffic; shared lease, full execution fence, Scheduler pause/resume and isolated canaries required.",
-  "auth_boundary_run": "38991975400",
+  "request_attempt": 23,
+  "safety": "DRL-01 2026 Q1/Q2 six focus official EPS Core 6/6 #39000368842, exact SHA f87 full GHCR #39000704621, candidate #39001127006, auth #39001370338, fixed Preview #39001414979 SUCCESS. Latest independent current Jobs/Scheduler, 0 active executions and immutable GHCR rollback digests/config #39001249586. No Owner mutation, do not change stock data or unapproved resources.",
+  "auth_boundary_run": "39001370338",
   "automated_oauth_requirement": "Same-source automated OAuth #38991975400; no manual login gate.",
   "authorization": "Authorized existing dev rollout, strictly reversible. Must inspect GCP source config and all executions before actual mutation."
 }
