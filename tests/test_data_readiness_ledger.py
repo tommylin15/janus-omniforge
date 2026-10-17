@@ -58,7 +58,15 @@ def test_drl_market_boundaries_and_contiguous_financial_windows():
     assert report["market_price_window"]["TWSE"]["coverage"] == .9
     assert report["market_price_window"]["TPEX"]["coverage"] == .7
     assert report["monthly_revenue_13"]["qualified"] == 1
+    assert report["monthly_revenue_13"]["status"] == "PARTIAL"
+    assert report["monthly_revenue_13"]["markets"]["TWSE"] == {
+        "expected": 10, "qualified": 1, "coverage": 0.1,
+        "minimum_coverage": 0.9, "status": "PARTIAL",
+    }
+    assert report["monthly_revenue_13"]["markets"]["TPEX"]["qualified"] == 0
     assert report["eps_4_comparable"]["qualified"] == 1
+    assert report["eps_4_comparable"]["markets"]["TWSE"]["qualified"] == 1
+    assert report["eps_4_comparable"]["markets"]["TPEX"]["qualified"] == 0
     assert report["focus_120d"]["qualified"] == 1
     assert report["historical_pit_certified"] is False
     assert report["canonical_mutation"] is False
