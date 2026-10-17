@@ -1,4 +1,5 @@
 name: DRL-01D read-only execution diagnostics
+# Independent bounded job readback while the reversible GHCR rollout is running.
 on:
   workflow_dispatch:
   push:
