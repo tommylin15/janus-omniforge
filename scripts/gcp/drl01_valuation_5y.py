@@ -44,7 +44,7 @@ def job_digest_matches(commit_sha: str, existing_job: dict) -> bool:
     container = existing_job["template"]["template"]["containers"]
     if len(container) != 1:
         return False
-    image = container[0].get("image", "")
+    image = container[0].get("image", "").removeprefix("cache.us-docker.pkg.dev/")
     if not image.startswith("ghcr.io/tommylin15/janus-ingestion-core@sha256:"):
         return False
     result = subprocess.run(
