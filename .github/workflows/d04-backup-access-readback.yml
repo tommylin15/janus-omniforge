@@ -85,6 +85,14 @@ jobs:
             report['backup_latest_day']=max((x.rsplit('/',1)[-1].removesuffix('.dump') for x in objects),default=None)
           else:report['backup_gcs_list']='DENIED_OR_UNAVAILABLE'
           report['status']='EVIDENCE_ONLY'
+          import sys
+          sys.path.insert(0,'scripts/gcp')
+          import ghcr_jobs_rollout as rollout
+          report['jobs_rollback_baseline']={}
+          for name, _ in rollout.JOB_COMPONENT:
+            current=rollout.job(name)
+            report['jobs_rollback_baseline'][name]={
+              'image':rollout.image(current),'config_hash':rollout.fingerprint(current)}
           Path('/tmp/d04-backup-access-readback.json').write_text(json.dumps(report,sort_keys=True))
           print(json.dumps(report,sort_keys=True))
           PY
