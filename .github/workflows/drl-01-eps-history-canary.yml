@@ -29,10 +29,16 @@ jobs:
         env:
           PYTHONPATH: .
         run: python scripts/gcp/drl01_eps_canary.py ops/drl-01-eps-history-request.json
+      - name: Verify independent official Core single quarters
+        env:
+          PYTHONPATH: .
+        run: python scripts/gcp/drl01_eps_readback.py ops/drl-01-eps-history-request.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: drl01-eps-history-canary
-          path: /tmp/drl01-eps-canary.json
+          name: drl01-eps-history-and-core-readback
+          path: |
+            /tmp/drl01-eps-canary.json
+            /tmp/drl01-eps-core-readback.json
           if-no-files-found: ignore
           retention-days: 14
