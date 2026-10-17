@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 62,
-  "reason": "User-authorized two stock-detail fixes only: quote status/date independent of unavailable research; separate bounded PostgreSQL serving lock from slow Iceberg fallback. Targeted Python 26 and Flutter31 pass; full GHCR release before any dev deployment. No ledger, schema, permissions or Jobs configuration changes.",
+  "attempt": 63,
+  "reason": "User-authorized combined DRL-01 2026 EPS/revenue and stock quote-state/chart-lock release. Inert rollout/promotion templates aligned with active rollback baseline; no gate removed. Full same-SHA Python/Flutter/GHCR before candidate/auth/Jobs/Preview and final reversible API 100% promotion.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
