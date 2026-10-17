@@ -1,0 +1,57 @@
+name: DRL-01D read-only execution diagnostics
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/drl01-valuation-diagnostics.yml']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-verification
+  cancel-in-progress: false
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read bounded terminal execution and safe error summaries
+        env:
+          PYTHONPATH: scripts/gcp
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from ghcr_jobs_rollout import ROOT,cloud
+          raw=cloud(f"{ROOT}/jobs/janus-ingestion-core/executions?pageSize=70")
+          executions=sorted(raw.get("executions",[]),key=lambda e:e.get("createTime",""),reverse=True)[:30]
+          print(json.dumps({"operation":"readonly_drl01_job_list","records":[{
+            "name":e.get("name","").rsplit("/",1)[-1],
+            "created":e.get("createTime"),"completed":e.get("completionTime"),
+            "succeeded":e.get("succeededCount"),"failed":e.get("failedCount"),
+            "running":e.get("runningCount"),
+            "completed_conditions":[{"state":c.get("state"),"reason":c.get("reason"),"message":str(c.get("message",""))[:120]} for c in e.get("conditions",[]) if c.get("type")=="Completed"]
+          } for e in executions if e.get("createTime","")>="2026-10-17T13:45:00Z"]},sort_keys=True))
+          target=[e for e in executions if "2026-10-17T13:50" <= e.get("createTime","")[:16] <= "2026-10-17T14:05"]
+          for e in target[:6]:
+            name=e.get("name","").rsplit("/",1)[-1]
+            query='resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="'+name+'"'
+            p=subprocess.run(["gcloud","logging","read",query,"--project=gen-lang-client-0593591102","--limit=250","--format=json"],capture_output=True,text=True,timeout=50)
+            if p.returncode: print(json.dumps({"execution":name,"log_read":"FAILED"}));continue
+            found=[]
+            for item in json.loads(p.stdout):
+              data=item.get("jsonPayload")
+              if not isinstance(data,dict):
+                try:data=json.loads(item.get("textPayload",""))
+                except (ValueError,TypeError):continue
+              if isinstance(data,dict):
+                safe={k:data.get(k) for k in ("component","operation","status","error_code","duration_ms","valuation_periods_requested","core_created","core_reused","two_year_ready","failedCount") if k in data}
+                if safe:found.append(safe)
+            print(json.dumps({"execution":name,"log_summary":found[-10:]},sort_keys=True))
+          PY
