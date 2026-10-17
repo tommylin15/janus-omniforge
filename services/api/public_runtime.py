@@ -220,6 +220,42 @@ def build_core_service() -> CoreQueryService:
         with serving_lock:
             return serving_rows(identifier, (symbol, limit, 0))
 
+    def read_valuation_profile(symbol: str, metric: str) -> dict[str, Any] | None:
+        # A single published, owner-independent row; never a Core/GCS scan.
+        nonlocal serving_connection
+        if metric not in {"pe_ratio", "pb_ratio"}:
+            return None
+        for attempt in range(2):
+            try:
+                serving_connection = serving_connection or connect_serving()
+                with serving_connection.cursor() as cursor:
+                    cursor.execute(
+                        """SELECT payload_json FROM publication.stock_valuation_five_year
+                           WHERE symbol=%s AND metric=%s LIMIT 1""",
+                        (symbol, metric),
+                    )
+                    row = cursor.fetchone()
+                    if not row:
+                        return None
+                    value = row[0]
+                    return value if isinstance(value, dict) else json.loads(value)
+            except Exception as error:
+                disconnected = bool(getattr(serving_connection, "closed", False)) or str(
+                    getattr(error, "sqlstate", "")).startswith("08")
+                if serving_connection is not None:
+                    try:
+                        serving_connection.close()
+                    except Exception:
+                        pass
+                    serving_connection = None
+                if attempt or not disconnected:
+                    return None
+        return None
+
+    def serving_valuation_profile(symbol: str, metric: str) -> dict[str, Any] | None:
+        with serving_lock:
+            return read_valuation_profile(symbol, metric)
+
     def read_home_market_snapshot() -> dict[str, Any] | None:
         # Write-time aggregation projection; reads single pre-aggregated row by PK in <5ms.
         nonlocal serving_connection
@@ -254,7 +290,8 @@ def build_core_service() -> CoreQueryService:
 
     return CoreQueryService(query, max_limit=int(os.environ.get("WEB_QUERY_MAX_ROWS", "200")),
                             serving_series=serving_series,
-                            serving_home_market_snapshot=serving_home_market_snapshot)
+                            serving_home_market_snapshot=serving_home_market_snapshot,
+                            serving_valuation_profile=serving_valuation_profile)
 
 
 def build_public_service() -> PublicMartService:
