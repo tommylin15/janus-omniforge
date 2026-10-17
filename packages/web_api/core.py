@@ -247,6 +247,34 @@ class CoreQueryService:
         response["usable_points"] = len(usable)
         response["data_as_of"] = usable[-1]["date"] if usable else None
         response["source_ids"] = sorted({str(point["source_id"]) for point in points if point["source_id"]})
+        if metric == "revenue":
+            # A month-to-month chart is useful even if the same-month year-ago
+            # comparator is missing. Never invent an annual growth observation.
+            latest = usable[-1] if usable else None
+            comparison = None
+            percentage = None
+            if latest is not None:
+                current_date = date.fromisoformat(str(latest["date"]))
+                prior = next((
+                    item for item in usable
+                    if (date.fromisoformat(str(item["date"])).year == current_date.year - 1
+                        and date.fromisoformat(str(item["date"])).month == current_date.month)
+                ), None)
+                if prior is not None:
+                    old = Decimal(str(prior["value"]))
+                    if old != 0:
+                        percentage = str(
+                            ((Decimal(str(latest["value"])) - old) / abs(old) * 100)
+                            .quantize(Decimal("0.01"))
+                        )
+                        comparison = str(prior["date"])
+            response["revenue_yoy"] = {
+                "status": "available" if percentage is not None else "missing",
+                "percent": percentage,
+                "current_period": latest["date"] if latest else None,
+                "comparison_period": comparison,
+                "calculation_version": "same-fiscal-month-official-published-v1",
+            }
         if points:
             complete = len(usable) >= 2 and len(usable) == len(points) and (dataset == 'financials' or len(points) == len(raw))
             response["data_status"] = "available" if complete else "partial"
