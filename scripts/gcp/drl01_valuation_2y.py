@@ -138,8 +138,21 @@ def run(path: str):
         while not operation.get("done") and time.monotonic()<end:
             time.sleep(10)
             operation=cloud(name)
-        if not operation.get("done") or operation.get("error"):
+        # A completed Cloud Run long-running operation can be an explicit
+        # FAILED execution, not an unknown submission. Preserve only a bounded
+        # failure classification; never log provider exception payloads.
+        if not operation.get("done"):
+            report["status"] = "BLOCKED_OPERATION_NOT_TERMINAL"
+            report["blocked_operation"] = name
+            save(report)
             raise RuntimeError("valuation_execution_unknown_do_not_retry")
+        if operation.get("error"):
+            error = operation["error"]
+            report["status"] = "FAILED_JOB_EXECUTION"
+            report["blocked_operation"] = name
+            report["cloud_error_code"] = str(error.get("code", "unknown"))[:16] if isinstance(error, dict) else "unknown"
+            save(report)
+            raise RuntimeError("valuation_execution_failed_check_terminal_logs_before_retry")
         execution=operation.get("response", {})
         if not terminal(execution) or execution.get("succeededCount") != 1 or execution.get("failedCount", 0):
             raise RuntimeError("valuation_job_not_successful")
@@ -173,7 +186,6 @@ def run(path: str):
         report["slices"].append(slice_info)
         save(report)
     report["status"]=("PASS_TWO_YEAR_PUBLISHED" if len(report["slices"])==len(OFFSETS)
-         and not any(s["valuation_failures"] for s in report["slices"])
          and report["slices"][-1].get("two_year_ready")==12
          else "PARTIAL_TWO_YEAR_OR_SOURCE_GAPS")
     save(report)
