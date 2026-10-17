@@ -1,0 +1,38 @@
+name: DRL-01 read-only official Q4 EPS denominator audit
+on:
+  push:
+    branches: [main]
+    paths: ['ops/drl-01-q4-eps-source-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-read-only-q4-eps-diagnostic
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 21
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m py_compile scripts/gcp/drl01_eps_q4_source_probe.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Check original approved official Q4 source facts, no write
+        env:
+          PYTHONPATH: .
+        run: python scripts/gcp/drl01_eps_q4_source_probe.py ops/drl-01-q4-eps-source-request.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drl01-q4-eps-source-feasibility
+          path: /tmp/drl01-q4-eps-source.json
+          if-no-files-found: ignore
+          retention-days: 7
