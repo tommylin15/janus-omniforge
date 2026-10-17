@@ -134,12 +134,14 @@ class CoreQueryService:
     def __init__(self, query: Callable[[str, str, Sequence[Any]], Sequence[Mapping[str, Any]]],
                  *, max_limit: int = 200,
                  serving_series: Callable[[str, str, int], Sequence[Mapping[str, Any]] | None] | None = None,
-                 serving_home_market_snapshot: Callable[[], Mapping[str, Any] | None] | None = None) -> None:
+                 serving_home_market_snapshot: Callable[[], Mapping[str, Any] | None] | None = None,
+                 serving_valuation_profile: Callable[[str, str], Mapping[str, Any] | None] | None = None) -> None:
         if not 1 <= max_limit <= 10_000:
             raise ValueError("max_limit must be between 1 and 10000")
         self._query = query
         self._serving_series = serving_series
         self._serving_home_market_snapshot = serving_home_market_snapshot
+        self._serving_valuation_profile = serving_valuation_profile
         self.max_limit = max_limit
 
     def page(self, dataset_id: str, symbol: str, *, limit: int = 50, offset: int = 0) -> QueryPage:
@@ -296,6 +298,26 @@ class CoreQueryService:
                 "comparison_period": comparison,
                 "calculation_version": "same-fiscal-month-official-published-v1",
             }
+        if metric in {"pe", "pb"}:
+            # Optional ONE-ROW publication read; never construct 5Y percentiles
+            # from the short chart or query Core/Iceberg at request time.
+            profile = None
+            if self._serving_valuation_profile is not None:
+                try:
+                    profile = self._serving_valuation_profile(normalized, mapping[metric][2])
+                except Exception:
+                    profile = None
+            if (isinstance(profile, Mapping)
+                    and profile.get("symbol") == normalized
+                    and profile.get("metric") == mapping[metric][2]
+                    and profile.get("status") in {"ready", "partial_history", "pending"}):
+                response["five_year_profile"] = _safe_record(profile)
+            else:
+                response["five_year_profile"] = {
+                    "symbol": normalized, "metric": mapping[metric][2],
+                    "status": "unavailable" if self._serving_valuation_profile is None else "pending",
+                    "historical_pit_certified": False,
+                }
         if points:
             complete = len(usable) >= 2 and len(usable) == len(points) and (dataset == 'financials' or len(points) == len(raw))
             response["data_status"] = "available" if complete else "partial"
