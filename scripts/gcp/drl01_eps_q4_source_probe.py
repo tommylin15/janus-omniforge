@@ -50,13 +50,21 @@ with _control_plane() as control:
                 period['status']='FETCHED_VALIDATED'
             except Exception as error:
                 period['status']='ERROR_'+type(error).__name__
+                if getattr(error,'code',None) is not None:
+                    period['http_status']=int(error.code)
             item['periods'][str(quarter)]=period
         item['has_reconstruction_inputs']=all(
             p['has_weighted_shares'] and p['has_parent_profit'] and p['has_basic_eps']
             for p in item['periods'].values())
         out['eligible_numerator_denominator']+=int(item['has_reconstruction_inputs'])
         out['per_symbol'].append(item)
-out['status']='INPUTS_PRESENT' if out['eligible_numerator_denominator'] else 'NO_SAFE_Q4_DENOMINATORS'
+source_failures=sum(
+    p['status'].startswith('ERROR_') for item in out['per_symbol']
+    for p in item['periods'].values())
+out['source_failures']=source_failures
+out['status']=('BLOCKED_OFFICIAL_SOURCE_ACCESS' if source_failures else
+               'INPUTS_PRESENT' if out['eligible_numerator_denominator'] else
+               'NO_SAFE_Q4_DENOMINATORS')
 print(json.dumps(out,sort_keys=True,ensure_ascii=False),flush=True)
 """
 def main():
