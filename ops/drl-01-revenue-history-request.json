@@ -3,12 +3,12 @@
   "approved": true,
   "market": "TWSE",
   "months": [
-    "2025-11",
-    "2025-12"
+    "2025-09",
+    "2025-10"
   ],
   "no_new_provider": true,
   "no_owner_mutation": true,
   "no_job_template_change": true,
-  "request_version": 6,
-  "reason": "DRL-01 official TWSE MOPS consecutive revenue 13-month history: Jan-Sep2026 previous 9 months readback PASS; continue Nov/Dec2025 from existing source, true receipt PIT and new Core snapshots, no owner mutation."
+  "request_version": 7,
+  "reason": "DRL-01 close TWSE 13 consecutive official monthly periods Sep2025-Sep2026, existing MOPS source and Stage/Core month-by-month readback; no owner or job template mutation."
 }
