@@ -92,18 +92,20 @@
 - [ ] 對照 `doc/ui/reference/user-app-final/` PNG
 - [ ] 驗證 loading/empty/gap/stale/partial 狀態
 
-### Phase 5：D04 停舊 timer
+### Phase 5：D04 備份機制整合
 狀態：**COMPLETED**
 
-前置條件：
-- [x] 確認 VM IAP 權限已解除阻塞
-- [x] 新 executor timer 已 active（Cloud Scheduler `janus-ingestion-daily` ENABLED）
-- [x] 新備份路徑已驗證（4 天連續備份：10/14~10/17）
+原始目標：停舊 timer，改用 Cloud Scheduler
+實際結果：**保留 VM timer**（它是實際執行備份的 executor），將清理邏輯整合到 Batch Controller
 
-待辦：
-- [x] 停止原 VM timer（`janus-ledger-backup-executor.timer` 已 stop + disable）
-- [x] 讀回確認只有一個有效備份執行入口（僅 Cloud Scheduler）
-- [x] 確認備份輪替正常（4 objects, 81.90 MiB）
+完成項目：
+- [x] 確認 VM IAP 權限已解除阻塞
+- [x] 釐清架構：Cloud Scheduler 觸發 Batch Controller → 寫入 PostgreSQL 請求 → VM timer 輪詢執行備份
+- [x] 將備份清理從 GitHub Actions 移到 Batch Controller（`ledger_backup.py`）
+- [x] 保留政策改為 7 天（至少保留 3 個）
+- [x] 停用 GitHub Actions `private-ledger-backup-retention.yml` 排程
+- [x] VM timer 已恢復啟用（`janus-ledger-backup-executor.timer` ENABLED）
+- [x] 新增 4 個清理邏輯單元測試
 
 ### Phase 6：合併發布（如有程式變更）
 狀態：**NOT_STARTED**
@@ -146,9 +148,11 @@
 | 項目 | 證據 | 結果 |
 |---|---|---|
 | VM IAP 權限 | SSH via IAP 成功 | **PASS** |
-| 新 executor active | `janus-ingestion-daily` ENABLED, 30 * * * * Asia/Taipei | **PASS** |
-| 原 timer 停止 | `systemctl stop/disable janus-ledger-backup-executor.timer` | **PASS** |
-| 唯一執行入口確認 | `systemctl list-timers` 僅剩 2 個系統 timer | **PASS** |
+| 架構釐清 | Scheduler→Controller→PG→VM timer→GCS | **PASS** |
+| 清理整合 | `ledger_backup.py` cleanup_old_backups() | **PASS** |
+| 保留政策 | 7 天（至少 3 個） | **PASS** |
+| GitHub Actions 清理 | `private-ledger-backup-retention.yml` 已停用 | **PASS** |
+| VM timer 狀態 | `janus-ledger-backup-executor.timer` ENABLED | **PASS** |
 | GCS 備份連續性 | 10/14~10/17 四天 .dump 檔案存在 | **PASS** |
 
 ---
@@ -164,11 +168,10 @@
 ## 下一步
 
 1. **Phase 2 已完成**：D01 進階場景測試 25 tests 全部 PASS
-2. **Phase 5 已完成**：D04 停舊 timer，唯一備份入口為 Cloud Scheduler
+2. **Phase 5 已完成**：D04 備份機制整合，清理移至 Batch Controller，7 天保留
 3. **Phase 3-4 需要真實 authenticated session**：
    - D02 authenticated 手機效能量測需要真實裝置或模擬器
    - D03 截圖驗收需要真實 authenticated session
-4. **建議**：等待下一個備份週期確認 Cloud Scheduler 正常產生備份
 
 ---
 
@@ -177,8 +180,9 @@
 | 項目 | 值 |
 |---|---|
 | 建立時間 | 2026-10-17 |
-| 最後更新 | 2026-10-17 03:30 UTC |
+| 最後更新 | 2026-10-17 03:50 UTC |
 | 輸入 SHA | `4167a5fc` |
+| 輸出 SHA | `b82240ad` |
 | 正式 API | `d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6` |
 | API Revision | `janus-api-00524-tot` |
 

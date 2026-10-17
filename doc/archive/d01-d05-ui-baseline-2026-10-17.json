@@ -1,0 +1,21 @@
+{
+  "source_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
+  "observed_date": "2026-10-17",
+  "timezone": "Asia/Taipei",
+  "environment": "existing-dev-canonical-app",
+  "viewport": {"width": 1440, "height": 900},
+  "scenario": "authenticated warm navigation from Today to Holdings",
+  "measurement": "existing perf=1 core stopwatch plus browser automation time to the new completed sample and available primary holdings data",
+  "core_ms": [477,477,433,458,451,453,418,421,434,459,477,442,451,448,449,441,701,473,522,445,435,455,465,447,463,468,542,446,451,470],
+  "observed_ui_ms": [973,502,482,978,932,954,885,881,906,981,1005,989,1015,932,895,932,1198,1028,1011,895,924,1003,939,939,1013,918,1012,924,979,1014],
+  "primary_data_available_samples": 30,
+  "failed_samples": 0,
+  "core_p50_ms": 451,
+  "core_p95_ms": 542,
+  "observed_ui_p50_ms": 939,
+  "observed_ui_p95_ms": 1028,
+  "trade_mutations": 0,
+  "recalculation_dispatches": 0,
+  "scope_limit": "Existing 8eb desktop baseline only. Not a cold start, mobile, trial/save latency, new candidate or overall D01-D05 acceptance.",
+  "excluded_experiment": "An earlier burst of full refreshes finished with unavailable primary data. Its fast core timings are rejected, not counted as PASS. Full refresh fans out to multiple private endpoints; the configured private budget is 60 requests/minute. Exact HTTP failure statuses were not captured. One locator miss occurred in that rejected experiment."
+}
