@@ -6,7 +6,7 @@
   "release_run": "38153154441",
   "jobs_run": "",
   "rollback_mode": "reversible_ghcr",
-  "baseline_source_sha": "d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6",
+  "baseline_source_sha": "becb6a15496959c1f5d3d4985d7b523b652bd3ee",
   "allow_legacy_forward_only": false,
   "gate": "INERT approved=false. Previous API source follows the versioned active baseline. Require full same-source release, candidate, automated auth, Jobs proof, Preview/data readback and reversible traffic promotion. This template never dispatches.",
   "auth_boundary_run": ""

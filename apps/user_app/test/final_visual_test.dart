@@ -1547,6 +1547,56 @@ void main() {
     expect(find.text('K 線／OHLCV'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('Stock chart first timeout retries typed rows without losing quote',
+      (tester) async {
+    mobileView(tester);
+    final messages = <String>[];
+    final originalPrint = debugPrint;
+    debugPrint = (String? message, {int? wrapWidth}) {
+      if (message != null) messages.add(message);
+    };
+    addTearDown(() => debugPrint = originalPrint);
+    final firstChart = Completer<dynamic>();
+    const path = '/api/v1/public/kline/2330';
+    final api = FinalFakeApi({
+      '/api/v1/public/stock-header/2330': {
+        'symbol': '2330', 'name': '台積電', 'close': '125',
+        'trade_date': '2026-10-16', 'price_status': 'available',
+      },
+      '/api/v1/me/portfolio/snapshot': {'positions': const []},
+      path: firstChart.future,
+    });
+    await tester.pumpWidget(
+      MaterialApp(home: FinalStockDetailPage(api: api, symbol: '2330')),
+    );
+    await tester.pump();
+    expect(find.text('125.00'), findsOneWidget);
+    expect(find.text('價格圖載入中；其餘個股資訊可先查看'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pumpAndSettle();
+    expect(find.text('價格圖暫時無法使用'), findsOneWidget);
+    expect(messages.single, contains('stock_chart_read_failed symbol=2330 kind=TimeoutException'));
+    expect(messages.single, isNot(contains('Bearer')));
+    debugPrint = originalPrint;
+    expect(find.text('125.00'), findsOneWidget);
+    api.values[path] = {'rows': [
+      {'trade_date': '2026-10-15', 'open': '120', 'high': '126',
+       'low': '119', 'close': '123', 'volume_shares': 1000},
+      {'trade_date': '2026-10-16', 'open': '123', 'high': '126',
+       'low': '122', 'close': '125', 'volume_shares': 2000},
+    ]};
+    await tester.tap(find.text('重試'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('fv-kline-chart')), findsOneWidget);
+    expect(find.text('價格圖暫時無法使用'), findsNothing);
+    expect(api.reads.where((value) => value == path).length, 2);
+    firstChart.complete({'rows': const []});
+    await tester.pump();
+    expect(find.byKey(const Key('fv-kline-chart')), findsOneWidget);
+    expect(find.text('125.00'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Ledger initial holdings defers inactive section requests',
       (tester) async {
     mobileView(tester);

@@ -34,6 +34,34 @@ Map<String, dynamic> fvMap(dynamic value) => value is Map
     ? Map<String, dynamic>.from(value)
     : <String, dynamic>{};
 
+DateTime? fvRowDate(Map<String, dynamic> row, List<String> fields) {
+  for (final field in fields) {
+    final date = DateTime.tryParse('${row[field] ?? ''}');
+    if (date != null) return date;
+  }
+  return null;
+}
+
+// Sort a copy: presentation must not reorder a shared API response or a chart.
+List<Map<String, dynamic>> fvNewestRows(List<dynamic> rows,
+    {required List<String> fields, bool recentOnly = true, DateTime? now}) {
+  final today = now ?? DateTime.now();
+  final cutoff = DateTime(today.year - 2, today.month, today.day);
+  final dated = rows.map(fvMap).where((row) {
+    final date = fvRowDate(row, fields);
+    return !recentOnly || date == null || !date.isBefore(cutoff);
+  }).toList();
+  dated.sort((a, b) {
+    final left = fvRowDate(a, fields), right = fvRowDate(b, fields);
+    if (left == null) return right == null ? 0 : 1;
+    if (right == null) return -1;
+    return right.compareTo(left);
+  });
+  return dated;
+}
+
+Color fvDatedRowColor(int index) => index.isEven ? fvSoft : Colors.white;
+
 String fvText(Object? value, {String missing = '—'}) {
   final result = value?.toString().trim() ?? '';
   return result.isEmpty ? missing : result;
@@ -95,9 +123,10 @@ Widget fvSectionTitle(BuildContext context, String title, {String? trailing}) =>
       ),
     );
 
-Widget fvPanel({required Widget child, EdgeInsetsGeometry? padding}) => Card(
+Widget fvPanel({required Widget child, EdgeInsetsGeometry? padding,
+    Color color = Colors.white}) => Card(
       margin: const EdgeInsets.only(bottom: 10),
-      color: Colors.white,
+      color: color,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(

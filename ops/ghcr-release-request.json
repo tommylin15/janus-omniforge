@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 63,
-  "reason": "User-authorized combined DRL-01 2026 EPS/revenue and stock quote-state/chart-lock release. Inert rollout/promotion templates aligned with active rollback baseline; no gate removed. Full same-SHA Python/Flutter/GHCR before candidate/auth/Jobs/Preview and final reversible API 100% promotion.",
+  "attempt": 64,
+  "reason": "User-authorized dated UI tables/lists: newest-first, two-year monthly/quarterly window, short daily table, striped rows and truthful quarterly listed-observation summaries; preserve chronological charts and same-source full gates before reversible dev rollout. Includes first-chart timeout/retry regression and prior live screenshot investigation.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }

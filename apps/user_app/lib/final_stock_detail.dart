@@ -29,10 +29,14 @@ List<Map<String, dynamic>> _eventTimelineRows(List<dynamic> raw) {
   }
   // Published announcements first. Event/effective dates never masquerade
   // as a publication date and cannot be used to claim earlier knowledge.
-  events.sort((a, b) => fvText(b['published_at'], missing: '')
-      .compareTo(fvText(a['published_at'], missing: '')));
-  return events.take(6).toList();
+  return fvNewestRows(events, fields: const ['published_at']).take(6).toList();
 }
+
+FvTableSummary _visualTableSummary(String? metric) => switch (metric) {
+  'revenue' || 'foreign' || 'investment_trust' || 'dealer' => FvTableSummary.sum,
+  'pe' || 'pb' || 'yield' => FvTableSummary.average,
+  _ => FvTableSummary.latest,
+};
 
 Widget _fiveYearValuationCard(Map<String, dynamic> series, String label) {
   final profile = fvMap(series['five_year_profile']);
@@ -114,6 +118,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
 
   // Requests are bounded independently: one slow optional card never holds the page.
   Future<dynamic> safe(String key, String path) async {
+    final stopwatch = Stopwatch()..start();
     final requestedSymbol = widget.symbol;
     final requestedApi = widget.api;
     final epoch = requestEpoch;
@@ -131,8 +136,13 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
         });
       }
       return value;
-    } catch (_) {
+    } catch (error) {
       if (current()) {
+        if (key == 'kline') {
+          // Keep failure evidence without tokens, response bodies or Owner data.
+          debugPrint('stock_chart_read_failed symbol=$requestedSymbol '
+              'kind=${error.runtimeType} elapsed_ms=${stopwatch.elapsedMilliseconds}');
+        }
         setState(() => errors.add(key));
       }
       return null;
@@ -342,6 +352,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
           InteractiveViewer(minScale: 1, maxScale: 3, child: SizedBox(
             width: MediaQuery.sizeOf(ctx).width - 48,
             child: FvVisualSeriesChart(rows: points, label: label, unit: fvText(result['unit']), height: 270,
+              dailyTable: !const {'revenue', 'eps'}.contains(selectedVisual),
+              tableSummary: _visualTableSummary(selectedVisual),
               bars: const {'foreign', 'investment_trust', 'dealer', 'revenue', 'eps'}.contains(result['metric'])))),
         ],
       )),
@@ -415,8 +427,9 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
       header['stock_name'] ?? health['stock_name'] ?? health['name'],
       missing: widget.symbol,
     );
-    final notes = fvRows(values['notes']);
-    final events = fvRows(values['events']);
+    final notes = fvNewestRows(fvRows(values['notes']),
+        fields: const ['updated_at', 'created_at']);
+    final events = _eventTimelineRows(fvRows(values['events']));
     final position =
         positions.isEmpty ? <String, dynamic>{} : fvMap(positions.first);
     final usableRoles = baselineRoles.map(fvMap).where((r) => r['baseline_status'] == 'available');
@@ -797,6 +810,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                       );
                     }),
                     FvVisualSeriesChart(rows: points, label: label, unit: fvText(result['unit']),
+                      dailyTable: !const {'revenue', 'eps'}.contains(selectedVisual),
+                      tableSummary: _visualTableSummary(selectedVisual),
                       bars: const {'foreign', 'investment_trust', 'dealer', 'revenue', 'eps'}.contains(selectedVisual)),
                     Text('來源：${fvRows(result['source_ids']).join('、')}',
                       style: const TextStyle(color: fvMuted, fontSize: 11)),
@@ -828,12 +843,12 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('依正式公告時間排序；日期不明者置後，不推測事件利多或利空。',
+                    const Text('近兩年公告，最新在上；日期不明者置後，不推測事件利多或利空。',
                         style: TextStyle(color: fvMuted, fontSize: 11)),
                     const SizedBox(height: 10),
-                    for (final row in _eventTimelineRows(events))
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
+                    for (final (index, row) in events.indexed)
+                      ColoredBox(color: fvDatedRowColor(index), child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -866,7 +881,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                             )),
                           ],
                         ),
-                      ),
+                      )),
                   ],
                 ),
               ),

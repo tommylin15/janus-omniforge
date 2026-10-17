@@ -246,7 +246,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                     InteractiveViewer(
                       minScale: 1, maxScale: 3,
                       child: FvVisualSeriesChart(
-                        rows: usable, label: '加權指數', unit: '點', height: 235),
+                        rows: usable, label: '加權指數', unit: '點', height: 235,
+                        dailyTable: true),
                     ),
                   ]),
                 ),
@@ -265,7 +266,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           ),
       ])),
       FvVisualSeriesChart(rows: shown, label: '加權指數 · 收盤',
-          unit: '點', height: 130),
+          unit: '點', height: 130, dailyTable: true),
       Padding(
         padding: const EdgeInsets.fromLTRB(5, 3, 5, 12),
         child: Text('正式收盤截至 $asOf · 來源 ${sources.isEmpty ? '待查' : sources.join('、')}'

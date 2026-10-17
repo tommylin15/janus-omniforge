@@ -917,11 +917,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     return '年度${realizedPnlLabel(fvMap(rows.first))}';
   }
 
-  Widget recordTile(Map<String, dynamic> row) {
+  Widget recordTile(Map<String, dynamic> row, int index) {
     final quantity = row['shares'] != null && row['price'] != null
         ? ' · ${legacy.accountingNumber(row['shares'])} 股 × ${legacy.accountingNumber(row['price'], decimals: 2)}'
         : '';
-    return ListTile(
+    return Material(color: fvDatedRowColor(index), child: ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
       title: Text(
@@ -948,7 +948,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               ],
             )
           : null,
-    );
+    ));
   }
 
   Widget recordGroup({
@@ -995,7 +995,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                 ),
               )
             else
-              for (final row in events) recordTile(row),
+              for (final (index, row) in events.indexed) recordTile(row, index),
           ],
         ),
       );
@@ -1005,7 +1005,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     List<dynamic> monthly,
     List<dynamic> symbolSummary,
   ) {
-    final effective = legacy.effectiveLedgerEvents(history);
+    final effective = fvNewestRows(legacy.effectiveLedgerEvents(history),
+      fields: const ['trade_date'], recentOnly: yearFilter >= DateTime.now().year - 1);
     if (effective.isEmpty && monthly.isEmpty && symbolSummary.isEmpty) {
       return fvBoundedState('本年度尚無交易紀錄');
     }
@@ -1186,7 +1187,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     );
   }
 
-  Widget notes(List<dynamic> values) => Column(
+  Widget notes(List<dynamic> values) {
+    final rows = fvNewestRows(values, fields: const ['updated_at', 'created_at']);
+    return Column(
         children: [
           Align(
             alignment: Alignment.centerRight,
@@ -1196,11 +1199,12 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               label: const Text('新增筆記'),
             ),
           ),
-          if (values.isEmpty) fvBoundedState('目前沒有筆記'),
-          for (final item in values)
+          if (rows.isEmpty) fvBoundedState('近兩年沒有筆記'),
+          for (final (index, item) in rows.indexed)
             Builder(builder: (context) {
               final row = fvMap(item);
               return fvPanel(
+                color: fvDatedRowColor(index),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1228,6 +1232,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
             }),
         ],
       );
+  }
 
   Widget lazySection(
     Future<List<dynamic>>? future,

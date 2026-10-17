@@ -4,15 +4,20 @@ import 'final_charts.dart' show fvChartNumber;
 import 'final_visual_common.dart';
 import 'main.dart' as legacy;
 
+enum FvTableSummary { latest, sum, average }
+
 /// UI-only published series; never fills gaps or computes a canonical value.
 class FvVisualSeriesChart extends StatefulWidget {
   const FvVisualSeriesChart({required this.rows, required this.label, required this.unit,
-    this.height = 175, this.bars = false, super.key});
+    this.height = 175, this.bars = false, this.dailyTable = false,
+    this.tableSummary = FvTableSummary.latest, super.key});
   final List<dynamic> rows;
   final String label;
   final String unit;
   final double height;
   final bool bars;
+  final bool dailyTable;
+  final FvTableSummary tableSummary;
   @override
   State<FvVisualSeriesChart> createState() => _FvVisualSeriesChartState();
 }
@@ -79,12 +84,74 @@ class _FvVisualSeriesChartState extends State<FvVisualSeriesChart> {
       Text('${points[index].$1.toIso8601String().substring(0, 10)}：${legacy.accountingNumber(points[index].$2, decimals: 2)} $unit',
         key: const Key('fv-series-tooltip'),
         style: const TextStyle(color: fvInk, fontSize: 12, fontWeight: FontWeight.w700)),
-      ExpansionTile(title: const Text('圖表資料'), children: [
-        for (final point in samples)
-          ListTile(dense: true, title: Text(point.$1.toIso8601String().substring(0, 10)),
-            trailing: Text('${legacy.accountingNumber(point.$2, decimals: 2, missing: '缺值')} $unit')),
-      ]),
+      _SeriesTable(samples: samples, unit: unit, daily: widget.dailyTable,
+          summary: widget.tableSummary),
     ]));
+  }
+}
+
+class _SeriesTable extends StatelessWidget {
+  const _SeriesTable({required this.samples, required this.unit,
+      required this.daily, required this.summary});
+  final List<(DateTime, double?)> samples;
+  final String unit;
+  final bool daily;
+  final FvTableSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final cutoff = DateTime(now.year - 2, now.month, now.day);
+    final recent = daily ? samples.reversed :
+        samples.reversed.where((point) => !point.$1.isBefore(cutoff));
+    final rows = (daily ? recent.take(20) : recent).toList();
+    final quarters = <String, List<(DateTime, double?)>>{};
+    for (final row in rows) {
+      final key = '${row.$1.year} Q${(row.$1.month - 1) ~/ 3 + 1}';
+      quarters.putIfAbsent(key, () => []).add(row);
+    }
+    return ExpansionTile(title: const Text('圖表資料'),
+      subtitle: Text(daily ? '最新在上 · 最近20期日資料' : '最新在上 · 近兩年'),
+      children: [
+        if (rows.isEmpty) const ListTile(title: Text('近兩年沒有已發布資料')),
+        for (final quarter in quarters.entries)
+          ExpansionTile(
+            key: ValueKey('series-quarter-${quarter.key}'),
+            backgroundColor: fvCanvas,
+            collapsedBackgroundColor: fvCanvas,
+            title: Text(quarter.key),
+            subtitle: Text(_summary(quarter.value)),
+            children: [
+              for (final (index, point) in quarter.value.indexed)
+                Material(color: fvDatedRowColor(index), child: ListTile(
+                  key: ValueKey('series-table-row-${point.$1.toIso8601String().substring(0, 10)}'),
+                  dense: true,
+                  title: Text(point.$1.toIso8601String().substring(0, 10)),
+                  trailing: Text('${legacy.accountingNumber(point.$2, decimals: 2, missing: '缺值')} $unit'))),
+            ],
+          ),
+        if (summary != FvTableSummary.latest && rows.isNotEmpty)
+          const Padding(padding: EdgeInsets.all(8), child: Text(
+            '僅彙總表列有效觀測，不代表完整季度報表；不補缺值。',
+            style: TextStyle(color: fvMuted, fontSize: 11))),
+      ]);
+  }
+
+  String _summary(List<(DateTime, double?)> rows) {
+    final count = '${rows.length} 期';
+    if (rows.any((row) => row.$2 == null)) return '$count · 含缺值，不彙總';
+    final values = rows.map((row) => row.$2!);
+    final value = switch (summary) {
+      FvTableSummary.latest => values.first,
+      FvTableSummary.sum => values.reduce((a, b) => a + b),
+      FvTableSummary.average => values.reduce((a, b) => a + b) / rows.length,
+    };
+    final label = switch (summary) {
+      FvTableSummary.latest => '最新',
+      FvTableSummary.sum => '表列合計',
+      FvTableSummary.average => '表列平均',
+    };
+    return '$count · $label ${legacy.accountingNumber(value, decimals: 2)} $unit';
   }
 }
 
