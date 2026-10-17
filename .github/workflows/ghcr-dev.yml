@@ -34,7 +34,6 @@ permissions:
   contents: write
   actions: read
   packages: write
-  actions: read
   id-token: write
 
 concurrency:

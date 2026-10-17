@@ -67,6 +67,9 @@ def test_candidate_and_boundary_keep_source_lease_and_negative_auth_guards():
     import re
     import yaml
     workflow = yaml.safe_load(GHCR)
+    permissions = next(value for key, value in yaml.compose(GHCR).value if key.value == 'permissions')
+    permission_names = [key.value for key, _ in permissions.value]
+    assert len(permission_names) == len(set(permission_names))
     assert workflow['permissions']['actions'] == 'read'
     jobs = workflow['jobs']
     candidate = '\n'.join(step.get('run', '') for step in jobs['candidate']['steps'])
