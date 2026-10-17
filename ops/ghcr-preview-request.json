@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "50af946df64b3ee25d2d0a74b73c5584a0a90ff3",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:4e7011e041c40f13e049814ddd7291044a5ceb32c9a1c16e5e76ac4f5df1aa90",
-  "release_run": "39001930353",
-  "candidate_run": "39002236278",
-  "boundary_run": "39017315925",
+  "source_sha": "becb6a15496959c1f5d3d4985d7b523b652bd3ee",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:a745346a1e1910024ed8b52e98d0b2a6e6959d5ffb400fe2604bc3cbb73d20e4",
+  "release_run": "39019392917",
+  "candidate_run": "39019791707",
+  "boundary_run": "39019942041",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "DRL-01 final 2026 EPS MVP, official Core six Q1/Q2 #39000368842 and serving 12/12 #39001859414 PASS. Typed eps_current_year FastAPI response source 50af full GHCR #39001930353 SUCCESS, immutable 0% candidate #39002236278 SUCCESS, negative OAuth boundary #39017315925 SUCCESS and user manually accepted Owner isolation; publish only fixed Preview and retain old canonical 100%.",
+  "reason": "User-authorized combined DRL-01 and stock fixes; full release/candidate/auth must PASS. New candidate readback verifies six official 2026Q1/Q2 EPS, six 13-month revenue series, stock quote and 66-row price chart. Move fixed Preview only, keep canonical traffic and other tags.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 21
+  "attempt": 22
 }
