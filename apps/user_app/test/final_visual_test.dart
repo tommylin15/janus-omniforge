@@ -1263,6 +1263,35 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Stock current-year EPS shows one verified quarter without fake TTM',
+      (tester) async {
+    mobileView(tester);
+    final api = FinalFakeApi({
+      '/api/v1/public/stock-header/2330': {
+        'stock_name': '台積電', 'close': '1000', 'trade_date': '2026-10-08'
+      },
+      '/api/v1/public/stocks/2330/visual-series?metric=eps&limit=120': {
+        'metric': 'eps', 'unit': 'TWD_per_share', 'data_status': 'partial',
+        'usable_points': 1, 'data_as_of': '2026-03-31', 'source_ids': ['mops'],
+        'eps_current_year': {'year': 2026, 'required_quarters': [1, 2],
+                             'available_quarters': [1], 'status': 'partial'},
+        'points': [{'date': '2026-03-31', 'value': '0.35', 'source_id': 'mops'}],
+      },
+    });
+    await tester.pumpWidget(MaterialApp(
+      home: FinalStockDetailPage(api: api, symbol: '2330')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('visual-tab-eps')),
+      250, scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.byKey(const Key('visual-tab-eps')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('已發布單季 EPS'), findsOneWidget);
+    expect(find.textContaining('0.35 元／股'), findsOneWidget);
+    expect(find.textContaining('不推算四季 EPS／TTM'), findsOneWidget);
+    expect(find.byKey(const Key('fv-visual-series-chart')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Official event timeline keeps published and effective dates distinct',
       (tester) async {
     mobileView(tester);
