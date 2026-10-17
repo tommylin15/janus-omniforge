@@ -31,11 +31,14 @@ with _control_plane() as control:
                         sections.append([dict(zip(fields,values)) for values in tab.get('data',[])])
                 else:sections=[data.get('data',[])]
             found=set()
+            matched_fields=set()
             for records in sections:
                 for row in records:
                     if isinstance(row,dict) and str(row.get('代號') or row.get('證券代號') or row.get('symbol') or '').strip() in symbols:
                         found.add(str(row.get('代號') or row.get('證券代號') or row.get('symbol')).strip())
+                        matched_fields.update(str(key) for key in row.keys())
             report['found']=len(found)
+            report['matching_field_names']=sorted(matched_fields)
             report['source_tables']=len(sections)
             report['status']='PASS_SOURCE_PRESENT' if found==symbols else 'PARTIAL_SOURCE_MISSING'
         except Exception as error:
