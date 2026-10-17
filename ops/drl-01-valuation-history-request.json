@@ -1,0 +1,19 @@
+{
+  "intent": "drl01-official-twse-focus-five-year-valuation",
+  "approved": false,
+  "no_new_provider": true,
+  "no_owner_mutation": true,
+  "no_job_template_mutation": true,
+  "symbols": [
+    "1513",
+    "2327",
+    "2382",
+    "3231",
+    "3711",
+    "5876"
+  ],
+  "target_start": "2021-10",
+  "target_end": "2026-10",
+  "deployed_sha": "0000000000000000000000000000000000000000",
+  "reason": "Template disabled until full SHA release, migration 063 and runtime evidence PASS"
+}
