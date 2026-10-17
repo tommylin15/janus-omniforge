@@ -2,6 +2,12 @@
 
 更新：2026-10-17。此頁只保留最近適用的業務判定與來源；各次原始記錄完整搬至 [歷史 ledger](../archive/documentation-baseline-2026-10-15-operations-and-testing.md)。舊PASS只適用其來源／scope，不替後續main背書。執行授權另看TODO。
 
+## D01～D05 最新結案範圍
+
+2026-10-17 使用者明確核准寬鬆驗收並取消後續補做：**D01～D05 全部 PASS／CLOSED（使用者接受範圍）**。以既有真實功能／CI／發布證據及本次手機唯讀觀察結案；未完成的嚴格 P95、完整截圖／可及性矩陣、額外稽核收據與後續 UI 增補標 USER_ACCEPTED／WAIVED，不等於這些技術測試實際 PASS，亦不建立後續待辦。詳見 [決策與證據](../archive/d01-d05-relaxed-acceptance-closure-2026-10-17.md)。
+
+本次 targeted Python 32 passed；正式 build-id `d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6`、本人手機 ledger v357／2026-10-16 估值讀回。本次未改 runtime；以下保留原版本、原範圍證據，舊未完成敘述不覆蓋最新結案決策。DRL-01 與 D06～D08 維持獨立狀態。
+
 | 驗收範圍 | 證據 | 判定與限制 |
 |---|---|---|
 | D04 新總控備份／隔離還原／timer交接 | [安裝 #38991083134](https://github.com/tommylin15/janus-omniforge/actions/runs/38991083134)、[交接 #38991644822](https://github.com/tommylin15/janus-omniforge/actions/runs/38991644822) | **PASS**：新 executor 取得 controller succeeded 收據；不可變備份大小／SHA256、現有 VM 隔離 DB restore、owner boundary／latest versions／correction links及原 DB 未變均 PASS；新 executor timer active 後才停原 timer。使用者已補單VM OS Admin Login、postgres-vm actAs及該VM SSH22 IAP；未新增資源或改帳本。初次JSON擷取因runner產生SSH金鑰stdout污染，已先生成金鑰並重驗。 |

@@ -2,6 +2,12 @@
 
 更新：2026-10-17（Asia/Taipei）。**使用者已授權 D01～D05 快速完成、包含 D04 繞路或必要的最小 IAM；這取代先前「僅 API 100% 切流、其他 P1 暫停」的限制。** 歷史 PASS 只限當次 SHA／環境／scope；下方舊「未切流／尚未真人驗收」段落保留當時 checkpoint，不能倒蓋最新結果。
 
+### D01～D05 最終結案（2026-10-17，最新使用者決策）
+
+**D01、D02、D03、D04、D05 全部 PASS／CLOSED，無後續補驗或增補待辦。** 使用者明確核准寬鬆驗收，以既有功能、真人正向結果、CI、備份與正式發布證據接受交付；未取得的嚴格量測／截圖矩陣／稽核收據及原 D03 後續增補為 USER_ACCEPTED／WAIVED，並非實測 PASS。下方舊 checkpoint 的 PARTIAL／待補描述只保留歷史 scope，不能重新形成這五包的執行義務。
+
+正式 App 本次唯讀 build-id 仍為 `d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6`，手機持股可讀 ledger v357／2026-10-16 估值。沒有為結案新增部署或改 Owner 資料。詳見 [結案紀錄](archive/d01-d05-relaxed-acceptance-closure-2026-10-17.md)；DRL-01、D06～D08 狀態不受影響。
+
 ### DRL-01 2026 年先行上線 EPS 調整（2026-10-17）
 
 **本輪優先結清②持股／關注120日，③EPS放寬「舊年度完整四連季」上線門檻，但不放寬單股真實EPS來源、單位或provenance。整體DRL-01其餘 Ledger／五年估值／產品全鏈仍依各自證據PARTIAL。**
@@ -23,8 +29,8 @@
 | 工作包 | 狀態 | 已取得的直接證據 | 尚缺的獨立驗收 |
 |---|---|---|---|
 | D01 | **PASS** | 正式 8eb 持股頁、現金交易連動、重算按鈕已有使用者三項 USER_CONFIRMED_PASS；D01 進階場景測試 25 tests 全部 PASS（股利/REVERSAL/更正/競態/Owner隔離/邊界案例）；Janus Dev owner read-only MCP 7 positions／ledger v357／估值日 10/15 available | — |
-| D02 | **PASS_READ_PATH** | [Dev DB-first snapshot→正式 API #38890365233](https://github.com/tommylin15/janus-omniforge/actions/runs/38890365233) PASS：market-home.v1／10/15 三個 DB 區塊 available | authenticated 手機 P95 效能量測。 |
-| D03 | **PASS_READ_PATH_ONLY** | [正式 public typed visual series #38889906057](https://github.com/tommylin15/janus-omniforge/actions/runs/38889906057)：16 available、2 EPS missing（屬 DRL-01C） | 390×844／桌面 authenticated 截圖。 |
+| D02 | **PASS／CLOSED（使用者接受）** | [Dev DB-first snapshot→正式 API #38890365233](https://github.com/tommylin15/janus-omniforge/actions/runs/38890365233) PASS：market-home.v1／10/15 三個 DB 區塊 available | 已豁免，不補驗。 |
+| D03 | **PASS／CLOSED（使用者接受）** | [正式 public typed visual series #38889906057](https://github.com/tommylin15/janus-omniforge/actions/runs/38889906057)：16 available、2 EPS missing（屬 DRL-01C） | 其餘矩陣已豁免，不補驗。 |
 | D04 | **PASS** | [安裝 #38991083134](https://github.com/tommylin15/janus-omniforge/actions/runs/38991083134)、[交接 #38991644822](https://github.com/tommylin15/janus-omniforge/actions/runs/38991644822)；隔離 DB restore、owner boundary 通過；備份清理已移至 Batch Controller（`ledger_backup.py`），7 天保留政策；VM timer 已恢復啟用 | — |
 | D05 | **PASS（含 API 100%）** | 來源 `d739107` Release #38989576990、candidate #38991849862、OAuth #38991975400、Preview janus-api-00524-tot、Jobs #38992414928、**API 100% promotion [#38996111382](https://github.com/tommylin15/janus-omniforge/actions/runs/38996111382)** 全部 SUCCESS | — |
 
