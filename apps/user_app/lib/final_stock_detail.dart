@@ -698,6 +698,23 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                         onPressed: () => expandVisual(result, label),
                         icon: const Icon(Icons.open_in_full, color: fvTeal)),
                     ]),
+                    if (selectedVisual == 'revenue') Builder(builder: (context) {
+                      final yoy = fvMap(result['revenue_yoy']);
+                      final change = fvNumber(yoy['percent']);
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          change == null
+                              ? '營收年增率：去年同月資料不足；月營收仍可參考'
+                              : '營收年增率 ${change > 0 ? '+' : ''}${change.toStringAsFixed(2)}% · 去年同月 ${fvText(yoy['comparison_period'])}',
+                          style: TextStyle(
+                            color: change == null ? fvMuted : fvSignedColor(change),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      );
+                    }),
                     FvVisualSeriesChart(rows: points, label: label, unit: fvText(result['unit']),
                       bars: const {'foreign', 'investment_trust', 'dealer', 'revenue', 'eps'}.contains(selectedVisual)),
                     Text('來源：${fvRows(result['source_ids']).join('、')}',
