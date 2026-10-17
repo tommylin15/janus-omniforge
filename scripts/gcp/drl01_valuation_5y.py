@@ -153,6 +153,9 @@ def run(path: str):
         if received != expected_months or observed.get("symbols") != SYMBOLS:
             raise RuntimeError("valuation_receipt_scope_drift")
         relevant=[x for x in observed.get("failures",[]) if x.get("dataset")=="valuation"]
+        profile=observed.get("valuation_profile")
+        if not isinstance(profile,dict) or profile.get("status")!="published" or profile.get("profiles")!=12:
+            raise RuntimeError("drl01_profile_publication_not_verified")
         slice_info={
             "offset":offset, "months":expected_months,
             "execution":execution_name,
@@ -161,17 +164,21 @@ def run(path: str):
             "core_reused":observed.get("core_reused"),
             "snapshot_ref":observed.get("core_snapshot_id"),
             "valuation_failures":len(relevant),
+            "five_year_ready":profile.get("five_year_ready"),
+            "profile_source_rows":profile.get("source_data_scanned"),
+            "profile_snapshot_id":profile.get("source_snapshot_id"),
             "failed_pairs":[[x.get("symbol"),x.get("period"),x.get("reason")] for x in relevant][:80],
             "receipt_status":observed.get("status"),
         }
         report["slices"].append(slice_info)
         save(report)
-    report["status"]=("SOURCE_BACKFILL_PASS" if len(report["slices"])==len(OFFSETS)
+    report["status"]=("PASS_FIVE_YEAR_PUBLISHED" if len(report["slices"])==len(OFFSETS)
          and not any(s["valuation_failures"] for s in report["slices"])
-         else "PARTIAL_SOURCE_GAPS")
+         and report["slices"][-1].get("five_year_ready")==12
+         else "PARTIAL_FIVE_YEAR_OR_SOURCE_GAPS")
     save(report)
-    if report["status"] != "SOURCE_BACKFILL_PASS":
-        raise RuntimeError("drl01_valuation_source_gaps_need_review")
+    if report["status"] != "PASS_FIVE_YEAR_PUBLISHED":
+        raise RuntimeError("drl01_valuation_source_or_distribution_gaps")
 
 
 if __name__ == "__main__":
