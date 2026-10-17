@@ -192,3 +192,34 @@ def test_current_year_eps_cannot_pass_on_old_year_only():
         ]).visual_series("2330", "eps")
     assert data["eps_current_year"]["available_quarters"] == []
     assert data["eps_current_year"]["status"] == "partial"
+
+
+def test_public_api_response_model_preserves_current_year_eps_and_revenue_yoy():
+    # FastAPI response_model previously silently dropped both computed fields.
+    from services.api.models import PublicVisualSeriesOut
+    expected = {
+        "schema_version": "visual-series.v1", "symbol": "3231",
+        "metric": "eps", "unit": "TWD_per_share",
+        "data_status": "available", "points": [
+            {"date": "2026-03-31", "value": "0.42", "source_id": "mops",
+             "provenance_id": "official-provenance"}
+        ],
+        "usable_points": 1, "requested_rows": 20,
+        "data_as_of": "2026-03-31", "source_ids": ["mops"],
+        "missing_reason": None, "calculation_version": "eps-official-single-quarter-or-q1-ytd-v2",
+        "eps_current_year": {
+            "year": 2026, "required_quarters": [1, 2],
+            "available_quarters": [1, 2], "status": "ready",
+            "trailing_four_quarter_status": "not_certified",
+            "calculation_version": "official-due-quarters-mvp-v1",
+        },
+    }
+    serialized = PublicVisualSeriesOut.model_validate(expected).model_dump(exclude_none=True)
+    assert serialized["eps_current_year"] == expected["eps_current_year"]
+    revenue = {**expected, "metric": "revenue", "unit": "TWD_thousands",
+               "revenue_yoy": {
+                   "status": "available", "percent": "25.00",
+                   "current_period": "2026-09-30", "comparison_period": "2025-09-30",
+                   "calculation_version": "same-fiscal-month-official-published-v1"}}
+    assert PublicVisualSeriesOut.model_validate(revenue).model_dump(
+        exclude_none=True)["revenue_yoy"] == revenue["revenue_yoy"]
