@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 65,
-  "reason": "User-authorized dated UI tables/lists: newest-first, two-year monthly/quarterly window, short daily table, striped rows and truthful quarterly listed-observation summaries; preserve chronological charts and same-source full gates before reversible dev rollout. Includes first-chart timeout/retry regression and prior live screenshot investigation.",
+  "attempt": 66,
+  "reason": "DRL-01D two-year official TWSE PE/PB river: bounded 25-month stage/core repair, versioned snapshot serving, API/UI two-year labels, no 5Y misrepresentation; targeted DRL CI, selective CI and Flutter PASS. Existing dev reversible release only; no Owner mutation, IAM or new resources.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
