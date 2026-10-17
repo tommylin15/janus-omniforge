@@ -23,6 +23,8 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 
 ## DRL-01｜新版功能資料可用性修復（目前最高優先；IN_PROGRESS）
 
+**2026-10-17 合併發布完成：**本年度2026 Q1／Q2 EPS與營收、兩項個股修正已於同一完整SHA `becb6a15496959c1f5d3d4985d7b523b652bd3ee` 完整Release→候選→自動auth→Preview→Jobs8／8canary→正式API100%全部PASS；切流前後公開資料讀回PASS，詳見 [證據](archive/combined-drl-stock-release-2026-10-17.md)。這條發布鏈不再是待辦；下方其它DRL-01適用驗收保留原範圍，不代表Ledger／五年河流或真人全量矩陣已通過，也不重開D01～D05豁免。
+
 **AI入口：**[總指令第7節](codex-execution-plan.md)；消費端[D02卡](execution-cards/d02-full-market-snapshot-performance.md)／[D03卡](execution-cards/d03-four-page-charts-visual.md)，長相見[A第5節](ui/visual-first-four-pages.md)。只補同一條資料→分析→UI鏈，不另照Drive重建。
 
 **2026-10-16 最新優先決策：**使用者已明確要求「先優先完成 DRL-01」，因此解除本工項的暫停，優先於 D01～D05 推進；D01～D05 既有授權及已驗證結果保留，不因本次變更重做。資料→計算→畫面的一體交付與品質放寬依 [三層對照](ui/visual-first-delivery.md)；沿用本DRL-01與D02/D03/D07/D08，不新增平行工作包。

@@ -4,9 +4,11 @@
 
 ## 個股報價狀態與價格圖阻塞修正（2026-10-17）
 
-本次使用者只授權調查／修正兩個已觀察問題，不重開 D01～D05。報價卡狀態改讀 `stock-header.price_status`，移除研究分析日期對報價的誤導；沒有正式估值日的 operational 持股顯示「報價估值」與既有行情日，不推造日期。`build_core_service` 將 PostgreSQL serving connection 與 Iceberg reader 分別加鎖，並保護同連線的首頁快照讀取；慢速 fallback 不再持有 serving 鎖。
+使用者先授權調查／修正兩個已觀察問題，隨後明確要求與 DRL-01 以同 SHA 完整發布及正式切流；不重開 D01～D05。報價卡狀態改讀 `stock-header.price_status`，移除研究分析日期對報價的誤導；沒有正式估值日的 operational 持股顯示「報價估值」與既有行情日，不推造日期。`build_core_service` 將 PostgreSQL serving connection 與 Iceberg reader 分別加鎖，並保護同連線的首頁快照讀取；慢速 fallback 不再持有 serving 鎖。
 
-驗證：新增並行回歸在原實作因 hot price read 被 fallback 阻擋而 timeout，修正後 `tests/test_public_runtime.py` 10 passed；公開 API routes 16 passed；Flutter `final_visual_test.dart` 31 passed（含 available／stale／missing 狀態與日期）。實際舊版 dev 同時讀取 5876 health／header／kline 皆 HTTP200，kline 200筆約1.48秒；**本次未復現原首次失敗，不能斷言共用鎖就是當次線上事件唯一原因**。新版本 deployment／live readback 另依正式 Release receipt 判定，尚不標 live fixed。
+驗證：新增並行回歸在原實作因 hot price read 被 fallback 阻擋而 timeout，修正後 `tests/test_public_runtime.py` 10 passed；公開 API routes 16 passed；Flutter `final_visual_test.dart` 31 passed（含 available／stale／missing 狀態與日期）。實際舊版 dev 同時讀取 5876 health／header／kline 皆 HTTP200，kline 200筆約1.48秒；**本次未復現原首次失敗，不能斷言共用鎖就是當次線上事件唯一原因**。
+
+**合併發布／正式上線 PASS**：完整來源 `becb6a15496959c1f5d3d4985d7b523b652bd3ee`，修正 inert 模板基準後 [完整Release #39019392917](https://github.com/tommylin15/janus-omniforge/actions/runs/39019392917) Python1397 passed／2 deselected、Flutter及四映像成功；候選 #39019791707、自動auth #39019942041、Preview #39020138003、[四Jobs #39020285128](https://github.com/tommylin15/janus-omniforge/actions/runs/39020285128) 8／8 canary、[正式API #39021547612](https://github.com/tommylin15/janus-omniforge/actions/runs/39021547612) 全SUCCESS。最終 `janus-api-00533-yah` 100%，真實新版→前版→新版回滾PASS；切流前後公開EPS／營收12／12 available、報價與66筆價格圖正常，正式與Preview build-id精確匹配。Scheduler恢復、lease釋放；完整SHA／digest／回滾與驗收界線見 [合併發布紀錄](../archive/combined-drl-stock-release-2026-10-17.md)。
 
 ## D01～D05 最新結案範圍
 
