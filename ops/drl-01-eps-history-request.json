@@ -7,6 +7,21 @@
   ],
   "no_new_provider": true,
   "no_job_template_change": true,
-  "reason": "DRL-01 third prioritized task: two approved TWSE focus names, repair 12 MOPS official quarters from existing fundamental-history route, prove 4 contiguous genuine quarter EPS via independent Core snapshot readback; no cumulative EPS subtraction.",
-  "request_version": 3
+  "reason": "2026 current-year MVP: read-only Core audit for six approved TWSE focused symbols. Require official verifiable 2026 Q1/Q2 quarter EPS; Q3 when actually published is additive, legacy missing Q4/TTM remains partial. No manufactured EPS nor history source re-fetch.",
+  "request_version": 4,
+  "as_of": "2026-10-17",
+  "release_year": 2026,
+  "required_quarters": [
+    1,
+    2
+  ],
+  "audit_symbols": [
+    "1513",
+    "2327",
+    "2382",
+    "3231",
+    "3711",
+    "5876"
+  ],
+  "repair_official_history": false
 }
