@@ -1,0 +1,28 @@
+name: Janus DRL-01D five-year source readback
+on:
+  push:
+    branches: [main]
+    paths: ['ops/drl-01-valuation-history-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 200
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: python -m py_compile scripts/gcp/drl01_valuation_5y.py
+      - run: sudo apt-get update -qq && sudo apt-get install -y skopeo
+      - run: python scripts/gcp/drl01_valuation_5y.py ops/drl-01-valuation-history-request.json
+        env:
+          PYTHONPATH: .
