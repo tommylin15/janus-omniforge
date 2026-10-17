@@ -1,0 +1,13 @@
+{
+  "intent": "drl01-etf-tpex-official-source-check",
+  "approved": true,
+  "read_only": true,
+  "no_owner_mutation": true,
+  "symbols": [
+    "00697B",
+    "00719B"
+  ],
+  "as_of": "2026-10-16",
+  "request_version": 1,
+  "reason": "Scope-only official TPEx dailyQuotes 2026-10-16 presence/readback audit for two bond ETF instrument codes absent from four-digit equity OHLCV admission; no writes or new resources."
+}
