@@ -1,14 +1,13 @@
 {
   "intent": "drl01-existing-mops-monthly-market-archive",
   "approved": true,
-  "market": "TWSE",
+  "market": "TPEX",
   "months": [
-    "2025-09",
-    "2025-10"
+    "2026-09"
   ],
   "no_new_provider": true,
   "no_owner_mutation": true,
   "no_job_template_change": true,
-  "request_version": 7,
-  "reason": "DRL-01 close TWSE 13 consecutive official monthly periods Sep2025-Sep2026, existing MOPS source and Stage/Core month-by-month readback; no owner or job template mutation."
+  "request_version": 8,
+  "reason": "DRL-01 isolated single-month official MOPS OTC /nas/t21/otc/ live canary; separate 70% enabled-market denominator and Core Stage/readback. No owner, source or Job template change; expand only after official receipt PASS."
 }
