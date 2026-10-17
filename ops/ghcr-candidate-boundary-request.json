@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "740e54c25842f39ddf0b912c88a82012a851997d",
-  "candidate_release_run": "38873919415",
-  "candidate_deployment_run": "38874649205",
-  "purpose": "D06 stop unused Iceberg audit mirror: exact source full Release #38873919415 and 0% candidate #38874649205 SUCCESS. Verify automated OAuth/negative private boundaries before reversible Jobs-only rollout; preserve current canonical traffic and Preview.",
+  "sha": "d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6",
+  "candidate_release_run": "38989576990",
+  "candidate_deployment_run": "38991849862",
+  "purpose": "D01-D05 combined acceptance: automated OAuth and private negative boundaries on exact-source zero-traffic candidate; no manual OAuth requirement or runtime mutation.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 28
+  "attempt": 29
 }
