@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 59,
-  "reason": "DRL-01 user-resumed priority: full Python/Flutter + immutable GHCR source release including finite-source readiness ledger, EPS denominator-safe chart, 3-day TPEX data receipts; no automatic 100% API traffic cutover, validate new full SHA before controlled jobs/API dev acceptance.",
+  "attempt": 60,
+  "reason": "DRL-01 2026 EPS early release after strict current-year official Q1/Q2 focus proof: publish separate current-year EPS readiness, one legitimate EPS value on Flutter, historical TTM remains not certified, ETF 120-day official Core accepted; full Python/Flutter/GHCR gates before any reversible existing dev traffic change.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
