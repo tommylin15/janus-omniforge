@@ -9,7 +9,7 @@ AS_OF = date(2026, 10, 16)
 
 
 def _official_rows():
-    current = AS_OF.replace(year=AS_OF.year - 5)
+    current = AS_OF.replace(year=AS_OF.year - 2)
     rows = []
     while current <= AS_OF:
         if current.weekday() < 5:
