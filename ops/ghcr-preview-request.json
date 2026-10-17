@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:b017e38b6ba35829cf3dec99f9e163e65c5312ae847705a2ac70d77ac5fbecff",
-  "release_run": "38856837257",
-  "candidate_run": "38857279864",
-  "boundary_run": "38857441171",
+  "source_sha": "d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:87ab825b3c7dafa823c3b0c53303be79e014361558ea7c1d8d0166d68038b8a2",
+  "release_run": "38989576990",
+  "candidate_run": "38991849862",
+  "boundary_run": "38991975400",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "P1 updated valuation: user sees full priced reference totals or visibly labelled priced partial subtotal including cash+priced, while official completeness remains independently guarded. Full release #38856837257, immutable 0% API #38857279864, OAuth/private negative #38857441171 PASS. Update ONLY fixed Preview and verify build-id, health, tags, no canonical traffic/GCP Job/Scheduler mutation.",
+  "reason": "D01-D05 combined acceptance: full Release, zero-traffic candidate and same-source automated OAuth passed. Update fixed Preview only for authenticated product acceptance; preserve canonical traffic and Jobs.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 18
+  "attempt": 19
 }

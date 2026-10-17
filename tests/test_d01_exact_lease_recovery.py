@@ -2,9 +2,9 @@ from pathlib import Path
 from types import SimpleNamespace
 import re
 import sys
+from textwrap import dedent
 
 import pytest
-import yaml
 
 
 @pytest.mark.parametrize('done,error,count,identity', [
@@ -14,9 +14,7 @@ import yaml
 ])
 def test_recovery_requires_original_successful_operation(monkeypatch, done, error, count, identity):
     source = (Path(__file__).parents[1] / '.github/workflows/d01-owner-eod-1016-lease-recovery.yml').read_text()
-    steps = yaml.safe_load(source)['jobs']['recovery']['steps']
-    script = next(s['run'] for s in steps if s.get('name', '').startswith('Verify exact successful'))
-    code = re.search(r"python - <<'PY'\n(.*?)\nPY", script, re.S).group(1)
+    code = dedent(re.search(r"python - <<'PY'\n(.*?)\n          PY", source, re.S).group(1))
     execution = {'name': 'exact', 'succeededCount': count}
     operation = {'done': done, 'error': error, 'response': {'name': identity}}
     fences = []
