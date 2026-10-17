@@ -118,3 +118,32 @@ def test_bad_eps_missing_provenance_or_units_never_promotes_to_chart():
     rows = [{**_eps(2026, 1, "0.20"), "provenance_id": ""}]
     assert _comparable_single_quarter_eps(rows) == []
     assert _comparable_single_quarter_eps([{**_eps(2026, 1, "0.20"), "unit": "TWD_thousands"}]) == []
+
+def test_revenue_yoy_is_only_computed_from_verifiable_same_month_last_year():
+    base = {"symbol": "2330", "source_id": "mops", "provenance_id": "official",
+            "statement_type": "monthly_revenue", "metric": "monthly_revenue",
+            "period_basis": "monthly", "unit": "TWD_thousands"}
+    rows = [
+        {**base, "fiscal_year": 2025, "fiscal_quarter": 3, "fiscal_month": 9,
+         "fiscal_period_end": "2025-09-30", "value": "100"},
+        {**base, "fiscal_year": 2026, "fiscal_quarter": 3, "fiscal_month": 9,
+         "fiscal_period_end": "2026-09-30", "value": "125"},
+    ]
+    report = CoreQueryService(lambda *_: [], serving_series=lambda *_: rows).visual_series("2330", "revenue")
+    assert report["data_status"] == "available"
+    assert report["revenue_yoy"] == {
+        "status": "available", "percent": "25.00",
+        "current_period": "2026-09-30", "comparison_period": "2025-09-30",
+        "calculation_version": "same-fiscal-month-official-published-v1",
+    }
+    missing = CoreQueryService(lambda *_: [], serving_series=lambda *_: rows[1:]).visual_series("2330", "revenue")
+    assert missing["revenue_yoy"]["status"] == "missing"
+    assert missing["revenue_yoy"]["percent"] is None
+    invalid = CoreQueryService(
+        lambda *_: [], serving_series=lambda *_: [{**rows[0], "provenance_id": None}, rows[1]]
+    ).visual_series("2330", "revenue")
+    assert invalid["revenue_yoy"]["status"] == "missing"
+    zero = CoreQueryService(
+        lambda *_: [], serving_series=lambda *_: [{**rows[0], "value": "0"}, rows[1]]
+    ).visual_series("2330", "revenue")
+    assert zero["revenue_yoy"]["status"] == "missing"
