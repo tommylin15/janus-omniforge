@@ -8,6 +8,6 @@
     "00719B"
   ],
   "as_of": "2026-10-16",
-  "request_version": 1,
-  "reason": "Scope-only official TPEx dailyQuotes 2026-10-16 presence/readback audit for two bond ETF instrument codes absent from four-digit equity OHLCV admission; no writes or new resources."
+  "request_version": 2,
+  "reason": "Strict official TPEx ETF field names for pre-existing two matched instrument records on 2026-10-16, read-only and no owner mutation."
 }
