@@ -1,0 +1,22 @@
+{
+  "intent": "drl01-publish-core-2026-eps-to-existing-serving",
+  "approved": true,
+  "year": 2026,
+  "quarters": [
+    1,
+    2
+  ],
+  "symbols": [
+    "1513",
+    "2327",
+    "2382",
+    "3231",
+    "3711",
+    "5876"
+  ],
+  "no_owner_mutation": true,
+  "no_core_mutation": true,
+  "no_job_template_mutation": true,
+  "request_version": 1,
+  "reason": "Official EPS Core #39000368842 2026 Q1/Q2 six valid, Preview readback #39001622334 shows missing EPS serving for 2327 and 5876; publish exactly twelve official verified 2026 single quarters from Core snapshot to existing dev PostgreSQL serving only. No owner, new provider, scheduler, or canonical Core change."
+}
