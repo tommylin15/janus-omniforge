@@ -96,6 +96,23 @@ class VisualSeriesPointOut(BaseModel):
     provenance_id: str | None = None
 
 
+class PublishedEpsCurrentYearOut(BaseModel):
+    year: int
+    required_quarters: list[int]
+    available_quarters: list[int]
+    status: Literal["ready", "partial", "not_due"]
+    trailing_four_quarter_status: Literal["not_certified"]
+    calculation_version: Literal["official-due-quarters-mvp-v1"]
+
+
+class PublishedRevenueYoyOut(BaseModel):
+    status: Literal["available", "missing"]
+    percent: str | None = None
+    current_period: str | None = None
+    comparison_period: str | None = None
+    calculation_version: Literal["same-fiscal-month-official-published-v1"]
+
+
 class PublicVisualSeriesOut(BaseModel):
     schema_version: Literal["visual-series.v1"]
     symbol: str
@@ -109,6 +126,8 @@ class PublicVisualSeriesOut(BaseModel):
     source_ids: list[str]
     missing_reason: str | None = None
     calculation_version: str
+    eps_current_year: PublishedEpsCurrentYearOut | None = None
+    revenue_yoy: PublishedRevenueYoyOut | None = None
 
 
 class MarketHomeSectionOut(BaseModel):
