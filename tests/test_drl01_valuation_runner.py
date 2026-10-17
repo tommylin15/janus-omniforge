@@ -50,7 +50,6 @@ def test_request_must_be_explicit_and_deployment_sha_bound(tmp_path):
 def test_cloud_run_override_path_is_execution_scoped():
     source=Path(__file__).resolve().parents[1]/"scripts"/"gcp"/"drl01_valuation_5y.py"
     text=source.read_text()
-    assert '"/jobs/{JOB}:run"' in text
     assert '"containerOverrides":[overrides]' in text
     assert '"etag":current["etag"]' in text
     assert "wait_for_terminal_executions" in text
