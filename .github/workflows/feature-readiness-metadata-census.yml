@@ -2,7 +2,7 @@ name: Janus one-shot read-only Core readiness census
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/feature-readiness-metadata-census.yml']
+    paths: ['.github/workflows/feature-readiness-metadata-census.yml', 'ops/drl-01-readonly-census-request.json']
   workflow_dispatch:  # Independent bounded, read-only post-repair Core audit
 permissions:
   contents: read
@@ -17,6 +17,16 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Verify approved read-only audit scope
+        run: |
+          python - <<'PY'
+          import json
+          r=json.load(open('ops/drl-01-readonly-census-request.json'))
+          assert r['intent']=='drl01-readonly-core-coverage-audit' and r['approved'] is True
+          assert r['read_only'] is True and r['no_owner_mutation'] is True
+          assert r['no_job_template_mutation'] is True
+          assert r['revenue_window_start']=='2025-09' and r['revenue_window_end']=='2026-09'
+          PY
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
@@ -44,6 +54,10 @@ jobs:
               with control.connection.cursor() as c:
                   c.execute("SELECT market,count(*)::bigint,count(*) FILTER(WHERE enabled)::bigint FROM control.stock_master WHERE market IN ('TWSE','TPEX') GROUP BY market ORDER BY market")
                   report['markets']=[{'market':m,'all':int(n),'enabled':int(e)} for m,n,e in c.fetchall()]
+                  c.execute("SELECT market,symbol FROM control.stock_master WHERE enabled AND market IN ('TWSE','TPEX')")
+                  market_members={'TWSE':set(),'TPEX':set()}
+                  for market,symbol in c.fetchall():
+                      market_members[str(market)].add(str(symbol))
               core=_iceberg_core(os.environ['CORE_BUCKET'],read_only=True)
               for dataset in core.IDENTIFIERS:
                   item={'dataset':dataset}
@@ -109,6 +123,9 @@ jobs:
                                       'count_at_least_9':sum(len(v)>=9 for v in sets),
                                       'count_at_least_11':sum(len(v)>=11 for v in sets),
                                       'count_at_least_20':sum(len(v)>=20 for v in sets),
+                                      'recent_21_dates_from_metric':len(set(market_dates[-21:])),
+                                      'count_at_least_20_of_recent_21':sum(
+                                          len(v.intersection(market_dates[-21:]))>=20 for v in sets),
                                       'count_at_least_60':sum(len(v)>=60 for v in sets),
                                       'count_at_least_120':sum(len(v)>=120 for v in sets),
                                       'count_at_least_250':sum(len(v)>=250 for v in sets),
@@ -153,6 +170,59 @@ jobs:
                                   'symbols_4_quarters':sum(len(v)>=4 for v in eps.values()),
                                   'symbols_12_quarters':sum(len(v)>=12 for v in eps.values()),
                                   'symbols_4_explicit_single_quarters':sum(len(v)>=4 for v in single_eps.values())}
+                              from decimal import Decimal, InvalidOperation
+                              official_revenue=defaultdict(set)
+                              official_quarters=defaultdict(set)
+                              for row in records:
+                                  symbol=str(row.get('symbol') or '')
+                                  if (row.get('source_id')!='mops' or not row.get('provenance_id')
+                                      or not row.get('availability_at')):continue
+                                  try:
+                                      if not Decimal(str(row.get('value'))).is_finite():continue
+                                      year=int(row['fiscal_year'])
+                                      month=int(row['fiscal_month']) if row.get('fiscal_month') else None
+                                      quarter=int(row['fiscal_quarter']) if row.get('fiscal_quarter') else None
+                                  except (TypeError,ValueError,InvalidOperation):continue
+                                  metric=str(row.get('metric') or '')
+                                  basis=str(row.get('period_basis') or '')
+                                  if (row.get('statement_type')=='monthly_revenue'
+                                      and metric=='monthly_revenue' and basis=='monthly'
+                                      and row.get('unit')=='TWD_thousands' and month and 1<=month<=12):
+                                      official_revenue[symbol].add((year,month))
+                                  if row.get('unit')=='TWD_per_share' and quarter and 1<=quarter<=4:
+                                      if (metric=='eps_single_quarter' and basis=='single_quarter'
+                                          or quarter==1 and basis in ('','year_to_date')
+                                          and ('每股盈餘' in metric or metric=='eps_year_to_date')):
+                                          official_quarters[symbol].add((year,quarter))
+                              expected_months=(
+                                  {(2025,m) for m in range(9,13)}
+                                  | {(2026,m) for m in range(1,10)})
+                              rev_market={}
+                              eps_market={}
+                              for market,members in market_members.items():
+                                  n=len(members)
+                                  rev_count=sum(expected_months<=official_revenue[s] for s in members)
+                                  eps_count=0
+                                  for symbol in members:
+                                      indices={y*4+q-1 for y,q in official_quarters[symbol]}
+                                      eps_count+=int(any(
+                                          {i,i-1,i-2,i-3}<=indices for i in indices))
+                                  threshold=.9 if market=='TWSE' else .7
+                                  rev_market[market]={
+                                      'denominator':n,'qualified':rev_count,
+                                      'coverage':round(rev_count/n,6) if n else None,
+                                      'threshold':threshold,
+                                      'status':'PASS' if n and rev_count/n>=threshold else 'PARTIAL'}
+                                  eps_market[market]={
+                                      'denominator':n,'contiguous_four_quarters':eps_count,
+                                      'coverage':round(eps_count/n,6) if n else None}
+                              detail['drl01_official_13_month_consecutive']={
+                                  'window':'2025-09..2026-09',
+                                  'by_market':rev_market,
+                                  'status':'PASS' if all(x['status']=='PASS' for x in rev_market.values())
+                                               else 'PARTIAL'}
+                              detail['drl01_official_4_comparable_quarters']={
+                                  'by_market':eps_market,'status':'MEASURED_ONLY'}
                               # Read-only audit of official 2382 EPS after bounded
                               # DRL-01 canary: never publish source-unverified YTD
                               # EPS subtraction as single-quarter fact.
