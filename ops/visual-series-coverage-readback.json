@@ -1,6 +1,6 @@
 {
   "intent": "read-only-preview-visual-series-coverage",
-  "source_sha": "f87ecd481e6ac427e2b08e0ec909decf2f6dd528",
+  "source_sha": "50af946df64b3ee25d2d0a74b73c5584a0a90ff3",
   "symbols": [
     "1513",
     "2327",
@@ -12,7 +12,7 @@
   "limit": 20,
   "no_data_mutation": true,
   "no_private_data": true,
-  "reason": "DRL-01 2026Q1/Q2 MVP Core six focus PASS #39000368842, exact source full release #39000704621, 0% candidate #39001127006, OAuth #39001370338, fixed Preview #39001414979; check published read-only 2026 EPS current_year for all six, no TTM claims.",
+  "reason": "DRL-01 2026 current-year official EPS MVP: 6/6 Core #39000368842, 12/12 published serving #39001859414, f50 full GHCR #39001930353, 0%-candidate #39002236278, auto auth #39017315925, fixed Preview #39017430466. Read six eps_current_year API schemas, required+available 2026 Q1,Q2, no TTM certification; fail closed for missing/partial/HTTP errors. No mutation.",
   "metrics": [
     "eps"
   ]
