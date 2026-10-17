@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "82625dea8aa731f2645e45bb8d7d8a668df86abf",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:59ba58163d4d61600d2b3eda4d137a7c7c050b1c4e6eb1dcc4422bddfc93c41c",
-  "release_run": "39036409871",
-  "candidate_run": "39036772825",
-  "boundary_run": "39036928985",
+  "source_sha": "d8a57aa57198e0f383a37125e6b94eb392abe717",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:073bbc492042442306be2fde8f7b0a0221d24809ac760e66a60ece3442ad619f",
+  "release_run": "39049811103",
+  "candidate_run": "39050209225",
+  "boundary_run": "39050338219",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "DRL-01D 2-year official PE/PB river: full GHCR release, 0% candidate, OAuth/private boundary successful same SHA; update only fixed Preview, do not switch canonical traffic or Jobs.",
+  "reason": "Corrected DRL-01D 2Y PE/PB publication, full CI+candidate+OAuth PASS same SHA; fixed Preview only, preserve canonical 100%.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 24
+  "attempt": 25
 }
