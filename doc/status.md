@@ -1,6 +1,6 @@
 # Janus 目前狀態
 
-更新：2026-10-16（Asia/Taipei）。**使用者已授權 D01～D05 快速完成、包含 D04 繞路或必要的最小 IAM；這取代先前「僅 API 100% 切流、其他 P1 暫停」的限制。** 歷史 PASS 只限當次 SHA／環境／scope；下方舊「未切流／尚未真人驗收」段落保留當時 checkpoint，不能倒蓋最新結果。
+更新：2026-10-17（Asia/Taipei）。**使用者已授權 D01～D05 快速完成、包含 D04 繞路或必要的最小 IAM；這取代先前「僅 API 100% 切流、其他 P1 暫停」的限制。** 歷史 PASS 只限當次 SHA／環境／scope；下方舊「未切流／尚未真人驗收」段落保留當時 checkpoint，不能倒蓋最新結果。
 
 ### DRL-01 最新工程 checkpoint（2026-10-17）
 
@@ -18,15 +18,15 @@
 
 逐日PASS與相同股票跨日期Census是不同驗收；公開產品仍需serving與圖表正向讀回。此前較舊DRL checkpoint已集中在TODO及原始GHA receipts，不以舊基線覆蓋此最新結果。
 
-### D01～D05 最新工程 checkpoint（2026-10-16）
+### D01～D05 最新工程 checkpoint（2026-10-17）
 
 | 工作包 | 已取得的直接證據 | 尚缺的獨立驗收 |
 |---|---|---|
 | D01 | 正式 8eb 持股頁、現金交易連動、重算按鈕已有使用者三項 USER_CONFIRMED_PASS；Janus Dev owner read-only MCP 7 positions／ledger v357／估值日 10/15 available | 本次未新增本人交易；股利、REVERSAL、更正、競態、特殊缺價、本人 request→Worker checkpoint 及 10/16 EOD 新日期仍 NOT_VERIFIED。 |
 | D02 | [Dev DB-first snapshot→正式 API #38890365233](https://github.com/tommylin15/janus-omniforge/actions/runs/38890365233) PASS：market-home.v1／10/15 三個 DB 區塊 available；API TAIEX partial、法人和市場活動 available | authenticated 手機完整 cold/warm P95、交易保存與試算效能。 |
 | D03 | [正式 public typed visual series #38889906057](https://github.com/tommylin15/janus-omniforge/actions/runs/38889906057) PASS_READ_PATH_ONLY：TWSE 2330、TPEx 6488 各9種指標，16 available、2 EPS missing，0 API error | EPS 真實可比較季度、全市場 coverage、390×844／桌面 authenticated 四頁真實截圖、可及性。 |
-| D04 | [Cloud Build VM metadata #38888546640](https://github.com/tommylin15/janus-omniforge/actions/runs/38888546640) PASS，但 [IAP/SSH #38888758224](https://github.com/tommylin15/janus-omniforge/actions/runs/38888758224) DENIED；單一 VM 最小 IAP grant [#38889481312](https://github.com/tommylin15/janus-omniforge/actions/runs/38889481312) 在 getIamPolicy DENIED，沒有 IAM mutation。已繞路以既有 GCS dump 完成 [隔離 PostgreSQL restore #38889312080](https://github.com/tommylin15/janus-omniforge/actions/runs/38889312080) PASS | 新 executor install→Controller 備份 request→isolated restore→舊 timer handoff 未完成；**舊 timer 保留，不能因單次隔離還原就關掉**。 |
-| D05 | gitlink 修復 [d1286cd](https://github.com/tommylin15/janus-omniforge/commit/d1286cd3e0ce20bc7ca8baa7cf8f22abfa875028)、整併 workflow 安全與測試 [c024a11](https://github.com/tommylin15/janus-omniforge/commit/c024a11ae51a6dcb74d555ceb6409a59e6402182)；[full GHCR Release #38889743874](https://github.com/tommylin15/janus-omniforge/actions/runs/38889743874) **SUCCESS**：SHA a25e9003639df079f2948b0ffd0c834ac6536622、Python 1322 PASS（2 deselected）、Flutter PASS、四個 GHCR image push／digest PASS | 此新來源沒有 candidate／OAuth／Preview／Jobs／新的正式100% promotion，且晚於該 SHA 的新增 main commits 不具完整 Release 證據。既有 8eb 正式 API 100% PASS 不變；D05 整體仍 PARTIAL。 |
+| D04 | **PASS**：[安裝 #38991083134](https://github.com/tommylin15/janus-omniforge/actions/runs/38991083134)、[交接 #38991644822](https://github.com/tommylin15/janus-omniforge/actions/runs/38991644822)；新 executor 取得 controller succeeded 收據、不可變備份 SHA256、隔離 DB restore、owner boundary 及原 DB 未變均通過；使用者已補單 VM OS Admin Login、postgres-vm actAs 及 SSH22 IAP | 無新增阻塞；新 executor timer active 後才停原 timer。 |
+| D05 | 來源 `d739107` [full Release #38989576990](https://github.com/tommylin15/janus-omniforge/actions/runs/38989576990) PASS、[0% candidate #38991849862](https://github.com/tommylin15/janus-omniforge/actions/runs/38991849862) PASS、[OAuth boundary #38991975400](https://github.com/tommylin15/janus-omniforge/actions/runs/38991975400) PASS、[固定 Preview janus-api-00524-tot](https://github.com/tommylin15/janus-omniforge/actions/runs/38992060995) PASS；[四 Jobs rollout #38992414928](https://github.com/tommylin15/janus-omniforge/actions/runs/38992414928) **SUCCESS** | 新版 Preview 四頁畫面驗收、合併驗收、正式 API 100% promotion。 |
 
 **本輪安全界線**：未修改 Owner 交易或成本、未手動重算、未切正式 dev API traffic、未停止 VM backup timer；各 PASS 僅限其真正驗收 scope。
 
@@ -96,8 +96,8 @@
 | 費稅／持股 | **P0 backend as-of 2026-10-14 PASS**：00697B／00719B 官方歷史日價、Owner v354，8/8 持股市值及未實現損益都有值，aggregate_status available，缺價／受影響商品 0，總計非空；#38732675488 與 #38733406224 PASS，舊失敗執行保留 FAILED | P1 前端正式持股頁／計算按鈕與新當日估值、正式流量切換另驗；不重做 88 筆費稅事件 |
 | 首頁快照 | main 已有正式 caller；057 migration 曾 PASS；最新接線的 runtime 尚待驗收 | 快照產生→API 讀回→冷暖效能 |
 | 重算／交易／四頁 | 持股 partial 小計與狀態 Flutter 已修改、完整 Flutter Gate PASS；交易試算與重算舊契約已具實作，**新版本 Owner 交易/重算及四頁 authenticated screenshot 未驗** | 覆蓋同源真實功能、VF-00～08、390px/desktop與可及性 |
-| 備份總控 | D04 GHA WIF 唯讀 #38710741325 PASS：Scheduler 唯一 janus-ingestion-daily ENABLED 每小時 :30；GCS daily 備份可列 3 份、最新 2026-10-14；Compute VM describe 仍 DENIED_OR_UNAVAILABLE。install #38692040229 缺 compute.instances.get，原 timer 未被本輪停用；isolated restore／handoff NOT VERIFIED | 要執行 VM 內 executor install/restore，須既有授權的 VM 執行路徑或明確核准精確最小 Compute／IAP IAM；未獲權限不切 timer |
-| API／Preview／Jobs | 最新已驗證來源 285848 Release #38717341300、API 0% #38718006906、OAuth #38718076548、四 Jobs #38718355824 SUCCESS；固定 Preview 285848 #38740477232、live #38752934496 PASS；正式 canonical 100% 仍 b1bc785、未切 | P1 實際 owner UI/API、同版 Preview／正式 dev 切流與回復驗收，不以 P0 backend PASS 當成 App 已發布 |
+| 備份總控 | **D04 PASS**：[安裝 #38991083134](https://github.com/tommylin15/janus-omniforge/actions/runs/38991083134)、[交接 #38991644822](https://github.com/tommylin15/janus-omniforge/actions/runs/38991644822)；新 executor 取得 controller succeeded 收據、不可變備份 SHA256、隔離 DB restore、owner boundary 及原 DB 未變均通過；使用者已補單 VM OS Admin Login、postgres-vm actAs 及 SSH22 IAP | 新 executor timer active 後才停原 timer |
+| API／Preview／Jobs | 來源 `d739107` Release #38989576990、candidate #38991849862、OAuth #38991975400、Preview janus-api-00524-tot 均 PASS；四 Jobs rollout #38992414928 **SUCCESS** | 新版 Preview 四頁畫面驗收、合併驗收、正式 API 100% promotion |
 | Iceberg／D06 | 2026-10-16 基線 8,343 objects／194,161,764 bytes、8,336 小檔；CI orphan 清理 #38879585601 **PASS**，實刪 477 objects / 2,039,377 bytes。無產品使用者的稽核鏡像停用來源 740e54c2 完整 Release #38873919415 PASS | 完成同源 Jobs rollout／生效讀回；量測 I/O 減量。詳見 [D06證據](archive/d06-finops-2026-10-16.md) |
 | Retention fence | 96 Research／495 Private JSON 已完整讀取，8 Core identities皆有manifest；外部／PG全面 fence 未發行 | 使用者明確例外允許保留已知引用、current/named/24h及7日檔齡後清無關聯小檔；不豁免 canonical rows／Core manifest retirement |
 | 五角色／CEO | B0～B8 歷史 CLOSED；B9 品質未整體通過；omniAgent P0-V 技術 PASS，正式 Owner publication 未通過 | 產品交付後逐角色評估，再驗真實報告 |
