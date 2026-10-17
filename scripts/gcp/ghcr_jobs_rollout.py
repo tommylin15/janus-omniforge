@@ -432,7 +432,11 @@ def run(release_run, receipt):
         if schedule["state"] != "ENABLED":
             raise ValueError("scheduler_baseline_not_enabled")
         journal["scheduler_hash"] = scheduler_fingerprint(schedule)
-        fence()
+        # Natural live dev Scheduler may have started its half-hourly run.
+        # Wait boundedly for it to reach terminal; never skip the execution
+        # fence or pause/delete that in-flight job to force deployment.
+        journal["stage"] = "preflight_bounded_execution_drain"
+        wait_for_terminal_executions(timeout=900)
         full_snapshots = {}
         for name in REQUIRED_JOBS:
             data = job(name)
@@ -471,7 +475,7 @@ def run(release_run, receipt):
         writers()
         journal["stage"] = "post_pause_execution_fence"
         save()
-        fence()
+        wait_for_terminal_executions(timeout=900)
         # Two independent bounded real canaries per target, without trying
         # to restore the unavailable legacy AR images in between.
         journal["phase"] = "FORWARD_ONLY_FIRST_CANARY"
