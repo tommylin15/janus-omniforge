@@ -2,13 +2,13 @@
   "intent": "drl01-existing-mops-eps-history",
   "approved": true,
   "symbols": [
-    "1513",
-    "2382"
+    "3231",
+    "3711"
   ],
   "no_new_provider": true,
   "no_job_template_change": true,
-  "reason": "2026 current-year MVP: read-only Core audit for six approved TWSE focused symbols. Require official verifiable 2026 Q1/Q2 quarter EPS; Q3 when actually published is additive, legacy missing Q4/TTM remains partial. No manufactured EPS nor history source re-fetch.",
-  "request_version": 4,
+  "reason": "Targeted approved official MOPS history for the only two missing 2026-Q1/Q2 focus stock EPS per independent Core audit #39000160070; then re-check six current-year symbols, prior-year four-quarter TTM not required.",
+  "request_version": 5,
   "as_of": "2026-10-17",
   "release_year": 2026,
   "required_quarters": [
@@ -23,5 +23,5 @@
     "3711",
     "5876"
   ],
-  "repair_official_history": false
+  "repair_official_history": true
 }
