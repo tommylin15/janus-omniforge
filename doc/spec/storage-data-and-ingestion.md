@@ -32,6 +32,8 @@ snapshot、Cloud SQL、HA、replica、second PostgreSQL VM 或無界 retention�
 
 ## 6. 資料供應模型與正式資料來源
 
+各因子的實際收錄母體、關注／持股深度、資料筆數估算與 retention/歷史保護對照，見 [因子收錄與保存矩陣](factor-coverage-retention-ledger.md)。實測 row count 不能用估計替代。
+
 ### 6.1 雙軌 coverage
 
 | 軌道 | 對象 | 預設頻率 | 必要資料 | 用途 |
