@@ -1,5 +1,6 @@
 name: Janus D04 backup and scheduler least-privilege readback
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths: ['ops/d04-backup-access-readback.json']
@@ -56,6 +57,9 @@ jobs:
           else:
             report['vm_instances_get']='DENIED_OR_UNAVAILABLE'
             # Do not print IAM error text: it may include sensitive principal IDs.
+          policy=command(['gcloud','compute','instances','get-iam-policy','janus-postgres-dev',
+              '--project='+project,'--zone=us-central1-a','--format=json'])
+          report['vm_iam_policy_read']='PASS' if policy and policy.returncode==0 else 'DENIED_OR_UNAVAILABLE'
           gcs=command(['gcloud','storage','ls',
              'gs://'+project+'-dev-private/pilot-ledger-backups/daily/',
              '--project='+project])

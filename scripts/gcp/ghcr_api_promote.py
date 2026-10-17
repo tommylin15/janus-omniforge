@@ -310,7 +310,7 @@ def promote(release_run, jobs_run, receipt, forward_recovery=False):
                           (jobs_run, ("Janus fenced forward-only GHCR Jobs recovery"
                                       if forward_recovery else "Janus GHCR controlled Jobs rollout"))):
         metadata = json.loads(command(["gh", "run", "view", run, "--json", "headSha,conclusion,status,workflowName"]))
-        if metadata.get("status") != "completed" or metadata.get("conclusion") != "success" or metadata.get("workflowName") != expected:
+        if not jobs.successful_operation(metadata, run, expected, 'release' if run == release_run else 'jobs-rollout'):
             raise ValueError("release_or_jobs_gate_incomplete")
         if run == release_run and metadata.get("headSha") != sha:
             raise ValueError("release_sha_mismatch")

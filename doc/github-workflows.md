@@ -140,10 +140,13 @@ gh workflow run finops-dev.yml -f operation=gcs-hourly-io
 ```bash
 # 手動觸發
 gh workflow run ghcr-dev.yml -f operation=release
+gh workflow run ghcr-dev.yml -f operation=candidate -f release-run=12345678
 gh workflow run ghcr-dev.yml -f operation=jobs-rollout -f release-run=12345678
 
 # 自動觸發：push 對應的 ops/*.json 檔案
 ```
+
+候選操作必須在 `ops/ghcr-candidate-request.json` 指定 `release_run`，或由手動輸入 `release-run` 提供；其成功完整發布 SHA 必須等於 request 的 `sha`。統一 workflow 的成功必須另核對實際 operation jobs；`verify` 成功、其他操作或 skipped gate 不作發布證據。候選與 OAuth 步驟沿既有 GHCR 流程，不呼叫舊 Cloud Build controller。
 
 ## 新增 Workflow 規範
 

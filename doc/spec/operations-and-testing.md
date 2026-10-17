@@ -4,6 +4,8 @@
 
 | 驗收範圍 | 證據 | 判定與限制 |
 |---|---|---|
+| D01～D05 合併測試（2026-10-17） | [verify #38988061360](https://github.com/tommylin15/janus-omniforge/actions/runs/38988061360)，來源 `1911d228` | **TESTS PASS ONLY**：Python 1343 passed、2 deselected，包含隔離 PostgreSQL 現金 anchor／股利／更正／REVERSAL／冪等／跨 Owner；Flutter完整 analyze/test/build PASS。發布、candidate、auth、Jobs、promote均 skipped；不是發版或業務整包PASS。後續 D05 入口及 UI 修正需另驗新來源。 |
+| D03 真實登入手機檢查（2026-10-17） | 本對話使用者完成登入，正式 `/app/build-id.txt`=`8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699`；390×844 四頁唯讀觀察 | **PARTIAL／發現實作缺口**：持股頁可讀同日2026-10-16總計及ledger v357，關注5/50及價量可讀；總資產卡深色主題低對比、個股持股初始誤顯無持股後逾時顯不可用。修正待新來源發布後重驗；未新增交易或重送重算。未將畫面數值寫入fixture。 |
 | DRL-01 TPEX full market 20-day depth | [#38920178493](https://github.com/tommylin15/janus-omniforge/actions/runs/38920178493) | **PASS TPEX scope**：獨立最新Core100153 OHLCV rows；797/896（88.95%）有至少20日，766股最近20日全具價；來源有官方21有效交易日獨立Stage/Core readback。持股120日與TWSE另驗。 |
 | DRL-01 TWSE official full-market daily canary | [#38919999165](https://github.com/tommylin15/janus-omniforge/actions/runs/38919999165)、[#38920851638](https://github.com/tommylin15/janus-omniforge/actions/runs/38920851638) | **6個交易日逐日PASS**：10/01 498→1089/1096，Oct08、12～15合格1089～1091/1096；[接續五日 #38921645858](https://github.com/tommylin15/janus-omniforge/actions/runs/38921645858)尚待真實終態，不能稱TWSE20日PASS。 |
 | DRL-01 MOPS月營收舊期間identity | [#38893774756](https://github.com/tommylin15/janus-omniforge/actions/runs/38893774756) | **PASS**：3,947個月欄缺值修復，Core readback缺值0、總筆數保持；不是13月深度證明。 |

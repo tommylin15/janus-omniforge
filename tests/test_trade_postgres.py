@@ -208,3 +208,25 @@ def test_cash_reset_versions_owner_boundary_and_failed_trade_are_atomic(ledger):
     reset = repo.set_cash_position(owner, CashPositionIn(amount='500', expected_version=1), 'reset')
     assert reset['cash_balance'] == 500
     assert reset['anchor_ledger_version'] == repo.latest_ledger_version(owner)
+
+
+def test_concurrent_cash_resets_commit_only_one_expected_version(ledger):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    repo, (owner, other) = ledger
+    barrier = Barrier(2)
+    def reset(amount):
+        barrier.wait(timeout=10)
+        try:
+            return repo.set_cash_position(owner,
+                CashPositionIn(amount=amount, expected_version=0), 'cash-' + amount)
+        except ConflictError:
+            return None
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(reset, ('100', '200')))
+    committed = [result for result in results if result is not None]
+    assert len(committed) == 1
+    assert repo.cash_position(owner)['cash_balance'] == committed[0]['cash_balance']
+    assert repo.cash_position(owner)['cash_version'] == 1
+    assert repo.latest_ledger_version(owner) == 0
+    assert repo.cash_position(other)['cash_status'] == 'not_configured'

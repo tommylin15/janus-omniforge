@@ -51,9 +51,8 @@ def provenance(req):
     for name, expected in specs:
         metadata=json.loads(command(["gh","run","view",req[name],
                                      "--json","headSha,status,conclusion,workflowName"]))
-        if (metadata.get("status")!="completed"
-                or metadata.get("conclusion")!="success"
-                or metadata.get("workflowName")!=expected):
+        if not jobs.successful_operation(metadata, req[name], expected,
+                {'release_run': 'release', 'candidate_run': 'candidate', 'boundary_run': 'auth-boundary'}[name]):
             raise ValueError("preview_provenance_workflow_incomplete")
         head=metadata.get("headSha")
         if not isinstance(head,str) or not SHA.fullmatch(head):

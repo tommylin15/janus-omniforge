@@ -106,11 +106,13 @@ void main() {
     };
     snapshot['total_asset_value'] = '1279278.90';
     snapshot['asset_status'] = 'available';
-    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(
+    await tester.pumpWidget(MaterialApp(theme: ThemeData.dark(), home: FinalLedgerPage(
       HoldingsP0Api(snapshot), active: false,
       now: () => DateTime.utc(2026, 10, 12, 7))));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('ledger-total-assets')), findsOneWidget);
+    final assetCard = tester.widget<Card>(find.byKey(const Key('ledger-total-assets')));
+    expect(assetCard.color, Colors.white);
     expect(find.text('現金部位'), findsOneWidget);
     expect(find.text('現金＋持股市值'), findsOneWidget);
     expect(find.text('34.6 萬元'), findsOneWidget);

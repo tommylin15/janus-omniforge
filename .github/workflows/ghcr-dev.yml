@@ -32,6 +32,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
   packages: write
   actions: read
   id-token: write
@@ -210,19 +211,165 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/setup-janus
-        with:
-          install-deps: minimal
-          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
-      - name: Validate contracts
-        run: python -m pytest -q tests/test_ghcr_release_lease.py tests/test_ghcr_candidate_lease_guard.py
-      - name: Install skopeo
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
-      - name: Deploy 0% candidate
+      - name: Verify exact-source full release before candidate writes
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python scripts/gcp/cicd-v2-candidate.py
+          RELEASE_RUN: ${{ needs.detect.outputs.release-run }}
+        run: |
+          python - <<'PY'
+          import json, os, re, sys
+          from pathlib import Path
+          sys.path.insert(0, 'scripts/gcp')
+          from ghcr_jobs_rollout import command, successful_operation
+          requested = json.loads(Path('ops/ghcr-candidate-request.json').read_text())
+          release_run = str(requested.get('release_run') or os.environ.get('RELEASE_RUN') or '')
+          if not re.fullmatch(r'[0-9]+', release_run):
+              raise SystemExit('candidate_full_release_run_required')
+          metadata = json.loads(command(['gh','run','view',release_run,'--json',
+                                         'headSha,status,conclusion,workflowName']))
+          if (metadata.get('headSha') != requested.get('sha') or not successful_operation(
+                  metadata, release_run, 'Janus GHCR full-test image publication', 'release')):
+              raise SystemExit('candidate_full_release_not_verified')
+          PY
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify lease and candidate recovery contracts before any GCP write
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_release_lease.py tests/test_ghcr_candidate_lease_guard.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Inspect public GHCR digest and source-commit request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -f ops/ghcr-candidate-request.json
+          test "${GITHUB_REF}" = refs/heads/main
+          jq -e '.intent == "dev-api-zero-traffic" and (.sha|test("^[0-9a-f]{40}$")) and ((.digest // "") | (length == 0 or test("^sha256:[0-9a-f]{64}$")))' ops/ghcr-candidate-request.json > /dev/null
+          sha="$(jq -r .sha ops/ghcr-candidate-request.json)"
+          declared="$(jq -r '.digest // ""' ops/ghcr-candidate-request.json)"
+          git merge-base --is-ancestor "$sha" HEAD
+          # Read manifest from public GHCR using exact, previously published SHA tag.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo
+          skopeo inspect --no-creds "docker://ghcr.io/tommylin15/janus-api:sha-${sha}" > /tmp/ghcr-identity.json
+          digest="$(jq -r '.Digest // empty' /tmp/ghcr-identity.json)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 2
+          [[ -z "$declared" || "$declared" == "$digest" ]] || exit 2
+          image="ghcr.io/tommylin15/janus-api@${digest}"
+          # Recheck exact immutable digest, without any registry credentials.
+          skopeo inspect --no-creds "docker://${image}" > /tmp/ghcr-by-digest.json
+          test "$(jq -r .Digest /tmp/ghcr-by-digest.json)" = "$digest"
+          test "$(jq -r '.Labels["org.opencontainers.image.revision"]' /tmp/ghcr-identity.json)" = "$sha"
+          test "$(jq -r '.Labels["org.opencontainers.image.source"]' /tmp/ghcr-identity.json)" = "https://github.com/tommylin15/janus-omniforge"
+          echo "GHCR_PUBLIC_IMAGE=${image}" >> "$GITHUB_ENV"
+          echo "GHCR_EXACT_SHA=${sha}" >> "$GITHUB_ENV"
+      - name: Preflight dev API identity, traffic and minimum instances
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json > /tmp/service-before.json
+          jq -e '.status.conditions | any(.type=="Ready" and .status=="True")' /tmp/service-before.json >/dev/null
+          jq -e '[.status.traffic[]? | select((.percent // 0)>0)] | length == 1 and .[0].percent == 100' /tmp/service-before.json >/dev/null
+          # Revision-level minScale plus candidate tag could incur ongoing costs.
+          jq -e '((.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // "0") | tonumber) == 0' /tmp/service-before.json > /dev/null
+          jq '{service:.metadata.name,active:[.status.traffic[]?|select((.percent//0)>0)|{revisionName,percent}],latestReady:.status.latestReadyRevisionName}' /tmp/service-before.json > /tmp/metadata-before.json
+          cat /tmp/metadata-before.json
+      - name: Acquire atomic global deployment lease
+        id: lease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py acquire
+          echo "held=true" >> "$GITHUB_OUTPUT"
+      - name: Read back immutable baseline under lease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py assert
+          gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json > /tmp/service-before-locked.json
+          jq -e '.metadata.name == "janus-api" and (.status.conditions | any(.type=="Ready" and .status=="True"))' /tmp/service-before-locked.json >/dev/null
+          jq -e '[.status.traffic[]? | select((.percent // 0)>0)] | length == 1 and .[0].percent == 100' /tmp/service-before-locked.json >/dev/null
+          jq -e '((.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // "0") | tonumber) == 0' /tmp/service-before-locked.json > /dev/null
+      - name: Create fixed-digest candidate without switching traffic
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py assert
+          tag="ghcr-${GHCR_EXACT_SHA:0:12}"
+          # Same immutable SHA+digest retry reuses its verified 0% candidate,
+          # instead of creating unbounded extra revisions.
+          existing_revision="$(jq -r --arg tag "$tag" '.status.traffic[]? | select(.tag == $tag) | .revisionName // empty' /tmp/service-before-locked.json)"
+          if [[ -n "$existing_revision" ]]; then
+            jq -e --arg tag "$tag" '[.status.traffic[]? | select(.tag == $tag)] | length == 1 and ((.[0].percent // 0) == 0)' /tmp/service-before-locked.json >/dev/null
+            test "$(jq -r '.spec.template.spec.containers[0].image // empty' /tmp/service-before-locked.json)" = "$GHCR_PUBLIC_IMAGE"
+            gcloud run revisions describe "$existing_revision" --project="$PROJECT" --region="$REGION" --format=json > /tmp/reused-revision.json
+            jq -e --arg image "$GHCR_PUBLIC_IMAGE" '((.spec.containers[0].image == $image) or (.spec.containers[0].image == ("cache.us-docker.pkg.dev/" + $image))) and (.status.conditions | any(.type=="Ready" and .status=="True"))' /tmp/reused-revision.json >/dev/null
+            echo "Reused existing 0% GHCR digest candidate: $existing_revision" >> "$GITHUB_STEP_SUMMARY"
+          else
+            gcloud run deploy "$SERVICE" --project="$PROJECT" --region="$REGION" --image="$GHCR_PUBLIC_IMAGE" --no-traffic --tag="$tag" --quiet > /dev/null
+          fi
+          gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json > /tmp/service-candidate.json
+          jq -e --arg tag "$tag" '[.status.traffic[]? | select(.tag==$tag)] | length == 1 and (.[0].percent // 0) == 0' /tmp/service-candidate.json >/dev/null
+          before="$(jq -r '.active[0].revisionName' /tmp/metadata-before.json)"
+          jq -e --arg old "$before" '[.status.traffic[]?|select((.percent//0)>0)] | length == 1 and .[0].revisionName == $old and .[0].percent == 100' /tmp/service-candidate.json >/dev/null
+          url="$(jq -r --arg tag "$tag" '.status.traffic[]|select(.tag==$tag)|.url' /tmp/service-candidate.json)"
+          [[ "$url" == https://* ]] || exit 2
+          for path in /health /api/v1/public/health; do
+            test "$(curl -sS --max-time 30 -o /dev/null -w '%{http_code}' "$url$path")" = 200
+          done
+          test "$(curl -sS --max-time 30 -o /dev/null -w '%{http_code}' "$url/api/v1/me/profile")" = 401
+          test "$(curl -fsS --max-time 30 "$url/app/build-id.txt")" = "$GHCR_EXACT_SHA"
+          {
+            echo "### Janus GHCR API candidate"
+            echo "Exact source SHA: $GHCR_EXACT_SHA"
+            echo "Immutable image: $GHCR_PUBLIC_IMAGE"
+            echo "Candidate tagged URL: $url"
+            echo "0% normal traffic; old 100% active revision: $before"
+            echo "Health and unauthenticated guard PASS; **authenticated owner/OAuth/MCP and four-Jobs acceptance not yet performed**."
+            echo "Promotion is deliberately NOT performed by this workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify safe candidate baseline and release owned lease
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          if ! python scripts/gcp/ghcr_release_lease.py assert >/dev/null 2>&1; then
+            state="$(python scripts/gcp/ghcr_release_lease.py inspect | jq -r .status)"
+            if [[ "$state" == "ABSENT" && "${{ steps.lease.outputs.held }}" != "true" ]]; then
+              echo 'No lease acquired; no deployment cleanup needed.' >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo 'BLOCKED: lease owner/readback uncertain. Do not release or promote.' >&2
+            exit 78
+          fi
+          # Never clear after an ambiguous deployment without a verified
+          # fully reconciled live Service and unchanged 100% baseline.
+          test -s /tmp/service-before-locked.json
+          [[ "${GHCR_PUBLIC_IMAGE:-}" == ghcr.io/tommylin15/janus-api@sha256:* ]]
+          [[ "${GHCR_EXACT_SHA:-}" =~ ^[0-9a-f]{40}$ ]]
+          tag="ghcr-${GHCR_EXACT_SHA:0:12}"
+          gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json > /tmp/service-after-locked.json
+          python scripts/gcp/ghcr_candidate_lease_guard.py \
+            --before /tmp/service-before-locked.json \
+            --after /tmp/service-after-locked.json \
+            --image "$GHCR_PUBLIC_IMAGE" --tag "$tag"
+          python scripts/gcp/ghcr_release_lease.py assert
+          python scripts/gcp/ghcr_release_lease.py release --safe-to-release
+          echo 'Global lease released after live baseline and candidate 0% readback. Owner OAuth/MCP/PnL still pending; promotion not authorized.' >> "$GITHUB_STEP_SUMMARY"
 
   # ============ PREVIEW ============
   preview:
@@ -263,15 +410,136 @@ jobs:
     environment: dev
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-janus
         with:
-          install-deps: minimal
-          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
-      - name: Validate OAuth boundary
+          fetch-depth: 0
+      - name: Verify boundary-only current candidate SHA contract
         run: |
-          python -m pytest -q tests/test_ghcr_candidate_auth_boundary.py
-          python scripts/gcp/ghcr_candidate_auth_boundary.py
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_candidate_auth_boundary_contract.py
+      - name: Resolve explicitly requested full SHA without runtime mutation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent == "dev-api-zero-traffic" and
+                 (.sha|test("^[0-9a-f]{40}$")) and
+                 .promotion == false and .scope == "janus-api-only" and
+                 .allow_service_traffic_promotion == false and
+                 .allow_job_image_update == false' ops/ghcr-candidate-request.json >/dev/null
+          # Independent probe request keeps this read-only validation ordered
+          # *after* candidate deployment; a candidate-request push alone must
+          # not race its own 0% deployment.
+          jq -e '.intent == "verify-ghcr-candidate-boundary" and
+                 .scope == "read-only" and .no_gcp_mutation == true and
+                 (.sha|test("^[0-9a-f]{40}$"))' ops/ghcr-candidate-boundary-request.json >/dev/null
+          EXPECTED_SHA="$(jq -r .sha ops/ghcr-candidate-request.json)"
+          test "$EXPECTED_SHA" = "$(jq -r .sha ops/ghcr-candidate-boundary-request.json)"
+          CANDIDATE_TAG="ghcr-${EXPECTED_SHA:0:12}"
+          git merge-base --is-ancestor "$EXPECTED_SHA" HEAD
+          echo "EXPECTED_SHA=$EXPECTED_SHA" >> "$GITHUB_ENV"
+          echo "CANDIDATE_TAG=$CANDIDATE_TAG" >> "$GITHUB_ENV"
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Confirm zero-traffic fixed-digest candidate is still tagged
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json > /tmp/current-service.json
+          jq -e --arg tag "$CANDIDATE_TAG" '
+            [.status.traffic[]? | select(.tag == $tag)] |
+            length == 1 and (.[0].percent // 0) == 0' /tmp/current-service.json >/dev/null
+          # Previous serving baseline may already be GHCR. Do not embed an
+          # obsolete AR revision name in the next candidate's read-only gate.
+          jq -e --arg tag "$CANDIDATE_TAG" '
+            ([.status.traffic[]? | select((.percent // 0)>0)] |
+             length == 1 and .[0].percent == 100) and
+            ([.status.traffic[]? | select(.tag == $tag)] |
+             length == 1 and (.[0].percent // 0) == 0)' /tmp/current-service.json >/dev/null
+          jq -e '.status.conditions | any(.type == "Ready" and .status == "True")' /tmp/current-service.json >/dev/null
+          candidate="$(jq -r --arg tag "$CANDIDATE_TAG" '.status.traffic[]? | select(.tag==$tag) | .url' /tmp/current-service.json)"
+          [[ "$candidate" == https://* ]] || exit 2
+          echo "JANUS_CANDIDATE_URL=$candidate" >> "$GITHUB_ENV"
+      - name: Probe OAuth metadata, private read boundaries and MCP auth challenge
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.error, urllib.request
+          from urllib.parse import urlparse
+
+          base = os.environ["JANUS_CANDIDATE_URL"].rstrip("/")
+          results = {}
+
+          def request(path, payload=None):
+              data = json.dumps(payload).encode() if payload is not None else None
+              headers = {"Accept":"application/json"}
+              if data is not None:
+                  headers["Content-Type"] = "application/json"
+              req = urllib.request.Request(base+path, data=data, headers=headers, method="POST" if data is not None else "GET")
+              try:
+                  with urllib.request.urlopen(req, timeout=25) as response:
+                      return response.status, response.headers, response.read(96_000)
+              except urllib.error.HTTPError as error:
+                  return error.code, error.headers, error.read(96_000)
+
+          def assert_private(path):
+              code, _, _ = request(path)
+              results[path] = {"status_code":code,"unauthenticated_rejected":code in (401,403)}
+              assert code in (401,403), path
+
+          for path in (
+              "/api/v1/me/profile",
+              "/api/v1/me/journal/positions",
+              "/api/v1/me/journal/pnl",
+              "/api/v1/me/portfolio/summary",
+              "/api/v1/me/portfolio/performance",
+              "/api/v1/admin/data-governance",
+          ):
+              assert_private(path)
+
+          for path in ("/.well-known/oauth-protected-resource",
+                       "/.well-known/oauth-authorization-server"):
+              status, _, raw = request(path)
+              data = json.loads(raw) if status == 200 else {}
+              results[path] = {"status_code":status,"metadata_nonempty":bool(data)}
+              assert status == 200 and isinstance(data,dict), path
+              if path.endswith("oauth-protected-resource"):
+                  assert data.get("resource","").startswith("https://")
+                  assert all(v.startswith("https://") for v in data.get("authorization_servers", []))
+                  assert data.get("authorization_servers")
+              else:
+                  assert data.get("issuer", "").startswith("https://")
+                  assert data.get("token_endpoint", "").startswith(data["issuer"])
+                  assert "S256" in data.get("code_challenge_methods_supported", [])
+                  assert "refresh_token" in data.get("grant_types_supported", [])
+              results[path]["contract_pass"] = True
+
+          payload={"jsonrpc":"2.0","id":1,"method":"tools/call",
+                   "params":{"name":"janus_private_context","arguments":{"resource":"positions","limit":1}}}
+          status,headers,raw=request("/mcp",payload)
+          response=json.loads(raw) if raw else {}
+          auth_header=headers.get("WWW-Authenticate","")
+          results["/mcp-private-tools-call"]={
+              "status_code":status,
+              "challenge_present":auth_header.startswith("Bearer "),
+              "is_error":bool(response.get("result",{}).get("isError"))}
+          assert status == 401 and auth_header.startswith("Bearer "), "MCP unauthenticated failure"
+          assert response.get("result",{}).get("isError") is True
+
+          status,_,raw=request("/app/build-id.txt")
+          assert status==200 and raw.decode().strip()==os.environ["EXPECTED_SHA"]
+          results["build_identity"]={"sha_verified":True}
+          print(json.dumps({"scope":"unauthenticated_negative_and_metadata_only","result":"PASS",
+                            "checks":results},sort_keys=True))
+          PY
+          {
+            echo "## GHCR API candidate — unauthenticated boundary probe"
+            echo "Candidate still at 0% canonical traffic; prior revision retained 100%."
+            echo "OAuth metadata and negative owner/Admin/MCP boundaries: PASS."
+            echo "**Not verified:** a real logged-in owner, OAuth callback, PnL correctness, refresh token, or owner isolation."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============ JOBS ROLLOUT ============
   jobs-rollout:

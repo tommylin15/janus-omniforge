@@ -1327,6 +1327,32 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Stock holdings wait for DB snapshot without false empty or slow fallback',
+      (tester) async {
+    mobileView(tester);
+    final snapshot = Completer<dynamic>();
+    final api = FinalFakeApi({
+      '/api/v1/me/portfolio/snapshot': snapshot.future,
+      '/api/v1/me/portfolio/quotes': Exception('slow legacy quotes'),
+      '/api/v1/me/journal/positions': Exception('slow legacy positions'),
+    });
+    await tester.pumpWidget(MaterialApp(
+      home: FinalStockDetailPage(api: api, symbol: '2330')));
+    await tester.pump();
+    expect(find.text('持股資料載入中'), findsOneWidget);
+    expect(find.text('目前無持股'), findsNothing);
+    snapshot.complete({'positions': [{
+      'symbol': '2330', 'shares': '2', 'average_cost': '100',
+      'market_price': '125', 'unrealized_pnl': '50', 'unrealized_return': '0.25',
+    }]});
+    await tester.pumpAndSettle();
+    expect(find.text('持有 2 股'), findsOneWidget);
+    expect(find.text('未實現損益 50 · 25%'), findsOneWidget);
+    expect(find.text('持股資料尚未取得'), findsNothing);
+    expect(api.reads, isNot(contains('/api/v1/me/portfolio/quotes')));
+    expect(api.reads, isNot(contains('/api/v1/me/journal/positions')));
+  });
+
   testWidgets('Stock Detail shows a primary chart, cached period change and zoom',
       (tester) async {
     mobileView(tester);

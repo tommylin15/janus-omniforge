@@ -49,7 +49,7 @@ Primary content 依 [四頁正式UI規格的「個股」節](visual-first-four-p
 
 `StockHeader` 顯示 latest-price resolver 的現價／正式收盤價與行情日；backend bounded 讀最近兩筆 canonical OHLCV，回傳 `previous_close/change/change_percent`。正值紅、負值綠、0／未知中性；Flutter 不另抓行情重算漲跌。
 
-「我的持股」價格／market value／unrealized PnL／return 優先讀 owner-scoped `/api/v1/me/portfolio/quotes` latest-price valuation；`/journal/positions` 只作 operational fallback，避免 Stock Header 已更新但持股卡仍停在舊價格。未實現損益與百分比同樣採獲利紅、虧損綠。
+「我的持股」首屏優先讀 owner-scoped `/api/v1/me/portfolio/snapshot` 的 DB-only 持股與持久化報價；失敗才沿 `/portfolio/quotes`／`/journal/positions` 相容備援，前景行情更新仍走 quotes。成功的快照不受較慢備援請求失敗覆蓋；尚未讀回前顯示載入中，不能先稱無持股。未實現損益與百分比同樣採獲利紅、虧損綠。
 
 短價量圖與圖表總覽入口屬 primary，不得僅在 Advanced 展開後才看得到。完整 K 線、Fact Pack、五 specialist 完整 artifacts、CEO report、參數及 provenance 可按需留 Advanced；未成熟 series 顯示具體資料缺口。
 

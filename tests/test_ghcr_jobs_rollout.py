@@ -12,6 +12,40 @@ sys.path.insert(0, str(ROOT / "scripts/gcp"))
 import ghcr_jobs_rollout as rollout
 
 
+@pytest.mark.parametrize('operation,names', [
+    ('release', ['release-tests', 'release-flutter', 'release-verify'] +
+     [f'release-publish ({part})' for part in ('api', 'ingestion-core', 'intelligence-mart', 'private-pipeline')]),
+    ('auth-boundary', ['auth-boundary']),
+    ('candidate', ['candidate']),
+    ('jobs-rollout', ['jobs-rollout']),
+])
+def test_unified_provenance_requires_real_operation_jobs(monkeypatch, operation, names):
+    metadata = dict(status='completed', conclusion='success',
+                    workflowName='Janus GHCR operations', headSha='a'*40)
+    identity = dict(path='.github/workflows/ghcr-dev.yml', head_sha='a'*40, head_branch='main')
+    jobs = [dict(name=name, status='completed', conclusion='success') for name in names]
+    monkeypatch.setattr(rollout, 'command', lambda args: json.dumps(identity if args[1] == 'api' else {'jobs': jobs}))
+    assert rollout.successful_operation(metadata, '123', 'legacy', operation)
+    jobs[-1]['conclusion'] = 'skipped'
+    assert not rollout.successful_operation(metadata, '123', 'legacy', operation)
+    jobs[-1]['conclusion'] = 'success'
+    identity['path'] = '.github/workflows/unrelated.yml'
+    assert not rollout.successful_operation(metadata, '123', 'legacy', operation)
+    identity['path'] = '.github/workflows/ghcr-dev.yml'
+    identity['head_sha'] = 'b'*40
+    assert not rollout.successful_operation(metadata, '123', 'legacy', operation)
+
+
+def test_verify_success_cannot_be_used_as_a_full_release(monkeypatch):
+    metadata = dict(status='completed', conclusion='success',
+                    workflowName='Janus GHCR operations', headSha='a'*40)
+    identity = dict(path='.github/workflows/ghcr-dev.yml', head_sha='a'*40, head_branch='main')
+    jobs = [dict(name=name, status='completed', conclusion='success')
+            for name in ('release-tests', 'release-flutter')]
+    monkeypatch.setattr(rollout, 'command', lambda args: json.dumps(identity if args[1] == 'api' else {'jobs': jobs}))
+    assert not rollout.successful_operation(metadata, '123', 'legacy', 'release')
+
+
 def test_transient_control_get_retries_but_dispatch_does_not(monkeypatch):
     from urllib.error import HTTPError
     import io

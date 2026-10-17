@@ -559,6 +559,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                 : '待完整估值';
     return Card(
       key: const Key('ledger-total-assets'),
+      color: Colors.white,
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 0,
       child: Padding(

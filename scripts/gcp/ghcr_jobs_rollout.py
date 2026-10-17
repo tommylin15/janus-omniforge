@@ -24,6 +24,30 @@ BASE = "https://run.googleapis.com/v2/"
 PIN = re.compile(r"^[a-z0-9./-]+@sha256:[0-9a-f]{64}$")
 
 
+def successful_operation(metadata, run, legacy_name, operation):
+    """Unified runs need their operation's jobs, not just a green workflow."""
+    if metadata.get('status') != 'completed' or metadata.get('conclusion') != 'success':
+        return False
+    if metadata.get('workflowName') == legacy_name:
+        return True
+    if metadata.get('workflowName') != 'Janus GHCR operations':
+        return False
+    identity = json.loads(command(['gh', 'api',
+        f'repos/tommylin15/janus-omniforge/actions/runs/{run}']))
+    if (identity.get('path') != '.github/workflows/ghcr-dev.yml'
+            or identity.get('head_sha') != metadata.get('headSha')
+            or identity.get('head_branch') != 'main'):
+        return False
+    data = json.loads(command(['gh', 'run', 'view', str(run), '--json', 'jobs']))
+    required = (['release-tests', 'release-flutter', 'release-verify'] +
+                [f'release-publish ({component})' for component in
+                 ('api', 'ingestion-core', 'intelligence-mart', 'private-pipeline')]
+                if operation == 'release' else [operation])
+    return all(len([job for job in data.get('jobs', []) if job.get('name') == name
+                    and job.get('status') == 'completed' and job.get('conclusion') == 'success']) == 1
+               for name in required)
+
+
 def cloud(path, body=None, method=None):
     # Tokens stay in memory and headers, never argv, receipt or exception text.
     token = command(["gcloud", "auth", "print-access-token"]).strip()
@@ -272,9 +296,7 @@ def automated_oauth_acceptance(sha, boundary_run):
         raise ValueError("automated_oauth_candidate_sha_mismatch")
     result = json.loads(command(["gh", "run", "view", boundary_run, "--json",
                                  "headSha,status,conclusion,workflowName"]))
-    if (result.get("status") != "completed"
-            or result.get("conclusion") != "success"
-            or result.get("workflowName") != "GHCR candidate OAuth and private-boundary probe"
+    if (not successful_operation(result, boundary_run, "GHCR candidate OAuth and private-boundary probe", 'auth-boundary')
             or not isinstance(result.get("headSha"), str)
             or not re.fullmatch(r"[0-9a-f]{40}", result["headSha"])):
         raise ValueError("automated_oauth_boundary_not_verified")
@@ -358,8 +380,8 @@ def run(release_run, receipt):
     rollback_mode = release_rollback_mode(request, sha)
     automated_oauth_acceptance(sha, request.get("auth_boundary_run"))
     release = json.loads(command(["gh", "run", "view", release_run, "--json", "headSha,status,conclusion,workflowName"]))
-    if (release.get("headSha") != sha or release.get("status") != "completed"
-            or release.get("conclusion") != "success" or release.get("workflowName") != "Janus GHCR full-test image publication"):
+    if (release.get("headSha") != sha or not successful_operation(
+            release, release_run, "Janus GHCR full-test image publication", 'release')):
         raise ValueError("full_release_not_successful")
     targets = {}
     for name, component in JOB_COMPONENT:

@@ -25,8 +25,11 @@ def test_active_ghcr_release_is_exact_sha_tested_before_immutable_public_publish
 
 
 def test_active_ghcr_operations_keep_canonical_and_jobs_fail_closed():
-    assert "python scripts/gcp/cicd-v2-candidate.py" in GHCR
-    assert "python scripts/gcp/ghcr_candidate_auth_boundary.py" in GHCR
+    assert 'gcloud run deploy "$SERVICE"' in GHCR and '--no-traffic' in GHCR
+    assert 'ghcr_candidate_lease_guard.py' in GHCR
+    assert 'scripts/gcp/cicd-v2-candidate.py' not in GHCR
+    assert 'scripts/gcp/ghcr_candidate_auth_boundary.py' not in GHCR
+    assert 'Probe OAuth metadata, private read boundaries and MCP auth challenge' in GHCR
     assert "python scripts/gcp/ghcr_preview_publish.py" in GHCR
     assert "python scripts/gcp/ghcr_jobs_rollout.py --release-run" in GHCR
     assert "python scripts/gcp/ghcr_jobs_rollout.py --recover" in GHCR
@@ -57,3 +60,26 @@ def test_verify_runs_full_suites_without_publishing_or_changing_runtime():
         assert "'verify'" not in jobs[name]['if']
     assert "needs.detect.outputs.operation == 'release'" in jobs['release-publish']['if']
     assert jobs['release-verify']['needs'] == ['detect', 'release-publish']
+
+
+def test_candidate_and_boundary_keep_source_lease_and_negative_auth_guards():
+    import ast
+    import re
+    import yaml
+    workflow = yaml.safe_load(GHCR)
+    assert workflow['permissions']['actions'] == 'read'
+    jobs = workflow['jobs']
+    candidate = '\n'.join(step.get('run', '') for step in jobs['candidate']['steps'])
+    boundary = '\n'.join(step.get('run', '') for step in jobs['auth-boundary']['steps'])
+    for guard in ('skopeo inspect --no-creds', 'git merge-base --is-ancestor',
+                  'ghcr_release_lease.py acquire', 'ghcr_release_lease.py assert',
+                  'ghcr_candidate_lease_guard.py', '--no-traffic',
+                  'candidate_full_release_not_verified'):
+        assert guard in candidate
+    for guard in ('S256', 'refresh_token', 'WWW-Authenticate', 'build-id.txt',
+                  '/api/v1/me/journal/pnl', 'no_gcp_mutation == true'):
+        assert guard in boundary
+    assert 'gcloud run deploy' not in boundary
+    for script in (candidate, boundary):
+        for embedded in re.findall(r"python(?:3)? - <<'PY'\n(.*?)\nPY", script, re.S):
+            ast.parse(embedded)

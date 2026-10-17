@@ -178,7 +178,6 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
         '/api/v1/me/analysis/${Uri.encodeComponent(widget.symbol)}'));
     unawaited(Future.wait([
       safe('health', '/api/v1/public/stock-health/${Uri.encodeComponent(widget.symbol)}'),
-      safe('positions', '/api/v1/me/journal/positions'),
       safe('notes', '/api/v1/me/notes?symbol=${Uri.encodeQueryComponent(widget.symbol)}'),
       safe('events', '/api/v1/public/events/${Uri.encodeComponent(widget.symbol)}'),
     ]));
@@ -186,7 +185,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
     try {
       await Future.wait([
         safe('header', '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}'),
-        safe('quotes', '/api/v1/me/portfolio/quotes'),
+        loadHoldings(),
       ]);
     } finally {
       stopwatch.stop();
@@ -195,6 +194,17 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
         setState(() => loading = false);
       }
     }
+  }
+
+  Future<void> loadHoldings() async {
+    final epoch = requestEpoch;
+    final snapshot = await safe('quotes', '/api/v1/me/portfolio/snapshot');
+    if (!mounted || epoch != requestEpoch) return;
+    if (snapshot is Map && snapshot['positions'] is List) return;
+    await Future.wait([
+      safe('quotes', '/api/v1/me/portfolio/quotes'),
+      safe('positions', '/api/v1/me/journal/positions'),
+    ]);
   }
 
   Future<void> loadKline({bool force = false}) async {
@@ -466,8 +476,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
               ),
             ),
             fvSectionTitle(context, '我的持股'),
-            if (errors.contains('positions'))
-              fvBoundedState('持股資料尚未取得')
+            if (fvMap(values['quotes'])['positions'] is! List && values['positions'] is! List)
+              fvBoundedState(loading ? '持股資料載入中' : '持股資料尚未取得')
             else if (position.isEmpty)
               fvBoundedState('目前無持股')
             else

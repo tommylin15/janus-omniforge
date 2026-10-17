@@ -69,7 +69,14 @@ jobs:
           set -Eeuo pipefail
           [[ "$RELEASE_RUN" =~ ^[0-9]+$ ]]
           gh run view "$RELEASE_RUN" --json headSha,conclusion,status,workflowName >/tmp/release.json
-          jq -e '.status=="completed" and .conclusion=="success" and .workflowName=="Janus GHCR full-test image publication"' /tmp/release.json >/dev/null
+          python - <<'PY'
+          import json, os, sys
+          sys.path.insert(0, 'scripts/gcp')
+          from ghcr_jobs_rollout import successful_operation
+          if not successful_operation(json.load(open('/tmp/release.json')), os.environ['RELEASE_RUN'],
+                  'Janus GHCR full-test image publication', 'release'):
+              raise SystemExit('full_release_not_successful')
+          PY
           sha="$(jq -r .headSha /tmp/release.json)"
           if [[ -n "$EXPECTED_RELEASE_SHA" ]]; then
             test "$sha" = "$EXPECTED_RELEASE_SHA"
