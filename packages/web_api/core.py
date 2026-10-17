@@ -247,6 +247,27 @@ class CoreQueryService:
         response["usable_points"] = len(usable)
         response["data_as_of"] = usable[-1]["date"] if usable else None
         response["source_ids"] = sorted({str(point["source_id"]) for point in points if point["source_id"]})
+        if metric == "eps":
+            # The launch gate measures only currently due quarters, not
+            # unproven prior-year Q4, trailing-four-quarter EPS or TTM.
+            local_today = datetime.now(ZoneInfo("Asia/Taipei")).date()
+            required = ([1, 2, 3] if local_today.month >= 12 else
+                        [1, 2] if local_today.month >= 9 else
+                        [1] if local_today.month >= 6 else [])
+            available = sorted({
+                (date.fromisoformat(str(point["date"])).month - 1) // 3 + 1
+                for point in usable
+                if date.fromisoformat(str(point["date"])).year == local_today.year
+            })
+            response["eps_current_year"] = {
+                "year": local_today.year,
+                "required_quarters": required,
+                "available_quarters": available,
+                "status": "ready" if required and set(required).issubset(available)
+                          else "not_due" if not required else "partial",
+                "trailing_four_quarter_status": "not_certified",
+                "calculation_version": "official-due-quarters-mvp-v1",
+            }
         if metric == "revenue":
             # A month-to-month chart is useful even if the same-month year-ago
             # comparator is missing. Never invent an annual growth observation.
