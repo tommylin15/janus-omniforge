@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 61,
-  "reason": "DRL-01 2026 EPS MVP production-facing API fix: FastAPI PublicVisualSeriesOut now retains typed eps_current_year (and previously silently stripped revenue_yoy); Core six 2026Q1+Q2 PASS; original serving sync bounded 12 rows, no TTM faking. Full Python/Flutter tests, immutable GHCR, reversible dev release only.",
+  "attempt": 62,
+  "reason": "User-authorized two stock-detail fixes only: quote status/date independent of unavailable research; separate bounded PostgreSQL serving lock from slow Iceberg fallback. Targeted Python 26 and Flutter31 pass; full GHCR release before any dev deployment. No ledger, schema, permissions or Jobs configuration changes.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }

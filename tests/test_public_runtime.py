@@ -252,6 +252,69 @@ def test_empty_published_projection_does_not_trigger_request_time_iceberg_scan()
     assert calls["iceberg"] == 0
 
 
+def test_slow_iceberg_fallback_does_not_block_reconnected_price_projection():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    started, release = Event(), Event()
+    connections = []
+
+    class Iceberg:
+        catalog, engine = object(), object()
+        @classmethod
+        def from_postgres(cls, **_kwargs): return cls()
+
+    class Reader:
+        def __init__(self, _catalog, *, engine): pass
+        def query(self, *_args):
+            started.set()
+            assert release.wait(5)
+            return []
+
+    class Cursor:
+        def __init__(self, fail): self.fail = fail
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        def execute(self, _sql, _params):
+            if self.fail: raise RuntimeError('projection temporarily unavailable')
+        def fetchall(self):
+            return [({'symbol': '2330', 'trade_date': '2026-10-16', 'close': '125'},)]
+
+    class Connection:
+        closed = False
+        def __init__(self, fail): self.fail = fail
+        def cursor(self): return Cursor(self.fail)
+        def close(self): self.closed = True
+
+    def connect(**_kwargs):
+        connection = Connection(not connections)
+        connections.append(connection)
+        return connection
+
+    psycopg = ModuleType('psycopg')
+    psycopg.connect = connect
+    duckdb = ModuleType('packages.duckdb_query')
+    duckdb.DuckDBIcebergCore, duckdb.IcebergQuery = Iceberg, Reader
+    settings = {
+        'GCP_PROJECT_ID': 'project', 'CORE_BUCKET': 'core', 'CATALOG_DB_HOST': 'catalog',
+        'CATALOG_DB_NAME': 'db', 'CATALOG_DB_USER': 'janus_web_catalog', 'CATALOG_DB_PASSWORD': 'secret',
+    }
+    with patch.dict(sys.modules, {'packages.duckdb_query': duckdb, 'psycopg': psycopg}), patch(
+            'services.api.public_runtime._catalog_settings', return_value=settings), patch(
+            'packages.postgres_bundle.load_postgres_bundle'), patch.dict(
+            os.environ, {'PUBLICATION_DB_PASSWORD': 'public-secret'}, clear=False):
+        service = build_core_service()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            slow = pool.submit(service.page, 'ohlcv', '5876', limit=2)
+            try:
+                assert started.wait(2)
+                fast = pool.submit(service.page, 'ohlcv', '2330', limit=2)
+                assert fast.result(timeout=1).rows[0]['close'] == '125'
+            finally:
+                release.set()
+            slow.result(timeout=2)
+
+
 def test_pipeline_backfill_uses_run_overrides_and_never_patches_job():
     service = PipelineService(
         project="project", region="us-central1",

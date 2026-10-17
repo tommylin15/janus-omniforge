@@ -114,6 +114,7 @@ def build_core_service() -> CoreQueryService:
     settings = _catalog_settings()
     reader = None
     lock = Lock()
+    serving_lock = Lock()
     serving_connection: Any | None = None
 
     def connect_serving():
@@ -187,12 +188,10 @@ def build_core_service() -> CoreQueryService:
                     return None
         return None
 
-    # One bounded DuckDB connection is serialized.  Hot stock-detail pages first
-    # consult the rebuildable PostgreSQL projection and fall back to canonical
-    # Iceberg whenever the projection is absent, stale during rollout, or unavailable.
+    # A slow Iceberg fallback must not hold the PostgreSQL first-paint reader.
     def query(identifier: str, sql: str, parameters: Sequence[Any] = ()):
         nonlocal reader
-        with lock:
+        with serving_lock:
             rows = serving_rows(identifier, parameters)
             if market_serving_query(identifier, parameters) is not None:
                 _emit_core_query_source(identifier, "serving_projection")
@@ -200,6 +199,7 @@ def build_core_service() -> CoreQueryService:
             if rows is not None:
                 _emit_core_query_source(identifier, "serving_projection")
                 return rows
+        with lock:
             _emit_core_query_source(identifier, "iceberg_fallback")
             if reader is None:
                 from packages.duckdb_query import DuckDBIcebergCore, IcebergQuery
@@ -215,12 +215,12 @@ def build_core_service() -> CoreQueryService:
 
     def serving_series(dataset: str, symbol: str, limit: int):
         # Return None on connection failure (vs [] for an empty projection).
-        # Serialized by the same bounded reader lock; never fall back to Iceberg.
+        # Share the PostgreSQL connection lock; never fall back to Iceberg.
         identifier = f"core.{dataset}_v1"
-        with lock:
+        with serving_lock:
             return serving_rows(identifier, (symbol, limit, 0))
 
-    def serving_home_market_snapshot() -> dict[str, Any] | None:
+    def read_home_market_snapshot() -> dict[str, Any] | None:
         # Write-time aggregation projection; reads single pre-aggregated row by PK in <5ms.
         nonlocal serving_connection
         for attempt in range(2):
@@ -247,6 +247,10 @@ def build_core_service() -> CoreQueryService:
                 if attempt or not disconnected:
                     return None
         return None
+
+    def serving_home_market_snapshot() -> dict[str, Any] | None:
+        with serving_lock:
+            return read_home_market_snapshot()
 
     return CoreQueryService(query, max_limit=int(os.environ.get("WEB_QUERY_MAX_ROWS", "200")),
                             serving_series=serving_series,

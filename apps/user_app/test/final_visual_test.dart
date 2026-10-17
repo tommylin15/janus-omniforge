@@ -1387,6 +1387,35 @@ void main() {
     expect(api.reads, isNot(contains('/api/v1/me/journal/positions')));
   });
 
+  for (final status in const ['available', 'stale', 'missing']) {
+    testWidgets('Stock quote $status stays independent of research status',
+        (tester) async {
+      mobileView(tester);
+      final api = FinalFakeApi({
+        '/api/v1/public/stock-header/2330': {
+          'stock_name': '台積電', 'close': status == 'missing' ? null : '125',
+          'price_status': status, 'trade_date': '2026-10-16',
+        },
+        '/api/v1/public/stock-health/2330': {
+          'data_status': 'waiting', 'analysis_as_of': '—',
+        },
+        '/api/v1/me/portfolio/snapshot': {'positions': [{
+          'symbol': '2330', 'shares': '2', 'average_cost': '100',
+          'market_price': '125', 'price_date': '2026-10-16',
+          'unrealized_pnl': '50', 'unrealized_return': '0.25',
+        }]},
+      });
+      await tester.pumpWidget(MaterialApp(
+        home: FinalStockDetailPage(api: api, symbol: '2330')));
+      await tester.pumpAndSettle();
+      expect(find.text(legacy.uiLabel(status)), findsOneWidget);
+      expect(find.text('資料日 —'), findsNothing);
+      expect(find.text('估值日 — · 行情日 2026-10-16'), findsNothing);
+      expect(find.text('報價估值 · 行情日 2026-10-16'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('Stock Detail shows a primary chart, cached period change and zoom',
       (tester) async {
     mobileView(tester);

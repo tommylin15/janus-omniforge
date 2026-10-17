@@ -2,6 +2,12 @@
 
 更新：2026-10-17。此頁只保留最近適用的業務判定與來源；各次原始記錄完整搬至 [歷史 ledger](../archive/documentation-baseline-2026-10-15-operations-and-testing.md)。舊PASS只適用其來源／scope，不替後續main背書。執行授權另看TODO。
 
+## 個股報價狀態與價格圖阻塞修正（2026-10-17）
+
+本次使用者只授權調查／修正兩個已觀察問題，不重開 D01～D05。報價卡狀態改讀 `stock-header.price_status`，移除研究分析日期對報價的誤導；沒有正式估值日的 operational 持股顯示「報價估值」與既有行情日，不推造日期。`build_core_service` 將 PostgreSQL serving connection 與 Iceberg reader 分別加鎖，並保護同連線的首頁快照讀取；慢速 fallback 不再持有 serving 鎖。
+
+驗證：新增並行回歸在原實作因 hot price read 被 fallback 阻擋而 timeout，修正後 `tests/test_public_runtime.py` 10 passed；公開 API routes 16 passed；Flutter `final_visual_test.dart` 31 passed（含 available／stale／missing 狀態與日期）。實際舊版 dev 同時讀取 5876 health／header／kline 皆 HTTP200，kline 200筆約1.48秒；**本次未復現原首次失敗，不能斷言共用鎖就是當次線上事件唯一原因**。新版本 deployment／live readback 另依正式 Release receipt 判定，尚不標 live fixed。
+
 ## D01～D05 最新結案範圍
 
 2026-10-17 使用者明確核准寬鬆驗收並取消後續補做：**D01～D05 全部 PASS／CLOSED（使用者接受範圍）**。以既有真實功能／CI／發布證據及本次手機唯讀觀察結案；未完成的嚴格 P95、完整截圖／可及性矩陣、額外稽核收據與後續 UI 增補標 USER_ACCEPTED／WAIVED，不等於這些技術測試實際 PASS，亦不建立後續待辦。詳見 [決策與證據](../archive/d01-d05-relaxed-acceptance-closure-2026-10-17.md)。

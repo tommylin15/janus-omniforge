@@ -427,9 +427,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                         ),
                       ),
                       fvStatusPill(
-                        report['data_status'] ??
-                            health['data_status'] ??
-                            (loading ? 'partial' : 'available'),
+                        header['price_status'] ??
+                            (loading ? 'partial' : 'missing'),
                       ),
                     ],
                   ),
@@ -464,14 +463,6 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                   if (errors.contains('header'))
                     const Text('報價更新失敗，顯示上次有效資料',
                         style: TextStyle(color: fvMuted, fontSize: 11)),
-                  if (report['analysis_as_of'] != null ||
-                      health['analysis_as_of'] != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      '資料日 ${fvText(report['analysis_as_of'] ?? health['analysis_as_of'])}',
-                      style: const TextStyle(color: fvMuted, fontSize: 11),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -508,7 +499,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                     ),
                     const SizedBox(height: 7),
                     Text(
-                      '估值日 ${fvText(position['valuation_date'])} · 行情日 ${fvText(position['price_date'])}',
+                      '${position['valuation_date'] == null ? '報價估值' : '估值日 ${fvText(position['valuation_date'])}'} · 行情日 ${fvText(position['price_date'])}',
                       style: const TextStyle(color: fvMuted, fontSize: 11),
                     ),
                   ],
