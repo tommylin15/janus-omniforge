@@ -14,7 +14,7 @@ jobs:
       - name: Verify read-only exact-preview scope
         run: |
           jq -e '.intent=="read-only-preview-visual-series-coverage" and
-            .source_sha=="f87ecd481e6ac427e2b08e0ec909decf2f6dd528" and
+            .source_sha=="50af946df64b3ee25d2d0a74b73c5584a0a90ff3" and
             .no_data_mutation==true and .no_private_data==true and
             .symbols==["1513","2327","2382","3231","3711","5876"] and .limit==20 and .metrics==["eps"]' \
             ops/visual-series-coverage-readback.json >/dev/null
