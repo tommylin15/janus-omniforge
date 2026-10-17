@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "82625dea8aa731f2645e45bb8d7d8a668df86abf",
-  "candidate_release_run": "39036409871",
-  "candidate_deployment_run": "39036772825",
-  "purpose": "DRL-01D 2Y river candidate at zero traffic: automatic OAuth/PKCE metadata and private Owner/Admin/MCP negative boundary, no new human login requirement.",
+  "sha": "d8a57aa57198e0f383a37125e6b94eb392abe717",
+  "candidate_release_run": "39049811103",
+  "candidate_deployment_run": "39050209225",
+  "purpose": "DRL-01D corrected 2Y PE/PB candidate: reverify OAuth metadata, owner-private/MCP boundaries and exact source SHA without writes.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 34
+  "attempt": 35
 }
