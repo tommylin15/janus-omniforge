@@ -1,12 +1,11 @@
 name: Private ledger daily backups - retain three
 
+# DISABLED: Retention cleanup moved to Batch Controller (ledger_backup.py)
+# Keeping this file for reference; do not re-enable without removing controller cleanup.
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/private-ledger-backup-retention.yml']
   workflow_dispatch:
-  schedule:
-    - cron: '0 19 * * *'
+  # schedule disabled - cleanup now runs after each successful backup in controller
+  # - cron: '0 19 * * *'
 
 permissions:
   contents: read
