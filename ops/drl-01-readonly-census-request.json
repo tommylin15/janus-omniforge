@@ -7,6 +7,6 @@
   "as_of": "2026-10-16",
   "revenue_window_start": "2025-09",
   "revenue_window_end": "2026-09",
-  "request_version": 1,
-  "reason": "Independent current-snapshot TWSE/TPEX 20-session and 13-consecutive-month revenue, EPS comparability readback after Stage/Core bounded repairs."
+  "request_version": 2,
+  "reason": "Post-completion independent Core census for TPEX official monthly 2025-09..2026-09 after final July-August #38990411743 PASS, plus market price and genuine 4-quarter EPS coverage; no owner mutation"
 }
