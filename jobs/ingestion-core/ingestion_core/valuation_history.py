@@ -7,6 +7,7 @@ public availability time; historical backtests must still apply PIT fences.
 from __future__ import annotations
 
 from collections import defaultdict
+import json
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Iterable, Mapping, Any
@@ -80,3 +81,75 @@ def five_year_profile(rows: Iterable[Mapping[str, Any]], *, symbol: str,
     percentile = (Decimal(below) + Decimal(equal) / 2) * 100 / len(values)
     return {**out, "status": "ready",
             "percentile_midrank": str(percentile.quantize(Decimal("0.01")))}
+
+
+def publish_focus_profiles(core: Any, control: Any, *, symbols: list[str],
+                           as_of: date) -> dict[str, Any]:
+    """Write two tiny, read-only-serving profiles from one pinned Core snapshot.
+
+    Requires versioned 063 migration. Fails closed when unavailable: never
+    invent five-year status in the client or promote research rows to Core.
+    This is called only for the approved TWSE equity focus cohort.
+    """
+    from pyiceberg.expressions import And, GreaterThanOrEqual, In
+
+    symbols = sorted(set(symbols))
+    if not symbols or len(symbols) > 50 or any(
+        not s.isdigit() or len(s) != 4 for s in symbols
+    ):
+        raise ValueError("invalid_five_year_focus")
+    table = core.catalog.load_table(core.table_identifier("valuation"))
+    snapshot = table.current_snapshot()
+    if snapshot is None:
+        raise ValueError("no_current_valuation_snapshot")
+    try:
+        start = as_of.replace(year=as_of.year - 5)
+    except ValueError:
+        start = as_of.replace(year=as_of.year - 5, day=28)
+    selected = ("symbol", "observed_date", "pe_ratio", "pb_ratio",
+                "source_id", "provenance_id")
+    rows = table.scan(
+        snapshot_id=snapshot.snapshot_id,
+        row_filter=And(GreaterThanOrEqual("observed_date", start),
+                       In("symbol", symbols)),
+        selected_fields=selected, limit=12000,
+    ).to_arrow().to_pylist()
+    if len(rows) >= 12000:
+        raise ValueError("valuation_profile_scan_truncated")
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        if str(row.get("symbol")) in symbols:
+            grouped[str(row["symbol"])].append(row)
+    output = []
+    for symbol in symbols:
+        for metric in ("pe_ratio", "pb_ratio"):
+            profile = five_year_profile(grouped[symbol], symbol=symbol,
+                                        metric=metric, as_of=as_of)
+            profile.update(
+                source_id="twse",
+                core_snapshot_id=str(snapshot.snapshot_id),
+                source_coverage="source_observed_date_not_historical_publication",
+            )
+            output.append((symbol, metric, as_of, snapshot.snapshot_id,
+                           json.dumps(profile, sort_keys=True, ensure_ascii=False)))
+    with control.connection.transaction():
+        with control.connection.cursor() as cursor:
+            cursor.executemany(
+                """INSERT INTO control.stock_valuation_five_year(
+                       symbol, metric, as_of_date, core_snapshot_id, payload_json)
+                   VALUES (%s,%s,%s,%s,%s::jsonb)
+                   ON CONFLICT(symbol,metric) DO UPDATE
+                   SET as_of_date=EXCLUDED.as_of_date,
+                       core_snapshot_id=EXCLUDED.core_snapshot_id,
+                       payload_json=EXCLUDED.payload_json,
+                       updated_at=now()
+                   WHERE EXCLUDED.as_of_date >= control.stock_valuation_five_year.as_of_date""",
+                output,
+            )
+    return {
+        "status":"published", "as_of":as_of.isoformat(),
+        "source_snapshot_id":str(snapshot.snapshot_id),
+        "symbols":len(symbols), "profiles":len(output),
+        "five_year_ready":sum(json.loads(row[4])["status"] == "ready" for row in output),
+        "source_data_scanned":len(rows),
+    }
