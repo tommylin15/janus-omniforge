@@ -1,14 +1,14 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6",
-  "release_run": "38989576990",
-  "purpose": "D01-D05 combined acceptance: exact-source full Python/Flutter and four public GHCR images passed. Validate readable dark-theme ledger controls and DB-first stock holdings at zero normal traffic only; no Jobs, Scheduler, Owner or canonical traffic mutation.",
+  "sha": "f87ecd481e6ac427e2b08e0ec909decf2f6dd528",
+  "release_run": "39000704621",
+  "purpose": "DRL-01 early 2026 official quarterly EPS: current-year Q1/Q2 six focus Core 6/6 PASS #39000368842; source f87 full Python/Flutter GHCR release. Create existing dev API immutable 0-percent candidate only for source and auth gates; no current traffic or owner changes.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Require successful exact-source full Release #38989576990, immutable GHCR digest/public readback and existing canonical 100 percent traffic/tags unchanged.",
+  "retry_verification": "Require exact SHA f87 full-test four-component GHCR release #39000704621 SUCCESS and public immutable API digest before candidate; retain d739 100-percent baseline.",
   "same_sha_retry_attempt": 0,
-  "digest": "sha256:87ab825b3c7dafa823c3b0c53303be79e014361558ea7c1d8d0166d68038b8a2"
+  "digest": ""
 }
