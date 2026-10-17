@@ -1,14 +1,14 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "50af946df64b3ee25d2d0a74b73c5584a0a90ff3",
-  "release_run": "39001930353",
-  "purpose": "DRL-01 official 2026 EPS Core 6/6 #39000368842, serving 12/12 #39001859414. Candidate newly typed FastAPI EPS response model, source f50 full GHCR release #39001930353; 0% normal traffic only. Existing canonical d739 untouched.",
+  "sha": "becb6a15496959c1f5d3d4985d7b523b652bd3ee",
+  "release_run": "39019392917",
+  "purpose": "User-authorized combined DRL-01 official 2026 EPS/revenue and stock quote-status/chart-lock candidate. Require exact full release PASS, 0% canonical traffic, shared lease, immutable public GHCR and rollback baseline retained.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Full Python/Flutter tests, four immutable published GHCR images and public digest must complete SUCCESS in #39001930353 before candidate; rollback existing canonical revision.",
+  "retry_verification": "Require all same-source Python/Flutter/build/public-digest gates in #39019392917 SUCCESS; no Jobs or canonical traffic writes.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }
