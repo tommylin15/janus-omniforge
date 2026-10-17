@@ -15,6 +15,6 @@
     3,
     4
   ],
-  "request_version": 1,
-  "reason": "Before Q4 EPS reconstruction, prove official MOPS basic weighted-average shares, parent profit numerator, and basic EPS YTD inputs from both original 2025 Q3/Q4 consolidated filings; no canonical mutation."
+  "request_version": 2,
+  "reason": "Investigate existing MOPS quarterly XBRL HTTPError availability with exact status, distinguishing source access blocker from missing denominators, without canonical mutation or new source."
 }
