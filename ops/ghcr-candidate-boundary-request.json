@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "50af946df64b3ee25d2d0a74b73c5584a0a90ff3",
-  "candidate_release_run": "39001930353",
-  "candidate_deployment_run": "39002236278",
-  "purpose": "DRL-01 EPS official 2026Q1/Q2 six Core PASS #39000368842, public serving 12 official rows #39001859414. Full f50 GHCR #39001930353, candidate f50 #39002236278 0% PASS. User already confirmed candidate OAuth/Owner positive manually; independently verify negative auth, metadata, candidate exact build and source before publishing fixed Preview. No Owner mutation.",
+  "sha": "becb6a15496959c1f5d3d4985d7b523b652bd3ee",
+  "candidate_release_run": "39019392917",
+  "candidate_deployment_run": "39019791707",
+  "purpose": "Combined DRL-01 EPS/revenue and stock-status/chart-lock release: verify exact-source 0% candidate, automatic OAuth metadata/PKCE and negative User/Admin/MCP boundaries before Jobs/Preview/promotion. No Owner writes or manual consent.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 31
+  "attempt": 32
 }
