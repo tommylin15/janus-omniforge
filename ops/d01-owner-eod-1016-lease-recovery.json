@@ -1,12 +1,12 @@
 {
   "intent": "recover-exact-d01-1016-terminal-lease",
   "approved": true,
-  "owner_run": 38898393706,
-  "owner_sha": "07bd4105a925c7e1b6b73a3fcb1a4af6edaa7907",
-  "execution": "janus-private-pipeline-m7xs5",
+  "owner_run": 38899869851,
+  "owner_sha": "0d6a28291ad65eb7a659637a0fc35cda683b76b0",
+  "execution": "janus-private-pipeline-np5vk",
   "no_job_run": true,
   "no_ledger_mutation": true,
   "no_mart_mutation": true,
   "no_traffic_mutation": true,
-  "reason": "Audited runtime #38899084368: terminal failed before Private Mart publication due to official stored provenance equality guard. Preserve insert-only official quote, reconcile exact failed lease before bounded retry."
+  "reason": "Read-only diagnosis #38991634929 proves original operation completed successfully. Revalidate exact operation, execution and all-page fence; release only original lease without rerunning data work."
 }
