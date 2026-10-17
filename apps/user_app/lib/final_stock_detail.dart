@@ -47,7 +47,7 @@ Widget _fiveYearValuationCard(Map<String, dynamic> series, String label) {
   return fvPanel(child: Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label + (ready ? ' · 五年歷史區間' : ' · 已有歷史（未達五年）'),
+      Text(label + (ready ? ' · 五年歷史區間' : status == 'partial_history' ? ' · 已有歷史（未達五年）' : ' · 五年歷史尚未就緒'),
           style: const TextStyle(fontWeight: FontWeight.w800, color: fvInk)),
       const SizedBox(height: 6),
       Text('實際 ' + since + ' ～ ' + until + ' · ' + months + ' 個月份、' + count + ' 個有效日',
