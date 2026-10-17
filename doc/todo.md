@@ -4,6 +4,8 @@
 
 ## 執行範圍
 
+**2026-10-17 本對話最新分工：DRL-01 由另一個 AI 持續執行；本對話優先整合 D01～D05，先集中完成相依工程，再合併驗收與受控發布。** 保留各工項獨立 acceptance、既有真人 PASS 與安全限制；不重送 DRL-01 修復、不以其新增歷史資料需求擴大本輪 D05 gate。共用 main／runtime 發布前須核對最新來源與執行中工作，避免覆蓋另一個 AI 的變更或競爭部署。
+
 **2026-10-16 使用者已授權 D01～D05 全部連續工程與實際驗收，D04 包含既有替代路徑與最小 IAM 授權試行；先前只限 API 切流的暫停命令已失效。** 持股畫面、現金交易連動、重算按鈕三項真人正向 PASS，不重做。新完整 GHCR Release [#38889743874](https://github.com/tommylin15/janus-omniforge/actions/runs/38889743874) Python 1322 passed、Flutter PASS、四映像/digest PASS，但尚未新版實際 dev 部署。D02 [快照→API #38890365233](https://github.com/tommylin15/janus-omniforge/actions/runs/38890365233) PASS；D03 [正式圖表 API #38889906057](https://github.com/tommylin15/janus-omniforge/actions/runs/38889906057) 16/18 available、2 EPS missing。D04 [現有 GCS 備份隔離還原 #38889312080](https://github.com/tommylin15/janus-omniforge/actions/runs/38889312080) PASS；但 VM IAP policy get、SSH 目前均拒絕，沒有 IAM 變更，不能停止舊 timer 或假稱新 executor 已交接。所有工作包依其獨立 gate 判斷，**不以 CI/備份還原當整體完成**。
 
 A 組及 B0～B8 已結案的範圍不重開；有實質變更才回歸受影響路徑。全市場 Bootstrap／同日 Cached、費稅88筆更正、00719B 身分／估值既有成功證據不重送。研究範圍採各歷史日期全上市櫃；50 關注 quota 仍保留。

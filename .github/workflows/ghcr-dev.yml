@@ -7,6 +7,7 @@ on:
         required: true
         type: choice
         options:
+          - verify
           - release
           - candidate
           - preview
@@ -84,7 +85,7 @@ jobs:
   # ============ RELEASE ============
   release-tests:
     needs: detect
-    if: needs.detect.outputs.operation == 'release'
+    if: needs.detect.outputs.operation == 'release' || needs.detect.outputs.operation == 'verify'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
@@ -119,7 +120,7 @@ jobs:
 
   release-flutter:
     needs: detect
-    if: needs.detect.outputs.operation == 'release'
+    if: needs.detect.outputs.operation == 'release' || needs.detect.outputs.operation == 'verify'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     defaults:
@@ -143,7 +144,7 @@ jobs:
 
   release-publish:
     needs: [detect, release-tests, release-flutter]
-    if: needs.release-tests.result == 'success' && needs.release-flutter.result == 'success'
+    if: needs.detect.outputs.operation == 'release' && needs.release-tests.result == 'success' && needs.release-flutter.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 55
     strategy:

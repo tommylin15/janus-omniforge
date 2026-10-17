@@ -43,3 +43,16 @@ def test_auto_release_cannot_publish_with_skipped_python_or_flutter_gates():
     assert "skip-tests" not in AUTO
     assert "needs.jobs-rollout.result == 'success'" in AUTO
     assert "needs.validate.outputs.skip-api-promote != 'true'" in AUTO
+
+
+def test_verify_runs_full_suites_without_publishing_or_changing_runtime():
+    import yaml
+    workflow = yaml.safe_load(GHCR)
+    jobs = workflow['jobs']
+    for name in ('release-tests', 'release-flutter'):
+        assert "needs.detect.outputs.operation == 'verify'" in jobs[name]['if']
+    for name in ('release-publish', 'candidate', 'preview', 'auth-boundary', 'jobs-rollout', 'promote'):
+        assert "needs.detect.outputs.operation == '" in jobs[name]['if']
+        assert "'verify'" not in jobs[name]['if']
+    assert "needs.detect.outputs.operation == 'release'" in jobs['release-publish']['if']
+    assert jobs['release-verify']['needs'] == ['detect', 'release-publish']

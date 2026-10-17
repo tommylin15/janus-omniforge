@@ -128,6 +128,7 @@ gh workflow run finops-dev.yml -f operation=gcs-hourly-io
 
 | Operation | 說明 | 觸發檔案 |
 |---|---|---|
+| `verify` | 合併執行完整 Python／隔離 PostgreSQL 與 Flutter 檢查；不發布映像、不修改 runtime | 僅 workflow_dispatch |
 | `release` | 完整測試 + 4 image 並行 build | `ops/ghcr-release-request.json` |
 | `candidate` | 0% 候選部署 | `ops/ghcr-candidate-request.json` |
 | `preview` | Preview tag 更新 | `ops/ghcr-preview-request.json` |

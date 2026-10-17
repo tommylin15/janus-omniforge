@@ -13,8 +13,8 @@ from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.rows import dict_row
 
-from services.api.models import LedgerEventIn
-from services.api.repository import ConflictError, OversellError, PostgresWorkspaceRepository
+from services.api.models import CashPositionIn, LedgerEventIn
+from services.api.repository import ConflictError, NotFoundError, OversellError, PostgresWorkspaceRepository
 
 
 @pytest.fixture
@@ -40,6 +40,10 @@ def ledger():
                 statement = re.search(r'CREATE TABLE IF NOT EXISTS private\.' + table + r' \(.*?\n\);', source_sql, re.S)
                 assert statement is not None
                 connection.execute(statement[0])
+            cash = (root/'infra/postgres/migrations/062_owner_cash_balance_snapshots.sql').read_text(encoding='utf-8')
+            statement = re.search(r'CREATE TABLE IF NOT EXISTS private\.cash_balance_snapshots \(.*?\n\);', cash, re.S)
+            assert statement is not None
+            connection.execute(statement[0])
             connection.execute('ALTER TABLE private.ledger_events ADD COLUMN fee_rule_snapshot jsonb')
             projection = (root/'infra/postgres/migrations/059_ledger_automatic_charges.sql').read_text(encoding='utf-8')
             function = re.search(r'CREATE OR REPLACE FUNCTION private\.refresh_current_positions.*?\$\$;', projection, re.S)
@@ -153,3 +157,54 @@ def test_fee_repair_rolls_back_all_corrections_if_second_write_fails(ledger, mon
         repo.reprice_ledger_fees(owner, expected_ledger_version=2, expected_profile_version=2, apply=True)
     assert repo.latest_ledger_version(owner) == 2
     assert repo.ledger_history(owner, None, None) == before and repo.positions(owner) == positions
+
+
+def test_cash_anchor_dividend_correction_reversal_and_replay(ledger):
+    repo, (owner, other) = ledger
+    buy = repo.add_ledger(owner, event(), 'buy-before-anchor')
+    repo.set_cash_position(owner, CashPositionIn(amount='1000', expected_version=0), 'cash-anchor')
+    assert repo.cash_position(other)['cash_status'] == 'not_configured'
+    dividend = LedgerEventIn(event_type='CASH_DIV', symbol='6488', cash_amount='100',
+                             trade_date=date(2026, 10, 12))
+    paid = repo.add_ledger(owner, dividend, 'dividend')
+    assert repo.cash_position(owner)['cash_balance'] == 1100
+    repo.add_ledger(owner, dividend, 'dividend')
+    assert repo.cash_position(owner)['cash_balance'] == 1100
+    corrected = repo.correct_ledger(owner, paid['event_id'], 1,
+                                    dividend.model_copy(update={'cash_amount': Decimal('150')}), 'correct-dividend')
+    assert repo.cash_position(owner)['cash_balance'] == 1150
+    repo.reverse_ledger(owner, corrected['event_id'], 1, 'void-dividend')
+    repo.reverse_ledger(owner, corrected['event_id'], 1, 'void-dividend')
+    assert repo.cash_position(owner)['cash_balance'] == 1000
+    # Reversing a pre-anchor purchase refunds its original persisted cash flow once.
+    repo.reverse_ledger(owner, buy['event_id'], 1, 'void-old-buy')
+    cash = repo.cash_position(owner)
+    assert cash['cash_balance'] == 3000
+    assert cash['anchor_ledger_version'] == 1
+    assert cash['current_ledger_version'] == repo.latest_ledger_version(owner)
+    assert repo.cash_position(other)['cash_balance'] is None
+
+
+def test_cash_reset_versions_owner_boundary_and_failed_trade_are_atomic(ledger):
+    repo, (owner, other) = ledger
+    setting = CashPositionIn(amount='100', expected_version=0)
+    repo.set_cash_position(owner, setting, 'set-cash')
+    repo.set_cash_position(other, setting, 'set-cash')
+    buy = repo.add_ledger(owner, event(), 'buy')
+    assert repo.cash_position(owner)['cash_balance'] == -1900
+    # A retry of the original reset must not reset away subsequent trading flows.
+    assert repo.set_cash_position(owner, setting, 'set-cash')['cash_balance'] == -1900
+    with pytest.raises(ConflictError):
+        repo.set_cash_position(owner, setting, 'stale-reset')
+    with pytest.raises(ConflictError):
+        repo.set_cash_position(owner, CashPositionIn(amount='200', expected_version=0), 'set-cash')
+    with pytest.raises(NotFoundError):
+        repo.reverse_ledger(other, buy['event_id'], 1, 'foreign-reversal')
+    before = repo.cash_position(owner)
+    with pytest.raises(OversellError):
+        repo.add_ledger(owner, event('SELL', shares='101', price='30'), 'oversell')
+    assert repo.cash_position(owner) == before
+    assert repo.cash_position(other)['cash_balance'] == 100
+    reset = repo.set_cash_position(owner, CashPositionIn(amount='500', expected_version=1), 'reset')
+    assert reset['cash_balance'] == 500
+    assert reset['anchor_ledger_version'] == repo.latest_ledger_version(owner)
