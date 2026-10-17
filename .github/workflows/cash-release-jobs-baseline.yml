@@ -15,8 +15,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Require bounded readonly exact release
         run: |
-          jq -e '.intent=="cash-release-jobs-baseline" and .source_sha=="f87ecd481e6ac427e2b08e0ec909decf2f6dd528" and
-            .release_run=="39000704621" and .boundary_run=="not-applicable-readonly-preflight" and
+          jq -e '.intent=="cash-release-jobs-baseline" and .source_sha=="50af946df64b3ee25d2d0a74b73c5584a0a90ff3" and
+            .release_run=="39001930353" and .boundary_run=="not-applicable-readonly-preflight" and
             .no_gcp_mutation==true and .no_job_execution==true and .no_private_data_dump==true' ops/cash-release-jobs-baseline-request.json >/dev/null
       - uses: google-github-actions/auth@v2
         with:
