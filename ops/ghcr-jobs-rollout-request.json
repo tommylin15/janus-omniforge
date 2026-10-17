@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "becb6a15496959c1f5d3d4985d7b523b652bd3ee",
-  "release_run": "39019392917",
+  "sha": "7f3e5621d39a99cdb6be622c80636da10f9a391e",
+  "release_run": "39031856247",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "50af946df64b3ee25d2d0a74b73c5584a0a90ff3",
+  "baseline_source_sha": "becb6a15496959c1f5d3d4985d7b523b652bd3ee",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:65da69d857d17a2965d6975612eac00b8d20bb4997e47c52ff3781cdf573dfe1",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:65da69d857d17a2965d6975612eac00b8d20bb4997e47c52ff3781cdf573dfe1",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:6d1f478f635bb8a5aa2654f0e71b5a83fbe99edf998818fb6c8f9a11b75db994",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:accfab5f9e75aa5cf21ef181875c82b690390fd52554ae58aea99df94dd762d8"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:eda8c9aa8b3dd3736d82d1579c7a02d1e4a697bc6a159281d623dbde8d5ec7cb",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:eda8c9aa8b3dd3736d82d1579c7a02d1e4a697bc6a159281d623dbde8d5ec7cb",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:8acf7c9fc61114ddfcb2fc97a7ca6f8152f746277af016ed043281d00a8066fb",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:9bb5d2444cf5897f945797e6332edfccb31c52752df59621190bd8157fd282b3"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 26,
-  "safety": "Combined DRL-01 + stock fix release under explicit user authorization. Previous Jobs f50 rollout #39017773941 PASS; revalidate exact current images/config and public rollback under lease, bounded natural execution drain and Scheduler fence, 8 canaries, restore on failure. Canonical API remains old until final separately gated promotion.",
-  "auth_boundary_run": "39019942041",
-  "automated_oauth_requirement": "Same-source automated OAuth #39019942041 must be SUCCESS; no repeated human consent required.",
+  "request_attempt": 27,
+  "safety": "User-authorized existing dev dated UI release. Exact source full tests/candidate/auth and public readback PASS. Revalidate currently live becb images/config and public rollback under lease; preserve bounded execution drain, Scheduler fence, 8 canaries and recovery. No Owner data writes.",
+  "auth_boundary_run": "39032620084",
+  "automated_oauth_requirement": "Same-source automatic OAuth #39032620084 SUCCESS; no repeated human consent gate.",
   "authorization": "Authorized existing dev rollout, strictly reversible. Must inspect GCP source config and all executions before actual mutation."
 }

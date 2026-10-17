@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "becb6a15496959c1f5d3d4985d7b523b652bd3ee",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:a745346a1e1910024ed8b52e98d0b2a6e6959d5ffb400fe2604bc3cbb73d20e4",
-  "release_run": "39019392917",
-  "candidate_run": "39019791707",
-  "boundary_run": "39019942041",
+  "source_sha": "7f3e5621d39a99cdb6be622c80636da10f9a391e",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:77a1529d2b5dfe43864c62c83aa4e797f8b2de33608bdb48b023197591b99e5c",
+  "release_run": "39031856247",
+  "candidate_run": "39032329887",
+  "boundary_run": "39032620084",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "User-authorized combined DRL-01 and stock fixes; full release/candidate/auth must PASS. New candidate readback verifies six official 2026Q1/Q2 EPS, six 13-month revenue series, stock quote and 66-row price chart. Move fixed Preview only, keep canonical traffic and other tags.",
+  "reason": "User-authorized dated UI and safe chart diagnostics; exact full release/candidate/automatic auth PASS, candidate12 EPS/revenue plus quote/chart readback PASS. Fixed Preview only, preserve canonical and other tags.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 22
+  "attempt": 23
 }
