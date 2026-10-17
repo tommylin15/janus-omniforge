@@ -8,7 +8,7 @@ AUTO = (ROOT / ".github/workflows/auto-release.yml").read_text()
 
 def test_consolidated_workflows_share_global_runtime_writer_group():
     for source in (GHCR, AUTO):
-        assert "group: janus-dev-runtime-writers" in source
+        assert "janus-dev-runtime-writers" in source
         assert "cancel-in-progress: false" in source
         assert "id-token: write" in source
 
@@ -49,6 +49,7 @@ def test_verify_runs_full_suites_without_publishing_or_changing_runtime():
     import yaml
     workflow = yaml.safe_load(GHCR)
     jobs = workflow['jobs']
+    assert workflow['concurrency']['group'] == "${{ github.event.inputs.operation == 'verify' && 'janus-dev-verification' || 'janus-dev-runtime-writers' }}"
     for name in ('release-tests', 'release-flutter'):
         assert "needs.detect.outputs.operation == 'verify'" in jobs[name]['if']
     for name in ('release-publish', 'candidate', 'preview', 'auth-boundary', 'jobs-rollout', 'promote'):
