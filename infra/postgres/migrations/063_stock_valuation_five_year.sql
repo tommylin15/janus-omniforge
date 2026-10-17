@@ -2,6 +2,7 @@
 
 BEGIN;
 
+-- PHASE: control-prepare
 SET ROLE janus_control;
 
 -- DRL-01D: a tiny published, non-canonical five-year PE/PB profile.
@@ -21,6 +22,7 @@ RESET ROLE;
 GRANT USAGE ON SCHEMA control TO janus_publication;
 GRANT SELECT ON control.stock_valuation_five_year TO janus_publication;
 
+-- PHASE: publication
 SET ROLE janus_publication;
 
 CREATE OR REPLACE VIEW publication.stock_valuation_five_year
@@ -34,6 +36,11 @@ RESET ROLE;
 
 REVOKE ALL ON publication.stock_valuation_five_year FROM PUBLIC;
 GRANT SELECT ON publication.stock_valuation_five_year TO janus_public_api;
+
+-- PHASE: acceptance
+SELECT
+  to_regclass('publication.stock_valuation_five_year') IS NOT NULL,
+  has_table_privilege('janus_public_api', 'publication.stock_valuation_five_year', 'SELECT');
 
 INSERT INTO control.schema_migrations(version)
 VALUES ('063_stock_valuation_five_year')
