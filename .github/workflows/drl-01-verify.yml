@@ -10,6 +10,12 @@ on:
       - 'tests/test_drl01_revenue_history.py'
       - 'tests/test_drl01_valuation_history.py'
       - 'tests/test_drl01_valuation_profile.py'
+      - 'tests/test_drl01_valuation_pipeline.py'
+      - 'tests/test_drl01_valuation_runner.py'
+      - 'packages/web_api/core.py'
+      - 'services/api/models.py'
+      - 'services/api/public_runtime.py'
+      - 'infra/postgres/migrations/063_stock_valuation_five_year.sql'
       - 'jobs/ingestion-core/ingestion_core/valuation_history.py'
       - 'jobs/ingestion-core/ingestion_core/first_batch.py'
       - 'jobs/ingestion-core/ingestion_core/data_supplement.py'
@@ -47,6 +53,8 @@ jobs:
             tests/test_drl01_revenue_history.py \
             tests/test_drl01_valuation_history.py \
             tests/test_drl01_valuation_profile.py \
+            tests/test_drl01_valuation_pipeline.py \
+            tests/test_drl01_valuation_runner.py \
             tests/test_market_volume_source.py \
             tests/test_full_market_sources.py \
             tests/test_data_supplement.py \
