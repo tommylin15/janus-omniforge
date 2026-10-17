@@ -10,5 +10,5 @@
   "allow_legacy_forward_only": false,
   "auth_boundary_run": "38991975400",
   "gate": "D01-D05 combined acceptance PASS. Source d739107 full Release #38989576990, 0% candidate #38991849862, automated OAuth/private boundary #38991975400, fixed Preview janus-api-00524-tot, 4 Jobs reversible rollout #38992414928 all SUCCESS. Preview four-page public API verified: market-home taiex available, stock-header 2330 available, visual-series close/pe/pb/revenue available, auth boundary 401. Previous canonical 8eb API revision janus-api-00517-ciq preserved as rollback baseline. Require live immutable GHCR and build-id verification, current Scheduler+Job no-active-work execution fence, shared lease, new→old→new 100% controlled rehearsal, health/401/traffic/tags readback, and no cash/ledger/config changes.",
-  "retry_attempt": 1
+  "retry_attempt": 2
 }

@@ -6,12 +6,12 @@
   "release_run": "38153154441",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
+  "baseline_source_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:c61401b05944f687a15ecefe3e1c1cd1ec559e586b7a0d8de6c265bd9b60d3da",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:c61401b05944f687a15ecefe3e1c1cd1ec559e586b7a0d8de6c265bd9b60d3da",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:f5d54c498d0f24e7f06b5ba5aa4f202ec0e6290dc6de5757cc4fea5d5854ddaf",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:651569c21136d8458beb3fbafbe9d55d0cea3569ff6d55a5655eb8f2ba5d6494"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:9d87fb5179ff21214fe271a70a5c29b16704edad169c94270fc47b7ac08c2a20",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:9d87fb5179ff21214fe271a70a5c29b16704edad169c94270fc47b7ac08c2a20",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:76d2d896033bc2dbc0a873edb672f3a7166fa40b9718007191dc76523765a157",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:cc43cfb2ce31d0074976076b291fce7e94859a9f26eec350b3b701f87e2301b1"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -20,7 +20,7 @@
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
   "request_attempt": 0,
-  "safety": "INERT approved=false. Actual serving 9f prior source + current four 9f immutable Jobs and config hashes independently verified #38853614819 / #38856931558. For any FUTURE release, revalidate live rollback under lease, only explicit fully gated dev request may dispatch; template never does.",
+  "safety": "INERT approved=false. Actual serving 8eb prior source + current four 740e54c immutable Jobs and config hashes independently verified #38865347217 / #38992414928. For any FUTURE release, revalidate live rollback under lease, only explicit fully gated dev request may dispatch; template never does.",
   "auth_boundary_run": "",
   "automated_oauth_requirement": "For a new release, require its own same-source authenticated candidate boundary run. Manual user OAuth consent is not an ordinary release gate."
 }
