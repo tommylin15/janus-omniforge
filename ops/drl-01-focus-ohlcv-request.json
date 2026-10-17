@@ -1,0 +1,18 @@
+{
+  "intent": "drl01-approved-focus-twse-120d",
+  "approved": true,
+  "no_owner_mutation": true,
+  "no_job_template_mutation": true,
+  "as_of": "2026-10-16",
+  "start_date": "2026-04-01",
+  "symbols": [
+    "1513",
+    "2327",
+    "2382",
+    "3231",
+    "3711",
+    "5876"
+  ],
+  "request_version": 1,
+  "reason": "Bounded approved current-market research focus, existing TWSE STOCK_DAY raw Stage to Core; source authorization and 120 distinct valid official days readback. No private trades or cash changes."
+}
