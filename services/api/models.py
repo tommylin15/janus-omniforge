@@ -128,6 +128,7 @@ class PublicVisualSeriesOut(BaseModel):
     calculation_version: str
     eps_current_year: PublishedEpsCurrentYearOut | None = None
     revenue_yoy: PublishedRevenueYoyOut | None = None
+    five_year_profile: dict[str, Any] | None = None
 
 
 class MarketHomeSectionOut(BaseModel):
