@@ -1,0 +1,48 @@
+name: Janus DRL-01 focused official 120-day OHLCV repair
+on:
+  push:
+    branches: [main]
+    paths: ['ops/drl-01-focus-ohlcv-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  focus-repair:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate bounded official focused source request
+        run: |
+          python -m py_compile scripts/gcp/drl01_focus_ohlcv.py
+          python - <<'PY'
+          import json,sys
+          sys.path.insert(0,'scripts/gcp')
+          from drl01_focus_ohlcv import checked
+          r=checked('ops/drl-01-focus-ohlcv-request.json')
+          assert r['no_owner_mutation'] is True and r['no_job_template_mutation'] is True
+          assert r['start_date']=='2026-04-01' and r['as_of']=='2026-10-16'
+          PY
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Run existing dev Job without mutation of templates or private ledger
+        env:
+          PYTHONPATH: .
+        run: python scripts/gcp/drl01_focus_ohlcv.py ops/drl-01-focus-ohlcv-request.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drl01-official-focus-120d-readback
+          path: /tmp/drl01-focus-120d.json
+          if-no-files-found: ignore
+          retention-days: 14
