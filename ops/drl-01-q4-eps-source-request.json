@@ -1,0 +1,20 @@
+{
+  "intent": "drl01-readonly-2025-q4-eps-denominator-audit",
+  "approved": true,
+  "read_only": true,
+  "symbols": [
+    "1513",
+    "2327",
+    "2382",
+    "3231",
+    "3711",
+    "5876"
+  ],
+  "fiscal_year": 2025,
+  "quarters": [
+    3,
+    4
+  ],
+  "request_version": 1,
+  "reason": "Before Q4 EPS reconstruction, prove official MOPS basic weighted-average shares, parent profit numerator, and basic EPS YTD inputs from both original 2025 Q3/Q4 consolidated filings; no canonical mutation."
+}
