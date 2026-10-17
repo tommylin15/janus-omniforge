@@ -1,14 +1,14 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "7f3e5621d39a99cdb6be622c80636da10f9a391e",
-  "release_run": "39031856247",
-  "purpose": "User-authorized dated UI tables/lists and safe chart failure diagnostics; full same-source release PASS, zero canonical traffic, immutable public image and rollback retained.",
+  "sha": "82625dea8aa731f2645e45bb8d7d8a668df86abf",
+  "release_run": "39036409871",
+  "purpose": "DRL-01D two-year official PE/PB river same-source GHCR complete full-tests PASS, zero-percent candidate only; no Owner modification.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Require full Python/Flutter, four public digests and release-verify #39031856247 SUCCESS before zero-traffic candidate; no Jobs or canonical traffic writes.",
+  "retry_verification": "Full Python+Flutter and four public GHCR digests verified #39036409871; immutable candidate may not switch canonical traffic.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }
