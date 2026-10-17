@@ -56,3 +56,8 @@ def test_cloud_run_override_path_is_execution_scoped():
     assert "cloud(f\"{ROOT}/jobs/{JOB}:run\"" in text
     assert ":update" not in text
     assert "POST" in text
+    assert 'report["status"] = "FAILED_JOB_EXECUTION"' in text
+    assert 'report["blocked_operation"] = name' in text
+    assert "valuation_execution_failed_check_terminal_logs_before_retry" in text
+    assert 'report["slices"][-1].get("two_year_ready")==12' in text
+    assert 'and not any(s["valuation_failures"]' not in text
