@@ -34,6 +34,54 @@ List<Map<String, dynamic>> _eventTimelineRows(List<dynamic> raw) {
   return events.take(6).toList();
 }
 
+Widget _fiveYearValuationCard(Map<String, dynamic> series, String label) {
+  final profile = fvMap(series['five_year_profile']);
+  final status = fvText(profile['status'], missing: 'unavailable');
+  final ready = status == 'ready';
+  final months = fvText(profile['months_with_valid_observation'], missing: '0');
+  final count = fvText(profile['count'], missing: '0');
+  final since = fvText(profile['earliest']);
+  final until = fvText(profile['latest']);
+  final rank = fvNumber(profile['percentile_midrank']);
+  final monthly = fvRows(profile['monthly_points']);
+  return fvPanel(child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label + (ready ? ' · 五年歷史區間' : ' · 已有歷史（未達五年）'),
+          style: const TextStyle(fontWeight: FontWeight.w800, color: fvInk)),
+      const SizedBox(height: 6),
+      Text('實際 ' + since + ' ～ ' + until + ' · ' + months + ' 個月份、' + count + ' 個有效日',
+          style: const TextStyle(color: fvMuted, fontSize: 12)),
+      if (ready) ...[
+        const SizedBox(height: 7),
+        Text('低 ' + fvText(profile['min']) + ' · P25 ' + fvText(profile['quartile_25']) +
+             ' · 中位 ' + fvText(profile['median']) + ' · P75 ' +
+             fvText(profile['quartile_75']) + ' · 高 ' + fvText(profile['max']),
+             style: const TextStyle(fontSize: 12, color: fvInk)),
+        if (rank != null) ...[
+          const SizedBox(height: 6),
+          LinearProgressIndicator(value: (rank / 100).clamp(0.0, 1.0)),
+          Text('最新 ' + fvText(profile['latest_value']) + ' 倍 · 五年歷史分位 ' +
+               rank.toStringAsFixed(1) + '%',
+              style: const TextStyle(color: fvMuted, fontSize: 12)),
+        ],
+        if (monthly.length >= 2) ...[
+          const SizedBox(height: 8),
+          FvVisualSeriesChart(rows: monthly, label: label + ' 每月實際中位數',
+              unit: 'times', height: 164),
+        ],
+      ] else ...[
+        const SizedBox(height: 5),
+        const Text('官方有效歷史不足，暫不發布五年分位；短期 PE/PB 仍可閱讀。',
+            style: TextStyle(color: fvMuted, fontSize: 12)),
+      ],
+      const SizedBox(height: 4),
+      const Text('來源：TWSE 官方歷史估值；事後回溯分布，非當時可得的 PIT 回測。',
+          style: TextStyle(color: fvMuted, fontSize: 11)),
+    ],
+  ));
+}
+
 class FinalStockDetailPage extends StatefulWidget {
   const FinalStockDetailPage(
       {required this.api, required this.symbol, super.key});
@@ -701,7 +749,11 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                     ));
                   }
                   if (_usableVisualSeriesPoints(result) < 2) {
-                    return fvBoundedState('歷史資料不足：${fvText(result['missing_reason'], missing: '尚未就緒')}');
+                    return Column(children: [
+                      fvBoundedState('歷史資料不足：${fvText(result['missing_reason'], missing: '尚未就緒')}'),
+                      if (selectedVisual == 'pe' || selectedVisual == 'pb')
+                        _fiveYearValuationCard(result, label),
+                    ]);
                   }
                   return Column(children: [
                     Row(children: [
@@ -748,6 +800,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                       bars: const {'foreign', 'investment_trust', 'dealer', 'revenue', 'eps'}.contains(selectedVisual)),
                     Text('來源：${fvRows(result['source_ids']).join('、')}',
                       style: const TextStyle(color: fvMuted, fontSize: 11)),
+                    if (selectedVisual == 'pe' || selectedVisual == 'pb')
+                      _fiveYearValuationCard(result, label),
                   ]);
                 }),
               ] else
