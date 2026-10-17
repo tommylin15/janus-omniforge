@@ -2,11 +2,11 @@
   "intent": "drl01-existing-mops-eps-history",
   "approved": true,
   "symbols": [
-    "2327",
-    "2330"
+    "1513",
+    "2382"
   ],
   "no_new_provider": true,
   "no_job_template_change": true,
-  "reason": "DRL-01 priority: two existing TWSE symbols used by real stock UI; official MOPS historical EPS plus bounded monthly revenue via existing fundamental-history ingestion; PIT/version rules unchanged; verify Core periods separately.",
-  "request_version": 2
+  "reason": "DRL-01 third prioritized task: two approved TWSE focus names, repair 12 MOPS official quarters from existing fundamental-history route, prove 4 contiguous genuine quarter EPS via independent Core snapshot readback; no cumulative EPS subtraction.",
+  "request_version": 3
 }
