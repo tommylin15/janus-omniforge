@@ -2,8 +2,8 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "f87ecd481e6ac427e2b08e0ec909decf2f6dd528",
-  "release_run": "39000704621",
+  "sha": "50af946df64b3ee25d2d0a74b73c5584a0a90ff3",
+  "release_run": "39001930353",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
   "baseline_source_sha": "d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 23,
-  "safety": "DRL-01 2026 Q1/Q2 six focus official EPS Core 6/6 #39000368842, exact SHA f87 full GHCR #39000704621, candidate #39001127006, auth #39001370338, fixed Preview #39001414979 SUCCESS. Latest independent current Jobs/Scheduler, 0 active executions and immutable GHCR rollback digests/config #39001249586. No Owner mutation, do not change stock data or unapproved resources.",
-  "auth_boundary_run": "39001370338",
-  "automated_oauth_requirement": "Same-source automated OAuth #38991975400; no manual login gate.",
+  "request_attempt": 24,
+  "safety": "DRL-01 only: 2026 EPS Core six Q1/Q2 PASS #39000368842; serving 12/12 #39001859414; f50 Release #39001930353; f50 candidate #39002236278; negative auth #39017315925 and USER_CONFIRMED_PASS human OAuth/Owner boundary; fixed Preview #39017430466; six-source EPS live API 6/6 #39017516247 PASS. Retain exact d739 immutable rollback images/fingerprints from #39001249586. Strict existing four dev Jobs, scheduler fence, no Owner mutation, shared lease, reversible previous-image exercise, fail closed.",
+  "auth_boundary_run": "39017315925",
+  "automated_oauth_requirement": "f50 exact-source automated OAuth and private negative boundary #39017315925 PASS; human positive Owner isolation USER_CONFIRMED_PASS; do not confuse those with EPS serving validation.",
   "authorization": "Authorized existing dev rollout, strictly reversible. Must inspect GCP source config and all executions before actual mutation."
 }
