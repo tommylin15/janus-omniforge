@@ -474,6 +474,13 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
             writer.mark_core_committed(execution.execution_id, stage_results=stage_results)
         summary.update(status=completed.status.value, analysis_execution_id=analysis.execution_id if analysis else None,
                        core_snapshot_id=ready["coreSnapshotId"])
+        if valuation_only:
+            # The small versioned PostgreSQL profile serves five-year ranges
+            # without opening Core on every user chart load. Missing months
+            # remain partial_history, never filled or labelled PIT-certified.
+            from .valuation_history import publish_focus_profiles
+            summary["valuation_profile"] = publish_focus_profiles(
+                core, control, symbols=list(symbols), as_of=target)
         control.put_admin_setting("data_supplement_last_run", {"checked_at": datetime.now(timezone.utc).isoformat(),
             "execution_id": execution.execution_id, "status": summary["status"], "coverage": coverage,
             "failures": summary["failures"], "core_created": summary["core_created"], "core_updated": summary["core_updated"], "core_reused": summary["core_reused"], "skipped": summary["skipped"], "operation": summary["operation"]},
