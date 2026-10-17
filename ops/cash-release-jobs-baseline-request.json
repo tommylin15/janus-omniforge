@@ -1,11 +1,11 @@
 {
   "intent": "cash-release-jobs-baseline",
-  "source_sha": "f87ecd481e6ac427e2b08e0ec909decf2f6dd528",
-  "release_run": "39000704621",
+  "source_sha": "50af946df64b3ee25d2d0a74b73c5584a0a90ff3",
+  "release_run": "39001930353",
   "boundary_run": "not-applicable-readonly-preflight",
   "no_gcp_mutation": true,
   "no_job_execution": true,
   "no_private_data_dump": true,
-  "readback_attempt": 3,
-  "reason": "DRL-01 2026 EPS current-year six-symbol PASS; read-only live 4 existing dev Job GHCR image/config rollback baseline after #39000704621 full release. No job/template/scheduler/Owner mutation."
+  "readback_attempt": 4,
+  "reason": "DRL-01 final f50 actual dev four Jobs read-only execution/scheduler fence during reversible rollout #39017773941. Confirm terminal status, public pinned GHCR rollback digests and stable config; no mutations/secret dumps, no Owner or scheduler changes."
 }
