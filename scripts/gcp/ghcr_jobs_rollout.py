@@ -17,7 +17,34 @@ from urllib.request import Request, urlopen
 
 from ghcr_job_cutover_plan import JOB_COMPONENT
 from ghcr_job_cutover_guard import PROJECT, REGION, SCHEDULER, REQUIRED_JOBS
-from ghcr_mcp_route import command, LEASE
+from ghcr_mcp_route import command as _redacted_command, LEASE
+
+
+def command(args):
+    """Classify failed preflight subprocess without exposing argv or credentials.
+
+    The existing safety guard deliberately redacts stderr/stdout; a bounded
+    static phase code is still needed to distinguish CI/auth/registry failures.
+    """
+    try:
+        return _redacted_command(args)
+    except RuntimeError as error:
+        if str(error) != "bounded_command_failed":
+            raise
+        category = "other"
+        if args and args[0] == "gh":
+            category = ("gh_run" if len(args) > 1 and args[1] == "run"
+                        else "gh_api")
+        elif args and args[0] == "skopeo":
+            category = ("registry_by_digest" if any("@sha256:" in x for x in args)
+                        else "registry_by_tag")
+        elif args and args[0] == "git":
+            category = "git_provenance"
+        elif args and args[0] == "gcloud":
+            category = "gcloud_readback"
+        elif args and args[0] == os.sys.executable:
+            category = "release_lease"
+        raise RuntimeError("bounded_command_failed_" + category) from None
 
 ROOT = f"projects/{PROJECT}/locations/{REGION}"
 BASE = "https://run.googleapis.com/v2/"
