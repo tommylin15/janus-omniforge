@@ -2,21 +2,21 @@
 
 更新：2026-10-16（Asia/Taipei）。**使用者已授權 D01～D05 快速完成、包含 D04 繞路或必要的最小 IAM；這取代先前「僅 API 100% 切流、其他 P1 暫停」的限制。** 歷史 PASS 只限當次 SHA／環境／scope；下方舊「未切流／尚未真人驗收」段落保留當時 checkpoint，不能倒蓋最新結果。
 
-### DRL-01 最高優先資料修復：最新 dev 證據（2026-10-16）
+### DRL-01 最新工程 checkpoint（2026-10-17）
 
-**整體 PARTIAL；使用者已解除DRL暫停並提升優先序。** D01～D05既有PASS與授權保留，本次市場補價／月營收不操作Owner交易、不新增provider／Job template／IAM／Scheduler／正式API流量。
+**整體 PARTIAL；已解除暫停並維持最高優先。** 核定分工／詳細收據由[TODO DRL-01](todo.md)與[operations](spec/operations-and-testing.md)索引。現有 dev 真實資料修復沿用已核准官方來源、Stage→Core、既有 Job／writer 鎖，不操作Owner交易、不新增付費資源或定時排程。
 
-| 子項 | 已確認真實結果 | 未達標與後續實機證據 |
+| 子項 | 最新可稽核 dev 結果 | 未完成的 acceptance |
 |---|---|---|
-| A 上櫃 20日 | [獨立全量 Core census #38920178493](https://github.com/tommylin15/janus-omniforge/actions/runs/38920178493)：TPEX **797/896股≥20日(88.95%) PASS**；其中766股最近20日全具價。官方21個有效交易日已逐日驗證Stage/Core/snapshot，見[#38917554437](https://github.com/tommylin15/janus-omniforge/actions/runs/38917554437)、[#38918148776](https://github.com/tommylin15/janus-omniforge/actions/runs/38918148776)、[#38918809519](https://github.com/tommylin15/janus-omniforge/actions/runs/38918809519)。 | 不等於持股／關注120日或歷史PIT研究母體PASS。 |
-| A 上市 20日 | [Oct01 #38919999165](https://github.com/tommylin15/janus-omniforge/actions/runs/38919999165) TWSE原498→1089/1096單日具價；[Oct08、12～15 #38920851638](https://github.com/tommylin15/janus-omniforge/actions/runs/38920851638) 五日各合格1089～1091/1096，部分沿用已合格日期；均無Owner變更。 | 後續 [Sep30/Oct02/05～07 #38921645858](https://github.com/tommylin15/janus-omniforge/actions/runs/38921645858) 仍依實際終態讀回；全上市≥20日≥90%未證明。 |
-| B 月營收月份修復 | [#38893774756](https://github.com/tommylin15/janus-omniforge/actions/runs/38893774756) 3947筆安全period metadata缺值修復，missing→0，同一Core總筆數不變。 | 只有月份identity修復，不等於13月同比已齊。 |
-| B 上市歷史月份 | [2026/09 #38918935523](https://github.com/tommylin15/janus-omniforge/actions/runs/38918935523)1088/1096；[07～08 #38919909592](https://github.com/tommylin15/janus-omniforge/actions/runs/38919909592)1084/1085；[05～06 #38920546308](https://github.com/tommylin15/janus-omniforge/actions/runs/38920546308)1088/1086；[03～04 #38921385829](https://github.com/tommylin15/janus-omniforge/actions/runs/38921385829)1086/1084；[01～02 #38922320234](https://github.com/tommylin15/janus-omniforge/actions/runs/38922320234)1084/1084。**2026/01～09 九個月逐月 Core readback PASS**，每月MOPS raw/provenance/receipt、0 quarantine，重複值reuse。 | 2025/11～12 [#38923398334](https://github.com/tommylin15/janus-omniforge/actions/runs/38923398334)排隊，接續2025/09～10後才是13月；TPEX單月官方適配新增CODE/CI PASS但未live canary，13月完整YoY仍PARTIAL。操作見[資料補充runbook](runbook-data-supplement.md)。 |
-| C EPS | 官方2382 [#38910500339](https://github.com/tommylin15/janus-omniforge/actions/runs/38910500339)九個分散單季仍無連續4季；2327/2330補歷史Job [#38911169615](https://github.com/tommylin15/janus-omniforge/actions/runs/38911169615)終態PASS。 | Core可比季度／真正TTM讀回未證明；已修正累計EPS不能直接相減假造單季，圖表缺值維持missing。 |
-| Ledger／發布 | 既有每日/週六程式與targeted [CI #38918407333](https://github.com/tommylin15/janus-omniforge/actions/runs/38918407333) PASS；四GHCR [#38910268790](https://github.com/tommylin15/janus-omniforge/actions/runs/38910268790)該次SHA release PASS。 | 最新Ledger Jobs實機/Admin讀回尚未驗；API候選 [#38911603887](https://github.com/tommylin15/janus-omniforge/actions/runs/38911603887)因legacy /workspace/v2-state/build-receipt.json缺失而FAIL，未變更正式API traffic。 |
-| D 五年估值河流 | 沿用既有短期PE/PB可顯示。 | 五年持股／關注定向補回與實際河流仍後置，不能虛報。 |
+| A 市場20／21交易日 | [獨立 Core census #38988025097](https://github.com/tommylin15/janus-omniforge/actions/runs/38988025097)：**TWSE 1,073／1,096（97.90%）PASS、TPEX 799／896（89.17%）PASS**；依各市場最新21個有價日計算同檔至少20日有效；超過上市90%、上櫃70%門檻。TWSE [最後五日 #38923777091](https://github.com/tommylin15/janus-omniforge/actions/runs/38923777091)逐日Core讀回。 | 持股／關注120日、正式TAIEX交易日對照Ledger及歷史PIT母體仍PARTIAL。 |
+| B 月營收期間／13月 | 原3,947個月欄缺值[#38893774756](https://github.com/tommylin15/janus-omniforge/actions/runs/38893774756)修復；**TWSE 2025/09～2026/09連續13月1077／1096（98.27%）PASS**，最後9–10月補收[#38987755082](https://github.com/tommylin15/janus-omniforge/actions/runs/38987755082)；獨立相同股票期間盤點[#38988025097](https://github.com/tommylin15/janus-omniforge/actions/runs/38988025097)。 | 上櫃13月PARTIAL，需補齊2026/01～08及重跑獨立Core盤點；歷史publication unknown不得倒填。 |
+| B 上櫃官方來源 | 2026/09單月893／896 [#38988042436](https://github.com/tommylin15/janus-omniforge/actions/runs/38988042436)；2025/09–10 881／880 [#38988370212](https://github.com/tommylin15/janus-omniforge/actions/runs/38988370212)、2025/11–12 873／876 [#38988648245](https://github.com/tommylin15/janus-omniforge/actions/runs/38988648245)，每月≥70%且有snapshot，PASS限定這五個月份。 | 其他8月尚待執行完成，不能宣稱上櫃13月PASS。 |
+| C EPS四連季 | 獨立Core[#38988025097](https://github.com/tommylin15/janus-omniforge/actions/runs/38988025097)正規單季口徑 **TWSE 0／1096、TPEX 0／896**；2382九個分散單季，尚無四連季。 | 真正分母、報表口徑及Core/Mart四季讀回缺證據；不得用YTD EPS相減假造單季或TTM。 |
+| B→API→UI | API合法同月YoY與缺基期降級、個股月營收圖提示已修改；DRL targeted[#38988820818](https://github.com/tommylin15/janus-omniforge/actions/runs/38988820818)、Flutter[#38988808708](https://github.com/tommylin15/janus-omniforge/actions/runs/38988808708) PASS；四GHCR[#38988844578](https://github.com/tommylin15/janus-omniforge/actions/runs/38988844578)本次scope release PASS。 | 最新同源Jobs／serving projection／正式App新版API讀回與真人手機驗收尚未證明。 |
+| 定期 Ledger | `readiness.py` 已提供分市場月營收13月／EPS四季有效分母，保留Core snapshot/source；目標測試PASS。 | 原有每日／週六Controller實機、自動Job與Admin Setting首次新版讀回仍NOT_VERIFIED，不用成功build代替運行。 |
+| D 五年PE/PB河流 | 仍採既有短期合法PE／PB。 | 五年定向深度後置，不以短期有效值冒稱五年歷史已齊。 |
 
-逐日比率僅是單日證據；真正market gate採獨立相同股票≥20日Core讀回。舊基線上櫃0股≥20日與最新797股不同，**最新runtime census為準**。任何CI/Job terminal PASS不自動代表App/新Jobs全量發布成功。
+逐日PASS與相同股票跨日期Census是不同驗收；公開產品仍需serving與圖表正向讀回。此前較舊DRL checkpoint已集中在TODO及原始GHA receipts，不以舊基線覆蓋此最新結果。
 
 ### D01～D05 最新工程 checkpoint（2026-10-16）
 
