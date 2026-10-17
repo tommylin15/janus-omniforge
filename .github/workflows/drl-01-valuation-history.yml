@@ -26,3 +26,10 @@ jobs:
       - run: python scripts/gcp/drl01_valuation_5y.py ops/drl-01-valuation-history-request.json
         env:
           PYTHONPATH: .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drl01-five-year-valuation-receipt
+          path: /tmp/drl01-valuation-5y.json
+          if-no-files-found: ignore
+          retention-days: 14
