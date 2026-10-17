@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "7f3e5621d39a99cdb6be622c80636da10f9a391e",
-  "candidate_release_run": "39031856247",
-  "candidate_deployment_run": "39032329887",
-  "purpose": "Dated UI and safe chart diagnosis: exact-source candidate passed; automatic OAuth/PKCE and private negative boundaries before Preview/Jobs/promotion, no Owner writes or manual consent.",
+  "sha": "82625dea8aa731f2645e45bb8d7d8a668df86abf",
+  "candidate_release_run": "39036409871",
+  "candidate_deployment_run": "39036772825",
+  "purpose": "DRL-01D 2Y river candidate at zero traffic: automatic OAuth/PKCE metadata and private Owner/Admin/MCP negative boundary, no new human login requirement.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 33
+  "attempt": 34
 }
