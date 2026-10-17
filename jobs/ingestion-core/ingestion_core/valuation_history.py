@@ -63,12 +63,27 @@ def five_year_profile(rows: Iterable[Mapping[str, Any]], *, symbol: str,
     values = [value for _, value in series]
     latest_value = values[-1]
     months = len({(day.year, day.month) for day in dates})
+    monthly: dict[tuple[int, int], list[Decimal]] = defaultdict(list)
+    for day, value in series:
+        monthly[day.year, day.month].append(value)
+
+    def median(observations: list[Decimal]) -> Decimal:
+        ordered = sorted(observations)
+        middle = len(ordered) // 2
+        return (ordered[middle] if len(ordered) % 2
+                else (ordered[middle - 1] + ordered[middle]) / 2)
+
+    monthly_points = [
+        {"date": f"{year}-{month:02d}-01", "value": str(median(group))}
+        for (year, month), group in sorted(monthly.items())
+    ]
     out = {**common,
            "count": len(series),
            "months_with_valid_observation": months,
            "earliest": dates[0].isoformat(), "latest": dates[-1].isoformat(),
            "latest_value": str(latest_value),
-           "min": str(min(values)), "max": str(max(values))}
+           "min": str(min(values)), "max": str(max(values)),
+           "monthly_points": monthly_points}
     # At least 48 distinct calendar months and 200 actual daily observations,
     # with both endpoints, are needed to call this a five-year *distribution*.
     # A single pair of old/new data points does not qualify.
@@ -76,10 +91,22 @@ def five_year_profile(rows: Iterable[Mapping[str, Any]], *, symbol: str,
             and dates[-1] >= as_of - timedelta(days=30)
             and months >= 48 and len(series) >= 200):
         return {**out, "status": "partial_history"}
+    ranks = sorted(values)
+
+    def quartile(fraction: Decimal) -> str:
+        index = (Decimal(len(ranks) - 1) * fraction)
+        lower = int(index)
+        upper = min(lower + 1, len(ranks) - 1)
+        return str((ranks[lower] + (ranks[upper] - ranks[lower])
+                    * (index - Decimal(lower))).quantize(Decimal("0.0001")))
+
     below = sum(value < latest_value for value in values)
     equal = sum(value == latest_value for value in values)
     percentile = (Decimal(below) + Decimal(equal) / 2) * 100 / len(values)
     return {**out, "status": "ready",
+            "quartile_25": quartile(Decimal("0.25")),
+            "median": quartile(Decimal("0.50")),
+            "quartile_75": quartile(Decimal("0.75")),
             "percentile_midrank": str(percentile.quantize(Decimal("0.01")))}
 
 
