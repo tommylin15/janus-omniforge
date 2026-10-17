@@ -26,6 +26,8 @@ def test_bounded_core_snapshot_makes_partial_profile_without_imputed_percentile(
     assert report["profiles"]==2
     statement, records = connection.cursor.return_value.__enter__.return_value.executemany.call_args.args
     assert "ON CONFLICT(symbol,metric)" in statement
+    assert "INSERT INTO control.stock_valuation_five_year" in statement
+    assert "stock_valuation_two_year" not in statement
     assert len(records)==2
     for row in records:
         data=json.loads(row[4])
