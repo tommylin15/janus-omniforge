@@ -1,0 +1,48 @@
+name: DRL-01 publish bounded official 2026 EPS to existing dev serving
+on:
+  push:
+    branches: [main]
+    paths: ['ops/drl-01-eps-serving-sync-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify bounded 2026 official EPS projection scope
+        run: |
+          python -m py_compile scripts/gcp/drl01_eps_serving_sync.py
+          python - <<'PY'
+          import json
+          p=json.load(open('ops/drl-01-eps-serving-sync-request.json'))
+          assert p['intent']=='drl01-publish-core-2026-eps-to-existing-serving' and p['approved'] is True
+          assert p['no_owner_mutation'] and p['no_core_mutation'] and p['no_job_template_mutation']
+          assert p['symbols']==['1513','2327','2382','3231','3711','5876']
+          assert (p['year'],p['quarters'])==(2026,[1,2])
+          PY
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Publish only two official quarterly EPS per stock via existing Job
+        env:
+          PYTHONPATH: .
+        run: python scripts/gcp/drl01_eps_serving_sync.py ops/drl-01-eps-serving-sync-request.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drl01-eps-serving-official-publish
+          path: /tmp/drl01-eps-serving-readback.json
+          if-no-files-found: ignore
+          retention-days: 14
