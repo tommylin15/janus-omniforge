@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "f87ecd481e6ac427e2b08e0ec909decf2f6dd528",
-  "candidate_release_run": "39000704621",
-  "candidate_deployment_run": "39001127006",
-  "purpose": "DRL-01 EPS 2026Q1/Q2 six focus PASS. Full GHCR release #39000704621, 0% candidate #39001127006; verify automated Google OAuth/private isolation without Owner mutation or canonical traffic switch.",
+  "sha": "50af946df64b3ee25d2d0a74b73c5584a0a90ff3",
+  "candidate_release_run": "39001930353",
+  "candidate_deployment_run": "39002236278",
+  "purpose": "DRL-01 EPS official 2026Q1/Q2 six Core PASS #39000368842, public serving 12 official rows #39001859414. Full f50 GHCR #39001930353, candidate f50 #39002236278 0% PASS. User already confirmed candidate OAuth/Owner positive manually; independently verify negative auth, metadata, candidate exact build and source before publishing fixed Preview. No Owner mutation.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 30
+  "attempt": 31
 }
