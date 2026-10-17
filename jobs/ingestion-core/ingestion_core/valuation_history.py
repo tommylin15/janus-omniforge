@@ -22,7 +22,7 @@ def two_year_profile(rows: Iterable[Mapping[str, Any]], *, symbol: str,
     if not 1 <= max_rows <= 5000:
         raise ValueError("unbounded_valuation_rows")
 
-    # Explicit leap-day handling: never substitute a 365*5 approximation.
+    # Explicit leap-day handling: never substitute a 365*2 approximation.
     try:
         start = as_of.replace(year=as_of.year - 2)
     except ValueError:
@@ -162,7 +162,7 @@ def publish_focus_profiles(core: Any, control: Any, *, symbols: list[str],
     with control.connection.transaction():
         with control.connection.cursor() as cursor:
             cursor.executemany(
-                """INSERT INTO control.stock_valuation_two_year(
+                """INSERT INTO control.stock_valuation_five_year(
                        symbol, metric, as_of_date, core_snapshot_id, payload_json)
                    VALUES (%s,%s,%s,%s,%s::jsonb)
                    ON CONFLICT(symbol,metric) DO UPDATE
@@ -170,7 +170,7 @@ def publish_focus_profiles(core: Any, control: Any, *, symbols: list[str],
                        core_snapshot_id=EXCLUDED.core_snapshot_id,
                        payload_json=EXCLUDED.payload_json,
                        updated_at=now()
-                   WHERE EXCLUDED.as_of_date >= control.stock_valuation_two_year.as_of_date""",
+                   WHERE EXCLUDED.as_of_date >= control.stock_valuation_five_year.as_of_date""",
                 output,
             )
     return {
