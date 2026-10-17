@@ -50,9 +50,39 @@
 3. **A2 總覽與批次整合（D01、D02、D04、D05）**：整合 Controller/occurrence 實際 terminal、Private queue、snapshot freshness、必要的 deployed metadata；補許可／重入／unknown fence／audit，不造第二排程。
 4. **A3 資料品質整併（DRL-01、D03、D02）**：市場與重要股票 readiness、官方來源、合法期別、資料缺漏／修復流程；檢查 TPEx 與 TWSE 既有 Admin master 管理契約，不盲目擴人工寫權。
 5. **A4 Iceberg／備份／設定整合（D06、D04）**：儲存、retention、compaction／cleanup receipts、protected refs、備份狀態及 Worker 參數；對照真正的 controller/runtime，無 evidence 就 unknown。
-6. **A5 測試、受控 dev 發布與驗收**：Flutter/Admin API targeted + CI、有效權限／Owner 隔離、retry 安全、同 SHA GHCR/Cloud Run 受控發布與 rollback、實機 Admin 正向讀回；保留 accepted User 路徑。A1～A5 未有 evidence 不能標 PASS。
+6. **A4-U 全站與單一使用者追蹤**：在現有「總覽 → 使用分析」整合 Flutter 事件埋點、後端批次／每日每使用者聚合、個人視角、有限事件時間線及安全與非阻塞驗收；不直接寫 Iceberg、不動 D01～D06。
+7. **A5 測試、受控 dev 發布與驗收**：Flutter/Admin API targeted + CI、有效權限／Owner 隔離、retry 安全、同 SHA GHCR/Cloud Run 受控發布與 rollback、實機 Admin 正向讀回；保留 accepted User 路徑。A1～A5 未有 evidence 不能標 PASS。
 
 **D07 隨後接入**「系統設定 → AI 模型 → Specialist 品質／版本／OOS」及適當資料缺口 detail，沿用 VF-09 真實 artifacts／typed API，不另建第五主頁或第二套管理端；**D08 隨後接入**同一 AI／Gateway 子頁的 CEO profiles、capability、usage、immutable history，正式 Owner 報告仍由 User 查看。兩者沒有因 UI 重排而取得新模型、付款或發布授權。
+
+## 4.1 ADMIN-V2 行為分析｜全站統計與單一使用者追蹤（A4-U）
+
+**需求：**管理者必須能從「總覽 → 使用分析」先看全站趨勢、再選擇經授權可見的單一使用者，了解其每日開啟哪些功能、操作次數、活躍停留時間、最後活動日及有限時間線。**這是本 ADMIN-V2 內的新增子切片，非 D01～D08 或 DRL-01 的新增工作。** UI 不增第五個主選單。
+
+### 操作介面
+
+- 全站頁：DAU、總操作次數、總有效活躍秒數、功能排名，按日／週／月與最近 7／30／90 天篩選；顯示成功／失敗或上報不完整比例，避免將事件遺失視為零。
+- 使用者清單：僅授權 Admin 可用，支援按後端使用者目錄查詢或選取單一 `user_id`，顯示識別所必需的名稱／Email、最近活動、近 7 日操作次數／活躍時間；未必要公開全部 Email，不提供 User App 或 MCP 的他人活動清單。
+- 個人詳情：單日／日曆區間依 `feature_id` 分組呈現 `page_view`、`action`、成功／失敗、`active_duration_ms`，最近 7 天可下鑽到粗粒度時間線（時間、功能、事件類別、結果）。不顯示筆記、交易明細、股票代號、輸入值、搜尋文字、URL query 或自由輸入 payload；操作次數不把自動 polling、rebuild、scroll/repaint 當作手動使用。
+- 若樣本／權限／收集證據不足，顯示 `unknown`／`partial`／`no_data`，不能顯示虛構 0 或完整度 100%。
+
+### 輕量事件契約
+
+建議 `usage-event.v1` 僅包含 allowlist 的 `feature_id`、`event_type`（`page_view`／`feature_action`／`action_result`／`active_interval`）、`action_key`、`outcome`、`client_time`、`active_duration_ms`、opaque `session_id`、`event_id`、`schema_version`。**`user_id` 只從後端已驗證 Google User token 綁定**，前端 user ID、Email、owner/subject 一律不作身分依據；禁止持久化 bearer token、Cookie、自由文字、金融金額與 user-to-symbol 關係。
+
+- Flutter 共用 `UsageTracker` 覆蓋 User 的「今日／關注／記帳／筆記／我的／個股詳情／重要操作」，及 Admin 對應主頁；Page enter/leave 不依賴 `dispose`（現有 IndexedStack 保留未顯示頁）。用 route/page 選擇、Flutter lifecycle、Web visibility／focus 判斷前景；閒置 60 秒後不再計時，恢復互動才重新累計。連續 interval 要限制上限並分段，顯示「估計活躍時間」而非確切閱讀時間。
+- 在記憶體短期累積，每 60 秒或 20 筆（先到者）以 **fire-and-forget** 傳送 `POST /api/v1/me/usage/batches`，不得阻擋導航／記帳／交易／重算；背景切換／離頁僅盡力傳送。可設定隊列上限、短 timeout、有限重試／丟棄，不能無上限持久化私人事件或無限補送。
+- Server 每批驗證 schema、feature allowlist、最大筆數／bytes／秒數、過舊時間、期間跨日及 client/received time 偏差；transaction 一起記錄 `batch_id` 冪等去重收據與每日 user-feature 聚合，避免 retry 加倍。拒絕未知 action、任意 payload 欄位及偽造其他 owner ID；事件 endpoint 不在業務同步 API 鏈內執行。
+- 建議資料層：**PostgreSQL** `usage_ingest_receipts`（極短期防重）、`usage_user_feature_daily`（`user_id` + 台北日 + `feature_id`）、最近有限 `usage_recent_events`（可選）和 `usage_monthly_summary`。Daily 保存 count/success/fail/active_seconds/page entry/session count/last_event_at／完整度；不是 canonical investment data，也不可拿一般 User/App 業務行為推測交易內容。索引要界定 user/date/feature，避免逐事件大量寫入。
+- 先採保守資料保留：原始安全事件 **7 天**、收據 **7 天**、單一使用者每日彙總 **180 天**、必要每月去敏彙總 **12 個月**（上線以實測容量再調整）；提供 retention purge、刪除請求與告知/權限政策，不能把使用者追蹤視為可永久保留的行政 audit log。
+- **MVP 不新增 GCS/Iceberg 寫入**：現有 e2-micro PostgreSQL 僅做小量批次統計，測資源後才判定是否另採月結 GCS/Parquet 歸檔。Iceberg 是未來可選的長期分析封存，不能逐 event commit；若採月分區，不強制每月一個實體檔，也不新增 Scheduler/Job 作 ADMIN-V2 的前置。
+
+### Admin API／安全邊界
+
+- `GET /api/v1/admin/usage/overview`：已彙總全站統計；`GET /api/v1/admin/usage/users`：授權名單與查詢；`GET /api/v1/admin/usage/users/{user_id}`：單一使用者日／功能彙總；`GET /api/v1/admin/usage/users/{user_id}/recent`：可選最近七日的 allowlisted 粗粒度操作時間線。皆沿用 Admin audience、backend server-side 授權、bounded date/rate/page limit；存取個人追蹤資料另留 admin read audit，不暴露資料表／owner 綁定於公開端點。
+- 對使用者明示正在收集的事件類別、用途、保存期限、可見角色與刪除／退出或停用規則；部署前確認適用資料保護規範與使用者通知。允許對個別使用者停用後續非必要分析收集；停用不影響產品功能。Admin 不得因角色能看 Private Pipeline aggregate，就自動取得各人交易／個股內容。
+- 覆蓋正反權限測試（User 不可查他人，admin token/user token audience 隔離），以及重新登入、換帳號、重送、離線、背景／閒置、跨午夜與被拒 event。A5 必驗開／關 UsageTracker 的頁面切換 p95、API p95、CPU／DB I/O／儲存增量；業務操作延遲不得因 telemetry 上報而提高至不可接受，失敗不得影響業務提交。
+
 
 ## 5. 權威來源、安全及驗收
 

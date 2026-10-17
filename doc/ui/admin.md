@@ -38,9 +38,20 @@ Admin 的目標是 `apps/user_app` 內的 Flutter workspace，與 User 共用 co
 - 需要處理的項目數。
 - 合格的 Private Mart valuation-as-of、D02 snapshot freshness 及有效部署版本可在次層顯示；資料／部署證據不存在時顯示 unknown。
 
+「總覽 → 使用分析」是**次層統計與個人分析**入口，不新增第五主選單：全站使用人數／功能次數／活躍秒數、最近 7／30／90 天；再進入使用者搜尋／個人日曆／各功能操作次數與活躍時間／最近七天粗粒度操作時間線。只接受已驗證來源，無回報或停用收集時不能視為零；完整契約見 [Admin v2 §4.1](../decision-2026-10-17-admin-v2.md)。
+
 有異常時，至少能辨識「哪一筆、原因、最後更新、是否可安全處理」，並可 drill-down 到對應批次、資料或 AI 詳細資訊。可重試項目才顯示 retry／rerun action；partial success 不得顯示成 full success。
 
 `WBS-3-DATA-SUPPLEMENT-V1` 的週六資料品質檢查已接入 Admin Overview：顯示最近檢查時間、通過／需處理／執行失敗、受影響資料與是否需調整每日補資料；「結果與檢核文件」可讀安全結果及 `/api/v1/admin/data-quality/runbook`。檢查本身執行失敗與資料品質不合格必須分開；不透過 Email 或 Codex automation 通知。
+
+### 9.1.1 使用分析 → 單一使用者（A4-U，待實作）
+
+- 全站摘要可選日／週／月，顯示 DAU、總 feature actions、有效活躍秒數與各功能排名。
+- `查詢使用者` 支援經 Admin 授權的使用者目錄搜尋，選取後進單人檢視。預設 7／30／90 天各功能頁次數、主動操作、成功／失敗、估計活躍時間、最後活動日；最近 7 天時間線只顯示時段、`feature_id`、事件類型與狀態。
+- 手機畫面採卡片 + 功能清單，桌面可加期間表格；不可在總覽直接列出所有人明細或敏感金融資料。
+- Feature/key 僅 allowlist，嚴禁展示原始 payload、股票代號、持股、交易金額、筆記內容、搜尋關鍵字、Email 作事件屬性。識別用 Email 只從後端 Admin 授權的使用者目錄取得，個人頁開啟需另行稽核。
+- 有效停留時間依頁面切換、前景／背景、焦點及閒置 60 秒計算；不將 IndexedStack 存活、背景頁籤、自動 polling 計成活躍時間。計算不完整顯示 estimated／partial，不宣稱精確注意力時間。
+- 非同步上報失敗不延遲頁面切換、登入、交易、記帳、關注或重算；需求列在 ADMIN-V2，不擴張 D01～D06 的驗收。
 
 ## 9.2 批次
 

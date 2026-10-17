@@ -134,7 +134,8 @@ Reports 必須只讀 canonical backend／Private Mart aggregation，並明確呈
 - **A2 Controller 運營整合：**只讀承接 D01 Private Mart、D02 snapshot、D04 effective scheduling／backup、D05 deployed SHA/digest/Jobs readback；safe retry 走既有 backend fence。
 - **A3 資料品質：**承接 DRL-01、D02／D03 的資料缺口、stock/market、來源與合法期間；維持現行資料／分析／UI 一條鏈。
 - **A4 治理／設定：**承接 D06 Iceberg maintenance/objects/bytes/受引用保護清理，以及 D04 worker／backup；無可信資料時 unknown。
-- **A5 驗收：**targeted API／Flutter/CI、auth/owner 隔離、真實 GCP dev Admin readback、排程終態與控制面防重、同 SHA 受控發布／回復、手機與桌面。
+- **A4-U 單一使用者使用分析：**非阻塞 User App 共用事件收集、後端驗證身分／allowlisted schema、每日 user-feature PostgreSQL 聚合、Admin 查看單人操作次數／活躍時間／短期時間線。只在 ADMIN-V2 新增，MVP 不要求 Iceberg 與新 Job。
+- **A5 驗收：**targeted API／Flutter/CI、auth/owner 隔離、真實 GCP dev Admin readback、排程終態與控制面防重、同 SHA 受控發布／回復、手機與桌面；A4-U 另驗事件批次冪等、閒置／背景計時、個人資料隔離、前台效能回歸與保留清理。
 
 D01～D06 的 task、驗收 gate 和後置工作**不因本 WBS 增加**。等它們適用的核心依賴穩定即可開始 A1～A5；D06 全面 I/O matched measurement、DRL 歷史 TTM／五年 PE/PB 不列為 Admin v2 前置阻擋，未知則 unknown。D07／D08 的 **Admin UI 只接入本四頁容器**，不再平行開發六頁 Admin。
 
@@ -159,6 +160,14 @@ D01～D06 的 task、驗收 gate 和後置工作**不因本 WBS 增加**。等�
 - D07 VF-09 五角色 versions/champion、quality/evaluation、baseline/OOS、dirty/reuse、validated artifacts →「系統設定 → AI 模型 → Specialist 品質」，原始數值來源與 missing 狀態可連到「資料品質」；不要求在 D07 新建主導覽。
 - D08 Manual CEO/Gateway profiles/capability/immutable report audit → 同一「系統設定 → AI 模型與 Gateway」子頁；正式 Owner 報告仍在 User history。D07 有效 Fact Pack 及 D08 原 acceptance 不被 Admin 導覽變動降低。
 - Private worker (2–8)／versioned settings、必要授權和 audit 只管理已核准設定；Public retention 不類推 Private。
+
+### 6.3.4a 總覽使用分析與單人追蹤（A4-U）
+
+- 單一入口：`總覽 → 使用分析 → 使用者列表／單人詳情`。全站日／週／月和每位使用者的 7／30／90 天 feature/page views、操作 success/fail、有效停留時間及最近活動日；短期時間線至多最近 7 天，且只含允許的事件類型／功能／粗時戳，不記金融正文。
+- User token 驗證後綁定 stable `user_id`；Admin read 使用獨立授權，不能由 client 任意指定 owner，不能用 middleware request log 反推個人完整使用歷程。
+- Flutter 同一 `UsageTracker` hook 覆蓋核心 User／Admin 導覽與重要行為；記憶體聚合、非阻塞批次送出與上限丟棄；IndexedStack、背景或超時閒置不可造成虛假活躍秒數。
+- PostgreSQL 小量 `usage_user_feature_daily` 與限期收據／短期 timeline，idempotent batch write；原始事件短期保留、個人 daily 有界保留、每月 summary 按需歸檔。不得逐 action 寫 Iceberg／GCS snapshot，無需要不新建 Scheduler；監看 e2-micro 資料庫容量及 API latency。
+- 完整 schema／預設保留、資料保護通知、安全例外與建議 API 見 [Admin v2 §4.1](../decision-2026-10-17-admin-v2.md)。缺回報不得標成「無使用」；Admin 閱讀個人紀錄須 audit，User/MCP 不得查他人紀錄。
 
 ### 6.3.5 完成判定
 

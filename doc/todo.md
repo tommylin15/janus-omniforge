@@ -17,7 +17,7 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 | 工作包 | 狀態／次序 | 既有 WBS 責任 | 依賴與退出條件 |
 |---|---|---|---|
 | [D06 Iceberg／I/O](execution-cards/d06-iceberg-retention-io.md) | PARTIAL；獨立已授權 | WBS 7／retention | 既有 Jobs／cleanup 終態、完整引用保護、真實 objects／bytes／等量 I/O 驗收 |
-| [ADMIN-V2 Admin 四頁主要重構](decision-2026-10-17-admin-v2.md) | **A0 設計文件已整併；A1～A5 主體工程待開始**；D01～D06／DRL 核心契約穩定後，D07／D08 UI 接線之前 | WBS-6-ADMIN-OPERATIONAL-CONVERGENCE | 舊六頁精簡為四頁；只在本工作包整合 D01～D06／DRL 的 Admin 影響；無原工作包 gate 變更 |
+| [ADMIN-V2 Admin 四頁主要重構](decision-2026-10-17-admin-v2.md) | **A0 規格已整併（含使用者追蹤新需求）；A1～A5 與 A4-U 工程待開始**；既有核心契約穩定後，D07／D08 UI 接線之前 | WBS-6-ADMIN-OPERATIONAL-CONVERGENCE | 四頁重構＋總覽使用分析／單一使用者追蹤；影響與工程只在 ADMIN-V2，無 D01～D06 原 gate 變更 |
 | [D07 五角色資料與品質](execution-cards/d07-specialist-b9-oos.md) | 後置；產品交付後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
 | [D08 CEO／Admin／報告](execution-cards/d08-ceo-admin-owner-report.md) | 後置；有效角色後 | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE、User AI整合 | P0-V技術已PASS；真實 Fact Pack／capability／immutable report／Owner history另驗 |
 
@@ -65,9 +65,10 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 - [ ] **A2 Controller 營運整合（D01、D02、D04、D05 的影響）**：Private Mart、Snapshot、effective batch/backup/job terminal、受控 retry、已驗證 deployed SHA/digest 的唯讀顯示；不建第二套控制面。
 - [ ] **A3 DRL-01 資料品質（含 D02／D03 影響）**：TWSE／TPEx、OHLCV／營收／EPS 合法期間、stock／market 缺口、來源及安全修復；2026 單季 EPS 與歷史 TTM 未認證要區別。
 - [ ] **A4 D06／D04 營運治理**：Iceberg objects/bytes、maintenance、cleanup/protected refs、可比負載 I/O、備份與 worker 設定；缺證據維持 unknown。
-- [ ] **A5 Admin 專屬完整驗收**：Flutter/API targeted、權限與 owner 隔離、CI、受控 dev 發布、真實 batch/data/runtime readback、390px/desktop、rollback。
+- [ ] **A4-U 全站＋單一使用者行為分析**：在「總覽 → 使用分析」新增依使用者搜尋／單人 7／30／90 天操作次數、功能活躍時間與有限操作時間線；Flutter allowlist 事件非同步批次、PostgreSQL 每日 user-feature 彙總、短期事件保留、Admin 授權與存取稽核，不直接寫 Iceberg，不阻塞使用者操作。規格見 [Admin v2 §4.1](decision-2026-10-17-admin-v2.md)。安排在 A4 後、A5 前，不新增獨立主頁或其他工作包。
+- [ ] **A5 Admin 專屬完整驗收**：Flutter/API targeted、權限與 owner 隔離、CI、受控 dev 發布、真實 batch/data/runtime readback、390px/desktop、rollback；含 A4-U 的 User/Admin 隔離、上報失敗無害、頁面切換效能、容量及保留期驗收。
 
-**禁止擴張：**D01～D06 的 TODO 列、任務卡、完成與驗收條件**保持原樣**；相關工作只列在此處，亦不建立另一個 DRL、Scheduler、Admin 重算或發布系統。D07 的 VF-09 接「系統設定／AI 模型」；D08 的 CEO/Gateway 接同一容器且正式報告回 User，兩者維持既有模型／業務 gates。
+**禁止擴張：**D01～D06 的 TODO 列、任務卡、完成與驗收條件**保持原樣**；新增 A4-U 只隸屬 ADMIN-V2，User App 只增加共用非阻塞埋點，不更動既有交易、估值或專案資料契約；相關工作只列在此處，亦不建立另一個 DRL、Scheduler、Admin 重算或發布系統。D07 的 VF-09 接「系統設定／AI 模型」；D08 的 CEO/Gateway 接同一容器且正式報告回 User，兩者維持既有模型／業務 gates。
 
 ## D07｜五角色及模型品質
 
