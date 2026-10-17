@@ -2,13 +2,13 @@
   "intent": "promote-authenticated-reversible-ghcr-dev",
   "approved": true,
   "scope": "existing-dev-janus-api-only",
-  "source_sha": "50af946df64b3ee25d2d0a74b73c5584a0a90ff3",
-  "release_run": "39001930353",
-  "jobs_run": "39017773941",
+  "source_sha": "becb6a15496959c1f5d3d4985d7b523b652bd3ee",
+  "release_run": "39019392917",
+  "jobs_run": "39020285128",
   "rollback_mode": "reversible_ghcr",
   "baseline_source_sha": "d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6",
   "allow_legacy_forward_only": false,
-  "auth_boundary_run": "39017315925",
-  "gate": "User explicitly authorized direct latest dev API 100% after resolving the final DRL-01 EPS blockers. Official Core six 2026Q1/Q2 #39000368842 and published serving 12/12 #39001859414 PASS; f50 full release #39001930353, 0%-candidate #39002236278, automated OAuth #39017315925 plus USER_CONFIRMED_PASS human Owner isolation, fixed Preview #39017430466, six EPS public API live readback #39017516247 6/6 PASS, four existing dev Jobs reversible GHCR rollout #39017773941 PASS (receipt id 12095947315). Previously live canonical d739 100% revision janus-api-00524-tot and old digest GHCR verified with #38996111382. Require exact source and previous GHCR rollback digest, live fence/Scheduler, new→old→new 100% rehearsed reversible traffic, health/401/traffic/tags/build-id readback; do not alter Owner ledger, cash, source data, settings or new resources. Final individual stock page human acceptance is user responsibility after promotion.",
-  "retry_attempt": 4
+  "auth_boundary_run": "39019942041",
+  "gate": "User explicitly authorized combined DRL-01 and two stock fixes on one full source SHA. Same-source full release #39019392917, 0% candidate #39019791707, automatic auth #39019942041, fixed Preview #39020138003 and reversible four Jobs #39020285128 PASS with 8 distinct canaries, public f50 rollback and unchanged configs. Candidate/Preview and post-Jobs pre-promotion reads confirm six official 2026Q1/Q2 EPS, six 13-period revenue series, available quote and 66-row price chart. Preserve current d739 API rollback independently of f50 Jobs rollback; require live Jobs/Scheduler fence, lease, public fixed digest, new-to-old-to-new 100% rehearsal, health/401/traffic/tags/build-id readback. No Owner data, new resources or permissions. No repeated human OAuth requirement; D01-D05 accepted waivers remain closed.",
+  "retry_attempt": 5
 }
