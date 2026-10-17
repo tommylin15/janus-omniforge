@@ -28,7 +28,12 @@ jobs:
       - name: Run existing official fundamental history route
         env:
           PYTHONPATH: .
-        run: python scripts/gcp/drl01_eps_canary.py ops/drl-01-eps-history-request.json
+        run: |
+          if [ "$(python -c 'import json; print(str(json.load(open("ops/drl-01-eps-history-request.json"))["repair_official_history"]).lower())')" = "true" ]; then
+            python scripts/gcp/drl01_eps_canary.py ops/drl-01-eps-history-request.json
+          else
+            echo "Read-only current-year Core acceptance; official history already attempted."
+          fi
       - name: Verify independent official Core single quarters
         env:
           PYTHONPATH: .
