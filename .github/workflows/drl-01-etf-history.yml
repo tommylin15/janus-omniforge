@@ -1,0 +1,47 @@
+name: Janus DRL-01 official ETF 120-day Core OHLCV repair
+on:
+  push:
+    branches: [main]
+    paths: ['ops/drl-01-etf-history-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  etf-repair:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 34
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile and verify bounded official ETF request
+        run: |
+          python -m py_compile scripts/gcp/drl01_etf_ohlcv.py
+          python - <<'PY'
+          import sys
+          sys.path.insert(0,'scripts/gcp')
+          from drl01_etf_ohlcv import checked
+          x=checked('ops/drl-01-etf-history-request.json')
+          assert x['no_owner_mutation'] and x['no_equity_market_master_mutation']
+          PY
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Official TPEx raw to Stage and bounded Core readback on existing dev Job
+        env:
+          PYTHONPATH: .
+        run: python scripts/gcp/drl01_etf_ohlcv.py ops/drl-01-etf-history-request.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drl01-official-tpex-etf-120d
+          path: /tmp/drl01-etf-history.json
+          if-no-files-found: ignore
+          retention-days: 14
