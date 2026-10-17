@@ -6,6 +6,8 @@
 
 本次沿既有 dev Core warehouse，先合併可重建的稽核鏡像，再清理無保留快照引用、超過七日且 `<1 MiB` 的 metadata／Avro／Parquet；保留 current／named／最近24小時快照、已知 Core execution／報告引用與新檔，按 generation 刪除並讀回。私人 bucket、交易、Core canonical rows 與 execution manifests 不在這次刪除範圍。記錄實刪物件、bytes、保護與新舊快照讀取，不以 compact 或乾跑冒稱已減量。以下一般 row／manifest retention 的完整 fence 契約維持適用原範圍。
 
+關於各因子適用 **全市場（M）／觀察與持股（D）／私人（P）** 的收錄分母、容量估算、期限及「到期刪除≠搬至歷史區」的差異，請見 [因子收錄與保存矩陣](factor-coverage-retention-ledger.md)。矩陣是規格與容量預估，不會單憑文件變更觸發新的資料清理。
+
 ## 一般保留政策
 
 2026-10-03 使用者最新決策取代舊「未提交／未解決資料持續保留」規則。僅限既有 dev 公開 Stage、Core、Mart；私人交易、筆記與 production 不在此批次範圍。
