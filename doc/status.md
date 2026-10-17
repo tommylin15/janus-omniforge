@@ -2,18 +2,18 @@
 
 更新：2026-10-17（Asia/Taipei）。**使用者已授權 D01～D05 快速完成、包含 D04 繞路或必要的最小 IAM；這取代先前「僅 API 100% 切流、其他 P1 暫停」的限制。** 歷史 PASS 只限當次 SHA／環境／scope；下方舊「未切流／尚未真人驗收」段落保留當時 checkpoint，不能倒蓋最新結果。
 
-### DRL-01 最新三項驗收 checkpoint（2026-10-17）
+### DRL-01 2026 年先行上線 EPS 調整（2026-10-17）
 
-**本輪使用者只授權第①13月營收、②持股／關注120日OHLCV、③合法四季EPS；完成可驗證部分即停止，不往定期Ledger、UI或五年河流施工。整體DRL-01仍PARTIAL。** 以本段真實Core receipt取代舊上櫃缺月／未部署等DRL段落；其他D01～D05已驗收範圍各自保留。
+**本輪優先結清②持股／關注120日，③EPS放寬「舊年度完整四連季」上線門檻，但不放寬單股真實EPS來源、單位或provenance。整體DRL-01其餘 Ledger／五年估值／產品全鏈仍依各自證據PARTIAL。**
 
-| 子項 | 真實獨立證據與判定 | 剩餘限制 |
+| 子項 | 真實驗收與本輪決策 | 未完成／界線 |
 |---|---|---|
-| ① 13個連續月營收 | **PASS**：[Core Census #38997408284](https://github.com/tommylin15/janus-omniforge/actions/runs/38997408284) 同股票 2025/09～2026/09 TWSE **1,077／1,096（98.27%）**，TPEX **864／896（96.43%）**，分市場超過90%／70%門檻；上櫃最後兩月官方補收[#38990411743](https://github.com/tommylin15/janus-omniforge/actions/runs/38990411743)各有Stage/Core snapshot。 | 來源取得時點非歷史實際公告時點；不可回填PIT。YoY圖UI自然載入另於D03驗收。 |
-| ② TWSE持股／關注120日 | **PASS（6檔TWSE）**：[Focus Core readback #38997792145](https://github.com/tommylin15/janus-omniforge/actions/runs/38997792145) 指定六檔各135合法行情日，6／6；無重複Core寫入。上市20／21母體原[#38988025097](https://github.com/tommylin15/janus-omniforge/actions/runs/38988025097)亦達90%。 | 兩檔債券ETF不是股票market master構成；120日獨立部分不可與股票混計。 |
-| ② TPEX 兩檔債券ETF | [官方source/schema #38998425476](https://github.com/tommylin15/janus-omniforge/actions/runs/38998425476) 00697B、00719B 兩檔官方當日資料與開高低收／量額具備，read-only PASS；[歷史修復 #38998709152](https://github.com/tommylin15/janus-omniforge/actions/runs/38998709152) 依Core最新真實終態判定。 | 來源可讀不等於120日實際價量已持久化；不得提前勾選。 |
-| ③ EPS連續四季 | **PARTIAL**：[官方現有Job＋嚴格Core驗收 #38998082208](https://github.com/tommylin15/janus-omniforge/actions/runs/38998082208)：1513／2382 各9個分散合格單季，但2025Q4缺，0／2具4連季，驗收CI因此FAIL；[官方 Q3/Q4 分母盤點 #38998787882](https://github.com/tommylin15/janus-omniforge/actions/runs/38998787882) 六檔原始財報均有歸母獲利與基本EPS、**卻均無可驗證加權平均股數欄位**，source_failures=0。 | 不得從YTD EPS直接差分或將不可驗證分母當真，Core/圖表維持合法單季值或missing；完整四季尚未達標。 |
+| ① 全市場13月營收 | **PASS**：[Core #38997408284](https://github.com/tommylin15/janus-omniforge/actions/runs/38997408284) TWSE1077／1096（98.27%）、TPEx864／896（96.43%），兩市場均達標。 | 歷史公告時點未知不能倒填PIT。 |
+| ② 八檔持股／關注120日 | **PASS（8／8）**：TWSE 6檔各135日 [#38997792145](https://github.com/tommylin15/janus-omniforge/actions/runs/38997792145)；官方TPEx ETF 00697B、00719B各125日 [#38998709152](https://github.com/tommylin15/janus-omniforge/actions/runs/38998709152)、Cloud Run `janus-ingestion-core-prxnx`、Core snapshot `4874890923938554002`，2／2真正驗收。 | ETF不是股票market master母體，不混入上市櫃上市股票coverage。 |
+| ③ 2026已公告EPS首版 | 使用者核准從嚴格4連季縮為目前已到期的 **2026Q1+Q2，六檔focus需各有官方合格單季**；Q3須已有官方公告才顯，Q4尚未到期。 [初始Core #39000160070](https://github.com/tommylin15/janus-omniforge/actions/runs/39000160070)：**4／6 PASS，3231／3711 缺值**；現有MOPS補收／六檔重新稽核 [#39000368842](https://github.com/tommylin15/janus-omniforge/actions/runs/39000368842) 依真實終態判定。 | **`CURRENT_YEAR_MVP` 不等於原`eps_4_comparable`四季/TTM PASS**；2025Q4缺股數不從累計EPS硬減，四季/TTM依然`NOT_CERTIFIED`，先行版歷史資料門檻`WAIVED_FOR_MVP`。 |
+| EPS API／Flutter | 同一published `visual-series(eps)` 新增 `eps_current_year`合法年度完成度，單一合法EPS也能顯示數值與實際期間而非整頁缺值；保留舊季度可比資料，未認證的TTM不顯示假值。 | GitHub targeted／Flutter、自版本化GHCR release、正式API traffic、實機數值讀回獨立判定；未經部署驗收不標LIVE PASS。 |
 
-**本次工程變更範圍：**只沿用已核准MOPS、TWSE、TPEX、TAIEX官方來源與既有dev Cloud Run Job、GCS Stage/Iceberg Core；不改Owner交易／現金、stock master、正式API traffic、新Scheduler或付費供應商。完成判斷以GitHub／dev runtime receipt，不以commit或Job terminal alone代替。
+此輪無Owner交易、stock master、財報數字覆寫、付費來源、新Scheduler或production操作；授權範圍以本輪使用者指令為準，非全面重啟第四項Ledger／五年PE/PB。
 
 
 ### D01～D05 合併驗收（2026-10-17）
