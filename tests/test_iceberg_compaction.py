@@ -212,6 +212,9 @@ class IcebergCompactionTests(unittest.TestCase):
         self.assertEqual(calls, [("core", False), ("core", True)])
         self.assertEqual(report["mode"], "dry-run-then-apply")
         self.assertEqual(report["preflight"]["audit"]["status"], "disabled")
+        self.assertEqual(report["timings"]["measurement_scope"], "one_local_job_process")
+        self.assertGreaterEqual(report["timings"]["process_cpu_seconds"], 0)
+        self.assertGreaterEqual(report["timings"]["planner_seconds"], 0)
         calls.clear()
         def no_work(*, core, apply):
             calls.append(("core", apply))
