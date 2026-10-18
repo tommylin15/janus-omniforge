@@ -1,0 +1,17 @@
+{
+  "intent": "drl01-yahoo-eps-six-stock-2025q4",
+  "approved": true,
+  "symbols": [
+    "1513",
+    "2327",
+    "2382",
+    "3231",
+    "3711",
+    "5876"
+  ],
+  "period": "2025Q4",
+  "image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:e8b7a10850bdd2bd103fa764824a9b71c40b5bd1bbdc8931f016cf0ee6201fa4",
+  "source_sha": "da1c5093061d333c29e1a87595f9d1a8dcbc04db",
+  "source": "yahoo-finance",
+  "no_owner_mutation": true
+}

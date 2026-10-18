@@ -2,15 +2,14 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "b5df7e30bc02676a41d0d3300325b9ca5d6fb553",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:1fa62d926669c45a9c0f6dea0c2e140860e72b09b4414e53cf7b90cff2bf6802",
+  "source_sha": "da1c5093061d333c29e1a87595f9d1a8dcbc04db",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:1e3bf8672d3c11fdc96530ea15b09f435482065b565ea0a0b3cc38eefc68d34d",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
-  "release_run": "39108738006",
-  "candidate_run": "39109095990",
-  "boundary_run": "39109265359",
-  "purpose": "DRL-01 P0-1: Update preview tag for two_year_profile fix",
-  "requested_at": "2026-10-18T16:00:00+08:00"
+  "release_run": "39123873496",
+  "candidate_run": "39124350076",
+  "boundary_run": "39124501524",
+  "purpose": "DRL-01 Yahoo EPS approved provider values; verify new same-source Preview before canonical traffic."
 }
