@@ -6,6 +6,8 @@
 
 `ingestion` 由同一總控在 07:30 與 14:30 產生 occurrence；14:30 不建立第二支 Scheduler／Job，而是對既有 `janus-ingestion-core` 做 execution-level override，將 `INGESTION_DATE` 固定為該台北日期，且只收斂盤後價格／指數所需的 `twse-market-volume,tpex-market-volume,taiex`（TPEx 新需求，實際映像尚須驗證）。全上市櫃個股皆納入，首頁仍只用 TAIEX benchmark。07:30 維持原本完整 ingestion 契約。21:30 Private Pipeline 與晚間 retention 依賴同日最新的 14:30 ingestion occurrence。
 
+> **2026-10-18 後續變更指令（尚未實際切換）**：使用者核准將 Iceberg Compaction → Mart Cleanup → Core Cleanup 收斂為每週六 23:30 的週維護鏈，優先執行 A+B（[FINOPS AI 指令](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)）。**以下 2026-10-15「每日」敘述仍忠實記錄當前 main 的實作／歷史目標，非新核准的最終節奏。** 若尚未完成 weekly controller code、依賴/fence tests、GHCR Jobs rollout 與 GCP occurrence readback，顯示 `PENDING_CUTOVER`，不得宣稱週批生效；週六不是交易日，依賴需先改為可證明最近成功 EOD Core Snapshot。新週批生效後應更新本章為實際最新版，並把舊每日描述移到 archive。
+
 ### 23:30 夜間 Iceberg 壓縮（獨立 FinOps 事件）
 
 2026-10-15 起的目標程式契約：每日 **23:30 Asia/Taipei** 由既有每小時 `:30` 喚醒的 `janus-batch-controller` 建立 `iceberg-compaction/YYYY-MM-DD/23` occurrence；沿用**現有** `janus-ingestion-core` Cloud Run Job，以 execution-level overrides 執行 `ICEBERG_MAINTENANCE_MODE=compact-nightly`（同次 execution 先執行 `compact-dry-run`、通過後再 `compact-apply`，並受控合併先前被遺漏的 `ops.batch_events_v1` 稽核事件表），不增開 Cloud Scheduler／Job，也不依賴 GitHub Actions 執行業務。
