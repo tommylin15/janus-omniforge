@@ -1,6 +1,11 @@
 name: DRL-01 bounded Yahoo EPS supplement
 on:
   workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        default: baseline
+        options: [baseline, supplement]
 permissions:
   contents: read
   id-token: write
@@ -26,11 +31,32 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - run: python scripts/gcp/drl01_yahoo_eps.py ops/drl01-yahoo-eps-request.json
+      - name: Read current immutable rollback baseline
+        if: inputs.operation == 'baseline'
+        env:
+          PYTHONPATH: scripts/gcp
+        run: |
+          python - <<'PY'
+          import json,urllib.request
+          from pathlib import Path
+          from ghcr_jobs_rollout import JOB_COMPONENT,job,image,fingerprint
+          jobs={name:job(name) for name,_ in JOB_COMPONENT}
+          with urllib.request.urlopen('https://janus-api-2oo7qbkd5q-uc.a.run.app/app/build-id.txt',timeout=20) as response:
+              source=response.read(100).decode().strip()
+          report={'jobs':{name:{'image':image(value),'configuration_hash':fingerprint(value)} for name,value in jobs.items()},
+                  'api_source_sha':source,'read_only':True}
+          Path('/tmp/drl01-yahoo-baseline.json').write_text(json.dumps(report,indent=2))
+          print(json.dumps(report,sort_keys=True))
+          PY
+      - name: Supplement the approved six stocks
+        if: inputs.operation == 'supplement'
+        run: python scripts/gcp/drl01_yahoo_eps.py ops/drl01-yahoo-eps-request.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: drl01-yahoo-eps-receipt
-          path: /tmp/drl01-yahoo-eps.json
+          path: |
+            /tmp/drl01-yahoo-eps.json
+            /tmp/drl01-yahoo-baseline.json
           if-no-files-found: ignore
           retention-days: 14
