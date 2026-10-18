@@ -1,4 +1,5 @@
 name: DRL-01 read-only GHCR deploy lease diagnostic
+# Recheck failed DRL-01 job rollout lease without changing refs or ownership.
 on:
   push:
     branches: [main]
