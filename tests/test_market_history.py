@@ -90,3 +90,39 @@ def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch,
     assert result['months'][0]['threshold_by_market'] == {'TWSE': .10, 'TPEX': .30}
     assert finished == [missing > 50 or otc_missing > 150]
     assert len(markers) == 1
+
+
+def test_historical_market_volume_runner_is_bounded_and_immutable(tmp_path):
+    import importlib.util
+    import sys
+    import json
+    from pathlib import Path
+    root=Path(__file__).resolve().parents[1]
+    script=root/"scripts"/"gcp"/"drl01_market_volume_replay.py"
+    sys.path.insert(0,str(script.parent))
+    spec=importlib.util.spec_from_file_location("drl01_market_volume_replay",script)
+    mod=importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert len(mod.SLICES)==4
+    assert mod.SLICES[0]==("2026-07-01","2026-07-31")
+    assert mod.SLICES[-1]==("2026-10-01","2026-10-12")
+    data={"intent":"drl01-existing-official-market-volume-history",
+          "approved":True,"no_new_source":True,
+          "no_owner_mutation":True,"no_job_template_mutation":True,
+          "slices":[list(item) for item in mod.SLICES],
+          "deployed_sha":"a"*40}
+    path=tmp_path/"request.json"
+    path.write_text(json.dumps(data))
+    assert mod.checked(str(path))==data
+    for bad in ({"approved":False},{"no_owner_mutation":False},
+                {"deployed_sha":"main"},{"slices":[["2026-01-01","2026-12-31"]]}):
+        path.write_text(json.dumps({**data,**bad}))
+        with pytest.raises(ValueError,match="unapproved_market_continuity_scope"):
+            mod.checked(str(path))
+    source=script.read_text()
+    assert 'wait_for_terminal_executions' in source
+    assert '"etag":current["etag"]' in source
+    assert 'if not digest_matches(request["deployed_sha"],current)' in source
+    assert "PASS_BOUNDED_OFFICIAL_HISTORY_WRITTEN" in source
+    assert "market_history_not_terminal_do_not_retry" in source
+    assert ":update" not in source
