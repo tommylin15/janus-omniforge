@@ -48,11 +48,11 @@ class DuckDBIcebergTests(unittest.TestCase):
         initial = self.core.write(rows=[base], execution_id="e1",
                                   provenance_id="original", **common)
         self.assertEqual(initial.row_count, 1)
-        with patch.object(self.catalog, "load_table", wraps=self.catalog.load_table) as loaded:
+        with patch.object(self.core, "_ensure_layout", wraps=self.core._ensure_layout) as normalized:
             revision = self.core.write(rows=[{**base, "availability_at": "2026-08-16T01:00:00Z",
                                               "source_document_sha256": "official-correction"}],
                                        execution_id="e2", provenance_id="amended", **common)
-            self.assertEqual(loaded.call_count, 2)  # once for preflight, once after commit
+            self.assertEqual(normalized.call_count, 1)  # duplicate normalization/catalog load is avoided
         self.assertEqual((revision.inserted, revision.row_count), (1, 2))
         upgraded = self.core.write(rows=[{**base, "availability_at": "2026-08-17T01:00:00Z",
                                            "financial_feature_version": "same-filing-comparatives-v1",
