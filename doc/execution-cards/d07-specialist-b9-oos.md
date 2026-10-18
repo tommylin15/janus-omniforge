@@ -6,7 +6,7 @@
 
 **WBS 責任：**WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9）
 
-**相依與順序：**產品 D01～D05 驗收交付後才啟動；B0～B8 不重做，B7 PASS 不是 B9 PASS。
+**相依與順序（2026-10-18 更新）：**產品 D01～D05 既有驗收不重做；**FINOPS-AB 優先施作，FINOPS-C（BigQuery）需先依 [統一 AI 指令 §4](finops-ingestion-iceberg-ab-and-c-gate.md) 完成開工前全局重評估、正式文件回寫及 go/no-go/blocked 處置後，才能開啟 D07 新工程**。不能以舊 B0～B8 歷史 PASS 當本次 C 預評完成；B7 PASS 不是 B9 PASS。
 
 **執行宣告：**只在使用者明確授權本工作包、TODO 為可執行時，依下列程序完成「分析→修改→適用測試→commit→dev 發布→真實驗收／修復」的整個工作包，不因內部 checkpoint 自行停止；外部安全／授權 blocker 保持 BLOCKED 並記錄。
 
