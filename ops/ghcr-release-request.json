@@ -1,15 +1,6 @@
 {
-  "intent": "publish-ghcr-dev",
-  "approved": true,
-  "scope": [
-    "ingestion-core",
-    "intelligence-mart",
-    "private-pipeline",
-    "api"
-  ],
-  "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 72,
-  "reason": "FINOPS-AB physical file reduction: delete exact GCS generation in versioned buckets; opt-in Core event-hold release guarded by generation/metageneration, keep temporary holds and original Stage behavior. Full same-SHA gates before new images; no runtime IAM or production change.",
-  "expected_runtime_changes": true,
-  "ceo_gateway_pilot": false
+  "intent": "dev-ghcr-full-release",
+  "sha": "5c1374d5cb19e098ee04813e3542b7be0c5c8699",
+  "purpose": "DRL-01 P0-1: Deploy API with two_year_profile field name (replacing five_year_profile). Includes diagnostic workflow and market-volume request update.",
+  "scope": "full-python-flutter-ghcr"
 }
