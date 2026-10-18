@@ -1,0 +1,30 @@
+name: DRL-01 read-only GHCR deploy lease diagnostic
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/drl01-ghcr-lease-readonly.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: janus-dev-read-only-lease-diagnostic
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect global lease without changing refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/gcp/ghcr_release_lease.py inspect
+          python - <<'PY'
+          import json,os,subprocess
+          cp=subprocess.run(['gh','api',f"repos/{os.environ['GITHUB_REPOSITORY']}/git/ref/tags/janus-ghcr-deploy-global-v1"],
+              capture_output=True,text=True,timeout=20)
+          # Repository/ref contents intentionally not logged.
+          print(json.dumps({'component':'drl01_deployment_lease_audit','ref_read_ok':cp.returncode==0,
+                            'tag_absent':cp.returncode!=0,'no_mutation':True},sort_keys=True))
+          PY
