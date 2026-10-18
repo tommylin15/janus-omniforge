@@ -24,8 +24,14 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 | [D08 CEO／Admin／報告](execution-cards/d08-ceo-admin-owner-report.md) | 後置；FINOPS-C 評估／處置決議及有效角色後 | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE、User AI整合 | P0-V技術已PASS；真實 Fact Pack／capability／immutable report／Owner history另驗 |
 
 ## FINOPS-AB｜先完成 A＋B，降低 Ingestion Core CPU／GCS I/O（P0；IN_PROGRESS／待 runtime 驗收）
-**2026-10-18 實作 checkpoint（不可當結案）：**已在 `main` 提交 Data Supplement date／selected-field bounded Iceberg scan（`a692739`）、相容性與防無界回歸測試（`575da35`）；週六維護的 `FINOPS_WEEKLY_MAINTENANCE` 守衛／最近成功 EOD Core receipt（`3f1b499`）及測試（`da02410`）；Compaction 無候選時跳過第二次 apply，並停止掃描已退役 audit mirror（`cce7630`、測試 `79fe3a5`）。[選擇性 CI #39090200399](https://github.com/tommylin15/janus-omniforge/actions/runs/39090200399)、[Iceberg Compaction CI #39090200532](https://github.com/tommylin15/janus-omniforge/actions/runs/39090200532) 同一 HEAD `79fe3a5` 均 SUCCESS。**但未確認完整 GHCR Release、Jobs rollout、Scheduler 生效、實際 I/O 減少或受引用清理；週批開關預設 `false`，不能宣稱改週批已正式生效。** D06-R1/R2 仍 pending，特別是 PG `core_snapshot_id` privilege 與完整外部引用 fence。其餘 DRL-01／ADMIN-V2 由他人執行，不占其部署鎖。
-
+**2026-10-18 FINOPS-AB＋D06 實作 checkpoint（PARTIAL，非結案）：**
+- A1：以 `FINOPS_WEEKLY_MAINTENANCE` 守衛將 Compaction → Mart Cleanup → Core Cleanup 週六化；週六以 PG 成功 EOD 和 immutable Core 收據為來源。Worker 追加 GCS manifest digest／當前 catalog Snapshot 正反驗證（`3f1b499`／`0c48497`）。旗標**預設 false**，尚未在 dev 啟用。
+- B1：Data Supplement 價量、指數、估值的有界日期／欄位 Iceberg scan 與回歸（`a692739`／`575da35`）；歷史財報合法版本不可因節流刪除。
+- B2：financials 寫入重用已載入的 table，避免第二次 layout normalization；去重保留官方文件 hash、特徵版本與來源期間（`da5d3c5`／`de98223`）。完整 dataset/date coalesced commit 尚未完成，不能標 B2 全面 PASS。
+- B3：Compaction 無候選分區時不做 Apply，不再掃描停用的 audit mirror；有候選時 Dry-run 計畫可在 Snapshot/metadata pointer 不變下供 Apply 重用，避免第二輪 metadata／manifest planning（`cce7630`、`5e52a10`、`1df26c3`）；僅保留單次 Job process CPU／wall timing，不作兩天比較。
+- D06：Retention 沒有 catalog 變更或實際刪除時重用 GCS metadata 清單，避免二次 List（`513479b`／`aff09e0`）。原477 objects cleanup 與 audit mirror 停用沿用已通過收據；真正 Retention fence／受引用清理／PG `core_snapshot_id` 欄位授權仍 BLOCKED/PARTIAL，不可假稱已刪除。
+- **已確認 CI：**同源 [Compaction CI #39093460437](https://github.com/tommylin15/janus-omniforge/actions/runs/39093460437) SUCCESS；[前一同源選擇性 CI #39093280201](https://github.com/tommylin15/janus-omniforge/actions/runs/39093280201) SUCCESS；最新 `1df26c3` 選擇性 CI [#39093460444](https://github.com/tommylin15/janus-omniforge/actions/runs/39093460444) 當次仍在執行，必須核對終態。
+- **明確阻塞：**DRL-01 並行的 GHCR Jobs rollout [#39090724732](https://github.com/tommylin15/janus-omniforge/actions/runs/39090724732) 因原子 release lease ref HTTP403 而 FAIL，FinOps 不得繞過租約或與另一 AI 競爭發版；因此最新 FinOps 未部署 dev Jobs，未證 Scheduler 週化、live 成本/I/O 效益與 D06 清理。FINOPS-AB 仍 **IN_PROGRESS**，CPU -30%、Metadata I/O -50% 均只保留為目標，未量測不得報達標。原 D06 兩天／長時間量測 **CANCELLED_BY_USER**。
 
 **AI 唯一指令入口：**[FINOPS-AB／C 工程執行卡](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) §0–§3 → [Batch Controller Runbook](runbook-batch-controller-dev.md) → [WBS-7](wbs/wbs-7-security-finops.md)。這是整合後**唯一** FinOps active 工項；D06 尚未完成的保護、清理與 readback 歸本工項，已完成的歷史收據沿用不重跑。DRL-01 與 ADMIN-V2 由其他 AI 施工，不修改其專屬檔案／workload，部署鎖競爭則安全等待。
 
