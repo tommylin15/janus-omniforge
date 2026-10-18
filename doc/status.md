@@ -1,8 +1,11 @@
 # Janus 目前狀態
 
-> **2026-10-18｜DRL-01 P0-1 完成、三項待續（PARTIAL）**：① **P0-1 `two_year_profile` API 欄位 PASS**：新版 `b5df7e30bc02676a41d0d3300325b9ca5d6fb553` 已部署至正式 100% traffic（手動 gcloud promote），API 現返回 `two_year_profile`（非舊版 `five_year_profile`），六股 PE/PB 12 筆 ready、window_years=2、487 points、25 monthly_points 驗證通過。Release #39108738006、Candidate #39109095990、Auth-boundary #39109265359、Preview #39109708477 全部 SUCCESS。② Readiness 修正版 Jobs rollout／`data_readiness_ledger` 實際發布仍待驗收；③ 2026-07～09 Market Volume 官方缺日幂等補收仍待驗收；④ EPS 歷史單季定向修復（2025Q4／TTM）仍 NOT_CERTIFIED。只暫停 **DRL-01 後三項**，P0-1 已結案。證據見 [operations-and-testing](spec/operations-and-testing.md) 與 [TODO](todo.md)。
-
-> **2026-10-18 DRL-01 使用者暫停 checkpoint：PAUSED_BY_USER／PARTIAL**。**正式 dev API 新版100%切流及一般真人驗收由使用者確認 PASS**；這不等於 DRL-01 兩年估值 `two_year_profile`／手機 UI PASS。官方25月 PE/PB 補收 [#39051869951](https://github.com/tommylin15/janus-omniforge/actions/runs/39051869951) PASS、PG 12筆 ready，前次正式API [#39083839390](https://github.com/tommylin15/janus-omniforge/actions/runs/39083839390) 尚未返回該profile；Ledger PyIceberg掃描修正已有 code/CI，尚無修正版 Jobs＋自然執行發表讀回證據；7～9月 market-volume 抽樣缺日仍未驗證回補（workflow request disabled／SKIPPED）；2026 Q1/Q2六檔 EPS PASS，但2025Q4及歷史TTM仍 NOT_CERTIFIED。使用者原要求四項一次完成，隨後要求**暫停作業、先回寫 GitHub**；本輪僅文件 checkpoint，未啟動補收／Job／deploy／排程、未改寫資料。恢復操作順序與逐項證據門檻見 [DRL-01 暫停／恢復入口](todo.md)。本節僅暫停本對話 DRL-01，不代表停止 FINOPS-AB／ADMIN-V2 他處並行工程。
+> **2026-10-18｜DRL-01 P0-2/P0-3 執行中（IN_PROGRESS）**：
+> - **P0-2 Readiness Jobs**：已由 FINOPS-AB [#39101646737](https://github.com/tommylin15/janus-omniforge/actions/runs/39101646737) 部署 `252db8c`（含 readiness.py 修正），待驗證自然排程 Ledger 寫入。
+> - **P0-3 Market Volume 補收**：正在執行四個 slices（2026-07～10），預計約 2-2.5 小時完成。使用 execution-based 驗證作為 fallback。
+> - **P1-4 EPS 歷史修復**：需等 P0-2 Ledger 驗證完成後執行。
+>
+> 證據見 [operations-and-testing](spec/operations-and-testing.md) 與 [TODO](todo.md)。
 
 
 > **FINOPS-AB 完成（2026-10-18，PASS）**：月批 OHLCV／估值、bounded reads、current-only snapshot 與精確 GCS generation 實刪程式已完成。
