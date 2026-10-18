@@ -1,8 +1,10 @@
 # Janus 最新驗收證據索引
 
-### 2026-10-18｜第三方補收已核准；Yahoo EPS 工程進行中
+### 2026-10-18｜DRL-01 Yahoo Stage修復／停止checkpoint（PARTIAL）
 
-使用者明確核准補資料不必官方，可使用Yahoo等第三方，且不要求Firecrawl；[PROJECT_RULES §1.7](../PROJECT_RULES.md)已保存長期規則。原MOPS 12份報表0/6可重建仍為當次實證，**不再是第三方補收的blocker**。六股2025Q4已直接HTTP讀取Yahoo單季EPS頁，原始HTML與取得時間存本機；本輪程式、DB serving來源支援、受控發布及真實入庫/API驗收進行中，尚不宣稱P1-4 PASS。範圍只限原六股2025Q4，不補全市場。
+第三方直接補收已由[正式規則§1.7](../PROJECT_RULES.md)核准。六股2025Q4 Yahoo數值已取得，但首次真實執行`janus-ingestion-core-6fc7l`在Stage舊MOPS-only HTML guard失敗，0項發布；不是來源資料不存在。修正來源`e3e0098399846eb337dd2ed1f8b636240bc88c20`、34項Stage／EPS回歸PASS；[完整Release #39126918277](https://github.com/tommylin15/janus-omniforge/actions/runs/39126918277)、[0%候選 #39127304288](https://github.com/tommylin15/janus-omniforge/actions/runs/39127304288)、[自動auth #39127497388](https://github.com/tommylin15/janus-omniforge/actions/runs/39127497388)均SUCCESS。Preview更新在取得lease前BLOCKED且未變更；Jobs更新已送出、最後讀回IN_PROGRESS；精確終態、固定digest與續行入口見[checkpoint](../archive/drl01-yahoo-stage-checkpoint-2026-10-18.md)。
+
+使用者要求更新完停止、先回寫文件與同步GitHub；不再啟動EPS重跑或新功能。自然daily／weekly Ledger改列後續觀察，NOT_VERIFIED不冒充PASS，也不再作本次DRL-01結案gate。剩六股修正版Stage→Core→serving、正式API與畫面讀回；新持股／關注股自動補收另案契約未實作。
 
 ### 2026-10-18｜DRL-01 整批續行：Ledger 落地、兩年 API／UI PASS；自然週期及 EPS 歷史仍 PARTIAL
 

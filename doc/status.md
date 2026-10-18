@@ -1,14 +1,10 @@
 # Janus 目前狀態
 
-> **2026-10-18 最新來源決策／EPS 補收進行中**：補資料可直接使用Yahoo等第三方來源，不需先窮盡官方來源或取得官方股數分母；見 [正式規則 §1.7](PROJECT_RULES.md)。六股2025Q4 Yahoo頁面已可讀，adapter／serving支援與發布、實際Stage/Core/API讀回仍待完成。下方官方核查0/6保留歷史事實，不再作停止第三方補收的gate。
-
-> **2026-10-18｜DRL-01 整批續行，仍 PARTIAL**：
-> - **P0-1 PASS**：正式兩年PE/PB API 12/12 ready；5876手機／桌面PE/PB顯示4/4，正式／Preview build-id同為`b5df7e30bc02676a41d0d3300325b9ca5d6fb553`。
-> - **P0-2 落地PASS、週期待驗**：Admin `data_readiness_ledger` 已讀回、獨立重算PASS；自然daily／weekly新版發布收據尚未齊備，依使用者2026-10-18指示改列後續觀察，不擋DRL-01本次結案。
-> - **P0-3 PASS**：四slices既有完成證據沿用，本輪沒有重送補收。
-> - **P1-4 已核查、修復受阻**：六股2025Q3/Q4官方12份來源均可讀，但目前YTD context缺可驗股數，可安全重建0/6；不造單季EPS。
+> **2026-10-18｜DRL-01 PARTIAL；更新後停止（使用者指示）**：兩年PE/PB正式API 12/12及5876手機／桌面4/4、Admin Readiness Ledger落地、Market Volume四slices均PASS。自然daily／weekly新版收據改列後續觀察，維持NOT_VERIFIED，不擋本次結案。
 >
-> 證據見 [operations-and-testing](spec/operations-and-testing.md) 與 [TODO](todo.md)。
+> 六股2025Q4 EPS可直接用Yahoo，不再找官方股數分母。首次補收在Stage被舊「僅MOPS HTML」規則拒絕，尚無六股發布成功證據；修正來源 `e3e0098399846eb337dd2ed1f8b636240bc88c20` 完整Release、0%候選、自動auth已PASS，Preview更新在取得lease前BLOCKED且未變更；Jobs更新已送出、最後讀回IN_PROGRESS，終態另見[checkpoint](archive/drl01-yahoo-stage-checkpoint-2026-10-18.md)。**仍缺修正版補收、正式API與畫面讀回**；不宣稱DRL-01完成。
+>
+> 新持股／關注股背景補收僅有已核准契約，尚未實作；先停止，待使用者續行。第三方直接補收長期規則見[§1.7](PROJECT_RULES.md)。
 
 
 > **FINOPS-AB 完成（2026-10-18，PASS）**：月批 OHLCV／估值、bounded reads、current-only snapshot 與精確 GCS generation 實刪程式已完成。

@@ -1,6 +1,6 @@
 # Janus — 唯一開發待辦
 
-> **2026-10-18｜DRL-01 整批續行（PARTIAL）**：兩年 API 12/12 與5876手機／桌面 PE/PB 4/4 PASS；Admin `data_readiness_ledger` 落地 PASS。Market Volume 沿用 PASS。剩自然 daily／weekly Ledger 收據；2025Q4 六股官方來源核查0/6可安全重建，保留未認證。
+> **2026-10-18｜DRL-01 PARTIAL，更新收尾後依使用者指示停止**：兩年API／UI、Ledger落地、Market Volume已PASS。自然daily／weekly改列後續觀察，不擋本次結案；六股2025Q4 Yahoo EPS仍待修正版補收入庫、正式API與畫面讀回。第三方可直接補收，不再以官方分母阻擋。
 
 更新：2026-10-18。只保存尚未完成的交付與驗收；真實終態證據見 [status](status.md) 與 [operations](spec/operations-and-testing.md)。
 
@@ -47,7 +47,9 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 
 **原 D06 兩天／長時間等量 I/O 量測：CANCELLED_BY_USER**，不執行、不阻擋結案。實際清理統計待補。
 
-## DRL-01｜新版功能資料可用性修復（PARTIAL；已解除暫停）
+## DRL-01｜新版功能資料可用性修復（PARTIAL；更新後依使用者指示停止）
+
+**2026-10-18 停止checkpoint**：使用者要求優先DRL-01、更新完停止，先回寫文件並同步GitHub。本次不再啟動EPS重跑或新增持股／關注股自動補收工程；僅核對已送出更新終態。下次由使用者續行時，從[最新checkpoint](archive/drl01-yahoo-stage-checkpoint-2026-10-18.md)接續。
 
 **2026-10-18 最新決策與剩餘驗收**：使用者「一次執行下去」解除先前暫停，允許整批接續既有 DRL-01 尾項。最新真實證據見 [operations](spec/operations-and-testing.md)；前次失敗與暫停見 [歷史 checkpoint](archive/drl01-pre-readback-2026-10-18.md)，不再作 active 禁令。
 
