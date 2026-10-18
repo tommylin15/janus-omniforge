@@ -122,6 +122,24 @@ def job(name):
     return data
 
 
+def existing_jobs():
+    result = {}
+    for name in REQUIRED_JOBS:
+        try:
+            result[name] = job(name)
+        except RuntimeError as error:
+            if name != "janus-research-big-move-500" or str(error) != "cloud_control_http_404":
+                raise
+            try:
+                cloud(f"{ROOT}/jobs/{name}/executions?pageSize=100")
+            except RuntimeError as retired:
+                if str(retired) == "cloud_control_http_404":
+                    continue
+                raise
+            raise ValueError("research_job_execution_listing_drift")
+    return result
+
+
 def image(data):
     containers = data["template"]["template"]["containers"]
     if len(containers) != 1:
@@ -471,10 +489,8 @@ def run(release_run, receipt):
         # fence or pause/delete that in-flight job to force deployment.
         journal["stage"] = "preflight_bounded_execution_drain"
         wait_for_terminal_executions(timeout=900)
-        full_snapshots = {}
-        for name in REQUIRED_JOBS:
-            data = job(name)
-            full_snapshots[name] = data
+        full_snapshots = existing_jobs()
+        for name, data in full_snapshots.items():
             if name in {target_name for target_name, _ in JOB_COMPONENT}:
                 container = data["template"]["template"]["containers"]
                 if len(container) != 1 or container[0].get("command") not in (None, [], ["python"]):
@@ -531,7 +547,7 @@ def run(release_run, receipt):
             canary(name, targets[name], snap["configuration_hash"], journal, save)
         journal["stage"] = "final_jobs_readback"
         save()
-        for name in REQUIRED_JOBS:
+        for name in journal["snapshots"]:
             snap = journal["snapshots"][name]
             checked_image(name, targets.get(name, snap["image"]), snap["configuration_hash"])
         wait_for_terminal_executions()
@@ -588,12 +604,13 @@ def recover(journal, save):
     # without waiting for an unrelated, already-running execution to finish.
     # Any partial image/config mutation retains the full terminal fence.
     originals = journal.get("snapshots", {})
-    if set(originals) == set(REQUIRED_JOBS) and journal.get("scheduler_hash"):
-        current = {name: job(name) for name in REQUIRED_JOBS}
+    complete = all(name in originals for name, _ in JOB_COMPONENT)
+    current = existing_jobs() if complete else {}
+    if complete and set(originals) == set(current) and journal.get("scheduler_hash"):
         if all(
             image(current[name]) == originals[name]["image"]
             and fingerprint(current[name]) == originals[name]["configuration_hash"]
-            for name in REQUIRED_JOBS
+            for name in current
         ):
             legacy_writers()
             schedule = scheduler()
@@ -616,11 +633,13 @@ def recover(journal, save):
         targets = journal.get("targets", {})
         if not all(name in originals and name in targets for name, _ in JOB_COMPONENT):
             raise ValueError("forward_only_snapshots_incomplete")
-        actual = {name: job(name) for name in REQUIRED_JOBS}
+        actual = existing_jobs()
+        if set(actual) != set(originals):
+            raise ValueError("recovery_job_set_drift")
         unchanged = all(
             image(actual[name]) == originals[name]["image"]
             and fingerprint(actual[name]) == originals[name]["configuration_hash"]
-            for name in REQUIRED_JOBS
+            for name in actual
         )
         schedule = scheduler()
         if scheduler_fingerprint(schedule) != journal.get("scheduler_hash"):
@@ -637,7 +656,8 @@ def recover(journal, save):
         # successful real canaries per target justify unpausing automation.
         for name, _ in JOB_COMPONENT:
             checked_image(name, targets[name], originals[name]["configuration_hash"])
-        if image(actual["janus-research-big-move-500"]) != originals["janus-research-big-move-500"]["image"]:
+        if ("janus-research-big-move-500" in actual and
+                image(actual["janus-research-big-move-500"]) != originals["janus-research-big-move-500"]["image"]):
             raise ValueError("protected_research_job_drift")
         passed = [c for c in journal.get("canaries", []) if c.get("result") == "PASS"]
         if len(passed) != 2 * len(JOB_COMPONENT) or any(

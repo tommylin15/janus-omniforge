@@ -702,3 +702,26 @@ def test_required_active_job_404_cannot_be_waived():
     with patch.object(rollout, "cloud", side_effect=api):
         with pytest.raises(RuntimeError, match="cloud_control_http_404"):
             rollout.fence()
+
+
+def test_retired_research_is_omitted_from_config_snapshots_and_recovery():
+    original=sample()
+    def read(name):
+        if name=='janus-research-big-move-500':
+            raise RuntimeError('cloud_control_http_404')
+        return original
+    schedule={'state':'PAUSED'}
+    with patch.object(rollout,'job',side_effect=read), patch.object(rollout,'cloud',side_effect=RuntimeError('cloud_control_http_404')):
+        jobs=rollout.existing_jobs()
+        assert set(jobs)=={name for name,_ in rollout.JOB_COMPONENT}
+        journal={'snapshots':{name:{'image':rollout.image(data),'configuration_hash':rollout.fingerprint(data)} for name,data in jobs.items()},'scheduler_hash':rollout.scheduler_fingerprint(schedule)}
+        with patch.object(rollout,'command'), patch.object(rollout,'legacy_writers'), patch.object(rollout,'scheduler',return_value=schedule), patch.object(rollout,'set_scheduler') as resume:
+            rollout.recover(journal,lambda:None)
+        resume.assert_called_once_with('resume','ENABLED')
+        assert journal['phase']=='RESTORED_NO_MUTATION'
+    with patch.object(rollout,'job',side_effect=read), patch.object(rollout,'cloud',return_value={'executions':[]}):
+        with pytest.raises(ValueError,match='research_job_execution_listing_drift'):
+            rollout.existing_jobs()
+    with patch.object(rollout,'job',side_effect=RuntimeError('cloud_control_http_404')):
+        with pytest.raises(RuntimeError,match='cloud_control_http_404'):
+            rollout.existing_jobs()

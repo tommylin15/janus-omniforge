@@ -1,5 +1,9 @@
 # FINOPS-AB 接續證據（2026-10-18）
 
+## 發布重試
+
+- Jobs #39098547758 FAIL／PREFLIGHT_BLOCKED_NO_MUTATION，四Job原設定與Scheduler ENABLED讀回相同，lease已釋放。退役research Job經execution fence雙404允許略過，但config snapshot仍要求存在；已將同樣雙404限定套用到設定快照與恢復，存在時仍保護，不豁免任何現役writer。71項targeted回歸PASS；不是已部署或實刪。
+
 ## 最新唯讀盤點（尚未刪除）
 
 - [#39098235692](https://github.com/tommylin15/janus-omniforge/actions/runs/39098235692) SUCCESS，source `93b6a11cc6a42354e762b370e8865a553814a831`，既有固定digest Jobs執行唯讀current-only盤點，零資料寫入。Mart observed `2026-10-18T04:48:08Z`、Core `04:49:41Z`；catalog pointer／Job config讀回相同。
