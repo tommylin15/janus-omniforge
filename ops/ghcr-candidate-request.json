@@ -1,14 +1,14 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "61dbdcee4baac92cb8c62201a97ccbf714e91dc4",
-  "release_run": "39085976225",
-  "purpose": "DRL-01 P0 two-year PG profile official API + repaired daily Readiness scan and bounded official market history; immutable full Release #39085976225, 0%-only candidate, preserve current approved canonical traffic.",
+  "sha": "dead98d35abc8c38448791494fb97d99f37c660b",
+  "release_run": "39097205867",
+  "purpose": "FINOPS-AB current-only snapshot cleanup, monthly coalesced prices and valuations, bounded phase timing. Exact-source full Release PASS; existing API candidate at zero canonical traffic only.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Python/Flutter/4 image immutable GHCR full Release #39085976225 succeeded; predeploy migration064 #39086340833 passed; must pass auth/preview/Jobs and keep rollback.",
+  "retry_verification": "Full Python and Flutter gates, all four public immutable GHCR digests PASS in #39097205867. Keep current API 100 percent and all Job templates unchanged until their gates.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }
