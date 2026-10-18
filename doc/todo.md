@@ -1,12 +1,12 @@
 # Janus — 唯一開發待辦
 
-更新：2026-10-17。只保存尚未完成的交付與驗收；真實終態證據見 [status](status.md) 與 [operations](spec/operations-and-testing.md)。
+更新：2026-10-18。只保存尚未完成的交付與驗收；真實終態證據見 [status](status.md) 與 [operations](spec/operations-and-testing.md)。
 
 ## 執行範圍
 
 **2026-10-17 最新決策：D01～D05 全部 PASS／CLOSED（使用者核准寬鬆驗收）**。既有真人正向驗收、資料讀取、備份與正式發布證據已接受；其餘嚴格量測、獨立補驗及原 D03 後續增補均不再要求，不另留支線或後續待辦。缺少證據的部分記為 USER_ACCEPTED／WAIVED，不偽稱實測通過。結案依據、已接受限制及原始清單見 [結案紀錄](archive/d01-d05-relaxed-acceptance-closure-2026-10-17.md)。
 
-DRL-01 仍由另一個 AI 按既有範圍處理；D06～D08 維持下列各自狀態。共用 main／runtime 操作仍需避免競爭部署。
+**2026-10-18 最新優先決策：FINOPS-AB（A 快速節流＋B Ingestion／Iceberg 原地優化）列最高優先，立即推進；DRL-01 仍由另一個 AI 在既有範圍並行，但共用 main／runtime 不得競爭部署。FINOPS-C（BigQuery 混合運算）必須排在 D07／D08 之前，**開始 C 工程前要重做完整架構／成本／資料一致性評估，正式回寫文件後才可決定 selective cutover**。既有 ADMIN-V2 正在進行，不因本次排列改動已授權範圍；不重開 D01～D05 及 D06 歷史 gate。唯一 AI 執行指令見 [FINOPS-AB／C 卡](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)。
 
 A 組及 B0～B8 已結案的範圍不重開；有實質變更才回歸受影響路徑。全市場 Bootstrap／同日 Cached、費稅88筆更正、00719B 身分／估值既有成功證據不重送。研究範圍採各歷史日期全上市櫃；50 關注 quota 仍保留。
 
@@ -16,12 +16,24 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 
 | 工作包 | 狀態／次序 | 既有 WBS 責任 | 依賴與退出條件 |
 |---|---|---|---|
+| [FINOPS-AB CPU／GCS I/O 優先優化](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **P0／立即實作，IN_PROGRESS（工程與 runtime 未驗收）** | WBS-3／WBS-7（A＋B） | A：每週維護鏈＋跳過無效工作；B：增量查詢、合併提交、dirty-partition；先確認現行 dev digest／成本基線，不新增付費服務 |
 | [D06 Iceberg／I/O](execution-cards/d06-iceberg-retention-io.md) | PARTIAL；獨立已授權 | WBS 7／retention | 既有 Jobs／cleanup 終態、完整引用保護、真實 objects／bytes／等量 I/O 驗收 |
 | [ADMIN-V2 Admin 四頁主要重構](decision-2026-10-17-admin-v2.md) | **IN_PROGRESS；2026-10-18 使用者授權 A1～A5（含 A4-U）工程與受控 dev 驗收**；既有核心契約穩定後，D07／D08 UI 接線之前 | WBS-6-ADMIN-OPERATIONAL-CONVERGENCE | 四頁重構＋總覽使用分析／單一使用者追蹤；影響與工程只在 ADMIN-V2，無 D01～D06 原 gate 變更 |
-| [D07 五角色資料與品質](execution-cards/d07-specialist-b9-oos.md) | 後置；產品交付後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
-| [D08 CEO／Admin／報告](execution-cards/d08-ceo-admin-owner-report.md) | 後置；有效角色後 | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE、User AI整合 | P0-V技術已PASS；真實 Fact Pack／capability／immutable report／Owner history另驗 |
+| [FINOPS-C BigQuery 混合運算](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **PLANNED；A＋B 驗收後、D07／D08 前；開工前必須重新評估並回寫正式文件** | WBS-5／WBS-7（C） | 先 C-preflight：CPU/RAM、GCS、BQ 實際計費與 PIT/snapshot/cost/rollback、既有配額/IAM；通過後才逐項開發與切換 Screening／Ranking／OOS，未通過 DEFERRED/BLOCKED 並明示決策 |
+| [D07 五角色資料與品質](execution-cards/d07-specialist-b9-oos.md) | 後置；FINOPS-C 開工前評估及其處置決議後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
+| [D08 CEO／Admin／報告](execution-cards/d08-ceo-admin-owner-report.md) | 後置；FINOPS-C 評估／處置決議及有效角色後 | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE、User AI整合 | P0-V技術已PASS；真實 Fact Pack／capability／immutable report／Owner history另驗 |
 
-## DRL-01｜新版功能資料可用性修復（目前最高優先；IN_PROGRESS）
+## FINOPS-AB｜先完成 A＋B，降低 Ingestion Core CPU／GCS I/O（P0；IN_PROGRESS／未驗收）
+
+**AI 唯一指令入口：**[FINOPS-AB／C 工程執行卡](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) §0–§3 → [Batch Controller Runbook](runbook-batch-controller-dev.md) → [WBS-7](wbs/wbs-7-security-finops.md)。這是新優先序的正式工項，不取代 D06 歷史 I/O 驗收或 DRL-01 工作內容。
+
+- [ ] **A1 週批＋相依修正：**原 `iceberg-compaction`、`mart-cleanup`、`core-cleanup` 仍在 main 的 `batch_controller.py` 使用每日 23:30 條件；改為每週六 23:30 同一 occurrence chain。週六非交易日要核對最近成功的 immutable EOD Core snapshot；跨日等待、no-work 正常終態、retry fence、unknown/failed、回滾均需測試，不能只加 `weekdays=(5,)`。每日 ingestion／DRL／Private 不減頻；工作必要時延期但不能重派。
+- [ ] **A2 低成本跳過與量測：**依具證據的 source cursor、snapshot、dirty/revision 和保留水位，在派送前 skip no_change/no_work；分段記錄 07:30／08:30／14:30／週維護 CPU-seconds、GiB-seconds、elapsed、資料量及可歸因的 GCS operation，避免為判斷 no-work 又全掃倉庫。
+- [ ] **B1 Data Supplement bounded reads：**`data_supplement._rows()` 以 date/period/column 規劃，減少無界歷史讀取；120 日價量、官方 EPS、月營收、兩年估值各保持真實合法 coverage 和 PIT／source provenance，不能用缺值補零。
+- [ ] **B2 Iceberg Dirty Commit／B3 按需維護：**同一 dataset／日期的安全合併提交、no-op 不寫、新舊財報 version 保護、snapshot reuse；compaction 以 dirty-partition/fence 決定改寫，受保護 Snapshot/orphan/generation 與 rollback 保持。不得因效能優化刪 canonical、research 或 Private 事實。
+- [ ] **AB 發布與完整驗收：**targeted + CI、GHCR immutability、受控 Jobs rollout、Controller/Scheduler 與真實週期/手動有界驗收，確認 Market/Private/API/DRL 正確，測同負載的 CPU/RAM/GCS I/O before-after。30% CPU 與 50% metadata I/O 僅為改善目標，未量測不可標達成；無 live 證據保持 PARTIAL。
+
+## DRL-01｜新版功能資料可用性修復（與 FINOPS-AB 並行；IN_PROGRESS）
 
 **2026-10-17 合併發布完成：**本年度2026 Q1／Q2 EPS與營收、兩項個股修正已於同一完整SHA `becb6a15496959c1f5d3d4985d7b523b652bd3ee` 完整Release→候選→自動auth→Preview→Jobs8／8canary→正式API100%全部PASS；切流前後公開資料讀回PASS，詳見 [證據](archive/combined-drl-stock-release-2026-10-17.md)。這條發布鏈不再是待辦；下方其它DRL-01適用驗收保留原範圍，不代表Ledger／五年河流或真人全量矩陣已通過，也不重開D01～D05豁免。
 
@@ -69,6 +81,13 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 - [ ] **A5 Admin 專屬完整驗收**：Flutter/API targeted、權限與 owner 隔離、CI、受控 dev 發布、真實 batch/data/runtime readback、390px/desktop、rollback；含 A4-U 的 User/Admin 隔離、上報失敗無害、頁面切換效能、容量及保留期驗收。
 
 **禁止擴張：**D01～D06 的 TODO 列、任務卡、完成與驗收條件**保持原樣**；新增 A4-U 只隸屬 ADMIN-V2，User App 只增加共用非阻塞埋點，不更動既有交易、估值或專案資料契約；相關工作只列在此處，亦不建立另一個 DRL、Scheduler、Admin 重算或發布系統。D07 的 VF-09 接「系統設定／AI 模型」；D08 的 CEO/Gateway 接同一容器且正式報告回 User，兩者維持既有模型／業務 gates。
+
+## FINOPS-C｜BigQuery 方案（A＋B 完成後、D07／D08 開工前；PLANNED）
+
+**本段只固定先後順序，不授權直接變更 BigQuery 付費資源、IAM 或切換 production。AI 必讀 [FINOPS 卡 §4](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) 與 [原混合架構決策](decision-2026-10-06-bigquery-analytics-over-iceberg.md)。**
+
+- [ ] **C-preflight（開工前強制重評估）：**以 A＋B 最新實測及當下 main/runtime 條件重評全系統 ingestion/Mart CPU、GCS、BQ on-demand billed bytes、免費額度與其他專案共用消耗、catalog/region/權限、PIT/exact-snapshot fidelity、成本、收益、失敗回退。重評報告正式回寫決策文件／WBS／TODO，留影響範圍、證據、成本上下界與 go/no-go/blocked 結論。
+- [ ] **C selectively implement（僅在 preflight 合格及必要授權後）：**現有 BigQueryAdapter 優先擴充全市場 Screening／Ranking，其次 OOS／aggregate；同一 immutable Core snapshot 比對 PyIceberg，bounded bytes/cost、query result、fallback、實機帳單與 GHCR/Job readback 全驗收。未通過應明確 DEFERRED/BLOCKED，不跳過 C-preflight 啟動 D07/D08，也不以歷史 B0～B8 PASS 代替此次核准。
 
 ## D07｜五角色及模型品質
 
