@@ -1,8 +1,7 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "b5df7e30bc02676a41d0d3300325b9ca5d6fb553",
+  "sha": "da1c5093061d333c29e1a87595f9d1a8dcbc04db",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "DRL-01 P0-1: Verify auth boundaries before promotion",
-  "requested_at": "2026-10-18T15:52:00+08:00"
+  "purpose": "Verify same-source candidate OAuth metadata and negative owner/Admin/MCP boundary before Yahoo EPS publication"
 }
