@@ -2,8 +2,8 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "61dbdcee4baac92cb8c62201a97ccbf714e91dc4",
-  "release_run": "39085976225",
+  "sha": "dead98d35abc8c38448791494fb97d99f37c660b",
+  "release_run": "39097205867",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
   "baseline_source_sha": "d8a57aa57198e0f383a37125e6b94eb392abe717",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 35,
-  "safety": "DRL-01 P0 retry after #39090309550 PREFLIGHT_BLOCKED_NO_MUTATION: Cloud Run 404 identified by #39090566229 as retired research-only janus-research-big-move-500; exact GET and execution-list 404 both required to skip only this former read-only fence. Four existing writer jobs and rollback config hashes matched actual receipt. Keep original Scheduler, full five-job writer permission checks and all eight canaries; never create retired resources or bypass active writer fences.",
-  "auth_boundary_run": "39089227416",
-  "automated_oauth_requirement": "Same-source OAuth and private negative boundary #39089227416 PASS.",
-  "authorization": "User-approved DRL-01 dev four-Jobs update; fail-closed exact prior d8a57a live digest, configuration hashes, scheduler and rollback; FINOPS-AB deployment concurrency serialized."
+  "request_attempt": 36,
+  "safety": "FINOPS-AB current-only snapshots and monthly batching. Preserve exact reversible d8a57aa baseline, Scheduler fence, shared writer lease, all eight canaries and configuration readback.",
+  "auth_boundary_run": "39097809505",
+  "automated_oauth_requirement": "Same-source automated OAuth and private negative boundary #39097809505 PASS.",
+  "authorization": "User-authorized FINOPS-AB completion and current-only snapshot cleanup; existing four dev Jobs only; immutable digest and exact baseline rollback required."
 }

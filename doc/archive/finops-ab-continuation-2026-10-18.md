@@ -1,5 +1,12 @@
 # FINOPS-AB 接續證據（2026-10-18）
 
+## 最新唯讀盤點（尚未刪除）
+
+- [#39098235692](https://github.com/tommylin15/janus-omniforge/actions/runs/39098235692) SUCCESS，source `93b6a11cc6a42354e762b370e8865a553814a831`，既有固定digest Jobs執行唯讀current-only盤點，零資料寫入。Mart observed `2026-10-18T04:48:08Z`、Core `04:49:41Z`；catalog pointer／Job config讀回相同。
+- Core可清理 **6,428 objects／104,572,240 bytes**、舊snapshot **502**；Mart **55／378,759 bytes**、舊snapshot **32**。合計 **6,483／104,950,999 bytes（100.09 MiB）／534舊snapshot**；32已包含在534中。全部候選小於1MiB。
+- 已扣current snapshot必要檔、current metadata／metadata log與未滿7日檔案；只計warehouse Iceberg檔案，不含Stage／私有資料。這是compaction前投影，不是實刪收據，也不是billable savings；GCS hold／實際delete權限仍待驗證，後續寫入及compaction可能改變數量。
+- 同來源auth boundary [#39097809505](https://github.com/tommylin15/janus-omniforge/actions/runs/39097809505) SUCCESS；完整Release Python **1452 passed、2 deselected**。正式Jobs rollout仍待執行。
+
 ## 本輪接續：current-only snapshot 決策與實作（未部署）
 
 - 使用者明確取消歷史引用保護並選擇「只保留目前snapshot；其餘可清理」，權威見 [決策](../decision-2026-10-18-current-only-snapshots.md)／PROJECT_RULES §1.6。先前本頁記載的24小時／named refs／external fence／PG欄位讀權 blocker 已被此決策取代，不代表舊驗收曾PASS。
