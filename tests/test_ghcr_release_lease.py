@@ -173,14 +173,13 @@ def test_github_api_lease_http_error_classification_never_leaks_output(monkeypat
     """Classify GitHub 403 by allowlist, never expose untrusted GH CLI stderr."""
     import subprocess
     from types import SimpleNamespace
-    from scripts.gcp.ghcr_release_lease import GhApi, ApiError
     secret = "hidden-credential-data"
     def fake_run(*args, **kwargs):
         return SimpleNamespace(returncode=1, stdout="", stderr=
             f"HTTP 403: Resource not accessible by integration {secret}")
     monkeypatch.setattr(subprocess, "run", fake_run)
-    with pytest.raises(ApiError) as error:
-        GhApi()("POST", "repos/test/repo/git/refs", {"ref": "refs/tags/safe", "sha": "a"*40})
+    with pytest.raises(lease.ApiError) as error:
+        lease.GhApi()("POST", "repos/test/repo/git/refs", {"ref": "refs/tags/safe", "sha": "a"*40})
     assert error.value.status == 403
     assert error.value.kind == "integration_permission"
     assert secret not in str(error.value)
