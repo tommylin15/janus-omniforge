@@ -75,6 +75,10 @@ jobs:
                   out['readiness_calculation']='PASS_READ_ONLY'
               except Exception as error:
                   out['readiness_calculation']='ERROR_'+type(error).__name__
+                  import traceback
+                  out['readiness_failure_site']=[
+                      {'module':frame.filename.rsplit('/',1)[-1], 'line':frame.lineno, 'function':frame.name}
+                      for frame in traceback.extract_tb(error.__traceback__)[-6:]]
               start,end=date(2026,7,1),date(2026,10,17)
               for dataset in ('benchmark','ohlcv','market-volume','market-activity'):
                   info={'status':'UNKNOWN'}
