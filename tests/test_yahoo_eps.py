@@ -64,3 +64,24 @@ def test_diagnostic_rejects_unrelated_operation_before_network(monkeypatch):
     from drl01_yahoo_eps import inspect_existing
     with pytest.raises(ValueError, match='invalid_existing_operation'):
         inspect_existing('projects/other/locations/us-central1/operations/123')
+
+
+def test_yahoo_html_reaches_stage_and_core_normalisation(tmp_path):
+    from dataclasses import replace
+    from datetime import datetime, timezone
+    from ingestion_core.stage import LocalObjectStore, StageWriter
+    from packages.provenance import Provenance, content_hash
+    from packages.duckdb_query.iceberg import DuckDBIcebergCore
+    raw = page()
+    received = datetime.now(timezone.utc)
+    provenance = Provenance('yahoo-test', SOURCE, 'https://tw.stock.yahoo.com/quote/1513.TW/eps',
+                            'financials', received, None, received, content_hash(raw))
+    writer = StageWriter(LocalObjectStore(tmp_path))
+    staged = writer.write_raw(payload=raw, media_type='text/html', extension='html',
+                              execution_id='eps-test', provenance=provenance)
+    assert (tmp_path / staged.object_name).read_bytes() == raw
+    row = DuckDBIcebergCore._normalise(parsed(), 'eps-test', staged.idempotency_key, SOURCE)
+    assert DuckDBIcebergCore._financial_version(row)['source_id'] == SOURCE
+    with pytest.raises(ValueError, match='approved financial source'):
+        writer.write_raw(payload=raw, media_type='text/html', extension='html',
+                         execution_id='eps-test', provenance=replace(provenance, dataset_id='ohlcv'))

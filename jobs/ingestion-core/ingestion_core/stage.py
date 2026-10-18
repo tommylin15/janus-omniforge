@@ -262,8 +262,9 @@ class StageWriter:
         extension = self._segment(extension.lower().lstrip("."))
         if extension not in {"json", "csv", "html"}:
             raise ValueError("Stage raw payload must be JSON, CSV or approved financial HTML")
-        if extension == "html" and (provenance.source_id, provenance.dataset_id) != ("mops", "financials"):
-            raise ValueError("HTML Stage payload is limited to official MOPS financial reports")
+        if extension == "html" and (provenance.dataset_id != "financials" or
+                                     provenance.source_id not in {"mops", "yahoo-finance"}):
+            raise ValueError("HTML Stage payload requires an approved financial source")
         key = idempotency_key(
             provenance.source_id, provenance.dataset_id, provenance.observed_at, provenance.content_hash
         )

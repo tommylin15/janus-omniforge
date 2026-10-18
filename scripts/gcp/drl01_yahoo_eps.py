@@ -37,7 +37,9 @@ def inspect_existing(operation):
             match = re.search(r'([A-Za-z]+Error): (.*)$', message)
             if match:
                 output['error_types'].append({'type': match[1], 'reason': match[2]
-                    if re.fullmatch(r'[a-z0-9_]{3,100}', match[2]) else 'details_redacted'})
+                    if (re.fullmatch(r'[a-z0-9_]{3,100}', match[2]) or
+                        match[2] == 'HTML Stage payload is limited to official MOPS financial reports')
+                    else 'details_redacted'})
     Path('/tmp/drl01-yahoo-eps.json').write_text(json.dumps(output, indent=2))
     print(json.dumps(output, sort_keys=True))
 
