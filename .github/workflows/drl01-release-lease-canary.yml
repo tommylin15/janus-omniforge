@@ -11,6 +11,7 @@ concurrency:
 jobs:
   inspect:
     runs-on: ubuntu-latest
+    environment: dev
     timeout-minutes: 7
     env:
       GH_TOKEN: ${{ github.token }}
