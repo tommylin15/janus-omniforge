@@ -9,6 +9,7 @@
 - 本機真實Iceberg對照：兩股同月逐筆寫入為2個data files／2 snapshots，合併為1／1，讀回逐列相同；重播不增加snapshot或file。另一真實Iceberg回歸證明舊tag／branch被移除、非current snapshot過期，current ID與資料完全不變；本機證據不冒充dev實刪。
 - 最新涵蓋supplement、DuckDB/Iceberg、compaction、retention、controller與lease／workflow回歸 **171 passed**（43.63秒，2個本機ADC quota警告）。Core／Mart停止因publication／研究引用保留歷史snapshot；orphan刪除新增generation清單讀回，仍保留7日與catalog pointer防競爭。
 - 尚需本輪同源完整Release、受控Jobs rollout、週維護生效及真實compaction／expiration／objects・bytes實刪讀回。舊477 objects不重計；未量測不填節省百分比。
+- source `8e7a455cacb01b4c5d03f604ad51abb47e2956c6` 完整Release #39096898049、compaction CI #39096897766 與selective #39096897726 均因兩個Stage/Core舊留存政策斷言FAIL；資料契約 #39096897727 SUCCESS。已將兩個測試改成current-only與current metadata路徑保護，Stage/Core本機23 passed（tempfile明確放專案.tmp，避開Windows sandbox暫存路徑限制），未部署、不把原FAIL改寫成PASS。
 
 狀態：**PARTIAL；不是部署或清理結案**。本次輸入 main `4b1785603aaa23005701f1e72b3377fed1070419`；FINOPS-C、DRL-01、ADMIN-V2 不納入施工。本機既有 ADMIN 檔案與 candidate request 保留、不提交。
 

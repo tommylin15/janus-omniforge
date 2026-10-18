@@ -328,7 +328,7 @@ class IcebergSchemaTests(unittest.TestCase):
 
 
 class IcebergMaintenanceTests(unittest.TestCase):
-    def test_preserves_referenced_recent_and_current_but_expires_unpinned_daily_snapshots(self):
+    def test_only_current_survives_referenced_and_recent_historical_snapshots(self):
         timestamps = ["2026-09-20T10:00:00Z", "2026-09-20T11:00:00Z",
                       "2026-09-21T10:00:00Z", "2026-09-21T11:00:00Z",
                       "2026-09-27T11:00:00Z", "2026-09-27T12:00:00Z"]
@@ -338,11 +338,10 @@ class IcebergMaintenanceTests(unittest.TestCase):
         table = SimpleNamespace(snapshots=lambda: snapshots, current_snapshot=lambda: snapshots[-1],
                                 metadata=SimpleNamespace(refs={"main": SimpleNamespace(snapshot_id=6)}))
         keep = _keep_snapshots(table, {1}, datetime(2026, 9, 27, 13, tzinfo=timezone.utc))
-        self.assertEqual(keep, {1, 5, 6})
-        with self.assertRaisesRegex(RuntimeError, "unavailable"):
-            _keep_snapshots(table, {999}, datetime(2026, 9, 27, tzinfo=timezone.utc))
+        self.assertEqual(keep, {6})
+        self.assertEqual(_keep_snapshots(table, {999}, datetime(2026, 9, 27, tzinfo=timezone.utc)), {6})
 
-    def test_protects_catalog_history_and_core_manifest_metadata(self):
+    def test_protects_current_catalog_log_but_not_historical_report_metadata(self):
         prefix = "gs://dev-core/warehouse/financials_v1/metadata/"
         table = SimpleNamespace(
             metadata_location=prefix + "current.metadata.json",
@@ -351,10 +350,10 @@ class IcebergMaintenanceTests(unittest.TestCase):
         self.assertEqual(_protected_metadata(table, "dev-core", {prefix + "pinned.metadata.json"}), {
             "warehouse/financials_v1/metadata/current.metadata.json",
             "warehouse/financials_v1/metadata/previous.metadata.json",
-            "warehouse/financials_v1/metadata/pinned.metadata.json",
         })
+        table.metadata_location = "gs://other-bucket/metadata.json"
         with self.assertRaisesRegex(RuntimeError, "escaped"):
-            _protected_metadata(table, "dev-core", {"gs://other-bucket/metadata.json"})
+            _protected_metadata(table, "dev-core", set())
 
 
 if __name__ == "__main__":
