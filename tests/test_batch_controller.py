@@ -16,6 +16,56 @@ def test_multiple_daily_and_weekend_slots_have_distinct_identities():
         due_batches(datetime(2026, 10, 3), batches)
 
 
+def test_weekly_maintenance_uses_only_saturday_chain_and_keeps_daily_core_work(monkeypatch):
+    from ingestion_core.batch_controller import effective_batches
+    monkeypatch.setenv("FINOPS_WEEKLY_MAINTENANCE", "true")
+    assert [batch.name for batch in effective_batches() if batch.weekdays == (5,) and batch.name in
+            {"iceberg-compaction", "mart-cleanup", "core-cleanup"}] == [
+                "iceberg-compaction", "core-cleanup", "mart-cleanup"]
+    before = datetime(2026, 10, 17, 15, 29, tzinfo=timezone.utc)  # Saturday 23:29 Taipei
+    due = before.replace(minute=30)
+    weekly = {"iceberg-compaction", "mart-cleanup", "core-cleanup"}
+    assert not weekly.intersection(row[1].name for row in due_batches(before))
+    rows = {row[1].name: row for row in due_batches(due) if row[1].name in weekly}
+    assert set(rows) == weekly
+    assert rows["iceberg-compaction"][3] == []  # Cross-day EOD attestation happens before dispatch.
+    assert rows["mart-cleanup"][3] == ["iceberg-compaction/2026-10-17/23"]
+    assert rows["core-cleanup"][3] == ["mart-cleanup/2026-10-17/23"]
+    assert {row[1].name for row in due_batches(datetime(2026, 10, 18, 15, 30, tzinfo=timezone.utc))}.isdisjoint(weekly)
+    assert any(row[1].name == "ingestion" for row in due_batches(due))
+    monkeypatch.setenv("FINOPS_WEEKLY_MAINTENANCE", "invalid")
+    with pytest.raises(ValueError, match="FINOPS_WEEKLY_MAINTENANCE"):
+        due_batches(due)
+
+
+def test_weekly_eod_core_requires_successful_trading_slot_and_immutable_receipt():
+    from unittest.mock import MagicMock
+    from ingestion_core.batch_controller import weekly_eod_core_evidence
+    db = MagicMock()
+    cursor = db.cursor.return_value.__enter__.return_value
+    friday = datetime(2026, 10, 16, 6, 30, tzinfo=timezone.utc)  # 14:30 Taipei
+    slot = datetime(2026, 10, 17, 15, 30, tzinfo=timezone.utc)
+    ready = ("sha256:" + "a" * 64,
+             "gs://janus-dev-core/executions/eod-1/core-snapshot.json", "2026-10-16")
+    cursor.fetchall.side_effect = [
+        [("ingestion/2026-10-16/14", friday)],
+        [ready],
+    ]
+    evidence = weekly_eod_core_evidence(db, slot)
+    assert evidence == {
+        "source_occurrence": "ingestion/2026-10-16/14", "source_date": "2026-10-16",
+        "core_snapshot_id": ready[0], "core_snapshot_uri": ready[1]}
+    assert cursor.execute.call_count == 2
+    cursor.reset_mock()
+    cursor.fetchall.side_effect = [
+        [("ingestion/2026-10-16/14", friday)],
+        [("sha256:invalid", ready[1], ready[2])],
+    ]
+    assert weekly_eod_core_evidence(db, slot) is None
+    cursor.fetchall.side_effect = [[], []]
+    assert weekly_eod_core_evidence(db, slot) is None
+
+
 def test_monthly_retraining_only_first_saturday_at_taipei_1030_with_dependencies():
     # Oct starts on Thursday, November on Sunday, December on Tuesday.
     for day in (3, 7, 5):
