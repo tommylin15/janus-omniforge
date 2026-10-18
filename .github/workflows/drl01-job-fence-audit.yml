@@ -1,0 +1,59 @@
+name: DRL-01 read-only five Jobs execution fence audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/drl01-job-fence-audit.yml']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-read-only-continuity
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Audit exact existing Cloud Run GET and list calls without mutation
+        env:
+          PYTHONPATH: scripts/gcp
+        run: |
+          python - <<'PY'
+          import json
+          from ghcr_jobs_rollout import cloud,ROOT
+          from ghcr_job_cutover_guard import REQUIRED_JOBS
+          output=[]
+          for job in REQUIRED_JOBS:
+            item={'job':job}
+            for kind,path in [('get',f'{ROOT}/jobs/{job}'),
+                              ('executions',f'{ROOT}/jobs/{job}/executions?pageSize=100')]:
+              try:
+                res=cloud(path)
+                if kind=='get':
+                  item['get']='PASS' if res.get('name')==f'{ROOT}/jobs/{job}' else 'IDENTITY_DRIFT'
+                else:
+                  values=res.get('executions',[])
+                  item['executions']='PASS'
+                  item['first_page_count']=len(values)
+                  item['next_page']=bool(res.get('nextPageToken'))
+                  item['nonterminal_count']=sum(1 for e in values
+                      if not any(c.get('type')=='Completed' and c.get('state') in
+                      ('CONDITION_SUCCEEDED','CONDITION_FAILED') for c in e.get('conditions',[])))
+              except Exception as e:
+                # Only pre-approved bounded cloud helper codes; no raw API response.
+                value=str(e)
+                item[kind]='ERROR_'+(value if value.startswith('cloud_control_http_')
+                                    else type(e).__name__)
+            output.append(item)
+          print(json.dumps({'component':'drl01_fence_readonly','results':output,
+                            'gcp_mutations':0},sort_keys=True),flush=True)
+          if any(x.get('get')!='PASS' or x.get('executions')!='PASS' for x in output):
+            raise SystemExit(1)
+          PY
