@@ -1,12 +1,26 @@
 {
   "intent": "one-shot-existing-dev-iceberg-maintenance",
   "no_new_resources": true,
-  "mode": "compact-nightly",
-  "rollout_run": 39099136306,
-  "expected_source_sha": "dead98d35abc8c38448791494fb97d99f37c660b",
+  "mode": "mart-retention",
+  "rollout_run": 39101646737,
+  "expected_source_sha": "252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04",
   "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:59a1a2adb4eb97ec18886f06fd1bc72aaf0514f8288b3b859bf9420f0065a698",
-  "purpose": "FINOPS-AB user-approved existing small-file reduction: first bounded compaction with current-data readback, before current-only Mart/Core cleanup. No historical 477-object replay.",
-  "acceptance": "Require successful same-source reversible four-Jobs rollout, immutable Core digest, owned writer lease, hourly Scheduler pause/restore, all-page terminal fence, dry-run/apply parity and actual object/byte receipt.",
-  "request_attempt": 9,
-  "user_approved_unlinked_small_file_cleanup": true
+  "expected_mart_image": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:7687e292660637e9dc69799551d9adf74c9d259caf3b8a6ac0264d10999f0a64",
+  "compaction_run": 39099324026,
+  "cleanup_candidates": {
+    "core_files": 6455,
+    "core_bytes": 104982665,
+    "core_old_snapshots": 548,
+    "mart_files": 55,
+    "mart_bytes": 378759,
+    "mart_old_snapshots": 32,
+    "total_files": 6510,
+    "total_bytes": 105361424,
+    "total_old_snapshots": 580
+  },
+  "purpose": "FINOPS-AB Mart retention: expire old snapshots and delete orphan files with exact generation matching. First step before Core cleanup.",
+  "acceptance": "Require Mart cleanup receipt with snapshot expiration and orphan deletion. Verify current data unchanged.",
+  "request_attempt": 10,
+  "user_approved_unlinked_small_file_cleanup": true,
+  "sequence": ["mart-cleanup", "core-cleanup", "weekly-maintenance-enable"]
 }
