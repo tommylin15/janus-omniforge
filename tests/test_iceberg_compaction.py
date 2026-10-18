@@ -105,25 +105,33 @@ class IcebergCompactionTests(unittest.TestCase):
         self.assertEqual(sorted(table.scan().to_arrow().to_pylist(), key=lambda item: item["event_id"]), prior)
         self.assertEqual(sorted(table.scan(snapshot_id=old_snapshot).to_arrow().to_pylist(), key=lambda item: item["event_id"]), prior)
 
-    def test_nightly_requires_both_dry_runs_before_any_apply(self):
+    def test_nightly_skips_retired_audit_table_and_no_work_second_scan(self):
         calls = []
         def fake_core(*, core, apply):
             calls.append(("core", apply))
-            return {"planned_rewrite_bytes": 12, "tables": [{"planned_periods": ["2026-10"]}]} if not apply else {"rewritten_bytes": 12}
-        def fake_events(*, core, apply):
-            calls.append(("audit", apply))
-            return {"planned_files": 6}
+            if not apply:
+                return {"planned_rewrite_bytes": 12, "tables": [{"planned_periods": ["2026-10"]}]}
+            return {"rewritten_bytes": 12}
         with patch("ingestion_core.iceberg_maintenance.compact_core", side_effect=fake_core), \
-             patch("ingestion_core.iceberg_maintenance.compact_batch_events", side_effect=fake_events):
+             patch("ingestion_core.iceberg_maintenance.compact_batch_events",
+                   side_effect=AssertionError("retired audit mirror must not be scanned")):
             report = compact_nightly(core=self.core)
-        self.assertEqual(calls, [("core", False), ("audit", False), ("core", True), ("audit", True)])
+        self.assertEqual(calls, [("core", False), ("core", True)])
         self.assertEqual(report["mode"], "dry-run-then-apply")
+        self.assertEqual(report["preflight"]["audit"]["status"], "disabled")
         calls.clear()
-        with patch("ingestion_core.iceberg_maintenance.compact_core", side_effect=fake_core), \
-             patch("ingestion_core.iceberg_maintenance.compact_batch_events", side_effect=RuntimeError("audit preflight failed")):
-            with self.assertRaisesRegex(RuntimeError, "audit preflight failed"):
-                compact_nightly(core=self.core)
+        def no_work(*, core, apply):
+            calls.append(("core", apply))
+            if apply:
+                raise AssertionError("no-work must not perform apply")
+            return {"planned_rewrite_bytes": 0, "tables": [{"planned_periods": []}]}
+        with patch("ingestion_core.iceberg_maintenance.compact_core", side_effect=no_work), \
+             patch("ingestion_core.iceberg_maintenance.compact_batch_events",
+                   side_effect=AssertionError("audit table must not be scanned")):
+            result = compact_nightly(core=self.core)
         self.assertEqual(calls, [("core", False)])
+        self.assertEqual(result["mode"], "skipped_no_work")
+        self.assertEqual(result["apply"]["core"]["reason"], "no_fragmented_periods")
 
     def test_apply_reduces_files_preserves_rows_and_old_snapshot(self):
         before = self.catalog.load_table("core.valuation_v1")
