@@ -1,6 +1,6 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "da1c5093061d333c29e1a87595f9d1a8dcbc04db",
+  "sha": "e3e0098399846eb337dd2ed1f8b636240bc88c20",
   "scope": "read-only",
   "no_gcp_mutation": true,
   "purpose": "Verify same-source candidate OAuth metadata and negative owner/Admin/MCP boundary before Yahoo EPS publication"
