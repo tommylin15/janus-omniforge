@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "d8a57aa57198e0f383a37125e6b94eb392abe717",
-  "candidate_release_run": "39049811103",
-  "candidate_deployment_run": "39050209225",
-  "purpose": "DRL-01D corrected 2Y PE/PB candidate: reverify OAuth metadata, owner-private/MCP boundaries and exact source SHA without writes.",
+  "sha": "9c75921736f5e2839fdf0b5d2c5ad1b4c505f4cc",
+  "candidate_release_run": "39083907831",
+  "candidate_deployment_run": "39084237078",
+  "purpose": "DRL-01 market-history quality and official two-year PE/PB API 100% reversible promotion; verify exact-source public candidate, automatic OAuth and private negative boundaries.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 35
+  "attempt": 36
 }
