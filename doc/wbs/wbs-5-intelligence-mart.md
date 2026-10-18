@@ -131,6 +131,12 @@ CEO：
 - retention 依 `../spec/retention-governance.md`；有效引用、目前 snapshot 與 reference fence 必須先保護再清理。
 - private holdings／cost／PnL／owner mapping 不得寫入 public Mart specialist artifacts；必要的 Deep Coverage membership 僅保存去識別化 symbol demand／effective scope。
 
+### 5.7A FINOPS-C 重評估門檻（D07／D08 前）
+
+2026-10-18 使用者指定：先執行 [FINOPS-AB](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) 以降低 Ingestion CPU／GCS I/O；C 的 BigQuery analytics selective cutover **必須排在 D07 五角色與 D08 CEO／報告之前，但 C 工程開始前需重新完成整體評估並回寫**[既有架構決策](../decision-2026-10-06-bigquery-analytics-over-iceberg.md)。唯一工作狀態見 [TODO](../todo.md)。
+
+C-preflight 先核對 A+B 實測 Cloud Run/GCS、現在 PyIceberg/BigQuery 版本、全市場 Screening 重複分片讀取、是否存在可靠 immutable snapshot/metadata mapping、BQ bytes billed／費率／免費配額共享、OOS 效益、回退與 IAM。未通過前 `market_screening.py` 仍 PyIceberg default，不能直接對 D07/D08 或 API/Owner 的 publication 路徑切流；舊 B0～B8 closure 不等同本次選擇已核准。
+
 ## 5.8 Active WBS slices
 
 目前執行順序只看 `../todo.md`。WBS-5 active slices 為：
