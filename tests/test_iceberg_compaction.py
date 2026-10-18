@@ -68,6 +68,47 @@ class IcebergCompactionTests(unittest.TestCase):
         self.assertEqual(self.catalog.load_table("core.valuation_v1").metadata_location, metadata_location)
         self.assertEqual(self.catalog.load_table("core.valuation_v1").properties, properties)
 
+    def test_weekly_compaction_manifest_fence_rejects_changed_snapshot_and_bad_digest(self):
+        import json
+        from hashlib import sha256
+        from ingestion_core.iceberg_maintenance import verify_compaction_eod_fence
+        table = self.catalog.load_table("core.valuation_v1")
+        snapshot_id = table.current_snapshot().snapshot_id
+        tables = {"core.valuation_v1": {"rows": 6, "snapshot_id": snapshot_id,
+                                         "metadata_location": table.metadata_location}}
+        def evidence(mapping):
+            digest = "sha256:" + sha256(json.dumps(mapping, sort_keys=True,
+                            separators=(",", ":")).encode()).hexdigest()
+            return digest, json.dumps({"artifact_kind": "core_snapshot_v1",
+                         "analysis_as_of": "2026-10-16", "snapshot_id": digest,
+                         "iceberg_tables": mapping}).encode()
+        digest, raw = evidence(tables)
+        env = {"CORE_BUCKET": "gen-lang-client-0593591102-dev-core",
+               "FINOPS_SOURCE_CORE_SNAPSHOT_ID": digest,
+               "FINOPS_SOURCE_CORE_SNAPSHOT_URI":
+                   "gs://gen-lang-client-0593591102-dev-core/executions/eod-1/core-snapshot.json",
+               "FINOPS_SOURCE_EOD_DATE": "2026-10-16"}
+        with patch.dict(os.environ, env), \
+             patch("ingestion_core.iceberg_maintenance.GcsObjectStore") as store:
+            store.return_value.read.return_value = raw
+            result = verify_compaction_eod_fence(core=self.core)
+            self.assertEqual(result["status"], "verified")
+            self.assertEqual(result["verified_tables"], 1)
+            store.return_value.read.assert_called_once_with("executions/eod-1/core-snapshot.json")
+            store.return_value.read.return_value = raw.replace(digest.encode(), b"sha256:" + b"0" * 64)
+            with self.assertRaisesRegex(RuntimeError, "digest_mismatch"):
+                verify_compaction_eod_fence(core=self.core)
+            drifted = {"core.valuation_v1": {**tables["core.valuation_v1"],
+                                              "snapshot_id": snapshot_id + 99}}
+            new_hash, newer_raw = evidence(drifted)
+            store.return_value.read.return_value = newer_raw
+            with patch.dict(os.environ, {"FINOPS_SOURCE_CORE_SNAPSHOT_ID": new_hash}):
+                with self.assertRaisesRegex(RuntimeError, "catalog_changed"):
+                    verify_compaction_eod_fence(core=self.core)
+            with patch.dict(os.environ, {"FINOPS_SOURCE_EOD_DATE": ""}):
+                with self.assertRaisesRegex(RuntimeError, "incomplete"):
+                    verify_compaction_eod_fence(core=self.core)
+
     def test_no_work_compaction_reuses_preflight_health_without_second_catalog_read(self):
         table = self.catalog.load_table("core.valuation_v1")
         before = table.current_snapshot().snapshot_id
