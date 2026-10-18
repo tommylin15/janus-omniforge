@@ -6,12 +6,12 @@
   "release_run": "38153154441",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04",
+  "baseline_source_sha": "da1c5093061d333c29e1a87595f9d1a8dcbc04db",
   "rollback_images": {
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:3a065b2df0e5a7ab23d1ff239c10c4532c09ac47760b8f012073e02880a4c621",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:f3f45ba1e068adebaf6a7e895ae6985c923d7e6b1e33f731e17848b410a55ea3",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:2b5dc8fe9b0c2b94c0ca681aaa89181e2e3e69ba43252ec87021475d090af125",
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:2b5dc8fe9b0c2b94c0ca681aaa89181e2e3e69ba43252ec87021475d090af125"
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:d82ebd477075bb3f971036c112780c93f0b363dc0e1cd9bc1b86980eef339724",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:e29758da5c7f546df8d4e0426e12f48d319110c2831c4b9c0bef9caa9b5b6f4f",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:e8b7a10850bdd2bd103fa764824a9b71c40b5bd1bbdc8931f016cf0ee6201fa4",
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:e8b7a10850bdd2bd103fa764824a9b71c40b5bd1bbdc8931f016cf0ee6201fa4"
   },
   "rollback_config_hashes": {
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f",
