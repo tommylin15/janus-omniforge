@@ -4,9 +4,9 @@
   "read_only": true,
   "no_owner_mutation": true,
   "no_job_template_mutation": true,
-  "as_of": "2026-10-16",
+  "as_of": "2026-10-18",
   "revenue_window_start": "2025-09",
   "revenue_window_end": "2026-09",
-  "request_version": 2,
-  "reason": "Post-completion independent Core census for TPEX official monthly 2025-09..2026-09 after final July-August #38990411743 PASS, plus market price and genuine 4-quarter EPS coverage; no owner mutation"
+  "request_version": 3,
+  "reason": "DRL-01 2026-10-18 gap continuity audit: verify current official benchmark and market daily interval between 2026-07 and 2026-10-13, six-focus EPS, Readiness ledger and scope; read-only, no Owner or runtime Job template mutation."
 }
