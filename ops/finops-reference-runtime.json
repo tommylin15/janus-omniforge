@@ -1,18 +1,16 @@
 {
-  "intent": "read-only-d06-runtime-references",
+  "intent": "read-only-current-snapshot-plan",
   "no_data_mutation": true,
   "jobs": {
     "janus-intelligence-mart": {
-      "image": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:76d2d896033bc2dbc0a873edb672f3a7166fa40b9718007191dc76523765a157",
+      "image": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:6a33d77cf9ee55d70fcb62625bd339c377c7b20fe498609a5016d34441df2dc1",
       "configuration_hash": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42"
     },
     "janus-ingestion-core": {
-      "image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:9d87fb5179ff21214fe271a70a5c29b16704edad169c94270fc47b7ac08c2a20",
+      "image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:073d7a200a05464542776721d3b3edbc5f6ce438e24e79eb2d39dd24d09ef1d7",
       "configuration_hash": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863"
     }
   },
-  "expected_rollout_run": "38875865395",
-  "expected_source_sha": "740e54c25842f39ddf0b912c88a82012a851997d",
-  "attempt": 4,
-  "purpose": "Verify iceberg_audit_disabled=true after successful Jobs rollout #38875865395 (740e54c2). Confirm audit mirror export is stopped in runtime, collect publication references and batch forecast for I/O reduction measurement. No data writes."
+  "attempt": 5,
+  "purpose": "Read-only projected objects and bytes after current-only snapshot expiration; no deletion, compaction or config update."
 }

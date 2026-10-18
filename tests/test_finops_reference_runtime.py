@@ -64,3 +64,17 @@ def test_failed_rollout_blocks_probe_before_dispatch(monkeypatch,tmp_path):
     monkeypatch.setattr(m.r,'command',lambda args:json.dumps({'status':'completed','conclusion':'failure','workflowName':'Janus GHCR controlled Jobs rollout'}))
     monkeypatch.setattr(m.r,'fence',lambda:pytest.fail('failed rollout must not dispatch'))
     with pytest.raises(ValueError,match='reference_rollout_not_successful'):m.main()
+
+def test_snapshot_plan_excludes_current_files_recent_files_and_other_objects():
+    from datetime import datetime, timezone
+    spec=importlib.util.spec_from_file_location('snapshot_plan',Path('scripts/gcp/finops_snapshot_plan.py'))
+    plan=importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(plan)
+    now=datetime(2026,10,18,tzinfo=timezone.utc)
+    def item(name,updated='2026-10-01T00:00:00Z'):
+        return {'name':name,'updated':updated,'size':'100'}
+    objects=[item('current.parquet'),item('old.avro'),item('recent.parquet','2026-10-17T00:00:00Z'),item('other.json'),item('edge.parquet','2026-10-11T00:00:00Z')]
+    assert [x['name'] for x in plan.candidates(objects,{'gs://bucket/current.parquet'},'bucket',now)]==['old.avro']
+    import ast
+    tree=ast.parse(Path('scripts/gcp/finops_snapshot_plan.py').read_text())
+    assert not any(isinstance(node,ast.Call) and isinstance(node.func,ast.Attribute) and node.func.attr in {'delete','create','overwrite','commit','expire_snapshots'} for node in ast.walk(tree))

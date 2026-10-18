@@ -143,7 +143,7 @@ def override(job, code):
 def checked_result(value):
     if not isinstance(value,dict) or value.get('data_writes')!=0:
         raise ValueError('invalid_reference_receipt')
-    if value.get('source') not in {'active_control_executions','postgres_publication_references'}:
+    if value.get('source') not in {'active_control_executions','postgres_publication_references','current_only_snapshot_plan'}:
         raise ValueError('unknown_reference_source')
     refs=value.get('core_snapshot_ids')
     if not isinstance(refs,list) or any(not isinstance(x,str) or not re.fullmatch(r'sha256:[0-9a-f]{64}',x) for x in refs):
@@ -191,7 +191,7 @@ def probe(name, expected, state, save):
 
 def main():
     request=json.loads(REQUEST.read_text())
-    if request.get('intent')!='read-only-d06-runtime-references' or request.get('no_data_mutation') is not True or set(request.get('jobs',{}))!=set(CODES):
+    if request.get('intent') not in {'read-only-d06-runtime-references','read-only-current-snapshot-plan'} or request.get('no_data_mutation') is not True or set(request.get('jobs',{}))!=set(CODES):
         raise ValueError('runtime_reference_request_invalid')
     for name,expected in request['jobs'].items():
         if (not re.fullmatch(r'ghcr\.io/tommylin15/'+name+r'@sha256:[0-9a-f]{64}',expected.get('image',''))
@@ -202,6 +202,9 @@ def main():
             '--json','status,conclusion,workflowName']))
         if run!={'status':'completed','conclusion':'success','workflowName':'Janus GHCR controlled Jobs rollout'}:
             raise ValueError('reference_rollout_not_successful')
+    if request['intent'] == 'read-only-current-snapshot-plan':
+        code = Path('scripts/gcp/finops_snapshot_plan.py').read_text()
+        CODES.update({name: code + '\nmain(' + repr(layer) + ')' for name, layer in [('janus-ingestion-core', 'core'), ('janus-intelligence-mart', 'mart')]})
     r.fence()
     output={'component':'d06-runtime-reference-census','mode':'read-only','deletion_fence_published':False,'results':[]}
     def save(): Path('d06-runtime-references.json').write_text(json.dumps(output,sort_keys=True))
