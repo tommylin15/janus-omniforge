@@ -65,18 +65,25 @@ def save(report):
 def final_log(execution):
     query=('resource.type="cloud_run_job" AND '
            'labels."run.googleapis.com/execution_name"="'+execution+'"')
-    for attempt in range(6):
+    for attempt in range(12):  # Increased retries for log propagation delay
         p=subprocess.run(["gcloud","logging","read",query,"--project="+PROJECT,
-                          "--limit=350","--format=json"],text=True,capture_output=True,timeout=55)
+                          "--limit=500","--format=json"],text=True,capture_output=True,timeout=90)
         if p.returncode==0:
-            for row in json.loads(p.stdout):
+            rows = json.loads(p.stdout)
+            print(json.dumps({"log_query_attempt": attempt, "execution": execution,
+                              "rows_found": len(rows)}, sort_keys=True), flush=True)
+            for row in rows:
                 obj=row.get("jsonPayload")
                 if not isinstance(obj,dict):
                     try:obj=json.loads(row.get("textPayload",""))
                     except (ValueError,TypeError):continue
                 if isinstance(obj,dict) and obj.get("operation")=="market-history" and "months" in obj:
                     return obj
-        time.sleep(4+attempt)
+        else:
+            print(json.dumps({"log_query_attempt": attempt, "execution": execution,
+                              "error": "gcloud_logging_read_failed", "returncode": p.returncode},
+                             sort_keys=True), flush=True)
+        time.sleep(8 + attempt * 2)  # Longer wait for log propagation
     return None
 
 

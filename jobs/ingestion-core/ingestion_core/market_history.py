@@ -139,6 +139,8 @@ def run_market_history():
                 or len(summary["months"]) != len(months) or any(r["status"] != "accepted" for r in summary["months"]))
             summary.update(status=completed.status.value, ready_event=ready,
                 analysis_execution_id=analysis.execution_id if analysis else None)
+            # Output final summary for log-based receipt verification
+            print(json.dumps(summary), flush=True)
             return summary
         except Exception:
             if execution:
