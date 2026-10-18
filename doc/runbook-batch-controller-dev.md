@@ -8,7 +8,8 @@
 
 > **2026-10-18 FINOPS-AB＋D06 整合指令（尚未實際切換）**：使用者核准將 Iceberg Compaction → Mart Cleanup → Core Cleanup 收斂為每週六 23:30 的週維護鏈，優先執行 A+B（[FINOPS AI 指令](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)）。**以下 2026-10-15「每日」敘述仍忠實記錄當前 main 的實作／歷史目標，非新核准的最終節奏。** 若尚未完成 weekly controller code、依賴/fence tests、GHCR Jobs rollout 與 GCP occurrence readback，顯示 `PENDING_CUTOVER`，不得宣稱週批生效；週六不是交易日，依賴需先改為可證明最近成功 EOD Core Snapshot。新週批生效後應更新本章為實際最新版，並把舊每日描述移到 archive。
 
-### 23:30 夜間 Iceberg 壓縮（獨立 FinOps 事件）
+**2026-10-18 程式落地（仍未切換 live）：** `effective_batches()` 在 `FINOPS_WEEKLY_MAINTENANCE=true` 時才改為週六 23:30；預設 `false` 仍保留舊每日行為。週六 compaction 不再硬等同日（非交易日）14:30 ingestion，而是在派送前以 bounded PostgreSQL `control.batch_occurrences` 成功 EOD 與同日期 `control.core_ready_events` 的 immutable Core SnapshotId/URI 雙證據判定；欠缺則停在 pending。Mart/Core Cleanup 仍按 occurrence 依序等待前者終態，跨週日延用同一已建 occurrence。此階段僅 `main` code＋CI PASS，**未設 dev Job 環境、未啟用旗標、未驗 live Scheduler/dispatch**；任何人不得憑此段假定週批已生效。核心 Snapshot URI 尚需正式 Worker／GCS 讀回，以及 D06 完整 retention fence，才能啟用清理 Apply；不可擅自修改 DRL-01／Admin v2 在途的 Jobs image/lease。
+\n### 23:30 夜間 Iceberg 壓縮（獨立 FinOps 事件）
 
 2026-10-15 起的目標程式契約：每日 **23:30 Asia/Taipei** 由既有每小時 `:30` 喚醒的 `janus-batch-controller` 建立 `iceberg-compaction/YYYY-MM-DD/23` occurrence；沿用**現有** `janus-ingestion-core` Cloud Run Job，以 execution-level overrides 執行 `ICEBERG_MAINTENANCE_MODE=compact-nightly`（同次 execution 先執行 `compact-dry-run`、通過後再 `compact-apply`，並受控合併先前被遺漏的 `ops.batch_events_v1` 稽核事件表），不增開 Cloud Scheduler／Job，也不依賴 GitHub Actions 執行業務。
 
