@@ -6,7 +6,7 @@
 
 **WBS 責任：**WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE
 
-**相依與順序：**D07 有效角色與 validated Fact Pack 為正式 publication 前置；P0-V 技術已 PASS 不代表真實 Owner 報告 PASS。
+**相依與順序（2026-10-18 更新）：**在 D07、D08 新工程前，必須先依 [FINOPS-AB/C AI 指令](finops-ingestion-iceberg-ab-and-c-gate.md) 完成優先 A＋B、C 開工前的整體重評估及正式記錄 go/no-go/blocked 處置；D07 有效角色與 validated Fact Pack 仍是正式 publication 前置。P0-V 技術已 PASS 不代表真實 Owner 報告 PASS。
 
 **執行宣告：**只在使用者明確授權本工作包、TODO 為可執行時，依下列程序完成「分析→修改→適用測試→commit→dev 發布→真實驗收／修復」的整個工作包，不因內部 checkpoint 自行停止；外部安全／授權 blocker 保持 BLOCKED 並記錄。
 
