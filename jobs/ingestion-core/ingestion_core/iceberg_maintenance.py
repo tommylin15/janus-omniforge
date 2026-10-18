@@ -345,8 +345,14 @@ def compact_core(*, core: Any, apply: bool) -> dict[str, Any]:
                                   "new_snapshot_id": current.snapshot_id if current else None})
                 total_rewritten_bytes += actual_bytes
 
-        table = core.catalog.load_table(identifier)
-        after = _data_file_health(table, target_bytes=target_bytes, small_bytes=small_bytes)
+        if apply and plan:
+            # No new snapshot was produced when the bounded plan is empty.
+            # Reuse the already inspected state instead of reloading the table
+            # and rescanning manifests solely to report identical "after".
+            table = core.catalog.load_table(identifier)
+            after = _data_file_health(table, target_bytes=target_bytes, small_bytes=small_bytes)
+        else:
+            after = before
         if apply and after["row_count"] != original_row_count:
             raise RuntimeError(f"{identifier} final row count changed during compaction")
         reports.append({
