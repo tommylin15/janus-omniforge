@@ -1,13 +1,14 @@
 # FINOPS-AB／FINOPS-C｜Janus CPU、GCS I/O、Iceberg 與 BigQuery AI 工程指令
 
-更新：2026-10-18。狀態：**A＋B 已列最高優先並獲准施作，C 僅列入後置順序、尚未核准直接切換**。本文件是供 AI 執行的契約與檢核程序；**唯一優先次序及完成勾選在 [TODO](../todo.md)**，不是第二份待辦，也不是完成證據。
+更新：2026-10-18。狀態：**A＋B 與 D06 剩餘受引用保護工作合併為唯一 FinOps P0，已獲准施作；C 後置，未核准直接切換**。原 D06 兩天／長時間 I/O 量測已由使用者取消（CANCELLED_BY_USER），不實測、不作驗收硬 gate。本文件是供 AI 執行的契約與檢核程序；**唯一優先次序及完成勾選在 [TODO](../todo.md)**，不是第二份待辦，也不是完成證據。
 
 ## 0. 必讀入口／權威與執行邊界
 
 1. 先讀 [AGENTS](../../AGENTS.md) → [PROJECT_RULES](../PROJECT_RULES.md) → [TODO](../todo.md) → 本卡，再按必要範圍讀 [WBS-7](../wbs/wbs-7-security-finops.md)、[WBS-3](../wbs/wbs-3-ingestion-admin.md)、[WBS-5](../wbs/wbs-5-intelligence-mart.md)、[D06 歷史驗收](d06-iceberg-retention-io.md)、[排程 Runbook](../runbook-batch-controller-dev.md) 與 [既有 BQ 混合架構決策](../decision-2026-10-06-bigquery-analytics-over-iceberg.md)。
 2. **GitHub main 的現時碼／實際 GCP dev runtime 先於歷史文書。** 2026-10-18 的 source readback：三項維護在 `batch_controller.py` 未指定 weekdays，故預設七天；排程改週批尚未完成，不能以本卡當 deployment evidence。
-3. Dev 為真實 parallel-live。所有變更沿既有 main、GHCR digest、受控 Jobs rollout／Scheduler fence／rollback；不另建 Scheduler、第二個 controller、branch/PR 或付費環境。不動 Owner 交易／現金、Private canonical、既有 immutable Core 歷史。
-4. 與 DRL-01、ADMIN-V2 並行時先比對 main HEAD、修改檔及部署租約，避免覆蓋他人進度。不得用 CI／deployment 成功取代 live workload、資料與成本驗收。
+3. **工項去重：**D06 歷史 477 objects orphan 清理、audit mirror 停用、62/71/96/495 JSON 掃描已有成功證據，不重跑。剩餘 Retention fence、PG/ML/Private/Research/external 保護集、受引用 Snapshot/Orphan/manifest 清理與讀回併入本卡 A/B 唯一施工與驗收；原 D06 卡只作歷史索引。DRL-01 與 ADMIN-V2 由其他 AI 負責，本工項不得修改其專屬業務程式、資料或競爭 live rollout。
+4. Dev 為真實 parallel-live。所有變更沿既有 main、GHCR digest、受控 Jobs rollout／Scheduler fence／rollback；不另建 Scheduler、第二個 controller、branch/PR 或付費環境。不動 Owner 交易／現金、Private canonical、既有 immutable Core 歷史。
+5. 與 DRL-01、ADMIN-V2 並行時先比對 main HEAD、修改檔及部署租約，避免覆蓋他人進度。不得用 CI／deployment 成功取代 live workload、資料與成本驗收。
 
 ## 1. 首先完成 A｜低風險節流
 
@@ -30,13 +31,19 @@
 - 若本輪必須改 schema/migration，先證明最小必要、保留回滾；不能以額外 Iceberg/PG 全量複寫交換所謂 I/O 下降。
 - **分別計時** source fetch、Stage、Core reader、DuckDB merge、Core commit、serving projection、maintenance planner/rewrite/readback；清楚標明 `batch`、dataset、日期、execution、snapshot、行數、commits、read/reused count 和耗時，不輸出敏感資料或完整 raw payload。
 
+### B4／D06 剩餘整合（不再有 D06 獨立工作線）
+
+- D06-R1：建立／使用**當次完整、有效、可稽核的** Core retention fence。驗證 PostgreSQL active/publication（包含 `core_snapshot_id` 權限）、Mart Specialist／ML-OOS、Research／Private、external reference、metadata、source/generation。每次 apply 前重新查核，一小時有效期；來源不齊、缺讀權、時間過期、資料不一致 → **fail closed／audit-only**，不能拿既有部分掃描結果當完整刪除授權。
+- D06-R2：週維護鏈統一執行有界 dry-run／apply、Snapshot expiration、七日以上受保護 orphan／generation 清理、execution manifest retirement；先核對 rollback/rebuild／不可逆大量刪除授權。分別記錄候選、保護集、真正刪除、objects/bytes 與已發布 Core/PG/Mart/Private readback。無安全刪除條件可安全跳過，不能為降低小檔數盲目刪真實資料。
+- 同一 worker、同一 snapshot、同一清理保護條件只跑一次。過去 D06 477 objects 清理與 audit mirror 停用沿用證據，不因併單重跑或把歷史節省重計。
+
 ## 3. A／B 共同驗收，不得省略
 
 1. 先讀真實 dev 四 Jobs digest／Scheduler／歷史執行終態與有效排程：`janus-ingestion-core` 的 ingestion 07:30／14:30、data-supplement 08:30、週維護、`janus-intelligence-mart` / private 必須能獨立歸因。先取得可用 baseline，無 Cloud Monitoring 授權則標 `NOT_VERIFIED`，不能填零或估算為實測。
 2. 新增 `tests/test_batch_controller.py` 的週六 23:29／23:30、非週六、交易休市、上週最近成功 EOD fence、跨日 wait/reconcile、pending/failed/ambiguous、不重派送、隔離／週期性；補 `tests/test_iceberg_compaction.py` 及 Data Supplement／DuckDB 最小 dirty/no-op、修訂/版本、snapshot/PIT、orphan/fence 正反測。
 3. `main` targeted+適用整體 CI、GHCR digest、Jobs canary／Scheduler fence、發版／rollback readback；真實新 execution 驗收 market coverage、owner-facing prices／EPS 不退步，並核對 legacy PG/data readiness 的相依鏈。
-4. 等量日期、同類批次、同一批股票/資料範圍，以 `vCPU-seconds`、GiB-seconds／peak RSS、elapsed、GCS ReadObject/GetObjectMetadata／List/Write、Iceberg manifests/snapshots/小檔數、actual writes、Postgres/serving row parity 作比較。GCS bucket 級量測不可硬指派給單一 worker；可用分段/identity tracing 歸因。
-5. 30% CPU／50% metadata-I/O 為**改善目標而非達成事實**。若測不到就 PARTIAL；不可宣告免費額度已被恢復。避免高成本補跑或無需求的全市場歷史重算。
+4. **只做短窗／有界同類工作 sample（不做兩天或長期量測），**可取得時以 `vCPU-seconds`、GiB-seconds／peak RSS、elapsed、GCS ReadObject/GetObjectMetadata／List/Write、Iceberg manifests/snapshots/小檔數、actual writes、Postgres/serving row parity 作比較。GCS bucket 級量測不可硬指派給單一 worker；可用分段/identity tracing 歸因。**D06 原兩天／長時間等量 I/O 比較已取消，不可重啟或據此認定不結案；不足的成本節省數值標 UNKNOWN。**
+5. D06 引用保護與安全清理結果納入同一受控 Jobs rollout／rollback／真實 readback，不再獨立發行 D06 部署。30% CPU／50% metadata-I/O 為**改善目標而非達成事實**。若測不到就 PARTIAL；不可宣告免費額度已被恢復。避免高成本補跑或無需求的全市場歷史重算。
 
 ## 4. C｜BigQuery 混合運算：排在 D07／D08 前，但**開工前重評估**
 
