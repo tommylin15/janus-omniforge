@@ -158,7 +158,10 @@ class DataSupplementTests(unittest.TestCase):
             manifest = json.loads(stores("core").read("executions/bounded-test/core-snapshot.json"))
             self.assertEqual(set(manifest["iceberg_tables"]), {"core.financials_v1", "core.ohlcv_v1", "core.benchmark_v1", "core.valuation_v1"})
             self.assertTrue(list((root/"stage").rglob("*.html")))
-            self.assertEqual(control.put_admin_setting.call_count, 3)
+            self.assertEqual(control.put_admin_setting.call_count, 5)
+            self.assertEqual(
+                sum(call.args[0] == "data_readiness_ledger"
+                    for call in control.put_admin_setting.call_args_list), 2)
 
     def test_monthly_window_and_unknown_publication_preserve_period_and_units(self):
         self.assertEqual(months_ending(2026, 2, 3), [(2025, 11), (2026, 0), (2026, 1)])
