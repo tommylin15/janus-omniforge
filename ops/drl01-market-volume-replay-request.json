@@ -1,0 +1,27 @@
+{
+  "intent": "drl01-existing-official-market-volume-history",
+  "approved": false,
+  "no_new_source": true,
+  "no_owner_mutation": true,
+  "no_job_template_mutation": true,
+  "slices": [
+    [
+      "2026-07-01",
+      "2026-07-31"
+    ],
+    [
+      "2026-08-01",
+      "2026-08-31"
+    ],
+    [
+      "2026-09-01",
+      "2026-09-30"
+    ],
+    [
+      "2026-10-01",
+      "2026-10-12"
+    ]
+  ],
+  "deployed_sha": "0000000000000000000000000000000000000000",
+  "reason": "Disabled until exact-source GHCR Jobs rollout and approved CLI acceptance; no new workload before image verification."
+}
