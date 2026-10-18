@@ -1,11 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
+  "sha": "b5df7e30bc02676a41d0d3300325b9ca5d6fb553",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04",
-  "candidate_release_run": "39100946095",
-  "candidate_deployment_run": "39101384927",
-  "purpose": "FINOPS-AB permanent generation cleanup image: same-source zero-traffic automated OAuth/private negative boundary only. No canonical traffic, data or Job mutation.",
-  "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 39
+  "purpose": "DRL-01 P0-1: Verify auth boundaries before promotion",
+  "requested_at": "2026-10-18T15:52:00+08:00"
 }
