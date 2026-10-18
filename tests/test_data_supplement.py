@@ -10,6 +10,63 @@ from ingestion_core.data_supplement import months_ending, normalise_monthly, nor
 
 
 class DataSupplementTests(unittest.TestCase):
+    def test_monthly_prices_share_one_commit_without_losing_source_or_partial_failures(self):
+        from ingestion_core.data_supplement import run_backfill
+        control = MagicMock()
+        control.connection.cursor.return_value.__enter__.return_value.fetchall.return_value = [
+            ("2330", "台積電", "TWSE"), ("2317", "鴻海", "TWSE")]
+        control.source_is_approved.return_value = True
+        control.enqueue_collection.return_value = SimpleNamespace(execution_id="monthly-batch")
+        control.get_admin_setting.return_value = None
+        control.complete_collection.return_value = (SimpleNamespace(status=SimpleNamespace(value="partial")), None)
+        core = MagicMock()
+        core.write.return_value = SimpleNamespace(inserted=1, updated=0, reused=0)
+        writer = MagicMock()
+        writer.write_raw.side_effect = lambda **kwargs: SimpleNamespace(
+            idempotency_key=kwargs["provenance"].provenance_id)
+        class FixedDatetime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return cls(2026, 10, 2, 12, tzinfo=tz)
+        def upstream(url):
+            query = parse_qs(urlparse(url).query)
+            if "STOCK_DAY" not in url:
+                raise ValueError("unavailable source")
+            month = query["date"][0][4:6]
+            if query["stockNo"] == ["2317"] and month == "10":
+                raise ValueError("one source unavailable")
+            return json.dumps({"data": [[f"115/{month}/01", "1000", "1500", "1", "2", "0.5", "1.5", "0", "0"]]}).encode(), "utf-8"
+        with patch("ingestion_core.__main__._control_plane", return_value=control), \
+             patch("ingestion_core.__main__._iceberg_core", return_value=core), \
+             patch("ingestion_core.__main__._current_core_fences", return_value={"core.ohlcv_v1": {}}), \
+             patch("ingestion_core.__main__._core_ready_event", return_value={"coreSnapshotId": "snapshot"}), \
+             patch("ingestion_core.data_supplement.StageWriter", return_value=writer), \
+             patch("ingestion_core.data_supplement.GcsObjectStore"), \
+             patch("ingestion_core.data_supplement._fetch", side_effect=upstream), \
+             patch("ingestion_core.data_supplement._rows", return_value=[]), \
+             patch("ingestion_core.data_supplement.datetime", FixedDatetime), \
+             patch.dict("os.environ", {"JANUS_DATA_SUPPLEMENT_SYMBOLS": "2330,2317",
+                 "JANUS_DATA_SUPPLEMENT_PRICE_MONTHS": "2", "CORE_BUCKET": "core", "STAGE_BUCKET": "stage"}):
+            summary = run_backfill()
+            writes = [call.kwargs for call in core.write.call_args_list]
+            core.write.reset_mock()
+            core.write.side_effect = [RuntimeError("atomic commit failed"),
+                                     SimpleNamespace(inserted=1, updated=0, reused=0)]
+            commit_failure = run_backfill()
+        self.assertEqual(len(writes), 2)
+        self.assertEqual([len(call["rows"]) for call in writes], [2, 1])
+        self.assertEqual({row["symbol"] for row in writes[0]["rows"]}, {"2317", "2330"})
+        self.assertEqual(len({row["provenance_id"] for row in writes[0]["rows"]}), 2)
+        self.assertTrue(all(row["provenance_id"] for call in writes for row in call["rows"]))
+        self.assertTrue(any(item["dataset"] == "ohlcv" and item["symbol"] == "2317"
+                            and item["period"] == "2026-10" for item in summary["failures"]))
+        self.assertTrue(control.complete_collection.call_args.kwargs["partial"])
+        writer.mark_core_committed.assert_not_called()
+        self.assertEqual(core.write.call_count, 2)
+        self.assertEqual({item["symbol"] for item in commit_failure["failures"]
+                          if item["dataset"] == "ohlcv" and item["period"] == "2026-09"},
+                         {"2317", "2330"})
+
     def test_fundamental_model_coverage_is_not_generic_financial_quarter_coverage(self):
         from datetime import date
         from ingestion_core.data_supplement import coverage_summary, fundamental_comparative_coverage

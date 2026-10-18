@@ -28,6 +28,7 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 - A1：以 `FINOPS_WEEKLY_MAINTENANCE` 守衛將 Compaction → Mart Cleanup → Core Cleanup 週六化；週六以 PG 成功 EOD 和 immutable Core 收據為來源。Worker 追加 GCS manifest digest／當前 catalog Snapshot 正反驗證（`3f1b499`／`0c48497`）。旗標**預設 false**，尚未在 dev 啟用。
 - B1：Data Supplement 價量、指數、估值的有界日期／欄位 Iceberg scan 與回歸（`a692739`／`575da35`）；歷史財報合法版本不可因節流刪除。
 - B2：financials 寫入重用已載入的 table，避免第二次 layout normalization；去重保留官方文件 hash、特徵版本與來源期間（`da5d3c5`／`de98223`）。完整 dataset/date coalesced commit 尚未完成，不能標 B2 全面 PASS。
+- B2 接續：Data Supplement OHLCV 改為同月份跨股票一次提交，逐筆保留 Stage provenance；來源失敗仍 partial，提交失敗逐股票記錄並繼續後續月份，不標 Stage 全成功。最多沿既有50股／單月累積，不擴大收集範圍。financials／valuation 仍按既有每股票歷史批次提交，不宣稱所有 dataset 已合併。相關五組本機回歸88 passed；最終新增提交失敗案例另1 passed。最新 runtime／權限阻塞見 [AB 接續證據](archive/finops-ab-continuation-2026-10-18.md)。
 - B3：Compaction 無候選分區時不做 Apply，不再掃描停用的 audit mirror；有候選時 Dry-run 計畫可在 Snapshot/metadata pointer 不變下供 Apply 重用，避免第二輪 metadata／manifest planning（`cce7630`、`5e52a10`、`1df26c3`）；僅保留單次 Job process CPU／wall timing，不作兩天比較。
 - D06：Retention 沒有 catalog 變更或實際刪除時重用 GCS metadata 清單，避免二次 List（`513479b`／`aff09e0`）。原477 objects cleanup 與 audit mirror 停用沿用已通過收據；真正 Retention fence／受引用清理／PG `core_snapshot_id` 欄位授權仍 BLOCKED/PARTIAL，不可假稱已刪除。
 - **已確認 CI：**同源 [Compaction CI #39093460437](https://github.com/tommylin15/janus-omniforge/actions/runs/39093460437) SUCCESS；同源 [選擇性 CI #39093460444](https://github.com/tommylin15/janus-omniforge/actions/runs/39093460444) SUCCESS（source `1df26c3`）。之後 TODO 文件 commit 不代表 Jobs 部署或 live 驗收。

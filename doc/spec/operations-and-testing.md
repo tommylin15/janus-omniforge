@@ -1,5 +1,9 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-18｜FINOPS-AB 接續（PARTIAL）
+
+OHLCV 同月跨股合併提交並保留逐筆 provenance／partial error；五組本機回歸88 passed，最終 commit 失敗案例另1 passed。四 dev Jobs image 唯讀確認仍是 d8a57a rollback baseline；Scheduler ENABLED／每小時:30，未宣稱週化生效。Jobs lease 原子 ref 建立仍 HTTP403 integration_permission，D06 完整 fence／publication 欄位讀權未解，未部署或清理。詳見 [本次完整範圍與恢復入口](../archive/finops-ab-continuation-2026-10-18.md)；唯一狀態仍在 TODO。
+
 ### 2026-10-18｜DRL-01 正式 dev 收尾：Core 逐月缺口與 serving 分離（PARTIAL）
 
 - **使用者驗收**：新版 dev API 已切流至 100% 且本人完成正式驗收；這項回報不直接涵蓋兩年 PE/PB 新欄位。必須分別核對 Core → PG publication → public API → UI。

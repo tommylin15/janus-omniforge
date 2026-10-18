@@ -456,6 +456,7 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
                 selected_fields=("trade_date",))}
             benchmark_months = {(int(day[:4]), int(day[5:7])) for day in required-available}
         for year, month in (() if valuation_only or fundamental_only else market_months):
+            price_batch = []
             for symbol in symbols:
                 if incremental and (year, month) not in missing_months[symbol]:
                     summary["skipped"] += 1
@@ -469,9 +470,19 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
                     checked = validate_ohlcv(rows, analysis_as_of=today)
                     if checked.quarantined:
                         failure("ohlcv-dq", symbol, f"{year}-{month:02d}", ValueError())
-                    commit(list(checked.accepted), provenance, "twse", "ohlcv", {"symbol": symbol, "period": f"{year}-{month:02d}"})
+                    if not checked.accepted:
+                        raise ValueError("no accepted supplement prices")
+                    price_batch.extend({**row, "provenance_id": provenance} for row in checked.accepted)
                 except Exception as error:
                     failure("ohlcv", symbol, f"{year}-{month:02d}", error)
+            if price_batch:
+                batch_symbols = sorted({row["symbol"] for row in price_batch})
+                try:
+                    commit(price_batch, price_batch[0]["provenance_id"], "twse", "ohlcv",
+                           {"symbols": batch_symbols, "period": f"{year}-{month:02d}"})
+                except Exception as error:
+                    for symbol in batch_symbols:
+                        failure("ohlcv", symbol, f"{year}-{month:02d}", error)
             if incremental and (year, month) not in benchmark_months:
                 summary["skipped"] += 1
                 continue
