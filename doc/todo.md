@@ -6,7 +6,7 @@
 
 **2026-10-17 最新決策：D01～D05 全部 PASS／CLOSED（使用者核准寬鬆驗收）**。既有真人正向驗收、資料讀取、備份與正式發布證據已接受；其餘嚴格量測、獨立補驗及原 D03 後續增補均不再要求，不另留支線或後續待辦。缺少證據的部分記為 USER_ACCEPTED／WAIVED，不偽稱實測通過。結案依據、已接受限制及原始清單見 [結案紀錄](archive/d01-d05-relaxed-acceptance-closure-2026-10-17.md)。
 
-**2026-10-18 最新優先決策：FINOPS-AB（A 快速節流＋B Ingestion／Iceberg 原地優化）列最高優先，立即推進；DRL-01 仍由另一個 AI 在既有範圍並行，但共用 main／runtime 不得競爭部署。FINOPS-C（BigQuery 混合運算）必須排在 D07／D08 之前，**開始 C 工程前要重做完整架構／成本／資料一致性評估，正式回寫文件後才可決定 selective cutover**。既有 ADMIN-V2 正在進行，不因本次排列改動已授權範圍；不重開 D01～D05 及 D06 歷史 gate。唯一 AI 執行指令見 [FINOPS-AB／C 卡](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)。
+**2026-10-18 最新範圍決策：D06 取消獨立收尾，將其剩餘引用保護／Retention／Orphan／Core・Mart Cleanup 整併 FINOPS-AB；D06 原兩天或長時間等量 I/O 量測由使用者取消，不作交付條件。FINOPS-AB（A 快速節流＋B Ingestion／Iceberg 原地優化＋D06 安全收尾）列最高優先，立即推進；DRL-01 仍由另一個 AI 在既有範圍並行，但共用 main／runtime 不得競爭部署。FINOPS-C（BigQuery 混合運算）必須排在 D07／D08 之前，**開始 C 工程前要重做完整架構／成本／資料一致性評估，正式回寫文件後才可決定 selective cutover**。既有 ADMIN-V2 正在進行，不因本次排列改動已授權範圍；不重開 D01～D05 及 D06 歷史 gate。唯一 AI 執行指令見 [FINOPS-AB／C 卡](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)。
 
 A 組及 B0～B8 已結案的範圍不重開；有實質變更才回歸受影響路徑。全市場 Bootstrap／同日 Cached、費稅88筆更正、00719B 身分／估值既有成功證據不重送。研究範圍採各歷史日期全上市櫃；50 關注 quota 仍保留。
 
@@ -17,7 +17,7 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 | 工作包 | 狀態／次序 | 既有 WBS 責任 | 依賴與退出條件 |
 |---|---|---|---|
 | [FINOPS-AB CPU／GCS I/O 優先優化](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **P0／優先開工，READY_TO_IMPLEMENT（本工項尚無工程／runtime 驗收證據）** | WBS-3／WBS-7（A＋B） | A：每週維護鏈＋跳過無效工作；B：增量查詢、合併提交、dirty-partition；先確認現行 dev digest／成本基線，不新增付費服務 |
-| [D06 Iceberg／I/O](execution-cards/d06-iceberg-retention-io.md) | PARTIAL；獨立已授權 | WBS 7／retention | 既有 Jobs／cleanup 終態、完整引用保護、真實 objects／bytes／等量 I/O 驗收 |
+| [D06 Iceberg／I/O 歷史證據](execution-cards/d06-iceberg-retention-io.md) | **不再獨立排程；剩餘全部併 FINOPS-AB** | WBS-7／retention（於 AB 驗收） | 477 objects 清理／audit mirror 停用 PASS 沿用；兩天 I/O 比較 `CANCELLED_BY_USER`，不作另一次驗收 |
 | [ADMIN-V2 Admin 四頁主要重構](decision-2026-10-17-admin-v2.md) | **IN_PROGRESS；2026-10-18 使用者授權 A1～A5（含 A4-U）工程與受控 dev 驗收**；既有核心契約穩定後，D07／D08 UI 接線之前 | WBS-6-ADMIN-OPERATIONAL-CONVERGENCE | 四頁重構＋總覽使用分析／單一使用者追蹤；影響與工程只在 ADMIN-V2，無 D01～D06 原 gate 變更 |
 | [FINOPS-C BigQuery 混合運算](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **PLANNED；A＋B 驗收後、D07／D08 前；開工前必須重新評估並回寫正式文件** | WBS-5／WBS-7（C） | 先 C-preflight：CPU/RAM、GCS、BQ 實際計費與 PIT/snapshot/cost/rollback、既有配額/IAM；通過後才逐項開發與切換 Screening／Ranking／OOS，未通過 DEFERRED/BLOCKED 並明示決策 |
 | [D07 五角色資料與品質](execution-cards/d07-specialist-b9-oos.md) | 後置；FINOPS-C 開工前評估及其處置決議後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
@@ -25,13 +25,15 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 
 ## FINOPS-AB｜先完成 A＋B，降低 Ingestion Core CPU／GCS I/O（P0；READY_TO_IMPLEMENT／未驗收）
 
-**AI 唯一指令入口：**[FINOPS-AB／C 工程執行卡](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) §0–§3 → [Batch Controller Runbook](runbook-batch-controller-dev.md) → [WBS-7](wbs/wbs-7-security-finops.md)。這是新優先序的正式工項，不取代 D06 歷史 I/O 驗收或 DRL-01 工作內容。
+**AI 唯一指令入口：**[FINOPS-AB／C 工程執行卡](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) §0–§3 → [Batch Controller Runbook](runbook-batch-controller-dev.md) → [WBS-7](wbs/wbs-7-security-finops.md)。這是整合後**唯一** FinOps active 工項；D06 尚未完成的保護、清理與 readback 歸本工項，已完成的歷史收據沿用不重跑。DRL-01 與 ADMIN-V2 由其他 AI 施工，不修改其專屬檔案／workload，部署鎖競爭則安全等待。
 
 - [ ] **A1 週批＋相依修正：**原 `iceberg-compaction`、`mart-cleanup`、`core-cleanup` 仍在 main 的 `batch_controller.py` 使用每日 23:30 條件；改為每週六 23:30 同一 occurrence chain。週六非交易日要核對最近成功的 immutable EOD Core snapshot；跨日等待、no-work 正常終態、retry fence、unknown/failed、回滾均需測試，不能只加 `weekdays=(5,)`。每日 ingestion／DRL／Private 不減頻；工作必要時延期但不能重派。
 - [ ] **A2 低成本跳過與量測：**依具證據的 source cursor、snapshot、dirty/revision 和保留水位，在派送前 skip no_change/no_work；分段記錄 07:30／08:30／14:30／週維護 CPU-seconds、GiB-seconds、elapsed、資料量及可歸因的 GCS operation，避免為判斷 no-work 又全掃倉庫。
 - [ ] **B1 Data Supplement bounded reads：**`data_supplement._rows()` 以 date/period/column 規劃，減少無界歷史讀取；120 日價量、官方 EPS、月營收、兩年估值各保持真實合法 coverage 和 PIT／source provenance，不能用缺值補零。
 - [ ] **B2 Iceberg Dirty Commit／B3 按需維護：**同一 dataset／日期的安全合併提交、no-op 不寫、新舊財報 version 保護、snapshot reuse；compaction 以 dirty-partition/fence 決定改寫，受保護 Snapshot/orphan/generation 與 rollback 保持。不得因效能優化刪 canonical、research 或 Private 事實。
-- [ ] **AB 發布與完整驗收：**targeted + CI、GHCR immutability、受控 Jobs rollout、Controller/Scheduler 與真實週期/手動有界驗收，確認 Market/Private/API/DRL 正確，測同負載的 CPU/RAM/GCS I/O before-after。30% CPU 與 50% metadata I/O 僅為改善目標，未量測不可標達成；無 live 證據保持 PARTIAL。
+- [ ] **D06-R1 完整引用保護整合：**在 AB 週維護鏈使用每次重新驗證的 `CORE_RETENTION_FENCE_URI`；核對 PG publication、Core、Mart/ML-OOS、Research、Private、外部引用和 immutable snapshot/generation。任何來源缺權限／過期／unknown fail closed（只可 audit-only）。沿用既有 62 Core／71 Mart／96 Research／495 Private JSON 掃描證據，不盲目重掃。
+- [ ] **D06-R2 有界、安全、可回復的清理：**合併 Compaction → Mart Cleanup → Core Cleanup，分別記 dry-run/apply、7日 orphan/generation 防護、受引用 snapshot/execution manifest、回滾／rebuild 路徑與讀回；未授權大量不可逆刪除不執行。no-op 不建立 snapshot，保留真實 objects/bytes/small-file 證據；既有 477 objects 清理與 audit mirror 停用不重播。
+- [ ] **AB＋D06 唯一發布與完整驗收：**targeted＋CI、immutable GHCR、受控 Jobs rollout、Controller/Scheduler、真實有界 workload 與 Market/Private/API/DRL 不退步驗收；短窗／同類工作 sample 可量 CPU/RAM/GCS read/write/objects。**原 D06 兩天／長時間等量 I/O 量測取消，不再執行或作硬 gate。** 30% CPU／50% metadata-I/O 僅改善目標，無可歸因數值保持 UNKNOWN，不臆測節省百分比。
 
 ## DRL-01｜新版功能資料可用性修復（與 FINOPS-AB 並行；IN_PROGRESS）
 
@@ -60,13 +62,13 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
   - **2026-10-17 最新執行決策及實際補收：**② ETF歷史 [#38998709152](https://github.com/tommylin15/janus-omniforge/actions/runs/38998709152) 已`SUCCESS`且Cloud Run `janus-ingestion-core-prxnx` Core snapshot `4874890923938554002`兩檔`00697B,00719B`各**125個可證明官方有效行情日（2／2 PASS）**；連同原六檔各135日，**指定8／8檔的120日門檻PASS**，不包含ETF在股票市場分母。③新2026年核准MVP Gate首輪唯讀Core [#39000160070](https://github.com/tommylin15/janus-omniforge/actions/runs/39000160070)：首輪**4／6**（1513、2327、2382、5876），3231、3711已由MOPS補收；獨立 Core 再驗[#39000368842](https://github.com/tommylin15/janus-omniforge/actions/runs/39000368842) **2026Q1／Q2 六檔全部6／6 PASS_CURRENT_YEAR**（Core snapshot `5736520631016782502`）；歷史四連季依然0／6，不屬MVP上線必過門檻。舊2025Q4、四連季和TTM不再阻擋2026Q1/Q2首版，但仍為**NOT_CERTIFIED／WAIVED_FOR_MVP**，沒有轉成事實PASS。
 - **結案條件：**現有GitHub實作＋targeted／整體CI，來源授權與Core逐月snapshot、上市10%／上櫃30%門檻，持股／關注120日，官方EPS合理口徑，真實13月YoY，最新同源GHCR受控Jobs部署、serving／Admin／手機／桌面讀回、自然排程及增量重跑。缺值可顯示、單項可獨立PASS；**DRL-01整體必須保留PARTIAL直到上述適用關卡有真實證據**。不新增平行待辦、付費來源或排程，不操作Owner資料。
 
-## D06｜Iceberg、引用及I/O
+## D06｜歷史結果（剩餘工項併 FINOPS-AB，不獨立施工）
 
-- [x] 真實縮減 Core 小檔：基線 8,343 objects／194,161,764 bytes、其中 <1 MiB 8,336；CI orphan 清理 [#38879585601](https://github.com/tommylin15/janus-omniforge/actions/runs/38879585601) **PASS**，實刪 477 objects / 2,039,377 bytes，剩餘 7,866 objects / 192,122,387 bytes / 7,859 小檔。
-- [x] **停用稽核鏡像 Jobs Rollout**：來源 `740e54c2` 完整 Release [#38873919415](https://github.com/tommylin15/janus-omniforge/actions/runs/38873919415)、0% [#38874649205](https://github.com/tommylin15/janus-omniforge/actions/runs/38874649205)、OAuth [#38875256474](https://github.com/tommylin15/janus-omniforge/actions/runs/38875256474) 均 SUCCESS；Jobs rollout [#38875865395](https://github.com/tommylin15/janus-omniforge/actions/runs/38875865395) **PASS**（8/8 canaries）。
-- [x] **Runtime 驗證 `iceberg_audit_disabled=true`**：[#38881471078](https://github.com/tommylin15/janus-omniforge/actions/runs/38881471078) **PASS**；14 天 1,208 events、原四時段估 51 個非空批次、預期避免 102 次 logical table scans、`estimated_batch_reduction_percent: 100.0`。
-- [x] 已完成 GCS JSON 引用掃描（62 Core、71 Mart、96 Research、495 Private，無略過）；PG publication 讀取 138 rows（core_snapshot_id column privilege 仍 BLOCKED）。
-- [ ] 等量時間窗 I/O 量測：停用生效後需用相同日期股票數、負載、時間窗比較 ReadObject/GetObjectMetadata，未量測不報節省百分比。詳見 [D06證據](archive/d06-finops-2026-10-16.md)。
+- [x] 真實 orphan 清理：原 8,343 objects／194,161,764 bytes，已刪 477 objects／2,039,377 bytes，剩餘 7,866 objects／192,122,387 bytes；[#38879585601](https://github.com/tommylin15/janus-omniforge/actions/runs/38879585601) PASS。
+- [x] 停用 `ops.batch_events_v1` audit mirror：Jobs rollout [#38875865395](https://github.com/tommylin15/janus-omniforge/actions/runs/38875865395) 8/8 PASS，runtime [#38881471078](https://github.com/tommylin15/janus-omniforge/actions/runs/38881471078) PASS。
+- [x] GCS 引用掃描 62 Core／71 Mart／96 Research／495 Private 已有證據，PG publication 共138筆；`core_snapshot_id` 欄位仍有 privilege 缺口，未完成全引用授權刪除。
+- [ ] 引用保護、Retention fence、合法 Orphan／Snapshot 清理及讀回：**已轉入 FINOPS-AB 的 D06-R1/R2/唯一驗收**，不另發佈或重複計算。
+- [x] 兩天／長時間等量 I/O 比較：**CANCELLED_BY_USER（需求取消，不是量測 PASS）**；不執行、不阻擋 FINOPS-AB 結案。
 
 ## ADMIN-V2｜主要重構（IN_PROGRESS，2026-10-18 啟動）
 
