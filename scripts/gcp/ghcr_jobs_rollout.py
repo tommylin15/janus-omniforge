@@ -159,7 +159,24 @@ def fence():
         path = f"{ROOT}/jobs/{name}/executions?pageSize=100"
         seen = set()
         while path:
-            data = cloud(path)
+            try:
+                data = cloud(path)
+            except RuntimeError as error:
+                # The historical research-only Job has been retired from dev.
+                # Skip ONLY when the first execution page and resource GET both
+                # confirm 404. Never hide a 404 on a later pagination page or
+                # for any of the four active writers.
+                if (name != "janus-research-big-move-500"
+                        or path != f"{ROOT}/jobs/{name}/executions?pageSize=100"
+                        or str(error) != "cloud_control_http_404"):
+                    raise
+                try:
+                    cloud(f"{ROOT}/jobs/{name}")
+                except RuntimeError as retired:
+                    if str(retired) == "cloud_control_http_404":
+                        break
+                    raise
+                raise ValueError("research_job_execution_listing_drift")
             if not all(terminal(e) for e in data.get("executions", [])):
                 raise ValueError("execution_not_terminal")
             token = data.get("nextPageToken")
