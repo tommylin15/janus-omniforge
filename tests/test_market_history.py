@@ -59,7 +59,7 @@ def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch,
         if 'tpex.org.tw' in url:
             return json.dumps([{'Date': '20260803', '代號': s, '名稱': s, '成交股數': '100',
                 '成交金額(元)': '1000', '開盤': '10', '最高': '10', '最低': '10', '收盤': '10'}
-                for i,s in enumerate(otc_symbols) if i >= otc_missing]).encode(), 'utf-8'
+                for s in otc_symbols[otc_missing:]+[str(8000+i) for i in range(otc_missing)]]).encode(), 'utf-8'
         return json.dumps([{"Date": "20260803", "證券代號": s, "證券名稱": s,
             "成交股數": "100", "成交金額": "1000", "開盤價": "10", "最高價": "10", "最低價": "10",
             "收盤價": "--" if i < missing else "10"} for i,s in enumerate(symbols)]).encode(), "utf-8"
@@ -77,7 +77,7 @@ def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch,
     assert not result["failures"]
     assert result["months"][0]["status"] == expected_status
     assert len(commits[0]["rows"]) == 500-missing
-    assert len(commits[1]['rows']) == 500
+    assert len(commits[1]['rows']) == 500-otc_missing
     assert result['coverage_scope'] == 'current_members_price_history'
     assert result['months'][0]['missing_ratio_by_market']['TPEX'] == otc_missing / len(otc_symbols)
     assert result['months'][0]['threshold_by_market'] == {'TWSE': .10, 'TPEX': .30}
