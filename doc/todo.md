@@ -16,14 +16,16 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 
 | 工作包 | 狀態／次序 | 既有 WBS 責任 | 依賴與退出條件 |
 |---|---|---|---|
-| [FINOPS-AB CPU／GCS I/O 優先優化](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **P0／優先開工，READY_TO_IMPLEMENT（本工項尚無工程／runtime 驗收證據）** | WBS-3／WBS-7（A＋B） | A：每週維護鏈＋跳過無效工作；B：增量查詢、合併提交、dirty-partition；先確認現行 dev digest／成本基線，不新增付費服務 |
+| [FINOPS-AB CPU／GCS I/O 優先優化](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **P0／IN_PROGRESS（bounded reads／週批 guarded code／compaction no-op targeted CI PASS；dev Jobs/週批/成本與 D06 安全清理尚未驗收）** | WBS-3／WBS-7（A＋B） | A：每週維護鏈＋跳過無效工作；B：增量查詢、合併提交、dirty-partition；先確認現行 dev digest／成本基線，不新增付費服務 |
 | [D06 Iceberg／I/O 歷史證據](execution-cards/d06-iceberg-retention-io.md) | **不再獨立排程；剩餘全部併 FINOPS-AB** | WBS-7／retention（於 AB 驗收） | 477 objects 清理／audit mirror 停用 PASS 沿用；兩天 I/O 比較 `CANCELLED_BY_USER`，不作另一次驗收 |
 | [ADMIN-V2 Admin 四頁主要重構](decision-2026-10-17-admin-v2.md) | **IN_PROGRESS；2026-10-18 使用者授權 A1～A5（含 A4-U）工程與受控 dev 驗收**；既有核心契約穩定後，D07／D08 UI 接線之前 | WBS-6-ADMIN-OPERATIONAL-CONVERGENCE | 四頁重構＋總覽使用分析／單一使用者追蹤；影響與工程只在 ADMIN-V2，無 D01～D06 原 gate 變更 |
 | [FINOPS-C BigQuery 混合運算](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **PLANNED；A＋B 驗收後、D07／D08 前；開工前必須重新評估並回寫正式文件** | WBS-5／WBS-7（C） | 先 C-preflight：CPU/RAM、GCS、BQ 實際計費與 PIT/snapshot/cost/rollback、既有配額/IAM；通過後才逐項開發與切換 Screening／Ranking／OOS，未通過 DEFERRED/BLOCKED 並明示決策 |
 | [D07 五角色資料與品質](execution-cards/d07-specialist-b9-oos.md) | 後置；FINOPS-C 開工前評估及其處置決議後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
 | [D08 CEO／Admin／報告](execution-cards/d08-ceo-admin-owner-report.md) | 後置；FINOPS-C 評估／處置決議及有效角色後 | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE、User AI整合 | P0-V技術已PASS；真實 Fact Pack／capability／immutable report／Owner history另驗 |
 
-## FINOPS-AB｜先完成 A＋B，降低 Ingestion Core CPU／GCS I/O（P0；READY_TO_IMPLEMENT／未驗收）
+## FINOPS-AB｜先完成 A＋B，降低 Ingestion Core CPU／GCS I/O（P0；IN_PROGRESS／待 runtime 驗收）
+**2026-10-18 實作 checkpoint（不可當結案）：**已在 `main` 提交 Data Supplement date／selected-field bounded Iceberg scan（`a692739`）、相容性與防無界回歸測試（`575da35`）；週六維護的 `FINOPS_WEEKLY_MAINTENANCE` 守衛／最近成功 EOD Core receipt（`3f1b499`）及測試（`da02410`）；Compaction 無候選時跳過第二次 apply，並停止掃描已退役 audit mirror（`cce7630`、測試 `79fe3a5`）。[選擇性 CI #39090200399](https://github.com/tommylin15/janus-omniforge/actions/runs/39090200399)、[Iceberg Compaction CI #39090200532](https://github.com/tommylin15/janus-omniforge/actions/runs/39090200532) 同一 HEAD `79fe3a5` 均 SUCCESS。**但未確認完整 GHCR Release、Jobs rollout、Scheduler 生效、實際 I/O 減少或受引用清理；週批開關預設 `false`，不能宣稱改週批已正式生效。** D06-R1/R2 仍 pending，特別是 PG `core_snapshot_id` privilege 與完整外部引用 fence。其餘 DRL-01／ADMIN-V2 由他人執行，不占其部署鎖。
+
 
 **AI 唯一指令入口：**[FINOPS-AB／C 工程執行卡](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) §0–§3 → [Batch Controller Runbook](runbook-batch-controller-dev.md) → [WBS-7](wbs/wbs-7-security-finops.md)。這是整合後**唯一** FinOps active 工項；D06 尚未完成的保護、清理與 readback 歸本工項，已完成的歷史收據沿用不重跑。DRL-01 與 ADMIN-V2 由其他 AI 施工，不修改其專屬檔案／workload，部署鎖競爭則安全等待。
 
