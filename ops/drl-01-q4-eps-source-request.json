@@ -15,6 +15,6 @@
     3,
     4
   ],
-  "request_version": 3,
-  "reason": "DRL-01 P1 live recheck of six official 2025Q3/Q4 weighted-share denominators using existing approved MOPS XBRL source, no inference/write; accept only verifiable single-quarter context or same-filing numerator+denominator."
+  "request_version": 4,
+  "reason": "DRL-01 resumed batch: fresh read-only official six-symbol 2025Q3/Q4 source audit after Admin data_readiness_ledger readback PASS in Actions 39121917976; no guessed EPS, no write."
 }
