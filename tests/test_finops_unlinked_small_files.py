@@ -14,11 +14,23 @@ def test_only_old_listed_small_generation_inside_core_table_can_be_deleted(monke
     old={'name':'warehouse/ohlcv_v1/data/old.parquet','size':'10','generation':'123','updated':'2026-10-01T00:00:00Z'}
     store=m.SmallStore([old],NOW,['warehouse/ohlcv_v1/'])
     calls=[]
-    monkeypatch.setattr(m.GcsObjectStore,'delete',lambda self,name,**kw:calls.append((name,kw)))
+    from io import BytesIO
+    from urllib.error import HTTPError
+    monkeypatch.setattr(m.GcsObjectStore,'_token',lambda self:'test-token')
+    def request(req,**kwargs):
+        calls.append((req.get_method(),req.full_url))
+        if req.get_method()=='GET':
+            if any(method=='DELETE' for method,_ in calls): raise HTTPError(req.full_url,404,'gone',{},BytesIO())
+            return BytesIO(b'{}')
+        return BytesIO()
+    monkeypatch.setattr(m,'urlopen',request)
+    from ingestion_core import stage
+    monkeypatch.setattr(stage,'urlopen',request)
     with pytest.raises(ValueError):store.delete(old['name'],generation='124')
     with pytest.raises(ValueError):store.delete('private/owner.json',generation='123')
     store.delete(old['name'],generation='123')
-    assert calls==[(old['name'],{'generation':'123'})]
+    assert calls[1][0]=='DELETE' and calls[1][1].endswith('?generation=123&ifGenerationMatch=123')
+    assert calls[2][0]=='GET' and calls[2][1].endswith('?generation=123')
     assert store.deleted==[{'name':old['name'],'generation':'123','bytes':10}]
     for change in ({'size':str(1024*1024)},{'updated':'2026-10-15T00:00:00Z'},{'name':'executions/id/core-snapshot.json'}):
         item={**old,**change};s=m.SmallStore([item],NOW,['warehouse/ohlcv_v1/'])

@@ -633,12 +633,12 @@ def run(mode: str) -> dict[str, Any]:
             if mode == "health":
                 return core_health(core=core)
             if mode == "audit-cleanup":
-                return cleanup_controller_audit_only(core=core, store=GcsObjectStore(bucket))
+                return cleanup_controller_audit_only(core=core, store=GcsObjectStore(bucket, release_event_based_hold=True))
             if mode == "compact-nightly":
                 return compact_nightly(core=core)
             if mode.startswith("compact-"):
                 return compact_core(core=core, apply=mode == "compact-apply")
-            return maintain_financials(core=core, store=GcsObjectStore(bucket), apply=mode == "apply")
+            return maintain_financials(core=core, store=GcsObjectStore(bucket, release_event_based_hold=True), apply=mode == "apply")
     except Exception as error:
         frame = traceback.extract_tb(error.__traceback__)[-1]
         print(json.dumps({"component": "iceberg-maintenance", "status": "failed",

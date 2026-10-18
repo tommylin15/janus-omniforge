@@ -1,5 +1,11 @@
 # FINOPS-AB 接續證據（2026-10-18）
 
+## 最新部署與compaction（尚未實刪）
+
+- 同源 `dead98d35abc8c38448791494fb97d99f37c660b` [Jobs #39099136306](https://github.com/tommylin15/janus-omniforge/actions/runs/39099136306) PASS，四Jobs兩輪共8/8 canary，reversible d8a57a基準已驗證、設定未漂移、Scheduler恢復。中途#39098978307因另一工作線文件push令source過期，在取得lease前停止；以最新main重新dispatch，未繞鎖。
+- [Compaction #39099324026](https://github.com/tommylin15/janus-omniforge/actions/runs/39099324026) PASS，execution `janus-ingestion-core-bt97h`，9表改寫796,583 bytes，audit disabled。Core bucket live inventory 8,437／219,508,719 bytes →8,682／222,685,481 bytes，小檔8,425→8,670；新增替代檔，沒有orphan刪除或snapshot過期，不宣稱已減量。
+- 真實bucket政策：Core與Mart versioning enabled、softDelete=0；Core defaultEventBasedHold=true。官方JSON API指出只用ifGenerationMatch不保證移除實際version，因此修正DELETE同時帶generation；Core維護明確opt-in，僅已驗證generation可清event hold，保留temporary hold與metageneration防競爭。小檔入口另GET精確generation確認404；75項targeted PASS，仍待新完整Release/部署。此前477 live objects下降不等於實體版本／billable bytes已釋放，不重播該清單。
+
 ## 發布重試
 
 - #39098770305仍在變更前FAIL／PREFLIGHT_BLOCKED_NO_MUTATION，已恢復及釋放。實際唯讀REST證據：retired research Job GET404，execution list HTTP200 `{}`（無executions、無pagination）。修正只容許該已退役名稱Job404＋execution404或精確空物件；有執行／下一頁仍擋，現役Job404仍擋。

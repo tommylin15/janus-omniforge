@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 71,
-  "reason": "ADMIN-V2 CI closure plus integrated DRL-01 Ledger/history repair: align four-page Flutter fixtures, preserve native UUID deletion locking, verify scheduled telemetry retention without changing financial processing. Usage raw events expire by both client/received time; bounded optional Admin actions. Re-run full same-SHA PostgreSQL/Python/Flutter gates before GHCR; no candidate/Jobs/traffic/migration is activated by this request.",
+  "attempt": 72,
+  "reason": "FINOPS-AB physical file reduction: delete exact GCS generation in versioned buckets; opt-in Core event-hold release guarded by generation/metageneration, keep temporary holds and original Stage behavior. Full same-SHA gates before new images; no runtime IAM or production change.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }

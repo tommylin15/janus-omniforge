@@ -32,6 +32,11 @@ def main(layer):
     result = {'source': 'current_only_snapshot_plan', 'data_writes': 0, 'core_snapshot_ids': [],
               'layer': layer, 'observed_at': now.isoformat(), 'tables': [],
               'minimum_age_days': 7, 'holds_and_delete_permission_verified': False}
+    from urllib.request import Request, urlopen
+    endpoint = ('https://storage.googleapis.com/storage/v1/b/' + bucket
+                + '/iam/testPermissions?permissions=storage.objects.delete&permissions=storage.objects.update')
+    with urlopen(Request(endpoint, headers={'Authorization': 'Bearer ' + store._token()}), timeout=20) as response:
+        result['runtime_cleanup_permissions'] = sorted(json.load(response).get('permissions', []))
     pointers = {}
     visible_count = visible_bytes = 0
     try:

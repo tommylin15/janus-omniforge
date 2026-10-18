@@ -75,7 +75,7 @@ def run(call, jsoncall, inventory, rollout):
                                method='PATCH')
             with urlopen(patch_req,timeout=20):
                 pass
-        with urlopen(Request(endpoint+'?ifGenerationMatch='+item['generation'],headers=headers,method='DELETE'),timeout=20):
+        with urlopen(Request(endpoint+'?generation='+item['generation']+'&ifGenerationMatch='+item['generation'],headers=headers,method='DELETE'),timeout=20):
             return item
 
     try:

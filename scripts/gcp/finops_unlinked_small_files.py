@@ -7,6 +7,8 @@ import re
 import traceback
 from pathlib import Path
 from urllib.error import HTTPError
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 from ingestion_core.stage import GcsObjectStore
 from ingestion_core.iceberg_maintenance import maintain_financials
@@ -18,7 +20,7 @@ COMPONENT='finops-unlinked-small-files'
 
 class SmallStore(GcsObjectStore):
     def __init__(self, entries, now, prefixes):
-        super().__init__(BUCKET)
+        super().__init__(BUCKET, release_event_based_hold=True)
         self.initial={x['name']:x for x in entries}
         self.now=now
         self.prefixes=tuple(prefixes)
@@ -38,7 +40,16 @@ class SmallStore(GcsObjectStore):
             raise ValueError('unlinked_small_file_delete_outside_approved_scope')
         if len(self.deleted)>=9000: raise RuntimeError('unlinked_cleanup_object_budget')
         self.delete_attempt={"name":name,"generation":generation}
-        super().delete(name,generation=generation)
+        endpoint = ('https://storage.googleapis.com/storage/v1/b/' + BUCKET + '/o/'
+                    + quote(name, safe='') + '?generation=' + quote(generation, safe=''))
+        headers = {'Authorization': 'Bearer ' + self._token()}
+        super().delete(name, generation=generation)
+        try:
+            with urlopen(Request(endpoint, headers=headers), timeout=self.timeout_seconds):
+                raise RuntimeError('deleted_generation_still_exists')
+        except HTTPError as error:
+            if error.code != 404:
+                raise
         self.deleted.append({'name':name,'generation':generation,'bytes':int(item['size'])})
 
 

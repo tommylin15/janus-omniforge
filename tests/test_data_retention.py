@@ -109,7 +109,7 @@ def test_mart_retention_uses_psycopg_database_option(monkeypatch):
     monkeypatch.setattr(retention, "_settings", lambda _: {"host": "private", "name": "janus", "user": "worker", "password": "fixture"})
     monkeypatch.setattr(retention, "sql_catalog_from_environment", lambda: None)
     monkeypatch.setattr(retention, "MartMaintenanceStore", lambda *_: SimpleNamespace(close=lambda: None))
-    monkeypatch.setattr(retention, "GcsObjectStore", lambda _: None)
+    monkeypatch.setattr(retention, "GcsObjectStore", lambda _, **kw: None)
     def connect(**kwargs):
         assert kwargs["dbname"] == "janus" and "name" not in kwargs
         raise RuntimeError("connection checked")
@@ -337,6 +337,6 @@ def test_core_apply_no_longer_requires_historical_reference_fence(monkeypatch):
     monkeypatch.delenv("CORE_RETENTION_FENCE_URI", raising=False)
     monkeypatch.setenv("CORE_BUCKET", "gen-lang-client-0593591102-dev-core")
     monkeypatch.setenv("STAGE_BUCKET", "wrong-bucket")
-    monkeypatch.setattr(retention, "GcsObjectStore", lambda _: object())
+    monkeypatch.setattr(retention, "GcsObjectStore", lambda _, **kw: object())
     with pytest.raises(ValueError, match="existing dev Stage bucket"):
         retention.maintain_public_data(core=object(), apply=True)

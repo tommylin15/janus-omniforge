@@ -123,7 +123,7 @@ def clean_core_manifests(store, *, apply, now, active_executions):
 
 def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None) -> dict[str, Any]:
     now = now or datetime.now(timezone.utc)
-    store = GcsObjectStore(os.environ["CORE_BUCKET"])
+    store = GcsObjectStore(os.environ["CORE_BUCKET"], release_event_based_hold=True)
     stage_bucket = os.environ.get("STAGE_BUCKET", "")
     if stage_bucket != "gen-lang-client-0593591102-dev-stage":
         raise ValueError("retention requires the existing dev Stage bucket")

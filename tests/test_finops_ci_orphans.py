@@ -44,5 +44,5 @@ def test_ci_deletion_uses_exact_generation_and_preserves_failure_receipt(monkeyp
     else:m.run(*args)
     receipt=json.loads(Path('finops-unlinked-receipt.json').read_text())
     assert receipt['deleted_objects']==(0 if denied else 1)
-    assert calls[-1][0]=='DELETE' and calls[-1][1].endswith('?ifGenerationMatch=123')
+    assert calls[-1][0]=='DELETE' and calls[-1][1].endswith('?generation=123&ifGenerationMatch=123')
     assert 'token' not in Path('finops-unlinked-receipt.json').read_text()

@@ -72,11 +72,14 @@ class LocalObjectStore:
 class GcsObjectStore:
     """Minimal GCS JSON API client using Cloud Run metadata credentials."""
 
-    def __init__(self, bucket: str, timeout_seconds: float = 15.0) -> None:
+    def __init__(self, bucket: str, timeout_seconds: float = 15.0, *, release_event_based_hold: bool = False) -> None:
         if not bucket or "/" in bucket:
             raise ValueError("invalid GCS bucket")
         self.bucket = bucket
         self.timeout_seconds = timeout_seconds
+        if release_event_based_hold and bucket != "gen-lang-client-0593591102-dev-core":
+            raise ValueError("hold release is restricted to approved dev Core cleanup")
+        self.release_event_based_hold = release_event_based_hold
 
     def _token(self) -> str:
         request = Request(
@@ -114,9 +117,24 @@ class GcsObjectStore:
     def delete(self, name: str, *, generation: str | None = None) -> None:
         endpoint = f"https://storage.googleapis.com/storage/v1/b/{quote(self.bucket, safe='')}/o/{quote(name, safe='')}"
         if generation is not None:
-            endpoint += f"?ifGenerationMatch={quote(generation, safe='')}"
-        request = Request(endpoint, method="DELETE", headers={"Authorization": f"Bearer {self._token()}"})
+            version = quote(generation, safe='')
+            endpoint += f"?generation={version}&ifGenerationMatch={version}"
+        if self.release_event_based_hold and generation is None:
+            raise ValueError("hold release requires an exact generation")
+        headers = {"Authorization": f"Bearer {self._token()}"}
         try:
+            if self.release_event_based_hold:
+                with urlopen(Request(endpoint, headers=headers), timeout=self.timeout_seconds) as response:
+                    actual = json.load(response)
+                if actual.get("temporaryHold"):
+                    raise RuntimeError("temporary hold prevents cleanup")
+                if actual.get("eventBasedHold"):
+                    patch = Request(endpoint + "&ifMetagenerationMatch=" + quote(actual["metageneration"], safe=""),
+                                    data=b'{"eventBasedHold":false}', method="PATCH",
+                                    headers={**headers, "Content-Type": "application/json"})
+                    with urlopen(patch, timeout=self.timeout_seconds):
+                        pass
+            request = Request(endpoint, method="DELETE", headers=headers)
             with urlopen(request, timeout=self.timeout_seconds):
                 return
         except HTTPError as error:
