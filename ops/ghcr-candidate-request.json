@@ -1,14 +1,14 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "d8a57aa57198e0f383a37125e6b94eb392abe717",
-  "release_run": "39049811103",
-  "purpose": "DRL-01D UNDEFINEDTABLE fix, two-year valuation SQL publication to migration 063, strict non-owner 0%-candidate check",
+  "sha": "9c75921736f5e2839fdf0b5d2c5ad1b4c505f4cc",
+  "release_run": "39083907831",
+  "purpose": "DRL-01 Core gap and official bounded market-history release. Candidate at 0 percent only; preserve live 100 percent baseline for user-accepted API, no owner/production mutation.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Same-source full Python/Flutter + four GHCR digests PASS #39049811103; no canonical traffic switch",
+  "retry_verification": "Full GHCR Python/Flutter and all four public image digests run #39083907831 SUCCESS; same-source candidate and reversible dev guards before promotion",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }
