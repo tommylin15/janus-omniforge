@@ -1,8 +1,8 @@
 # Janus 目前狀態
 
-> **2026-10-18｜DRL-01 P0-2/P0-3 執行中（IN_PROGRESS）**：
+> **2026-10-18｜DRL-01 P0-3 完成、P0-2 待驗證（PARTIAL）**：
+> - **P0-3 Market Volume 補收 PASS**：四個 slices（2026-07～10/17）全部完成，使用 execution-based 驗證。
 > - **P0-2 Readiness Jobs**：已由 FINOPS-AB [#39101646737](https://github.com/tommylin15/janus-omniforge/actions/runs/39101646737) 部署 `252db8c`（含 readiness.py 修正），待驗證自然排程 Ledger 寫入。
-> - **P0-3 Market Volume 補收**：正在執行四個 slices（2026-07～10），預計約 2-2.5 小時完成。使用 execution-based 驗證作為 fallback。
 > - **P1-4 EPS 歷史修復**：需等 P0-2 Ledger 驗證完成後執行。
 >
 > 證據見 [operations-and-testing](spec/operations-and-testing.md) 與 [TODO](todo.md)。
