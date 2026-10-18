@@ -36,6 +36,33 @@ class DuckDBIcebergTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.core.write(rows=[dict(row, availability_at=None)], **common)
 
+    def test_financial_iceberg_dedupe_keeps_new_official_document_and_feature_version(self):
+        base = {"symbol": "2327", "fiscal_year": 2026, "fiscal_quarter": 2,
+                "statement_type": "income", "metric": "EPS", "value": "1.25",
+                "unit": "TWD_per_share", "currency": "TWD", "source_id": "mops",
+                "published_at": None, "publication_time_authoritative": False,
+                "availability_at": "2026-08-15T01:00:00Z",
+                "source_document_sha256": "official-first"}
+        common = {"dataset_id": "financials", "source_id": "mops",
+                  "partition_date": date(2026, 10, 18)}
+        initial = self.core.write(rows=[base], execution_id="e1",
+                                  provenance_id="original", **common)
+        self.assertEqual(initial.row_count, 1)
+        with patch.object(self.catalog, "load_table", wraps=self.catalog.load_table) as loaded:
+            revision = self.core.write(rows=[{**base, "availability_at": "2026-08-16T01:00:00Z",
+                                              "source_document_sha256": "official-correction"}],
+                                       execution_id="e2", provenance_id="amended", **common)
+            self.assertEqual(loaded.call_count, 2)  # once for preflight, once after commit
+        self.assertEqual((revision.inserted, revision.row_count), (1, 2))
+        upgraded = self.core.write(rows=[{**base, "availability_at": "2026-08-17T01:00:00Z",
+                                           "financial_feature_version": "same-filing-comparatives-v1",
+                                           "source_document_sha256": "official-correction"}],
+                                   execution_id="e3", provenance_id="enriched", **common)
+        self.assertEqual((upgraded.inserted, upgraded.row_count), (1, 3))
+        self.assertEqual({r["source_document_sha256"] for r in
+                          self.catalog.load_table(initial.table_identifier).scan().to_arrow().to_pylist()},
+                         {"official-first", "official-correction"})
+
     def test_receipt_version_is_additive_to_legacy_financial_table(self):
         import pyarrow as pa
         legacy = {"symbol": "2327", "fiscal_year": 2023, "fiscal_quarter": 3, "statement_type": "income",
