@@ -15,6 +15,6 @@
     3,
     4
   ],
-  "request_version": 2,
-  "reason": "Investigate existing MOPS quarterly XBRL HTTPError availability with exact status, distinguishing source access blocker from missing denominators, without canonical mutation or new source."
+  "request_version": 3,
+  "reason": "DRL-01 P1 live recheck of six official 2025Q3/Q4 weighted-share denominators using existing approved MOPS XBRL source, no inference/write; accept only verifiable single-quarter context or same-filing numerator+denominator."
 }
