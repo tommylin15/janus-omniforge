@@ -1,14 +1,11 @@
 {
-  "intent": "promote-authenticated-reversible-ghcr-dev",
+  "intent": "promote-ghcr-candidate-to-full-traffic",
   "approved": true,
-  "scope": "existing-dev-janus-api-only",
-  "source_sha": "7f3e5621d39a99cdb6be622c80636da10f9a391e",
-  "release_run": "39031856247",
-  "jobs_run": "39032863146",
-  "rollback_mode": "reversible_ghcr",
-  "baseline_source_sha": "becb6a15496959c1f5d3d4985d7b523b652bd3ee",
-  "allow_legacy_forward_only": false,
-  "auth_boundary_run": "39032620084",
-  "gate": "User authorized dated UI and stock first-load follow-up on one full source SHA. Same-source full release39031856247, candidate39032329887, automatic auth39032620084, fixed Preview39032747389 and four Jobs39032863146 PASS with 8 distinct canaries, verified public becb rollback and Scheduler ENABLED. New Preview real authenticated mobile390x844/desktop1440x1000 four-page matrix8/8 PASS; daily20/monthly quarterly descending, striped rows, revenue sum and PE average verified, EPS unchanged. Pre-promotion12 EPS/revenue plus quote and66-row chart readback PASS. Require current Jobs/Scheduler fence, lease, fixed public digest, new-old-new100percent rehearsal, health/private401/traffic/tags/build-id readback. No Owner writes, new resources or permissions; D01-D05 waivers remain closed.",
-  "retry_attempt": 6
+  "scope": "janus-api-traffic-only",
+  "source_sha": "b5df7e30bc02676a41d0d3300325b9ca5d6fb553",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:1fa62d926669c45a9c0f6dea0c2e140860e72b09b4414e53cf7b90cff2bf6802",
+  "release_run": "39108738006",
+  "jobs_run": "39101646737",
+  "purpose": "DRL-01 P0-1: Promote API with two_year_profile field name fix to 100%",
+  "requested_at": "2026-10-18T16:02:00+08:00"
 }
