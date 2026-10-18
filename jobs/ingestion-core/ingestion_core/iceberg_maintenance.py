@@ -395,7 +395,9 @@ def compact_core(*, core: Any, apply: bool, prepared_report: dict[str, Any] | No
         reports.append({
             "dataset_id": dataset_id,
             "table": identifier,
-            "metadata_location": prepared["metadata_location"] if prepared_report is not None else table.metadata_location,
+            "metadata_location": table.metadata_location,
+            "preflight_metadata_location": (prepared["metadata_location"]
+                                            if prepared_report is not None else table.metadata_location),
             "source_partition": f"{transform_name}({source_name})",
             "before": before,
             "planned_periods": plan,
