@@ -51,6 +51,8 @@ jobs:
                  'eps_4_comparable':value.get('eps_4_comparable')}
               with control.connection.cursor() as cur:
                   cur.execute("SELECT state->>'batch',state->>'status',count(*) FROM control.batch_occurrences WHERE scheduled_at >= %s GROUP BY 1,2 ORDER BY 1,2",(datetime.now(timezone.utc)-timedelta(days=5),))
+                  cur.execute("SELECT state->>'status',state->>'operation',scheduled_at FROM control.batch_occurrences WHERE scheduled_at >= %s AND state->>'batch'='data-supplement' ORDER BY scheduled_at DESC LIMIT 7",(datetime.now(timezone.utc)-timedelta(days=7),))
+                  out['supplement_operations']=[{'status':st,'operation':op,'date':str(dt)[:10]} for st,op,dt in cur.fetchall()]
                   out['natural_batches']=[{'batch':str(a),'status':str(b),'count':int(n)}
                     for a,b,n in cur.fetchall() if a in ('ingestion','data-supplement','data-quality','market-screening')]
                   cur.execute("SELECT symbol,metric,payload_json->>'status',payload_json->>'window_years' FROM control.stock_valuation_five_year WHERE symbol=ANY(%s) ORDER BY symbol,metric",(['1513','2327','2382','3231','3711','5876'],))
@@ -179,12 +181,45 @@ jobs:
                      'readiness_error':obj.get('data_readiness_error'),
                      'core_created':obj.get('core_created'),'failures':len(obj.get('failures',[]))})
           print(json.dumps({'component':'drl01_natural_ledger_receipts','records':records[-20:]},sort_keys=True))
+          from ghcr_jobs_rollout import cloud
+          try:
+              core_report=json.load(open('/tmp/drl01-continuity.json'))['receipt']
+              for item in core_report.get('supplement_operations',[])[:6]:
+                  op=item.get('operation')
+                  if not isinstance(op,str) or not op.startswith('projects/gen-lang-client-0593591102/locations/us-central1/operations/'):continue
+                  try:
+                      obj=cloud(op)
+                      exe=obj.get('response',{}).get('name','').rsplit('/',1)[-1]
+                      if not exe.startswith('janus-ingestion-core-'):continue
+                      query='resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="'+exe+'"'
+                      cp=__import__('subprocess').run(['gcloud','logging','read',query,'--project=gen-lang-client-0593591102','--limit=250','--format=json'],text=True,capture_output=True,timeout=40)
+                      if cp.returncode:continue
+                      summaries=[]
+                      for event in json.loads(cp.stdout):
+                          val=event.get('jsonPayload')
+                          if not isinstance(val,dict):
+                              try:val=json.loads(event.get('textPayload',''))
+                              except (ValueError,TypeError):continue
+                          if isinstance(val,dict) and val.get('operation')=='data_supplement_daily':
+                              summaries.append({key:val.get(key) for key in ('operation','status','data_readiness_status','data_readiness_error','core_created','skipped','duration_ms')})
+                      print(json.dumps({'component':'drl01_supplement_execution','execution':exe,'status':item.get('status'),'summaries':summaries[-2:]},sort_keys=True))
+                  except Exception as error:
+                      print(json.dumps({'component':'drl01_supplement_readback_error','error_type':type(error).__name__}))
+          except Exception as error:
+              print(json.dumps({'component':'drl01_supplement_correlation_error','error_type':type(error).__name__}))
+
           PY
       - name: Verify public two-year PE PB and due-quarter EPS API without credentials
         run: |
           python - <<'PY'
           import json,urllib.request,urllib.parse
           root='https://janus-api-2oo7qbkd5q-uc.a.run.app'
+          for rootname,url in (('canonical','https://janus-api-2oo7qbkd5q-uc.a.run.app/app/build-id.txt'),('preview','https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/build-id.txt')):
+              try:
+                  with urllib.request.urlopen(url,timeout=12) as r:
+                      print(json.dumps({'component':'drl01_live_build_id','endpoint':rootname,'http':r.status,'sha':r.read(130).decode().strip()}))
+              except Exception as error:
+                  print(json.dumps({'component':'drl01_live_build_id','endpoint':rootname,'error_type':type(error).__name__}))
           report=[]
           for symbol in ('1513','2327','2382','3231','3711','5876'):
               for metric in ('pe','pb','eps'):
