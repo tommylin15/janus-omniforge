@@ -58,6 +58,23 @@ jobs:
                   cur.execute("SELECT symbol,metric,payload_json->>'status',payload_json->>'window_years' FROM control.stock_valuation_five_year WHERE symbol=ANY(%s) ORDER BY symbol,metric",(['1513','2327','2382','3231','3711','5876'],))
                   out['river']=[{'symbol':s,'metric':m,'status':st,'years':yr} for s,m,st,yr in cur.fetchall()]
               core=_iceberg_core(os.environ['CORE_BUCKET'],read_only=True)
+              # Reproduce the real daily/weekly ledger calculation with a
+              # write-intercepting proxy; it must not touch Admin state.
+              try:
+                  from ingestion_core.readiness import publish_data_readiness
+                  class NoWrite:
+                      def __getattr__(self,name): return getattr(control,name)
+                      def put_admin_setting(self,key,value,**kwargs):
+                          if key!='data_readiness_ledger':raise ValueError('audit_write_scope')
+                          out['computed_ledger']={'status':value.get('status'),
+                             'as_of':value.get('as_of'),'snapshot_ids':value.get('snapshot_ids'),
+                             'market_price_window':value.get('market_price_window'),
+                             'monthly_revenue_13':value.get('monthly_revenue_13')}
+                          return 1
+                  publish_data_readiness(core,NoWrite(),as_of=date(2026,10,18))
+                  out['readiness_calculation']='PASS_READ_ONLY'
+              except Exception as error:
+                  out['readiness_calculation']='ERROR_'+type(error).__name__
               start,end=date(2026,7,1),date(2026,10,17)
               for dataset in ('benchmark','ohlcv','market-volume','market-activity'):
                   info={'status':'UNKNOWN'}
