@@ -200,10 +200,12 @@ class IcebergCompactionTests(unittest.TestCase):
 
     def test_nightly_skips_retired_audit_table_and_no_work_second_scan(self):
         calls = []
-        def fake_core(*, core, apply):
+        def fake_core(*, core, apply, prepared_report=None):
             calls.append(("core", apply))
             if not apply:
+                assert prepared_report is None
                 return {"planned_rewrite_bytes": 12, "tables": [{"planned_periods": ["2026-10"]}]}
+            assert prepared_report["planned_rewrite_bytes"] == 12
             return {"rewritten_bytes": 12}
         with patch("ingestion_core.iceberg_maintenance.compact_core", side_effect=fake_core), \
              patch("ingestion_core.iceberg_maintenance.compact_batch_events",
@@ -228,6 +230,23 @@ class IcebergCompactionTests(unittest.TestCase):
         self.assertEqual(calls, [("core", False)])
         self.assertEqual(result["mode"], "skipped_no_work")
         self.assertEqual(result["apply"]["core"]["reason"], "no_fragmented_periods")
+
+    def test_prepared_compaction_skips_second_planner_and_rejects_stale_catalog(self):
+        from ingestion_core import iceberg_maintenance as maintenance
+        with self._env():
+            preflight = compact_core(core=self.core, apply=False)
+            with patch.object(maintenance, "_compaction_plan",
+                              side_effect=AssertionError("preflight plan must not be rebuilt")), \
+                 patch.object(maintenance, "_data_file_health",
+                              wraps=maintenance._data_file_health) as health:
+                applied = compact_core(core=self.core, apply=True, prepared_report=preflight)
+            self.assertEqual(health.call_count, 1)  # only post-apply health
+            valuation = next(item for item in applied["tables"] if item["dataset_id"] == "valuation")
+            self.assertEqual(len(valuation["rewritten_periods"]), 1)
+            with self.assertRaisesRegex(RuntimeError, "catalog changed"):
+                compact_core(core=self.core, apply=True, prepared_report=preflight)
+            with self.assertRaisesRegex(ValueError, "only valid for apply"):
+                compact_core(core=self.core, apply=False, prepared_report=preflight)
 
     def test_apply_reduces_files_preserves_rows_and_old_snapshot(self):
         before = self.catalog.load_table("core.valuation_v1")
