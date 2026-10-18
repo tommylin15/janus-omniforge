@@ -2,8 +2,8 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "9c75921736f5e2839fdf0b5d2c5ad1b4c505f4cc",
-  "release_run": "39083907831",
+  "sha": "61dbdcee4baac92cb8c62201a97ccbf714e91dc4",
+  "release_run": "39085976225",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
   "baseline_source_sha": "d8a57aa57198e0f383a37125e6b94eb392abe717",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 30,
-  "safety": "DRL-01 official market-history per-market quality gates, pending market gap repair. Exact SHA full GHCR release 39083907831, candidate39084237078, OAuth39084561589 and fixed Preview39084646484 PASS. Verify current d8a57a immutable rollback images + config, wait terminal natural workloads, Scheduler fence, 8 canaries, recovery; no Owner data change/new services or permissions.",
-  "auth_boundary_run": "39084561589",
-  "automated_oauth_requirement": "Same-source OAuth/private boundary #39084561589 SUCCESS",
-  "authorization": "User authorized existing dev reversible Jobs deployment and strict backfill acceptance only"
+  "request_attempt": 31,
+  "safety": "DRL-01 repaired Data Readiness PyIceberg filter and official market-volume historical path, plus Admin schema064 already PASS. Full immutable Release #39085976225, 0% #39089101585, OAuth #39089227416 and fixed Preview #39089314678 PASS. Verify live rollback d8a57a digests/config, Scheduler and 8 distinct canaries; no Owner/paid changes.",
+  "auth_boundary_run": "39089227416",
+  "automated_oauth_requirement": "Same-source OAuth and private negative boundary #39089227416 PASS.",
+  "authorization": "User-approved DRL-01 dev four-Jobs update; fail-closed exact prior d8a57a live digest, configuration hashes, scheduler and rollback; FINOPS-AB deployment concurrency serialized."
 }
