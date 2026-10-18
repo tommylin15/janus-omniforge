@@ -10,8 +10,8 @@
     "5876"
   ],
   "period": "2025Q4",
-  "image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:e8b7a10850bdd2bd103fa764824a9b71c40b5bd1bbdc8931f016cf0ee6201fa4",
-  "source_sha": "da1c5093061d333c29e1a87595f9d1a8dcbc04db",
+  "image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:59fbf1b58196df048f90e63fb78f761787095ce8ab16555931a3ca84c1287506",
+  "source_sha": "e3e0098399846eb337dd2ed1f8b636240bc88c20",
   "source": "yahoo-finance",
   "no_owner_mutation": true
 }
