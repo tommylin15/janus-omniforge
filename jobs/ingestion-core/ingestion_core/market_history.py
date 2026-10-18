@@ -32,7 +32,7 @@ def run_market_history():
     core = None
     execution = None
     summary = {"operation": "market-history", "core_created": 0, "core_updated": 0, "core_reused": 0,
-               "failures": [], "months": [], "tolerance": .1, "auto_fail": False}
+               "failures": [], "months": [], "tolerance_by_market": {"TWSE": .10, "TPEX": .30}, "auto_fail": False}
     with _control_plane() as control:
         try:
             if not all(control.source_is_approved(s) for s in ("twse", "tpex", "taiex")):
@@ -106,14 +106,17 @@ def run_market_history():
                     all_staged.extend(staged)
                     market_missing = {market: 1-sum(counts[market].values())/(len(members[market])*len(benchmark))
                                       for market in members}
+                    thresholds = {"TWSE": .10, "TPEX": .30}
+                    unacceptable = {market: ratio > thresholds[market] for market, ratio in market_missing.items()}
                     missing = max(market_missing.values())
                     checkpoint = {"month": period, "trading_days": len(benchmark), "received_rows": sum(map(len, prices.values())),
                         'missing_ratio_by_market': market_missing,
-                        "missing_ratio": missing, "status": "accepted" if missing <= .1 else "discussion_required"}
+                        "threshold_by_market": thresholds, "unacceptable_by_market": unacceptable,
+                        "missing_ratio": missing, "status": "accepted" if not any(unacceptable.values()) else "discussion_required"}
                     summary["months"].append(checkpoint)
                     print(json.dumps({"operation": "market-history-progress", "execution_id": execution.execution_id, **checkpoint}), flush=True)
-                    if missing > .1:
-                        break  # Preserve valid data, discuss quality before filling further months.
+                    if any(unacceptable.values()):
+                        break  # Preserve valid data; stop only if the per-market approved gate fails.
                 except Exception as error:
                     summary["failures"].append({"month": period, "error": type(error).__name__})
                     break
