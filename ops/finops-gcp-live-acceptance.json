@@ -1,25 +1,14 @@
 {
   "intent": "one-shot-existing-dev-iceberg-maintenance",
   "no_new_resources": true,
-  "mode": "retention-apply",
+  "mode": "mart-retention",
   "rollout_run": 39101646737,
   "expected_source_sha": "252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04",
   "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:2b5dc8fe9b0c2b94c0ca681aaa89181e2e3e69ba43252ec87021475d090af125",
   "expected_mart_image": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:f3f45ba1e068adebaf6a7e895ae6985c923d7e6b1e33f731e17848b410a55ea3",
-  "compaction_run": 39099324026,
-  "cleanup_candidates": {
-    "core_files": 6455,
-    "core_bytes": 104982665,
-    "core_old_snapshots": 548,
-    "mart_files": 55,
-    "mart_bytes": 378759,
-    "mart_old_snapshots": 32,
-    "total_files": 6510,
-    "total_bytes": 105361424,
-    "total_old_snapshots": 580
-  },
-  "purpose": "FINOPS-AB Core retention: expire old snapshots and delete orphan files with exact generation matching.",
-  "acceptance": "Require Core cleanup receipt with snapshot expiration and orphan deletion. Verify current data unchanged.",
-  "request_attempt": 12,
+  "core_retention_run": 39103394210,
+  "purpose": "FINOPS-AB Mart retention: expire old snapshots and delete orphan files after Core retention PASS.",
+  "acceptance": "Require Mart cleanup receipt with snapshot expiration and orphan deletion. Verify current data unchanged.",
+  "request_attempt": 13,
   "user_approved_unlinked_small_file_cleanup": true
 }
