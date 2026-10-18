@@ -113,10 +113,11 @@ class IcebergCompactionTests(unittest.TestCase):
         table = self.catalog.load_table("core.valuation_v1")
         before = table.current_snapshot().snapshot_id
         pointer = table.metadata_location
+        from ingestion_core import iceberg_maintenance as maintenance
         with patch.dict(os.environ, {"ICEBERG_COMPACTION_MIN_FILES": "1000"}), \
-             patch.object(self.catalog, "load_table", wraps=self.catalog.load_table) as loads:
+             patch.object(maintenance, "_data_file_health", wraps=maintenance._data_file_health) as health:
             report = compact_core(core=self.core, apply=True)
-        self.assertEqual(loads.call_count, 1)
+        self.assertEqual(health.call_count, 1)
         valuation = next(item for item in report["tables"] if item["dataset_id"] == "valuation")
         self.assertEqual(valuation["planned_periods"], [])
         self.assertEqual(valuation["before"], valuation["after"])
