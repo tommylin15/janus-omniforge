@@ -50,6 +50,19 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 
 ## DRL-01｜新版功能資料可用性修復（與 FINOPS-AB 並行；IN_PROGRESS）
 
+**2026-10-18 DRL-01 暫停／恢復入口（使用者當次決策；僅允許文件同步）**
+
+使用者原授權接續完成以下四項，但隨後明確指示**「暫停作業」**，本輪只核准將當前進度與待辦寫入 GitHub。**DRL-01 四項工程維持 PAUSED_BY_USER／PARTIAL**；本次文件 commit 不代表來源回補、Jobs rollout、自然排程驗收或 UI 验收。不得以此文件更新觸發手動 Release／Job／migration／補收；既有其他 AI 正在執行的 FINOPS-AB／ADMIN-V2 不因本節自動停機或改寫。恢復後先讀現行 main、Job digest、Controller/runtime，再在既有 dev 安全 gate 下接續，避免重工或競爭部署。
+
+1. **P0｜正式兩年 PE/PB API／UI**：官方2024-10～2026-10三段補收 [#39051869951](https://github.com/tommylin15/janus-omniforge/actions/runs/39051869951) PASS；六股×兩項 PG profile 共12筆 ready。但前次正式 API 唯讀 [#39083839390](https://github.com/tommylin15/janus-omniforge/actions/runs/39083839390) 12個 PE/PB series 均未返回 `two_year_profile`，不得因使用者已確認**dev API 100% 切流及一般人工驗收**便宣稱兩年河流端到端 PASS。需核對最新現役 build-id／publication view／serving、6×2 API payload、兩年河流個股頁手機及桌面真正顯示；完成後附同 SHA receipt。
+2. **P0｜Data Readiness Ledger 定期發布**：readiness PyIceberg `_scan()` 空 `row_filter` 修復已有程式與測試／CI，**尚欠修正版 ingestion Jobs 同 SHA rollout、實際 `data_readiness_ledger` Admin 設定讀回、Controller 自然排程至少一次每日增量及後續讀回、週詳細稽核的 source cursor／snapshot／watermark receipt**。自然 `data-supplement` occurrence success 不可代替 Ledger publication PASS；前次資料庫設定查無此鍵，保留 NOT_VERIFIED。
+3. **P0｜2026-07～09 Market Volume 缺日**：唯讀 [#39083573483](https://github.com/tommylin15/janus-omniforge/actions/runs/39083573483) 抽樣 market-volume 7月0日、8月0日、9月19日，market-activity另有0／3／14日；指數 benchmark／股票 OHLCV 不得相互代替。既有受控歷史 replay request `ops/drl01-market-volume-replay-request.json` 前次仍 disabled、其 workflow 為 SKIPPED，**目前不聲稱已補收**。恢復後先查源站、可用交易日與真實分市場會員分母，以既有官方來源有界、冪等補收及 Stage/Core receipts 驗真；逐月查每市場有效日數、TWSE missing≤10%／TPEx missing≤30%、PIT／provenance，並再次抽讀 UI 所用 dataset。不得為填缺而偽造股日。
+4. **P1｜EPS 合法歷史季度定向修復**：六檔2026Q1／Q2 合法單季已 [#39000368842](https://github.com/tommylin15/janus-omniforge/actions/runs/39000368842) 6／6 PASS；2025Q4 有官方 MOPS 原始季度資料，但六檔缺可驗證單季 EPS 或核實分子／加權平均股數。恢復後只對授權來源能證明者定向補收、保存版本與來源，未認證者保留 null／NOT_CERTIFIED，不以累計 EPS 差分或猜測股數充數；四季 TTM 的舊年度門檻依既有 `WAIVED_FOR_MVP` 記載，不偽稱 PASS。
+
+**合併驗收底線**：不重開已結案 D01～D05；不操作 Owner／Private Ledger、不新增付費來源、排程或資源；遵守 canonical／research、PIT 與 source authorization；直到正式 2Y API／UI、Ledger 自然增量、歷史市場覆蓋及適用 EPS 證據齊備，整體 DRL-01 維持 PARTIAL。最新實證另見 [operations](spec/operations-and-testing.md)／[status](status.md)。
+
+
+
 **2026-10-17 合併發布完成：**本年度2026 Q1／Q2 EPS與營收、兩項個股修正已於同一完整SHA `becb6a15496959c1f5d3d4985d7b523b652bd3ee` 完整Release→候選→自動auth→Preview→Jobs8／8canary→正式API100%全部PASS；切流前後公開資料讀回PASS，詳見 [證據](archive/combined-drl-stock-release-2026-10-17.md)。這條發布鏈不再是待辦；下方其它DRL-01適用驗收保留原範圍，不代表Ledger／五年河流或真人全量矩陣已通過，也不重開D01～D05豁免。
 
 **AI入口：**[總指令第7節](codex-execution-plan.md)；消費端[D02卡](execution-cards/d02-full-market-snapshot-performance.md)／[D03卡](execution-cards/d03-four-page-charts-visual.md)，長相見[A第5節](ui/visual-first-four-pages.md)。只補同一條資料→分析→UI鏈，不另照Drive重建。
