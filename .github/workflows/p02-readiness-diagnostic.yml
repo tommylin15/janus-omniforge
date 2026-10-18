@@ -26,7 +26,7 @@ jobs:
       - name: Check Jobs image digests
         run: |
           echo "## Jobs Image Verification" >> "$GITHUB_STEP_SUMMARY"
-          EXPECTED_SHA="${{ fromJson(file('ops/p02-readiness-diagnostic-request.json')).expected_jobs_sha }}"
+          EXPECTED_SHA=$(jq -r '.expected_jobs_sha' ops/p02-readiness-diagnostic-request.json)
           for job in janus-batch-controller janus-ingestion-core janus-intelligence-mart janus-private-pipeline; do
             image=$(gcloud run jobs describe "$job" --project=gen-lang-client-0593591102 --region=us-central1 --format='value(template.template.containers[0].image)')
             echo "- $job: $image" >> "$GITHUB_STEP_SUMMARY"

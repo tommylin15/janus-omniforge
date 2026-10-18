@@ -105,7 +105,7 @@ def test_historical_market_volume_runner_is_bounded_and_immutable(tmp_path):
     spec.loader.exec_module(mod)
     assert len(mod.SLICES)==4
     assert mod.SLICES[0]==("2026-07-01","2026-07-31")
-    assert mod.SLICES[-1]==("2026-10-01","2026-10-12")
+    assert mod.SLICES[-1]==("2026-10-01","2026-10-18")
     data={"intent":"drl01-existing-official-market-volume-history",
           "approved":True,"no_new_source":True,
           "no_owner_mutation":True,"no_job_template_mutation":True,
