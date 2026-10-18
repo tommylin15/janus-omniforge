@@ -1,5 +1,14 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-18｜DRL-01 暫停／文件同步（PAUSED_BY_USER；不構成 runtime 驗收）
+
+- **指令／範圍**：使用者已確認「正式 dev API 新版 100% 切流、驗收完成」，後要求完成 DRL-01 四個尾項，隨即明確「暫停作業」，本輪僅允許 GitHub 文件回寫。只暫停 DRL-01 後續工程；不變更其它工項／既有 Scheduler、Jobs、已核准 ops request。
+- **兩年河流**：官方 25 月三片補收 [#39051869951](https://github.com/tommylin15/janus-omniforge/actions/runs/39051869951) PASS；曾有 PG 六股 × PE/PB = 12 組 `ready/window_years=2`。但前次正式 API 唯讀 [#39083839390](https://github.com/tommylin15/janus-omniforge/actions/runs/39083839390) 12 路 PE/PB 無 `two_year_profile`；正式 API／Flutter 個股頁分位河流 **NOT_VERIFIED**，不可由使用者確認 100% traffic 外推。
+- **Readiness／自然增量**：既有 Controller 有 data-supplement 自然成功記錄；此前 `control.data_readiness_ledger` Admin 設定查無鍵。程式修正／targeted CI 與正式 Jobs rollout、下一次自然增量之固定 Core snapshot／Ledger 寫入讀回必須分開驗收；當下 **NOT_VERIFIED**。
+- **Market Volume 缺口與真實前置**：[Core 逐月 #39083573483](https://github.com/tommylin15/janus-omniforge/actions/runs/39083573483) 指定股票抽樣 2026-07／08／09／10（至16日）= 0／0／19／11 個日期，不能推論為全市場筆數；TAIEX 指數日期連續亦不代表 volume/activity 完整。當前 `ops/drl01-market-volume-replay-request.json` **`approved=true`**，但該 request 提及的 Jobs rollout [#39089399302](https://github.com/tommylin15/janus-omniforge/actions/runs/39089399302) **FAILED**；近期 workflow [#39098854896](https://github.com/tommylin15/janus-omniforge/actions/runs/39098854896) **SKIPPED**，不能聲稱回補或 TWSE 10%／TPEx 30% 門檻已通過。
+- **EPS**：2026Q1/Q2 指定六股 6/6 合格；2025Q4 原始資料存在但未有合格單季／可證股數分母，歷史四季／TTM 保留 `NOT_CERTIFIED/WAIVED_FOR_MVP`；禁止將 YTD EPS 直接相減、推估分母或缺值補零。
+- **本次變更與復工條件**：GitHub 僅 status／TODO／operations 文字 commit，**無新的 code、migration、CI 人工觸發、deployment、runtime query、真實資料改寫、Owner 操作**。GitHub push 如由既有 workflow 自動派發一般 CI，不能視為 DRL-01 acceptance。復工時先核對最新 `main`／active image digest／deploy lease／自然排程與 FINOPS-AB 並行，再依四項順序執行及留存實際 receipt。
+
 ### 2026-10-18｜FINOPS-AB current-only 接續（PARTIAL，最新）
 
 使用者新決策只留current snapshot，取消歷史引用／24小時／named refs保留；已實作非current named refs與snapshot淘汰、Core／Mart不再要求external fence，current與7日／generation／writer保護維持。Lease [#39095964666](https://github.com/tommylin15/janus-omniforge/actions/runs/39095964666) current-main取得／驗證／釋放PASS，零GCP寫入；先前失敗source被main的workflow改動超越，新guard在寫入前拒絕過期source。估值月批／分段timing／真實Iceberg檔案數與current資料不變回歸，本機171 passed；尚待新完整Release與dev實刪。詳見 [完整證據](../archive/finops-ab-continuation-2026-10-18.md)，舊外部fence阻塞由[最新決策](../decision-2026-10-18-current-only-snapshots.md)取代。

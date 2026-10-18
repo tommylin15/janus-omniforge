@@ -1,5 +1,7 @@
 # Janus — 唯一開發待辦
 
+> **2026-10-18｜DRL-01 暫停／文件同步（PAUSED_BY_USER；等待「繼續 DRL-01」）**：使用者要求先暫停 DRL-01 工程，僅回寫 GitHub。現有四個待續項目保留原 P0／P1，不因正式 dev API 100% 人工驗收而直接結案：**P0-1** 讀回正式 `two_year_profile` 並驗證個股兩年 PE/PB UI；**P0-2** Readiness 修正版 Jobs 實際 rollout、Admin Ledger 發布、自然 Scheduler 和次輪日增量讀回；**P0-3** 2026-07～09 官方 Market Volume 缺日回補、逐月 Core 與 TWSE≤10%／TPEx≤30% 分市場門檻；**P1-4** 2025Q4 等缺季 EPS 僅在官方可驗證單季／分母存在時定向補收，否則維持 `NOT_CERTIFIED`，不補假值。已核准 Market Volume request 不代表已執行：前置 rollout [#39089399302](https://github.com/tommylin15/janus-omniforge/actions/runs/39089399302) **FAIL**、近期 workflow [#39098854896](https://github.com/tommylin15/janus-omniforge/actions/runs/39098854896) **SKIPPED**。**此回寫不觸發 workload、不修改 ops request、不部署／不增費／不動 Owner**；復工前須檢查當時 main／FINOPS-AB 競爭部署狀態，依既有 gates 逐項驗收。技術證據見 [operations](spec/operations-and-testing.md)；其它工項狀態不變。
+
 更新：2026-10-18。只保存尚未完成的交付與驗收；真實終態證據見 [status](status.md) 與 [operations](spec/operations-and-testing.md)。
 
 ## 執行範圍
@@ -48,7 +50,7 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 - [ ] **D06-R2 有界、安全、可回復的清理：**合併 Compaction → Mart Cleanup → Core Cleanup，分別記 dry-run/apply、7日 orphan/generation 防護、current snapshot與active execution manifest、回滾／rebuild 路徑與讀回；未授權大量不可逆刪除不執行。no-op 不建立 snapshot，保留真實 objects/bytes/small-file 證據；既有 477 objects 清理與 audit mirror 停用不重播。
 - [ ] **AB＋D06 唯一發布與完整驗收：**targeted＋CI、immutable GHCR、受控 Jobs rollout、Controller/Scheduler、真實有界 workload 與 Market/Private/API/DRL 不退步驗收；短窗／同類工作 sample 可量 CPU/RAM/GCS read/write/objects。**原 D06 兩天／長時間等量 I/O 量測取消，不再執行或作硬 gate。** 30% CPU／50% metadata-I/O 僅改善目標，無可歸因數值保持 UNKNOWN，不臆測節省百分比。
 
-## DRL-01｜新版功能資料可用性修復（與 FINOPS-AB 並行；IN_PROGRESS）
+## DRL-01｜新版功能資料可用性修復（PAUSED_BY_USER；待續四項）
 
 **2026-10-18 DRL-01 暫停／恢復入口（使用者當次決策；僅允許文件同步）**
 
