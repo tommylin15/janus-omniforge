@@ -50,9 +50,7 @@ jobs:
                  'focus_120d':value.get('focus_120d'),'monthly_revenue_13':value.get('monthly_revenue_13'),
                  'eps_4_comparable':value.get('eps_4_comparable')}
               with control.connection.cursor() as cur:
-                  cur.execute("""SELECT state->>'batch',state->>'status',count(*)
-                                 FROM control.batch_occurrences WHERE scheduled_at >= %s
-                                 GROUP BY 1,2 ORDER BY 1,2""",(datetime.now(timezone.utc)-timedelta(days=5),))
+                  cur.execute("SELECT state->>'batch',state->>'status',count(*) FROM control.batch_occurrences WHERE scheduled_at >= %s GROUP BY 1,2 ORDER BY 1,2",(datetime.now(timezone.utc)-timedelta(days=5),))
                   out['natural_batches']=[{'batch':str(a),'status':str(b),'count':int(n)}
                     for a,b,n in cur.fetchall() if a in ('ingestion','data-supplement','data-quality','market-screening')]
                   cur.execute("SELECT symbol,metric,payload_json->>'status',payload_json->>'window_years' FROM control.stock_valuation_five_year WHERE symbol=ANY(%s) ORDER BY symbol,metric",(['1513','2327','2382','3231','3711','5876'],))
