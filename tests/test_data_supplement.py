@@ -45,6 +45,33 @@ class DataSupplementTests(unittest.TestCase):
         repair.assert_called_once_with(fundamental_only=True)
         self.assertIn("fundamental_history_repair", output.call_args.args[0])
 
+    def test_bounded_iceberg_reads_push_filters_and_columns_without_mutation(self):
+        from ingestion_core.data_supplement import _rows
+        table = MagicMock()
+        table.schema.return_value.fields = [
+            SimpleNamespace(name="symbol"), SimpleNamespace(name="trade_date"),
+            SimpleNamespace(name="close")]
+        table.scan.return_value.to_arrow.return_value.to_pylist.return_value = [
+            {"symbol": "5876", "trade_date": "2026-10-01"}]
+        core = MagicMock()
+        core.table_exists.return_value = True
+        core.catalog.load_table.return_value = table
+        result = _rows(core, "ohlcv", ("5876",),
+                       date_field="trade_date", start_date="2026-09-01", end_date="2026-10-02",
+                       selected_fields=("symbol", "trade_date"))
+        self.assertEqual(result, [{"symbol": "5876", "trade_date": "2026-10-01"}])
+        self.assertEqual(table.scan.call_args.kwargs["selected_fields"], ("symbol", "trade_date"))
+        self.assertIn("row_filter", table.scan.call_args.kwargs)
+        with self.assertRaisesRegex(ValueError, "inverted"):
+            _rows(core, "ohlcv", ("5876",), date_field="trade_date",
+                  start_date="2026-10-02", end_date="2026-09-01")
+        with self.assertRaisesRegex(ValueError, "verified Iceberg field"):
+            _rows(core, "ohlcv", ("5876",), date_field="not_column",
+                  start_date="2026-09-01")
+        with self.assertRaisesRegex(ValueError, "selected_fields"):
+            _rows(core, "ohlcv", ("5876",), selected_fields=("missing",))
+        self.assertEqual(table.scan.call_count, 1)
+
     def test_official_valuation_month_identity_nullable_pe_and_bad_ratios(self):
         from ingestion_core.data_supplement import parse_valuation_month
         document = {"stat": "OK", "title": "113年09月 台積電 個股日本益比",
@@ -142,8 +169,8 @@ class DataSupplementTests(unittest.TestCase):
                 # A legacy feature version must revisit all 12-quarter years, not just the latest two.
                 from ingestion_core.data_supplement import _rows
                 actual_rows = _rows
-                def legacy_rows(core, dataset, symbols):
-                    rows = actual_rows(core, dataset, symbols)
+                def legacy_rows(core, dataset, symbols, **kwargs):
+                    rows = actual_rows(core, dataset, symbols, **kwargs)
                     return [{k: v for k, v in row.items() if k != "financial_feature_version"} for row in rows] if dataset == "financials" else rows
                 core_factory.return_value = DuckDBIcebergCore(catalog, warehouse, engine=DuckDBEngine(temp_directory=str(root/"upgrade-duckdb")))
                 requests.clear()
