@@ -13,5 +13,5 @@
   "deployed_sha": "252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04",
   "jobs_rollout_run": "39101646737",
   "reason": "P0-3: User-approved DRL-01 market gaps. Jobs rollout #39101646737 SUCCESS with 252db8c (includes readiness fix). Bounded existing official 2026-07..10/18, 4 slices, no new source, provider, job template, Owner mutation or paid resources; receipt and TWSE<=10%/TPEx<=30% per-market quality gates required.",
-  "requested_at": "2026-10-18T22:00:00+08:00"
+  "requested_at": "2026-10-18T23:30:00+08:00"
 }
