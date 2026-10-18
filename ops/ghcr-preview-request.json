@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "d8a57aa57198e0f383a37125e6b94eb392abe717",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:073bbc492042442306be2fde8f7b0a0221d24809ac760e66a60ece3442ad619f",
-  "release_run": "39049811103",
-  "candidate_run": "39050209225",
-  "boundary_run": "39050338219",
+  "source_sha": "9c75921736f5e2839fdf0b5d2c5ad1b4c505f4cc",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:75545aed192f40d38a84880e5a9c7f15703efb5dd6ce8bbcb0810a85cd06dce4",
+  "release_run": "39083907831",
+  "candidate_run": "39084237078",
+  "boundary_run": "39084561589",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "Corrected DRL-01D 2Y PE/PB publication, full CI+candidate+OAuth PASS same SHA; fixed Preview only, preserve canonical 100%.",
+  "reason": "DRL-01 market history 10/30 threshold repair, same source release/candidate/auth PASS; update Preview only, canonical API stays user accepted baseline until reversible promotion.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 25
+  "attempt": 26
 }
