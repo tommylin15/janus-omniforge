@@ -1,5 +1,8 @@
 # Janus 目前狀態
 
+> **2026-10-18 DRL-01 最新唯讀證據（PARTIAL）**：正式 dev API 100% 與人工驗收由使用者確認；官方25月PE/PB補收 #39051869951 PASS、PG六股12個 ready，但正式API #39083839390 回應尚無 `two_year_profile`（需核對現役build-id/serving/視覺）。Core #39083283620：benchmark759、market-volume39699、ohlcv111929、market-activity135050、financials88131；逐月 #39083573483：benchmark指數7/8/9/10月日數22/21/21/11、TPEx指數僅39日期；market-volume抽樣0/0/19/11、market-activity0/3/14/11。2026Q1/Q2六股單季EPS合格，但2025Q4原始存在仍未可證單季。自然data-supplement有success，但 `data_readiness_ledger` 仍不存在，發布NOT_VERIFIED。先修復正式serving、Ledger及市場缺日，保留分市場10%／30%驗收；詳細證據見 [operations-and-testing](spec/operations-and-testing.md)。
+
+
 **2026-10-17 DRL-01D 改版（待驗收）**：依使用者要求五年 PE/PB 河流縮為兩年（2024-10～2026-10，25個曆月），僅對六檔 TWSE 持股／關注股。原五年工作流請求停用；既有 PostgreSQL `063` serving table 屬歷史命名，API／payload／UI 改以 `window_years=2` 的兩年契約判定。需新 SHA 的受控 dev Release、25個月來源補收及正式 API／UI 讀回才可宣稱 DRL-01D 完成。此項範圍變更不影響 D01～D05 已結案驗收。
 
 更新：2026-10-17（Asia/Taipei）。**使用者已授權 D01～D05 快速完成、包含 D04 繞路或必要的最小 IAM；這取代先前「僅 API 100% 切流、其他 P1 暫停」的限制。** 歷史 PASS 只限當次 SHA／環境／scope；下方舊「未切流／尚未真人驗收」段落保留當時 checkpoint，不能倒蓋最新結果。
