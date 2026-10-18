@@ -71,7 +71,17 @@ jobs:
                              'market_price_window':value.get('market_price_window'),
                              'monthly_revenue_13':value.get('monthly_revenue_13')}
                           return 1
-                  publish_data_readiness(core,NoWrite(),as_of=date(2026,10,18))
+                  import ingestion_core.readiness as readiness
+                  original_scan = readiness._scan
+                  def traced_scan(*args, **kwargs):
+                      out['readiness_scan_stage'] = args[1] if len(args)>1 else 'UNKNOWN'
+                      out['readiness_filter_type'] = type(kwargs.get('row_filter')).__name__
+                      return original_scan(*args, **kwargs)
+                  readiness._scan = traced_scan
+                  try:
+                      publish_data_readiness(core,NoWrite(),as_of=date(2026,10,18))
+                  finally:
+                      readiness._scan = original_scan
                   out['readiness_calculation']='PASS_READ_ONLY'
               except Exception as error:
                   out['readiness_calculation']='ERROR_'+type(error).__name__
