@@ -62,7 +62,7 @@ def run_market_history():
             for year, zero_month in reversed(months):
                 month = zero_month+1
                 period = f"{year}-{month:02d}"
-                staged, prices = [], {'TWSE': [], 'TPEX': []}
+                staged, prices, volume_rows = [], {'TWSE': [], 'TPEX': []}, {'TWSE': [], 'TPEX': []}
                 try:
                     url = "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST?"+urlencode(
                         {"date": f"{year}{month:02d}01", "response": "json"})
@@ -93,11 +93,20 @@ def run_market_history():
                                     for r in response.rows if r['symbol'] in targets], analysis_as_of=day)
                                 accepted = [r for r in checked.accepted if r.get('close') is not None]
                                 prices[adapter.market].extend(dict(r, provenance_id=entry.idempotency_key) for r in accepted)
+                                # Preserve the independently named market-volume Core dataset.
+                                # Only officially validated OHLCV keys are admitted; no extra
+                                # source requests, market membership inference, or imputed rows.
+                                accepted_keys = {(r['symbol'], r['trade_date']) for r in accepted}
+                                volume_rows[adapter.market].extend(dict(r, provenance_id=entry.idempotency_key)
+                                    for r in response.rows if (r['symbol'], r['trade_date']) in accepted_keys)
                                 counts[adapter.market][day.isoformat()] = len({r['symbol'] for r in accepted} & members[adapter.market])
                             except Exception as error:
                                 counts[adapter.market][day.isoformat()] = 0
                                 summary['failures'].append({'date': day.isoformat(), 'market': adapter.market, 'error': type(error).__name__})
-                    for dataset, rows, source in (("ohlcv", prices['TWSE'], "twse"), ("ohlcv", prices['TPEX'], "tpex"), ("benchmark", benchmark, "taiex")):
+                    for dataset, rows, source in (("ohlcv", prices['TWSE'], "twse"), ("ohlcv", prices['TPEX'], "tpex"),
+                                                  ("market-volume", volume_rows['TWSE'], "twse"),
+                                                  ("market-volume", volume_rows['TPEX'], "tpex"),
+                                                  ("benchmark", benchmark, "taiex")):
                         if rows:
                             result = core.write(dataset_id=dataset, rows=rows, execution_id=execution.execution_id,
                                 provenance_id=rows[0]["provenance_id"], source_id=source, partition_date=first)
@@ -110,6 +119,7 @@ def run_market_history():
                     unacceptable = {market: ratio > thresholds[market] for market, ratio in market_missing.items()}
                     missing = max(market_missing.values())
                     checkpoint = {"month": period, "trading_days": len(benchmark), "received_rows": sum(map(len, prices.values())),
+                        'market_volume_source_rows': {market: len(volume_rows[market]) for market in members},
                         'missing_ratio_by_market': market_missing,
                         "threshold_by_market": thresholds, "unacceptable_by_market": unacceptable,
                         "missing_ratio": missing, "status": "accepted" if not any(unacceptable.values()) else "discussion_required"}
