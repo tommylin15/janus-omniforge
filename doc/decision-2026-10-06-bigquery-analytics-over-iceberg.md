@@ -3,6 +3,14 @@
 日期：2026-10-06  
 狀態：**架構已核准；B0～B6 的實作／live gate 已完成，B7～B9 仍待驗收**（進度以 [TODO](todo.md) 為準）。目前 PyIceberg 為 default，尚未取得 B8 cutover evidence。
 
+## 2026-10-18 補充決策：FINOPS-C 順序與強制重評估
+
+**本節是排程及 governance 決策，不是 C 工程開工／切流已完成。** 使用者先指定 FINOPS-A 快速節流及 FINOPS-B Ingestion／Iceberg 原地優化列 P0，完成適用現場驗收後才進 FINOPS-C。**C 一定在 D07、D08 正式工程開工前安排，且 C 自身開始工程前必須重做一次整體評估並回寫本文件、WBS-5/WBS-7 與 TODO。** AI 指令見 [FINOPS-AB／C 工程卡](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)；唯一 active priority/acceptance 見 [TODO](todo.md)。
+
+重評估 checklist：① A+B 後實機每個 Job 的 CPU/GiB-seconds、elapsed、GCS ReadObject/GetObjectMetadata/Write/List、Iceberg snapshots/metadata/small files、同負載歸因；② BQ PyIceberg adapter 現況及全市場 Scanner／Ranking／OOS 需求；③ BigQuery on-demand processed/billed bytes、external Iceberg metadata cost、免費額度按 billing account 與其他專案分享、月費上下界、查詢上限與冷暖重跑；④ fixed immutable Snapshot/PIT/provenance、schema、region/catalog/connector、安全隔離、IAM、API 授權；⑤ PyIceberg parity/hash、失敗 fallback、回滾、全市場/關注股與Owner下游 latency；⑥ 最終 go/no-go 及分批切流順序。
+
+若未取得 live cost/parity 或需要未核准的新增付費資源，只能標 `NOT_VERIFIED/BLOCKED/DEFERRED`，不得把 C 推進中的設計當 BQ 已切換；若選擇 defer C，需要留明確文件決策並經授權後再進 D07／D08。既有 B0～B8 的歷史證據不重寫，`bigquery_reader.py` 的 500 symbol probe 限制與 `ml_oos_backend_policy.py` 的 ML/OOS opt-in 是須重評的具體阻塞。既有禁止 BigQuery Storage Read API、Canonical Iceberg 不變、PG serving 不變、未授權不建新計費資源等原規則繼續有效。
+
 ## 1. 決策
 
 Janus 保留目前 **Apache Iceberg V2 + GCS** 作為 public Core 的 canonical／PIT／provenance／history 資料層，不把 BigQuery native tables 改成新的 canonical warehouse，也不因導入 BigQuery 重做 A 組已成立的 PostgreSQL serving projection。
