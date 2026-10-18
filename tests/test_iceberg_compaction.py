@@ -109,6 +109,42 @@ class IcebergCompactionTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "incomplete"):
                     verify_compaction_eod_fence(core=self.core)
 
+    def test_retention_noop_lists_metadata_once_and_preserves_current_snapshot(self):
+        from datetime import datetime, timezone
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+        from ingestion_core.iceberg_maintenance import maintain_financials
+
+        now = datetime(2026, 10, 18, 3, tzinfo=timezone.utc)
+        snapshot = SimpleNamespace(snapshot_id=1234,
+                                   timestamp_ms=int(now.timestamp() * 1000),
+                                   summary={"total-records": "6"})
+        table = MagicMock()
+        table.current_snapshot.return_value = snapshot
+        table.snapshots.return_value = [snapshot]
+        table.properties = {"write.metadata.previous-versions-max": "10"}
+        table.metadata.refs = {}
+        table.metadata.metadata_log = []
+        table.metadata_location = ("gs://gen-lang-client-0593591102-dev-core/"
+                                   "warehouse/valuation_v1/metadata/current.metadata.json")
+        core = MagicMock()
+        core.IDENTIFIERS = {"valuation": ("symbol",)}
+        core.table_identifier.return_value = "core.valuation_v1"
+        core.catalog.load_table.return_value = table
+        store = MagicMock()
+        store.bucket = "gen-lang-client-0593591102-dev-core"
+        store.objects.return_value = [{"name": "warehouse/valuation_v1/metadata/current.metadata.json",
+                                       "size": "120", "updated": now.isoformat(), "generation": "1"}]
+        with patch("ingestion_core.iceberg_maintenance._references",
+                   return_value=(set(), set())):
+            result = maintain_financials(core=core, store=store, apply=True,
+                                         now=now, identifier="core.valuation_v1")
+        self.assertEqual(store.objects.call_count, 1)
+        self.assertEqual(result["active_metadata_bytes_before"], result["active_metadata_bytes_after"])
+        self.assertEqual(result["deleted_metadata_json"], 0)
+        store.delete.assert_not_called()
+        table.transaction.assert_not_called()
+
     def test_no_work_compaction_reuses_preflight_health_without_second_catalog_read(self):
         table = self.catalog.load_table("core.valuation_v1")
         before = table.current_snapshot().snapshot_id
