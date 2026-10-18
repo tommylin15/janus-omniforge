@@ -11,6 +11,8 @@
 
 ## 最新唯讀 runtime
 
+本次程式輸出 SHA `3db22b8deeea220306875ebb3f6e71c85939c012` 已推送 main；同源 [selective CI #39095433136](https://github.com/tommylin15/janus-omniforge/actions/runs/39095433136) 與 [資料契約 CI #39095433116](https://github.com/tommylin15/janus-omniforge/actions/runs/39095433116) 均 completed/success。這是 targeted／selective 驗證，不是 full Release、GHCR 發布或 live gate。
+
 以既有本機 GCP identity 唯讀描述四個 dev Job（未派送、未寫入資料或設定），實際 image 均與 `ops/ghcr-jobs-rollout-request.json` 的 `d8a57aa57198e0f383a37125e6b94eb392abe717` rollback baseline 相符：
 
 | Job | GHCR sha256 digest |
