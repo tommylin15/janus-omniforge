@@ -136,7 +136,7 @@ def run(path):
         if observed is None:
             raise RuntimeError("market_history_receipt_missing")
         months=observed.get("months") or []
-        expected={s[:7],end[:7]}
+        expected={start[:7],end[:7]}
         actual={m.get("month") for m in months if isinstance(m,dict)}
         if (actual!=expected or any(m.get("status")!="accepted" for m in months)
             or observed.get("failures")
