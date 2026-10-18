@@ -663,3 +663,42 @@ def test_global_lease_diagnostic_never_reveals_untrusted_stderr(monkeypatch):
     with pytest.raises(RuntimeError, match="^bounded_release_lease_unknown$") as exc:
         rollout.command(rollout.LEASE + ["acquire"])
     assert secret not in str(exc.value)
+
+
+def test_retired_research_execution_fence_requires_both_cloud_run_404s():
+    missing = "janus-research-big-move-500"
+    seen = []
+    def api(path, *args, **kwargs):
+        seen.append(path)
+        if "/jobs/" + missing in path:
+            raise RuntimeError("cloud_control_http_404")
+        return {"executions":[]}
+    with patch.object(rollout, "cloud", side_effect=api):
+        rollout.fence()
+    assert seen[-2:] == [
+        f"{rollout.ROOT}/jobs/{missing}/executions?pageSize=100",
+        f"{rollout.ROOT}/jobs/{missing}",
+    ]
+
+
+def test_retired_research_fence_rejects_inconsistent_presence():
+    missing = "janus-research-big-move-500"
+    def api(path, *args, **kwargs):
+        if path == f"{rollout.ROOT}/jobs/{missing}/executions?pageSize=100":
+            raise RuntimeError("cloud_control_http_404")
+        if path == f"{rollout.ROOT}/jobs/{missing}":
+            return {"name":path}
+        return {"executions":[]}
+    with patch.object(rollout, "cloud", side_effect=api):
+        with pytest.raises(ValueError, match="research_job_execution_listing_drift"):
+            rollout.fence()
+
+
+def test_required_active_job_404_cannot_be_waived():
+    def api(path, *args, **kwargs):
+        if "/jobs/janus-ingestion-core/executions?" in path:
+            raise RuntimeError("cloud_control_http_404")
+        return {"executions":[]}
+    with patch.object(rollout, "cloud", side_effect=api):
+        with pytest.raises(RuntimeError, match="cloud_control_http_404"):
+            rollout.fence()
