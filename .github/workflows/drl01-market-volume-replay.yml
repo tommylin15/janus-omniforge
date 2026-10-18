@@ -1,0 +1,37 @@
+name: DRL-01 bounded official market-volume historical readback
+on:
+  push:
+    branches: [main]
+    paths: ['ops/drl01-market-volume-replay-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  replay:
+    if: startsWith(github.event.head_commit.message, 'activate(drl01-market):')
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 165
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: python -m py_compile scripts/gcp/drl01_market_volume_replay.py
+      - run: sudo apt-get update -qq && sudo apt-get install -y skopeo
+      - name: Replay bounded existing official market periods with immutable image fence
+        env:
+          PYTHONPATH: scripts/gcp
+        run: python scripts/gcp/drl01_market_volume_replay.py ops/drl01-market-volume-replay-request.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drl01-official-market-continuity-receipt
+          path: /tmp/drl01-market-continuity.json
+          if-no-files-found: ignore
+          retention-days: 14
