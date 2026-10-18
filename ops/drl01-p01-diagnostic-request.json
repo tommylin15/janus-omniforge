@@ -1,0 +1,22 @@
+{
+  "intent": "drl01-p01-two-year-profile-diagnostic",
+  "approved": true,
+  "scope": "read-only-api-verification",
+  "no_gcp_mutation": true,
+  "no_owner_mutation": true,
+  "focus_symbols": ["1513", "2327", "2382", "3231", "3711", "5876"],
+  "metrics": ["pe", "pb"],
+  "expected_profiles": 12,
+  "verification_targets": [
+    "PostgreSQL publication.stock_valuation_five_year has 12 rows with status=ready and window_years=2",
+    "Public API visual-series returns two_year_profile for all 6 symbols × 2 metrics",
+    "Current serving build-id matches deployed SHA"
+  ],
+  "deployed_jobs_sha": "252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04",
+  "prior_evidence": {
+    "core_25_month_supplement": "https://github.com/tommylin15/janus-omniforge/actions/runs/39051869951",
+    "pg_12_rows_ready": "2026-10-18 唯讀證實 6股×PE/PB=12筆 status=ready,window_years=2",
+    "api_missing_profile": "https://github.com/tommylin15/janus-omniforge/actions/runs/39083839390"
+  },
+  "reason": "DRL-01 P0-1 diagnostic to identify why API does not return two_year_profile despite PostgreSQL having ready data. Read-only verification only."
+}

@@ -1,0 +1,64 @@
+name: DRL-01 P0-1 Two-Year Profile Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'API base URL (leave empty for production)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get API URL
+        id: api
+        run: |
+          if [ -n "${{ inputs.api_url }}" ]; then
+            echo "url=${{ inputs.api_url }}" >> $GITHUB_OUTPUT
+          else
+            # Get production API URL from Cloud Run
+            URL=$(gcloud run services describe janus-api --region=us-central1 --format='value(status.url)' 2>/dev/null || echo "")
+            if [ -z "$URL" ]; then
+              echo "::error::Could not determine API URL"
+              exit 1
+            fi
+            echo "url=$URL" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run P0-1 Diagnostic
+        env:
+          JANUS_API_URL: ${{ steps.api.outputs.url }}
+        run: |
+          python scripts/gcp/drl01_two_year_profile_diagnostic.py
+
+      - name: Upload Receipt
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drl01-p01-diagnostic-receipt
+          path: ops/drl01-p01-diagnostic-receipt.json
+          retention-days: 30
