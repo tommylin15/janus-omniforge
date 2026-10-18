@@ -17,7 +17,7 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 | 工作包 | 狀態／次序 | 既有 WBS 責任 | 依賴與退出條件 |
 |---|---|---|---|
 | [D06 Iceberg／I/O](execution-cards/d06-iceberg-retention-io.md) | PARTIAL；獨立已授權 | WBS 7／retention | 既有 Jobs／cleanup 終態、完整引用保護、真實 objects／bytes／等量 I/O 驗收 |
-| [ADMIN-V2 Admin 四頁主要重構](decision-2026-10-17-admin-v2.md) | **A0 規格已整併（含使用者追蹤新需求）；A1～A5 與 A4-U 工程待開始**；既有核心契約穩定後，D07／D08 UI 接線之前 | WBS-6-ADMIN-OPERATIONAL-CONVERGENCE | 四頁重構＋總覽使用分析／單一使用者追蹤；影響與工程只在 ADMIN-V2，無 D01～D06 原 gate 變更 |
+| [ADMIN-V2 Admin 四頁主要重構](decision-2026-10-17-admin-v2.md) | **IN_PROGRESS；2026-10-18 使用者授權 A1～A5（含 A4-U）工程與受控 dev 驗收**；既有核心契約穩定後，D07／D08 UI 接線之前 | WBS-6-ADMIN-OPERATIONAL-CONVERGENCE | 四頁重構＋總覽使用分析／單一使用者追蹤；影響與工程只在 ADMIN-V2，無 D01～D06 原 gate 變更 |
 | [D07 五角色資料與品質](execution-cards/d07-specialist-b9-oos.md) | 後置；產品交付後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
 | [D08 CEO／Admin／報告](execution-cards/d08-ceo-admin-owner-report.md) | 後置；有效角色後 | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE、User AI整合 | P0-V技術已PASS；真實 Fact Pack／capability／immutable report／Owner history另驗 |
 
@@ -56,9 +56,9 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 - [x] 已完成 GCS JSON 引用掃描（62 Core、71 Mart、96 Research、495 Private，無略過）；PG publication 讀取 138 rows（core_snapshot_id column privilege 仍 BLOCKED）。
 - [ ] 等量時間窗 I/O 量測：停用生效後需用相同日期股票數、負載、時間窗比較 ReadObject/GetObjectMetadata，未量測不報節省百分比。詳見 [D06證據](archive/d06-finops-2026-10-16.md)。
 
-## ADMIN-V2｜主要重構（A0 規格已整併；A1～A5 尚未執行）
+## ADMIN-V2｜主要重構（IN_PROGRESS，2026-10-18 啟動）
 
-**單一執行入口：**[Admin v2 架構與逐步順序](decision-2026-10-17-admin-v2.md) → [Admin UI](ui/admin.md) → [WBS-6](wbs/wbs-6-api-and-apps.md)。**現在只授權文件整併，沒有啟動 A1～A5 code／CI／deploy／runtime。** 後續實作排在 D01～D06 與 DRL-01 適用的核心契約／驗收證據穩定後、D07／D08 的 Admin UI 整合之前；不必等待 D06 全面 I/O 優化、2025 以前 TTM、五年河流完成。
+**單一執行入口：**[Admin v2 架構與逐步順序](decision-2026-10-17-admin-v2.md) → [Admin UI](ui/admin.md) → [WBS-6](wbs/wbs-6-api-and-apps.md)。**2026-10-18 使用者已明確授權啟動四頁遷移→總控整合→資料品質→治理→使用分析→完整驗收；取代原文件-only 限制。** 本機實作／targeted 驗證進行中，尚無本版完整 CI、migration／dev 發布與 Admin 真人驗收證據，不宣稱完成。 後續實作排在 D01～D06 與 DRL-01 適用的核心契約／驗收證據穩定後、D07／D08 的 Admin UI 整合之前；不必等待 D06 全面 I/O 優化、2025 以前 TTM、五年河流完成。
 
 - [x] **A0 規格整併（文件）**：六頁→四頁的目標、舊頁功能歸位、A1～A5 工程順序、D07／D08 消費位置及驗收邊界已寫入本 TODO／WBS／UI／兩張卡片；文件完成不代表 Admin 已改版。
 - [ ] **A1 四頁 shell 與功能遷移**：總覽／批次／資料品質／系統設定；保留必要搜尋、details、history、Admin authorization。

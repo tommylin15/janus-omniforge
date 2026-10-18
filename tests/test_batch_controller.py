@@ -393,3 +393,14 @@ def test_disabled_mirror_still_records_postgres_event_atomically():
     assert "UPDATE control.batch_occurrences" in statements[0].args[0]
     assert "INSERT INTO control.batch_event_outbox" in statements[1].args[0]
     connection.transaction.assert_called_once()
+
+
+def test_admin_duration_uses_actual_execution_not_scheduled_slot():
+    from unittest.mock import Mock
+    path=f"projects/{PROJECT}/locations/{REGION}/jobs/janus-ingestion-core/executions/test"
+    session=Mock()
+    session.get.return_value=SimpleNamespace(status_code=200,json=lambda:{
+        'startTime':'2026-10-18T01:00:00Z','completionTime':'2026-10-18T01:02:03Z','succeededCount':1})
+    value=poll_job(session,{'job':'janus-ingestion-core','status':'running','execution':path})
+    assert value['status']=='succeeded' and value['duration_seconds']==123
+    assert value['start_time']=='2026-10-18T01:00:00Z'

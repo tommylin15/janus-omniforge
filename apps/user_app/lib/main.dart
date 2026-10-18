@@ -9,6 +9,7 @@ import 'sign_in_button.dart'
     if (dart.library.html) 'sign_in_button_web.dart'
     if (dart.library.js_util) 'sign_in_button_web.dart';
 import 'admin.dart';
+import 'usage.dart';
 
 const portfolioPendingMessage = '交易已儲存，損益重新計算中';
 
@@ -151,7 +152,16 @@ class _JanusAppState extends State<JanusApp> {
 }
 
 class Api implements AdminApi {
-  Api(this.token);
+  Api(this.token, {this.adminUsage = false});
+  final bool adminUsage;
+  late final usage = UsageTracker(
+    send: (body) => post('$_usagePrefix/batches', body),
+    read: () => get('$_usagePrefix/preference'),
+    save: (enabled) => put('$_usagePrefix/preference', {'enabled': enabled}),
+    erase: () => delete(_usagePrefix),
+  );
+  String get _usagePrefix =>
+      adminUsage ? '/api/v1/admin/usage/self' : '/api/v1/me/usage';
   final String token;
   // shortcut: unknown retries survive this Api instance; check records after signing in again.
   final Map<String, String> _pendingJournalKeys = {};
@@ -173,7 +183,33 @@ class Api implements AdminApi {
 
   Future<dynamic> _send(String method, String path,
       [Map<String, dynamic>? body]) async {
-    final journalWrite = method == 'POST' && path.startsWith('/api/v1/me/journal/events');
+    String? action;
+    if (method != 'GET' && path.startsWith('/api/v1/me/')) {
+      if (RegExp(
+              r'^/api/v1/me/journal/events(?:/[^/]+/(?:corrections|reversals))?$')
+          .hasMatch(path)) action = 'save';
+      if (path == '/api/v1/me/journal/recalculate') action = 'recalculate';
+      if (RegExp(r'^/api/v1/me/notes(?:/[^/]+)?$').hasMatch(path)) action = 'save';
+      if (RegExp(r'^/api/v1/me/watchlist(?:/[^/]+)?$').hasMatch(path)) action = method == 'DELETE' ? 'remove' : 'save';
+      if (path == '/api/v1/me/portfolio/quotes/refresh') action = 'refresh';
+    }
+    if (action != null) usage.record('feature_action', action: action);
+    try {
+      final result = await _sendRequest(method, path, body);
+      if (action != null)
+        usage.record('action_result', action: action, outcome: 'success');
+      return result;
+    } catch (_) {
+      if (action != null)
+        usage.record('action_result', action: action, outcome: 'failed');
+      rethrow;
+    }
+  }
+
+  Future<dynamic> _sendRequest(String method, String path,
+      [Map<String, dynamic>? body]) async {
+    final journalWrite =
+        method == 'POST' && path.startsWith('/api/v1/me/journal/events');
     String? operation;
     if (journalWrite) {
       final identity = Map<String, dynamic>.from(body ?? {});
@@ -277,13 +313,14 @@ class _LoginPageState extends State<LoginPage> {
       final token =
           requireGoogleIdToken((await account.authentication).idToken);
       if (mounted) {
-        final api = Api(token);
+        final api = Api(token, adminUsage: widget.admin);
         await Navigator.of(context).pushReplacement(MaterialPageRoute(
             builder: (_) => widget.admin
                 ? AdminWorkspace(
                     brokerProfile: BrokerProfileCard(api,
                         endpoint: '/api/v1/admin/broker-profile'),
                     api: api,
+                    usage: api.usage,
                     email: account.email,
                     onTheme: widget.onTheme)
                 : Workspace(
@@ -344,7 +381,21 @@ class _WorkspaceState extends State<Workspace> {
   int page = 0;
   Map<String, dynamic>? lastTransaction;
   final visited = <int>{0};
+  @override
+  void initState() {
+    super.initState();
+    unawaited(widget.api.usage.start());
+  }
+
+  @override
+  void dispose() {
+    widget.api.usage.dispose();
+    super.dispose();
+  }
+
   void selectPage(int value) => setState(() {
+        widget.api.usage
+            .select(['today', 'watchlist', 'journal', 'profile'][value]);
         page = value;
         visited.add(value);
       });
@@ -352,6 +403,8 @@ class _WorkspaceState extends State<Workspace> {
   void didUpdateWidget(Workspace oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.api != widget.api) {
+      oldWidget.api.usage.dispose();
+      unawaited(widget.api.usage.start());
       page = 0;
       visited.clear();
       visited.add(0);
@@ -359,8 +412,15 @@ class _WorkspaceState extends State<Workspace> {
     }
   }
 
-  void openStock(String symbol) => Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => StockDetailPage(api: widget.api, symbol: symbol)));
+  Future<void> openStock(String symbol) async {
+    final previousFeature = widget.api.usage.feature;
+    widget.api.usage.select('stock_detail');
+    await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => UsageActivity(
+            tracker: widget.api.usage,
+            child: StockDetailPage(api: widget.api, symbol: symbol))));
+    if (mounted) widget.api.usage.select(previousFeature);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -383,40 +443,52 @@ class _WorkspaceState extends State<Workspace> {
     ];
     return LayoutBuilder(builder: (context, constraints) {
       final wide = constraints.maxWidth >= 900;
-      return Scaffold(
-          appBar: AppBar(title: const Text('Janus')),
-          body: Row(children: [
-            if (wide)
-              NavigationRail(
-                  selectedIndex: page,
-                  labelType: NavigationRailLabelType.all,
-                  onDestinationSelected: selectPage,
-                  destinations: const [
-                    NavigationRailDestination(
-                        icon: Icon(Icons.today_outlined), label: Text('今日')),
-                    NavigationRailDestination(
-                        icon: Icon(Icons.star_outline), label: Text('關注')),
-                    NavigationRailDestination(
-                        icon: Icon(Icons.edit_note), label: Text('記帳／筆記')),
-                    NavigationRailDestination(
-                        icon: Icon(Icons.person_outline), label: Text('我的')),
+      return Listener(
+          onPointerDown: (_) => widget.api.usage.interaction(),
+          child: Focus(
+              onKeyEvent: (_, __) {
+                widget.api.usage.interaction();
+                return KeyEventResult.ignored;
+              },
+              child: Scaffold(
+                  appBar: AppBar(title: const Text('Janus')),
+                  body: Row(children: [
+                    if (wide)
+                      NavigationRail(
+                          selectedIndex: page,
+                          labelType: NavigationRailLabelType.all,
+                          onDestinationSelected: selectPage,
+                          destinations: const [
+                            NavigationRailDestination(
+                                icon: Icon(Icons.today_outlined),
+                                label: Text('今日')),
+                            NavigationRailDestination(
+                                icon: Icon(Icons.star_outline),
+                                label: Text('關注')),
+                            NavigationRailDestination(
+                                icon: Icon(Icons.edit_note),
+                                label: Text('記帳／筆記')),
+                            NavigationRailDestination(
+                                icon: Icon(Icons.person_outline),
+                                label: Text('我的')),
+                          ]),
+                    Expanded(
+                        child: IndexedStack(index: page, children: [
+                      for (var index = 0; index < pages.length; index++)
+                        KeyedSubtree(
+                            key: ValueKey(
+                                '${identityHashCode(widget.api)}:$index'),
+                            child: visited.contains(index)
+                                ? pages[index]
+                                : const SizedBox.shrink())
+                    ]))
                   ]),
-            Expanded(
-                child: IndexedStack(index: page, children: [
-              for (var index = 0; index < pages.length; index++)
-                KeyedSubtree(
-                    key: ValueKey('${identityHashCode(widget.api)}:$index'),
-                    child: visited.contains(index)
-                        ? pages[index]
-                        : const SizedBox.shrink())
-            ]))
-          ]),
-          bottomNavigationBar: wide
-              ? null
-              : NavigationBar(
-                  selectedIndex: page,
-                  onDestinationSelected: selectPage,
-                  destinations: destinations));
+                  bottomNavigationBar: wide
+                      ? null
+                      : NavigationBar(
+                          selectedIndex: page,
+                          onDestinationSelected: selectPage,
+                          destinations: destinations))));
     });
   }
 }
@@ -2095,6 +2167,7 @@ class ProfilePage extends StatelessWidget {
         PortfolioDashboard(api),
         CashPositionCard(api),
         BrokerProfileCard(api),
+        UsagePrivacy(api.usage),
         const Divider(),
         const ListTile(title: Text('外觀')),
         DropdownButtonFormField<ThemeMode>(

@@ -35,6 +35,7 @@ on:
           - 061_tpex_official_eod_daily
           - 062_owner_cash_balance_snapshots
           - 063_stock_valuation_five_year
+          - 064_usage_analytics
   push:
     branches: [main]
     paths:
@@ -66,7 +67,7 @@ jobs:
             MIGRATION='${{ inputs.migration }}'
           fi
           case "${MIGRATION}" in
-            041_operational_position_projection|042_stock_serving_projection|043_admin_batch_read|044_quotes_broker_profile|045_private_pipeline_operations|046_twse_only_latest_price|047_latest_price_route_v2|048_private_recalculation_queue|049_batch_occurrence_skipped_status|050_holdings_previous_close_read|051_analysis_product|052_ceo_daily_quota_50|054_market_serving|055_full_market_universe|056_controller_ledger_backup|057_home_market_snapshot|058_official_held_etf_identity|059_ledger_automatic_charges|060_official_held_bond_etf_identity|061_tpex_official_eod_daily|062_owner_cash_balance_snapshots|063_stock_valuation_five_year) ;;
+            041_operational_position_projection|042_stock_serving_projection|043_admin_batch_read|044_quotes_broker_profile|045_private_pipeline_operations|046_twse_only_latest_price|047_latest_price_route_v2|048_private_recalculation_queue|049_batch_occurrence_skipped_status|050_holdings_previous_close_read|051_analysis_product|052_ceo_daily_quota_50|054_market_serving|055_full_market_universe|056_controller_ledger_backup|057_home_market_snapshot|058_official_held_etf_identity|059_ledger_automatic_charges|060_official_held_bond_etf_identity|061_tpex_official_eod_daily|062_owner_cash_balance_snapshots|063_stock_valuation_five_year|064_usage_analytics) ;;
             *) echo "Unsupported serving schema migration: ${MIGRATION}" >&2; exit 2 ;;
           esac
           echo "MIGRATION=${MIGRATION}" >> "${GITHUB_ENV}"
@@ -93,7 +94,7 @@ jobs:
             exit 1
           fi
 
-          if [[ "${MIGRATION}" == '051_analysis_product' || "${MIGRATION}" == '052_ceo_daily_quota_50' || "${MIGRATION}" == '054_market_serving' || "${MIGRATION}" == '055_full_market_universe' || "${MIGRATION}" == '056_controller_ledger_backup' || "${MIGRATION}" == '057_home_market_snapshot' || "${MIGRATION}" == '058_official_held_etf_identity' || "${MIGRATION}" == '059_ledger_automatic_charges' || "${MIGRATION}" == '060_official_held_bond_etf_identity' || "${MIGRATION}" == '061_tpex_official_eod_daily' || "${MIGRATION}" == '062_owner_cash_balance_snapshots' || "${MIGRATION}" == '063_stock_valuation_five_year' ]]; then
+          if [[ "${MIGRATION}" == '051_analysis_product' || "${MIGRATION}" == '052_ceo_daily_quota_50' || "${MIGRATION}" == '054_market_serving' || "${MIGRATION}" == '055_full_market_universe' || "${MIGRATION}" == '056_controller_ledger_backup' || "${MIGRATION}" == '057_home_market_snapshot' || "${MIGRATION}" == '058_official_held_etf_identity' || "${MIGRATION}" == '059_ledger_automatic_charges' || "${MIGRATION}" == '060_official_held_bond_etf_identity' || "${MIGRATION}" == '061_tpex_official_eod_daily' || "${MIGRATION}" == '062_owner_cash_balance_snapshots' || "${MIGRATION}" == '063_stock_valuation_five_year' || "${MIGRATION}" == '064_usage_analytics' ]]; then
             python scripts/gcp/analysis_schema_bootstrap.py --migration "${MIGRATION}" --receipt /tmp/analysis-schema-bootstrap.json
             exit 0
           fi

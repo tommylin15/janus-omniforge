@@ -1,12 +1,12 @@
 # 2026-10-17｜Admin v2 四頁架構與工程順序（核准設計）
 
-狀態：**設計／文件已核准；主要重構程式、CI、dev runtime 未執行／未驗收**。本文件是 [TODO](todo.md) 中 `ADMIN-V2` 工作的設計依據，不是額外工作包或另一份執行 queue。
+狀態：**2026-10-18 使用者已授權主要工程 A1～A5（含 A4-U），IN_PROGRESS；CI／dev runtime 依本版實際證據判定**。本文件是 [TODO](todo.md) 中 `ADMIN-V2` 工作的設計依據，不是額外工作包或另一份執行 queue。
 
 ## 1. 決策與優先序
 
 - 主選單改為 **`總覽`、`批次`、`資料品質`、`系統設定`** 四頁；沿用 `apps/user_app` Flutter／PWA、FastAPI Admin 授權與既有 Material 3 shell，不重建 Admin 專案。
 - 取代 [2026-10-03 六頁導覽決策](decision-2026-10-03-admin-ui-scope-and-governance.md) 在「主導覽、功能位置」的規範；歷史安全決策、private 隔離、versioned config／retry／audit 與已接受能力繼續有效。
-- **本輪只寫設計／任務順序**。ADMIN-V2 主要工程放在 D01～D06、DRL-01 的適用核心資料／Controller／serving 契約穩定後，D07／D08 的 UI 整合之前。**不要求 D06 全部 I/O 優化或歷史 TTM、五年河流完工**才開始；缺 evidence 的項目明示 unknown／not certified。
+- **原 2026-10-17 僅文件範圍已由 2026-10-18 工程啟動授權取代**。ADMIN-V2 主要工程放在 D01～D06、DRL-01 的適用核心資料／Controller／serving 契約穩定後，D07／D08 的 UI 整合之前。**不要求 D06 全部 I/O 優化或歷史 TTM、五年河流完工**才開始；缺 evidence 的項目明示 unknown／not certified。
 - D01～D06 **不新增 scope、工項、驗收 gate、排程或擴大原任務**；不得因 ADMIN-V2 新增工作倒灌既有產品／資料／部署工作包。既有 User 實機 PASS 不重開。
 - DRL-01、D07、D08 保留本身原定工作包；Admin v2 僅共用其正式資料契約／成果物和對應 UI 容器，避免平行功能與第二套 canonical data。
 

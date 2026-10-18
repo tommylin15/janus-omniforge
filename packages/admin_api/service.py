@@ -449,11 +449,28 @@ class AdminService:
             items.append({"occurrence_id": row["occurrence_id"],
                           "scheduled_at": row["scheduled_at"], "updated_at": row["updated_at"],
                           **{key: state.get(key) for key in (
-                              "batch", "status", "completion_time", "reason", "origin")}})
+                              "batch", "status", "completion_time", "reason", "origin")},
+                          "start_time": state.get('start_time'),
+                          "duration_seconds": state.get('duration_seconds')})
+        last_success, last_terminal = {}, {}
+        completed = []
+        for item in items:
+            try:
+                point = datetime.fromisoformat(str(item.get('completion_time')).replace('Z','+00:00'))
+            except ValueError:
+                continue
+            if point.tzinfo is not None:
+                completed.append((point,item))
+        for _, item in sorted(completed, key=lambda entry: entry[0], reverse=True):
+            if item.get('status') == 'succeeded':
+                last_success.setdefault(item['batch'], item.get('completion_time'))
+            if item.get('completion_time'):
+                last_terminal.setdefault(item['batch'], {'status':item['status'],'at':item['completion_time']})
         return {"definitions": [{"name": batch.name, "hours": batch.hours,
                   "minute": batch.minute, "weekdays": batch.weekdays, "month_days": batch.month_days,
                   "dependencies": batch.dependencies, "timezone": "Asia/Taipei",
-                  "deployment_status": "unknown"} for batch in BATCHES],
+                  "deployment_status": "unknown", 'observed_last_success':last_success.get(batch.name),
+                  'observed_last_terminal':last_terminal.get(batch.name)} for batch in BATCHES],
                 "items": items, "since": start, "until": end,
                 "truncated": len(rows) > limit,
                 "next_before_id": rows[limit - 1]["occurrence_id"] if len(rows) > limit else None,
@@ -514,6 +531,20 @@ class AdminService:
                       for layer, retention in policies.items()],
             "private_operations": private_operations,
         }
+
+    def operational_summary(self) -> dict[str, Any]:
+        snapshot = None
+        reader = getattr(self.control, 'admin_snapshot_metadata', None)
+        if callable(reader):
+            try:
+                snapshot = reader()
+            except Exception:
+                pass
+        governance = self.data_governance()
+        return {'snapshot': snapshot or {'status':'unknown'},
+                'private_operations': governance['private_operations'],
+                'storage': governance['items'],
+                'io_savings_percent': None, 'protected_references_status': 'unknown'}
 
     def swap_liquid_500(self, *, remove_symbol: str, add_symbol: str, reason: str,
                         expected_version: int, actor: str) -> dict[str, Any]:

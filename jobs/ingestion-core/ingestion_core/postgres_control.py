@@ -640,6 +640,12 @@ class PostgreSQLControlPlane:
             row,
         ))
 
+    def admin_snapshot_metadata(self) -> dict[str, Any] | None:
+        with self.connection.cursor() as cur:
+            cur.execute('SELECT schema_version,as_of_date,updated_at FROM control.home_market_snapshot WHERE snapshot_id=1')
+            row = cur.fetchone()
+        return dict(zip(('schema_version','as_of_date','updated_at'),row)) if row else None
+
     def put_admin_setting(self, key: str, value: Any, *, actor: str, expected_version: int | None = None,
                           audit_resource: str = "admin_setting", audit_detail: dict[str, Any] | None = None) -> int:
         if expected_version is not None and (isinstance(expected_version, bool) or expected_version < 0):

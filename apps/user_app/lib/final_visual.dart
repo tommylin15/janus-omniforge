@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'admin.dart';
 import 'final_perf.dart';
+import 'usage.dart';
 import 'final_visual_pages.dart';
 import 'main.dart' as legacy;
 import 'sign_in_button.dart'
@@ -153,12 +154,18 @@ class _FinalLoginPageState extends State<FinalLoginPage> {
     try {
       final token = legacy.requireGoogleIdToken((await account.authentication).idToken);
       if (!mounted) return;
-      final api = legacy.Api(token);
+      final api = legacy.Api(token, adminUsage: widget.admin);
       await Navigator.of(context).pushReplacement(MaterialPageRoute(
         builder: (_) => widget.admin
-            ? AdminWorkspace(api: api, email: account.email, onTheme: widget.onTheme,
-                brokerProfile: legacy.BrokerProfileCard(api, endpoint: '/api/v1/admin/broker-profile'))
-            : FinalWorkspace(api: api, email: account.email, onTheme: widget.onTheme),
+            ? AdminWorkspace(
+                usage: api.usage,
+                api: api,
+                email: account.email,
+                onTheme: widget.onTheme,
+                brokerProfile: legacy.BrokerProfileCard(api,
+                    endpoint: '/api/v1/admin/broker-profile'))
+            : FinalWorkspace(
+                api: api, email: account.email, onTheme: widget.onTheme),
       ));
     } catch (_) {
       finishing = false;
@@ -226,8 +233,21 @@ class FinalWorkspace extends StatefulWidget {
 class _FinalWorkspaceState extends State<FinalWorkspace> {
   int page = 0;
   final visited = <int>{0};
+  @override
+  void initState() {
+    super.initState();
+    unawaited(widget.api.usage.start());
+  }
+
+  @override
+  void dispose() {
+    widget.api.usage.dispose();
+    super.dispose();
+  }
 
   void selectPage(int value) {
+    widget.api.usage
+        .select(['today', 'watchlist', 'journal', 'profile'][value]);
     final restoring = value != page && visited.contains(value);
     final stopwatch = restoring ? (Stopwatch()..start()) : null;
     setState(() {
@@ -246,6 +266,8 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
   void didUpdateWidget(FinalWorkspace oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.api != widget.api) {
+      oldWidget.api.usage.dispose();
+      unawaited(widget.api.usage.start());
       page = 0;
       visited
         ..clear()
@@ -253,9 +275,15 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
     }
   }
 
-  void openStock(String symbol) => Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => FinalStockDetailPage(api: widget.api, symbol: symbol),
-      ));
+  Future<void> openStock(String symbol) async {
+    final previousFeature = widget.api.usage.feature;
+    widget.api.usage.select('stock_detail');
+    await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => UsageActivity(
+            tracker: widget.api.usage,
+            child: FinalStockDetailPage(api: widget.api, symbol: symbol))));
+    if (mounted) widget.api.usage.select(previousFeature);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -273,52 +301,69 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
     ];
     return LayoutBuilder(builder: (context, constraints) {
       final wide = constraints.maxWidth >= 900;
-      return Scaffold(
-        body: Stack(
-          children: [
-            Row(children: [
-          if (wide)
-            NavigationRail(
-              selectedIndex: page,
-              labelType: NavigationRailLabelType.all,
-              onDestinationSelected: selectPage,
-              destinations: const [
-                NavigationRailDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: Text('今日')),
-                NavigationRailDestination(icon: Icon(Icons.star_outline), selectedIcon: Icon(Icons.star), label: Text('關注')),
-                NavigationRailDestination(icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: Text('記帳／筆記')),
-                NavigationRailDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: Text('我的')),
-              ],
-            ),
-          Expanded(
-            child: IndexedStack(
-              index: page,
+      return UsageActivity(
+          tracker: widget.api.usage,
+          child: Scaffold(
+            body: Stack(
               children: [
-                for (var index = 0; index < pages.length; index++)
-                  KeyedSubtree(
-                    key: ValueKey('${identityHashCode(widget.api)}:$index'),
-                    child: visited.contains(index) ? pages[index] : const SizedBox.shrink(),
+                Row(children: [
+                  if (wide)
+                    NavigationRail(
+                      selectedIndex: page,
+                      labelType: NavigationRailLabelType.all,
+                      onDestinationSelected: selectPage,
+                      destinations: const [
+                        NavigationRailDestination(
+                            icon: Icon(Icons.today_outlined),
+                            selectedIcon: Icon(Icons.today),
+                            label: Text('今日')),
+                        NavigationRailDestination(
+                            icon: Icon(Icons.star_outline),
+                            selectedIcon: Icon(Icons.star),
+                            label: Text('關注')),
+                        NavigationRailDestination(
+                            icon: Icon(Icons.edit_note_outlined),
+                            selectedIcon: Icon(Icons.edit_note),
+                            label: Text('記帳／筆記')),
+                        NavigationRailDestination(
+                            icon: Icon(Icons.person_outline),
+                            selectedIcon: Icon(Icons.person),
+                            label: Text('我的')),
+                      ],
+                    ),
+                  Expanded(
+                    child: IndexedStack(
+                      index: page,
+                      children: [
+                        for (var index = 0; index < pages.length; index++)
+                          KeyedSubtree(
+                            key: ValueKey(
+                                '${identityHashCode(widget.api)}:$index'),
+                            child: visited.contains(index)
+                                ? pages[index]
+                                : const SizedBox.shrink(),
+                          ),
+                      ],
+                    ),
+                  ),
+                ]),
+                if (FinalPerf.enabled)
+                  const Positioned(
+                    right: 8,
+                    top: 8,
+                    child: IgnorePointer(child: FinalPerfBadge()),
                   ),
               ],
             ),
-          ),
-        ]),
-            if (FinalPerf.enabled)
-              const Positioned(
-                right: 8,
-                top: 8,
-                child: IgnorePointer(child: FinalPerfBadge()),
-              ),
-          ],
-        ),
-        bottomNavigationBar: wide
-            ? null
-            : NavigationBar(
-                height: 72,
-                selectedIndex: page,
-                onDestinationSelected: selectPage,
-                destinations: destinations,
-              ),
-      );
+            bottomNavigationBar: wide
+                ? null
+                : NavigationBar(
+                    height: 72,
+                    selectedIndex: page,
+                    onDestinationSelected: selectPage,
+                    destinations: destinations,
+                  ),
+          ));
     });
   }
 }

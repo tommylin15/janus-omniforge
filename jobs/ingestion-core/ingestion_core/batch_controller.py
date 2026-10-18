@@ -179,6 +179,16 @@ def poll_job(session, state):
             return {**state, "status": "failed", "reason": "cloud_run_operation_failed"}
         execution = operation.get("response", {})
         state = {**state, "execution": _identity(execution.get("name"), "execution", state["job"])}
+    if execution.get('startTime'):
+        state = {**state, 'start_time': execution['startTime']}
+    if execution.get('startTime') and execution.get('completionTime'):
+        try:
+            duration = (datetime.fromisoformat(execution['completionTime'].replace('Z','+00:00'))
+                        - datetime.fromisoformat(execution['startTime'].replace('Z','+00:00'))).total_seconds()
+            if duration >= 0:
+                state = {**state, 'duration_seconds': round(duration,3)}
+        except ValueError:
+            pass
     if not execution_finished(execution):
         return {**state, "status": "running"}
     failed_condition = any(condition.get("type") == "Completed" and condition.get("state") == "CONDITION_FAILED"

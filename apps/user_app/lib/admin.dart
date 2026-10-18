@@ -1,13 +1,185 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'admin_analysis.dart';
+import 'usage.dart';
+import 'admin_usage.dart';
 
 abstract class AdminApi {
   Future<dynamic> get(String path);
   Future<dynamic> post(String path, Map<String, dynamic> body);
   Future<dynamic> put(String path, Map<String, dynamic> body);
   Future<dynamic> patch(String path, Map<String, dynamic> body);
+}
+
+class AdminSections extends StatefulWidget {
+  const AdminSections(
+      {required this.api,
+      required this.title,
+      required this.labels,
+      required this.pages,
+      this.initialSection = 0,
+      this.onSection,
+      super.key});
+  final AdminApi api;
+  final String title;
+  final List<String> labels;
+  final List<Widget Function()> pages;
+  final int initialSection;
+  final ValueChanged<int>? onSection;
+  @override
+  State<AdminSections> createState() => _AdminSectionsState();
+}
+
+class _AdminSectionsState extends State<AdminSections> {
+  late int selected = widget.initialSection;
+  @override
+  Widget build(BuildContext context) => Column(children: [
+        Padding(
+            padding: const EdgeInsets.all(12),
+            child: DropdownButtonFormField<int>(
+              initialValue: selected,
+              decoration: InputDecoration(labelText: widget.title),
+              items: [
+                for (var i = 0; i < widget.labels.length; i++)
+                  DropdownMenuItem(value: i, child: Text(widget.labels[i]))
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => selected = value);
+                  widget.onSection?.call(value);
+                }
+              },
+            )),
+        Expanded(
+            child: KeyedSubtree(
+                key: ValueKey(selected), child: widget.pages[selected]())),
+      ]);
+}
+
+class AdminSourceHealthPage extends StatefulWidget {
+  const AdminSourceHealthPage(this.api, {super.key});
+  final AdminApi api;
+  @override
+  State<AdminSourceHealthPage> createState() => _AdminSourceHealthPageState();
+}
+
+class AdminReadinessPage extends StatefulWidget {
+  const AdminReadinessPage(this.api, {super.key});
+  final AdminApi api;
+  @override
+  State<AdminReadinessPage> createState() => _AdminReadinessPageState();
+}
+
+class AdminStockPeriods extends StatefulWidget {
+  const AdminStockPeriods(this.api, this.symbol, {super.key});
+  final AdminApi api;
+  final String symbol;
+  @override
+  State<AdminStockPeriods> createState() => _AdminStockPeriodsState();
+}
+
+class _AdminStockPeriodsState extends State<AdminStockPeriods> {
+  late final data = Future.wait([
+    for (final metric in ['eps', 'revenue'])
+      widget.api
+          .get(
+              '/api/v1/public/stocks/${Uri.encodeComponent(widget.symbol)}/visual-series?metric=$metric&limit=120')
+          .catchError((_) => <String, dynamic>{})
+  ]);
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<dynamic>>(
+      future: data,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const ListTile(title: Text('合法期別讀取中'));
+        final eps = snapshot.data![0] as Map;
+        final revenue = snapshot.data![1] as Map;
+        final current = eps['eps_current_year'] as Map? ?? {};
+        return ExpansionTile(title: const Text('財報與營收合法期別'), children: [
+          ListTile(
+              title: Text(
+                  '${current['year'] ?? '本年度'} 官方單季 EPS · ${current['status'] ?? '尚未驗證'}'),
+              subtitle: Text(
+                  '應到季度 ${current['required_quarters'] ?? '未知'} · 已有季度 ${current['available_quarters'] ?? '未知'}\n歷史四連季／TTM ${current['trailing_four_quarter_status'] ?? '未認證'}')),
+          ListTile(
+              title: Text('營收資料日 ${revenue['data_as_of'] ?? '未知'}'),
+              subtitle: Text(
+                  '有效期數 ${revenue['usable_points'] ?? '未知'} · 來源 ${revenue['source_ids'] ?? '未知'}')),
+        ]);
+      });
+}
+
+class _AdminReadinessPageState extends State<AdminReadinessPage> {
+  late final data =
+      widget.api.get('/api/v1/admin/settings/data_readiness_ledger');
+  @override
+  Widget build(BuildContext context) => FutureBuilder<dynamic>(
+      future: data,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return const _Message('資料可用性暫時無法讀取');
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
+        final value = (snapshot.data as Map)['value'] as Map?;
+        if (value == null)
+          return const _Message('尚無持久化 Data Readiness Ledger；狀態未知');
+        final markets = value['market_price_window'] as Map? ?? {};
+        return ListView(children: [
+          ListTile(
+              title: Text('資料日 ${value['as_of'] ?? '未知'}'),
+              subtitle: Text(
+                  '檢查 ${value['checked_at'] ?? '未知'} · ${value['status'] ?? '未知'}')),
+          const ListTile(
+              title: Text('上市至少90%／上櫃至少70%'),
+              subtitle: Text('股票與債券 ETF 分母分開；單股可用不等於整市場通過。')),
+          for (final market in ['TWSE', 'TPEX'])
+            ListTile(
+                title: Text(market == 'TWSE' ? '上市價量' : '上櫃價量'),
+                subtitle: Text(
+                    '狀態 ${(markets[market] as Map?)?['status'] ?? '未知'} · 合格 ${(markets[market] as Map?)?['symbols_with_20_of_21_sessions'] ?? '未知'}／${(markets[market] as Map?)?['expected'] ?? '未知'}')),
+          for (final entry in const {
+            'focus_120d': '重要標的120交易日',
+            'monthly_revenue_13': '營收13個有效月份',
+            'eps_current_year': '2026 Q1／Q2 官方單季 EPS',
+            'eps_4_comparable': '歷史四連季／TTM（不等於本年度 EPS）'
+          }.entries)
+            ListTile(
+                title: Text(entry.value),
+                subtitle: Text(
+                    '狀態 ${(value[entry.key] as Map?)?['status'] ?? '尚未驗證'} · 合格 ${(value[entry.key] as Map?)?['qualified'] ?? '未知'}／${(value[entry.key] as Map?)?['expected'] ?? '未知'}')),
+          const ListTile(
+              title: Text('歷史 PIT／TTM 不自動認證'),
+              subtitle: Text('缺合法期別、來源或完整歷史時維持未認證；不以當期 EPS 通過代替歷史 TTM。')),
+          ExpansionTile(title: const Text('來源與快照'), children: [
+            ListTile(
+                title: Text('快照 ${value['snapshot_ids'] ?? '未知'}'),
+                subtitle:
+                    Text('母體版本 ${value['market_membership_version'] ?? '未知'}'))
+          ]),
+        ]);
+      });
+}
+
+class _AdminSourceHealthPageState extends State<AdminSourceHealthPage> {
+  late final data = widget.api.get('/api/v1/admin/source-health?limit=200');
+  @override
+  Widget build(BuildContext context) => FutureBuilder<dynamic>(
+      future: data,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return const _Message('官方來源暫時無法讀取');
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
+        final rows = _items(snapshot.data);
+        if (rows.isEmpty) return const _Message('尚無來源證據，狀態未知');
+        return ListView(children: [
+          for (final row in rows)
+            ListTile(
+              title: Text('${row['source_id']} · ${row['dataset_id']}'),
+              subtitle: Text(
+                  '${_label(row['last_state'])} · ${row['last_fetched_at'] ?? row['updated_at'] ?? '未知'}'),
+            )
+        ]);
+      });
 }
 
 List<Map<String, dynamic>> _items(dynamic value) =>
@@ -185,12 +357,14 @@ class AdminWorkspace extends StatefulWidget {
     this.brokerProfile,
     required this.email,
     required this.onTheme,
+    this.usage,
     super.key,
   });
   final AdminApi api;
   final Widget? brokerProfile;
   final String email;
   final ValueChanged<ThemeMode> onTheme;
+  final UsageTracker? usage;
 
   @override
   State<AdminWorkspace> createState() => _AdminWorkspaceState();
@@ -198,6 +372,48 @@ class AdminWorkspace extends StatefulWidget {
 
 class _AdminWorkspaceState extends State<AdminWorkspace> {
   int page = 0;
+  final sections = <int, int>{};
+  static const routes = ['overview', 'batches', 'quality', 'settings'];
+  void updateRoute() {
+    SystemNavigator.routeInformationUpdated(
+        uri: Uri.base.replace(fragment: 'admin/${routes[page]}/${sections[page] ?? 0}'));
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final route = Uri.base.fragment.split('/');
+    if (route.length >= 2 && route[0] == 'admin' && routes.contains(route[1])) {
+      page = routes.indexOf(route[1]);
+      final section = route.length >= 3 ? int.tryParse(route[2]) ?? 0 : 0;
+      if (section >= 0 && section < [2, 2, 5, 3][page])
+        sections[page] = section;
+    }
+    widget.usage?.feature = [
+      'admin_overview',
+      'admin_batches',
+      'admin_quality',
+      'admin_settings'
+    ][page];
+    if (widget.usage != null) unawaited(widget.usage!.start());
+  }
+
+  @override
+  void dispose() {
+    widget.usage?.dispose();
+    super.dispose();
+  }
+
+  void selectPage(int value) {
+    widget.usage?.select([
+      'admin_overview',
+      'admin_batches',
+      'admin_quality',
+      'admin_settings'
+    ][value]);
+    setState(() => page = value);
+    updateRoute();
+  }
 
   static const destinations = [
     NavigationRailDestination(
@@ -208,99 +424,161 @@ class _AdminWorkspaceState extends State<AdminWorkspace> {
       icon: Icon(Icons.view_list_outlined),
       label: Text('批次'),
     ),
-    NavigationRailDestination(icon: Icon(Icons.search), label: Text('個股')),
     NavigationRailDestination(
-      icon: Icon(Icons.bar_chart_outlined),
-      label: Text('市場資訊'),
-    ),
+        icon: Icon(Icons.fact_check_outlined), label: Text('資料品質')),
     NavigationRailDestination(
-      icon: Icon(Icons.psychology_outlined),
-      label: Text('AI 分析'),
-    ),
-    NavigationRailDestination(
-      icon: Icon(Icons.settings_outlined),
-      label: Text('資料治理'),
-    ),
+        icon: Icon(Icons.settings_outlined), label: Text('系統設定')),
   ];
 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      AdminOverviewPage(widget.api),
-      AdminBatchPage(widget.api),
-      AdminStockWorkbench(widget.api),
-      AdminMarketUniversePage(widget.api),
-      AdminAnalysisPage(widget.api),
-      AdminGovernancePage(widget.api, brokerProfile: widget.brokerProfile),
+      AdminSections(
+          key: const ValueKey('overview'),
+          api: widget.api,
+          title: '總覽',
+          initialSection: sections[0] ?? 0,
+          onSection: (value) {
+            sections[0] = value;
+            updateRoute();
+          },
+          labels: const [
+            '營運摘要',
+            '使用分析'
+          ],
+          pages: [
+            () => AdminOverviewPage(widget.api),
+            () => AdminUsagePage(widget.api),
+          ]),
+      AdminSections(
+          key: const ValueKey('批次'),
+          api: widget.api,
+          title: '批次',
+          initialSection: sections[1] ?? 0,
+          onSection: (value) {
+            sections[1] = value;
+            updateRoute();
+          },
+          labels: const [
+            '排程與歷史',
+            'Private 執行控制'
+          ],
+          pages: [
+            () => AdminBatchPage(widget.api),
+            () => AdminGovernancePage(widget.api, section: 'operations'),
+          ]),
+      AdminSections(
+          key: const ValueKey('資料品質'),
+          api: widget.api,
+          title: '資料品質',
+          initialSection: sections[2] ?? 0,
+          onSection: (value) {
+            sections[2] = value;
+            updateRoute();
+          },
+          labels: const [
+            '資料可用性',
+            '市場涵蓋',
+            '重要標的',
+            '官方來源',
+            '儲存維護'
+          ],
+          pages: [
+            () => AdminReadinessPage(widget.api),
+            () => AdminMarketUniversePage(widget.api),
+            () => AdminStockWorkbench(widget.api),
+            () => AdminSourceHealthPage(widget.api),
+            () => AdminGovernancePage(widget.api, section: 'storage'),
+          ]),
+      AdminSections(
+          key: const ValueKey('系統設定'),
+          api: widget.api,
+          title: '系統設定',
+          initialSection: sections[3] ?? 0,
+          onSection: (value) {
+            sections[3] = value;
+            updateRoute();
+          },
+          labels: const [
+            'AI 模型與 Gateway',
+            '執行參數',
+            '權限與稽核'
+          ],
+          pages: [
+            () => AdminAnalysisPage(widget.api),
+            () => AdminGovernancePage(widget.api,
+                section: 'settings', brokerProfile: widget.brokerProfile),
+            () => ListView(children: [
+                  const ListTile(
+                      title: Text('Admin API 每次驗證權限；操作留存稽核。執行證據不足時維持未知。')),
+                  if (widget.usage != null) UsagePrivacy(widget.usage!)
+                ]),
+          ]),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 900;
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(
-              '資料營運中心 · ${destinations[page].label is Text ? (destinations[page].label as Text).data : ''}',
-            ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Center(child: Text(widget.email)),
-              ),
-            ],
-          ),
-          drawer: wide
-              ? null
-              : NavigationDrawer(
-                  selectedIndex: page,
-                  onDestinationSelected: (value) {
-                    setState(() => page = value);
-                    Navigator.pop(context);
-                  },
-                  children: const [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(28, 20, 16, 12),
-                      child: Text('資料營運中心'),
+        return Listener(
+            onPointerDown: (_) => widget.usage?.interaction(),
+            child: Focus(
+                onKeyEvent: (_, __) {
+                  widget.usage?.interaction();
+                  return KeyEventResult.ignored;
+                },
+                child: Scaffold(
+                  appBar: AppBar(
+                    title: Text(
+                      '資料營運中心 · ${destinations[page].label is Text ? (destinations[page].label as Text).data : ''}',
                     ),
-                    NavigationDrawerDestination(
-                      icon: Icon(Icons.dashboard_outlined),
-                      label: Text('總覽'),
-                    ),
-                    NavigationDrawerDestination(
-                      icon: Icon(Icons.view_list_outlined),
-                      label: Text('批次'),
-                    ),
-                    NavigationDrawerDestination(
-                      icon: Icon(Icons.search),
-                      label: Text('個股'),
-                    ),
-                    NavigationDrawerDestination(
-                      icon: Icon(Icons.bar_chart_outlined),
-                      label: Text('市場資訊'),
-                    ),
-                    NavigationDrawerDestination(
-                      icon: Icon(Icons.psychology_outlined),
-                      label: Text('AI 分析'),
-                    ),
-                    NavigationDrawerDestination(
-                      icon: Icon(Icons.settings_outlined),
-                      label: Text('資料治理'),
-                    ),
-                  ],
-                ),
-          body: Row(
-            children: [
-              if (wide)
-                NavigationRail(
-                  selectedIndex: page,
-                  labelType: NavigationRailLabelType.all,
-                  onDestinationSelected: (value) =>
-                      setState(() => page = value),
-                  destinations: destinations,
-                ),
-              Expanded(child: SafeArea(child: pages[page])),
-            ],
-          ),
-        );
+                    actions: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Center(child: Text(widget.email)),
+                      ),
+                    ],
+                  ),
+                  drawer: wide
+                      ? null
+                      : NavigationDrawer(
+                          selectedIndex: page,
+                          onDestinationSelected: (value) {
+                            selectPage(value);
+                            Navigator.pop(context);
+                          },
+                          children: const [
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(28, 20, 16, 12),
+                              child: Text('資料營運中心'),
+                            ),
+                            NavigationDrawerDestination(
+                              icon: Icon(Icons.dashboard_outlined),
+                              label: Text('總覽'),
+                            ),
+                            NavigationDrawerDestination(
+                              icon: Icon(Icons.view_list_outlined),
+                              label: Text('批次'),
+                            ),
+                            NavigationDrawerDestination(
+                                icon: Icon(Icons.fact_check_outlined),
+                                label: Text('資料品質')),
+                            NavigationDrawerDestination(
+                                icon: Icon(Icons.settings_outlined),
+                                label: Text('系統設定')),
+                          ],
+                        ),
+                  body: Row(
+                    children: [
+                      if (wide)
+                        NavigationRail(
+                          selectedIndex: page,
+                          labelType: NavigationRailLabelType.all,
+                          onDestinationSelected: selectPage,
+                          destinations: destinations,
+                        ),
+                      Expanded(child: SafeArea(child: pages[page])),
+                    ],
+                  ),
+                )));
       },
     );
   }
@@ -334,6 +612,9 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                 'value': {'status': 'unavailable'}
               },
             ),
+        widget.api
+            .get('/api/v1/admin/operational-summary')
+            .catchError((_) => <String, dynamic>{}),
       ]);
 
   void _reload() => setState(() {
@@ -390,6 +671,21 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
               children: [
                 _DataQualityCard(widget.api,
                     snapshot.data![3]['value'] as Map<String, dynamic>?),
+                ExpansionTile(title: const Text('營運與部署詳細資訊'), children: [
+                  ListTile(
+                      title: Text(
+                          'Private Mart 估值日 ${snapshot.data![4]['private_operations']?['valuation_date'] ?? '未知'}'),
+                      subtitle: Text(
+                          '快照資料日 ${snapshot.data![4]['snapshot']?['as_of_date'] ?? '未知'} · 更新 ${snapshot.data![4]['snapshot']?['updated_at'] ?? '未知'}')),
+                  ListTile(
+                      title: Text(
+                          '目前回應 revision ${snapshot.data![4]['serving_revision'] ?? '未知'}'),
+                      subtitle: Text(
+                          'SHA ${snapshot.data![4]['serving_sha'] ?? '未知'}\n已驗證部署／digest：未知（不從目前回應版本推定）')),
+                  const ListTile(
+                      title: Text('可比負載 I/O 節省率：未知'),
+                      subtitle: Text('尚無完整量測與引用保護證據時，不推定節省或可刪除。')),
+                ]),
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
@@ -808,10 +1104,12 @@ class AdminEffectiveBatches extends StatefulWidget {
 class _AdminEffectiveBatchesState extends State<AdminEffectiveBatches> {
   String? until;
   String? beforeId;
+  int days = 3;
+  bool issuesOnly = false;
   late Future<dynamic> data = load();
   Future<dynamic> load() =>
       widget.api.get(Uri(path: '/api/v1/admin/batches', queryParameters: {
-        'days': '3',
+        'days': '$days',
         if (until != null) 'until': until!,
         if (beforeId != null) 'before_id': beforeId!,
       }).toString());
@@ -831,8 +1129,27 @@ class _AdminEffectiveBatchesState extends State<AdminEffectiveBatches> {
         final root = snapshot.data as Map;
         final rows = _items(root);
         return ListView(children: [
+          DropdownButton<int>(
+              value: days,
+              items: [
+                for (final n in [3, 7, 31])
+                  DropdownMenuItem(value: n, child: Text('最近 $n 天'))
+              ],
+              onChanged: (value) {
+                if (value != null)
+                  setState(() {
+                    days = value;
+                    until = null;
+                    beforeId = null;
+                    data = load();
+                  });
+              }),
+          SwitchListTile(
+              title: const Text('只看異常'),
+              value: issuesOnly,
+              onChanged: (value) => setState(() => issuesOnly = value)),
           const ListTile(
-              title: Text('最近 3 天'),
+              title: Text('Controller 有效排程與實際終態'),
               subtitle: Text('已定義、已部署與執行成功分別判定；派送不代表完成。')),
           for (final definition in (root['definitions'] as List? ?? []))
             ExpansionTile(
@@ -840,6 +1157,7 @@ class _AdminEffectiveBatchesState extends State<AdminEffectiveBatches> {
                 subtitle: Text(
                     '台北時間 ${(definition['hours'] as List).map((hour) => "${hour.toString().padLeft(2, '0')}:${definition['minute'].toString().padLeft(2, '0')}").join('、')} · 部署 ${_label(definition['deployment_status'])}'),
                 children: [
+                  ListTile(title:Text('查詢期間內最近成功 ${definition['observed_last_success'] ?? '未觀察到'}'), subtitle:Text('最近終態 ${definition['observed_last_terminal']?['status'] ?? '未知'} · ${definition['observed_last_terminal']?['at'] ?? '未知'}')),
                   ListTile(
                       title: Text(
                           '依賴 ${(definition['dependencies'] as List).join('、')}'),
@@ -848,11 +1166,14 @@ class _AdminEffectiveBatchesState extends State<AdminEffectiveBatches> {
                 ]),
           const Divider(),
           if (rows.isEmpty) const ListTile(title: Text('此期間尚無批次紀錄')),
-          for (final row in rows)
+          for (final row in rows.where((row) =>
+              !issuesOnly ||
+              {'failed', 'partial', 'blocked', 'ambiguous'}
+                  .contains(row['status'])))
             ListTile(
                 title: Text('${row['batch']} · ${_label(row['status'])}'),
                 subtitle: Text(
-                    '排程 ${row['scheduled_at']}\n更新 ${row['updated_at']} · 結束 ${row['completion_time'] ?? '尚未完成'}'),
+                    '排程 ${row['scheduled_at']}\n更新 ${row['updated_at']} · 結束 ${row['completion_time'] ?? '尚未完成'}\n實際開始／耗時 ${row['start_time'] ?? '未知'}／${row['duration_seconds'] ?? '未知'} 秒'),
                 trailing: IconButton(
                     icon: const Icon(Icons.info_outline),
                     tooltip: '查看',
@@ -880,7 +1201,9 @@ class _AdminEffectiveBatchesState extends State<AdminEffectiveBatches> {
 }
 
 class AdminGovernancePage extends StatefulWidget {
-  const AdminGovernancePage(this.api, {this.brokerProfile, super.key});
+  const AdminGovernancePage(this.api,
+      {this.brokerProfile, this.section = 'all', super.key});
+  final String section;
   final Widget? brokerProfile;
   final AdminApi api;
   @override
@@ -894,16 +1217,23 @@ class _AdminGovernancePageState extends State<AdminGovernancePage> {
 
   Future<List<dynamic>> _load() => Future.wait([
         widget.api.get('/api/v1/admin/data-governance'),
-        widget.api.get('/api/v1/admin/private-recalculations?limit=50'),
-        widget.api.get('/api/v1/admin/settings/private_recalc_workers'),
+        if (widget.section == 'all' || widget.section == 'operations')
+          widget.api.get('/api/v1/admin/private-recalculations?limit=50')
+        else
+          Future.value(<String, dynamic>{}),
+        if (widget.section == 'all' || widget.section == 'settings')
+          widget.api.get('/api/v1/admin/settings/private_recalc_workers')
+        else
+          Future.value(<String, dynamic>{}),
       ]);
 
   @override
   void initState() {
     super.initState();
-    refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted) _reload();
-    });
+    if (widget.section == 'all' || widget.section == 'operations')
+      refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+        if (mounted) _reload();
+      });
   }
 
   @override
@@ -1003,7 +1333,11 @@ class _AdminGovernancePageState extends State<AdminGovernancePage> {
 
   @override
   Widget build(BuildContext context) => _AdminPage(
-        title: '資料治理',
+        title: widget.section == 'settings'
+            ? '執行參數'
+            : widget.section == 'operations'
+                ? 'Private 執行控制'
+                : '儲存維護',
         action: IconButton(
           tooltip: '重新整理',
           onPressed: _reload,
@@ -1042,128 +1376,142 @@ class _AdminGovernancePageState extends State<AdminGovernancePage> {
 
             return ListView(children: [
               if (widget.brokerProfile != null) widget.brokerProfile!,
-              const ListTile(
-                title: Text('Private Pipeline'),
-                subtitle: Text('全體 reconciliation 與個人重算分離；個人 queue 不會帶其他 owner 一起重算。僅顯示去識別化 owner ref，不顯示交易、持股或 user-to-symbol 關係。'),
-              ),
-              Card(
-                child: ListTile(
-                  title: Text(
-                    'Private Pipeline · ${_label(privateOperations['last_result'] ?? 'unknown')}',
-                  ),
+              if (widget.section == 'all' ||
+                  widget.section == 'operations') ...[
+                const ListTile(
+                  title: Text('Private Pipeline'),
                   subtitle: Text(
-                    'checkpoint ${privateOperations['checkpoint_change_id'] ?? '未知'} · 最新 change ${privateOperations['latest_change_id'] ?? '未知'} · 待處理 ${privateOperations['pending_changes'] ?? '未知'}\n'
-                    '最新 ledger version ${privateOperations['latest_ledger_version'] ?? '未知'} · 估值日 ${privateOperations['valuation_date'] ?? '未知'} · lag ${privateOperations['valuation_lag_days'] ?? '未知'} 天\n'
-                    '最後更新 ${privateOperations['updated_at'] ?? '未知'}\n'
-                    'execution ${privateOperations['execution_name'] ?? '未知'}',
-                  ),
+                      '全體 reconciliation 與個人重算分離；個人 queue 不會帶其他 owner 一起重算。僅顯示去識別化 owner ref，不顯示交易、持股或 user-to-symbol 關係。'),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Text('個人損益重算 workers',
-                  style: Theme.of(context).textTheme.titleMedium),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Wrap(
-                    spacing: 12,
-                    runSpacing: 10,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text('執行中 ${queue['running'] ?? 0} · 排隊 ${queue['queued'] ?? 0}'),
-                      DropdownButton<int>(
-                        key: const Key('private-recalc-workers'),
-                        value: workerChoice,
-                        items: [
-                          for (var value = 2; value <= 8; value++)
-                            DropdownMenuItem(
-                              value: value,
-                              child: Text('$value workers'),
-                            ),
-                        ],
-                        onChanged: (value) =>
-                            setState(() => selectedWorkers = value),
-                      ),
-                      FilledButton.tonal(
-                        onPressed: workerChoice == configuredWorkers
-                            ? null
-                            : () => _saveWorkers(setting['version'] as int? ?? 0),
-                        child: const Text('套用並行數'),
-                      ),
-                      const Text('2–8；只影響下一次 queue execution，Iceberg commit 仍序列化。'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text('目前 queue / workers',
-                  style: Theme.of(context).textTheme.titleMedium),
-              if (active.isEmpty)
-                const Card(
-                  child: ListTile(
-                    title: Text('目前沒有個人重算工作'),
-                    subtitle: Text('同一 owner 在完成或失敗前不會接受第二筆 active request。'),
-                  ),
-                ),
-              for (final row in active)
                 Card(
                   child: ListTile(
-                    leading: const Icon(Icons.memory_outlined),
                     title: Text(
-                      'owner ${row['owner_ref']} · ${_label(row['status'].toString().toLowerCase())}',
+                      'Private Pipeline · ${_label(privateOperations['last_result'] ?? 'unknown')}',
                     ),
                     subtitle: Text(
-                      'ledger v${row['requested_ledger_version']} · request ${row['request_id']}\n'
-                      'execution ${row['worker_execution'] ?? '尚未啟動'} · worker ${row['worker_task_index'] ?? '—'}\n'
-                      '${row['safe_message'] ?? '沒有錯誤訊息'}',
+                      'checkpoint ${privateOperations['checkpoint_change_id'] ?? '未知'} · 最新 change ${privateOperations['latest_change_id'] ?? '未知'} · 待處理 ${privateOperations['pending_changes'] ?? '未知'}\n'
+                      '最新 ledger version ${privateOperations['latest_ledger_version'] ?? '未知'} · 估值日 ${privateOperations['valuation_date'] ?? '未知'} · lag ${privateOperations['valuation_lag_days'] ?? '未知'} 天\n'
+                      '最後更新 ${privateOperations['updated_at'] ?? '未知'}\n'
+                      'execution ${privateOperations['execution_name'] ?? '未知'}',
                     ),
-                    trailing: Wrap(
-                      spacing: 6,
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (widget.section == 'all' || widget.section == 'settings') ...[
+                Text('個人損益重算 workers',
+                    style: Theme.of(context).textTheme.titleMedium),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 10,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        TextButton(
-                          onPressed: row['status'] == 'CANCEL_REQUESTED'
-                              ? null
-                              : () => _cancel(row['request_id'].toString()),
-                          child: const Text('中止'),
+                        Text(
+                            '執行中 ${queue['running'] ?? 0} · 排隊 ${queue['queued'] ?? 0}'),
+                        DropdownButton<int>(
+                          key: const Key('private-recalc-workers'),
+                          value: workerChoice,
+                          items: [
+                            for (var value = 2; value <= 8; value++)
+                              DropdownMenuItem(
+                                value: value,
+                                child: Text('$value workers'),
+                              ),
+                          ],
+                          onChanged: (value) =>
+                              setState(() => selectedWorkers = value),
                         ),
                         FilledButton.tonal(
-                          onPressed: () =>
-                              _forceFail(row['request_id'].toString()),
-                          child: const Text('回寫失敗'),
+                          onPressed: workerChoice == configuredWorkers
+                              ? null
+                              : () =>
+                                  _saveWorkers(setting['version'] as int? ?? 0),
+                          child: const Text('套用並行數'),
                         ),
+                        const Text(
+                            '2–8；只影響下一次 queue execution，Iceberg commit 仍序列化。'),
                       ],
                     ),
                   ),
                 ),
-              const SizedBox(height: 12),
-              Text('最近終態', style: Theme.of(context).textTheme.titleMedium),
-              for (final row in history)
-                ListTile(
-                  title: Text(
-                    'owner ${row['owner_ref']} · ${_label(row['status'].toString().toLowerCase())}',
-                  ),
-                  subtitle: Text(
-                    '${row['finished_at'] ?? row['updated_at'] ?? '—'} · '
-                    '${row['safe_message'] ?? row['error_code'] ?? '完成'}',
-                  ),
-                ),
-              const Divider(),
-              const ListTile(
-                title: Text('容量與保留政策'),
-                subtitle: Text('使用已持久化營運證據；未知不補零。Private 不套用公開清理政策。'),
-              ),
-              for (final row in _items(root))
-                Card(
-                  child: ListTile(
-                    title: Text('${row['layer']}'),
-                    subtitle: Text(
-                      '保留 ${row['retention'] ?? '未定義'}\n最後維護 ${row['maintenance_at'] ?? '未知'}\n'
-                      '有效物件 ${row['live_objects'] ?? '未知'} · 有效 bytes ${row['active_bytes'] ?? '未知'}\n'
-                      '非當前版本 bytes ${row['noncurrent_bytes'] ?? '未知'} · soft-deleted bytes ${row['soft_deleted_bytes'] ?? '未知'}\n'
-                      '計費 bytes ${row['billable_bytes'] ?? '未知'}',
+                const SizedBox(height: 12),
+              ],
+              if (widget.section == 'all' ||
+                  widget.section == 'operations') ...[
+                Text('目前 queue / workers',
+                    style: Theme.of(context).textTheme.titleMedium),
+                if (active.isEmpty)
+                  const Card(
+                    child: ListTile(
+                      title: Text('目前沒有個人重算工作'),
+                      subtitle: Text('同一 owner 在完成或失敗前不會接受第二筆 active request。'),
                     ),
                   ),
+                for (final row in active)
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.memory_outlined),
+                      title: Text(
+                        'owner ${row['owner_ref']} · ${_label(row['status'].toString().toLowerCase())}',
+                      ),
+                      subtitle: Text(
+                        'ledger v${row['requested_ledger_version']} · request ${row['request_id']}\n'
+                        'execution ${row['worker_execution'] ?? '尚未啟動'} · worker ${row['worker_task_index'] ?? '—'}\n'
+                        '${row['safe_message'] ?? '沒有錯誤訊息'}',
+                      ),
+                      trailing: Wrap(
+                        spacing: 6,
+                        children: [
+                          TextButton(
+                            onPressed: row['status'] == 'CANCEL_REQUESTED'
+                                ? null
+                                : () => _cancel(row['request_id'].toString()),
+                            child: const Text('中止'),
+                          ),
+                          FilledButton.tonal(
+                            onPressed: () =>
+                                _forceFail(row['request_id'].toString()),
+                            child: const Text('回寫失敗'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                Text('最近終態', style: Theme.of(context).textTheme.titleMedium),
+                for (final row in history)
+                  ListTile(
+                    title: Text(
+                      'owner ${row['owner_ref']} · ${_label(row['status'].toString().toLowerCase())}',
+                    ),
+                    subtitle: Text(
+                      '${row['finished_at'] ?? row['updated_at'] ?? '—'} · '
+                      '${row['safe_message'] ?? row['error_code'] ?? '完成'}',
+                    ),
+                  ),
+              ],
+              if (widget.section == 'all' || widget.section == 'storage') ...[
+                const Divider(),
+                const ListTile(
+                  title: Text('容量與保留政策'),
+                  subtitle: Text('使用已持久化營運證據；未知不補零。Private 不套用公開清理政策。'),
                 ),
+                for (final row in _items(root))
+                  Card(
+                    child: ListTile(
+                      title: Text('${row['layer']}'),
+                      subtitle: Text(
+                        '保留 ${row['retention'] ?? '未定義'}\n最後維護 ${row['maintenance_at'] ?? '未知'}\n'
+                        '有效物件 ${row['live_objects'] ?? '未知'} · 有效 bytes ${row['active_bytes'] ?? '未知'}\n'
+                        '非當前版本 bytes ${row['noncurrent_bytes'] ?? '未知'} · soft-deleted bytes ${row['soft_deleted_bytes'] ?? '未知'}\n'
+                        '計費 bytes ${row['billable_bytes'] ?? '未知'}',
+                      ),
+                    ),
+                  ),
+              ],
             ]);
           },
         ),
@@ -1414,6 +1762,9 @@ class _AdminStockWorkbenchState extends State<AdminStockWorkbench> {
                             final reports = _items(snapshot.data![1]);
                             return ListView(
                               children: [
+                                AdminStockPeriods(
+                                    widget.api, selected!['symbol'].toString(),
+                                    key: ValueKey(selected!['symbol'])),
                                 Card(
                                   child: ListTile(
                                     leading: const Icon(Icons.lock_outline),

@@ -71,6 +71,13 @@ def main() -> None:
         if result['failed'] or mobile_result['errors']:
             raise RuntimeError('private recalculation business execution failed')
         return
+    # Existing scheduled reconciliation also owns optional telemetry retention.
+    from .usage import UsageService
+    try:
+        UsageService(repository).purge()
+        print('usage_retention status=PASS')
+    except Exception:
+        print('usage_retention status=FAILED')
     try:
         completed = pipeline.run(date.fromisoformat(override) if override else None)
     except Exception:

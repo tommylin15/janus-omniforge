@@ -47,6 +47,7 @@ from .store import PrivateIcebergStore
 from .intraday_quotes import MisQuotes, TAIPEI, market_phase, value_holdings
 from .quote_router import QuoteRouter, ROUTE_VERSION
 from .analysis import AnalysisService, CEOJobTrigger, CEORequestIn, CEOCapabilityIn, CEOProfileIn
+from .usage import UsageBatch, UsagePreference, UsageService, UsageBodyLimit
 
 
 
@@ -417,6 +418,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             LOGGER.info(audit_message)
             AUDIT_LOGGER.info(audit_message)
         return response
+    api.add_middleware(UsageBodyLimit)
     origins=[value.strip() for value in os.getenv("USER_CORS_ORIGINS","").split(",") if value.strip()]
     if origins:
         api.add_middleware(_PublicUserCORSMiddleware,allow_origins=origins,allow_credentials=False,
@@ -1276,6 +1278,67 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def admin_actor(current: AuthenticatedAdmin = Depends(authenticate_admin)) -> str:
         return current.email
 
+    usage = UsageService(repository)
+
+    @private.get('/usage/preference')
+    def usage_preference(current: AuthenticatedUser = Depends(user)):
+        return usage.preference(current.user_id)
+
+    @private.put('/usage/preference')
+    def save_usage_preference(value: UsagePreference, current: AuthenticatedUser = Depends(user)):
+        return usage.preference(current.user_id, value.enabled)
+
+    @private.delete('/usage')
+    def delete_usage(current: AuthenticatedUser = Depends(user)):
+        return usage.delete(current.user_id)
+
+    @private.post('/usage/batches')
+    def usage_batch(value: UsageBatch, current: AuthenticatedUser = Depends(user)):
+        if any(event.feature_id.startswith('admin_') for event in value.events):
+            raise HTTPException(422, 'feature unavailable for this audience')
+        return usage.ingest(current.user_id, value)
+
+    @admin.get('/usage/overview')
+    def usage_overview(days: int = Query(7), grain: str = Query('day'), actor: str = Depends(admin_actor)):
+        if days not in (7,30,90) or grain not in ('day','week','month'):
+            raise HTTPException(422, 'days must be 7, 30 or 90')
+        return jsonable_encoder(usage.read(actor=actor, days=days, grain=grain))
+
+    def admin_usage_owner(current: AuthenticatedAdmin = Depends(authenticate_admin)):
+        return repository.resolve_user(current.google_sub, current.email)
+
+    @admin.get('/usage/self/preference')
+    def admin_usage_preference(owner=Depends(admin_usage_owner)):
+        return usage.preference(owner)
+
+    @admin.put('/usage/self/preference')
+    def admin_usage_save_preference(value: UsagePreference, owner=Depends(admin_usage_owner)):
+        return usage.preference(owner, value.enabled)
+
+    @admin.post('/usage/self/batches')
+    def admin_usage_batch(value: UsageBatch, owner=Depends(admin_usage_owner)):
+        if any(not event.feature_id.startswith('admin_') for event in value.events):
+            raise HTTPException(422, 'feature unavailable for this audience')
+        return usage.ingest(owner, value)
+
+    @admin.delete('/usage/self')
+    def admin_usage_delete(owner=Depends(admin_usage_owner)):
+        return usage.delete(owner)
+
+    @admin.get('/usage/users')
+    def usage_users(q: str = Query('', max_length=100), actor: str = Depends(admin_actor)):
+        return jsonable_encoder(usage.read(actor=actor, query=q))
+
+    @admin.get('/usage/users/{user_id}')
+    def usage_user(user_id: UUID, days: int = Query(7), grain: str = Query('day'), actor: str = Depends(admin_actor)):
+        if days not in (7,30,90) or grain not in ('day','week','month'):
+            raise HTTPException(422, 'days must be 7, 30 or 90')
+        return jsonable_encoder(usage.read(actor=actor, days=days, user_id=user_id, grain=grain))
+
+    @admin.get('/usage/users/{user_id}/recent')
+    def usage_recent(user_id: UUID, actor: str = Depends(admin_actor)):
+        return jsonable_encoder(usage.read(actor=actor, user_id=user_id, recent=True))
+
     @admin.get("/broker-profile")
     def admin_broker_profile(current: AuthenticatedAdmin = Depends(authenticate_admin)):
         owner = repository.resolve_user(current.google_sub, current.email)
@@ -1410,6 +1473,17 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @admin.get("/data-governance")
     def admin_data_governance():
         return jsonable_encoder(admin_service.data_governance())
+
+    @admin.get('/operational-summary')
+    def operational_summary():
+        result = admin_service.operational_summary()
+        build = flutter_dir / 'build-id.txt'
+        source_sha = build.read_text().strip() if build.is_file() else None
+        result['serving_revision'] = os.getenv('K_REVISION') or None
+        result['serving_sha'] = source_sha if source_sha and len(source_sha)==40 else None
+        result['verified_deployment_status'] = 'unknown'
+        result['verified_digest'] = None
+        return jsonable_encoder(result)
 
     @admin.post("/market-universe/swap")
     def admin_swap_market_universe():

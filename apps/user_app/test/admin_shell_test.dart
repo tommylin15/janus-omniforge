@@ -76,10 +76,8 @@ void main() {
     for (final label in [
       '總覽',
       '批次',
-      '個股',
-      '市場資訊',
-      'AI 分析',
-      '資料治理',
+      '資料品質',
+      '系統設定',
     ]) {
       expect(find.text(label), findsWidgets);
     }
@@ -109,10 +107,34 @@ void main() {
     expect(find.text('資料營運中心'), findsWidgets);
     expect(find.text('總覽'), findsWidgets);
     expect(find.text('批次'), findsWidgets);
-    expect(find.text('個股'), findsWidgets);
-    expect(find.text('市場資訊'), findsWidgets);
-    expect(find.text('AI 分析'), findsWidgets);
-    expect(find.text('資料治理'), findsWidgets);
+    expect(find.text('資料品質'), findsWidgets);
+    expect(find.text('系統設定'), findsWidgets);
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('four pages retain sections without loading hidden operations',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    await tester.pumpWidget(MaterialApp(
+        home: AdminWorkspace(
+            api: _ShellApi(), email: 'admin@example.com', onTheme: (_) {})));
+    await tester.pumpAndSettle();
+    Future<void> navigate(String label) async {
+      await tester.tap(find.descendant(
+          of: find.byType(NavigationRail), matching: find.text(label)));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+
+    await navigate('資料品質');
+    expect(find.textContaining('尚無持久化 Data Readiness Ledger'), findsOneWidget);
+    await navigate('系統設定');
+    await navigate('批次');
+    await navigate('總覽');
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(
+        (tester.widget(find.byType(NavigationRail)) as NavigationRail)
+            .destinations,
+        hasLength(4));
   });
 }

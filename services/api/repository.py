@@ -1430,6 +1430,9 @@ class PostgresWorkspaceRepository:
         with self._connection() as connection:
             # Serialize with profile creation before deleting its revisions.
             connection.execute("SELECT user_id FROM private.users WHERE user_id=%s FOR UPDATE", (user_id,))
+            connection.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s,0))', (str(user_id),))
+            for table in ('usage_preferences','usage_recent_events','usage_ingest_receipts','usage_user_feature_daily','usage_daily_sessions'):
+                connection.execute(f'DELETE FROM private.{table} WHERE user_id=%s', (user_id,))
             connection.execute("DELETE FROM private.assistant_threads WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_state WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_revisions WHERE user_id=%s",(user_id,))

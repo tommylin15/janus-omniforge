@@ -82,6 +82,8 @@ class AdminServiceTests(unittest.TestCase):
         layers = self.admin.data_governance()["items"]
         self.assertTrue(all(row["billable_bytes"] is None for row in layers))
         self.assertIsNone(next(row for row in layers if row["layer"] == "Private")["retention"])
+        self.assertEqual(self.admin.operational_summary()['snapshot'], {'status':'unknown'})
+        self.assertIsNone(self.admin.operational_summary()['io_savings_percent'])
         self.control.private_pipeline_status = lambda: {
             "pipeline_name": "private-core",
             "checkpoint_change_id": 120,
@@ -324,6 +326,19 @@ class AdminServiceTests(unittest.TestCase):
         self.assertEqual(self.admin.source_review("anue")["version"], 1)
         with self.assertRaises(AdminValidationError):
             self.admin.save_source_review("anue", {"status": "blocked", "checks": checks, "evidence_url": "", "reason": "blocked"}, actor="reviewer")
+
+    def test_batch_last_success_is_ordered_by_actual_completion(self):
+        from ingestion_core.batch_controller import BATCHES
+        name=BATCHES[0].name
+        now=datetime.now(timezone.utc)
+        self.control.batch_occurrences=lambda *args,**kwargs:[
+            {'occurrence_id':'new-slot','scheduled_at':now,'updated_at':now,
+             'state':{'batch':name,'status':'succeeded','completion_time':'2026-10-18T01:00:00Z'}},
+            {'occurrence_id':'old-slot','scheduled_at':now,'updated_at':now,
+             'state':{'batch':name,'status':'succeeded','completion_time':'2026-10-18T01:00:00.100Z'}}]
+        result=self.admin.batches()
+        definition=next(row for row in result['definitions'] if row['name']==name)
+        self.assertEqual(definition['observed_last_success'],'2026-10-18T01:00:00.100Z')
 
 
 if __name__ == "__main__":

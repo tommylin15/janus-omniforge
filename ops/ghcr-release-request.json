@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 68,
-  "reason": "DRL-01 October 18 closing: correct bounded official market-history per-market TWSE <=10%, TPEx <=30% gates, reviewed Core continuity and natural data-readiness audit; keep approved four-component GHCR same-source tests and immutable dev candidate; do not claim live backfill, owner writes, runtime or UI acceptance until independently verified.",
+  "attempt": 69,
+  "reason": "ADMIN-V2 A1-A5 and A4-U: existing four-page Flutter Admin, Controller/readiness/governance integration, optional bounded PostgreSQL usage analytics with audience isolation and retention. Preserve integrated DRL-01 changes. Full same-SHA Python/PostgreSQL/Flutter gates before GHCR publication; migration064 before candidate/Jobs runtime update; no Owner financial mutations or new resources.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }

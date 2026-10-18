@@ -166,6 +166,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   void didUpdateWidget(FinalLedgerPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.active != widget.active) {
+      if (widget.active) widget.api.usage.select(section == 3 ? 'notes' : 'journal');
       quoteGeneration++;
       quoteBusy = false;
       quoteTimer?.cancel();
@@ -1605,6 +1606,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     selected: {section},
                     onSelectionChanged: (value) {
                       final next = value.first;
+                      widget.api.usage.select(next == 3 ? 'notes' : 'journal');
                       quoteGeneration++;
                       quoteBusy = false;
                       quoteTimer?.cancel();
