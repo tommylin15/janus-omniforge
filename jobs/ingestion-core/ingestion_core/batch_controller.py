@@ -1,7 +1,7 @@
 """Hourly dev controller; never wait for or cancel child jobs."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 import json
 import os
@@ -71,11 +71,83 @@ BATCHES = (
 )
 
 
-def due_batches(now: datetime, batches=BATCHES):
+MAINTENANCE_NAMES = frozenset({"iceberg-compaction", "mart-cleanup", "core-cleanup"})
+
+
+def weekly_maintenance_enabled() -> bool:
+    """Fail closed on unknown config; legacy daily dispatch remains until verified cutover."""
+    value = os.environ.get("FINOPS_WEEKLY_MAINTENANCE", "false").strip().lower()
+    if value not in {"true", "false"}:
+        raise ValueError("FINOPS_WEEKLY_MAINTENANCE must be true or false")
+    return value == "true"
+
+
+def effective_batches():
+    """Use Saturday occurrence identity without changing the hourly Scheduler or daily work."""
+    if not weekly_maintenance_enabled():
+        return BATCHES
+    return tuple(replace(batch, weekdays=(5,),
+                         dependencies=() if batch.name == "iceberg-compaction" else batch.dependencies)
+                 if batch.name in MAINTENANCE_NAMES else batch for batch in BATCHES)
+
+
+def weekly_eod_core_evidence(connection, scheduled_at: datetime):
+    """Pair a real recent completed EOD occurrence with an immutable Core ready receipt.
+
+    PostgreSQL bounded read only: an absent/read-denied/invalid receipt blocks
+    dispatch. This does not perform storage mutation or fabricate a source day.
+    """
+    import re
+    local_day = scheduled_at.astimezone(ZoneInfo("Asia/Taipei")).date()
+    first_day = local_day - timedelta(days=8)
+    if local_day.weekday() != 5:
+        raise ValueError("weekly maintenance requires Saturday occurrence")
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """SELECT occurrence_id,scheduled_at
+                 FROM control.batch_occurrences
+                WHERE state->>'batch'='ingestion'
+                  AND state->>'status'='succeeded'
+                  AND scheduled_at >= %s AND scheduled_at < %s
+                ORDER BY scheduled_at DESC LIMIT 32""",
+            (datetime.combine(first_day, datetime.min.time(), tzinfo=ZoneInfo("Asia/Taipei")),
+             datetime.combine(local_day, datetime.min.time(), tzinfo=ZoneInfo("Asia/Taipei"))),
+        )
+        ingestions = cursor.fetchall()
+    eligible = []
+    for key, dt in ingestions:
+        if dt.tzinfo is None:
+            raise RuntimeError("weekly EOD timestamp lacks timezone")
+        day = dt.astimezone(ZoneInfo("Asia/Taipei")).date()
+        if key == f"ingestion/{day.isoformat()}/14" and day.weekday() < 5:
+            eligible.append((key, day))
+    if not eligible:
+        return None
+    key, day = max(eligible, key=lambda item: item[1])
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """SELECT payload->>'coreSnapshotId',payload->>'coreSnapshotUri',payload->>'analysisAsOf'
+                 FROM control.core_ready_events
+                WHERE payload->>'analysisAsOf'=%s
+                ORDER BY created_at DESC LIMIT 32""", (day.isoformat(),),
+        )
+        receipts = cursor.fetchall()
+    for snapshot_id, uri, as_of in receipts:
+        if (as_of == day.isoformat()
+                and isinstance(snapshot_id, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", snapshot_id)
+                and isinstance(uri, str) and re.fullmatch(
+                    r"gs://[a-z0-9][a-z0-9._-]{2,220}/executions/[A-Za-z0-9._-]+/core-snapshot[.]json", uri)):
+            return {"source_occurrence": key, "source_date": day.isoformat(),
+                    "core_snapshot_id": snapshot_id, "core_snapshot_uri": uri}
+    return None
+
+
+def due_batches(now: datetime, batches=None):
     """Catch up elapsed slots today. Each hour has a separate occurrence identity."""
     if now.tzinfo is None:
         raise ValueError("controller clock must include a timezone")
     local = now.astimezone(ZoneInfo("Asia/Taipei"))
+    batches = effective_batches() if batches is None else batches
     by_name = {batch.name: batch for batch in batches}
     if len(by_name) != len(batches):
         raise ValueError("duplicate batch names")
@@ -426,7 +498,7 @@ def run(*, now=None, session=None, control=None):
             raise RuntimeError("pending occurrence limit exceeded; dispatch blocked")
         if mode != "manual":
             pending = prioritize_nightly_private(pending, now)
-        batches = {batch.name: batch for batch in BATCHES}
+        batches = {batch.name: batch for batch in effective_batches()}
         for key, state in pending:
             batch = batches[state["batch"]]
             if batch.name == "market-screening":
@@ -484,6 +556,15 @@ def run(*, now=None, session=None, control=None):
             if any(statuses.get(dependency) != "succeeded" for dependency in dependencies):
                 record(connection, tick, key, state, "waiting_dependency", update=False)
                 continue
+            weekly_evidence = None
+            if batch.name == "iceberg-compaction" and weekly_maintenance_enabled():
+                weekly_evidence = weekly_eod_core_evidence(
+                    connection, datetime.fromisoformat(state["scheduled_at"]))
+                if weekly_evidence is None:
+                    record(connection, tick, key, state, "weekly_eod_core_not_verified", update=False)
+                    continue
+                record(connection, tick, key, {**state, "core_eod_evidence": weekly_evidence},
+                       "weekly_eod_core_attested", update=False)
             if batch.name == 'ledger-backup':
                 from .ledger_backup import request_backup
                 record(connection, tick, key, request_backup(connection, state), 'backup_request')
@@ -494,7 +575,14 @@ def run(*, now=None, session=None, control=None):
             state = {**state, "status": "dispatching"}
             record(connection, tick, key, state, "dispatch_intent")
             try:
-                operation = dispatch_job(session, batch, state.get("env"))
+                dispatch_env = list(state.get("env") or batch.env)
+                if weekly_evidence is not None:
+                    dispatch_env.extend([
+                        ["FINOPS_SOURCE_CORE_SNAPSHOT_ID", weekly_evidence["core_snapshot_id"]],
+                        ["FINOPS_SOURCE_CORE_SNAPSHOT_URI", weekly_evidence["core_snapshot_uri"]],
+                        ["FINOPS_SOURCE_EOD_DATE", weekly_evidence["source_date"]],
+                    ])
+                operation = dispatch_job(session, batch, dispatch_env)
                 state = {**state, "status": "running", "operation": operation}
             except Exception:
                 state = {**state, "status": "ambiguous", "reason": "inspect_cloud_execution_before_manual_recovery"}
