@@ -204,7 +204,9 @@ class DuckDBIcebergCore:
             fields = {field.name for field in table.schema().fields}
             columns = [name for name in ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "metric",
                        "source_id", "value", "unit", "currency", "period_basis", "report_scope", "fiscal_month",
-                       "fiscal_period_end", "availability_at", "observed_at", "published_at") if name in fields]
+                       "fiscal_period_end", "availability_at", "observed_at", "published_at",
+                       "financial_feature_version", "source_document_sha256",
+                       "comparison_period_end", "publication_time_authoritative") if name in fields]
             prior = table.scan(row_filter=scope, selected_fields=tuple(columns)).to_arrow().to_pylist()
             incoming, observation_reused = self._financial_observations(prior, incoming)
             if not incoming:
@@ -231,7 +233,11 @@ class DuckDBIcebergCore:
             table = self.catalog.load_table(identifier)
             existing = []
         else:
-            table = self._ensure_layout(self.catalog.load_table(identifier), dataset_id)
+            # The financial version preflight already loaded and normalized this
+            # exact table under the mutation lock. Reusing it avoids another
+            # catalog lookup / Iceberg metadata GET per fiscal write.
+            if dataset_id != "financials":
+                table = self._ensure_layout(self.catalog.load_table(identifier), dataset_id)
             existing_schema = table.schema().as_arrow()
             incoming_arrow = self._arrow_table(incoming, existing_schema=existing_schema)
             # union_by_name is an Iceberg metadata commit. With an unchanged
@@ -329,7 +335,8 @@ class DuckDBIcebergCore:
             prior = latest.get(identity(row))
             same = prior is not None and all(row.get(field) is None or str(row.get(field)) == str(prior.get(field))
                                             for field in ("value", "unit", "currency", "period_basis", "report_scope", "financial_feature_version",
-                                                          "fiscal_month", "fiscal_period_end"))
+                                                          "fiscal_month", "fiscal_period_end", "source_document_sha256",
+                                                          "comparison_period_end", "publication_time_authoritative"))
             if (row.get("publication_time_authoritative") is False and same and observed(prior) <= observed(row)
                     and (prior.get("availability_at") or not row.get("availability_at"))):
                 reused += 1
