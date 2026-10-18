@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "dead98d35abc8c38448791494fb97d99f37c660b",
-  "candidate_release_run": "39097205867",
-  "candidate_deployment_run": "39097582970",
-  "purpose": "FINOPS-AB exact-source zero-traffic candidate automated OAuth metadata and negative owner/private boundary only. No canonical traffic or Job update.",
+  "sha": "252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04",
+  "candidate_release_run": "39100946095",
+  "candidate_deployment_run": "39101384927",
+  "purpose": "FINOPS-AB permanent generation cleanup image: same-source zero-traffic automated OAuth/private negative boundary only. No canonical traffic, data or Job mutation.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 38
+  "attempt": 39
 }
