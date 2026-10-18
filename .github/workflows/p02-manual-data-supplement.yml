@@ -1,0 +1,59 @@
+name: P0-2 Manual data-supplement trigger
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify no active executions
+        run: |
+          echo "Checking for active executions..."
+          ACTIVE=$(gcloud run jobs executions list --job=janus-ingestion-core \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --filter="NOT completionTime:*" --limit=1 --format='value(name)')
+          if [ -n "$ACTIVE" ]; then
+            echo "Active execution found: $ACTIVE"
+            echo "Waiting for completion..."
+            exit 1
+          fi
+          echo "No active executions, proceeding..."
+      - name: Trigger data-supplement execution
+        run: |
+          echo "Triggering data-supplement..."
+          gcloud run jobs execute janus-ingestion-core \
+            --project=gen-lang-client-0593591102 \
+            --region=us-central1 \
+            --update-env-vars="JANUS_DATA_SUPPLEMENT_MODE=daily,JANUS_DATA_SUPPLEMENT_SYMBOLS=,QUEUE_CONSUMER=false,MART_JOB=,ICEBERG_MAINTENANCE_MODE=" \
+            --wait \
+            --format='value(name)'
+      - name: Check execution result
+        run: |
+          echo "## Execution Result" >> "$GITHUB_STEP_SUMMARY"
+          LATEST=$(gcloud run jobs executions list --job=janus-ingestion-core \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --limit=1 --format='value(name.basename(),succeededCount,failedCount)')
+          echo "Latest execution: $LATEST" >> "$GITHUB_STEP_SUMMARY"
+      - name: Check logs for data_readiness_ledger
+        run: |
+          echo "## Checking for data_readiness in logs" >> "$GITHUB_STEP_SUMMARY"
+          LATEST=$(gcloud run jobs executions list --job=janus-ingestion-core \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --limit=1 --format='value(name.basename())')
+          echo "Execution: $LATEST" >> "$GITHUB_STEP_SUMMARY"
+          sleep 10
+          gcloud logging read "resource.type=\"cloud_run_job\" AND labels.\"run.googleapis.com/execution_name\"=\"$LATEST\"" \
+            --project=gen-lang-client-0593591102 --limit=100 --format='value(textPayload)' | grep -i "readiness" || echo "No readiness logs found"
