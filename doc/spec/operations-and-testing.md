@@ -9,13 +9,15 @@
 - **EPS**：2026Q1/Q2 指定六股 6/6 合格；2025Q4 原始資料存在但未有合格單季／可證股數分母，歷史四季／TTM 保留 `NOT_CERTIFIED/WAIVED_FOR_MVP`；禁止將 YTD EPS 直接相減、推估分母或缺值補零。
 - **本次變更與復工條件**：GitHub 僅 status／TODO／operations 文字 commit，**無新的 code、migration、CI 人工觸發、deployment、runtime query、真實資料改寫、Owner 操作**。GitHub push 如由既有 workflow 自動派發一般 CI，不能視為 DRL-01 acceptance。復工時先核對最新 `main`／active image digest／deploy lease／自然排程與 FINOPS-AB 並行，再依四項順序執行及留存實際 receipt。
 
-### 2026-10-18｜FINOPS-AB current-only 接續（PARTIAL，最新）
+### 2026-10-18｜FINOPS-AB 發布、compaction與實刪前checkpoint（PARTIAL）
 
-使用者新決策只留current snapshot，取消歷史引用／24小時／named refs保留；已實作非current named refs與snapshot淘汰、Core／Mart不再要求external fence，current與7日／generation／writer保護維持。Lease [#39095964666](https://github.com/tommylin15/janus-omniforge/actions/runs/39095964666) current-main取得／驗證／釋放PASS，零GCP寫入；先前失敗source被main的workflow改動超越，新guard在寫入前拒絕過期source。估值月批／分段timing／真實Iceberg檔案數與current資料不變回歸，本機171 passed；尚待新完整Release與dev實刪。詳見 [完整證據](../archive/finops-ab-continuation-2026-10-18.md)，舊外部fence阻塞由[最新決策](../decision-2026-10-18-current-only-snapshots.md)取代。
-
-### 2026-10-18｜FINOPS-AB 接續（PARTIAL）
-
-OHLCV 同月跨股合併提交並保留逐筆 provenance／partial error；五組本機回歸88 passed，最終 commit 失敗案例另1 passed。四 dev Jobs image 唯讀確認仍是 d8a57a rollback baseline；Scheduler ENABLED／每小時:30，未宣稱週化生效。Jobs lease 原子 ref 建立仍 HTTP403 integration_permission，D06 完整 fence／publication 欄位讀權未解，未部署或清理。詳見 [本次完整範圍與恢復入口](../archive/finops-ab-continuation-2026-10-18.md)；唯一狀態仍在 TODO。
+- **核准政策**：每表只留current snapshot，其餘舊snapshot／named refs可清理；歷史研究／模型／報告不再保留舊版本，7日檔齡、current資料、generation、mutation／writer lease及讀回維持。詳見[決策](../decision-2026-10-18-current-only-snapshots.md)。
+- **已完成runtime**：source `dead98d35abc8c38448791494fb97d99f37c660b` [四Jobs #39099136306](https://github.com/tommylin15/janus-omniforge/actions/runs/39099136306) PASS／8次獨立canary／可回滾基準驗證；[compaction #39099324026](https://github.com/tommylin15/janus-omniforge/actions/runs/39099324026) execution `janus-ingestion-core-bt97h` PASS，9表實際改寫796,583 bytes，current資料讀回PASS，audit mirror disabled。
+- **compaction容量口徑**：Core bucket live inventory 8,437 objects／219,508,719 bytes→8,682／222,685,481 bytes，小檔8,425→8,670；新增替代檔，尚未移除舊檔或過期snapshot。process CPU22.6464秒、planner23.5158秒、rewrite124.8535秒；沒有同類before-after／GCS歸因／帳單節省百分比。
+- **最新唯讀候選**：[盤點 #39100946078](https://github.com/tommylin15/janus-omniforge/actions/runs/39100946078) SUCCESS，Core 6,455檔／104,982,665 bytes／548舊snapshot，Mart 55／378,759／32；合計 **6,510／105,361,424 bytes（100.48MiB）／580**，全數<1MiB。只含warehouse Iceberg檔案，排除current必要檔、metadata保留紀錄及7日內檔案；compaction前6,483／534已是歷史預估。Core runtime實測delete/update、Mart delete可用，未更動IAM。
+- **實刪修正**：兩bucket versioning enabled、softDelete=0，Core defaultEventBasedHold=true。DELETE必須同時指定generation與ifGenerationMatch，避免只轉成noncurrent；Core維護明確opt-in清event hold、以metageneration防競爭，temporary hold不解除。一次性小檔先完成一筆精確generation刪除／GET404，再最多8並行；全部future結束才離開鎖，失敗保留部分收據。相關75項回歸、入口／rollout81項回歸PASS。此前477 live objects減量不當作已驗證實體版本／billable bytes釋放，也不重播清單。官方語意見[GCS DELETE](https://docs.cloud.google.com/storage/docs/json_api/v1/objects/delete)。
+- **新版本發布**：source `252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04` [完整Release #39100946095](https://github.com/tommylin15/janus-omniforge/actions/runs/39100946095) Python／Flutter／四GHCR／匿名digest全PASS；[0%候選 #39101384927](https://github.com/tommylin15/janus-omniforge/actions/runs/39101384927)及[同源auth #39101520830](https://github.com/tommylin15/janus-omniforge/actions/runs/39101520830) SUCCESS，正式API流量未切換。[四Jobs #39101646737](https://github.com/tommylin15/janus-omniforge/actions/runs/39101646737) 回寫時IN_PROGRESS，來源request commit `52585b1ceb4eb69820304d618c67eb1462111b97`；尚不能標部署PASS。
+- **未完成／接續**：先查新Jobs最終phase／8 canary／Scheduler／lease收據，再依新版固定digest執行Mart cleanup→Core小檔cleanup，記snapshot實際過期、逐generation實刪objects／bytes及current讀回；重跑no-op驗證後啟用／驗收週維護。`FINOPS_WEEKLY_MAINTENANCE`尚未啟用，B2 financials仍每股歷史批次；不宣稱所有dataset全面合併。兩天I/O量測仍CANCELLED_BY_USER，未知節省不補值。完整歷史與失敗／恢復證據移至[archive](../archive/finops-ab-continuation-2026-10-18.md)。
 
 ### 2026-10-18｜DRL-01 正式 dev 收尾：Core 逐月缺口與 serving 分離（PARTIAL）
 

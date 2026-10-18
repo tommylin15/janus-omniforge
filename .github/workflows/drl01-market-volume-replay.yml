@@ -1,8 +1,5 @@
 name: DRL-01 bounded official market-volume historical readback
 on:
-  workflow_run:
-    workflows: ['Janus GHCR operations']
-    types: [completed]
   workflow_dispatch:
   push:
     branches: [main]
@@ -16,11 +13,7 @@ concurrency:
 jobs:
   replay:
     if: >-
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.id == 39090724732 &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.head_sha == '86cccfd19a4ae12d43b3a331c07e9528297896d7') ||
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' &&
        startsWith(github.event.head_commit.message, 'activate(drl01-market):'))
     runs-on: ubuntu-latest

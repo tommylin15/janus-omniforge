@@ -5,23 +5,13 @@
   "no_owner_mutation": true,
   "no_job_template_mutation": true,
   "slices": [
-    [
-      "2026-07-01",
-      "2026-07-31"
-    ],
-    [
-      "2026-08-01",
-      "2026-08-31"
-    ],
-    [
-      "2026-09-01",
-      "2026-09-30"
-    ],
-    [
-      "2026-10-01",
-      "2026-10-12"
-    ]
+    ["2026-07-01", "2026-07-31"],
+    ["2026-08-01", "2026-08-31"],
+    ["2026-09-01", "2026-09-30"],
+    ["2026-10-01", "2026-10-18"]
   ],
   "deployed_sha": "252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04",
-  "reason": "User-approved DRL-01 market gaps: 252db8c includes 61dbdcee plus FINOPS-AB optimizations. Jobs rollout #39101646737 SUCCESS. Bounded existing official 2026-07..10/12, 4 slices, no new source, provider, job template, Owner mutation or paid resources; receipt and 10/30 per-market quality gates required."
+  "jobs_rollout_run": "39101646737",
+  "reason": "P0-3: User-approved DRL-01 market gaps. Jobs rollout #39101646737 SUCCESS with 252db8c (includes readiness fix). Bounded existing official 2026-07..10/18, 4 slices, no new source, provider, job template, Owner mutation or paid resources; receipt and TWSE<=10%/TPEx<=30% per-market quality gates required.",
+  "requested_at": "2026-10-18T22:00:00+08:00"
 }

@@ -1,0 +1,14 @@
+{
+  "intent": "p02-readiness-jobs-diagnostic",
+  "scope": "read-only",
+  "no_gcp_mutation": true,
+  "expected_jobs_sha": "252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04",
+  "checks": [
+    "jobs_image_digest",
+    "scheduler_status",
+    "data_readiness_ledger",
+    "recent_data_supplement_executions"
+  ],
+  "purpose": "P0-2: Verify Readiness Jobs deployment and Ledger publication status",
+  "requested_at": "2026-10-18T22:00:00+08:00"
+}

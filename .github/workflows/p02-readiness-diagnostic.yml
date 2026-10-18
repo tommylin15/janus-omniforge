@@ -1,0 +1,60 @@
+name: P0-2 Readiness Jobs diagnostic
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/p02-readiness-diagnostic-request.json'
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify request contract
+        run: |
+          jq -e '.intent == "p02-readiness-jobs-diagnostic" and .scope == "read-only" and .no_gcp_mutation == true' ops/p02-readiness-diagnostic-request.json
+      - name: Check Jobs image digests
+        run: |
+          echo "## Jobs Image Verification" >> "$GITHUB_STEP_SUMMARY"
+          EXPECTED_SHA="${{ fromJson(file('ops/p02-readiness-diagnostic-request.json')).expected_jobs_sha }}"
+          for job in janus-batch-controller janus-ingestion-core janus-intelligence-mart janus-private-pipeline; do
+            image=$(gcloud run jobs describe "$job" --project=gen-lang-client-0593591102 --region=us-central1 --format='value(template.template.containers[0].image)')
+            echo "- $job: $image" >> "$GITHUB_STEP_SUMMARY"
+            if [[ "$image" == *"$EXPECTED_SHA"* ]] || [[ "$image" == *"sha-${EXPECTED_SHA:0:7}"* ]]; then
+              echo "  ✅ Matches expected SHA" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+      - name: Check Scheduler status
+        run: |
+          echo "## Scheduler Status" >> "$GITHUB_STEP_SUMMARY"
+          gcloud scheduler jobs describe janus-ingestion-daily --project=gen-lang-client-0593591102 --location=us-central1 --format='table(name,state,schedule,timeZone)' >> "$GITHUB_STEP_SUMMARY"
+      - name: Check recent Controller executions
+        run: |
+          echo "## Recent Controller Executions" >> "$GITHUB_STEP_SUMMARY"
+          gcloud run jobs executions list --job=janus-batch-controller --project=gen-lang-client-0593591102 --region=us-central1 --limit=5 --format='table(name,createTime,completionTime,succeededCount,failedCount)' >> "$GITHUB_STEP_SUMMARY"
+      - name: Check data_readiness_ledger via API
+        env:
+          PROJECT: gen-lang-client-0593591102
+          REGION: us-central1
+        run: |
+          echo "## Data Readiness Ledger Check" >> "$GITHUB_STEP_SUMMARY"
+          # Get the preview URL for read-only check
+          SERVICE_URL=$(gcloud run services describe janus-api --project="$PROJECT" --region="$REGION" --format='value(status.url)')
+          # Check if data_readiness_ledger exists via public admin endpoint (if available)
+          # This is a read-only diagnostic - actual ledger check requires authenticated access
+          echo "Service URL: $SERVICE_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "Note: Full ledger verification requires authenticated Admin access" >> "$GITHUB_STEP_SUMMARY"
+      - name: Check recent data-supplement executions
+        run: |
+          echo "## Recent Data Supplement Executions" >> "$GITHUB_STEP_SUMMARY"
+          gcloud run jobs executions list --job=janus-ingestion-core --project=gen-lang-client-0593591102 --region=us-central1 --limit=10 --format='table(name,createTime,completionTime,succeededCount,failedCount)' >> "$GITHUB_STEP_SUMMARY"

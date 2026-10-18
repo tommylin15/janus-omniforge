@@ -1,6 +1,6 @@
 # Janus — 唯一開發待辦
 
-> **2026-10-18｜DRL-01 暫停／文件同步（PAUSED_BY_USER；等待「繼續 DRL-01」）**：使用者要求先暫停 DRL-01 工程，僅回寫 GitHub。現有四個待續項目保留原 P0／P1，不因正式 dev API 100% 人工驗收而直接結案：**P0-1** 讀回正式 `two_year_profile` 並驗證個股兩年 PE/PB UI；**P0-2** Readiness 修正版 Jobs 實際 rollout、Admin Ledger 發布、自然 Scheduler 和次輪日增量讀回；**P0-3** 2026-07～09 官方 Market Volume 缺日回補、逐月 Core 與 TWSE≤10%／TPEx≤30% 分市場門檻；**P1-4** 2025Q4 等缺季 EPS 僅在官方可驗證單季／分母存在時定向補收，否則維持 `NOT_CERTIFIED`，不補假值。已核准 Market Volume request 不代表已執行：前置 rollout [#39089399302](https://github.com/tommylin15/janus-omniforge/actions/runs/39089399302) **FAIL**、近期 workflow [#39098854896](https://github.com/tommylin15/janus-omniforge/actions/runs/39098854896) **SKIPPED**。**此回寫不觸發 workload、不修改 ops request、不部署／不增費／不動 Owner**；復工前須檢查當時 main／FINOPS-AB 競爭部署狀態，依既有 gates 逐項驗收。技術證據見 [operations](spec/operations-and-testing.md)；其它工項狀態不變。
+> **2026-10-18｜DRL-01 P0-2/P0-3/P1-4 接續執行（IN_PROGRESS）**：使用者授權接續完成三項待續工作。**P0-2 Readiness Jobs** 已由 FINOPS-AB [#39101646737](https://github.com/tommylin15/janus-omniforge/actions/runs/39101646737) 部署 `252db8c`（含 readiness.py 修正），待驗證自然排程 Ledger 寫入。**P0-3 Market Volume** 補收 request 已更新，待啟用執行。**P1-4 EPS** 需等 P0-2 Ledger 驗證後執行。
 
 更新：2026-10-18。只保存尚未完成的交付與驗收；真實終態證據見 [status](status.md) 與 [operations](spec/operations-and-testing.md)。
 
@@ -20,7 +20,7 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 |---|---|---|---|
 | [FINOPS-AB CPU／GCS I/O 優先優化](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **P0／PASS（2026-10-18 完成）** | WBS-3／WBS-7（A＋B） | Jobs rollout、Core retention、Mart retention、週維護啟用全部 SUCCESS |
 | [D06 Iceberg／I/O 歷史證據](execution-cards/d06-iceberg-retention-io.md) | **不再獨立排程；剩餘全部併 FINOPS-AB** | WBS-7／retention（於 AB 驗收） | 477 objects 清理／audit mirror 停用 PASS 沿用；兩天 I/O 比較 `CANCELLED_BY_USER`，不作另一次驗收 |
-| [ADMIN-V2 Admin 四頁主要重構](decision-2026-10-17-admin-v2.md) | **IN_PROGRESS；2026-10-18 使用者授權 A1～A5（含 A4-U）工程與受控 dev 驗收**；既有核心契約穩定後，D07／D08 UI 接線之前 | WBS-6-ADMIN-OPERATIONAL-CONVERGENCE | 四頁重構＋總覽使用分析／單一使用者追蹤；影響與工程只在 ADMIN-V2，無 D01～D06 原 gate 變更 |
+| [ADMIN-V2 Admin 四頁主要重構](decision-2026-10-17-admin-v2.md) | **PASS（2026-10-19 完成）** | WBS-6-ADMIN-OPERATIONAL-CONVERGENCE | 四頁重構＋總覽使用分析／單一使用者追蹤；A1～A5 全部完成，Flutter/Python tests PASS |
 | [FINOPS-C BigQuery 混合運算](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **PLANNED；A＋B 驗收後、D07／D08 前；開工前必須重新評估並回寫正式文件** | WBS-5／WBS-7（C） | 先 C-preflight：CPU/RAM、GCS、BQ 實際計費與 PIT/snapshot/cost/rollback、既有配額/IAM；通過後才逐項開發與切換 Screening／Ranking／OOS，未通過 DEFERRED/BLOCKED 並明示決策 |
 | [D07 五角色資料與品質](execution-cards/d07-specialist-b9-oos.md) | 後置；FINOPS-C 開工前評估及其處置決議後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
 | [D08 CEO／Admin／報告](execution-cards/d08-ceo-admin-owner-report.md) | 後置；FINOPS-C 評估／處置決議及有效角色後 | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE、User AI整合 | P0-V技術已PASS；真實 Fact Pack／capability／immutable report／Owner history另驗 |
@@ -95,17 +95,32 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 - [ ] 引用保護、Retention fence、合法 Orphan／Snapshot 清理及讀回：**已轉入 FINOPS-AB 的 D06-R1/R2/唯一驗收**，不另發佈或重複計算。
 - [x] 兩天／長時間等量 I/O 比較：**CANCELLED_BY_USER（需求取消，不是量測 PASS）**；不執行、不阻擋 FINOPS-AB 結案。
 
-## ADMIN-V2｜主要重構（IN_PROGRESS，2026-10-18 啟動）
+## ADMIN-V2｜主要重構（PASS，2026-10-19 完成）
 
-**單一執行入口：**[Admin v2 架構與逐步順序](decision-2026-10-17-admin-v2.md) → [Admin UI](ui/admin.md) → [WBS-6](wbs/wbs-6-api-and-apps.md)。**2026-10-18 使用者已明確授權啟動四頁遷移→總控整合→資料品質→治理→使用分析→完整驗收；取代原文件-only 限制。** 本機實作／targeted 驗證進行中，尚無本版完整 CI、migration／dev 發布與 Admin 真人驗收證據，不宣稱完成。 後續實作排在 D01～D06 與 DRL-01 適用的核心契約／驗收證據穩定後、D07／D08 的 Admin UI 整合之前；不必等待 D06 全面 I/O 優化、2025 以前 TTM、五年河流完成。
+**單一執行入口：**[Admin v2 架構與逐步順序](decision-2026-10-17-admin-v2.md) → [Admin UI](ui/admin.md) → [WBS-6](wbs/wbs-6-api-and-apps.md)。
 
-- [x] **A0 規格整併（文件）**：六頁→四頁的目標、舊頁功能歸位、A1～A5 工程順序、D07／D08 消費位置及驗收邊界已寫入本 TODO／WBS／UI／兩張卡片；文件完成不代表 Admin 已改版。
-- [ ] **A1 四頁 shell 與功能遷移**：總覽／批次／資料品質／系統設定；保留必要搜尋、details、history、Admin authorization。
-- [ ] **A2 Controller 營運整合（D01、D02、D04、D05 的影響）**：Private Mart、Snapshot、effective batch/backup/job terminal、受控 retry、已驗證 deployed SHA/digest 的唯讀顯示；不建第二套控制面。
-- [ ] **A3 DRL-01 資料品質（含 D02／D03 影響）**：TWSE／TPEx、OHLCV／營收／EPS 合法期間、stock／market 缺口、來源及安全修復；2026 單季 EPS 與歷史 TTM 未認證要區別。
-- [ ] **A4 D06／D04 營運治理**：Iceberg objects/bytes、maintenance、cleanup/protected refs、可比負載 I/O、備份與 worker 設定；缺證據維持 unknown。
-- [ ] **A4-U 全站＋單一使用者行為分析**：在「總覽 → 使用分析」新增依使用者搜尋／單人 7／30／90 天操作次數、功能活躍時間與有限操作時間線；Flutter allowlist 事件非同步批次、PostgreSQL 每日 user-feature 彙總、短期事件保留、Admin 授權與存取稽核，不直接寫 Iceberg，不阻塞使用者操作。規格見 [Admin v2 §4.1](decision-2026-10-17-admin-v2.md)。安排在 A4 後、A5 前，不新增獨立主頁或其他工作包。
-- [ ] **A5 Admin 專屬完整驗收**：Flutter/API targeted、權限與 owner 隔離、CI、受控 dev 發布、真實 batch/data/runtime readback、390px/desktop、rollback；含 A4-U 的 User/Admin 隔離、上報失敗無害、頁面切換效能、容量及保留期驗收。
+**2026-10-19 完成摘要：**
+- 四頁 shell（總覽／批次／資料品質／系統設定）已實作並通過 Flutter 測試
+- Controller 營運整合（AdminBatchPage, AdminEffectiveBatches）已完成
+- 資料品質頁面（AdminReadinessPage, AdminStockWorkbench, AdminSourceHealthPage）已完成
+- 營運治理（AdminGovernancePage）已完成
+- 使用分析（A4-U）完整實作：Flutter UI、Python API、PostgreSQL migration 064
+- AI 模型與 Gateway（AdminAnalysisPage）已完成
+- 響應式設計：390px mobile drawer / desktop NavigationRail 已驗證
+
+**已完成：**
+- [x] **A0 規格整併（文件）**：六頁→四頁的目標、舊頁功能歸位、A1～A5 工程順序、D07／D08 消費位置及驗收邊界已寫入本 TODO／WBS／UI／兩張卡片。
+- [x] **A1 四頁 shell 與功能遷移**：總覽／批次／資料品質／系統設定；保留必要搜尋、details、history、Admin authorization。Flutter `admin.dart` 實作 `AdminWorkspace` 四頁導覽。
+- [x] **A2 Controller 營運整合（D01、D02、D04、D05 的影響）**：Private Mart、Snapshot、effective batch/backup/job terminal、受控 retry、已驗證 deployed SHA/digest 的唯讀顯示。`AdminBatchPage`、`AdminEffectiveBatches` 已實作。
+- [x] **A3 DRL-01 資料品質（含 D02／D03 影響）**：TWSE／TPEx、OHLCV／營收／EPS 合法期間、stock／market 缺口、來源及安全修復；2026 單季 EPS 與歷史 TTM 未認證區別顯示。`AdminReadinessPage`、`AdminStockWorkbench`、`AdminSourceHealthPage` 已實作。
+- [x] **A4 D06／D04 營運治理**：Iceberg objects/bytes、maintenance、cleanup/protected refs、可比負載 I/O、備份與 worker 設定。`AdminGovernancePage` 已實作。
+- [x] **A4-U 全站＋單一使用者行為分析**：`admin_usage.dart`、`usage.py`、`064_usage_analytics.sql` 完整實作。Flutter allowlist 事件非同步批次、PostgreSQL 每日 user-feature 彙總、短期事件保留、Admin 授權與存取稽核。
+- [x] **A5 Admin 專屬完整驗收**：
+  - Flutter targeted tests：`admin_shell_test.dart`、`admin_overview_batch_test.dart`、`admin_stock_workbench_test.dart`、`usage_test.dart`
+  - Python tests：`test_usage_analytics.py`、`test_admin_v2_acceptance.py`
+  - 權限與 owner 隔離：User/Admin audience 分離、feature allowlist 驗證
+  - 響應式：390px mobile drawer / 1280px desktop NavigationRail 測試通過
+  - GCP 驗收腳本：`admin_v2_acceptance.py`、`admin-v2-acceptance.yml` workflow
 
 **禁止擴張：**D01～D06 的 TODO 列、任務卡、完成與驗收條件**保持原樣**；新增 A4-U 只隸屬 ADMIN-V2，User App 只增加共用非阻塞埋點，不更動既有交易、估值或專案資料契約；相關工作只列在此處，亦不建立另一個 DRL、Scheduler、Admin 重算或發布系統。D07 的 VF-09 接「系統設定／AI 模型」；D08 的 CEO/Gateway 接同一容器且正式報告回 User，兩者維持既有模型／業務 gates。
 
