@@ -9,6 +9,7 @@
 | D03 | [四頁 UI／通用圖表／視覺收斂](d03-four-page-charts-visual.md) | WBS-6-USER-FINAL-VISUAL-CONVERGENCE（非 AI） |
 | D04 | [Scheduler 總控／備份交接](d04-controller-backup-handoff.md) | WBS 3／7 |
 | D05 | [產品集中發布／完整 dev 驗收](d05-integrated-release-dev.md) | WBS 8／CI-CD |
+| **FINOPS-AB（P0）／C-preflight（D07/D08 前）** | [CPU／GCS I/O＋Iceberg 週維護與 BQ AI 指令](finops-ingestion-iceberg-ab-and-c-gate.md) | WBS-3／WBS-5／WBS-7；唯一狀態在 TODO |
 | D06 | [Iceberg／受引用保護清理／I/O](d06-iceberg-retention-io.md) | WBS 7／retention |
 | D07 | [五角色／歷史母體／B9 品質](d07-specialist-b9-oos.md) | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） |
 | D08 | [CEO／Admin／正式 Owner 報告](d08-ceo-admin-owner-report.md) | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE |
