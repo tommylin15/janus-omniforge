@@ -1,14 +1,14 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "dead98d35abc8c38448791494fb97d99f37c660b",
-  "release_run": "39097205867",
-  "purpose": "FINOPS-AB current-only snapshot cleanup, monthly coalesced prices and valuations, bounded phase timing. Exact-source full Release PASS; existing API candidate at zero canonical traffic only.",
+  "sha": "252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04",
+  "release_run": "39100946095",
+  "purpose": "FINOPS-AB exact generation deletion and scoped Core event-hold handling. Full same-source Release PASS; zero canonical traffic candidate for automated auth gate only.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Full Python and Flutter gates, all four public immutable GHCR digests PASS in #39097205867. Keep current API 100 percent and all Job templates unchanged until their gates.",
+  "retry_verification": "All Python/Flutter gates, four public GHCR immutable digests and anonymous verification PASS #39100946095. Keep canonical API traffic and Job templates unchanged.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }

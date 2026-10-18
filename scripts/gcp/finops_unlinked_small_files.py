@@ -1,5 +1,6 @@
 """User-approved old, unlinked Core small-object cleanup; no row/manifest retirement."""
 from datetime import datetime, timedelta, timezone
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import inspect
 import os
@@ -26,8 +27,11 @@ class SmallStore(GcsObjectStore):
         self.prefixes=tuple(prefixes)
         self.deleted=[]
         self.delete_attempt=None
+        self.pending=[]
+        self.scheduled=set()
 
     def objects(self,prefix):
+        self.flush()
         items=super().objects(prefix)
         return tuple(x for x in items if int(x['size'])<1024*1024) if prefix.startswith('warehouse/') else items
 
@@ -38,8 +42,28 @@ class SmallStore(GcsObjectStore):
                 or int(item['size'])>=1024*1024
                 or self.now-datetime.fromisoformat(item['updated'].replace('Z','+00:00'))<=timedelta(days=7)):
             raise ValueError('unlinked_small_file_delete_outside_approved_scope')
-        if len(self.deleted)>=9000: raise RuntimeError('unlinked_cleanup_object_budget')
-        self.delete_attempt={"name":name,"generation":generation}
+        key=(name,generation)
+        if key in self.scheduled: raise RuntimeError('unlinked_cleanup_duplicate_generation')
+        if len(self.scheduled)>=9000: raise RuntimeError('unlinked_cleanup_object_budget')
+        self.scheduled.add(key)
+        self.pending.append((name,generation,int(item['size'])))
+
+    def flush(self):
+        pending,self.pending=self.pending,[]
+        if not pending: return
+        errors=[]
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures={pool.submit(self._delete_generation,*item):item for item in pending}
+            for future in as_completed(futures):
+                item=futures[future]
+                try: self.deleted.append(future.result())
+                except Exception as error: errors.append((item,error))
+        if errors:
+            item,error=errors[0]
+            self.delete_attempt={'name':item[0],'generation':item[1]}
+            raise error
+
+    def _delete_generation(self,name,generation,size):
         endpoint = ('https://storage.googleapis.com/storage/v1/b/' + BUCKET + '/o/'
                     + quote(name, safe='') + '?generation=' + quote(generation, safe=''))
         headers = {'Authorization': 'Bearer ' + self._token()}
@@ -50,7 +74,7 @@ class SmallStore(GcsObjectStore):
         except HTTPError as error:
             if error.code != 404:
                 raise
-        self.deleted.append({'name':name,'generation':generation,'bytes':int(item['size'])})
+        return {'name':name,'generation':generation,'bytes':size}
 
 
 def cleanup(core,store,now,tables):
@@ -108,7 +132,13 @@ def main():
                               'under_1mib':sum(int(x['size'])<1024*1024 for x in entries)}
             result['tables']=[]
             result['stage']='UNLINKED_CLEANUP'
-            cleanup(core,store,now,result['tables'])
+            try:
+                cleanup(core,store,now,result['tables'])
+            except BaseException:
+                store.pending.clear()
+                raise
+            else:
+                store.flush()
             result['stage']='GENERATION_READBACK'
             remaining=raw.objects('')
             current={x['name']:x['generation'] for x in remaining}

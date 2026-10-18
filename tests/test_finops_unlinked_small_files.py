@@ -29,6 +29,7 @@ def test_only_old_listed_small_generation_inside_core_table_can_be_deleted(monke
     with pytest.raises(ValueError):store.delete(old['name'],generation='124')
     with pytest.raises(ValueError):store.delete('private/owner.json',generation='123')
     store.delete(old['name'],generation='123')
+    store.flush()
     assert calls[1][0]=='DELETE' and calls[1][1].endswith('?generation=123&ifGenerationMatch=123')
     assert calls[2][0]=='GET' and calls[2][1].endswith('?generation=123')
     assert store.deleted==[{'name':old['name'],'generation':'123','bytes':10}]
@@ -107,3 +108,19 @@ def test_worker_source_preserves_gcloud_custom_argument_delimiter():
     code=Path('scripts/gcp/finops_unlinked_small_files.py').read_text()
     assert '|' not in code
     assert ('python|-c|'+code).split('|')==['python','-c',code]
+
+
+def test_parallel_flush_joins_every_delete_before_reporting_partial_failure(monkeypatch):
+    entries=[{'name':'warehouse/ohlcv_v1/data/'+str(i)+'.parquet','size':'10','generation':str(i+1),'updated':'2026-10-01T00:00:00Z'} for i in range(3)]
+    store=m.SmallStore(entries,NOW,['warehouse/ohlcv_v1/'])
+    finished=[]
+    def remove(name,generation,size):
+        finished.append(name)
+        if generation=='2':raise RuntimeError('denied')
+        return {'name':name,'generation':generation,'bytes':size}
+    monkeypatch.setattr(store,'_delete_generation',remove)
+    for item in entries:store.delete(item['name'],generation=item['generation'])
+    assert not finished
+    with pytest.raises(RuntimeError,match='denied'):store.flush()
+    assert len(finished)==3 and len(store.deleted)==2 and not store.pending
+    assert store.delete_attempt['generation']=='2'
