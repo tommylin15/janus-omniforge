@@ -1,14 +1,14 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "9c75921736f5e2839fdf0b5d2c5ad1b4c505f4cc",
-  "release_run": "39083907831",
-  "purpose": "DRL-01 Core gap and official bounded market-history release. Candidate at 0 percent only; preserve live 100 percent baseline for user-accepted API, no owner/production mutation.",
+  "sha": "61dbdcee4baac92cb8c62201a97ccbf714e91dc4",
+  "release_run": "39085976225",
+  "purpose": "DRL-01 P0 two-year PG profile official API + repaired daily Readiness scan and bounded official market history; immutable full Release #39085976225, 0%-only candidate, preserve current approved canonical traffic.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Full GHCR Python/Flutter and all four public image digests run #39083907831 SUCCESS; same-source candidate and reversible dev guards before promotion",
+  "retry_verification": "Python/Flutter/4 image immutable GHCR full Release #39085976225 succeeded; predeploy migration064 #39086340833 passed; must pass auth/preview/Jobs and keep rollback.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }
