@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 
 from ingestion_core.stage import GcsObjectStore
-from ingestion_core.iceberg_maintenance import maintain_financials, compact_batch_events
+from ingestion_core.iceberg_maintenance import maintain_financials
 from ingestion_core.retention import clean_orphans
 
 BUCKET='gen-lang-client-0593591102-dev-core'
@@ -44,8 +44,7 @@ class SmallStore(GcsObjectStore):
 
 def cleanup(core,store,now,tables):
     identifiers=['ops.batch_events_v1']+[core.table_identifier(key) for key in core.IDENTIFIERS]
-    # Existing helpers retain current/named/24h snapshots and every known Core
-    # execution/report reference; this operation never expires canonical rows.
+    # Current-only snapshot policy; this operation never removes canonical rows.
     for identifier in identifiers:
         if not core.catalog.table_exists(identifier): continue
         report={'table':identifier,'phase':'PREFLIGHT'}
@@ -54,9 +53,6 @@ def cleanup(core,store,now,tables):
         report['orphan_preflight']=clean_orphans(core,store,identifier,apply=False,now=now)
     for report in tables:
         identifier=report['table']
-        if identifier=='ops.batch_events_v1':
-            report['compact_preflight']=compact_batch_events(core=core,apply=False)
-            report['compact_apply']=compact_batch_events(core=core,apply=True)
         report['phase']='APPLYING'
         result=maintain_financials(core=core,store=store,apply=True,now=now,identifier=identifier)
         report['maintenance']=result
@@ -80,7 +76,7 @@ def main():
             'status':'PARTIAL','core_rows_deleted':0,'core_manifests_deleted':0,
             'iceberg_audit_disabled':not hasattr(batch_controller,'export_events') and '_iceberg_core' not in inspect.getsource(batch_controller.run),
             'private_changes':0,'deletion_fence_published':False,
-            'reference_policy':'2026-10-16 user approved known-reference cleanup; incomplete external registry does not block old unlinked objects',
+            'reference_policy':'2026-10-18 user approved current-only snapshots; historical references grant no retention',
             'small_file_bytes_exclusive':1024*1024,'minimum_age_days':7}
     try:
         result['stage']='CORE_CATALOG_READ'

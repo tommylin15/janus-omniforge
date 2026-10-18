@@ -3,13 +3,63 @@ import importlib.machinery
 import json
 from pathlib import Path
 from unittest.mock import patch
+from types import SimpleNamespace
+import pytest
 
 def load_module():
     return importlib.machinery.SourceFileLoader(
         "finops_one_shot", "scripts/gcp/finops-one-shot-maintenance.py").load_module()
 
+
+@pytest.mark.parametrize('failure', [False, True])
+def test_runtime_fence_restores_scheduler_and_releases_only_own_terminal_lease(failure):
+    module = load_module()
+    trace = []
+    state = {'state': 'ENABLED', 'schedule': '30 * * * *'}
+    def scheduler_state(action, expected):
+        state['state'] = expected
+        trace.append(action)
+    rollout = SimpleNamespace(
+        scheduler=lambda: dict(state), scheduler_fingerprint=lambda value: value['schedule'],
+        JOB_COMPONENT=[('core', 'core')], job=lambda _: {'image': 'fixed'},
+        image=lambda value: value['image'], fingerprint=lambda _: 'same-config',
+        LEASE=['lease'], command=lambda args: trace.append(args[1]),
+        writers=lambda: trace.append('assert-owner'), set_scheduler=scheduler_state,
+        wait_for_terminal_executions=lambda: trace.append('terminal'),
+        checked_image=lambda *args: trace.append('unchanged'))
+    try:
+        with module.runtime_fence(rollout):
+            trace.append('maintenance')
+            if failure:
+                raise RuntimeError('known terminal worker failure')
+    except RuntimeError:
+        assert failure
+    assert trace == ['acquire', 'assert-owner', 'pause', 'terminal', 'maintenance',
+                     'terminal', 'unchanged', 'resume', 'release']
+    assert state['state'] == 'ENABLED'
+
+
+def test_runtime_fence_keeps_lease_and_scheduler_paused_on_unknown_execution():
+    module = load_module()
+    state, trace = {'state': 'ENABLED'}, []
+    def terminal():
+        if trace.count('terminal'):
+            raise RuntimeError('execution still unknown')
+        trace.append('terminal')
+    rollout = SimpleNamespace(
+        scheduler=lambda: dict(state), scheduler_fingerprint=lambda _: 'same',
+        JOB_COMPONENT=[], LEASE=['lease'], command=lambda args: trace.append(args[1]),
+        writers=lambda: None, set_scheduler=lambda action, expected: state.update(state=expected),
+        wait_for_terminal_executions=terminal)
+    with pytest.raises(RuntimeError, match='unknown'):
+        with module.runtime_fence(rollout):
+            pass
+    assert state['state'] == 'PAUSED' and 'release' not in trace
+
 def test_retention_dry_run_requires_exact_image_and_all_page_fence(monkeypatch, tmp_path, capsys):
+    from contextlib import nullcontext
     m=load_module()
+    monkeypatch.setattr(m, 'runtime_fence', lambda _: nullcontext())
     req={"intent":"one-shot-existing-dev-iceberg-maintenance","no_new_resources":True,
          "mode":"retention-dry-run","rollout_run":38676820532,
          "expected_source_sha":"4"*40,
@@ -71,7 +121,9 @@ def test_unlinked_small_files_requires_separate_explicit_user_approval(monkeypat
 
 
 def test_audit_only_mode_requires_exact_audit_receipt(monkeypatch,tmp_path,capsys):
+    from contextlib import nullcontext
     m=load_module()
+    monkeypatch.setattr(m, 'runtime_fence', lambda _: nullcontext())
     req={"intent":"one-shot-existing-dev-iceberg-maintenance","no_new_resources":True,
          "mode":"audit-cleanup","rollout_run":38676820532,
          "expected_source_sha":"4"*40,

@@ -178,6 +178,13 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
     timeout-minutes: 35
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
+    concurrency:
+      group: janus-dev-runtime-writers
+      cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
       PYTHONPATH: 'jobs/ingestion-core:.'

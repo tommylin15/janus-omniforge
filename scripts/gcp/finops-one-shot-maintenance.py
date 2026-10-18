@@ -4,6 +4,7 @@ Only existing janus-ingestion-core; no GitHub recurring Iceberg job.
 Fails closed if the previous full Jobs rollout has not passed, image differs,
 Scheduler is disabled, or a live ingestion execution is present.
 """
+from contextlib import contextmanager
 import importlib.machinery
 import json
 import os
@@ -111,6 +112,36 @@ def unlinked_cleanup(job):
         raise RuntimeError('unlinked_cleanup_not_pass')
 
 
+@contextmanager
+def runtime_fence(rollout):
+    """Keep Scheduler and lease until every existing writer is terminal again."""
+    schedule = rollout.scheduler()
+    if schedule.get("state") != "ENABLED":
+        raise RuntimeError("maintenance_scheduler_not_enabled")
+    fingerprint = rollout.scheduler_fingerprint(schedule)
+    jobs = {name: rollout.job(name) for name, _ in rollout.JOB_COMPONENT}
+    snapshots = {name: (rollout.image(job), rollout.fingerprint(job)) for name, job in jobs.items()}
+    rollout.command(rollout.LEASE + ["acquire"])
+    try:
+        rollout.writers()
+        rollout.set_scheduler("pause", "PAUSED")
+        rollout.wait_for_terminal_executions()
+        yield
+    finally:
+        # Unknown execution, drift or failed restore retains the lease.
+        rollout.wait_for_terminal_executions()
+        for name, (image, config) in snapshots.items():
+            rollout.checked_image(name, image, config)
+        current = rollout.scheduler()
+        if rollout.scheduler_fingerprint(current) != fingerprint:
+            raise RuntimeError("maintenance_scheduler_configuration_drift")
+        if current.get("state") == "PAUSED":
+            rollout.set_scheduler("resume", "ENABLED")
+        elif current.get("state") != "ENABLED":
+            raise RuntimeError("maintenance_scheduler_state_unknown")
+        rollout.command(rollout.LEASE + ["release", "--safe-to-release"])
+
+
 def main():
     request = json.loads(REQUEST.read_text())
     if (request.get("intent") != "one-shot-existing-dev-iceberg-maintenance"
@@ -122,9 +153,9 @@ def main():
         raise RuntimeError('explicit_unlinked_small_file_approval_required')
     release_id = str(request["rollout_run"])
     release = jsoncall("gh", "run", "view", release_id,
-                       "--json", "status,conclusion,workflowName")
-    if (release["status"] != "completed" or release["conclusion"] != "success"
-            or release["workflowName"] != "Janus GHCR controlled Jobs rollout"):
+                       "--json", "headSha,status,conclusion,workflowName")
+    import ghcr_jobs_rollout as rollout
+    if not rollout.successful_operation(release, release_id, "Janus GHCR controlled Jobs rollout", "jobs-rollout"):
         raise RuntimeError("reversible four-Jobs rollout acceptance not PASS")
     scheduler = jsoncall("gcloud", "scheduler", "jobs", "describe",
                          "janus-ingestion-daily", "--project=" + PROJECT,
@@ -150,6 +181,11 @@ def main():
     # The shared all-page fence is mandatory before touching the live Core Job.
     import ghcr_jobs_rollout as rollout
     rollout.fence()
+    with runtime_fence(rollout):
+        execute_maintenance(request, job, rollout)
+
+
+def execute_maintenance(request, job, rollout):
     if request['mode']=='ci-approved-orphans':
         from finops_ci_orphans import run
         run(call,jsoncall,inventory,rollout)
@@ -175,7 +211,7 @@ def main():
     evidence = log_evidence(execution_name, component)
     if mode == "audit-cleanup" and (evidence.get("mode") != "audit-cleanup" or evidence.get("status") != "PASS"):
         raise RuntimeError("Audit-only cleanup evidence mismatch")
-    if mode == "compact-nightly" and evidence.get("mode") != "dry-run-then-apply":
+    if mode == "compact-nightly" and evidence.get("mode") not in {"dry-run-then-apply", "skipped_no_work"}:
         raise RuntimeError("Iceberg preflight and apply evidence mismatch")
     if mode.startswith("retention-") and evidence.get("mode") != ("apply" if mode == "retention-apply" else "dry-run"):
         raise RuntimeError("Core retention mode receipt mismatch")

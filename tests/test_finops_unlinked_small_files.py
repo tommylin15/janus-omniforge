@@ -42,7 +42,6 @@ def test_audit_is_first_and_partial_table_receipt_survives_failure(monkeypatch):
         if kw['apply']: raise RuntimeError('blocked')
         return {'planned_expiration':2}
     monkeypatch.setattr(m,'maintain_financials',maintain)
-    monkeypatch.setattr(m,'compact_batch_events',lambda **kw:{'status':'eligible'})
     monkeypatch.setattr(m,'clean_orphans',lambda *args,**kw:{'planned_objects':3})
     reports=[]
     with pytest.raises(RuntimeError):m.cleanup(core,None,NOW,reports)
@@ -62,12 +61,11 @@ def test_cleanup_reuses_reference_helpers_and_reads_current_rows(monkeypatch):
     core=SimpleNamespace(IDENTIFIERS=['ohlcv'],table_identifier=lambda key:'core.ohlcv_v1',
         catalog=SimpleNamespace(table_exists=lambda name:True,load_table=lambda name:table))
     monkeypatch.setattr(m,'maintain_financials',lambda **kw:calls.append(('metadata',kw['identifier'],kw['apply'])) or {'row_count':1})
-    monkeypatch.setattr(m,'compact_batch_events',lambda **kw:calls.append(('compact','ops.batch_events_v1',kw['apply'])) or {})
     monkeypatch.setattr(m,'clean_orphans',lambda core,store,name,**kw:calls.append(('orphan',name,kw['apply'])) or {})
     reports=[]
     m.cleanup(core,None,NOW,reports)
     assert calls[:4]==[(kind,name,False) for name in ('ops.batch_events_v1','core.ohlcv_v1') for kind in ('metadata','orphan')]
-    assert calls[4:]==[('compact','ops.batch_events_v1',False),('compact','ops.batch_events_v1',True)]+[(kind,name,True) for name in ('ops.batch_events_v1','core.ohlcv_v1') for kind in ('metadata','orphan')]
+    assert calls[4:]==[(kind,name,True) for name in ('ops.batch_events_v1','core.ohlcv_v1') for kind in ('metadata','orphan')]
     assert all(x['phase']=='READBACK_PASS' for x in reports)
 
 
