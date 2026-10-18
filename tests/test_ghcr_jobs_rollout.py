@@ -648,7 +648,7 @@ def test_global_lease_diagnostic_is_bounded_redacted_and_never_retries(monkeypat
     def execute(args, **kwargs):
         calls.append(args)
         return SimpleNamespace(returncode=78, stdout="",
-                               stderr='{"status":"BLOCKED","reason":"lease_busy"}\\n')
+                               stderr='{"status":"BLOCKED","reason":"lease_busy"}')
     monkeypatch.setattr(rollout.subprocess, "run", execute)
     with pytest.raises(RuntimeError, match="^bounded_release_lease_lease_busy$"):
         rollout.command(rollout.LEASE + ["acquire"])
