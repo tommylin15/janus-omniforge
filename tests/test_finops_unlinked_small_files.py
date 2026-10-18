@@ -124,3 +124,16 @@ def test_parallel_flush_joins_every_delete_before_reporting_partial_failure(monk
     with pytest.raises(RuntimeError,match='denied'):store.flush()
     assert len(finished)==3 and len(store.deleted)==2 and not store.pending
     assert store.delete_attempt['generation']=='2'
+
+
+def test_first_delete_failure_stops_before_parallel_fanout(monkeypatch):
+    entries=[{'name':'warehouse/ohlcv_v1/data/'+str(i)+'.parquet','size':'10','generation':str(i+1),'updated':'2026-10-01T00:00:00Z'} for i in range(3)]
+    store=m.SmallStore(entries,NOW,['warehouse/ohlcv_v1/'])
+    calls=[]
+    def blocked(*item):
+        calls.append(item)
+        raise RuntimeError('denied')
+    monkeypatch.setattr(store,'_delete_generation',blocked)
+    for item in entries:store.delete(item['name'],generation=item['generation'])
+    with pytest.raises(RuntimeError,match='denied'):store.flush()
+    assert len(calls)==1 and not store.deleted and not store.pending

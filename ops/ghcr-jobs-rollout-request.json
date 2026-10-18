@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "dead98d35abc8c38448791494fb97d99f37c660b",
-  "release_run": "39097205867",
+  "sha": "252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04",
+  "release_run": "39100946095",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "d8a57aa57198e0f383a37125e6b94eb392abe717",
+  "baseline_source_sha": "dead98d35abc8c38448791494fb97d99f37c660b",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:073d7a200a05464542776721d3b3edbc5f6ce438e24e79eb2d39dd24d09ef1d7",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:073d7a200a05464542776721d3b3edbc5f6ce438e24e79eb2d39dd24d09ef1d7",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:6a33d77cf9ee55d70fcb62625bd339c377c7b20fe498609a5016d34441df2dc1",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:ae91a2f478893cc43840284ca096b0298c6b357f44196d0e818c72c099655d97"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:59a1a2adb4eb97ec18886f06fd1bc72aaf0514f8288b3b859bf9420f0065a698",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:59a1a2adb4eb97ec18886f06fd1bc72aaf0514f8288b3b859bf9420f0065a698",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:7687e292660637e9dc69799551d9adf74c9d259caf3b8a6ac0264d10999f0a64",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:b1438594a96688be1bdf53638ae923a9b1997a7aac0ff3f28849b14fa87e7035"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 38,
-  "safety": "FINOPS-AB same-source four-Jobs rollout. Read-only REST evidence after #39098770305: retired research Job GET returns 404 and execution list returns HTTP200 exact empty object. Permit only this retired name with Job404 plus execution404 or exact empty object; active writer404, nonempty listing or pagination still blocked. Keep immutable reversible baseline, all eight canaries and Scheduler/lease fences.",
-  "auth_boundary_run": "39097809505",
-  "automated_oauth_requirement": "Same-source automated OAuth and private negative boundary #39097809505 PASS.",
-  "authorization": "User-authorized FINOPS-AB completion and current-only snapshot cleanup; existing four dev Jobs only; immutable digest and exact baseline rollback required."
+  "request_attempt": 39,
+  "safety": "FINOPS-AB exact-generation permanent deletion and opt-in event-hold cleanup. Reversible current dead98d3 baseline verified by prior successful rollout; preserve all four Job configs, eight canaries, Scheduler and writer lease. No IAM expansion.",
+  "auth_boundary_run": "39101520830",
+  "automated_oauth_requirement": "Require same-source automated OAuth and negative private boundary #39101520830 PASS before any Job mutation.",
+  "authorization": "User-approved FINOPS-AB completion and permanent cleanup of obsolete current-only Iceberg generations. Existing four dev Jobs only; no API traffic promotion or private data writes."
 }

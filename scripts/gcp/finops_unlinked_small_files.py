@@ -51,6 +51,12 @@ class SmallStore(GcsObjectStore):
     def flush(self):
         pending,self.pending=self.pending,[]
         if not pending: return
+        if not self.deleted:
+            item=pending.pop(0)
+            try: self.deleted.append(self._delete_generation(*item))
+            except Exception:
+                self.delete_attempt={'name':item[0],'generation':item[1]}
+                raise
         errors=[]
         with ThreadPoolExecutor(max_workers=8) as pool:
             futures={pool.submit(self._delete_generation,*item):item for item in pending}

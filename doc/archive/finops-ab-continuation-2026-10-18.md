@@ -1,5 +1,13 @@
 # FINOPS-AB 接續證據（2026-10-18）
 
+## 精確generation修正版（待Jobs與實刪）
+
+- source `252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04` 完整Release [#39100946095](https://github.com/tommylin15/janus-omniforge/actions/runs/39100946095) 全部tests／4個GHCR／匿名digest PASS；0%候選 [#39101384927](https://github.com/tommylin15/janus-omniforge/actions/runs/39101384927) 與同源自動auth [#39101520830](https://github.com/tommylin15/janus-omniforge/actions/runs/39101520830) SUCCESS，未切正式API流量。
+- compaction後唯讀 [#39100946078](https://github.com/tommylin15/janus-omniforge/actions/runs/39100946078) PASS：Core 6,455／104,982,665 bytes／548舊snapshot；Mart 55／378,759 bytes／32。合計6,510檔／105,361,424 bytes（100.48MiB）／580舊snapshot，全數<1MiB，尚未實刪。
+- **實測現況取代歷史缺權判斷：**Core runtime testPermissions返回delete/update，Mart返回delete；無需IAM擴張，未建立／套用任何role或binding。Core舊403不代表現在仍缺權。
+- 一次性小檔入口最多8個並行，先成功刪一個並GET精確generation確認404才fanout；所有future結束後才釋放mutation lock／writer lease。變更前錯誤丟棄尚未派出的刪除，部分刪除保留逐generation實際收據；入口／rollout回歸81 passed。
+- compaction process CPU22.6464秒、planner23.5158秒、rewrite124.8535秒；是單process度量，沒有同類before-after或GCS歸因，不冒充帳單節省。
+
 ## 最新部署與compaction（尚未實刪）
 
 - 同源 `dead98d35abc8c38448791494fb97d99f37c660b` [Jobs #39099136306](https://github.com/tommylin15/janus-omniforge/actions/runs/39099136306) PASS，四Jobs兩輪共8/8 canary，reversible d8a57a基準已驗證、設定未漂移、Scheduler恢復。中途#39098978307因另一工作線文件push令source過期，在取得lease前停止；以最新main重新dispatch，未繞鎖。
