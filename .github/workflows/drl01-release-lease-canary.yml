@@ -1,0 +1,33 @@
+name: DRL-01 deploy lease atomic canary
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/drl01-release-lease-canary.yml']
+permissions:
+  contents: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Atomic no-GCP lease claim, ownership, release, absent readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/gcp/ghcr_release_lease.py inspect
+          if python scripts/gcp/ghcr_release_lease.py acquire; then
+            trap 'python scripts/gcp/ghcr_release_lease.py release --safe-to-release' EXIT
+            python scripts/gcp/ghcr_release_lease.py assert
+          else
+            echo 'Release lease could not be acquired; no GCP writes performed.' >&2
+            exit 78
+          fi
+          python scripts/gcp/ghcr_release_lease.py release --safe-to-release
+          trap - EXIT
+          python scripts/gcp/ghcr_release_lease.py inspect
