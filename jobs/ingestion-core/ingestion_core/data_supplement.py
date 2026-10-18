@@ -121,14 +121,37 @@ def _fetch(url, payload=None):
 
 
 
-def _rows(core, dataset, symbols):
+def _rows(core, dataset, symbols, *, date_field=None, start_date=None, end_date=None, selected_fields=None):
+    """Push bounded dates/columns into Iceberg; preserve all versions within the requested period.
+
+    Optional bounds are explicit call-site requirements rather than an implicit
+    sliding TTL. Unsupported fields fail closed rather than silently scanning
+    the entire historical table.
+    """
     if not core.table_exists(dataset):
         return []
-    from pyiceberg.expressions import In
+    from pyiceberg.expressions import And, GreaterThanOrEqual, In, LessThanOrEqual
     table = core.catalog.load_table(core.table_identifier(dataset))
+    fields = {field.name for field in table.schema().fields}
     options = {"limit": 100001}
-    if "symbol" in {field.name for field in table.schema().fields}:
-        options["row_filter"] = In("symbol", set(symbols))
+    predicates = []
+    if "symbol" in fields and symbols:
+        predicates.append(In("symbol", set(symbols)))
+    if start_date is not None or end_date is not None:
+        if not date_field or date_field not in fields:
+            raise ValueError("supplement date-bounded read requires a verified Iceberg field")
+        if start_date is not None and end_date is not None and str(start_date) > str(end_date):
+            raise ValueError("supplement date bounds are inverted")
+        if start_date is not None:
+            predicates.append(GreaterThanOrEqual(date_field, str(start_date)))
+        if end_date is not None:
+            predicates.append(LessThanOrEqual(date_field, str(end_date)))
+    if predicates:
+        options["row_filter"] = And(*predicates) if len(predicates) > 1 else predicates[0]
+    if selected_fields is not None:
+        if not selected_fields or any(column not in fields for column in selected_fields):
+            raise ValueError("supplement selected_fields must exist in the Core schema")
+        options["selected_fields"] = tuple(selected_fields)
     rows = table.scan(**options).to_arrow().to_pylist()
     if len(rows) > 100000:
         raise ValueError("supplement read limit exceeded")
@@ -389,7 +412,10 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
             price_months = int(os.environ.get("JANUS_DATA_SUPPLEMENT_PRICE_MONTHS", "8"))
             market_months = [(year, month+1) for year, month in months_ending(
                 target.year, target.month, price_months)]
-        prior_valuation = _rows(core, "valuation", symbols) if not fundamental_only else []
+        prior_valuation = (_rows(core, "valuation", symbols, date_field="observed_date",
+                                 start_date=target.isoformat(), end_date=target.isoformat(),
+                                 selected_fields=("symbol", "observed_date"))
+                           if incremental and not fundamental_only else [])
         for symbol in (() if fundamental_only else symbols):
             valuation_batch = []
             for year, month in ([(target.year, target.month)] if incremental else market_months):
@@ -416,13 +442,18 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
                 if day.weekday() < 5 and day not in holidays:
                     required.add(day.isoformat())
                 day -= timedelta(days=1)
-            prices = _rows(core, "ohlcv", symbols)
+            prices = _rows(core, "ohlcv", symbols, date_field="trade_date",
+                           start_date=min(required), end_date=target.isoformat(),
+                           selected_fields=("symbol", "trade_date"))
             for symbol in symbols:
                 available = {str(r["trade_date"]) for r in prices if r["symbol"] == symbol}
                 missing_months[symbol] = {(int(day[:4]), int(day[5:7])) for day in required-available}
                 missing_months[symbol].update((int(period[:4]), int(period[5:7])) for stock, dataset, period in repairs
                     if stock == symbol and dataset == "ohlcv" and re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", period or ""))
-            available = {str(r["trade_date"]) for r in _rows(core, "benchmark", ())}
+            available = {str(r["trade_date"]) for r in _rows(
+                core, "benchmark", (), date_field="trade_date",
+                start_date=min(required), end_date=target.isoformat(),
+                selected_fields=("trade_date",))}
             benchmark_months = {(int(day[:4]), int(day[5:7])) for day in required-available}
         for year, month in (() if valuation_only or fundamental_only else market_months):
             for symbol in symbols:
@@ -457,7 +488,12 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
                 failure("benchmark", "TAIEX", f"{year}-{month:02d}", error)
 
         tables = _current_core_fences(core)
-        coverage = coverage_summary(_rows(core, "financials", symbols), _rows(core, "ohlcv", symbols), symbols, target)
+        coverage = coverage_summary(
+            _rows(core, "financials", symbols),
+            _rows(core, "ohlcv", symbols, date_field="trade_date",
+                  start_date=(target-timedelta(days=365)).isoformat(), end_date=target.isoformat(),
+                  selected_fields=("symbol", "trade_date")),
+            symbols, target)
         summary["coverage"] = coverage
         if not summary["core_created"] and not summary["core_reused"] and not ((incremental or fundamental_only) and tables):
             raise RuntimeError(json.dumps({"failures": [{"dataset": f["dataset"], "date": f["period"], "error": f["reason"]}
