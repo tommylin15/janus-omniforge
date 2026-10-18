@@ -16,14 +16,14 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 
 | 工作包 | 狀態／次序 | 既有 WBS 責任 | 依賴與退出條件 |
 |---|---|---|---|
-| [FINOPS-AB CPU／GCS I/O 優先優化](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **P0／立即實作，IN_PROGRESS（工程與 runtime 未驗收）** | WBS-3／WBS-7（A＋B） | A：每週維護鏈＋跳過無效工作；B：增量查詢、合併提交、dirty-partition；先確認現行 dev digest／成本基線，不新增付費服務 |
+| [FINOPS-AB CPU／GCS I/O 優先優化](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **P0／優先開工，READY_TO_IMPLEMENT（本工項尚無工程／runtime 驗收證據）** | WBS-3／WBS-7（A＋B） | A：每週維護鏈＋跳過無效工作；B：增量查詢、合併提交、dirty-partition；先確認現行 dev digest／成本基線，不新增付費服務 |
 | [D06 Iceberg／I/O](execution-cards/d06-iceberg-retention-io.md) | PARTIAL；獨立已授權 | WBS 7／retention | 既有 Jobs／cleanup 終態、完整引用保護、真實 objects／bytes／等量 I/O 驗收 |
 | [ADMIN-V2 Admin 四頁主要重構](decision-2026-10-17-admin-v2.md) | **IN_PROGRESS；2026-10-18 使用者授權 A1～A5（含 A4-U）工程與受控 dev 驗收**；既有核心契約穩定後，D07／D08 UI 接線之前 | WBS-6-ADMIN-OPERATIONAL-CONVERGENCE | 四頁重構＋總覽使用分析／單一使用者追蹤；影響與工程只在 ADMIN-V2，無 D01～D06 原 gate 變更 |
 | [FINOPS-C BigQuery 混合運算](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **PLANNED；A＋B 驗收後、D07／D08 前；開工前必須重新評估並回寫正式文件** | WBS-5／WBS-7（C） | 先 C-preflight：CPU/RAM、GCS、BQ 實際計費與 PIT/snapshot/cost/rollback、既有配額/IAM；通過後才逐項開發與切換 Screening／Ranking／OOS，未通過 DEFERRED/BLOCKED 並明示決策 |
 | [D07 五角色資料與品質](execution-cards/d07-specialist-b9-oos.md) | 後置；FINOPS-C 開工前評估及其處置決議後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
 | [D08 CEO／Admin／報告](execution-cards/d08-ceo-admin-owner-report.md) | 後置；FINOPS-C 評估／處置決議及有效角色後 | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE、User AI整合 | P0-V技術已PASS；真實 Fact Pack／capability／immutable report／Owner history另驗 |
 
-## FINOPS-AB｜先完成 A＋B，降低 Ingestion Core CPU／GCS I/O（P0；IN_PROGRESS／未驗收）
+## FINOPS-AB｜先完成 A＋B，降低 Ingestion Core CPU／GCS I/O（P0；READY_TO_IMPLEMENT／未驗收）
 
 **AI 唯一指令入口：**[FINOPS-AB／C 工程執行卡](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) §0–§3 → [Batch Controller Runbook](runbook-batch-controller-dev.md) → [WBS-7](wbs/wbs-7-security-finops.md)。這是新優先序的正式工項，不取代 D06 歷史 I/O 驗收或 DRL-01 工作內容。
 
