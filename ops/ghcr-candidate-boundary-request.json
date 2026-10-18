@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "61dbdcee4baac92cb8c62201a97ccbf714e91dc4",
-  "candidate_release_run": "39085976225",
-  "candidate_deployment_run": "39089101585",
-  "purpose": "DRL-01 two-year official PE/PB serving and repaired Data Readiness Ledger; readonly OAuth/Owner-private negative canaries on latest 0%-candidate.",
+  "sha": "dead98d35abc8c38448791494fb97d99f37c660b",
+  "candidate_release_run": "39097205867",
+  "candidate_deployment_run": "39097582970",
+  "purpose": "FINOPS-AB exact-source zero-traffic candidate automated OAuth metadata and negative owner/private boundary only. No canonical traffic or Job update.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 37
+  "attempt": 38
 }

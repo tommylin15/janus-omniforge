@@ -11,6 +11,7 @@
 - 尚需本輪同源完整Release、受控Jobs rollout、週維護生效及真實compaction／expiration／objects・bytes實刪讀回。舊477 objects不重計；未量測不填節省百分比。
 - source `8e7a455cacb01b4c5d03f604ad51abb47e2956c6` 完整Release #39096898049、compaction CI #39096897766 與selective #39096897726 均因兩個Stage/Core舊留存政策斷言FAIL；資料契約 #39096897727 SUCCESS。已將兩個測試改成current-only與current metadata路徑保護，Stage/Core本機23 passed（tempfile明確放專案.tmp，避開Windows sandbox暫存路徑限制），未部署、不把原FAIL改寫成PASS。
 - source `dead98d35abc8c38448791494fb97d99f37c660b` compaction CI #39097205701／selective #39097205661 SUCCESS；完整Release #39097205867 的Python／Flutter gate已SUCCESS，GHCR四映像建置中，尚不當作完整Release PASS。清理入口補上同一runtime writer concurrency／原子lease／Scheduler pause・restore／terminal fence；明確未知執行不釋放租約，另24項targeted checks PASS。
+- 同來源完整Release [#39097205867](https://github.com/tommylin15/janus-omniforge/actions/runs/39097205867) 最終所有gate／四映像／匿名digest驗證SUCCESS；[0%候選 #39097582970](https://github.com/tommylin15/janus-omniforge/actions/runs/39097582970) SUCCESS，正式100% baseline未切換。candidate request由Git index提交本次收據，原工作區未提交內容原樣保留。尚需同源auth boundary、Jobs rollout與清理讀回。
 
 狀態：**PARTIAL；不是部署或清理結案**。本次輸入 main `4b1785603aaa23005701f1e72b3377fed1070419`；FINOPS-C、DRL-01、ADMIN-V2 不納入施工。本機既有 ADMIN 檔案與 candidate request 保留、不提交。
 

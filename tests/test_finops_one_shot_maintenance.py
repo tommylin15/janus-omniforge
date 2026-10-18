@@ -56,6 +56,54 @@ def test_runtime_fence_keeps_lease_and_scheduler_paused_on_unknown_execution():
             pass
     assert state['state'] == 'PAUSED' and 'release' not in trace
 
+
+@pytest.mark.parametrize('collateral_change', [False, True])
+def test_weekly_toggle_accepts_only_the_flag_and_keeps_exact_image(monkeypatch, capsys, collateral_change):
+    from copy import deepcopy
+    import sys
+    sys.path.insert(0, 'scripts/gcp')
+    import ghcr_jobs_rollout as rollout
+    module = load_module()
+    image = 'ghcr.io/tommylin15/janus-ingestion-core@sha256:'+'a'*64
+    state = {'template': {'template': {'containers': [{'image':image,
+             'env':[{'name':'KEEP','value':'original'}]}]}}}
+    snapshots = {'janus-batch-controller': (image, rollout.fingerprint(state))}
+    original = deepcopy(snapshots)
+    monkeypatch.setattr(rollout, 'job', lambda _: deepcopy(state))
+    def update(*args, **kwargs):
+        env = state['template']['template']['containers'][0]['env']
+        env.append({'name':'FINOPS_WEEKLY_MAINTENANCE','value':'true'})
+        if collateral_change:
+            env[0]['value'] = 'changed'
+        return ''
+    monkeypatch.setattr(module, 'call', update)
+    request = {'mode':'enable-weekly','expected_image':image}
+    if collateral_change:
+        with pytest.raises(RuntimeError, match='other_configuration'):
+            module.execute_maintenance(request, None, rollout, snapshots)
+        assert snapshots == original
+    else:
+        module.execute_maintenance(request, None, rollout, snapshots)
+        assert snapshots['janus-batch-controller'] == (image, rollout.fingerprint(state))
+        assert json.loads(capsys.readouterr().out)['weekly_maintenance'] is True
+
+
+def test_mart_cleanup_requires_exact_image_and_current_only_receipt(monkeypatch, capsys):
+    module = load_module()
+    image = 'ghcr.io/tommylin15/janus-intelligence-mart@sha256:'+'a'*64
+    calls = []
+    rollout = SimpleNamespace(checked_image=lambda *args: {'image':image}, image=lambda value:value['image'])
+    monkeypatch.setattr(module, 'call', lambda *args, **kwargs: calls.append(args) or 'janus-intelligence-mart-cleanup')
+    monkeypatch.setattr(module, 'log_evidence', lambda *args, **kwargs: {'mode':'apply','policy_version':'current-only-snapshots-v1'})
+    request = {'mode':'mart-retention','expected_mart_image':image,'expected_source_sha':'a'*40}
+    snapshots = {'janus-intelligence-mart': (image, 'config')}
+    module.execute_maintenance(request, None, rollout, snapshots)
+    assert json.loads(capsys.readouterr().out)['operation'] == 'mart-retention'
+    assert calls[0][:5] == ('gcloud','run','jobs','execute','janus-intelligence-mart')
+    monkeypatch.setattr(module, 'log_evidence', lambda *args, **kwargs: {'mode':'apply','policy_version':'old-policy'})
+    with pytest.raises(RuntimeError, match='policy_readback'):
+        module.execute_maintenance(request, None, rollout, snapshots)
+
 def test_retention_dry_run_requires_exact_image_and_all_page_fence(monkeypatch, tmp_path, capsys):
     from contextlib import nullcontext
     m=load_module()

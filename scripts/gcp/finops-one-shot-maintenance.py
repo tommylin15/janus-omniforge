@@ -5,6 +5,7 @@ Fails closed if the previous full Jobs rollout has not passed, image differs,
 Scheduler is disabled, or a live ingestion execution is present.
 """
 from contextlib import contextmanager
+from copy import deepcopy
 import importlib.machinery
 import json
 import os
@@ -51,9 +52,9 @@ def inventory():
             "under_1mib": result["under_1mib"]}
 
 
-def log_evidence(execution, component, *, all_entries=False):
+def log_evidence(execution, component, *, all_entries=False, job_name=JOB):
     selector = ('resource.type="cloud_run_job" AND '
-                'resource.labels.job_name="janus-ingestion-core" AND '
+                f'resource.labels.job_name="{job_name}" AND '
                 f'labels."run.googleapis.com/execution_name"="{execution}"')
     for _ in range(12):
         entries = jsoncall("gcloud", "logging", "read", selector,
@@ -126,7 +127,7 @@ def runtime_fence(rollout):
         rollout.writers()
         rollout.set_scheduler("pause", "PAUSED")
         rollout.wait_for_terminal_executions()
-        yield
+        yield snapshots
     finally:
         # Unknown execution, drift or failed restore retains the lease.
         rollout.wait_for_terminal_executions()
@@ -146,7 +147,7 @@ def main():
     request = json.loads(REQUEST.read_text())
     if (request.get("intent") != "one-shot-existing-dev-iceberg-maintenance"
             or request.get("no_new_resources") is not True
-            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup", "unlinked-small-files", "ci-approved-orphans"}
+            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup", "unlinked-small-files", "ci-approved-orphans", "enable-weekly", "mart-retention"}
             or len(request.get("expected_source_sha", "")) != 40):
         raise RuntimeError("invalid one-shot GCP maintenance authorization")
     if request['mode'] in {'unlinked-small-files','ci-approved-orphans'} and request.get('user_approved_unlinked_small_file_cleanup') is not True:
@@ -181,11 +182,60 @@ def main():
     # The shared all-page fence is mandatory before touching the live Core Job.
     import ghcr_jobs_rollout as rollout
     rollout.fence()
-    with runtime_fence(rollout):
-        execute_maintenance(request, job, rollout)
+    with runtime_fence(rollout) as snapshots:
+        execute_maintenance(request, job, rollout, snapshots)
 
 
-def execute_maintenance(request, job, rollout):
+def execute_maintenance(request, job, rollout, snapshots=None):
+    if request['mode'] == 'mart-retention':
+        name = 'janus-intelligence-mart'
+        if snapshots is None or name not in snapshots:
+            raise RuntimeError('mart_cleanup_requires_owned_runtime_fence')
+        expected = request.get('expected_mart_image', '')
+        if not expected.startswith('ghcr.io/tommylin15/janus-intelligence-mart@sha256:'):
+            raise RuntimeError('immutable_mart_cleanup_image_required')
+        if rollout.image(rollout.checked_image(name, *snapshots[name])) != expected:
+            raise RuntimeError('mart_cleanup_image_not_verified')
+        output = call('gcloud', 'run', 'jobs', 'execute', name, '--project='+PROJECT, '--region='+REGION,
+                      '--update-env-vars=MART_OPERATION=retention,MART_RETENTION_MODE=apply,MART_AI_ENABLED=false',
+                      '--tasks=1', '--wait', '--format=value(metadata.name)', timeout=1500)
+        execution = output.splitlines()[-1].rsplit('/', 1)[-1]
+        if not execution.startswith(name+'-'):
+            raise RuntimeError('mart_cleanup_execution_unknown')
+        evidence = log_evidence(execution, 'mart-retention', job_name=name)
+        if evidence.get('policy_version') != 'current-only-snapshots-v1' or evidence.get('mode') != 'apply':
+            raise RuntimeError('mart_cleanup_policy_readback_failed')
+        print(json.dumps({'status':'PASS','operation':'mart-retention','cloud_execution':execution,
+                          'source_sha':request['expected_source_sha'],'evidence':evidence}, sort_keys=True))
+        return
+    if request['mode'] == 'enable-weekly':
+        name = 'janus-batch-controller'
+        if snapshots is None or name not in snapshots:
+            raise RuntimeError('weekly_toggle_requires_owned_runtime_fence')
+        before = deepcopy(rollout.checked_image(name, *snapshots[name]))
+        if rollout.image(before) != request['expected_image']:
+            raise RuntimeError('weekly_controller_image_not_verified')
+        call('gcloud', 'run', 'jobs', 'update', name, '--project='+PROJECT, '--region='+REGION,
+             '--update-env-vars=FINOPS_WEEKLY_MAINTENANCE=true', '--quiet', timeout=300)
+        after = rollout.job(name)
+        values = [item.get('value') for item in after['template']['template']['containers'][0].get('env', [])
+                  if item.get('name') == 'FINOPS_WEEKLY_MAINTENANCE']
+        if values != ['true'] or rollout.image(after) != rollout.image(before):
+            raise RuntimeError('weekly_controller_flag_readback_failed')
+        cleaned = []
+        for value in (before, after):
+            value = deepcopy(value)
+            container = value['template']['template']['containers'][0]
+            container['env'] = [item for item in container.get('env', [])
+                                if item.get('name') != 'FINOPS_WEEKLY_MAINTENANCE']
+            cleaned.append(rollout.fingerprint(value))
+        if cleaned[0] != cleaned[1]:
+            raise RuntimeError('weekly_toggle_changed_other_configuration')
+        snapshots[name] = (rollout.image(after), rollout.fingerprint(after))
+        print(json.dumps({'status':'PASS','operation':'enable-weekly','job':name,
+                          'image':rollout.image(after),'weekly_maintenance':True,
+                          'scheduler_schedule_changed':False}, sort_keys=True))
+        return
     if request['mode']=='ci-approved-orphans':
         from finops_ci_orphans import run
         run(call,jsoncall,inventory,rollout)
