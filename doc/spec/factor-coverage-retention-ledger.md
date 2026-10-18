@@ -61,7 +61,7 @@
 | M 的 13 月營收（2025-09～2026-09） | TWSE **1,077/1,096**、TPEx **864/896**，合計 **1,941/1,992**，分市場 PASS | 不等於 25,233 實際 Core row 數／所有 13 個月版次完整 PIT |
 | Focus D 價量 | 6 TWSE 各 **135 日**，00697B／00719B 各 **125 日**，8/8 120 日 gate PASS | 不等於市場其餘股票 120 日覆蓋或所有持股 3 年已齊 |
 | EPS 首版 | 6 focus TWSE 的 2026 Q1＋Q2 各有合法單季，6/6 PASS_CURRENT_YEAR | 2025Q4／四連季 TTM 仍未認證 |
-| DRL-01D 兩年 PE/PB 河流 | scope 已縮成六檔、25 個曆月；新版尚需 live Release + 補收 + 正式 API/UI | 不能把程式／文件完成當 runtime 完成 |
+| DRL-01D 兩年 PE/PB 河流 | 2026-10-18 實測六股 × PE/PB = 12 個 ready（PG publication）；三段官方25月補收 #39051869951 PASS | 正式 API #39083839390 仍未回 two_year_profile，畫面驗收待補 |
 | GCS Core／Mart 實際物件量與 dataset 細項 | D06 曾有具時間戳的物件統計及有限 orphan 清理 | 無本次新鮮 SQL/Iceberg live COUNT，不聲稱現有總筆數、冷封存量或節省百分比 |
 
 **後續 Admin/資料品質表格的口徑**：對每一 dataset × market × period × tier 列出 `expected_symbols`、`eligible_symbols`、`covered_symbols`、`observed_rows`、`missing_symbols`、`snapshot_id`、`source_as_of`、`retention_policy`、`next_retention_candidate_at`、`protected_reference_count`、`archive_migration_status=not_implemented`、`last_verified_at`；未知應為 null／UNKNOWN。這是既有 ADMIN-V2 A3 / D06 讀取欄位的**契約參考**，不是新建獨立 Admin 頁面或新的 daily job。未驗證的實際 row counts 不得用估算值帶入。
@@ -72,3 +72,8 @@
 - `jobs/ingestion-core/ingestion_core/retention.py` 的 `POLICY`、`retained_core_rows`、`maintain_public_data` 負責 Core/Stage；`jobs/intelligence-mart/intelligence_mart/retention.py` 與 `artifact_retention.py` 負責 Mart/成果物。
 - `tests/test_data_retention.py` 的 tier/retention/fence 測試需與本表同步。任何改動期限、建立實體歷史區或擴大 dataset 回補必須先核實目前 main/code、runbook、真實 retention dry-run 與引用保護，非本文件單方面批准。
 - 實際版控／Job／清理與驗收請依 `../todo.md` 的 DRL-01、D06、ADMIN-V2 不重工整合；執行證據只存 `operations-and-testing.md` 或相應 archive，不在此表累加 checkpoint。
+
+
+### 2026-10-18 補充：actual Core continuity，勿和容量預算混淆
+
+[Core census #39083283620](https://github.com/tommylin15/janus-omniforge/actions/runs/39083283620) 實際 snapshot records：benchmark759、market-volume39699、ohlcv111929、market-activity135050、valuation16595、financials88131；[逐月 #39083573483](https://github.com/tommylin15/janus-omniforge/actions/runs/39083573483) 指定股票樣本 market-volume 在2026-07/08為0、09為19、10截至16日11個交易日期；market-activity 0/3/14/11；TAIEX 7–10月連續、TPEx指數日數僅39。這不是全股票各日期分母，不能將同一「大盤」畫面所需的不同 dataset 用 TAIEX 完整度替代。EPS 2025Q4六股有原始季報卻無驗證合法單季，首版2026Q1/Q2 6/6合格。Readiness Ledger當次DB設定不存在，即使自然data-supplement occurrence success也不代表發布PASS。本表保存期不變；資料回補實作和受控驗收詳見 `../todo.md`、`operations-and-testing.md`。
