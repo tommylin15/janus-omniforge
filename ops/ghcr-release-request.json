@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 67,
-  "reason": "DRL-01D 2Y PE/PB source publishing repair: failure #39037329228 was UNDEFINEDTABLE from mismatched stock_valuation_two_year vs existing migration063 stock_valuation_five_year; fixed SQL with regression test, preserve PIT and original 25-month/6-stock bounds; bounded failed-execution audit. Full same-SHA dev GHCR release only, before reversible Jobs/API rollout.",
+  "attempt": 68,
+  "reason": "DRL-01 October 18 closing: correct bounded official market-history per-market TWSE <=10%, TPEx <=30% gates, reviewed Core continuity and natural data-readiness audit; keep approved four-component GHCR same-source tests and immutable dev candidate; do not claim live backfill, owner writes, runtime or UI acceptance until independently verified.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
