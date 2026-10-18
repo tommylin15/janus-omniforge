@@ -131,12 +131,13 @@ def existing_jobs():
             if name != "janus-research-big-move-500" or str(error) != "cloud_control_http_404":
                 raise
             try:
-                cloud(f"{ROOT}/jobs/{name}/executions?pageSize=100")
+                listing = cloud(f"{ROOT}/jobs/{name}/executions?pageSize=100")
             except RuntimeError as retired:
                 if str(retired) == "cloud_control_http_404":
                     continue
                 raise
-            raise ValueError("research_job_execution_listing_drift")
+            if listing != {}:
+                raise ValueError("research_job_execution_listing_drift")
     return result
 
 

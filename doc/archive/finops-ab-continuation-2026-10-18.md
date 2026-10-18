@@ -2,6 +2,8 @@
 
 ## 發布重試
 
+- #39098770305仍在變更前FAIL／PREFLIGHT_BLOCKED_NO_MUTATION，已恢復及釋放。實際唯讀REST證據：retired research Job GET404，execution list HTTP200 `{}`（無executions、無pagination）。修正只容許該已退役名稱Job404＋execution404或精確空物件；有執行／下一頁仍擋，現役Job404仍擋。
+
 - Jobs #39098547758 FAIL／PREFLIGHT_BLOCKED_NO_MUTATION，四Job原設定與Scheduler ENABLED讀回相同，lease已釋放。退役research Job經execution fence雙404允許略過，但config snapshot仍要求存在；已將同樣雙404限定套用到設定快照與恢復，存在時仍保護，不豁免任何現役writer。71項targeted回歸PASS；不是已部署或實刪。
 
 ## 最新唯讀盤點（尚未刪除）

@@ -19,8 +19,8 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 37,
-  "safety": "FINOPS-AB current-only snapshots and monthly batching. Preserve exact reversible d8a57aa baseline, Scheduler fence, shared writer lease, all eight canaries and configuration readback. Retry after #39098547758 PREFLIGHT_BLOCKED_NO_MUTATION: retired research Job is excluded only when Job GET and first execution page both return 404; present research config still protected through snapshot/readback/recovery.",
+  "request_attempt": 38,
+  "safety": "FINOPS-AB same-source four-Jobs rollout. Read-only REST evidence after #39098770305: retired research Job GET returns 404 and execution list returns HTTP200 exact empty object. Permit only this retired name with Job404 plus execution404 or exact empty object; active writer404, nonempty listing or pagination still blocked. Keep immutable reversible baseline, all eight canaries and Scheduler/lease fences.",
   "auth_boundary_run": "39097809505",
   "automated_oauth_requirement": "Same-source automated OAuth and private negative boundary #39097809505 PASS.",
   "authorization": "User-authorized FINOPS-AB completion and current-only snapshot cleanup; existing four dev Jobs only; immutable digest and exact baseline rollback required."

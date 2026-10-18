@@ -719,9 +719,21 @@ def test_retired_research_is_omitted_from_config_snapshots_and_recovery():
             rollout.recover(journal,lambda:None)
         resume.assert_called_once_with('resume','ENABLED')
         assert journal['phase']=='RESTORED_NO_MUTATION'
-    with patch.object(rollout,'job',side_effect=read), patch.object(rollout,'cloud',return_value={'executions':[]}):
+    with patch.object(rollout,'job',side_effect=read), patch.object(rollout,'cloud',return_value={'executions':[{'runningCount':1}]}):
         with pytest.raises(ValueError,match='research_job_execution_listing_drift'):
             rollout.existing_jobs()
     with patch.object(rollout,'job',side_effect=RuntimeError('cloud_control_http_404')):
         with pytest.raises(RuntimeError,match='cloud_control_http_404'):
+            rollout.existing_jobs()
+
+
+def test_retired_research_get_404_and_exact_empty_list_is_safe():
+    def read(name):
+        if name=='janus-research-big-move-500':
+            raise RuntimeError('cloud_control_http_404')
+        return sample()
+    with patch.object(rollout,'job',side_effect=read), patch.object(rollout,'cloud',return_value={}):
+        assert set(rollout.existing_jobs())=={name for name,_ in rollout.JOB_COMPONENT}
+    with patch.object(rollout,'job',side_effect=read), patch.object(rollout,'cloud',return_value={'nextPageToken':'next'}):
+        with pytest.raises(ValueError,match='research_job_execution_listing_drift'):
             rollout.existing_jobs()
