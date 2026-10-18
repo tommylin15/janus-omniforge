@@ -31,6 +31,19 @@
 - single TWD 320 notification budget，10%／50%／100% thresholds；budget 是 notification，不是 spending cap，actual spend 以 Cloud Billing 為準，不新增 paid BigQuery billing export。
 - 每月成本報告與異常檢查以目前真實 dev usage 為準；不得用假流量推估冒充實際成本 evidence。
 
+### 7.3A `WBS-7-INGESTION-ICEBERG-FINOPS-AB`｜2026-10-18 P0
+
+**唯一優先序**在 [TODO FINOPS-AB／FINOPS-C](../todo.md)；**AI 工程指令**在 [FINOPS-AB/C 卡](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)，不是第二份工單。A＋B 已授權優先實作；當前 main 夜間三維護仍每日 due，週批變更不得先當作 live PASS。
+
+- A：`janus-ingestion-core` 的 Iceberg Compaction、`janus-intelligence-mart` 的 Mart Cleanup、Core Cleanup 同組改每週六 23:30 邏輯時段；週六 non-trading 不得依賴當天 ingestion SUCCESS，必驗最新有效 EOD snapshot、跨日依賴、互斥、延遲、no-op、failed/ambiguous 和 rollback。不得改掉每天市場收集或當日 Private/Owner 所需處理。
+- B：Ingestion Data Supplement bounded date/selected field、同日同 Dataset 安全合併提交與 no-op、Snapshot/metadata reuse、dirty-partition compaction。不能降低 PIT、版本修正、provenance、全市場 coverage 或 research/private protected references；保存固定 Core snapshot。
+- 由 Cloud Run **可計費** vCPU-seconds／GiB-seconds、execution duration、GCS ReadObject/GetObjectMetadata/Write/List、Iceberg metadata／小檔量、Mart BQ billed bytes（若適用）、data parity 做同負載前後比較；bucket-level GCS I/O 不能未經歸因算在單一 Job。原 D06 歷史記錄不改寫，30% CPU/50% Metadata 只作改善目標。
+- A/B tests、CI、GHCR immutable digest、受控 Job deployment／Scheduler occurrence 和真實資料端到端讀回皆須通過，才可結案；現有 `CORE_RETENTION_FENCE_URI` 缺失或過期時拒絕刪除。
+
+### 7.3B `WBS-7-BIGQUERY-C-PREFLIGHT`｜D07／D08 前置條件
+
+C 不在 A+B 的改寫範圍內。A+B 驗收後且 D07／D08 開工前，**必須重新完成全局架構/FinOps/PIT/Snapshot/IAM/BigQuery 費用與免費額度評估並回寫**[混合架構決策](../decision-2026-10-06-bigquery-analytics-over-iceberg.md)；有文件化 go/no-go、可控制成本及授權才啟用逐項 BQ workload，無法通過則標 BLOCKED/DEFERRED。新付費 API、Dataset、Catalog、Reservation、connection 與重大權限仍需人工核准。
+
 ### 7.4 `WBS-7-PILOT-LEDGER-DURABILITY`
 
 - Implementation 前確認 PostgreSQL schema／dependency，選擇 bounded whole-database logical dump 或 minimum restore-complete scope；不得把 Private Mart 當 ledger backup。
