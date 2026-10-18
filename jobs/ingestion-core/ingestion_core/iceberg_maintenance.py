@@ -417,21 +417,36 @@ def compact_batch_events(*, core: Any, apply: bool) -> dict[str, Any]:
 
 
 def compact_nightly(*, core: Any) -> dict[str, Any]:
-    """One bounded Job execution: read-only dry-run of both catalogs before apply."""
+    """Plan canonical Core once; skip no-op writes and the retired audit mirror.
+
+    D06 already stopped all batch-event Iceberg exports. Its historical table is
+    handled by the separate reference-protected audit cleanup, not rewritten or
+    repeatedly scanned on each ordinary Core maintenance occurrence.
+    """
     core_plan = compact_core(core=core, apply=False)
-    event_plan = compact_batch_events(core=core, apply=False)
+    audit_disabled = {"table": "ops.batch_events_v1", "status": "disabled",
+                      "planned_files": 0, "rewritten_files": 0}
+    candidates = sum(len(t["planned_periods"]) for t in core_plan["tables"])
     print(json.dumps({
         "component": "iceberg-nightly-preflight",
         "mode": "compact-dry-run",
-        "core_candidate_periods": sum(len(t["planned_periods"]) for t in core_plan["tables"]),
+        "core_candidate_periods": candidates,
         "planned_rewrite_bytes": core_plan["planned_rewrite_bytes"],
-        "audit_planned_files": event_plan["planned_files"],
+        "audit_planned_files": 0,
+        "audit_status": "disabled",
     }, sort_keys=True), flush=True)
-    core_result = compact_core(core=core, apply=True)
-    audit_result = compact_batch_events(core=core, apply=True)
-    return {"component": "iceberg-nightly-compaction", "mode": "dry-run-then-apply",
-            "preflight": {"core": core_plan, "audit": event_plan},
-            "apply": {"core": core_result, "audit": audit_result}}
+    if candidates:
+        core_result = compact_core(core=core, apply=True)
+        mode = "dry-run-then-apply"
+    else:
+        # Dry-run is already a read-only health snapshot. No second load/scan,
+        # metadata commit or compaction write when there are no dirty periods.
+        core_result = {**core_plan, "mode": "skipped_no_work",
+                       "reason": "no_fragmented_periods"}
+        mode = "skipped_no_work"
+    return {"component": "iceberg-nightly-compaction", "mode": mode,
+            "preflight": {"core": core_plan, "audit": audit_disabled},
+            "apply": {"core": core_result, "audit": audit_disabled}}
 
 
 
