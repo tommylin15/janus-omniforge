@@ -1,24 +1,24 @@
 {
   "status": "VERIFIED_PUBLIC_GHCR_ROLLBACK_BASELINE",
-  "source_sha": "becb6a15496959c1f5d3d4985d7b523b652bd3ee",
-  "release_run": "39019392917",
-  "validation_run": "39021547612",
-  "api_revision": "janus-api-00533-yah",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:a745346a1e1910024ed8b52e98d0b2a6e6959d5ffb400fe2604bc3cbb73d20e4",
+  "source_sha": "b5df7e30bc02676a41d0d3300325b9ca5d6fb553",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:1fa62d926669c45a9c0f6dea0c2e140860e72b09b4414e53cf7b90cff2bf6802",
+  "release_run": "39108738006",
+  "validation_run": "39121917976",
+  "job_source_sha": "252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04",
   "job_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:eda8c9aa8b3dd3736d82d1579c7a02d1e4a697bc6a159281d623dbde8d5ec7cb",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:eda8c9aa8b3dd3736d82d1579c7a02d1e4a697bc6a159281d623dbde8d5ec7cb",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:8acf7c9fc61114ddfcb2fc97a7ca6f8152f746277af016ed043281d00a8066fb",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:9bb5d2444cf5897f945797e6332edfccb31c52752df59621190bd8157fd282b3"
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:3a065b2df0e5a7ab23d1ff239c10c4532c09ac47760b8f012073e02880a4c621",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:f3f45ba1e068adebaf6a7e895ae6985c923d7e6b1e33f731e17848b410a55ea3",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:2b5dc8fe9b0c2b94c0ca681aaa89181e2e3e69ba43252ec87021475d090af125",
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:2b5dc8fe9b0c2b94c0ca681aaa89181e2e3e69ba43252ec87021475d090af125"
   },
   "job_config_hashes": {
-    "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
-    "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
+    "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f",
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
-    "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
+    "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
+    "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048"
   },
   "private_historical_config_parity": "NOT_VERIFIED",
   "old_ar_rollback_exercised": false,
-  "observed_evidence": "Combined becb full Release #39019392917, candidate #39019791707, auth #39019942041, Preview #39020138003, Jobs #39020285128 eight canaries PASS, formal reversible API #39021547612 PASS. Canonical and Preview public data and authenticated mobile/desktop screenshots independently verified on 2026-10-17.",
-  "semantics": "Verified current canonical becb API and four Jobs are the rollback baseline for the next source. Revalidate live image/config under the shared lease. Historical private config parity remains NOT_VERIFIED."
+  "observed_evidence": "API build readback #39121917976; four Jobs #39101646737 PASS and current image/config readback #39124019700. Revalidate immutable registry and runtime under deployment lease.",
+  "semantics": "API b5df7e30 and Jobs 252db8c are independent current rollback baselines; no claim they share a source SHA."
 }

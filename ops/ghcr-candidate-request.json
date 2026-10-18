@@ -1,11 +1,11 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "b5df7e30bc02676a41d0d3300325b9ca5d6fb553",
-  "release_run": "39108738006",
+  "sha": "da1c5093061d333c29e1a87595f9d1a8dcbc04db",
+  "digest": "sha256:1e3bf8672d3c11fdc96530ea15b09f435482065b565ea0a0b3cc38eefc68d34d",
+  "release_run": "39123873496",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "DRL-01 P0-1: Deploy API with two_year_profile field name fix",
-  "requested_at": "2026-10-18T15:50:00+08:00"
+  "purpose": "DRL-01 six-stock 2025Q4 Yahoo EPS; approved third-party source support. Full release PASS."
 }
