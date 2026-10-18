@@ -639,3 +639,27 @@ def test_rollout_external_command_failures_are_phase_only_and_do_not_expose_args
         with pytest.raises(RuntimeError, match="^bounded_command_failed_" + category + "$") as exc:
             rollout.command(argv)
     assert all(str(arg) not in str(exc.value) for arg in argv[2:] if len(str(arg)) > 10)
+
+
+def test_global_lease_diagnostic_is_bounded_redacted_and_never_retries(monkeypatch):
+    """Lease acquisition must not be replayed just to disclose a safe reason."""
+    from types import SimpleNamespace
+    calls = []
+    def execute(args, **kwargs):
+        calls.append(args)
+        return SimpleNamespace(returncode=78, stdout="",
+                               stderr='{"status":"BLOCKED","reason":"lease_busy"}\\n')
+    monkeypatch.setattr(rollout.subprocess, "run", execute)
+    with pytest.raises(RuntimeError, match="^bounded_release_lease_lease_busy$"):
+        rollout.command(rollout.LEASE + ["acquire"])
+    assert calls == [rollout.LEASE + ["acquire"]]
+
+def test_global_lease_diagnostic_never_reveals_untrusted_stderr(monkeypatch):
+    from types import SimpleNamespace
+    secret = "private-token-never-log"
+    monkeypatch.setattr(rollout.subprocess, "run", lambda *a, **kw:
+        SimpleNamespace(returncode=78, stdout="",
+                        stderr=secret + ' {"status":"BLOCKED","reason":"invalid@secret"}'))
+    with pytest.raises(RuntimeError, match="^bounded_release_lease_unknown$") as exc:
+        rollout.command(rollout.LEASE + ["acquire"])
+    assert secret not in str(exc.value)
