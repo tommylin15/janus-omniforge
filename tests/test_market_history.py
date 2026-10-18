@@ -76,8 +76,15 @@ def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch,
     result = module.run_market_history()
     assert not result["failures"]
     assert result["months"][0]["status"] == expected_status
+    assert [commit['dataset_id'] for commit in commits] == [
+        'ohlcv', 'ohlcv', 'market-volume', 'market-volume', 'benchmark']
     assert len(commits[0]["rows"]) == 500-missing
     assert len(commits[1]['rows']) == 500-otc_missing
+    assert len(commits[2]['rows']) == 500-missing
+    assert len(commits[3]['rows']) == 500-otc_missing
+    assert all(row['provenance_id']=='provenance' and row['source_id']=='tpex' for row in commits[3]['rows'])
+    assert result['months'][0]['market_volume_source_rows'] == {
+        'TWSE':500-missing, 'TPEX':500-otc_missing}
     assert result['coverage_scope'] == 'current_members_price_history'
     assert result['months'][0]['missing_ratio_by_market']['TPEX'] == pytest.approx(otc_missing / len(otc_symbols))
     assert result['months'][0]['threshold_by_market'] == {'TWSE': .10, 'TPEX': .30}
