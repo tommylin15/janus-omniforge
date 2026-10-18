@@ -1,4 +1,5 @@
 name: DRL-01 independent live market EPS and scheduler continuity
+# 2026-10-18 independent readonly revalidation after 100% API owner acceptance.
 on:
   push:
     branches: [main]
