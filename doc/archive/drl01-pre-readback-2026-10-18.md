@@ -21,5 +21,3 @@
 - **Ledger／自然排程**：過去五天 Controller 記錄 4 次 data-supplement succeeded、1 次 running，data-quality 1次 succeeded；但當次 control `data_readiness_ledger` 查無鍵，故 **週期性 Readiness 發布 NOT VERIFIED**。待讀回指定自然 execution 日誌、修正 `data_readiness_status=UNKNOWN` 根因，並在至少一次自然增量、下一次讀回確認。
 - **修復／發布**：`market_history.py` 先前錯把上櫃30%門檻當10%，已改 TWSE≤10%、TPEx≤30%，補邊界案例測試。通過 tests／build 不代表市場歷史回補已實際完成；應先對真正缺日、來源、會員母體與既有 Job image 做幂等、有界、有 receipt 的回補，再核讀 Core 與 serving。
 - **狀態**：DRL-01 仍 `PARTIAL`；不重開 D01–D05 已結案豁免、不新增資料來源／排程、不操作 Owner、不按 TTL 直接刪 Core 歷史。
-
-
