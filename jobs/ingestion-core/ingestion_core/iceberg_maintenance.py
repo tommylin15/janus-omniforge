@@ -422,6 +422,54 @@ def compact_batch_events(*, core: Any, apply: bool) -> dict[str, Any]:
     return result
 
 
+def verify_compaction_eod_fence(*, core: Any) -> dict[str, Any]:
+    """Recheck the controller's immutable EOD receipt against the live Core catalog.
+
+    A single manifest GET is permitted; full-bucket inventory is not. Old daily
+    executions have no FINOPS_SOURCE_* overrides and retain their old behavior.
+    Any partially supplied weekly tuple fails closed before an Iceberg rewrite.
+    """
+    from hashlib import sha256
+    import re
+
+    names = ("FINOPS_SOURCE_CORE_SNAPSHOT_ID", "FINOPS_SOURCE_CORE_SNAPSHOT_URI",
+             "FINOPS_SOURCE_EOD_DATE")
+    values = [os.environ.get(name, "").strip() for name in names]
+    if not any(values):
+        return {"status": "legacy_daily_no_weekly_fence"}
+    if not all(values):
+        raise RuntimeError("weekly_eod_core_fence_incomplete")
+    expected, uri, day = values
+    bucket = os.environ.get("CORE_BUCKET", "")
+    prefix = f"gs://{bucket}/executions/"
+    if (bucket != "gen-lang-client-0593591102-dev-core"
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", expected) is None
+            or re.fullmatch(r"20[0-9]{2}-[0-9]{2}-[0-9]{2}", day) is None
+            or not uri.startswith(prefix)
+            or re.fullmatch(r"[A-Za-z0-9._-]+/core-snapshot[.]json", uri[len(prefix):]) is None):
+        raise RuntimeError("weekly_eod_core_fence_invalid")
+    manifest = json.loads(GcsObjectStore(bucket).read(uri.removeprefix(f"gs://{bucket}/")))
+    tables = manifest.get("iceberg_tables")
+    if (manifest.get("artifact_kind") != "core_snapshot_v1"
+            or manifest.get("analysis_as_of") != day
+            or not isinstance(tables, dict) or not tables):
+        raise RuntimeError("weekly_eod_core_manifest_invalid")
+    canonical = json.dumps(tables, sort_keys=True, separators=(",", ":")).encode()
+    actual_hash = "sha256:" + sha256(canonical).hexdigest()
+    if manifest.get("snapshot_id") != expected or actual_hash != expected:
+        raise RuntimeError("weekly_eod_core_snapshot_digest_mismatch")
+    for identifier, item in tables.items():
+        if (identifier not in {core.table_identifier(name) for name in core.IDENTIFIERS}
+                or not isinstance(item, dict)
+                or not isinstance(item.get("snapshot_id"), int)):
+            raise RuntimeError("weekly_eod_core_manifest_table_invalid")
+        snapshot = core.catalog.load_table(identifier).current_snapshot()
+        if snapshot is None or snapshot.snapshot_id != item["snapshot_id"]:
+            raise RuntimeError("weekly_eod_core_catalog_changed")
+    return {"status": "verified", "core_snapshot_id": expected,
+            "source_date": day, "verified_tables": len(tables)}
+
+
 def compact_nightly(*, core: Any) -> dict[str, Any]:
     """Plan canonical Core once; skip no-op writes and the retired audit mirror.
 
@@ -429,6 +477,7 @@ def compact_nightly(*, core: Any) -> dict[str, Any]:
     handled by the separate reference-protected audit cleanup, not rewritten or
     repeatedly scanned on each ordinary Core maintenance occurrence.
     """
+    source_fence = verify_compaction_eod_fence(core=core)
     core_plan = compact_core(core=core, apply=False)
     audit_disabled = {"table": "ops.batch_events_v1", "status": "disabled",
                       "planned_files": 0, "rewritten_files": 0}
@@ -451,6 +500,7 @@ def compact_nightly(*, core: Any) -> dict[str, Any]:
                        "reason": "no_fragmented_periods"}
         mode = "skipped_no_work"
     return {"component": "iceberg-nightly-compaction", "mode": mode,
+            "source_fence": source_fence,
             "preflight": {"core": core_plan, "audit": audit_disabled},
             "apply": {"core": core_result, "audit": audit_disabled}}
 
