@@ -21,11 +21,28 @@ from ghcr_mcp_route import command as _redacted_command, LEASE
 
 
 def command(args):
-    """Classify failed preflight subprocess without exposing argv or credentials.
+    """Classify failed subprocess phases without exposing tokens or cloud payloads.
 
-    The existing safety guard deliberately redacts stderr/stdout; a bounded
-    static phase code is still needed to distinguish CI/auth/registry failures.
+    The global Git-ref lease script emits a controlled JSON failure reason.
+    Capture it ONCE: retrying an ambiguous lease acquisition to diagnose it
+    would be unsafe. Never print subprocess stderr or credentials.
     """
+    if args[:len(LEASE)] == LEASE:
+        result = subprocess.run(args, capture_output=True, text=True,
+                                timeout=120, check=False)
+        if result.returncode:
+            try:
+                parsed = json.loads(result.stderr.strip().splitlines()[-1])
+                reason = parsed.get("reason", "")
+                if not (parsed.get("status") == "BLOCKED" and
+                        isinstance(reason, str) and
+                        re.fullmatch(r"[a-z][a-z0-9_:]{3,100}", reason)):
+                    reason = "unknown"
+            except (IndexError, ValueError, AttributeError):
+                reason = "unknown"
+            raise RuntimeError("bounded_release_lease_" +
+                               reason.replace(":", "_")) from None
+        return result.stdout
     try:
         return _redacted_command(args)
     except RuntimeError as error:
