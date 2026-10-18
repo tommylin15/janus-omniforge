@@ -68,6 +68,21 @@ class IcebergCompactionTests(unittest.TestCase):
         self.assertEqual(self.catalog.load_table("core.valuation_v1").metadata_location, metadata_location)
         self.assertEqual(self.catalog.load_table("core.valuation_v1").properties, properties)
 
+    def test_no_work_compaction_reuses_preflight_health_without_second_catalog_read(self):
+        table = self.catalog.load_table("core.valuation_v1")
+        before = table.current_snapshot().snapshot_id
+        pointer = table.metadata_location
+        with patch.dict(os.environ, {"ICEBERG_COMPACTION_MIN_FILES": "1000"}), \
+             patch.object(self.catalog, "load_table", wraps=self.catalog.load_table) as loads:
+            report = compact_core(core=self.core, apply=True)
+        self.assertEqual(loads.call_count, 1)
+        valuation = next(item for item in report["tables"] if item["dataset_id"] == "valuation")
+        self.assertEqual(valuation["planned_periods"], [])
+        self.assertEqual(valuation["before"], valuation["after"])
+        after = self.catalog.load_table("core.valuation_v1")
+        self.assertEqual(after.current_snapshot().snapshot_id, before)
+        self.assertEqual(after.metadata_location, pointer)
+
     def test_dry_run_plans_but_does_not_rewrite(self):
         before = self.catalog.load_table("core.valuation_v1")
         snapshot = before.current_snapshot().snapshot_id
