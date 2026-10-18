@@ -79,7 +79,7 @@ def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch,
     assert len(commits[0]["rows"]) == 500-missing
     assert len(commits[1]['rows']) == 500-otc_missing
     assert result['coverage_scope'] == 'current_members_price_history'
-    assert result['months'][0]['missing_ratio_by_market']['TPEX'] == otc_missing / len(otc_symbols)
+    assert result['months'][0]['missing_ratio_by_market']['TPEX'] == pytest.approx(otc_missing / len(otc_symbols))
     assert result['months'][0]['threshold_by_market'] == {'TWSE': .10, 'TPEX': .30}
     assert finished == [missing > 50 or otc_missing > 150]
     assert len(markers) == 1
