@@ -111,6 +111,15 @@
 - 每列需 source、adapter、Core publication／acceptance evidence、coverage、cadence、freshness、PIT、provenance 與 approval；狀態限 `Implemented | Partial | Unknown | Missing | Candidate | Blocked`。
 - 現有 context allowlist 只證明 resource contract，不證明 dataset coverage 完整。先盤點再考慮 provider；新 source 仍須 Data Source admission／approval，本切片不建 adapter、ingestion 或核准 source。
 
+### 3.10A `WBS-3-INGESTION-FINOPS-AB`（2026-10-18 優先施作）
+
+唯一執行順序與狀態以 [TODO FINOPS-AB/C](../todo.md) 為準；接手 AI **必須先讀** [CPU／I/O／Iceberg 工程指令卡](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) §0–§3、[WBS-7](wbs-7-security-finops.md) 與 [Batch Controller Runbook](../runbook-batch-controller-dev.md)。本項是已核准的 A＋B 成本優化，不取代 DRL-01 的資料品質修復、D06 歷史證據，也不延後上市櫃交易日行情及 Private Mart。
+
+- **A：**收斂三項重型維護為每週六 23:30 邏輯時段；因週六常休市，必須讀最近成功有效 EOD Core Snapshot 與受控依賴，不能只加 weekdays；無工作要有可追蹤終態、週日跨日恢復與未決工作不重派。
+- **B：**`data_supplement.py` 的 financials/valuation/ohlcv/benchmark 讀取依明確日期、範圍與必要欄位縮限；`packages/duckdb_query/iceberg.py` 按 dataset／日期合併安全提交，省重複 catalog/manifest/planner 掃描；`iceberg_maintenance.py` 以 dirty-partition 與 protected refs 觸發 bounded compaction。不得刪失官方 EPS/營收歷史版本、修訂、PIT、來源授權與 Owner/Research 引用。
+- **驗收：**現有 dev 的 07:30/08:30/14:30/週維護 vCPU/GiB-seconds、GCS Metadata request、row/snapshot parity、範圍/缺失率、實機 Jobs/CI/部署及同負載 before-after；無真實分段 I/O 歸因時只能標 PARTIAL。
+- 後置 FINOPS-C 僅在 A＋B 的適用驗收後啟動**全局再評估**，再決定是否把 Mart Screening／Ranking／OOS 交 BigQuery。不能在本 WBS-3 直接改寫 canonical Iceberg 為 BigQuery。
+
 ### 3.11 DRL-01 新版功能資料可用性（2026-10-16 已核准、依 active TODO 施工）
 
 - 需求／狀態唯一來源：[DRL-01](../todo.md)。依新版 KD/ATR／首頁機會雷達／月營收 YoY／EPS 單季／五年估值河流的使用價值反推資料需求，不為無功能依賴的指標新增供應商與長年補收。
