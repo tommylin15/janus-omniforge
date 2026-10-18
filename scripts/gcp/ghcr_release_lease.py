@@ -28,8 +28,10 @@ class LeaseBlocked(Exception):
 
 
 class ApiError(Exception):
-    def __init__(self, status: int | None):
+    def __init__(self, status: int | None, kind: str = "unclassified"):
         self.status = status
+        # Only a finite, code-owned classification may cross the secret boundary.
+        self.kind = kind
         super().__init__("GitHub API returned an error")
 
 
@@ -64,7 +66,17 @@ class GhApi:
             match = re.search(r"HTTP (\d{3})", output.stderr)
             if match:
                 status = int(match.group(1))
-            raise ApiError(status)
+            # Inspect untrusted stderr in memory ONLY; never return/log raw
+            # CLI output, URLs, tokens or arbitrary GitHub error text.
+            details = output.stderr.lower()
+            kind = ("secondary_rate_limit" if "secondary rate limit" in details
+                    or "abuse detection" in details
+                    else "integration_permission" if "resource not accessible by integration" in details
+                    or "permission to" in details and "denied" in details
+                    else "tag_protection" if "protected tag" in details
+                    or "repository rules" in details
+                    else "unclassified")
+            raise ApiError(status, kind)
         if method == "DELETE":
             return None
         return json.loads(output.stdout)
@@ -138,7 +150,7 @@ def acquire(api: Callable, owner: Owner) -> str:
         api("POST", f"repos/{owner.repo}/git/refs",
             {"ref": f"refs/tags/{TAG}", "sha": tagsha})
     except ApiError as exc:
-        raise LeaseBlocked(f"atomic_lease_claim_rejected_or_unavailable:ref_http_{exc.status or 'unknown'}") from exc
+        raise LeaseBlocked(f"atomic_lease_claim_rejected_or_unavailable:ref_http_{exc.status or 'unknown'}_{exc.kind}") from exc
     verified = _validated_lease(api, owner)
     if verified != tagsha:
         raise LeaseBlocked("lease_readback_mismatch")
