@@ -161,6 +161,52 @@ jobs:
           print(json.dumps(report,ensure_ascii=False,sort_keys=True))
           if receipt.get('status')!='PASS_READ_ONLY':raise RuntimeError('audit_partial')
           PY
+      - name: Inspect recent natural supplement ledger publication receipts, no writes
+        run: |
+          gcloud logging read 'resource.type="cloud_run_job" AND labels."run.googleapis.com/job_name"="janus-ingestion-core" AND timestamp>="2026-10-15T00:00:00Z"' --project=gen-lang-client-0593591102 --limit=700 --format=json > /tmp/drl01-natural-logs.json
+          python - <<'PY'
+          import json
+          logs=json.load(open('/tmp/drl01-natural-logs.json'))
+          records=[]
+          for event in logs:
+              obj=event.get('jsonPayload')
+              if not isinstance(obj,dict):
+                  try:obj=json.loads(event.get('textPayload',''))
+                  except (ValueError,TypeError):continue
+              if obj.get('operation') in ('data_supplement_daily','data_supplement_backfill'):
+                  records.append({'time':event.get('timestamp'),'operation':obj.get('operation'),
+                     'status':obj.get('status'),'readiness_status':obj.get('data_readiness_status'),
+                     'readiness_error':obj.get('data_readiness_error'),
+                     'core_created':obj.get('core_created'),'failures':len(obj.get('failures',[]))})
+          print(json.dumps({'component':'drl01_natural_ledger_receipts','records':records[-20:]},sort_keys=True))
+          PY
+      - name: Verify public two-year PE PB and due-quarter EPS API without credentials
+        run: |
+          python - <<'PY'
+          import json,urllib.request,urllib.parse
+          root='https://janus-api-2oo7qbkd5q-uc.a.run.app'
+          report=[]
+          for symbol in ('1513','2327','2382','3231','3711','5876'):
+              for metric in ('pe','pb','eps'):
+                  url=root+'/api/v1/public/stocks/'+symbol+'/visual-series?'+urllib.parse.urlencode({'metric':metric,'limit':50})
+                  record={'symbol':symbol,'metric':metric}
+                  try:
+                      with urllib.request.urlopen(urllib.request.Request(url,headers={'Accept':'application/json'}),timeout=18) as resp:
+                          value=json.load(resp)
+                          record.update(http_status=resp.status,data_status=value.get('data_status'))
+                          if metric in ('pe','pb'):
+                              prof=value.get('two_year_profile') or {}
+                              record.update(profile_status=prof.get('status'),window_years=prof.get('window_years'),
+                                  count=prof.get('count'),months=prof.get('months_with_valid_observation'),
+                                  snapshot=prof.get('core_snapshot_id'))
+                          if metric=='eps':
+                              gate=value.get('eps_current_year') or {}
+                              record.update(current_year_quarters=gate.get('available_quarters'),required_quarters=gate.get('required_quarters'))
+                  except Exception as exc:
+                      record['error_type']=type(exc).__name__
+                  report.append(record)
+          print(json.dumps({'component':'drl01_public_api_live','results':report},ensure_ascii=False,sort_keys=True))
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
