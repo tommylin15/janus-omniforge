@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 69,
-  "reason": "ADMIN-V2 A1-A5 and A4-U: existing four-page Flutter Admin, Controller/readiness/governance integration, optional bounded PostgreSQL usage analytics with audience isolation and retention. Preserve integrated DRL-01 changes. Full same-SHA Python/PostgreSQL/Flutter gates before GHCR publication; migration064 before candidate/Jobs runtime update; no Owner financial mutations or new resources.",
+  "attempt": 70,
+  "reason": "DRL-01 recovery: restore natural Data Readiness Ledger PyIceberg scans by omitting invalid row_filter=None (live read-only audit proved error NotImplementedError on financials); backfill official market-volume together with verified OHLCV through existing bounded market-history route; TWSE <=10%, TPEx <=30%, owner/PIT constraints unchanged. Full tests, immutable GHCR and reversible dev publication; no new provider/resource/owner writes.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
