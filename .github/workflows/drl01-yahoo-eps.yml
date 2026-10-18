@@ -10,7 +10,7 @@ permissions:
   contents: read
   id-token: write
 concurrency:
-  group: janus-dev-runtime-writers
+  group: ${{ inputs.operation == 'baseline' && 'janus-dev-read-only-continuity' || 'janus-dev-runtime-writers' }}
   cancel-in-progress: false
 jobs:
   supplement:
@@ -39,12 +39,18 @@ jobs:
           python - <<'PY'
           import json,urllib.request
           from pathlib import Path
-          from ghcr_jobs_rollout import JOB_COMPONENT,job,image,fingerprint
+          from ghcr_jobs_rollout import JOB_COMPONENT,ROOT,cloud,job,image,fingerprint,terminal
+          from ghcr_job_cutover_guard import REQUIRED_JOBS
           jobs={name:job(name) for name,_ in JOB_COMPONENT}
           with urllib.request.urlopen('https://janus-api-2oo7qbkd5q-uc.a.run.app/app/build-id.txt',timeout=20) as response:
               source=response.read(100).decode().strip()
+          active={}
+          for name in REQUIRED_JOBS:
+              records=cloud(f'{ROOT}/jobs/{name}/executions?pageSize=100')
+              active[name]=[{'name':row['name'].rsplit('/',1)[-1],'created':row.get('createTime')}
+                            for row in records.get('executions',[]) if not terminal(row)]
           report={'jobs':{name:{'image':image(value),'configuration_hash':fingerprint(value)} for name,value in jobs.items()},
-                  'api_source_sha':source,'read_only':True}
+                  'api_source_sha':source,'active_executions':active,'read_only':True}
           Path('/tmp/drl01-yahoo-baseline.json').write_text(json.dumps(report,indent=2))
           print(json.dumps(report,sort_keys=True))
           PY
