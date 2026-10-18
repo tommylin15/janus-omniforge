@@ -99,12 +99,15 @@ def maintain_financials(*, core: Any, store: GcsObjectStore, apply: bool,
     before = sum(int(item["size"]) for item in before_objects)
 
     if apply:
+        changed_catalog = False
         if table.properties.get(METADATA_HISTORY) != "10":
             table.transaction().set_properties({METADATA_HISTORY: "10"}).commit_transaction()
             table = core.catalog.load_table(identifier)
+            changed_catalog = True
         if expire:
             table.maintenance.expire_snapshots().by_ids(expire).commit()
             table = core.catalog.load_table(identifier)
+            changed_catalog = True
         current_snapshot = table.current_snapshot()
         current_rows = int(current_snapshot.summary["total-records"]) if current_snapshot else 0
         if current_rows != original_rows:
@@ -117,7 +120,10 @@ def maintain_financials(*, core: Any, store: GcsObjectStore, apply: bool,
 
     protected = _protected_metadata(table, store.bucket, referenced_metadata, identifier)
     cutoff = now - timedelta(days=7)
-    objects = store.objects(table_prefix) if apply else before_objects
+    # The initial listing remains valid when neither snapshot expiration
+    # nor a metadata-property update occurred. Avoid a second GCS ListObjects
+    # on the common no-op retention path; retain fresh reads after mutation.
+    objects = store.objects(table_prefix) if apply and changed_catalog else before_objects
     candidates = [item for item in objects
                   if item["name"].endswith(".metadata.json")
                   and item["name"] not in protected
@@ -128,7 +134,9 @@ def maintain_financials(*, core: Any, store: GcsObjectStore, apply: bool,
             if index % 50 == 0 and core.catalog.load_table(identifier).metadata_location != current:
                 raise RuntimeError("financials catalog changed during metadata cleanup")
             store.delete(item["name"], generation=item["generation"])
-        remaining = store.objects(table_prefix)
+        # Only re-list after actual deletes; without deletes the fresh list
+        # above (or the original unchanged list) is the exact after state.
+        remaining = store.objects(table_prefix) if candidates else objects
         if {item["name"] for item in candidates} & {item["name"] for item in remaining}:
             raise RuntimeError("metadata deletion readback mismatch")
         after = sum(int(item["size"]) for item in remaining)
