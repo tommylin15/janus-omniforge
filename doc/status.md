@@ -4,7 +4,7 @@
 
 > **2026-10-18｜DRL-01 整批續行，仍 PARTIAL**：
 > - **P0-1 PASS**：正式兩年PE/PB API 12/12 ready；5876手機／桌面PE/PB顯示4/4，正式／Preview build-id同為`b5df7e30bc02676a41d0d3300325b9ca5d6fb553`。
-> - **P0-2 落地PASS、週期待驗**：Admin `data_readiness_ledger` 已讀回、獨立重算PASS；自然daily／weekly新版發布收據尚未齊備。
+> - **P0-2 落地PASS、週期待驗**：Admin `data_readiness_ledger` 已讀回、獨立重算PASS；自然daily／weekly新版發布收據尚未齊備，依使用者2026-10-18指示改列後續觀察，不擋DRL-01本次結案。
 > - **P0-3 PASS**：四slices既有完成證據沿用，本輪沒有重送補收。
 > - **P1-4 已核查、修復受阻**：六股2025Q3/Q4官方12份來源均可讀，但目前YTD context缺可驗股數，可安全重建0/6；不造單季EPS。
 >

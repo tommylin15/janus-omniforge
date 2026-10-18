@@ -56,3 +56,11 @@ def test_yahoo_serving_migration_does_not_open_other_datasets_or_missing_fields(
     assert "dataset_id='financials'" in sql
     assert "coalesce(payload_json->>'metric','')='eps_single_quarter'" in sql
     assert 'GRANT' not in sql and 'DELETE' not in sql
+
+
+def test_diagnostic_rejects_unrelated_operation_before_network(monkeypatch):
+    import sys
+    monkeypatch.syspath_prepend(str(Path('scripts/gcp').resolve()))
+    from drl01_yahoo_eps import inspect_existing
+    with pytest.raises(ValueError, match='invalid_existing_operation'):
+        inspect_existing('projects/other/locations/us-central1/operations/123')

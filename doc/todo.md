@@ -52,11 +52,16 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 **2026-10-18 最新決策與剩餘驗收**：使用者「一次執行下去」解除先前暫停，允許整批接續既有 DRL-01 尾項。最新真實證據見 [operations](spec/operations-and-testing.md)；前次失敗與暫停見 [歷史 checkpoint](archive/drl01-pre-readback-2026-10-18.md)，不再作 active 禁令。
 
 1. **P0｜正式兩年 PE/PB API／UI 已驗部分 PASS**：六股×PE/PB 12/12 ready、25月；5876手機390×844／桌面1440×1000的PE/PB顯示4/4 PASS。證據已移 operations；不重新部署或重做25月補收，不把抽樣視覺驗收說成六股逐頁矩陣。
-2. **P0｜Data Readiness Ledger 定期發布仍 PARTIAL**：Admin `data_readiness_ledger` 鍵與最新值已讀回、獨立重算 PASS。**剩餘**：修正版自然 Controller daily 至少一次可關聯的 execution→Ledger checked_at／snapshot讀回，及週詳細稽核的source cursor／snapshot／watermark收據。手動 `janus-ingestion-core-szlxm` 與自然 occurrence 的 succeeded 不取代新版週期性發布證據。不新增 Scheduler／重送已完成補收。
+2. **P0｜Data Readiness Ledger 工程驗收 PASS、自然週期另作觀察**：Admin `data_readiness_ledger` 鍵與最新值已讀回、獨立重算 PASS。使用者2026-10-18確認自然daily／weekly需等待時間，不再作本次DRL-01結案gate；維持`NOT_VERIFIED`，後續觀察需關聯execution、Ledger checked_at、source cursor／snapshot／watermark。手動或自然occurrence succeeded均不冒充新版自然發布證據。
 3. **P0｜Market Volume 補收 PASS**：沿用四 slices 完成證據，本輪不重送。指數、market-volume、market-activity不能相互代替，不把指定樣本推成全市場。
 4. **P1｜EPS 歷史季度定向補收 READY（2026-10-18 第三方來源核准）**：六股`1513,2327,2382,3231,3711,5876`的2025Q4可直接採Yahoo等第三方已整理的單季EPS，不再以官方股數分母為前置；依[PROJECT_RULES §1.7](PROJECT_RULES.md)執行。**剩餘**：六股來源raw／期別／單位、Stage→Core→serving、正式API與畫面讀回；來源保留第三方標示，不把文件更新或抓到頁面當作入庫完成。不得混累季／年度／預估、不自行差分或推估股數；股本基準未知不認證歷史TTM。範圍不擴至全市場，2026Q1/Q2既有PASS不重做。舊MOPS核查0/6只限該入口的歷史結果。
 
-**合併驗收底線**：不重開已結案 D01～D05；不操作 Owner／Private Ledger、不新增付費來源、排程或資源；遵守 canonical／research、PIT 與 source authorization；直到正式 2Y API／UI、Ledger 自然增量、歷史市場覆蓋及適用 EPS 證據齊備，整體 DRL-01 維持 PARTIAL。最新實證另見 [operations](spec/operations-and-testing.md)／[status](status.md)。
+
+**合併驗收底線**：不重開已結案 D01～D05；不操作 Owner／Private Ledger、不新增付費來源、排程或資源；遵守 canonical／research、PIT 與 source authorization；直到正式 2Y API／UI、Ledger落地、歷史市場覆蓋及適用 EPS 證據齊備，整體 DRL-01 維持 PARTIAL。最新實證另見 [operations](spec/operations-and-testing.md)／[status](status.md)。
+
+## 持股／關注股背景補收（接續工作；不併入DRL-01結案）
+
+**持股／關注股補收接線（使用者2026-10-18新增授權，待實作驗收）**：新增時立即排入背景補收，重用每日08:30增量作兜底；涵蓋價量、13月營收、已發布單季EPS與兩年估值，不限EPS。缺口可直接使用Yahoo／FinMind等第三方，不以官方查找為前置。範圍及驗收見[補收契約](runbook-data-supplement.md#新持股關注股補收契約2026-10-18-使用者新增需求)；需持久化去重、失敗重試、取消需求、來源與API讀回，不以文件或六股一次性補收宣稱自動化完成。不變更Owner交易內容，不新增付費資源或獨立Scheduler。
 
 
 

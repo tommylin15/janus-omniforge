@@ -60,7 +60,7 @@ snapshot、Cloud SQL、HA、replica、second PostgreSQL VM 或無界 retention�
 
 | 領域 | Coverage | Primary | Fallback／限制 |
 |---|---|---|---|
-| OHLCV、PE/PB | 全上市櫃個股 日頻；排名來源全市場批次日頻 | TWSE／TPEx | FinMind；yfinance 僅具名低優先 enrichment；無批次路徑不得逐檔放大 |
+| OHLCV、PE/PB | 全上市櫃個股 日頻；持股／關注股依缺口定向補收 | 全市場既有 TWSE／TPEx 批次；定向補收可直接選 Yahoo／FinMind | 不要求官方先行；保存供應者身分、還原／每股口徑。定向補收不得擴成全市場逐檔盲抓 |
 | 法人／信用／借券／當沖／警示 | 全上市櫃個股 日頻，依已核准市場批次來源能力 | TWSE／TPEx | 缺資料標 unavailable，不推算或逐檔放大 |
 | 月營收／季報 | 全上市櫃個股 摘要、關注股深度；每次補收範圍依TODO | MOPS或可取得的第三方來源 | Yahoo股市、FinMind等；第三方單季EPS可直接補收，區分供應者口徑與官方申報，保存provenance |
 | 公司事件／重大訊息 | 全上市櫃個股 索引、關注股全文或結構化內容 | TWSE／TPEx／MOPS | 更正公告保留新舊版本；RSS／頁面抓取須先確認穩定性與使用條款 |

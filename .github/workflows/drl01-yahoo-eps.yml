@@ -5,12 +5,12 @@ on:
       operation:
         type: choice
         default: baseline
-        options: [baseline, supplement]
+        options: [baseline, supplement, inspect]
 permissions:
   contents: read
   id-token: write
 concurrency:
-  group: ${{ inputs.operation == 'baseline' && 'janus-dev-read-only-continuity' || 'janus-dev-runtime-writers' }}
+  group: ${{ inputs.operation != 'supplement' && 'janus-dev-read-only-continuity' || 'janus-dev-runtime-writers' }}
   cancel-in-progress: false
 jobs:
   supplement:
@@ -57,6 +57,9 @@ jobs:
       - name: Supplement the approved six stocks
         if: inputs.operation == 'supplement'
         run: python scripts/gcp/drl01_yahoo_eps.py ops/drl01-yahoo-eps-request.json
+      - name: Inspect the previously submitted operation
+        if: inputs.operation == 'inspect'
+        run: python scripts/gcp/drl01_yahoo_eps.py --inspect projects/gen-lang-client-0593591102/locations/us-central1/operations/14e5e4e7-64be-4228-8cb1-02f5699a1ab2
       - uses: actions/upload-artifact@v4
         if: always()
         with:

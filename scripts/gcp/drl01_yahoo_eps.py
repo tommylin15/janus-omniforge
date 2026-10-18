@@ -9,6 +9,39 @@ import time
 from ghcr_jobs_rollout import ROOT, cloud, image, job, terminal
 
 
+def inspect_existing(operation):
+    if not re.fullmatch(re.escape(ROOT) + r'/operations/[0-9a-f-]{36}', operation):
+        raise ValueError('invalid_existing_operation')
+    op = cloud(operation)
+    execution = op.get('response', {}).get('name') or op.get('metadata', {}).get('name', '')
+    output = {'operation': operation, 'done': op.get('done'),
+              'error_code': op.get('error', {}).get('code'), 'execution': execution,
+              'read_only': True, 'receipts': [], 'error_types': []}
+    if re.fullmatch(re.escape(ROOT) + r'/jobs/janus-ingestion-core/executions/[a-z0-9-]+', execution):
+        exe = cloud(execution)
+        output['terminal'] = terminal(exe)
+        output['succeeded_count'] = exe.get('succeededCount', 0)
+        query = 'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="' + execution.rsplit('/', 1)[-1] + '"'
+        cp = subprocess.run(['gcloud', 'logging', 'read', query, '--project=gen-lang-client-0593591102',
+                             '--limit=100', '--format=json'], capture_output=True, text=True, timeout=45, check=True)
+        for event in json.loads(cp.stdout):
+            value = event.get('jsonPayload')
+            message = event.get('textPayload', '')
+            if not isinstance(value, dict):
+                try:
+                    value = json.loads(message)
+                except (ValueError, TypeError):
+                    value = {}
+            if isinstance(value, dict) and value.get('component') == 'drl01_yahoo_eps':
+                output['receipts'].append(value)
+            match = re.search(r'([A-Za-z]+Error): (.*)$', message)
+            if match:
+                output['error_types'].append({'type': match[1], 'reason': match[2]
+                    if re.fullmatch(r'[a-z0-9_]{3,100}', match[2]) else 'details_redacted'})
+    Path('/tmp/drl01-yahoo-eps.json').write_text(json.dumps(output, indent=2))
+    print(json.dumps(output, sort_keys=True))
+
+
 def run(request_path):
     req = json.loads(Path(request_path).read_text())
     if (req.get('intent') != 'drl01-yahoo-eps-six-stock-2025q4'
@@ -68,4 +101,7 @@ def run(request_path):
 
 
 if __name__ == '__main__':
-    run(sys.argv[1])
+    if sys.argv[1] == '--inspect':
+        inspect_existing(sys.argv[2])
+    else:
+        run(sys.argv[1])
