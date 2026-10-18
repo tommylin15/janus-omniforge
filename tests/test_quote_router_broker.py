@@ -244,6 +244,8 @@ def test_owner_deletion_clears_profile_before_user_and_keeps_shared_quotes():
     assert sql.index('DELETE FROM private.broker_profile_revisions WHERE user_id=%s') < sql.index('DELETE FROM private.users WHERE user_id=%s')
     assert all(params[0] == USER_ID for _,params in statements[:-1])
     assert not any('operational_last_quotes' in s for s in sql)
+    for table in ('usage_preferences','usage_recent_events','usage_ingest_receipts','usage_user_feature_daily','usage_daily_sessions'):
+        assert f'DELETE FROM private.{table} WHERE user_id=%s' in sql
 
 
 def test_persisted_snapshot_never_fetches_mis_or_private_mart_and_is_owner_scoped(monkeypatch):

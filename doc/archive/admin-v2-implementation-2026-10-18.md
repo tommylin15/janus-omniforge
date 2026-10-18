@@ -25,3 +25,10 @@
 以目前個人 dev／e2-micro 和少量已授權帳號為負載假設，查閱呼叫端、API audience、SQL／migration、App 生命週期、Controller 終態、刪除與 targeted tests。修正 receipt 優先防重、User/Admin feature 隔離、刪除後偏好競態、實際 completion 排序及跨 feature monthly lock 順序。無未解決的 commit 阻擋；可提交供完整 CI 驗證，不等於可跳過 dev 發布 gate。
 
 待完成：同 SHA 完整 CI、migration064／實際權限、GHCR／候選／auth／Preview／可逆 Jobs／API 發布、真實 Admin 正向讀回、390px／desktop 及使用分析開關效能與容量／清理驗收。無證據的來源指標維持 unknown，D01～D06／DRL-01／D07～D08 原工作不新增 gate。
+
+## 完整 CI 首輪與修正
+
+- Release #39085511069 阻擋發布：Python 1430 passed／2 failed；Flutter109 passed／2 failed。未 publish／部署，失敗未豁免。
+- 真實隔離 PostgreSQL usage 測試已在此完整 CI 通過（包含 transaction rollback、跨 owner、session/batch/event 防重、retention 與刪除）。
+- 修正：舊 Flutter 六頁斷言與新增 metadata/period 回應 fixture；Private runtime 測試明確驗證 retention callback；刪除 advisory lock 保留 UUID 原生參數，SQL 內轉 text，維持既有 owner assertion。另補原始事件 client time TTL、Admin 固定動作埋點。
+- 本機失敗案例集中重驗：Python38 passed／1 skipped；widget_test.dart22 passed。再次 ponytail-review，無未解決 findings；仍需新完整 SHA Release 與 runtime gate。

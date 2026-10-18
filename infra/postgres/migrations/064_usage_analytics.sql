@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS private.usage_recent_events (
 );
 CREATE INDEX IF NOT EXISTS usage_recent_user_time ON private.usage_recent_events(user_id,client_time DESC);
 CREATE INDEX IF NOT EXISTS usage_events_expiry ON private.usage_recent_events(received_at);
+CREATE INDEX IF NOT EXISTS usage_client_time_expiry ON private.usage_recent_events(client_time);
 CREATE TABLE IF NOT EXISTS private.usage_user_feature_daily (
  user_id uuid NOT NULL,day date NOT NULL,feature_id varchar(32) NOT NULL,
  page_views bigint NOT NULL DEFAULT 0,actions bigint NOT NULL DEFAULT 0,

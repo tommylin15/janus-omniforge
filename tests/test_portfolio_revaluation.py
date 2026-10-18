@@ -157,9 +157,12 @@ def test_private_pipeline_runtime_preserves_offlist_before_processing(monkeypatc
     monkeypatch.setattr(private_pipeline_runtime.PrivateIcebergStore, "from_env", classmethod(lambda _cls: object()))
     monkeypatch.setattr(private_pipeline_runtime, "PrivatePipeline", PipelineStub)
 
+    from services.api.usage import UsageService
+    purges=[]
+    monkeypatch.setattr(UsageService,'purge',lambda self: purges.append(self.repository))
     private_pipeline_runtime.main()
-
-    assert "private pipeline checkpoint=42\n" == capsys.readouterr().out
+    assert len(purges)==1 and isinstance(purges[0],RepositoryStub)
+    assert "usage_retention status=PASS\nprivate pipeline checkpoint=42\n" == capsys.readouterr().out
 
 
 def test_private_pipeline_job_uses_coverage_runtime_entrypoint():

@@ -193,6 +193,10 @@ class Api implements AdminApi {
       if (RegExp(r'^/api/v1/me/watchlist(?:/[^/]+)?$').hasMatch(path)) action = method == 'DELETE' ? 'remove' : 'save';
       if (path == '/api/v1/me/portfolio/quotes/refresh') action = 'refresh';
     }
+    if (adminUsage && method != 'GET') {
+      if (RegExp(r'^/api/v1/admin/(?:settings/[^/]+|executions/(?:collection|analysis))$').hasMatch(path)) action = 'save';
+      if (RegExp(r'^/api/v1/admin/(?:executions/[^/]+/items/[^/]+/retry|private-recalculations/[^/]+/(?:cancel|fail))$').hasMatch(path)) action = 'recalculate';
+    }
     if (action != null) usage.record('feature_action', action: action);
     try {
       final result = await _sendRequest(method, path, body);

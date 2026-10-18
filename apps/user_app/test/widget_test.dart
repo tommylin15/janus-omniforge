@@ -15,6 +15,7 @@ class FakeApi extends Api {
     if (path.startsWith('/api/v1/admin/batches'))
       return {'items': [], 'definitions': []};
     reads.add(path);
+    if (path == '/api/v1/admin/operational-summary' || path.contains('/visual-series?')) return values[path] ?? <String,dynamic>{};
     if (pendingReads.containsKey(path)) return pendingReads[path]!;
     if (path == '/api/v1/me/portfolio/quotes') {
       return {
@@ -167,7 +168,7 @@ void main() {
         home: AdminWorkspace(
             api: api, email: 'admin@example.com', onTheme: (_) {})));
     await tester.pumpAndSettle();
-    for (final label in ['總覽', '批次', '個股', '市場資訊', 'AI 分析', '資料治理']) {
+    for (final label in ['總覽', '批次', '資料品質', '系統設定']) {
       expect(find.text(label), findsWidgets);
     }
     expect(find.text('今日沒有需要處理的事項'), findsOneWidget);

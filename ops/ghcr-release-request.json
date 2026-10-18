@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 70,
-  "reason": "DRL-01 recovery: restore natural Data Readiness Ledger PyIceberg scans by omitting invalid row_filter=None (live read-only audit proved error NotImplementedError on financials); backfill official market-volume together with verified OHLCV through existing bounded market-history route; TWSE <=10%, TPEx <=30%, owner/PIT constraints unchanged. Full tests, immutable GHCR and reversible dev publication; no new provider/resource/owner writes.",
+  "attempt": 71,
+  "reason": "ADMIN-V2 CI closure plus integrated DRL-01 Ledger/history repair: align four-page Flutter fixtures, preserve native UUID deletion locking, verify scheduled telemetry retention without changing financial processing. Usage raw events expire by both client/received time; bounded optional Admin actions. Re-run full same-SHA PostgreSQL/Python/Flutter gates before GHCR; no candidate/Jobs/traffic/migration is activated by this request.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }

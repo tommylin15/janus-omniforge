@@ -98,7 +98,7 @@ class UsageService:
         with self.repository._connection() as db:
             if enabled is not None:
                 # Serialize opt-out/deletion with in-flight telemetry writes.
-                db.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s,0))', (str(user_id),))
+                db.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s::text,0))', (user_id,))
                 if not db.execute('SELECT user_id FROM private.users WHERE user_id=%s',(user_id,)).fetchone():
                     raise NotFoundError('user unavailable')
                 db.execute('''INSERT INTO private.usage_preferences(user_id,enabled) VALUES (%s,%s)
@@ -109,7 +109,7 @@ class UsageService:
 
     def ingest(self, user_id, batch: UsageBatch):
         with self.repository._connection() as db:
-            db.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s,0))', (str(user_id),))
+            db.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s::text,0))', (user_id,))
             pref = db.execute('SELECT enabled FROM private.usage_preferences WHERE user_id=%s', (user_id,)).fetchone()
             if not pref or not pref['enabled']:
                 return {'status': 'disabled', 'accepted': 0}
@@ -172,8 +172,8 @@ class UsageService:
 
     def purge(self):
         with self.repository._connection() as db:
-            for table, column, days in (('usage_recent_events','received_at',7),
-                                       ('usage_ingest_receipts','received_at',7),
+            db.execute("DELETE FROM private.usage_recent_events WHERE received_at<now()-interval '7 days' OR client_time<now()-interval '7 days'")
+            for table, column, days in (('usage_ingest_receipts','received_at',7),
                                        ('usage_user_feature_daily','day',180),
                                        ('usage_daily_sessions','day',180),
                                        ('usage_access_audit','accessed_at',180)):
@@ -182,7 +182,7 @@ class UsageService:
 
     def delete(self, user_id):
         with self.repository._connection() as db:
-            db.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s,0))', (str(user_id),))
+            db.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s::text,0))', (user_id,))
             db.execute('''INSERT INTO private.usage_preferences(user_id,enabled)
                 SELECT user_id,false FROM private.users WHERE user_id=%s
                 ON CONFLICT(user_id) DO UPDATE SET enabled=false,updated_at=now()''', (user_id,))
