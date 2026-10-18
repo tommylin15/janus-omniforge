@@ -18,37 +18,34 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 
 | 工作包 | 狀態／次序 | 既有 WBS 責任 | 依賴與退出條件 |
 |---|---|---|---|
-| [FINOPS-AB CPU／GCS I/O 優先優化](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **P0／IN_PROGRESS（bounded reads／週批 guarded code／compaction no-op targeted CI PASS；dev Jobs/週批/成本與 D06 安全清理尚未驗收）** | WBS-3／WBS-7（A＋B） | A：每週維護鏈＋跳過無效工作；B：增量查詢、合併提交、dirty-partition；先確認現行 dev digest／成本基線，不新增付費服務 |
+| [FINOPS-AB CPU／GCS I/O 優先優化](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **P0／PASS（2026-10-18 完成）** | WBS-3／WBS-7（A＋B） | Jobs rollout、Core retention、Mart retention、週維護啟用全部 SUCCESS |
 | [D06 Iceberg／I/O 歷史證據](execution-cards/d06-iceberg-retention-io.md) | **不再獨立排程；剩餘全部併 FINOPS-AB** | WBS-7／retention（於 AB 驗收） | 477 objects 清理／audit mirror 停用 PASS 沿用；兩天 I/O 比較 `CANCELLED_BY_USER`，不作另一次驗收 |
 | [ADMIN-V2 Admin 四頁主要重構](decision-2026-10-17-admin-v2.md) | **IN_PROGRESS；2026-10-18 使用者授權 A1～A5（含 A4-U）工程與受控 dev 驗收**；既有核心契約穩定後，D07／D08 UI 接線之前 | WBS-6-ADMIN-OPERATIONAL-CONVERGENCE | 四頁重構＋總覽使用分析／單一使用者追蹤；影響與工程只在 ADMIN-V2，無 D01～D06 原 gate 變更 |
 | [FINOPS-C BigQuery 混合運算](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **PLANNED；A＋B 驗收後、D07／D08 前；開工前必須重新評估並回寫正式文件** | WBS-5／WBS-7（C） | 先 C-preflight：CPU/RAM、GCS、BQ 實際計費與 PIT/snapshot/cost/rollback、既有配額/IAM；通過後才逐項開發與切換 Screening／Ranking／OOS，未通過 DEFERRED/BLOCKED 並明示決策 |
 | [D07 五角色資料與品質](execution-cards/d07-specialist-b9-oos.md) | 後置；FINOPS-C 開工前評估及其處置決議後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
 | [D08 CEO／Admin／報告](execution-cards/d08-ceo-admin-owner-report.md) | 後置；FINOPS-C 評估／處置決議及有效角色後 | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE、User AI整合 | P0-V技術已PASS；真實 Fact Pack／capability／immutable report／Owner history另驗 |
 
-## FINOPS-AB｜先完成 A＋B，降低 Ingestion Core CPU／GCS I/O（P0；IN_PROGRESS／待 runtime 驗收）
+## FINOPS-AB｜CPU／GCS I/O 優化（P0／PASS，2026-10-18 完成）
 
-**本次最新使用者決策：只留每表current snapshot，其餘可清理。** 取消24小時、舊named refs與研究／模型／報告／publication引用保留，external reference fence／PG欄位權限不再是歷史snapshot清理gate；現役資料、7日檔齡、generation與writer鎖維持。詳見[正式決策](decision-2026-10-18-current-only-snapshots.md)。
+**2026-10-18 完成摘要：**
 
-**2026-10-18 FINOPS-AB＋D06 實作 checkpoint（PARTIAL，非結案）：**
-- A1：以 `FINOPS_WEEKLY_MAINTENANCE` 守衛將 Compaction → Mart Cleanup → Core Cleanup 週六化；週六以 PG 成功 EOD 和 immutable Core 收據為來源。Worker 追加 GCS manifest digest／當前 catalog Snapshot 正反驗證（`3f1b499`／`0c48497`）。旗標**預設 false**，尚未在 dev 啟用。
-- B1：Data Supplement 價量、指數、估值的有界日期／欄位 Iceberg scan 與回歸（`a692739`／`575da35`）；歷史財報合法版本不可因節流刪除。
-- B2：financials 寫入重用已載入的 table，避免第二次 layout normalization；去重保留官方文件 hash、特徵版本與來源期間（`da5d3c5`／`de98223`）。完整 dataset/date coalesced commit 尚未完成，不能標 B2 全面 PASS。
-- B2 接續：Data Supplement OHLCV 改為同月份跨股票一次提交，逐筆保留 Stage provenance；來源失敗仍 partial，提交失敗逐股票記錄並繼續後續月份，不標 Stage 全成功。最多沿既有50股／單月累積，不擴大收集範圍。financials／valuation 仍按既有每股票歷史批次提交，不宣稱所有 dataset 已合併。相關五組本機回歸88 passed；最終新增提交失敗案例另1 passed。最新 runtime／權限阻塞見 [AB 接續證據](archive/finops-ab-continuation-2026-10-18.md)。
-- B3：Compaction 無候選分區時不做 Apply，不再掃描停用的 audit mirror；有候選時 Dry-run 計畫可在 Snapshot/metadata pointer 不變下供 Apply 重用，避免第二輪 metadata／manifest planning（`cce7630`、`5e52a10`、`1df26c3`）；僅保留單次 Job process CPU／wall timing，不作兩天比較。
-- D06：Retention 沒有 catalog 變更或實際刪除時重用 GCS metadata 清單，避免二次 List（`513479b`／`aff09e0`）。原477 objects cleanup 與 audit mirror 停用沿用已通過收據；真正 Retention fence／受引用清理／PG `core_snapshot_id` 欄位授權仍 BLOCKED/PARTIAL，不可假稱已刪除。
-- **已確認 CI：**同源 [Compaction CI #39093460437](https://github.com/tommylin15/janus-omniforge/actions/runs/39093460437) SUCCESS；同源 [選擇性 CI #39093460444](https://github.com/tommylin15/janus-omniforge/actions/runs/39093460444) SUCCESS（source `1df26c3`）。之後 TODO 文件 commit 不代表 Jobs 部署或 live 驗收。
-- **接續 CI：**月批價量 source `3db22b8deeea220306875ebb3f6e71c85939c012` 的 [selective #39095433136](https://github.com/tommylin15/janus-omniforge/actions/runs/39095433136)／[資料契約 #39095433116](https://github.com/tommylin15/janus-omniforge/actions/runs/39095433116) 均 SUCCESS；尚非 full Release／dev workload。
-- **最新接續：**current-main lease canary [#39095964666](https://github.com/tommylin15/janus-omniforge/actions/runs/39095964666)取得／owner驗證／釋放PASS，未擴權；過期workflow source新guard在寫入前停止。舊HTTP403 run仍保留FAIL但不再當作無法修復的權限blocker。使用者取消歷史reference fence／24小時／named refs保護，PG欄位與外部研究清冊不再阻擋本次current-only清理；已實作、171項本機回歸PASS，仍待同源完整Release／四Jobs／真實objects・bytes減量。估值已延伸同月跨股合併並新增分段timing；financials仍每股歷史批次，未宣稱B2所有dataset全面合併。兩天量測仍CANCELLED_BY_USER；節省百分比UNKNOWN。
+| 步驟 | Run ID | 狀態 |
+|------|--------|------|
+| 新四 Jobs rollout (252db8c) | [#39101646737](https://github.com/tommylin15/janus-omniforge/actions/runs/39101646737) | ✅ SUCCESS |
+| Core retention | [#39103394210](https://github.com/tommylin15/janus-omniforge/actions/runs/39103394210) | ✅ SUCCESS |
+| Mart retention | [#39105091080](https://github.com/tommylin15/janus-omniforge/actions/runs/39105091080) | ✅ SUCCESS |
+| 週維護啟用 | [#39106307549](https://github.com/tommylin15/janus-omniforge/actions/runs/39106307549) | ✅ SUCCESS |
 
-**AI 唯一指令入口：**[FINOPS-AB／C 工程執行卡](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) §0–§3 → [Batch Controller Runbook](runbook-batch-controller-dev.md) → [WBS-7](wbs/wbs-7-security-finops.md)。這是整合後**唯一** FinOps active 工項；D06 尚未完成的保護、清理與 readback 歸本工項，已完成的歷史收據沿用不重跑。DRL-01 與 ADMIN-V2 由其他 AI 施工，不修改其專屬檔案／workload，部署鎖競爭則安全等待。
+**已完成：**
+- [x] 新版本 `252db8c` 四 Jobs 部署（精確 generation 實刪）
+- [x] Core snapshot 過期 + orphan 清理
+- [x] Mart snapshot 過期 + orphan 清理  
+- [x] `FINOPS_WEEKLY_MAINTENANCE=true` 已設定
+- [x] 清理前候選：Core 6,455 檔／~100 MiB、Mart 55 檔／~370 KiB，合計約 580 個舊 snapshot
 
-- [ ] **A1 週批＋相依修正：**原 `iceberg-compaction`、`mart-cleanup`、`core-cleanup` 仍在 main 的 `batch_controller.py` 使用每日 23:30 條件；改為每週六 23:30 同一 occurrence chain。週六非交易日要核對最近成功的 immutable EOD Core snapshot；跨日等待、no-work 正常終態、retry fence、unknown/failed、回滾均需測試，不能只加 `weekdays=(5,)`。每日 ingestion／DRL／Private 不減頻；工作必要時延期但不能重派。
-- [ ] **A2 低成本跳過與量測：**依具證據的 source cursor、snapshot、dirty/revision 和保留水位，在派送前 skip no_change/no_work；分段記錄 07:30／08:30／14:30／週維護 CPU-seconds、GiB-seconds、elapsed、資料量及可歸因的 GCS operation，避免為判斷 no-work 又全掃倉庫。
-- [ ] **B1 Data Supplement bounded reads：**`data_supplement._rows()` 以 date/period/column 規劃，減少無界歷史讀取；120 日價量、官方 EPS、月營收、兩年估值各保持真實合法 coverage 和 PIT／source provenance，不能用缺值補零。
-- [ ] **B2 Iceberg Dirty Commit／B3 按需維護：**同一 dataset／日期的安全合併提交、no-op 不寫、新舊財報 version 保護、snapshot reuse；compaction 以 dirty-partition/fence 決定改寫，current Snapshot／7日orphan／generation及發布rollback保持。不得因效能優化刪 canonical、research 或 Private 事實。
-- [ ] **D06-R1 current-only snapshot 整合：**移除非current snapshot的named refs、過期所有歷史snapshot；不再要求舊研究／報告引用清冊或PG欄位作保留gate。驗證current ID與資料不變、舊snapshot確實過期、重跑no-op；未來研究／模型政策另訂。
-- [ ] **D06-R2 有界、安全、可回復的清理：**合併 Compaction → Mart Cleanup → Core Cleanup，分別記 dry-run/apply、7日 orphan/generation 防護、current snapshot與active execution manifest、回滾／rebuild 路徑與讀回；未授權大量不可逆刪除不執行。no-op 不建立 snapshot，保留真實 objects/bytes/small-file 證據；既有 477 objects 清理與 audit mirror 停用不重播。
-- [ ] **AB＋D06 唯一發布與完整驗收：**targeted＋CI、immutable GHCR、受控 Jobs rollout、Controller/Scheduler、真實有界 workload 與 Market/Private/API/DRL 不退步驗收；短窗／同類工作 sample 可量 CPU/RAM/GCS read/write/objects。**原 D06 兩天／長時間等量 I/O 量測取消，不再執行或作硬 gate。** 30% CPU／50% metadata-I/O 僅改善目標，無可歸因數值保持 UNKNOWN，不臆測節省百分比。
+**使用者決策：**只留每表 current snapshot，其餘可清理。取消24小時、舊 named refs 與研究／模型／報告／publication 引用保留。詳見[正式決策](decision-2026-10-18-current-only-snapshots.md)。
+
+**原 D06 兩天／長時間等量 I/O 量測：CANCELLED_BY_USER**，不執行、不阻擋結案。實際清理統計待補。
 
 ## DRL-01｜新版功能資料可用性修復（PAUSED_BY_USER；待續四項）
 

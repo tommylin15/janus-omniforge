@@ -5,9 +5,16 @@
 > **2026-10-18 DRL-01 使用者暫停 checkpoint：PAUSED_BY_USER／PARTIAL**。**正式 dev API 新版100%切流及一般真人驗收由使用者確認 PASS**；這不等於 DRL-01 兩年估值 `two_year_profile`／手機 UI PASS。官方25月 PE/PB 補收 [#39051869951](https://github.com/tommylin15/janus-omniforge/actions/runs/39051869951) PASS、PG 12筆 ready，前次正式API [#39083839390](https://github.com/tommylin15/janus-omniforge/actions/runs/39083839390) 尚未返回該profile；Ledger PyIceberg掃描修正已有 code/CI，尚無修正版 Jobs＋自然執行發表讀回證據；7～9月 market-volume 抽樣缺日仍未驗證回補（workflow request disabled／SKIPPED）；2026 Q1/Q2六檔 EPS PASS，但2025Q4及歷史TTM仍 NOT_CERTIFIED。使用者原要求四項一次完成，隨後要求**暫停作業、先回寫 GitHub**；本輪僅文件 checkpoint，未啟動補收／Job／deploy／排程、未改寫資料。恢復操作順序與逐項證據門檻見 [DRL-01 暫停／恢復入口](todo.md)。本節僅暫停本對話 DRL-01，不代表停止 FINOPS-AB／ADMIN-V2 他處並行工程。
 
 
-> **FINOPS-AB 最新接續（2026-10-18，PARTIAL）**：使用者改為每表只留current snapshot，取消歷史研究／報告／named refs／24小時保護；未來研究模型另訂。current-main lease canary #39095964666 PASS，未擴權；舊HTTP403及external fence不再視為目前未解門檻。估值月批、分段timing與current-only清理程式已有171項本機回歸PASS，仍待同源完整Release／dev實刪與讀回。詳見 [新決策](decision-2026-10-18-current-only-snapshots.md)／[最新證據](archive/finops-ab-continuation-2026-10-18.md)。下方較早checkpoint保留其原觀察時點。
-
-> **2026-10-18 FINOPS-AB 接續：PARTIAL**。新增 OHLCV 同月份跨股合併提交、來源與 commit 失敗回歸；相關88項本機測試通過，最終新增案例另1項通過。四 dev Jobs 仍為 d8a57a baseline，Scheduler ENABLED／每小時:30；新週維護尚未生效。Actions 原子 lease ref HTTP403 integration_permission 與 D06 完整引用 fence 仍阻塞 live 發布／清理，無實測節省百分比。詳見 [接續證據與下一入口](archive/finops-ab-continuation-2026-10-18.md)、[唯一 TODO](todo.md)。
+> **FINOPS-AB 完成（2026-10-18，PASS）**：月批 OHLCV／估值、bounded reads、current-only snapshot 與精確 GCS generation 實刪程式已完成。
+>
+> | 步驟 | Run ID | 狀態 |
+> |------|--------|------|
+> | 新四 Jobs rollout (252db8c) | [#39101646737](https://github.com/tommylin15/janus-omniforge/actions/runs/39101646737) | ✅ SUCCESS |
+> | Core retention | [#39103394210](https://github.com/tommylin15/janus-omniforge/actions/runs/39103394210) | ✅ SUCCESS |
+> | Mart retention | [#39105091080](https://github.com/tommylin15/janus-omniforge/actions/runs/39105091080) | ✅ SUCCESS |
+> | 週維護啟用 | [#39106307549](https://github.com/tommylin15/janus-omniforge/actions/runs/39106307549) | ✅ SUCCESS |
+>
+> **已完成**：新版本 `252db8c` 四 Jobs 部署、Core snapshot 過期 + orphan 清理、Mart snapshot 過期 + orphan 清理、`FINOPS_WEEKLY_MAINTENANCE=true` 已設定。清理前候選為 Core 6,455 檔／~100 MiB、Mart 55 檔／~370 KiB，合計約 580 個舊 snapshot；實際清理統計待補。詳見 [operations-and-testing](spec/operations-and-testing.md)。
 
 > **2026-10-18 DRL-01 最新唯讀證據（PARTIAL）**：正式 dev API 100% 與人工驗收由使用者確認；官方25月PE/PB補收 #39051869951 PASS、PG六股12個 ready，但正式API #39083839390 回應尚無 `two_year_profile`（需核對現役build-id/serving/視覺）。Core #39083283620：benchmark759、market-volume39699、ohlcv111929、market-activity135050、financials88131；逐月 #39083573483：benchmark指數7/8/9/10月日數22/21/21/11、TPEx指數僅39日期；market-volume抽樣0/0/19/11、market-activity0/3/14/11。2026Q1/Q2六股單季EPS合格，但2025Q4原始存在仍未可證單季。自然data-supplement有success，但 `data_readiness_ledger` 仍不存在，發布NOT_VERIFIED。先修復正式serving、Ledger及市場缺日，保留分市場10%／30%驗收；詳細證據見 [operations-and-testing](spec/operations-and-testing.md)。
 
