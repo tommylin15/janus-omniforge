@@ -17,10 +17,10 @@ jobs:
   replay:
     if: >-
       (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.id == 39089975788 &&
+       github.event.workflow_run.id == 39090309550 &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.head_sha == '6487e9907f529bb33e34c0db3c4a508193f46f78') ||
+       github.event.workflow_run.head_sha == 'e0bf06b87e002af963cda82523cb009719a2bf3d') ||
       (github.event_name == 'push' &&
        startsWith(github.event.head_commit.message, 'activate(drl01-market):'))
     runs-on: ubuntu-latest
