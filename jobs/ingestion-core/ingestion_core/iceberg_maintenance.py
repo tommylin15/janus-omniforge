@@ -485,8 +485,13 @@ def compact_nightly(*, core: Any) -> dict[str, Any]:
     handled by the separate reference-protected audit cleanup, not rewritten or
     repeatedly scanned on each ordinary Core maintenance occurrence.
     """
+    from time import perf_counter, process_time
+    started = perf_counter()
+    cpu_start = process_time()
     source_fence = verify_compaction_eod_fence(core=core)
+    fence_finished = perf_counter()
     core_plan = compact_core(core=core, apply=False)
+    plan_finished = perf_counter()
     audit_disabled = {"table": "ops.batch_events_v1", "status": "disabled",
                       "planned_files": 0, "rewritten_files": 0}
     candidates = sum(len(t["planned_periods"]) for t in core_plan["tables"])
@@ -509,6 +514,13 @@ def compact_nightly(*, core: Any) -> dict[str, Any]:
         mode = "skipped_no_work"
     return {"component": "iceberg-nightly-compaction", "mode": mode,
             "source_fence": source_fence,
+            # Process CPU and wall timing are bounded single-job measurements,
+            # not Cloud Monitoring vCPU-seconds or GCS request counters.
+            "timings": {"source_fence_seconds": round(fence_finished-started, 4),
+                        "planner_seconds": round(plan_finished-fence_finished, 4),
+                        "rewrite_seconds": round(perf_counter()-plan_finished, 4),
+                        "process_cpu_seconds": round(process_time()-cpu_start, 4),
+                        "measurement_scope": "one_local_job_process"},
             "preflight": {"core": core_plan, "audit": audit_disabled},
             "apply": {"core": core_result, "audit": audit_disabled}}
 
