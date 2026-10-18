@@ -51,10 +51,10 @@ jobs:
                  'eps_4_comparable':value.get('eps_4_comparable')}
               with control.connection.cursor() as cur:
                   cur.execute("SELECT state->>'batch',state->>'status',count(*) FROM control.batch_occurrences WHERE scheduled_at >= %s GROUP BY 1,2 ORDER BY 1,2",(datetime.now(timezone.utc)-timedelta(days=5),))
-                  cur.execute("SELECT state->>'status',state->>'operation',scheduled_at FROM control.batch_occurrences WHERE scheduled_at >= %s AND state->>'batch'='data-supplement' ORDER BY scheduled_at DESC LIMIT 7",(datetime.now(timezone.utc)-timedelta(days=7),))
-                  out['supplement_operations']=[{'status':st,'operation':op,'date':str(dt)[:10]} for st,op,dt in cur.fetchall()]
                   out['natural_batches']=[{'batch':str(a),'status':str(b),'count':int(n)}
                     for a,b,n in cur.fetchall() if a in ('ingestion','data-supplement','data-quality','market-screening')]
+                  cur.execute("SELECT state->>'status',state->>'operation',scheduled_at FROM control.batch_occurrences WHERE scheduled_at >= %s AND state->>'batch'='data-supplement' ORDER BY scheduled_at DESC LIMIT 7",(datetime.now(timezone.utc)-timedelta(days=7),))
+                  out['supplement_operations']=[{'status':st,'operation':op,'date':str(dt)[:10]} for st,op,dt in cur.fetchall()]
                   cur.execute("SELECT symbol,metric,payload_json->>'status',payload_json->>'window_years' FROM control.stock_valuation_five_year WHERE symbol=ANY(%s) ORDER BY symbol,metric",(['1513','2327','2382','3231','3711','5876'],))
                   out['river']=[{'symbol':s,'metric':m,'status':st,'years':yr} for s,m,st,yr in cur.fetchall()]
               core=_iceberg_core(os.environ['CORE_BUCKET'],read_only=True)
@@ -181,6 +181,8 @@ jobs:
                      'readiness_error':obj.get('data_readiness_error'),
                      'core_created':obj.get('core_created'),'failures':len(obj.get('failures',[]))})
           print(json.dumps({'component':'drl01_natural_ledger_receipts','records':records[-20:]},sort_keys=True))
+          import sys
+          sys.path.insert(0, 'scripts/gcp')
           from ghcr_jobs_rollout import cloud
           try:
               core_report=json.load(open('/tmp/drl01-continuity.json'))['receipt']
