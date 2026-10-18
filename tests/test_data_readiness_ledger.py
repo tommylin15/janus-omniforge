@@ -100,3 +100,33 @@ def test_drl_nonconsecutive_months_and_cumulative_eps_do_not_qualify():
     report = _report(members, benchmark, prices, financial, focused)
     assert report["monthly_revenue_13"]["qualified"] == 0
     assert report["eps_4_comparable"]["qualified"] == 0
+
+
+
+def test_readiness_unfiltered_financial_scan_omits_none_predicate():
+    """A None PyIceberg row_filter raises NotImplementedError in the binder."""
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+    from ingestion_core.readiness import _scan
+    table = MagicMock()
+    table.schema.return_value.fields = [
+        SimpleNamespace(name="symbol"), SimpleNamespace(name="metric")]
+    table.current_snapshot.return_value = SimpleNamespace(snapshot_id=123)
+    table.scan.return_value.to_arrow.return_value.to_pylist.return_value = [
+        {"symbol": "2330", "metric": "eps"}]
+    core = MagicMock()
+    core.table_exists.return_value = True
+    core.table_identifier.return_value = "core.financials_v1"
+    core.catalog.load_table.return_value = table
+    rows, snapshot_id = _scan(core, "financials", ("symbol", "metric"))
+    assert rows == [{"symbol": "2330", "metric": "eps"}]
+    assert snapshot_id == "123"
+    table.scan.assert_called_once_with(
+        snapshot_id=123, selected_fields=("symbol", "metric"))
+
+    sentinel = object()
+    table.scan.reset_mock()
+    _scan(core, "financials", ("symbol", "metric"), row_filter=sentinel)
+    table.scan.assert_called_once_with(
+        snapshot_id=123, selected_fields=("symbol", "metric"),
+        row_filter=sentinel)
