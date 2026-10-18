@@ -1,14 +1,11 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04",
-  "release_run": "39100946095",
-  "purpose": "FINOPS-AB exact generation deletion and scoped Core event-hold handling. Full same-source Release PASS; zero canonical traffic candidate for automated auth gate only.",
+  "sha": "b5df7e30bc02676a41d0d3300325b9ca5d6fb553",
+  "release_run": "39108738006",
   "promotion": false,
   "scope": "janus-api-only",
-  "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "All Python/Flutter gates, four public GHCR immutable digests and anonymous verification PASS #39100946095. Keep canonical API traffic and Job templates unchanged.",
-  "same_sha_retry_attempt": 0,
-  "digest": ""
+  "purpose": "DRL-01 P0-1: Deploy API with two_year_profile field name fix",
+  "requested_at": "2026-10-18T15:50:00+08:00"
 }
