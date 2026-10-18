@@ -19,8 +19,8 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 32,
-  "safety": "Retry only after previous GHCR Job rollout #39089399302 stopped with bounded_command_failed_release_lease in preflight. Global lease read-only absent #39089541155, atomic no-GCP acquire/assert/release/absent test #39089628434 PASS, no GCP mutation. Keep immutable release #39085976225, candidate #39089101585, auth #39089227416, Preview #39089314678 and exact d8 baseline/canary/fences unchanged.",
+  "request_attempt": 33,
+  "safety": "DRL-01 third attempt only with diagnostic runner: previous #39089399302 and #39089688751 BLOCKED before any GCP mutation at lease acquisition, no receipt/canaries; atomic no-GCP lease cycle #39089628434 PASS. Bounded single-attempt safe lease reason capture committed and tested on main, never reissue unknown writes. Retain release 39085976225, candidate 39089101585, auth 39089227416, preview 39089314678, d8 rollback config and scheduler fences.",
   "auth_boundary_run": "39089227416",
   "automated_oauth_requirement": "Same-source OAuth and private negative boundary #39089227416 PASS.",
   "authorization": "User-approved DRL-01 dev four-Jobs update; fail-closed exact prior d8a57a live digest, configuration hashes, scheduler and rollback; FINOPS-AB deployment concurrency serialized."
