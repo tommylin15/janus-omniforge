@@ -1,9 +1,10 @@
 # Janus 目前狀態
 
-> **2026-10-18｜DRL-01 P0-3 完成、P0-2 待驗證（PARTIAL）**：
-> - **P0-3 Market Volume 補收 PASS**：四個 slices（2026-07～10/17）全部完成，使用 execution-based 驗證。
-> - **P0-2 Readiness Jobs**：已由 FINOPS-AB [#39101646737](https://github.com/tommylin15/janus-omniforge/actions/runs/39101646737) 部署 `252db8c`（含 readiness.py 修正），待驗證自然排程 Ledger 寫入。
-> - **P1-4 EPS 歷史修復**：需等 P0-2 Ledger 驗證完成後執行。
+> **2026-10-18｜DRL-01 整批續行，仍 PARTIAL**：
+> - **P0-1 PASS**：正式兩年PE/PB API 12/12 ready；5876手機／桌面PE/PB顯示4/4，正式／Preview build-id同為`b5df7e30bc02676a41d0d3300325b9ca5d6fb553`。
+> - **P0-2 落地PASS、週期待驗**：Admin `data_readiness_ledger` 已讀回、獨立重算PASS；自然daily／weekly新版發布收據尚未齊備。
+> - **P0-3 PASS**：四slices既有完成證據沿用，本輪沒有重送補收。
+> - **P1-4 已核查、修復受阻**：六股2025Q3/Q4官方12份來源均可讀，但目前YTD context缺可驗股數，可安全重建0/6；不造單季EPS。
 >
 > 證據見 [operations-and-testing](spec/operations-and-testing.md) 與 [TODO](todo.md)。
 
@@ -19,10 +20,9 @@
 >
 > **已完成**：新版本 `252db8c` 四 Jobs 部署、Core snapshot 過期 + orphan 清理、Mart snapshot 過期 + orphan 清理、`FINOPS_WEEKLY_MAINTENANCE=true` 已設定。清理前候選為 Core 6,455 檔／~100 MiB、Mart 55 檔／~370 KiB，合計約 580 個舊 snapshot；實際清理統計待補。詳見 [operations-and-testing](spec/operations-and-testing.md)。
 
-> **2026-10-18 DRL-01 最新唯讀證據（PARTIAL）**：正式 dev API 100% 與人工驗收由使用者確認；官方25月PE/PB補收 #39051869951 PASS、PG六股12個 ready，但正式API #39083839390 回應尚無 `two_year_profile`（需核對現役build-id/serving/視覺）。Core #39083283620：benchmark759、market-volume39699、ohlcv111929、market-activity135050、financials88131；逐月 #39083573483：benchmark指數7/8/9/10月日數22/21/21/11、TPEx指數僅39日期；market-volume抽樣0/0/19/11、market-activity0/3/14/11。2026Q1/Q2六股單季EPS合格，但2025Q4原始存在仍未可證單季。自然data-supplement有success，但 `data_readiness_ledger` 仍不存在，發布NOT_VERIFIED。先修復正式serving、Ledger及市場缺日，保留分市場10%／30%驗收；詳細證據見 [operations-and-testing](spec/operations-and-testing.md)。
+> **最新證據**：continuity [#39121917976](https://github.com/tommylin15/janus-omniforge/actions/runs/39121917976)、API [#39121953691](https://github.com/tommylin15/janus-omniforge/actions/runs/39121953691)、EPS官方核查 [#39122275355](https://github.com/tommylin15/janus-omniforge/actions/runs/39122275355)。先前「API缺profile／Ledger無鍵」已被本輪讀回取代；完整範圍、限制及歷史連結見 [operations](spec/operations-and-testing.md)。
 
-
-**2026-10-17 DRL-01D 改版（待驗收）**：依使用者要求五年 PE/PB 河流縮為兩年（2024-10～2026-10，25個曆月），僅對六檔 TWSE 持股／關注股。原五年工作流請求停用；既有 PostgreSQL `063` serving table 屬歷史命名，API／payload／UI 改以 `window_years=2` 的兩年契約判定。需新 SHA 的受控 dev Release、25個月來源補收及正式 API／UI 讀回才可宣稱 DRL-01D 完成。此項範圍變更不影響 D01～D05 已結案驗收。
+**2026-10-17 DRL-01D 改版（歷史 checkpoint；最新驗收見上）**：依使用者要求五年 PE/PB 河流縮為兩年（2024-10～2026-10，25個曆月），僅對六檔 TWSE 持股／關注股。原五年工作流請求停用；既有 PostgreSQL `063` serving table 屬歷史命名，API／payload／UI 改以 `window_years=2` 的兩年契約判定。需新 SHA 的受控 dev Release、25個月來源補收及正式 API／UI 讀回才可宣稱 DRL-01D 完成。此項範圍變更不影響 D01～D05 已結案驗收。
 
 更新：2026-10-17（Asia/Taipei）。**使用者已授權 D01～D05 快速完成、包含 D04 繞路或必要的最小 IAM；這取代先前「僅 API 100% 切流、其他 P1 暫停」的限制。** 歷史 PASS 只限當次 SHA／環境／scope；下方舊「未切流／尚未真人驗收」段落保留當時 checkpoint，不能倒蓋最新結果。
 

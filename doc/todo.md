@@ -1,9 +1,6 @@
 # Janus — 唯一開發待辦
 
-> **2026-10-18｜DRL-01 P0-3 完成、P0-2 待驗證、P1-4 待執行**：
-> - **P0-3 Market Volume 補收 PASS**：四個 slices（2026-07～10/17）全部完成。
-> - **P0-2 Readiness Jobs**：已部署 `252db8c`，待驗證自然排程 Ledger 寫入。
-> - **P1-4 EPS 歷史修復**：需等 P0-2 Ledger 驗證完成後執行。
+> **2026-10-18｜DRL-01 整批續行（PARTIAL）**：兩年 API 12/12 與5876手機／桌面 PE/PB 4/4 PASS；Admin `data_readiness_ledger` 落地 PASS。Market Volume 沿用 PASS。剩自然 daily／weekly Ledger 收據；2025Q4 六股官方來源核查0/6可安全重建，保留未認證。
 
 更新：2026-10-18。只保存尚未完成的交付與驗收；真實終態證據見 [status](status.md) 與 [operations](spec/operations-and-testing.md)。
 
@@ -50,16 +47,14 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 
 **原 D06 兩天／長時間等量 I/O 量測：CANCELLED_BY_USER**，不執行、不阻擋結案。實際清理統計待補。
 
-## DRL-01｜新版功能資料可用性修復（PAUSED_BY_USER；待續四項）
+## DRL-01｜新版功能資料可用性修復（PARTIAL；已解除暫停）
 
-**2026-10-18 DRL-01 暫停／恢復入口（使用者當次決策；僅允許文件同步）**
+**2026-10-18 最新決策與剩餘驗收**：使用者「一次執行下去」解除先前暫停，允許整批接續既有 DRL-01 尾項。最新真實證據見 [operations](spec/operations-and-testing.md)；前次失敗與暫停見 [歷史 checkpoint](archive/drl01-pre-readback-2026-10-18.md)，不再作 active 禁令。
 
-使用者原授權接續完成以下四項，但隨後明確指示**「暫停作業」**，本輪只核准將當前進度與待辦寫入 GitHub。**DRL-01 四項工程維持 PAUSED_BY_USER／PARTIAL**；本次文件 commit 不代表來源回補、Jobs rollout、自然排程驗收或 UI 验收。不得以此文件更新觸發手動 Release／Job／migration／補收；既有其他 AI 正在執行的 FINOPS-AB／ADMIN-V2 不因本節自動停機或改寫。恢復後先讀現行 main、Job digest、Controller/runtime，再在既有 dev 安全 gate 下接續，避免重工或競爭部署。
-
-1. **P0｜正式兩年 PE/PB API／UI**：官方2024-10～2026-10三段補收 [#39051869951](https://github.com/tommylin15/janus-omniforge/actions/runs/39051869951) PASS；六股×兩項 PG profile 共12筆 ready。但前次正式 API 唯讀 [#39083839390](https://github.com/tommylin15/janus-omniforge/actions/runs/39083839390) 12個 PE/PB series 均未返回 `two_year_profile`，不得因使用者已確認**dev API 100% 切流及一般人工驗收**便宣稱兩年河流端到端 PASS。需核對最新現役 build-id／publication view／serving、6×2 API payload、兩年河流個股頁手機及桌面真正顯示；完成後附同 SHA receipt。
-2. **P0｜Data Readiness Ledger 定期發布**：readiness PyIceberg `_scan()` 空 `row_filter` 修復已有程式與測試／CI，**尚欠修正版 ingestion Jobs 同 SHA rollout、實際 `data_readiness_ledger` Admin 設定讀回、Controller 自然排程至少一次每日增量及後續讀回、週詳細稽核的 source cursor／snapshot／watermark receipt**。自然 `data-supplement` occurrence success 不可代替 Ledger publication PASS；前次資料庫設定查無此鍵，保留 NOT_VERIFIED。
-3. **P0｜2026-07～09 Market Volume 缺日**：唯讀 [#39083573483](https://github.com/tommylin15/janus-omniforge/actions/runs/39083573483) 抽樣 market-volume 7月0日、8月0日、9月19日，market-activity另有0／3／14日；指數 benchmark／股票 OHLCV 不得相互代替。既有受控歷史 replay request `ops/drl01-market-volume-replay-request.json` 前次仍 disabled、其 workflow 為 SKIPPED，**目前不聲稱已補收**。恢復後先查源站、可用交易日與真實分市場會員分母，以既有官方來源有界、冪等補收及 Stage/Core receipts 驗真；逐月查每市場有效日數、TWSE missing≤10%／TPEx missing≤30%、PIT／provenance，並再次抽讀 UI 所用 dataset。不得為填缺而偽造股日。
-4. **P1｜EPS 合法歷史季度定向修復**：六檔2026Q1／Q2 合法單季已 [#39000368842](https://github.com/tommylin15/janus-omniforge/actions/runs/39000368842) 6／6 PASS；2025Q4 有官方 MOPS 原始季度資料，但六檔缺可驗證單季 EPS 或核實分子／加權平均股數。恢復後只對授權來源能證明者定向補收、保存版本與來源，未認證者保留 null／NOT_CERTIFIED，不以累計 EPS 差分或猜測股數充數；四季 TTM 的舊年度門檻依既有 `WAIVED_FOR_MVP` 記載，不偽稱 PASS。
+1. **P0｜正式兩年 PE/PB API／UI 已驗部分 PASS**：六股×PE/PB 12/12 ready、25月；5876手機390×844／桌面1440×1000的PE/PB顯示4/4 PASS。證據已移 operations；不重新部署或重做25月補收，不把抽樣視覺驗收說成六股逐頁矩陣。
+2. **P0｜Data Readiness Ledger 定期發布仍 PARTIAL**：Admin `data_readiness_ledger` 鍵與最新值已讀回、獨立重算 PASS。**剩餘**：修正版自然 Controller daily 至少一次可關聯的 execution→Ledger checked_at／snapshot讀回，及週詳細稽核的source cursor／snapshot／watermark收據。手動 `janus-ingestion-core-szlxm` 與自然 occurrence 的 succeeded 不取代新版週期性發布證據。不新增 Scheduler／重送已完成補收。
+3. **P0｜Market Volume 補收 PASS**：沿用四 slices 完成證據，本輪不重送。指數、market-volume、market-activity不能相互代替，不把指定樣本推成全市場。
+4. **P1｜EPS 合法歷史季度定向修復 BLOCKED_SOURCE_EVIDENCE**：Ledger落地後已續行六股2025Q3/Q4 MOPS核查；12份來源均成功取得，但核查的YTD context無可驗加權平均股數，可安全重建0/6，Core合格2025Q4亦0/6。**剩餘**：在既有授權官方來源取得直接單季EPS或可核實同版分子／分母後才定向補收；缺證據者保留null／NOT_CERTIFIED。禁止累計EPS差分、推估股數；2026Q1/Q2六股6/6與歷史TTM的WAIVED_FOR_MVP不變。
 
 **合併驗收底線**：不重開已結案 D01～D05；不操作 Owner／Private Ledger、不新增付費來源、排程或資源；遵守 canonical／research、PIT 與 source authorization；直到正式 2Y API／UI、Ledger 自然增量、歷史市場覆蓋及適用 EPS 證據齊備，整體 DRL-01 維持 PARTIAL。最新實證另見 [operations](spec/operations-and-testing.md)／[status](status.md)。
 

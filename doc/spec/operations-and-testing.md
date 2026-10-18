@@ -1,13 +1,17 @@
 # Janus 最新驗收證據索引
 
-### 2026-10-18｜DRL-01 暫停／文件同步（PAUSED_BY_USER；不構成 runtime 驗收）
+### 2026-10-18｜DRL-01 整批續行：Ledger 落地、兩年 API／UI PASS；自然週期及 EPS 歷史仍 PARTIAL
 
-- **指令／範圍**：使用者已確認「正式 dev API 新版 100% 切流、驗收完成」，後要求完成 DRL-01 四個尾項，隨即明確「暫停作業」，本輪僅允許 GitHub 文件回寫。只暫停 DRL-01 後續工程；不變更其它工項／既有 Scheduler、Jobs、已核准 ops request。
-- **兩年河流**：官方 25 月三片補收 [#39051869951](https://github.com/tommylin15/janus-omniforge/actions/runs/39051869951) PASS；曾有 PG 六股 × PE/PB = 12 組 `ready/window_years=2`。但前次正式 API 唯讀 [#39083839390](https://github.com/tommylin15/janus-omniforge/actions/runs/39083839390) 12 路 PE/PB 無 `two_year_profile`；正式 API／Flutter 個股頁分位河流 **NOT_VERIFIED**，不可由使用者確認 100% traffic 外推。
-- **Readiness／自然增量**：既有 Controller 有 data-supplement 自然成功記錄；此前 `control.data_readiness_ledger` Admin 設定查無鍵。程式修正／targeted CI 與正式 Jobs rollout、下一次自然增量之固定 Core snapshot／Ledger 寫入讀回必須分開驗收；當下 **NOT_VERIFIED**。
-- **Market Volume 缺口與真實前置**：[Core 逐月 #39083573483](https://github.com/tommylin15/janus-omniforge/actions/runs/39083573483) 指定股票抽樣 2026-07／08／09／10（至16日）= 0／0／19／11 個日期，不能推論為全市場筆數；TAIEX 指數日期連續亦不代表 volume/activity 完整。當前 `ops/drl01-market-volume-replay-request.json` **`approved=true`**，但該 request 提及的 Jobs rollout [#39089399302](https://github.com/tommylin15/janus-omniforge/actions/runs/39089399302) **FAILED**；近期 workflow [#39098854896](https://github.com/tommylin15/janus-omniforge/actions/runs/39098854896) **SKIPPED**，不能聲稱回補或 TWSE 10%／TPEx 30% 門檻已通過。
-- **EPS**：2026Q1/Q2 指定六股 6/6 合格；2025Q4 原始資料存在但未有合格單季／可證股數分母，歷史四季／TTM 保留 `NOT_CERTIFIED/WAIVED_FOR_MVP`；禁止將 YTD EPS 直接相減、推估分母或缺值補零。
-- **本次變更與復工條件**：GitHub 僅 status／TODO／operations 文字 commit，**無新的 code、migration、CI 人工觸發、deployment、runtime query、真實資料改寫、Owner 操作**。GitHub push 如由既有 workflow 自動派發一般 CI，不能視為 DRL-01 acceptance。復工時先核對最新 `main`／active image digest／deploy lease／自然排程與 FINOPS-AB 並行，再依四項順序執行及留存實際 receipt。
+- **授權／範圍**：使用者「一次執行下去」解除 DRL-01 暫停，合併驗收既有尾項。只更新既有 EPS 唯讀請求與證據文件；本輪未改業務程式、部署、Scheduler、Owner 資料或新增來源。先前「API 無 profile／Ledger 無鍵」為歷史結果，見 [舊 checkpoint](../archive/drl01-pre-readback-2026-10-18.md)。
+- **可追溯版本**：獨立 continuity [#39121917976](https://github.com/tommylin15/janus-omniforge/actions/runs/39121917976) 與 API [#39121953691](https://github.com/tommylin15/janus-omniforge/actions/runs/39121953691) 均 SUCCESS，workflow source `68b353943b3d7f0aee6c228983c4b9b90cb0364d`。正式與 Preview 的 `/app/build-id.txt` 均為 `b5df7e30bc02676a41d0d3300325b9ca5d6fb553`；這是實際 serving build，不能用 workflow source 或 Jobs `252db8c` 冒充同源。
+- **P0-2 Admin Ledger 落地 PASS**：execution `janus-ingestion-core-rpxzr` 經既有 control-plane 讀回 `data_readiness_ledger`，`found=true`、`as_of=2026-10-18`、`checked_at=2026-10-18T10:54:20.309919+00:00`、`status=PRICE_AND_FOCUS_READY_ONLY`。固定快照 ohlcv/focus `9152198946506568330`、benchmark `4002887643851730668`、financials `2963097382187259653`；寫入攔截的獨立重算 `PASS_READ_ONLY`。TWSE 1058/1096（96.53%）、TPEx 767/893（85.89%）符合 20/21 日門檻；13 月營收 1077/1096、864/893 均 PASS，focus 為當次配置的 4/4，不能外推成指定八檔歷史驗收。
+- **P0-2 自然週期仍 NOT_VERIFIED**：Controller 最近五天有 5 次 data-supplement succeeded，最近 occurrence 對應 `janus-ingestion-core-bk8xc`；可讀摘要的 `data_readiness_status` 為 null，不能證明新版自然發布。使用者手動 `janus-ingestion-core-szlxm` 成功及上述設定落地不代替自然增量。下一次自然 daily／weekly 需關聯 occurrence、execution、Ledger checked_at、source cursor／snapshot／watermark；尚未取得這組收據，整個 P0-2 不標 CLOSED。
+- **P0-1 正式兩年 API PASS（12/12）**：六股 `1513,2327,2382,3231,3711,5876` × `pe,pb` 全部 HTTP200、`data_status=available`、`two_year_profile.status=ready`、`window_years=2`、25 個月。2327 各 480 有效日，其餘各 487；Core valuation snapshot `4660132369949617208`。現有 API 經 publication 單列讀回，無需本輪重新發布。
+- **P0-1 真實 UI PASS（限定 5876、PE/PB × 兩尺寸 4/4）**：正式登入後從既有持股進個股，1440×1000 與 390×844 檢視 PE/PB 兩年區間、分位與 25 期月中位數圖；期間 2024-10-16～2026-10-16、來源與非 PIT 提示可見，手機未見橫向溢位。PE 最新 15.34／分位59.2%，PB 最新1.23／分位99.9%；月中位圖與最新日值分開。截圖僅保存本機忽略目錄 `.tmp/drl01-20261018/ui/`，未上傳本人持股資料；未宣稱其餘五股逐頁視覺矩陣或全站 visual convergence PASS。測試後還原 viewport。
+- **P0-3 沿用 PASS，不重送補收**：本次僅獨立抽讀 market-volume snapshot `7109808353202011087`，指定樣本 7/8/9/10 月日期22/21/20/11，至10/16；抽樣不是全市場覆蓋率。market-activity 仍是另一 dataset，不據此新增回補 scope 或偽稱完整。
+- **P1-4 官方來源核查完成，修復 BLOCKED_SOURCE_EVIDENCE**：請求 commit `0ba6b7a5008226fff0128e77718874efeda4632f`，selective CI [#39122275345](https://github.com/tommylin15/janus-omniforge/actions/runs/39122275345) SUCCESS；官方核查 [#39122275355](https://github.com/tommylin15/janus-omniforge/actions/runs/39122275355) SUCCESS，execution `janus-ingestion-core-v6jdx`，六股 Q3/Q4 共12份 `FETCHED_VALIDATED`、`source_failures=0`，均有 basic EPS／歸母盈餘，但核查的 YTD context 無加權平均股數，`eligible_numerator_denominator=0`、`NO_SAFE_Q4_DENOMINATORS`。這只證明既有 MOPS 入口的核查結果，不宣稱所有官方資料皆不可能取得。Core 2025Q4 合格單季仍0/6；2026Q1/Q2 六股公開 API 仍6/6。不以 EPS 差分、猜股數、填零寫入，未新增財報資料，四季／TTM 維持 NOT_CERTIFIED／WAIVED_FOR_MVP。
+- **替代官方入口核對**：另查 [財務比較E點通官方說明 §三.3](https://mopsfin.twse.com.tw/terms)，該站明示第四季單季資料由累計金額相減產生。這不符合本專案「不得以累計EPS差分充數」契約，不能只因網站官方就把該衍生值當作公司直接申報單季EPS；本輪未將其加入來源或寫入資料。
+- **整體**：DRL-01 維持 PARTIAL；目前剩自然 daily／weekly publication 證據及可核實的2025Q4單季來源。既有 D01～D05 不重開。收據見上述 Actions artifacts；本輪適用檢查為請求 JSON、probe 編譯、文件連結與 diff review，無業務程式改動，不以舊 CI 冒充新 Release gate。
 
 ### 2026-10-18｜FINOPS-AB 發布、compaction與實刪前checkpoint（PARTIAL）
 
@@ -18,18 +22,6 @@
 - **實刪修正**：兩bucket versioning enabled、softDelete=0，Core defaultEventBasedHold=true。DELETE必須同時指定generation與ifGenerationMatch，避免只轉成noncurrent；Core維護明確opt-in清event hold、以metageneration防競爭，temporary hold不解除。一次性小檔先完成一筆精確generation刪除／GET404，再最多8並行；全部future結束才離開鎖，失敗保留部分收據。相關75項回歸、入口／rollout81項回歸PASS。此前477 live objects減量不當作已驗證實體版本／billable bytes釋放，也不重播清單。官方語意見[GCS DELETE](https://docs.cloud.google.com/storage/docs/json_api/v1/objects/delete)。
 - **新版本發布**：source `252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04` [完整Release #39100946095](https://github.com/tommylin15/janus-omniforge/actions/runs/39100946095) Python／Flutter／四GHCR／匿名digest全PASS；[0%候選 #39101384927](https://github.com/tommylin15/janus-omniforge/actions/runs/39101384927)及[同源auth #39101520830](https://github.com/tommylin15/janus-omniforge/actions/runs/39101520830) SUCCESS，正式API流量未切換。[四Jobs #39101646737](https://github.com/tommylin15/janus-omniforge/actions/runs/39101646737) 回寫時IN_PROGRESS，來源request commit `52585b1ceb4eb69820304d618c67eb1462111b97`；尚不能標部署PASS。
 - **未完成／接續**：先查新Jobs最終phase／8 canary／Scheduler／lease收據，再依新版固定digest執行Mart cleanup→Core小檔cleanup，記snapshot實際過期、逐generation實刪objects／bytes及current讀回；重跑no-op驗證後啟用／驗收週維護。`FINOPS_WEEKLY_MAINTENANCE`尚未啟用，B2 financials仍每股歷史批次；不宣稱所有dataset全面合併。兩天I/O量測仍CANCELLED_BY_USER，未知節省不補值。完整歷史與失敗／恢復證據移至[archive](../archive/finops-ab-continuation-2026-10-18.md)。
-
-### 2026-10-18｜DRL-01 正式 dev 收尾：Core 逐月缺口與 serving 分離（PARTIAL）
-
-- **使用者驗收**：新版 dev API 已切流至 100% 且本人完成正式驗收；這項回報不直接涵蓋兩年 PE/PB 新欄位。必須分別核對 Core → PG publication → public API → UI。
-- **官方 Core 唯讀總帳**：[Core metadata census #39083283620](https://github.com/tommylin15/janus-omniforge/actions/runs/39083283620) PASS：`benchmark` 759、`market-volume` 39,699、`ohlcv` 111,929、`market-activity` 135,050、`valuation` 16,595、`financials` 88,131。Snapshot: benchmark `16811576102780075`、ohlcv `4001332868550575344`、financials `5736520631016782502`。這些是當次數量，不等於連續歷史與嚴格 PIT。
-- **逐月唯讀**：[continuity #39083573483](https://github.com/tommylin15/janus-omniforge/actions/runs/39083573483) PASS。合併 benchmark 有效交易日期 2026-07/08/09/10（截至16日）=22/21/21/11，但 TAIEX 75 日、TPEx 指數僅39日；六檔指定股票 OHLCV 日期 22/21/20/11；market-volume 抽樣 0/0/19/11，market-activity 抽樣 0/3/14/11。**這是指定股票抽樣，非全市場逐日 coverage。** July～September 的指數、全市場價量與市場活動不能視為同一資料集。
-- **EPS**：六檔股票 2026 Q1/Q2 合格單季 6/6；2025 Q4 皆有原始 EPS 期間，但六檔均沒有可證明的合法單季值，四連季仍 `NOT_CERTIFIED/WAIVED_FOR_MVP`，禁止以累計 EPS 直接相減或填零。當前 financials Core snapshot 同上；全市場連續四季單季驗證 0/1992，非「沒有任何財報」。
-- **河流／API**：既有 [25月官方補收 #39051869951](https://github.com/tommylin15/janus-omniforge/actions/runs/39051869951) 最終 `PASS_TWO_YEAR_PUBLISHED`。2026-10-18 PG 唯讀證實6股×PE/PB共12筆 `status=ready,window_years=2`；但 [正式 API #39083839390](https://github.com/tommylin15/janus-omniforge/actions/runs/39083839390) 18個public visual-series皆 HTTP200，其中12個PE/PB**未返回 two_year_profile**，要比對正式 build-id／serving及UI後才能標「河流呈現」PASS。
-- **Ledger／自然排程**：過去五天 Controller 記錄 4 次 data-supplement succeeded、1 次 running，data-quality 1次 succeeded；但當次 control `data_readiness_ledger` 查無鍵，故 **週期性 Readiness 發布 NOT VERIFIED**。待讀回指定自然 execution 日誌、修正 `data_readiness_status=UNKNOWN` 根因，並在至少一次自然增量、下一次讀回確認。
-- **修復／發布**：`market_history.py` 先前錯把上櫃30%門檻當10%，已改 TWSE≤10%、TPEx≤30%，補邊界案例測試。通過 tests／build 不代表市場歷史回補已實際完成；應先對真正缺日、來源、會員母體與既有 Job image 做幂等、有界、有 receipt 的回補，再核讀 Core 與 serving。
-- **狀態**：DRL-01 仍 `PARTIAL`；不重開 D01–D05 已結案豁免、不新增資料來源／排程、不操作 Owner、不按 TTL 直接刪 Core 歷史。
-
 
 更新：2026-10-17。此頁只保留最近適用的業務判定與來源；各次原始記錄完整搬至 [歷史 ledger](../archive/documentation-baseline-2026-10-15-operations-and-testing.md)。舊PASS只適用其來源／scope，不替後續main背書。執行授權另看TODO。
 
