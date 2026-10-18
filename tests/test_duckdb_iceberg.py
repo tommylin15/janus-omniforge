@@ -3,6 +3,7 @@ import sys
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -15,6 +16,56 @@ from packages.web_api import CoreQueryService
 
 
 class DuckDBIcebergTests(unittest.TestCase):
+    def test_current_only_expiration_removes_named_history_without_changing_current_rows(self):
+        from ingestion_core.iceberg_maintenance import maintain_financials
+        common = dict(dataset_id="valuation", execution_id="snapshot-cleanup", provenance_id="p1",
+                      source_id="twse", partition_date=date(2026, 10, 1))
+        first = self.core.write(rows=[{"symbol": "2330", "market": "TWSE",
+            "observed_date": "2026-10-01", "pe_ratio": "20"}], **common)
+        self.core.write(rows=[{"symbol": "2317", "market": "TWSE",
+            "observed_date": "2026-10-01", "pe_ratio": "15"}], **common)
+        table = self.catalog.load_table(first.table_identifier)
+        with table.manage_snapshots() as update:
+            update.create_tag(first.snapshot_id, "old-report")
+            update.create_branch(first.snapshot_id, "old-research")
+        table = self.catalog.load_table(first.table_identifier)
+        current_id = table.current_snapshot().snapshot_id
+        expected = table.scan().to_arrow().to_pylist()
+        store = SimpleNamespace(bucket="local-test", objects=lambda _: [])
+        with patch("ingestion_core.iceberg_maintenance._protected_metadata", return_value=set()), \
+             patch("ingestion_core.iceberg_maintenance._references", side_effect=AssertionError("retired references must not be scanned")):
+            result = maintain_financials(core=self.core, store=store, apply=True,
+                                         identifier=first.table_identifier)
+        after = self.catalog.load_table(first.table_identifier)
+        self.assertEqual([snapshot.snapshot_id for snapshot in after.snapshots()], [current_id])
+        self.assertEqual(after.scan().to_arrow().to_pylist(), expected)
+        self.assertEqual(set(after.metadata.refs), {"main"})
+        self.assertEqual((result["expired_snapshots"], result["retired_refs"]), (1, 2))
+
+    def test_same_month_coalescing_reduces_real_files_with_identical_rows(self):
+        batched = DuckDBIcebergCore(self.catalog, (self.root / "batched").as_posix(),
+                                   namespace="batched", engine=self.engine)
+        rows = [{"symbol": symbol, "market": "TWSE", "observed_date": "2026-10-01",
+                 "pe_ratio": value, "provenance_id": "source-"+symbol}
+                for symbol, value in (("2330", "20"), ("2317", "15"))]
+        common = dict(dataset_id="valuation", execution_id="same-execution", provenance_id="unused",
+                      source_id="twse", partition_date=date(2026, 10, 1))
+        for row in rows:
+            self.core.write(rows=[row], **common)
+        batch = batched.write(rows=rows, **common)
+        separate_table = self.catalog.load_table("core.valuation_v1")
+        batched_table = self.catalog.load_table("batched.valuation_v1")
+        self.assertEqual(len(list(separate_table.scan().plan_files())), 2)
+        self.assertEqual(len(list(batched_table.scan().plan_files())), 1)
+        self.assertEqual((len(separate_table.snapshots()), len(batched_table.snapshots())), (2, 1))
+        key = lambda row: row["symbol"]
+        self.assertEqual(sorted(separate_table.scan().to_arrow().to_pylist(), key=key),
+                         sorted(batched_table.scan().to_arrow().to_pylist(), key=key))
+        replay = batched.write(rows=rows, **common)
+        self.assertEqual(replay.snapshot_id, batch.snapshot_id)
+        self.assertEqual(replay.reused, 2)
+        self.assertEqual(len(list(self.catalog.load_table("batched.valuation_v1").scan().plan_files())), 1)
+
     def test_unknown_publication_retains_receipt_versions_without_backdating(self):
         self.engine.connection.execute("SET TimeZone = 'Asia/Taipei'")
         common = dict(dataset_id="financials", execution_id="e1", provenance_id="p1", source_id="mops",
@@ -26,6 +77,12 @@ class DuckDBIcebergTests(unittest.TestCase):
         first = self.core.write(rows=[row], **common)
         repeat = self.core.write(rows=[dict(row, availability_at="2026-10-03T01:00:00Z")], **common)
         self.assertEqual((repeat.reused, repeat.snapshot_id), (1, first.snapshot_id))
+        self.assertIn("data_commit_and_readback", first.timings)
+        self.assertNotIn("data_commit_and_readback", repeat.timings)
+        self.assertIn("duckdb_merge", first.timings)
+        for result in (first, repeat):
+            self.assertIn("preflight_and_reader", result.timings)
+            self.assertTrue(all(value >= 0 for phase in result.timings.values() for value in phase.values()))
         revised = self.core.write(rows=[dict(row, value="11.61", availability_at="2026-10-04T01:00:00Z")], **common)
         self.assertEqual((revised.inserted, revised.updated, revised.row_count), (1, 0, 2))
         table = self.catalog.load_table(first.table_identifier)

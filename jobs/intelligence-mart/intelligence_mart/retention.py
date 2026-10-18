@@ -1,4 +1,4 @@
-"""Dev Mart retention; historical manifest references remain readable."""
+"""Dev Mart retention; only current snapshots remain readable."""
 from datetime import datetime, timedelta, timezone
 import json
 import os
@@ -43,9 +43,6 @@ def run():
                 active = connection.execute("SELECT execution_id FROM control.executions WHERE status IN ('queued','running','retrying')").fetchall()
                 specialist_artifacts = clean_specialist_artifacts(store, apply=apply, now=now,
                     active_executions=frozenset(str(row[0]) for row in active))
-                references = connection.execute("SELECT table_identifier,iceberg_snapshot_id,artifact_uri FROM publication.mart_report_index LIMIT 100001").fetchall()
-                if len(references) > 100000:
-                    raise RuntimeError("Mart retention reference limit exceeded")
                 for dataset in mart.IDENTIFIERS:
                     identifier = mart.table_identifier(dataset)
                     if not catalog.table_exists(identifier):
@@ -58,21 +55,18 @@ def run():
                         table.delete(expired, snapshot_properties={"janus.retention-policy": "public-data-retention-v1"})
                         if catalog.load_table(identifier).scan(row_filter=expired).to_arrow().num_rows:
                             raise RuntimeError("Mart retention readback mismatch")
-                    protected_ids = {int(snapshot) for name, snapshot, _ in references if name == identifier}
-                    protected_metadata = {uri for name, _, uri in references if name == identifier}
-                    result = maintain_financials(core=mart, store=store, apply=apply, now=now, identifier=identifier,
-                                                protected_snapshot_ids=protected_ids, protected_metadata=protected_metadata)
+                    result = maintain_financials(core=mart, store=store, apply=apply, now=now, identifier=identifier)
                     tables.append({**result, "planned_rows_removed": removed, "rows_removed": removed if apply else 0})
                     orphans.append(clean_orphans(mart, store, identifier, apply=apply, now=now))
                 after = capacity() if apply else before
             finally:
                 connection.execute("SELECT pg_advisory_unlock(1835102836,2)")
-        result = {"component": "mart-retention", "mode": mode, "policy_version": "public-data-retention-v1",
+        result = {"component": "mart-retention", "mode": mode, "policy_version": "current-only-snapshots-v1",
                   "retention_days": 90, "tables": tables, "orphans": orphans,
                   "specialist_artifacts": specialist_artifacts,
                   "storage": {"before": before, "after": after, "active_bytes_reduced": before["bytes"] - after["bytes"]},
                   "storage_scope": "live_objects_only", "billable_bytes_reclaimed": None,
-                  "historical_manifests": "protected", "model_calls": 0, "publication_writes": 0}
+                  "historical_manifests": "not_replay_guaranteed", "model_calls": 0, "publication_writes": 0}
         payload = json.dumps(result, sort_keys=True).encode()
         name = "maintenance/retention/" + now.strftime("%Y-%m-%dT%H%M%SZ") + "-" + sha256(payload).hexdigest() + ".json"
         if not store.create(name, payload, "application/json") and store.read(name) != payload:

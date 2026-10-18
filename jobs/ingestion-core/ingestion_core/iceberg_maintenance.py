@@ -43,30 +43,16 @@ def _references(store: GcsObjectStore, identifier: str = TABLE) -> tuple[set[int
 
 
 def _keep_snapshots(table: Any, referenced: set[int], now: datetime) -> set[int]:
-    snapshots = table.snapshots()
-    available = {snapshot.snapshot_id for snapshot in snapshots}
-    if not referenced <= available:
-        raise RuntimeError("Core manifest references an unavailable financials snapshot")
-    # A daily 90-day snapshot archive was retaining unused Iceberg file
-    # versions long after the study/model or publication that used them ended.
-    # Immutable PIT/research/ML references remain protected by _references()
-    # and caller-provided protected_snapshot_ids. Preserve 24h for in-flight
-    # readers and the current/named refs, never invent a 90-day research use.
-    keep = set(referenced)
-    recent_ms = int((now - timedelta(days=1)).timestamp() * 1000)
-    for snapshot in snapshots:
-        if snapshot.timestamp_ms >= recent_ms:
-            keep.add(snapshot.snapshot_id)
+    # 2026-10-18 user decision: only current; historical references grant no retention.
+    del referenced, now
     current = table.current_snapshot()
-    if current:
-        keep.add(current.snapshot_id)
-    keep.update(reference.snapshot_id for reference in (table.metadata.refs or {}).values())
-    return keep
+    return {current.snapshot_id} if current else set()
 
 
 def _protected_metadata(table: Any, bucket: str, referenced: set[str], identifier: str = TABLE) -> set[str]:
+    del referenced
     prefix = f"gs://{bucket}/warehouse/{identifier.split('.')[1]}/metadata/"
-    paths = {table.metadata_location, *referenced}
+    paths = {table.metadata_location}
     paths.update(entry.metadata_file for entry in table.metadata.metadata_log)
     if any(not path.startswith(prefix) or not path.endswith(".metadata.json") for path in paths):
         raise RuntimeError("financials metadata reference escaped the dev table prefix")
@@ -90,16 +76,29 @@ def maintain_financials(*, core: Any, store: GcsObjectStore, apply: bool,
     table_prefix = f"warehouse/{identifier.split('.')[1]}/metadata/"
     original_snapshot = table.current_snapshot()
     original_rows = int(original_snapshot.summary["total-records"]) if original_snapshot else 0
-    referenced_ids, referenced_metadata = _references(store, identifier)
-    referenced_ids.update(protected_snapshot_ids or ())
-    referenced_metadata.update(protected_metadata or ())
+    del protected_snapshot_ids, protected_metadata
+    referenced_ids, referenced_metadata = set(), set()
     keep = _keep_snapshots(table, referenced_ids, now)
     expire = sorted(snapshot.snapshot_id for snapshot in table.snapshots() if snapshot.snapshot_id not in keep)
+    retired_refs = {name: ref for name, ref in (getattr(table.metadata, "refs", {}) or {}).items()
+                    if name != "main" and ref.snapshot_id not in keep}
     before_objects = store.objects(table_prefix)
     before = sum(int(item["size"]) for item in before_objects)
 
     if apply:
         changed_catalog = False
+        if retired_refs:
+            from pyiceberg.table.refs import SnapshotRefType
+            with table.manage_snapshots() as update:
+                for name, ref in retired_refs.items():
+                    if ref.snapshot_ref_type == SnapshotRefType.BRANCH:
+                        update.remove_branch(name)
+                    elif ref.snapshot_ref_type == SnapshotRefType.TAG:
+                        update.remove_tag(name)
+                    else:
+                        raise RuntimeError("unknown historical snapshot ref type")
+            table = core.catalog.load_table(identifier)
+            changed_catalog = True
         if table.properties.get(METADATA_HISTORY) != "10":
             table.transaction().set_properties({METADATA_HISTORY: "10"}).commit_transaction()
             table = core.catalog.load_table(identifier)
@@ -110,13 +109,12 @@ def maintain_financials(*, core: Any, store: GcsObjectStore, apply: bool,
             changed_catalog = True
         current_snapshot = table.current_snapshot()
         current_rows = int(current_snapshot.summary["total-records"]) if current_snapshot else 0
-        if current_rows != original_rows:
+        if (current_rows != original_rows
+                or (current_snapshot.snapshot_id if current_snapshot else None)
+                   != (original_snapshot.snapshot_id if original_snapshot else None)):
             raise RuntimeError("financials row count changed during snapshot maintenance")
-        actual_ids, actual_metadata = _references(store, identifier)
-        if (actual_ids | set(protected_snapshot_ids or ()), actual_metadata | set(protected_metadata or ())) != (referenced_ids, referenced_metadata):
-            raise RuntimeError("Core manifest references changed during maintenance")
-        for snapshot_id in referenced_ids:
-            table.scan(snapshot_id=snapshot_id, limit=1).to_arrow()
+        if {snapshot.snapshot_id for snapshot in table.snapshots()} != keep:
+            raise RuntimeError("current-only snapshot expiration readback mismatch")
 
     protected = _protected_metadata(table, store.bucket, referenced_metadata, identifier)
     cutoff = now - timedelta(days=7)
@@ -140,14 +138,14 @@ def maintain_financials(*, core: Any, store: GcsObjectStore, apply: bool,
         if {item["name"] for item in candidates} & {item["name"] for item in remaining}:
             raise RuntimeError("metadata deletion readback mismatch")
         after = sum(int(item["size"]) for item in remaining)
-        for snapshot_id in referenced_ids:
-            table.scan(snapshot_id=snapshot_id, limit=1).to_arrow()
     else:
         after = before
 
     return {
         "component": "iceberg-maintenance", "table": identifier, "mode": "apply" if apply else "dry-run",
         "referenced_snapshots": len(referenced_ids), "kept_snapshots": len(keep),
+        "snapshot_policy": "current-only-v1", "planned_retired_refs": len(retired_refs),
+        "retired_refs": len(retired_refs) if apply else 0,
         "expired_snapshots": len(expire) if apply else 0, "planned_expiration": len(expire),
         "deleted_metadata_json": len(candidates) if apply else 0,
         "planned_metadata_json": len(candidates), "active_metadata_bytes_before": before,

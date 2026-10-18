@@ -1,5 +1,11 @@
 # 公開資料刪除治理
 
+## 2026-10-18 最新覆蓋決策：只保留 current snapshot
+
+使用者明確核准每張 Core／Mart Iceberg 表只保留目前 snapshot，其餘可清理；取消24小時、named tag／branch、研究／模型／報告／publication引用的歷史保護。`CORE_RETENTION_FENCE_URI`／external研究清冊／PG `core_snapshot_id` 讀權不再是歷史snapshot清理gate。先移除指向舊snapshot的named refs、過期非current snapshot，再以7日檔齡、current實際檔案集合、catalog pointer與generation清理孤立檔，讀回current資料不變。舊研究／報告／歷史snapshot可能無法重播；未來機制另訂。Private Owner與current必要檔不得刪除。詳見 [決策](../decision-2026-10-18-current-only-snapshots.md) 與 [PROJECT_RULES §1.6](../PROJECT_RULES.md)。
+
+以下較早政策中「current以外snapshot／historical引用保護／完整reference fence」已由本節取代；row TTL、Stage期限與其餘generation／安全邊界維持。
+
 ## 2026-10-16 D06 當次小檔清理授權
 
 使用者指定 Core 的 8,335 個 `<1 MiB` 物件（其中稽核表 1,175 個）為首批整理對象，要求實際降低物件與 I/O，並明確指示「不用太嚴謹，找不到關連就砍」。本輪因此以已查得的有效引用判定舊小檔是否可刪，不因完整外部研究清冊缺位而阻擋整批作業；不得把這項人工決定偽裝成 `COMPLETE_VERIFIED` 引用 fence。

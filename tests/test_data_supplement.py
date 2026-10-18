@@ -10,7 +10,7 @@ from ingestion_core.data_supplement import months_ending, normalise_monthly, nor
 
 
 class DataSupplementTests(unittest.TestCase):
-    def test_monthly_prices_share_one_commit_without_losing_source_or_partial_failures(self):
+    def test_monthly_prices_and_valuations_preserve_sources_and_partial_failures(self):
         from ingestion_core.data_supplement import run_backfill
         control = MagicMock()
         control.connection.cursor.return_value.__enter__.return_value.fetchall.return_value = [
@@ -30,11 +30,16 @@ class DataSupplementTests(unittest.TestCase):
                 return cls(2026, 10, 2, 12, tzinfo=tz)
         def upstream(url):
             query = parse_qs(urlparse(url).query)
-            if "STOCK_DAY" not in url:
+            if "STOCK_DAY" not in url and "BWIBBU" not in url:
                 raise ValueError("unavailable source")
             month = query["date"][0][4:6]
             if query["stockNo"] == ["2317"] and month == "10":
                 raise ValueError("one source unavailable")
+            if "BWIBBU" in url:
+                name = "台積電" if query["stockNo"] == ["2330"] else "鴻海"
+                return json.dumps({"stat": "OK", "title": f"115年{month}月 {name} 個股日本益比",
+                    "fields": ["日期", "殖利率(%)", "股利年度", "本益比", "股價淨值比", "財報年/季"],
+                    "data": [[f"115年{month}月01日", "2", "114", "20", "3", "115/2"]]}).encode(), "utf-8"
             return json.dumps({"data": [[f"115/{month}/01", "1000", "1500", "1", "2", "0.5", "1.5", "0", "0"]]}).encode(), "utf-8"
         with patch("ingestion_core.__main__._control_plane", return_value=control), \
              patch("ingestion_core.__main__._iceberg_core", return_value=core), \
@@ -50,22 +55,32 @@ class DataSupplementTests(unittest.TestCase):
             summary = run_backfill()
             writes = [call.kwargs for call in core.write.call_args_list]
             core.write.reset_mock()
-            core.write.side_effect = [RuntimeError("atomic commit failed"),
-                                     SimpleNamespace(inserted=1, updated=0, reused=0)]
+            def failed_september(**kwargs):
+                row = kwargs["rows"][0]
+                if (row.get("trade_date") or row.get("observed_date")).startswith("2026-09"):
+                    raise RuntimeError("atomic commit failed")
+                return SimpleNamespace(inserted=1, updated=0, reused=0)
+            core.write.side_effect = failed_september
             commit_failure = run_backfill()
-        self.assertEqual(len(writes), 2)
-        self.assertEqual([len(call["rows"]) for call in writes], [2, 1])
-        self.assertEqual({row["symbol"] for row in writes[0]["rows"]}, {"2317", "2330"})
-        self.assertEqual(len({row["provenance_id"] for row in writes[0]["rows"]}), 2)
+        self.assertEqual(len(writes), 4)
+        for dataset in ("ohlcv", "valuation"):
+            batches = [call for call in writes if call["dataset_id"] == dataset]
+            self.assertEqual([len(call["rows"]) for call in batches], [2, 1])
+            self.assertEqual({row["symbol"] for row in batches[0]["rows"]}, {"2317", "2330"})
+            self.assertEqual(len({row["provenance_id"] for row in batches[0]["rows"]}), 2)
+            self.assertTrue(any(item["dataset"] == dataset and item["symbol"] == "2317"
+                                and item["period"] == "2026-10" for item in summary["failures"]))
+            self.assertEqual({item["symbol"] for item in commit_failure["failures"]
+                              if item["dataset"] == dataset and item["period"] == "2026-09"},
+                             {"2317", "2330"})
         self.assertTrue(all(row["provenance_id"] for call in writes for row in call["rows"]))
-        self.assertTrue(any(item["dataset"] == "ohlcv" and item["symbol"] == "2317"
-                            and item["period"] == "2026-10" for item in summary["failures"]))
         self.assertTrue(control.complete_collection.call_args.kwargs["partial"])
         writer.mark_core_committed.assert_not_called()
-        self.assertEqual(core.write.call_count, 2)
-        self.assertEqual({item["symbol"] for item in commit_failure["failures"]
-                          if item["dataset"] == "ohlcv" and item["period"] == "2026-09"},
-                         {"2317", "2330"})
+        self.assertEqual(core.write.call_count, 4)
+        self.assertEqual(summary["timings"]["core_write"]["calls"], 4)
+        self.assertGreater(summary["timings"]["source_fetch"]["calls"], summary["timings"]["stage"]["calls"])
+        self.assertTrue(all(metric["wall_seconds"] >= 0 and metric["process_cpu_seconds"] >= 0
+                            for metric in commit_failure["timings"].values()))
 
     def test_fundamental_model_coverage_is_not_generic_financial_quarter_coverage(self):
         from datetime import date

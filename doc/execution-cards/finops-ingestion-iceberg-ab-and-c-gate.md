@@ -1,5 +1,7 @@
 # FINOPS-AB／FINOPS-C｜Janus CPU、GCS I/O、Iceberg 與 BigQuery AI 工程指令
 
+> **2026-10-18 最新使用者覆蓋決策：每表只保留目前snapshot，其餘可清理。** 取消歷史研究／模型／報告／publication、24小時與named refs保護；本卡以下舊reference fence／PG欄位／external清冊要求不再阻擋歷史snapshot清理。保留current資料、7日檔齡、generation、writer／catalog fence與真實實刪讀回；舊歷史無法重播已接受，未來保留機制另訂。詳見 [正式決策](../decision-2026-10-18-current-only-snapshots.md)／[PROJECT_RULES §1.6](../PROJECT_RULES.md)。
+
 更新：2026-10-18。狀態：**A＋B 與 D06 剩餘受引用保護工作合併為唯一 FinOps P0，已獲准施作；C 後置，未核准直接切換**。原 D06 兩天／長時間 I/O 量測已由使用者取消（CANCELLED_BY_USER），不實測、不作驗收硬 gate。本文件是供 AI 執行的契約與檢核程序；**唯一優先次序及完成勾選在 [TODO](../todo.md)**，不是第二份待辦，也不是完成證據。
 
 ## 0. 必讀入口／權威與執行邊界

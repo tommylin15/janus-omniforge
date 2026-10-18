@@ -1,5 +1,7 @@
 # Janus 目前狀態
 
+> **FINOPS-AB 最新接續（2026-10-18，PARTIAL）**：使用者改為每表只留current snapshot，取消歷史研究／報告／named refs／24小時保護；未來研究模型另訂。current-main lease canary #39095964666 PASS，未擴權；舊HTTP403及external fence不再視為目前未解門檻。估值月批、分段timing與current-only清理程式已有171項本機回歸PASS，仍待同源完整Release／dev實刪與讀回。詳見 [新決策](decision-2026-10-18-current-only-snapshots.md)／[最新證據](archive/finops-ab-continuation-2026-10-18.md)。下方較早checkpoint保留其原觀察時點。
+
 > **2026-10-18 FINOPS-AB 接續：PARTIAL**。新增 OHLCV 同月份跨股合併提交、來源與 commit 失敗回歸；相關88項本機測試通過，最終新增案例另1項通過。四 dev Jobs 仍為 d8a57a baseline，Scheduler ENABLED／每小時:30；新週維護尚未生效。Actions 原子 lease ref HTTP403 integration_permission 與 D06 完整引用 fence 仍阻塞 live 發布／清理，無實測節省百分比。詳見 [接續證據與下一入口](archive/finops-ab-continuation-2026-10-18.md)、[唯一 TODO](todo.md)。
 
 > **2026-10-18 DRL-01 最新唯讀證據（PARTIAL）**：正式 dev API 100% 與人工驗收由使用者確認；官方25月PE/PB補收 #39051869951 PASS、PG六股12個 ready，但正式API #39083839390 回應尚無 `two_year_profile`（需核對現役build-id/serving/視覺）。Core #39083283620：benchmark759、market-volume39699、ohlcv111929、market-activity135050、financials88131；逐月 #39083573483：benchmark指數7/8/9/10月日數22/21/21/11、TPEx指數僅39日期；market-volume抽樣0/0/19/11、market-activity0/3/14/11。2026Q1/Q2六股單季EPS合格，但2025Q4原始存在仍未可證單季。自然data-supplement有success，但 `data_readiness_ledger` 仍不存在，發布NOT_VERIFIED。先修復正式serving、Ledger及市場缺日，保留分市場10%／30%驗收；詳細證據見 [operations-and-testing](spec/operations-and-testing.md)。

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from contextlib import contextmanager
 import os
+from time import perf_counter, process_time
 from typing import Any, Sequence
 
 from .engine import DuckDBEngine
@@ -22,6 +23,7 @@ class IcebergCommitResult:
     table_identifier: str
     metadata_location: str
     snapshot_id: int | None
+    timings: dict[str, dict[str, float]] = field(default_factory=dict)
 
 
 class DuckDBIcebergCore:
@@ -193,6 +195,8 @@ class DuckDBIcebergCore:
 
         import pyarrow as pa
 
+        timings = {}
+        started, cpu = perf_counter(), process_time()
         identifier = self.table_identifier(dataset_id)
         created = not self.catalog.table_exists(identifier)
         observation_reused = 0
@@ -211,8 +215,11 @@ class DuckDBIcebergCore:
             incoming, observation_reused = self._financial_observations(prior, incoming)
             if not incoming:
                 snapshot = table.current_snapshot()
+                timings["preflight_and_reader"] = {"wall_seconds": perf_counter()-started,
+                                                    "process_cpu_seconds": process_time()-cpu}
                 return IcebergCommitResult(dataset_id, 0, 0, observation_reused,
-                    int(snapshot.summary["total-records"]), identifier, table.metadata_location, snapshot.snapshot_id)
+                    int(snapshot.summary["total-records"]), identifier, table.metadata_location, snapshot.snapshot_id,
+                    timings=timings)
         if created:
             incoming_arrow = self._arrow_table(incoming)
             table = self.catalog.create_table(
@@ -275,8 +282,14 @@ class DuckDBIcebergCore:
                 if key in versions and versions[key] != values:
                     raise ValueError("conflicting financial values at the same version time")
                 versions[key] = values
+        timings["preflight_and_reader"] = {"wall_seconds": perf_counter()-started,
+                                            "process_cpu_seconds": process_time()-cpu}
+        started, cpu = perf_counter(), process_time()
         merged = self.engine.merge(existing, incoming, identifiers)
+        timings["duckdb_merge"] = {"wall_seconds": perf_counter()-started,
+                                   "process_cpu_seconds": process_time()-cpu}
         if merged.changed_rows:
+            started, cpu = perf_counter(), process_time()
             properties = {"janus.execution-id": execution_id, "janus.dataset-id": dataset_id}
             schema = table.schema().as_arrow()
             if merged.updated and len(merged.changed_rows) > self.UPSERT_KEY_LIMIT:
@@ -289,6 +302,8 @@ class DuckDBIcebergCore:
                 else:
                     table.append(changed, snapshot_properties=properties)
             table = self.catalog.load_table(identifier)
+            timings["data_commit_and_readback"] = {"wall_seconds": perf_counter()-started,
+                                                   "process_cpu_seconds": process_time()-cpu}
         snapshot = table.current_snapshot()
         row_count = int(snapshot.summary["total-records"]) if snapshot else len(merged.rows)
         return IcebergCommitResult(
@@ -300,6 +315,7 @@ class DuckDBIcebergCore:
             table_identifier=identifier,
             metadata_location=table.metadata_location,
             snapshot_id=snapshot.snapshot_id if snapshot else None,
+            timings=timings,
         )
 
     @staticmethod

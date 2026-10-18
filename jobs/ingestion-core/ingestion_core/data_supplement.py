@@ -6,7 +6,7 @@ from hashlib import sha256
 import json
 import os
 import re
-from time import sleep
+from time import perf_counter, process_time, sleep
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -266,6 +266,20 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
     collection_finished = False
     summary = {"operation": "data_supplement_daily" if incremental else "data_supplement_backfill", "analysis_as_of": today.isoformat(),
                "core_created": 0, "core_updated": 0, "core_reused": 0, "failures": [], "symbols": [], "items": [], "skipped": 0}
+    summary["timings"] = {}
+    def measured(phase, operation, *args, **kwargs):
+        started, cpu = perf_counter(), process_time()
+        try:
+            return operation(*args, **kwargs)
+        finally:
+            metric = summary["timings"].setdefault(phase, {"calls": 0, "wall_seconds": 0.0, "process_cpu_seconds": 0.0})
+            metric["calls"] += 1
+            metric["wall_seconds"] += perf_counter() - started
+            metric["process_cpu_seconds"] += process_time() - cpu
+    def fetch(url):
+        return measured("source_fetch", _fetch, url)
+    def read_rows(*args, **kwargs):
+        return measured("core_reader", _rows, *args, **kwargs)
     if valuation_only:
         summary["operation"] = "valuation_history"
     if fundamental_only:
@@ -290,7 +304,7 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
         execution = control.enqueue_collection("first-batch", symbols, request_options={"operation": summary["operation"]})
         control.transition_execution(execution.execution_id, ExecutionStatus.RUNNING)
         summary.update(execution_id=execution.execution_id, symbols=list(symbols))
-        prior = _rows(core, "financials", symbols) if incremental or fundamental_only else []
+        prior = read_rows(core, "financials", symbols) if incremental or fundamental_only else []
         quality = control.get_admin_setting("data_supplement_quality") if incremental else None
         repairs = {(item.get("symbol"), item.get("dataset"), item.get("period"))
                    for item in (quality[0].get("issues", []) if quality and isinstance(quality[0], dict) else [])}
@@ -299,7 +313,7 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
             received = datetime.now(timezone.utc)
             provenance = Provenance(str(uuid4()), source, url, dataset, received, None, received, "sha256:"+sha256(raw).hexdigest(), False,
                                     quality_details={"request_identity": request_identity or {}})
-            staged = writer.write_raw(payload=raw, media_type="application/json" if extension == "json" else "text/html",
+            staged = measured("stage", writer.write_raw, payload=raw, media_type="application/json" if extension == "json" else "text/html",
                                       extension=extension, execution_id=execution.execution_id,
                                       provenance=provenance, execution_scoped=True)
             stage_results.append(staged)
@@ -308,13 +322,15 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
         def commit(rows, provenance_id, source, dataset, item):
             if not rows:
                 raise ValueError("no accepted supplement rows")
-            result = core.write(dataset_id=dataset, rows=rows, execution_id=execution.execution_id,
+            result = measured("core_write", core.write, dataset_id=dataset, rows=rows, execution_id=execution.execution_id,
                                 provenance_id=provenance_id, source_id=source, partition_date=today)
             summary["core_created"] += result.inserted
             summary["core_updated"] += result.updated
             summary["core_reused"] += result.reused
             summary["items"].append({**item, "dataset": dataset, "rows": len(rows),
-                                     "inserted": result.inserted, "reused": result.reused})
+                                     "inserted": result.inserted, "reused": result.reused,
+                                     "snapshot_id": getattr(result, "snapshot_id", None),
+                                     "timings": getattr(result, "timings", {})})
 
         def failure(dataset, symbol, period, error):
             summary["failures"].append({"dataset": dataset, "symbol": symbol, "period": period,
@@ -333,7 +349,7 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
             for year in range(start_year, today.year+1):
                 url = "https://doc.twse.com.tw/server-java/t57sb01?"+urlencode({"step": "1", "colorchg": "1", "co_id": symbol, "year": str(year-1911), "mtype": "A"})
                 try:
-                    raw, encoding = _fetch(url)
+                    raw, encoding = fetch(url)
                     stage(raw, url, "mops", "financials", "html", {"kind": "filing_index", "symbol": symbol, "year": year})
                     filings.extend(parse_filing_index(raw.decode(encoding), symbol, year))
                 except Exception as error:
@@ -354,7 +370,7 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
                     continue
                 url = "https://mopsov.twse.com.tw/server-java/t164sb01?"+urlencode({"step": "1", "CO_ID": symbol, "SYEAR": year, "SSEASON": quarter, "REPORT_ID": "C"})
                 try:
-                    raw, _ = _fetch(url)
+                    raw, _ = fetch(url)
                     provenance, received = stage(raw, url, "mops", "financials", "html", {"symbol": symbol, "year": year, "quarter": quarter})
                     rows = normalise_xbrl_financials(raw.decode("latin-1"), symbol, year, quarter, received_at=received)
                     for row in rows:
@@ -378,7 +394,7 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
                 url = f"https://mopsov.twse.com.tw/nas/t21/sii/t21sc03_{year-1911}_{month}_{category}.html"
                 try:
                     if (year, month, category) not in monthly_archives:
-                        raw, _ = _fetch(url)
+                        raw, _ = fetch(url)
                         provenance, received = stage(raw, url, "mops", "financials", "html", {"year": year, "month": month, "kind": "monthly_archive"})
                         monthly_archives[year, month, category] = raw, provenance, received
                     raw, provenance, received = monthly_archives[year, month, category]
@@ -412,13 +428,14 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
             price_months = int(os.environ.get("JANUS_DATA_SUPPLEMENT_PRICE_MONTHS", "8"))
             market_months = [(year, month+1) for year, month in months_ending(
                 target.year, target.month, price_months)]
-        prior_valuation = (_rows(core, "valuation", symbols, date_field="observed_date",
+        prior_valuation = (read_rows(core, "valuation", symbols, date_field="observed_date",
                                  start_date=target.isoformat(), end_date=target.isoformat(),
                                  selected_fields=("symbol", "observed_date"))
                            if incremental and not fundamental_only else [])
-        for symbol in (() if fundamental_only else symbols):
+        valuation_months = [(target.year, target.month)] if incremental else market_months
+        for year, month in (() if fundamental_only else valuation_months):
             valuation_batch = []
-            for year, month in ([(target.year, target.month)] if incremental else market_months):
+            for symbol in symbols:
                 known = {str(row["observed_date"]) for row in prior_valuation if row["symbol"] == symbol}
                 if incremental and target.isoformat() in known:
                     summary["skipped"] += 1
@@ -426,7 +443,7 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
                 url = "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU?"+urlencode(
                     {"date": f"{year}{month:02d}01", "stockNo": symbol, "response": "json"})
                 try:
-                    raw, _ = _fetch(url)
+                    raw, _ = fetch(url)
                     provenance, _ = stage(raw, url, "twse", "valuation", "json", {"symbol": symbol, "year": year, "month": month})
                     observations = parse_valuation_month(raw, symbol, year, month, stocks[symbol][0])
                     valuation_batch.extend({**row, "source_id": "twse", "provenance_id": provenance}
@@ -434,7 +451,13 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
                 except Exception as error:
                     failure("valuation", symbol, f"{year}-{month:02d}", error)
             if valuation_batch:
-                commit(valuation_batch, valuation_batch[0]["provenance_id"], "twse", "valuation", {"symbol": symbol, "period": "history"})
+                batch_symbols = sorted({row["symbol"] for row in valuation_batch})
+                try:
+                    commit(valuation_batch, valuation_batch[0]["provenance_id"], "twse", "valuation",
+                           {"symbols": batch_symbols, "period": f"{year}-{month:02d}"})
+                except Exception as error:
+                    for symbol in batch_symbols:
+                        failure("valuation", symbol, f"{year}-{month:02d}", error)
         missing_months, benchmark_months = {}, set(market_months)
         if incremental:
             required, day = set(), target
@@ -442,7 +465,7 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
                 if day.weekday() < 5 and day not in holidays:
                     required.add(day.isoformat())
                 day -= timedelta(days=1)
-            prices = _rows(core, "ohlcv", symbols, date_field="trade_date",
+            prices = read_rows(core, "ohlcv", symbols, date_field="trade_date",
                            start_date=min(required), end_date=target.isoformat(),
                            selected_fields=("symbol", "trade_date"))
             for symbol in symbols:
@@ -450,7 +473,7 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
                 missing_months[symbol] = {(int(day[:4]), int(day[5:7])) for day in required-available}
                 missing_months[symbol].update((int(period[:4]), int(period[5:7])) for stock, dataset, period in repairs
                     if stock == symbol and dataset == "ohlcv" and re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", period or ""))
-            available = {str(r["trade_date"]) for r in _rows(
+            available = {str(r["trade_date"]) for r in read_rows(
                 core, "benchmark", (), date_field="trade_date",
                 start_date=min(required), end_date=target.isoformat(),
                 selected_fields=("trade_date",))}
@@ -463,7 +486,7 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
                     continue
                 url = "https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?"+urlencode({"date": f"{year}{month:02d}01", "stockNo": symbol, "response": "json"})
                 try:
-                    raw, _ = _fetch(url)
+                    raw, _ = fetch(url)
                     provenance, _ = stage(raw, url, "twse", "ohlcv", "json", {"symbol": symbol, "year": year, "month": month})
                     rows = [{**row, "source_id": "twse", "observed_at": row["trade_date"]+"T00:00:00Z"}
                             for row in parse_twse(raw, symbol) if row["trade_date"] <= target.isoformat()]
@@ -488,7 +511,7 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
                 continue
             url = "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST?"+urlencode({"date": f"{year}{month:02d}01", "response": "json"})
             try:
-                raw, _ = _fetch(url)
+                raw, _ = fetch(url)
                 provenance, _ = stage(raw, url, "taiex", "benchmark", "json")
                 document = json.loads(raw)
                 rows = normalise_benchmark(dict(zip(document["fields"], cells)) for cells in document.get("data", []))
@@ -500,8 +523,8 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
 
         tables = _current_core_fences(core)
         coverage = coverage_summary(
-            _rows(core, "financials", symbols),
-            _rows(core, "ohlcv", symbols, date_field="trade_date",
+            read_rows(core, "financials", symbols),
+            read_rows(core, "ohlcv", symbols, date_field="trade_date",
                   start_date=(target-timedelta(days=365)).isoformat(), end_date=target.isoformat(),
                   selected_fields=("symbol", "trade_date")),
             symbols, target)
@@ -526,7 +549,7 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
             # without opening Core on every user chart load. Missing months
             # remain partial_history, never filled or labelled PIT-certified.
             from .valuation_history import publish_focus_profiles
-            summary["valuation_profile"] = publish_focus_profiles(
+            summary["valuation_profile"] = measured("serving_projection", publish_focus_profiles,
                 core, control, symbols=list(symbols), as_of=target)
         control.put_admin_setting("data_supplement_last_run", {"checked_at": datetime.now(timezone.utc).isoformat(),
             "execution_id": execution.execution_id, "status": summary["status"], "coverage": coverage,

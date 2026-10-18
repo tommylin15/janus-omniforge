@@ -50,6 +50,13 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - Janus Dev Private 與 Janus Dev Read-only v2 都只作讀取；不得使用 `janus_private_ledger_append` 或 ledger-recording skill 補登個人交易／股息，即使當前外掛快取仍宣告該工具。
 - MCP server 不得提供 ledger write；User App 記帳與其他既有非 MCP 路徑不受此限制影響。
 
+### 1.6 FINOPS-AB snapshot 清理決策（2026-10-18 最新）
+
+- 使用者明確取消歷史研究／模型／報告／publication 引用對舊 snapshot 與舊檔案的保留限制，並選擇「只保留目前 snapshot；其餘可清理」。每張 Core／Mart Iceberg 表只保留 current snapshot；取消最近24小時及舊 named branch／tag 的保留，未來研究／模型／snapshot 政策另訂。
+- 本次 FINOPS-AB 可移除指向非 current snapshot 的 named refs、過期所有非 current snapshot，再清理 current snapshot 不使用且超過7天的舊檔；不再要求 `CORE_RETENTION_FENCE_URI`、外部研究清冊或 publication `core_snapshot_id` 讀權作歷史保留 gate。舊研究／報告／PIT snapshot 重播不再保證，不偽稱歷史仍可讀。
+- 此決策不授權刪除 current snapshot 使用的檔案、Owner 私有交易／現金／持股，或繞過現役 writer／mutation lock、固定 digest、catalog pointer、7日檔齡、generation 與讀回驗證。先完成 compaction 與 current 資料讀回，再作有界清理，保留實刪 objects／bytes 與失敗收據。
+- 本節覆蓋 active SPEC／WBS／TODO／runbook 中與此相反的歷史引用保護及24小時／named snapshot 保留條款；既有 row TTL、Stage政策及其他安全邊界未由本次決策變更。
+
 ## 2. Dev 平行上線環境政策
 
 - 目前 `dev` 是 Janus 個人使用階段的主要真實運行環境（parallel-live environment），不是只供假資料、mock、demo 或 pre-production 演練的 staging。

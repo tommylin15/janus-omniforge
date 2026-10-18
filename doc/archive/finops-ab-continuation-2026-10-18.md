@@ -1,5 +1,15 @@
 # FINOPS-AB 接續證據（2026-10-18）
 
+## 本輪接續：current-only snapshot 決策與實作（未部署）
+
+- 使用者明確取消歷史引用保護並選擇「只保留目前snapshot；其餘可清理」，權威見 [決策](../decision-2026-10-18-current-only-snapshots.md)／PROJECT_RULES §1.6。先前本頁記載的24小時／named refs／external fence／PG欄位讀權 blocker 已被此決策取代，不代表舊驗收曾PASS。
+- Lease成功canary [#39095964666](https://github.com/tommylin15/janus-omniforge/actions/runs/39095964666)，source `d5c08b82fc3cea8776de02837cb10a6228c1c854`：ABSENT→CLAIMED→OWNED→RELEASED→ABSENT，零GCP寫入。先前失敗run取得lease前main已新增workflow commit；新guard在過期source建立tag/ref前停止，以current main新dispatch驗證成功，未擴token權限。檢查與取得間仍有競爭，原子ref與owner readback持續fail closed。
+- 同次 selective CI #39095964784 FAIL，3個workflow契約案例因API測試環境未裝PyYAML；已將專案既有6.0.3加入requirements-dev，不停用檢查。此處保留FAIL，後續CI另證。
+- 新增估值同月跨股合併；source／Stage／Core reader／Core write／serving分段CPU與wall，以及DuckDB merge／data commit readback timing，明確不是Cloud Run billable或GCS歸因。
+- 本機真實Iceberg對照：兩股同月逐筆寫入為2個data files／2 snapshots，合併為1／1，讀回逐列相同；重播不增加snapshot或file。另一真實Iceberg回歸證明舊tag／branch被移除、非current snapshot過期，current ID與資料完全不變；本機證據不冒充dev實刪。
+- 最新涵蓋supplement、DuckDB/Iceberg、compaction、retention、controller與lease／workflow回歸 **171 passed**（43.63秒，2個本機ADC quota警告）。Core／Mart停止因publication／研究引用保留歷史snapshot；orphan刪除新增generation清單讀回，仍保留7日與catalog pointer防競爭。
+- 尚需本輪同源完整Release、受控Jobs rollout、週維護生效及真實compaction／expiration／objects・bytes實刪讀回。舊477 objects不重計；未量測不填節省百分比。
+
 狀態：**PARTIAL；不是部署或清理結案**。本次輸入 main `4b1785603aaa23005701f1e72b3377fed1070419`；FINOPS-C、DRL-01、ADMIN-V2 不納入施工。本機既有 ADMIN 檔案與 candidate request 保留、不提交。
 
 ## 程式與驗證

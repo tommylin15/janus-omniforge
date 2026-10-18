@@ -131,18 +131,20 @@ def test_orphan_cleanup_reads_shared_manifest_once_and_protects_all_snapshots(mo
                  SimpleNamespace(snapshot_id=2, manifest_list=prefix + "list2.avro", manifests=lambda _: [shared, recent])]
     table = SimpleNamespace(io=None, snapshots=lambda: snapshots, metadata_location="fixed")
     core = SimpleNamespace(catalog=SimpleNamespace(load_table=lambda _: table))
-    store = SimpleNamespace(bucket="dev", objects=lambda _: [{"name": "warehouse/ohlcv_v1/" + name,
+    items = [{"name": "warehouse/ohlcv_v1/" + name,
         "size": "10", "updated": "2026-09-01T00:00:00Z", "generation": "1"}
-        for name in ("old.parquet", "new.parquet", "orphan.parquet")],
-        delete=lambda name, generation: deleted.append(name))
-    monkeypatch.setattr(retention, "_references", lambda *_: ({1}, set()))
+        for name in ("old.parquet", "new.parquet", "orphan.parquet")]
+    def delete(name, generation):
+        deleted.append(name)
+        items[:] = [item for item in items if (item["name"], item["generation"]) != (name, generation)]
+    store = SimpleNamespace(bucket="dev", objects=lambda _: list(items), delete=delete)
     result = retention.clean_orphans(core, store, "core.ohlcv_v1", apply=True,
                                     now=datetime(2026, 10, 3, tzinfo=timezone.utc))
     assert calls == ["shared.avro", "recent.avro"]
     assert deleted == ["warehouse/ohlcv_v1/orphan.parquet"] and result["deleted_objects"] == 1
 
 
-def test_maintenance_preserves_extra_publication_references(monkeypatch):
+def test_maintenance_ignores_retired_publication_references(monkeypatch):
     from ingestion_core import iceberg_maintenance as maintenance
     prefix = "gs://dev/warehouse/report/metadata/"
     snapshot = SimpleNamespace(snapshot_id=1, summary={"total-records": "2"})
@@ -155,11 +157,11 @@ def test_maintenance_preserves_extra_publication_references(monkeypatch):
                            catalog=SimpleNamespace(load_table=lambda _: table))
     store = SimpleNamespace(bucket="dev", objects=lambda _: [])
     monkeypatch.setattr(maintenance, "_references", lambda *_: ({1}, {prefix + "manifest.metadata.json"}))
-    monkeypatch.setattr(maintenance, "_keep_snapshots", lambda *_: {1, 2})
-    table.snapshots = lambda: [SimpleNamespace(snapshot_id=1), SimpleNamespace(snapshot_id=2)]
+    table.snapshots = lambda: [snapshot]
     result = maintenance.maintain_financials(core=core, store=store, apply=True, identifier="mart.report",
                                            protected_snapshot_ids={2}, protected_metadata={prefix + "published.metadata.json"})
-    assert result["referenced_snapshots"] == 2 and set(scanned) == {1, 2}
+    assert result["referenced_snapshots"] == 0 and not scanned
+    assert result["snapshot_policy"] == "current-only-v1"
 
 
 def test_financial_retention_preserves_twelve_periods_per_symbol_and_original_metadata():
@@ -203,9 +205,8 @@ def test_stage_protects_active_execution_and_recent_unknown_payload():
     assert deleted == [items[2]["name"]] and result["held_active_objects"] == 1
 
 
-def test_core_manifest_cleanup_requires_fresh_fence_and_preserves_live_references():
+def test_core_manifest_cleanup_ignores_historical_report_references_but_holds_active_work():
     import json
-    import pytest
     from ingestion_core.retention import clean_core_manifests
     items = [{"name": f"executions/{identity}/core-snapshot.json", "updated": "2026-01-01T00:00:00Z", "generation": "1"}
              for identity in ("unused", "report", "active")]
@@ -213,12 +214,8 @@ def test_core_manifest_cleanup_requires_fresh_fence_and_preserves_live_reference
     store = SimpleNamespace(objects=lambda _: items, delete=lambda name, generation: deleted.append(name),
         read=lambda name: json.dumps({"execution_id": name.split("/")[1], "snapshot_id": name.split("/")[1]}).encode())
     now = datetime(2026, 10, 2, tzinfo=timezone.utc)
-    with pytest.raises(ValueError, match="one hour"):
-        clean_core_manifests(store, {"created_at": "2026-10-01T00:00:00Z", "core_snapshot_ids": []},
-                             apply=True, now=now, active_executions=frozenset())
-    result = clean_core_manifests(store, {"created_at": now.isoformat(), "core_snapshot_ids": ["report"]},
-                                 apply=True, now=now, active_executions=frozenset({"active"}))
-    assert result["deleted_objects"] == 1 and deleted == [items[0]["name"]]
+    result = clean_core_manifests(store, apply=True, now=now, active_executions=frozenset({"active"}))
+    assert result["deleted_objects"] == 2 and deleted == [items[0]["name"], items[1]["name"]]
 
 
 def test_three_generations_per_symbol_and_latest_oos_survive_repeated_cleanup():
@@ -297,7 +294,7 @@ def test_active_specialist_execution_protects_old_generation_and_oos():
     assert sum(name.startswith("specialists/") for name in data) == 20
 
 
-def test_unused_daily_iceberg_snapshots_expire_but_pinned_and_recent_are_retained():
+def test_only_current_snapshot_survives_even_with_recent_named_or_report_references():
     from ingestion_core.iceberg_maintenance import _keep_snapshots
     now = datetime(2026, 10, 15, tzinfo=timezone.utc)
     def snapshot(id_, days):
@@ -308,12 +305,8 @@ def test_unused_daily_iceberg_snapshots_expire_but_pinned_and_recent_are_retaine
                             current_snapshot=lambda: snapshots[-1],
                             metadata=SimpleNamespace(refs={"backup": SimpleNamespace(snapshot_id=3)}))
     keep = _keep_snapshots(table, referenced={2}, now=now)
-    assert keep == {2, 3, 4, 5}
-    # An unreferenced old daily snapshot must no longer be held for 90 days.
-    assert 1 not in keep
-    import pytest
-    with pytest.raises(RuntimeError, match="unavailable"):
-        _keep_snapshots(table, referenced={999}, now=now)
+    assert keep == {5}
+    assert _keep_snapshots(table, referenced={999}, now=now) == {5}
 
 
 def test_core_maintenance_can_target_only_the_dev_controller_audit_bucket(monkeypatch):
@@ -338,64 +331,12 @@ def test_core_maintenance_can_target_only_the_dev_controller_audit_bucket(monkey
                                identifier="ops.batch_events_v1")
 
 
-def test_core_apply_missing_research_reference_fence_fails_before_storage_or_db(monkeypatch):
+def test_core_apply_no_longer_requires_historical_reference_fence(monkeypatch):
     import pytest
     from ingestion_core import retention
-
     monkeypatch.delenv("CORE_RETENTION_FENCE_URI", raising=False)
-    def unexpected_storage(*args, **kwargs):
-        raise AssertionError("missing reference fence must not reach GCS or PostgreSQL")
-    monkeypatch.setattr(retention, "GcsObjectStore", unexpected_storage)
-    with pytest.raises(ValueError, match="core_retention_fence_required_for_apply"):
+    monkeypatch.setenv("CORE_BUCKET", "gen-lang-client-0593591102-dev-core")
+    monkeypatch.setenv("STAGE_BUCKET", "wrong-bucket")
+    monkeypatch.setattr(retention, "GcsObjectStore", lambda _: object())
+    with pytest.raises(ValueError, match="existing dev Stage bucket"):
         retention.maintain_public_data(core=object(), apply=True)
-
-
-def test_core_retention_fence_requires_complete_provenance_not_just_a_uri():
-    from datetime import datetime, timezone
-    import pytest
-    from ingestion_core.retention import (
-        REQUIRED_RETENTION_REFERENCE_SOURCES, validate_core_retention_fence)
-    when=datetime(2026,10,15,5,0,tzinfo=timezone.utc)
-    good={
-        "schema_version":"core-retention-reference-fence-v2",
-        "coverage_status":"COMPLETE_VERIFIED",
-        "created_at":when.isoformat(),
-        "allow_retirement":True,
-        "core_snapshot_ids":["sha256:"+"a"*64],
-        "reference_sources":{
-            name:{"status":"COMPLETE","artifact_sha256":"sha256:"+"b"*64,"objects_checked":1}
-            for name in REQUIRED_RETENTION_REFERENCE_SOURCES
-        }
-    }
-    assert validate_core_retention_fence(good,now=when)==good
-    with pytest.raises(ValueError,match="incomplete"):
-        validate_core_retention_fence({**good,"coverage_status":"PARTIAL_NOT_AUTHORIZED_FOR_DELETION"},now=when)
-    with pytest.raises(ValueError,match="source_coverage"):
-        validate_core_retention_fence({**good,"reference_sources":{}},now=when)
-    with pytest.raises(ValueError,match="snapshot_id"):
-        validate_core_retention_fence({**good,"core_snapshot_ids":["not-a-core-hash"]},now=when)
-    with pytest.raises(ValueError,match="retirement_not_authorized"):
-        validate_core_retention_fence({**good,"allow_retirement":False},now=when)
-
-
-def test_core_retention_fence_rejects_stale_or_missing_source_hash():
-    from datetime import datetime, timedelta, timezone
-    import pytest
-    from ingestion_core.retention import (
-        REQUIRED_RETENTION_REFERENCE_SOURCES, validate_core_retention_fence)
-    now=datetime(2026,10,15,5,0,tzinfo=timezone.utc)
-    doc={"schema_version":"core-retention-reference-fence-v2",
-         "coverage_status":"COMPLETE_VERIFIED","created_at":now.isoformat(),
-         "allow_retirement":True,"core_snapshot_ids":[],
-         "reference_sources":{
-            key:{"status":"COMPLETE","artifact_sha256":"sha256:"+"1"*64,
-                 "objects_checked":0}
-            for key in REQUIRED_RETENTION_REFERENCE_SOURCES}}
-    with pytest.raises(ValueError,match="stale"):
-        validate_core_retention_fence(
-            {**doc,"created_at":(now-timedelta(hours=2)).isoformat()},now=now)
-    source=next(iter(REQUIRED_RETENTION_REFERENCE_SOURCES))
-    changed={**doc,"reference_sources":{**doc["reference_sources"],
-             source:{"status":"COMPLETE","artifact_sha256":"unknown","objects_checked":0}}}
-    with pytest.raises(ValueError,match="source_evidence"):
-        validate_core_retention_fence(changed,now=now)

@@ -1,4 +1,4 @@
-"""Bounded public-data retention; referenced snapshots and unknown Stage objects stay protected."""
+"""Bounded public-data retention; only current snapshots survive maintenance."""
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
@@ -7,7 +7,7 @@ import os
 from typing import Any
 
 from .stage import GcsObjectStore
-from .iceberg_maintenance import maintain_financials, _references
+from .iceberg_maintenance import maintain_financials
 
 POLICY = {"stage_days": 7, "quarantine_days": 7, "mart_days": 90, "core_days": 365, "deep_price_days": 1096,
           "financial_quarters": 12, "orphan_days": 7, "target_bytes": 1_000_000_000, "alert_bytes": 2_000_000_000}
@@ -69,9 +69,6 @@ def clean_stage(store: Any, *, apply: bool, now: datetime,
 
 def clean_orphans(core: Any, store: Any, identifier: str, *, apply: bool, now: datetime) -> dict[str, Any]:
     table = core.catalog.load_table(identifier)
-    referenced, _ = _references(store, identifier)
-    available = {snapshot.snapshot_id for snapshot in table.snapshots()}
-    if not referenced <= available: raise RuntimeError("retention would break a Core snapshot reference")
     live = set()
     for snapshot in table.snapshots():
         live.add(snapshot.manifest_list)
@@ -92,6 +89,12 @@ def clean_orphans(core: Any, store: Any, identifier: str, *, apply: bool, now: d
             if index % 50 == 0 and core.catalog.load_table(identifier).metadata_location != current:
                 raise RuntimeError("catalog changed during orphan cleanup")
             store.delete(item["name"], generation=item["generation"])
+        if candidates:
+            remaining = {(item["name"], item["generation"]) for item in store.objects(prefix)}
+            if remaining & {(item["name"], item["generation"]) for item in candidates}:
+                raise RuntimeError("orphan generation deletion readback mismatch")
+        if core.catalog.load_table(identifier).metadata_location != current:
+            raise RuntimeError("catalog changed during orphan deletion readback")
     return {"table": identifier, "planned_objects": len(candidates),
             "planned_bytes": sum(int(item["size"]) for item in candidates),
             "deleted_bytes": sum(int(item["size"]) for item in candidates) if apply else 0,
@@ -99,63 +102,7 @@ def clean_orphans(core: Any, store: Any, identifier: str, *, apply: bool, now: d
 
 
 
-# Every destructive Core retention run needs a fresh, independently complete
-# reference census. An artifact produced by the PARTIAL research scanner must
-# never accidentally become a deletion-authorizing fence.
-REQUIRED_RETENTION_REFERENCE_SOURCES = frozenset({
-    "core_execution_manifests",
-    "mart_specialists_and_ml_oos",
-    "research_model_artifacts",
-    "private_model_references",
-    "postgres_publication_references",
-    "active_control_executions",
-    "external_research_registry",
-})
-
-
-def validate_core_retention_fence(fence, *, now):
-    from re import fullmatch
-
-    if not isinstance(fence, dict):
-        raise ValueError("core_retention_fence_document_invalid")
-    if fence.get("schema_version") != "core-retention-reference-fence-v2":
-        raise ValueError("core_retention_fence_schema_version_unknown")
-    if fence.get("coverage_status") != "COMPLETE_VERIFIED":
-        raise ValueError("core_retention_references_incomplete")
-    sources = fence.get("reference_sources")
-    if not isinstance(sources, dict) or set(sources) != REQUIRED_RETENTION_REFERENCE_SOURCES:
-        raise ValueError("core_retention_source_coverage_unknown")
-    for source in REQUIRED_RETENTION_REFERENCE_SOURCES:
-        report = sources[source]
-        if (not isinstance(report, dict) or report.get("status") != "COMPLETE"
-                or not isinstance(report.get("artifact_sha256"), str)
-                or not fullmatch(r"sha256:[0-9a-f]{64}", report["artifact_sha256"])
-                or not isinstance(report.get("objects_checked"), int)
-                or report["objects_checked"] < 0):
-            raise ValueError("core_retention_source_evidence_invalid")
-    identities = fence.get("core_snapshot_ids")
-    if (not isinstance(identities, list)
-            or any(not isinstance(value, str)
-                   or not fullmatch(r"sha256:[0-9a-f]{64}", value)
-                   for value in identities)
-            or len(identities) != len(set(identities))):
-        raise ValueError("core_retention_snapshot_id_contract_invalid")
-    try:
-        created = datetime.fromisoformat(fence["created_at"].replace("Z", "+00:00"))
-    except (KeyError, ValueError, TypeError, AttributeError) as error:
-        raise ValueError("core_retention_fence_timestamp_invalid") from error
-    if (created.tzinfo is None or not timedelta(0) <= now - created <= timedelta(hours=1)):
-        raise ValueError("core_retention_fence_stale")
-    if fence.get("allow_retirement") is not True:
-        raise ValueError("core_retention_retirement_not_authorized")
-    return fence
-
-
-def clean_core_manifests(store, fence, *, apply, now, active_executions):
-    created = datetime.fromisoformat(fence["created_at"].replace("Z", "+00:00"))
-    if not timedelta(0) <= now - created <= timedelta(hours=1):
-        raise ValueError("Core retention reference fence must be less than one hour old")
-    protected = set(fence["core_snapshot_ids"])
+def clean_core_manifests(store, *, apply, now, active_executions):
     candidates = []
     for item in store.objects("executions/"):
         name = item["name"]
@@ -163,7 +110,7 @@ def clean_core_manifests(store, fence, *, apply, now, active_executions):
             continue
         document = json.loads(store.read(name))
         age = now - datetime.fromisoformat(item["updated"].replace("Z", "+00:00"))
-        if document["execution_id"] not in active_executions and document["snapshot_id"] not in protected and age > timedelta(days=90):
+        if document["execution_id"] not in active_executions and age > timedelta(days=90):
             candidates.append(item)
     if apply:
         for item in candidates:
@@ -176,25 +123,10 @@ def clean_core_manifests(store, fence, *, apply, now, active_executions):
 
 def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None) -> dict[str, Any]:
     now = now or datetime.now(timezone.utc)
-    # Missing research/model reference inventory must never permit destructive
-    # Core snapshot, orphan or row retention. Dry runs remain available.
-    fence_uri = os.environ.get("CORE_RETENTION_FENCE_URI", "").strip()
-    if apply and not fence_uri:
-        raise ValueError("core_retention_fence_required_for_apply")
     store = GcsObjectStore(os.environ["CORE_BUCKET"])
     stage_bucket = os.environ.get("STAGE_BUCKET", "")
     if stage_bucket != "gen-lang-client-0593591102-dev-stage":
         raise ValueError("retention requires the existing dev Stage bucket")
-    fence = None
-    if fence_uri:
-        prefix = f"gs://{store.bucket}/maintenance/retention-fences/"
-        if not fence_uri.startswith(prefix):
-            raise ValueError("Core retention fence must be in the existing dev Core maintenance prefix")
-        fence = json.loads(store.read(fence_uri.removeprefix(f"gs://{store.bucket}/")))
-        # A blank or partially verified reference inventory is never sufficient
-        # for snapshot expiration or any Canonical Core row deletion.
-        if apply:
-            validate_core_retention_fence(fence, now=now)
     stage_store = GcsObjectStore(stage_bucket)
     from .__main__ import _control_plane, TAIPEI
     with _control_plane() as control, control.connection.cursor() as cursor:
@@ -202,20 +134,12 @@ def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None)
         deep_symbols = frozenset(row[0] for row in cursor.fetchall())
         cursor.execute("SELECT execution_id FROM control.executions WHERE status IN ('queued','running','retrying')")
         active_executions = frozenset(str(row[0]) for row in cursor.fetchall())
-        cursor.execute("SELECT request_options->>'core_snapshot_id' FROM control.executions WHERE status IN ('queued','running','retrying')")
-        active_snapshots = [row[0] for row in cursor.fetchall() if row[0]]
     def capacity(object_store):
         objects = object_store.objects("")
         return {"objects": len(objects), "bytes": sum(int(item["size"]) for item in objects)}
     before = {"core": capacity(store), "stage": capacity(stage_store)}
-    manifests = {"status": "reference_fence_required"}
-    if fence is not None:
-        # Never mutate the immutable source document; active Core references
-        # are appended to a local copy after the source coverage gate.
-        effective_fence = {**fence, "core_snapshot_ids": [
-            *fence["core_snapshot_ids"], *active_snapshots]}
-        manifests = clean_core_manifests(store, effective_fence, apply=apply,
-                                         now=now, active_executions=active_executions)
+    manifests = clean_core_manifests(store, apply=apply, now=now,
+                                     active_executions=active_executions)
     tables, orphans = [], []
     for dataset in core.IDENTIFIERS:
         identifier = core.table_identifier(dataset)
@@ -250,7 +174,7 @@ def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None)
     storage = {layer: {"before": before[layer], "after": after[layer],
                        "active_bytes_reduced": before[layer]["bytes"] - after[layer]["bytes"]}
                for layer in before}
-    result = {"component": "data-retention", "policy_version": "public-data-retention-v1",
+    result = {"component": "data-retention", "policy_version": "current-only-snapshots-v1",
             "mode": "apply" if apply else "dry-run", "policy": POLICY, "tables": tables, "orphans": orphans,
             "stage": stage, "model_calls": 0, "publication_writes": 0,
             "core_manifests": manifests, "controller_audit": audit,

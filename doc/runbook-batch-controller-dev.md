@@ -1,5 +1,7 @@
 # Dev 批次總控
 
+> 2026-10-18 使用者最新決策：Core／Mart每表只留current snapshot；其餘歷史snapshot／舊named refs可移除，不再用研究／模型／報告引用或external fence阻擋。7日orphan／generation／現役writer與current資料驗證維持。下文較早的歷史引用保護指示由 [新決策](decision-2026-10-18-current-only-snapshots.md)／[PROJECT_RULES §1.6](PROJECT_RULES.md)取代，部署及實刪仍需真實驗收。
+
 ## 契約
 
 現況 Cloud Scheduler 每小時 :30 喚醒 Cloud Run 總控；是否縮短需先量測 dispatch lag。所有業務定時工作以此總控為唯一入口，GitHub Actions 只保留備份清理 schedule。總控不等待子批次、不取消既有 execution。批次自身保留每日、每日多次或限定星期的排程，喚醒頻率不等於批次執行頻率。時區為 Asia/Taipei。

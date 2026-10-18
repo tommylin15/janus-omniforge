@@ -1,5 +1,9 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-18｜FINOPS-AB current-only 接續（PARTIAL，最新）
+
+使用者新決策只留current snapshot，取消歷史引用／24小時／named refs保留；已實作非current named refs與snapshot淘汰、Core／Mart不再要求external fence，current與7日／generation／writer保護維持。Lease [#39095964666](https://github.com/tommylin15/janus-omniforge/actions/runs/39095964666) current-main取得／驗證／釋放PASS，零GCP寫入；先前失敗source被main的workflow改動超越，新guard在寫入前拒絕過期source。估值月批／分段timing／真實Iceberg檔案數與current資料不變回歸，本機171 passed；尚待新完整Release與dev實刪。詳見 [完整證據](../archive/finops-ab-continuation-2026-10-18.md)，舊外部fence阻塞由[最新決策](../decision-2026-10-18-current-only-snapshots.md)取代。
+
 ### 2026-10-18｜FINOPS-AB 接續（PARTIAL）
 
 OHLCV 同月跨股合併提交並保留逐筆 provenance／partial error；五組本機回歸88 passed，最終 commit 失敗案例另1 passed。四 dev Jobs image 唯讀確認仍是 d8a57a rollback baseline；Scheduler ENABLED／每小時:30，未宣稱週化生效。Jobs lease 原子 ref 建立仍 HTTP403 integration_permission，D06 完整 fence／publication 欄位讀權未解，未部署或清理。詳見 [本次完整範圍與恢復入口](../archive/finops-ab-continuation-2026-10-18.md)；唯一狀態仍在 TODO。
