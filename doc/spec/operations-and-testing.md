@@ -1,5 +1,9 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-18｜第三方補收已核准；Yahoo EPS 工程進行中
+
+使用者明確核准補資料不必官方，可使用Yahoo等第三方，且不要求Firecrawl；[PROJECT_RULES §1.7](../PROJECT_RULES.md)已保存長期規則。原MOPS 12份報表0/6可重建仍為當次實證，**不再是第三方補收的blocker**。六股2025Q4已直接HTTP讀取Yahoo單季EPS頁，原始HTML與取得時間存本機；本輪程式、DB serving來源支援、受控發布及真實入庫/API驗收進行中，尚不宣稱P1-4 PASS。範圍只限原六股2025Q4，不補全市場。
+
 ### 2026-10-18｜DRL-01 整批續行：Ledger 落地、兩年 API／UI PASS；自然週期及 EPS 歷史仍 PARTIAL
 
 - **授權／範圍**：使用者「一次執行下去」解除 DRL-01 暫停，合併驗收既有尾項。只更新既有 EPS 唯讀請求與證據文件；本輪未改業務程式、部署、Scheduler、Owner 資料或新增來源。先前「API 無 profile／Ledger 無鍵」為歷史結果，見 [舊 checkpoint](../archive/drl01-pre-readback-2026-10-18.md)。

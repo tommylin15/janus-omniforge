@@ -48,8 +48,10 @@ snapshot、Cloud SQL、HA、replica、second PostgreSQL VM 或無界 retention�
 
 ### 6.2 五層資料供應責任
 
+**資料補收最新決策（2026-10-18）**：依 [PROJECT_RULES §1.7](../PROJECT_RULES.md)，可直接使用 Yahoo 等第三方已整理的真實歷史資料，不必先窮盡官方來源。第三方單季EPS可直接引用，不要求另找官方股數分母；保留第三方身分、URL、取得時間、期別、單位與每股口徑，經既有驗證後沿Stage→Core→serving發布。本節及下表的官方優先／候選逐源人工審查限制，對使用者已授權的無新增費用公開資料補收由此決策取代；實際adapter、登錄與runtime支援仍需驗證，不因文件核准假稱已上線。
+
 1. 官方市場資料：TWSE／TPEx OpenAPI、經核准的 MIS、MOPS、TAIFEX 與政府行事曆。
-2. 外部財經資料：只納入已確認 API、授權、保存與再發布條款的供應者，作 enrichment／fallback，不能默認取代官方來源。
+2. 外部財經資料：可用於補收／enrichment／fallback；已授權補收可直接選用公開可讀的第三方數值，不以官方缺漏或官方查找完成為前提。保留實際來源、取得方式與口徑，不冒稱官方；新增費用與權限仍依專案規則。
 3. 平台清理分類：代號、時間、股／張、上市櫃／興櫃、產業／概念與文本實體對應；產業採具 effective time 與 provenance 的多對多 membership，不以單一產業欄覆蓋歷史。
 4. 平台計算推導：權值貢獻、融資風險、目標價共識、聲量／情緒、AI 示警；輸出必須標示算法／模型版本並進 Mart。
 5. 排程快取健康：來源成功率、成功數、latency、freshness、休市校正、cache age、fallback 與 schema drift。
@@ -60,7 +62,7 @@ snapshot、Cloud SQL、HA、replica、second PostgreSQL VM 或無界 retention�
 |---|---|---|---|
 | OHLCV、PE/PB | 全上市櫃個股 日頻；排名來源全市場批次日頻 | TWSE／TPEx | FinMind；yfinance 僅具名低優先 enrichment；無批次路徑不得逐檔放大 |
 | 法人／信用／借券／當沖／警示 | 全上市櫃個股 日頻，依已核准市場批次來源能力 | TWSE／TPEx | 缺資料標 unavailable，不推算或逐檔放大 |
-| 月營收／季報 | 全上市櫃個股 摘要、關注股深度 | MOPS | FinMind(MOPS fallback)，三類報表分別抓取與 provenance |
+| 月營收／季報 | 全上市櫃個股 摘要、關注股深度；每次補收範圍依TODO | MOPS或可取得的第三方來源 | Yahoo股市、FinMind等；第三方單季EPS可直接補收，區分供應者口徑與官方申報，保存provenance |
 | 公司事件／重大訊息 | 全上市櫃個股 索引、關注股全文或結構化內容 | TWSE／TPEx／MOPS | 更正公告保留新舊版本；RSS／頁面抓取須先確認穩定性與使用條款 |
 | Benchmark／期貨宏觀 | 市場級 | 官方 TAIEX／TPEx、TAIFEX、政府行事曆 | 優先報酬指數，否則明示價格指數；美股／費半資料須使用核准 provider |
 | 持股級距 | 全市場或關注股，依來源能力 | TDCC／政府開放資料 | bucket 定義與更新頻率待人工核准 |

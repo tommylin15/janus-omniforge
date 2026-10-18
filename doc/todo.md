@@ -54,7 +54,7 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](execu
 1. **P0｜正式兩年 PE/PB API／UI 已驗部分 PASS**：六股×PE/PB 12/12 ready、25月；5876手機390×844／桌面1440×1000的PE/PB顯示4/4 PASS。證據已移 operations；不重新部署或重做25月補收，不把抽樣視覺驗收說成六股逐頁矩陣。
 2. **P0｜Data Readiness Ledger 定期發布仍 PARTIAL**：Admin `data_readiness_ledger` 鍵與最新值已讀回、獨立重算 PASS。**剩餘**：修正版自然 Controller daily 至少一次可關聯的 execution→Ledger checked_at／snapshot讀回，及週詳細稽核的source cursor／snapshot／watermark收據。手動 `janus-ingestion-core-szlxm` 與自然 occurrence 的 succeeded 不取代新版週期性發布證據。不新增 Scheduler／重送已完成補收。
 3. **P0｜Market Volume 補收 PASS**：沿用四 slices 完成證據，本輪不重送。指數、market-volume、market-activity不能相互代替，不把指定樣本推成全市場。
-4. **P1｜EPS 合法歷史季度定向修復 BLOCKED_SOURCE_EVIDENCE**：Ledger落地後已續行六股2025Q3/Q4 MOPS核查；12份來源均成功取得，但核查的YTD context無可驗加權平均股數，可安全重建0/6，Core合格2025Q4亦0/6。**剩餘**：在既有授權官方來源取得直接單季EPS或可核實同版分子／分母後才定向補收；缺證據者保留null／NOT_CERTIFIED。禁止累計EPS差分、推估股數；2026Q1/Q2六股6/6與歷史TTM的WAIVED_FOR_MVP不變。
+4. **P1｜EPS 歷史季度定向補收 READY（2026-10-18 第三方來源核准）**：六股`1513,2327,2382,3231,3711,5876`的2025Q4可直接採Yahoo等第三方已整理的單季EPS，不再以官方股數分母為前置；依[PROJECT_RULES §1.7](PROJECT_RULES.md)執行。**剩餘**：六股來源raw／期別／單位、Stage→Core→serving、正式API與畫面讀回；來源保留第三方標示，不把文件更新或抓到頁面當作入庫完成。不得混累季／年度／預估、不自行差分或推估股數；股本基準未知不認證歷史TTM。範圍不擴至全市場，2026Q1/Q2既有PASS不重做。舊MOPS核查0/6只限該入口的歷史結果。
 
 **合併驗收底線**：不重開已結案 D01～D05；不操作 Owner／Private Ledger、不新增付費來源、排程或資源；遵守 canonical／research、PIT 與 source authorization；直到正式 2Y API／UI、Ledger 自然增量、歷史市場覆蓋及適用 EPS 證據齊備，整體 DRL-01 維持 PARTIAL。最新實證另見 [operations](spec/operations-and-testing.md)／[status](status.md)。
 

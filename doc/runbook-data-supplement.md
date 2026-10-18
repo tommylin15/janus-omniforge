@@ -2,6 +2,10 @@
 
 本文件對應 `WBS-3-DATA-SUPPLEMENT-V1`。順序為首次回補 → 每日增量 → 週六獨立檢查。使用者採「有資料優先」：缺期與未知公告時間如實呈現；不得把本次取得時間倒填成歷史公告時間。
 
+## 補收來源選擇（2026-10-18 最新）
+
+依 [PROJECT_RULES §1.7](PROJECT_RULES.md)，可直接使用Yahoo等第三方公開資料，無需先窮盡官方來源或重建官方分母。先取已有可用的資料，不指定Firecrawl；優先直接HTTP或既有工具。第三方頁面的單季EPS可原值補入，但必須保存來源URL、取得時間、raw/hash、symbol／季度／單位；累季、年度、預估與單季分開，分割／減資口徑不明不冒稱可比。沿既有來源識別、Stage/Core、冪等與serving驗收，不冒用`mops`；文件核准不代表adapter已部署。下列MOPS程序保留作已實作路徑，不是補收唯一入口；不擴大TODO的股票／期間或增加排程、付費來源。
+
 ## DRL-01：既有官方 MOPS 市場月份批次回補（2026-10-16 新增）
 
 此程序修補全市場過去僅約5股具13月營收深度的缺口；沿用MOPS同一官方來源、現有Stage/Iceberg及dev Cloud Run Job，不啟用新API／Scheduler／付費供應商，不動Owner帳本。程式 `scripts/gcp/drl01_revenue_history.py`、版本化請求 `ops/drl-01-revenue-history-request.json`、workflow `.github/workflows/drl-01-revenue-history.yml`。

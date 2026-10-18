@@ -41,11 +41,11 @@ def _safe_record(value: Any) -> Any:
 
 
 def _comparable_single_quarter_eps(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """Only expose provable official single-quarter EPS.
+    """Expose published official or approved-provider single-quarter EPS.
 
     Cumulative basic EPS uses period-specific weighted average shares. Subtracting
     two YTD EPS figures is not a valid single-quarter EPS calculation when the
-    denominator changes. Q1 YTD is one quarter; Q2-Q4 require an official
+    denominator changes. Q1 YTD is one quarter; Q2-Q4 require a provider's
     explicitly identified single-quarter figure or a separately verified
     numerator/denominator reconstruction. Research-only cumulative values stay
     available in Core but must not be relabelled as quarterly presentation facts.
@@ -56,7 +56,7 @@ def _comparable_single_quarter_eps(rows: Sequence[Mapping[str, Any]]) -> list[di
     q1_ytd: dict[tuple[int, int], dict[str, Any]] = {}
     for source in rows:
         if (source.get("value") is None or source.get("unit") != "TWD_per_share"
-                or source.get("source_id") != "mops"
+                or source.get("source_id") not in {"mops", "yahoo-finance"}
                 or not source.get("provenance_id")):
             continue
         try:
@@ -81,8 +81,10 @@ def _comparable_single_quarter_eps(rows: Sequence[Mapping[str, Any]]) -> list[di
         key = year, quarter
         if (row.get("metric") == "eps_single_quarter"
                 and row.get("period_basis") == "single_quarter"):
-            explicit[key] = row
-        elif (quarter == 1
+            previous = explicit.get(key)
+            if previous is None or (row["source_id"] == "mops" and previous["source_id"] != "mops"):
+                explicit[key] = row
+        elif (row["source_id"] == "mops" and quarter == 1
               and ("每股盈餘" in str(row.get("metric") or "")
                    or row.get("metric") == "eps_year_to_date")
               and row.get("statement_type") in ("income", "financial")
@@ -206,7 +208,9 @@ class CoreQueryService:
                      row.get('metric') == 'monthly_revenue' and row.get('period_basis') == 'monthly' and row.get('fiscal_month') is not None]
                    if metric == 'revenue' else _comparable_single_quarter_eps(raw))
             if metric == 'eps':
-                response['calculation_version'] = 'eps-official-single-quarter-or-q1-ytd-v2'
+                response['calculation_version'] = ('eps-provider-reported-single-quarter-v3'
+                    if any(row.get('source_id') == 'yahoo-finance' for row in raw)
+                    else 'eps-official-single-quarter-or-q1-ytd-v2')
                 if not raw:
                     response['missing_reason'] = 'no_verified_single_quarter_eps'
         # Published null/invalid values remain dated gaps so the chart does not
@@ -236,7 +240,8 @@ class CoreQueryService:
                 if dated[day_string]["value"] is not None or number is None:
                     continue
             source = str(row.get("source_id") or "").strip()
-            if dataset in {"institutional", "financials"} and (source not in {"twse", "tpex", "mops"} or not row.get("provenance_id")):
+            allowed_sources = {"twse", "tpex", "mops"} | ({"yahoo-finance"} if metric == "eps" else set())
+            if dataset in {"institutional", "financials"} and (source not in allowed_sources or not row.get("provenance_id")):
                 number = None
             dated[day_string] = {
                 "date": day_string, "value": str(number) if number is not None else None,

@@ -64,7 +64,7 @@ SOURCE_AUTHORIZATION: dict[str, AuthorizationStatus] = {
     "finmind": AuthorizationStatus.APPROVED_FALLBACK,
     "fugle": AuthorizationStatus.CANDIDATE,
     "shioaji": AuthorizationStatus.CANDIDATE,
-    "yahoo-finance": AuthorizationStatus.CANDIDATE,
+    "yahoo-finance": AuthorizationStatus.APPROVED_FALLBACK,
     "google-finance": AuthorizationStatus.CANDIDATE,
     "tiingo": AuthorizationStatus.CANDIDATE,
     "cmoney": AuthorizationStatus.CANDIDATE,

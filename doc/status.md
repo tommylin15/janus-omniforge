@@ -1,5 +1,7 @@
 # Janus 目前狀態
 
+> **2026-10-18 最新來源決策／EPS 補收進行中**：補資料可直接使用Yahoo等第三方來源，不需先窮盡官方來源或取得官方股數分母；見 [正式規則 §1.7](PROJECT_RULES.md)。六股2025Q4 Yahoo頁面已可讀，adapter／serving支援與發布、實際Stage/Core/API讀回仍待完成。下方官方核查0/6保留歷史事實，不再作停止第三方補收的gate。
+
 > **2026-10-18｜DRL-01 整批續行，仍 PARTIAL**：
 > - **P0-1 PASS**：正式兩年PE/PB API 12/12 ready；5876手機／桌面PE/PB顯示4/4，正式／Preview build-id同為`b5df7e30bc02676a41d0d3300325b9ca5d6fb553`。
 > - **P0-2 落地PASS、週期待驗**：Admin `data_readiness_ledger` 已讀回、獨立重算PASS；自然daily／weekly新版發布收據尚未齊備。

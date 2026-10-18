@@ -57,6 +57,14 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - 此決策不授權刪除 current snapshot 使用的檔案、Owner 私有交易／現金／持股，或繞過現役 writer／mutation lock、固定 digest、catalog pointer、7日檔齡、generation 與讀回驗證。先完成 compaction 與 current 資料讀回，再作有界清理，保留實刪 objects／bytes 與失敗收據。
 - 本節覆蓋 active SPEC／WBS／TODO／runbook 中與此相反的歷史引用保護及24小時／named snapshot 保留條款；既有 row TTL、Stage政策及其他安全邊界未由本次決策變更。
 
+### 1.7 資料補收可使用第三方來源（2026-10-18 使用者核准）
+
+- 補資料以取得可用真實資料為目標，**不要求一定來自官方，也不要求先窮盡官方來源**。可直接採用 Yahoo 股市等第三方網站／供應者已整理的歷史數值；不得再因缺官方報表或官方股數分母而停止能由第三方完成的補收。官方既有資料仍可重用，不必重抓。
+- 本決策是已授權補收工作使用第三方來源的專案核准；一般公開可讀、無新增費用的來源，不需逐次請使用者重複核准或另開 WBS。來源登錄／adapter／schema 必須如實支援第三方，不得假冒 `mops`／官方；新增付費訂閱、權限或 production 變更仍依 §1.3。
+- 保留來源網站／URL、取得時間、原始內容或 hash、股票、期別、單位與口徑。EPS 可直接採用供應者標示的「單季每股盈餘」，不必自行重建其官方分母；不得混用累季／年度／預估 EPS，不自行用累計 EPS 差分或猜股數。分割／減資等每股基準不明時保留來源口徑，不冒稱跨期可比。
+- 第三方實測值可沿既有 Stage→Core→serving→API／UI 發布；來源、修訂與差異需可追溯，不覆蓋成官方認證，不倒填歷史首次公告／PIT。僅更新文件不代表補收、部署或發布已完成。
+- 此節覆蓋 active TODO／WBS／SPEC／runbook 中「只限官方」「不得新增第三方來源」「須先找官方／另行逐源人工核准」等相反的補收限制；不擴大當前股票、期間、排程或付費範圍。本次 EPS 仍只補六股2025Q4，不自動擴成全市場。工具不限定 Firecrawl，優先直接 HTTP 或既有工具完成。
+
 ## 2. Dev 平行上線環境政策
 
 - 目前 `dev` 是 Janus 個人使用階段的主要真實運行環境（parallel-live environment），不是只供假資料、mock、demo 或 pre-production 演練的 staging。

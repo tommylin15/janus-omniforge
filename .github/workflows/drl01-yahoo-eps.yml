@@ -1,0 +1,36 @@
+name: DRL-01 bounded Yahoo EPS supplement
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  supplement:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          pip install pytest==8.4.2
+          PYTHONPATH=.:jobs/ingestion-core python -m pytest -q tests/test_yahoo_eps.py
+          python -m py_compile scripts/gcp/drl01_yahoo_eps.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: python scripts/gcp/drl01_yahoo_eps.py ops/drl01-yahoo-eps-request.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drl01-yahoo-eps-receipt
+          path: /tmp/drl01-yahoo-eps.json
+          if-no-files-found: ignore
+          retention-days: 14
