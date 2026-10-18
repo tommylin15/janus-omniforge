@@ -124,5 +124,6 @@ def test_historical_market_volume_runner_is_bounded_and_immutable(tmp_path):
     assert '"etag":current["etag"]' in source
     assert 'if not digest_matches(request["deployed_sha"],current)' in source
     assert "PASS_BOUNDED_OFFICIAL_HISTORY_WRITTEN" in source
+    assert "verify_execution_success" in source or "execution_response" in source
     assert "market_history_not_terminal_do_not_retry" in source
     assert ":update" not in source
