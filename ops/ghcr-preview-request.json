@@ -1,17 +1,8 @@
 {
-  "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
-  "approved": true,
-  "scope": "janus-api-preview-tag-only",
-  "source_sha": "61dbdcee4baac92cb8c62201a97ccbf714e91dc4",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:891f8b203a01f275fcebfeb1770f10bee6f6c23228bc21dec0dfa5351f7005e8",
-  "release_run": "39085976225",
-  "candidate_run": "39089101585",
-  "boundary_run": "39089227416",
-  "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
-  "canonical_traffic_mutation": false,
-  "jobs_or_scheduler_mutation": false,
-  "other_tags_mutation": false,
-  "reason": "DRL-01 fully validated 61db release, exact 0% candidate and OAuth PASS: publish two-year PE/PB and Readiness fix in fixed Preview, no canonical traffic mutation.",
-  "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 27
+  "intent": "update-preview-tag",
+  "sha": "b5df7e30bc02676a41d0d3300325b9ca5d6fb553",
+  "release_run": "39108738006",
+  "candidate_run": "39109095990",
+  "purpose": "DRL-01 P0-1: Update preview tag for two_year_profile fix",
+  "requested_at": "2026-10-18T15:54:00+08:00"
 }
