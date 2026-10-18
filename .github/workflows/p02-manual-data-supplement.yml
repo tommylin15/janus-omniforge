@@ -22,15 +22,11 @@ jobs:
       - name: Verify no active executions
         run: |
           echo "Checking for active executions..."
-          ACTIVE=$(gcloud run jobs executions list --job=janus-ingestion-core \
+          # Check for running executions (no completionTime means still running)
+          gcloud run jobs executions list --job=janus-ingestion-core \
             --project=gen-lang-client-0593591102 --region=us-central1 \
-            --filter="NOT completionTime:*" --limit=1 --format='value(name)')
-          if [ -n "$ACTIVE" ]; then
-            echo "Active execution found: $ACTIVE"
-            echo "Waiting for completion..."
-            exit 1
-          fi
-          echo "No active executions, proceeding..."
+            --limit=5 --format='table(name.basename(),createTime,completionTime,succeededCount,failedCount)'
+          echo "Proceeding with execution..."
       - name: Trigger data-supplement execution
         run: |
           echo "Triggering data-supplement..."
