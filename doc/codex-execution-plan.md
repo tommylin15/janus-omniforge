@@ -1,6 +1,6 @@
 # Janus — 後續 AI 開發指示
 
-更新：2026-10-16。本文件只保存AI路由與共用執行方法；當次授權、暫停、唯一active queue在[TODO](todo.md)，實際證據在[status](status.md)。文件更新不自動恢復工程。
+更新：2026-10-18。本文件只保存AI路由與共用執行方法；當次授權、暫停、唯一active queue在[TODO](todo.md)，實際證據在[status](status.md)。文件更新不自動恢復工程。
 
 ## 1. AI唯一啟動入口與指令路由
 
@@ -8,13 +8,14 @@
 
 | 工項 | 操作指令 | 規格／驗收依據 |
 |---|---|---|
+| **FINOPS-AB（P0）／FINOPS-C（D07/D08 前）** | [成本優化 AI 工程指令](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | [唯一 TODO](todo.md)、[WBS-7](wbs/wbs-7-security-finops.md)、[WBS-3](wbs/wbs-3-ingestion-admin.md)；A+B 先做，C 工程前必須重評並正式回寫架構決策 |
 | D01、D04～D08 | [任務卡索引](execution-cards/README.md)內相應卡 | 該卡SPEC與TODO |
 | D02首屏／快照 | [D02卡](execution-cards/d02-full-market-snapshot-performance.md) | [三層交付](ui/visual-first-delivery.md)，與D03共享數值證據 |
 | D03首頁／個股／四頁 | [D03卡](execution-cards/d03-four-page-charts-visual.md) | [A具體版面第5節](ui/visual-first-four-pages.md)、[User App語意](ui/user-app.md)、[B三層交付](ui/visual-first-delivery.md) |
 | DRL-01A/B/C/D | 本文件第7節 | TODO子項＋B三層交付；消費端依D02/D03卡 |
 
 UI實際長相按A第5節逐項實作，不能自行換區塊順序、堆重複卡、增導航或將三行事實改健康分數。資料→共用公式→serving/API→現有UI同一功能一起交付，不等全部OOS才顯基本圖表。
-DRL-01目前優先，已有月營收月份修復與上櫃3個歷史交易日直接PASS；仍需OHLCV窗口、EPS真正Core讀回、13月YoY、定期Ledger實機與合理後置估值河流。D01～D05既有授權及成功證據保留，不重做、不把DRL新需求反向加到D05 gate。
+FINOPS-AB 與 DRL-01 分別於各自授權範圍優先，已有月營收月份修復與上櫃3個歷史交易日直接PASS；仍需OHLCV窗口、EPS真正Core讀回、13月YoY、定期Ledger實機與合理後置估值河流。D01～D05既有授權及成功證據保留，不重做、不把DRL新需求反向加到D05 gate。
 版型只維護A，三層映射只維護B，任務卡保存操作／驗收，TODO保存範圍／狀態。Drive為研究參考，舊逐步指令與此路由不同時以此路由及TODO為準。通用發布／資源／交接依第4～6節。
 
 ## 2. 開發定位與集體驗收
