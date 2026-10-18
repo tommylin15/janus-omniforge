@@ -1,0 +1,172 @@
+name: DRL-01 independent live market EPS and scheduler continuity
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/drl01-live-continuity-audit.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-read-only-continuity
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Scan bounded official Core and natural occurrences, read-only
+        env:
+          PYTHONPATH: scripts/gcp
+        run: |
+          python - <<'PY'
+          import json,time,subprocess
+          from pathlib import Path
+          from ghcr_jobs_rollout import ROOT,cloud,job,terminal
+          CODE=r"""
+          import os,json
+          from datetime import date,datetime,timedelta,timezone
+          from collections import defaultdict
+          from decimal import Decimal
+          from pyiceberg.expressions import And,GreaterThanOrEqual,LessThanOrEqual,In
+          from ingestion_core.__main__ import _control_plane,_iceberg_core
+          out={'component':'drl01_live_continuity','read_only':True,'status':'PARTIAL',
+               'checked_at':datetime.now(timezone.utc).isoformat(),'datasets':{}}
+          control=core=None
+          try:
+              control=_control_plane()
+              settings=control.get_admin_setting('data_readiness_ledger')
+              value=settings[0] if settings and isinstance(settings[0],dict) else {}
+              out['readiness']={'found':bool(value),'checked_at':value.get('checked_at'),
+                 'as_of':value.get('as_of'),'status':value.get('status'),
+                 'snapshot_ids':value.get('snapshot_ids'),'market_price_window':value.get('market_price_window'),
+                 'focus_120d':value.get('focus_120d'),'monthly_revenue_13':value.get('monthly_revenue_13'),
+                 'eps_4_comparable':value.get('eps_4_comparable')}
+              with control.connection.cursor() as cur:
+                  cur.execute("""SELECT state->>'batch',state->>'status',count(*)
+                                 FROM control.batch_occurrences WHERE scheduled_at >= %s
+                                 GROUP BY 1,2 ORDER BY 1,2""",(datetime.now(timezone.utc)-timedelta(days=5),))
+                  out['natural_batches']=[{'batch':str(a),'status':str(b),'count':int(n)}
+                    for a,b,n in cur.fetchall() if a in ('ingestion','data-supplement','data-quality','market-screening')]
+                  cur.execute("SELECT symbol,metric,payload_json->>'status',payload_json->>'window_years' FROM control.stock_valuation_five_year WHERE symbol=ANY(%s) ORDER BY symbol,metric",(['1513','2327','2382','3231','3711','5876'],))
+                  out['river']=[{'symbol':s,'metric':m,'status':st,'years':yr} for s,m,st,yr in cur.fetchall()]
+              core=_iceberg_core(os.environ['CORE_BUCKET'],read_only=True)
+              start,end=date(2026,7,1),date(2026,10,17)
+              for dataset in ('benchmark','ohlcv','market-volume','market-activity'):
+                  info={'status':'UNKNOWN'}
+                  try:
+                      if not core.table_exists(dataset):
+                          info['status']='MISSING';out['datasets'][dataset]=info;continue
+                      table=core.catalog.load_table(core.table_identifier(dataset))
+                      snap=table.current_snapshot()
+                      cols={field.name for field in table.schema().fields}
+                      needed=['trade_date']
+                      for col in ('benchmark_id','symbol','market','source_id','provenance_id'):
+                          if col in cols:needed.append(col)
+                      filt=And(GreaterThanOrEqual('trade_date',start),LessThanOrEqual('trade_date',end))
+                      if dataset!='benchmark' and 'symbol' in cols:
+                          filt=And(filt,In('symbol',['1513','2327','2382','3231','3711','5876','6488']))
+                      rows=table.scan(snapshot_id=snap.snapshot_id,row_filter=filt,selected_fields=tuple(needed),limit=30000).to_arrow().to_pylist()
+                      days=defaultdict(set);idents=defaultdict(set)
+                      for x in rows:
+                          dt=str(x.get('trade_date') or '')[:10]
+                          try:d=date.fromisoformat(dt)
+                          except ValueError:continue
+                          month=dt[:7];label=str(x.get('benchmark_id') or x.get('symbol') or 'all')
+                          days[month].add(dt);idents[label].add(dt)
+                      info={'status':'PASS_BOUNDED_READ','snapshot_id':str(snap.snapshot_id),
+                          'row_count_scanned':len(rows),
+                          'distinct_trading_dates_by_month':{month:len(days[month]) for month in ('2026-07','2026-08','2026-09','2026-10')},
+                          'earliest_date':min((min(a) for a in idents.values()),default=None),
+                          'latest_date':max((max(a) for a in idents.values()),default=None),
+                          'sample_series_days':{k:len(v) for k,v in list(sorted(idents.items()))[:10]}}
+                  except Exception as e:info={'status':'ERROR_'+type(e).__name__}
+                  out['datasets'][dataset]=info
+              t=core.catalog.load_table(core.table_identifier('financials'));snap=t.current_snapshot()
+              cols=('symbol','fiscal_year','fiscal_quarter','fiscal_period_end','statement_type','metric','period_basis','unit','value','source_id','provenance_id','availability_at')
+              symbols=['1513','2327','2382','3231','3711','5876']
+              rows=t.scan(snapshot_id=snap.snapshot_id,row_filter=In('symbol',symbols),selected_fields=cols,limit=30000).to_arrow().to_pylist()
+              raw=defaultdict(set);verified=defaultdict(set)
+              for x in rows:
+                  s=str(x.get('symbol')); y=x.get('fiscal_year');q=x.get('fiscal_quarter')
+                  if s not in symbols or not isinstance(y,int) or not isinstance(q,int) or not 1<=q<=4:continue
+                  label=f'{y}Q{q}'
+                  metric=str(x.get('metric') or '')
+                  if 'eps' not in metric.lower() and '每股盈餘' not in metric:continue
+                  if x.get('value') is None:continue
+                  raw[s].add(label)
+                  if x.get('source_id')!='mops' or not x.get('provenance_id') or not x.get('availability_at') or x.get('unit')!='TWD_per_share':continue
+                  try:valid=Decimal(str(x.get('value'))).is_finite()
+                  except Exception:valid=False
+                  if not valid:continue
+                  if (metric=='eps_single_quarter' and x.get('period_basis')=='single_quarter'
+                      or q==1 and (x.get('period_basis') in (None,'year_to_date'))
+                      and ('每股盈餘' in metric or metric=='eps_year_to_date')):
+                      verified[s].add(label)
+              out['eps']={'snapshot_id':str(snap.snapshot_id),'symbols':[
+                  {'symbol':s,'raw_eps_periods':sorted(raw[s]),
+                   'verified_single_quarters':sorted(verified[s]),
+                   'missing_2025Q4':'2025Q4' not in verified[s],
+                   'has_2026Q1_Q2':{'2026Q1','2026Q2'}.issubset(verified[s])}
+                  for s in symbols]}
+              out['status']='PASS_READ_ONLY'
+          except Exception as e:
+              out['status']='ERROR_'+type(e).__name__
+          finally:
+              if core:
+                  try:core.close()
+                  except Exception:pass
+              if control:
+                  try:control.close()
+                  except Exception:pass
+              print(json.dumps(out,ensure_ascii=False,sort_keys=True),flush=True)
+          """
+          j=job('janus-ingestion-core');cs=j['template']['template']['containers']
+          assert len(cs)==1 and cs[0].get('command') in (None,[],['python'])
+          args=(['python'] if not cs[0].get('command') else [])+['-c',CODE]
+          override={'args':args,'env':[{'name':'QUEUE_CONSUMER','value':'false'}]}
+          if cs[0].get('name'):override['name']=cs[0]['name']
+          op=cloud(f'{ROOT}/jobs/janus-ingestion-core:run',{'etag':j['etag'],'overrides':
+            {'taskCount':1,'timeout':'480s','containerOverrides':[override]}},'POST')
+          name=op.get('name','');assert name.startswith(ROOT+'/operations/'), 'unexpected_operation'
+          until=time.monotonic()+520
+          while not op.get('done') and time.monotonic()<until:
+              time.sleep(8);op=cloud(name)
+          assert op.get('done') and not op.get('error'), 'core_probe_execution_failed'
+          exe=op.get('response',{})
+          assert terminal(exe) and exe.get('succeededCount')==1 and not exe.get('failedCount'), 'core_probe_not_succeeded'
+          ename=exe['name'].rsplit('/',1)[-1]
+          query='resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="'+ename+'"'
+          receipt=None
+          for _ in range(6):
+              cp=subprocess.run(['gcloud','logging','read',query,'--project=gen-lang-client-0593591102','--limit=250','--format=json'],capture_output=True,text=True,timeout=55)
+              if cp.returncode==0:
+                  for entry in json.loads(cp.stdout):
+                      v=entry.get('jsonPayload')
+                      if not isinstance(v,dict):
+                          try:v=json.loads(entry.get('textPayload',''))
+                          except (ValueError,TypeError):continue
+                      if isinstance(v,dict) and v.get('component')=='drl01_live_continuity':
+                          receipt=v;break
+              if receipt:break
+              time.sleep(5)
+          assert receipt is not None,'core_probe_log_missing'
+          report={'execution':ename,'receipt':receipt}
+          Path('/tmp/drl01-continuity.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          print(json.dumps(report,ensure_ascii=False,sort_keys=True))
+          if receipt.get('status')!='PASS_READ_ONLY':raise RuntimeError('audit_partial')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drl01-independent-continuity
+          path: /tmp/drl01-continuity.json
+          if-no-files-found: ignore
+          retention-days: 10
