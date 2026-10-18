@@ -23,8 +23,8 @@ def test_long_history_retention_is_only_for_deep_prices_and_benchmark():
     assert retained_core_rows(core, "benchmark", rows, now) == rows[:2]
 
 
-@pytest.mark.parametrize("missing,expected_status", [(0, "accepted"), (51, "discussion_required")])
-def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch, missing, expected_status):
+@pytest.mark.parametrize("missing,otc_missing,expected_status", [(0, 0, "accepted"), (51, 0, "discussion_required"), (0, 100, "accepted"), (0, 151, "discussion_required")])
+def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch, missing, otc_missing, expected_status):
     import json
     from types import SimpleNamespace
     from ingestion_core import market_history as module
@@ -59,7 +59,7 @@ def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch,
         if 'tpex.org.tw' in url:
             return json.dumps([{'Date': '20260803', '代號': s, '名稱': s, '成交股數': '100',
                 '成交金額(元)': '1000', '開盤': '10', '最高': '10', '最低': '10', '收盤': '10'}
-                for s in otc_symbols]).encode(), 'utf-8'
+                for i,s in enumerate(otc_symbols) if i >= otc_missing]).encode(), 'utf-8'
         return json.dumps([{"Date": "20260803", "證券代號": s, "證券名稱": s,
             "成交股數": "100", "成交金額": "1000", "開盤價": "10", "最高價": "10", "最低價": "10",
             "收盤價": "--" if i < missing else "10"} for i,s in enumerate(symbols)]).encode(), "utf-8"
@@ -79,6 +79,7 @@ def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch,
     assert len(commits[0]["rows"]) == 500-missing
     assert len(commits[1]['rows']) == 500
     assert result['coverage_scope'] == 'current_members_price_history'
-    assert result['months'][0]['missing_ratio_by_market']['TPEX'] == 0
-    assert finished == [missing > 50]
+    assert result['months'][0]['missing_ratio_by_market']['TPEX'] == otc_missing / len(otc_symbols)
+    assert result['months'][0]['threshold_by_market'] == {'TWSE': .10, 'TPEX': .30}
+    assert finished == [missing > 50 or otc_missing > 150]
     assert len(markers) == 1
