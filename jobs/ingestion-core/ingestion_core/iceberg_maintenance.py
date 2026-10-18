@@ -274,7 +274,7 @@ def _compaction_plan(table: Any, *, source_name: str, transform_name: str,
     return planned, oversized
 
 
-def compact_core(*, core: Any, apply: bool) -> dict[str, Any]:
+def compact_core(*, core: Any, apply: bool, prepared_report: dict[str, Any] | None = None) -> dict[str, Any]:
     """Compact fragmented time partitions without deleting retained snapshots.
 
     PyIceberg 0.11 does not expose a native rewrite-data-files action. We therefore
@@ -292,6 +292,21 @@ def compact_core(*, core: Any, apply: bool) -> dict[str, Any]:
     max_periods = _integer_env("ICEBERG_COMPACTION_MAX_PERIODS", DEFAULT_MAX_PERIODS, minimum=1, maximum=120)
     min_files = _integer_env("ICEBERG_COMPACTION_MIN_FILES", DEFAULT_MIN_FILES, minimum=2, maximum=1000)
 
+    if prepared_report is not None and not apply:
+        raise ValueError("prepared compaction plan is only valid for apply")
+    if prepared_report is not None:
+        if (prepared_report.get("component") != "iceberg-compaction"
+                or prepared_report.get("target_file_bytes") != target_bytes
+                or prepared_report.get("small_file_threshold_bytes") != small_bytes
+                or prepared_report.get("max_partition_bytes") != max_partition_bytes
+                or prepared_report.get("max_rewrite_bytes") != max_rewrite_bytes):
+            raise RuntimeError("compaction preflight parameters changed before apply")
+        prepared_rows = {item["dataset_id"]: item for item in prepared_report["tables"]}
+        if len(prepared_rows) != len(prepared_report["tables"]):
+            raise RuntimeError("compaction preflight duplicate datasets")
+    else:
+        prepared_rows = {}
+
     reports = []
     total_planned_bytes = 0
     total_rewritten_bytes = 0
@@ -303,15 +318,29 @@ def compact_core(*, core: Any, apply: bool) -> dict[str, Any]:
         # itself creates new Iceberg metadata and billable GCS operations.
         table = core.catalog.load_table(identifier)
         source_name, transform_name = core.PARTITIONS[dataset_id][0]
-        before = _data_file_health(table, target_bytes=target_bytes, small_bytes=small_bytes)
-        plan, oversized = _compaction_plan(
-            table, source_name=source_name, transform_name=transform_name,
-            target_bytes=target_bytes, small_bytes=small_bytes, min_files=min_files,
-            max_partition_bytes=max_partition_bytes,
-            max_rewrite_bytes=max(0, max_rewrite_bytes - total_planned_bytes),
-            max_periods=max_periods,
-        )
+        if prepared_report is not None:
+            prepared = prepared_rows.get(dataset_id)
+            if prepared is None:
+                raise RuntimeError("compaction preflight dataset missing")
+            before = prepared["before"]
+            snapshot = table.current_snapshot()
+            if ((snapshot.snapshot_id if snapshot else None) != before["snapshot_id"]
+                    or table.metadata_location != prepared["metadata_location"]
+                    or table.spec().spec_id != before["spec_id"]):
+                raise RuntimeError("compaction preflight catalog changed before apply")
+            plan, oversized = prepared["planned_periods"], prepared["oversized_periods"]
+        else:
+            before = _data_file_health(table, target_bytes=target_bytes, small_bytes=small_bytes)
+            plan, oversized = _compaction_plan(
+                table, source_name=source_name, transform_name=transform_name,
+                target_bytes=target_bytes, small_bytes=small_bytes, min_files=min_files,
+                max_partition_bytes=max_partition_bytes,
+                max_rewrite_bytes=max(0, max_rewrite_bytes - total_planned_bytes),
+                max_periods=max_periods,
+            )
         total_planned_bytes += sum(item["bytes"] for item in plan)
+        if total_planned_bytes > max_rewrite_bytes or len(plan) > max_periods:
+            raise RuntimeError("compaction preflight bounds exceeded")
         rewritten = []
         skipped_stale = []
         original_row_count = before["row_count"]
@@ -366,6 +395,7 @@ def compact_core(*, core: Any, apply: bool) -> dict[str, Any]:
         reports.append({
             "dataset_id": dataset_id,
             "table": identifier,
+            "metadata_location": prepared["metadata_location"] if prepared_report is not None else table.metadata_location,
             "source_partition": f"{transform_name}({source_name})",
             "before": before,
             "planned_periods": plan,
@@ -504,7 +534,7 @@ def compact_nightly(*, core: Any) -> dict[str, Any]:
         "audit_status": "disabled",
     }, sort_keys=True), flush=True)
     if candidates:
-        core_result = compact_core(core=core, apply=True)
+        core_result = compact_core(core=core, apply=True, prepared_report=core_plan)
         mode = "dry-run-then-apply"
     else:
         # Dry-run is already a read-only health snapshot. No second load/scan,
