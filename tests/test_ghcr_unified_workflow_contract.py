@@ -13,6 +13,20 @@ def test_consolidated_workflows_share_global_runtime_writer_group():
         assert "id-token: write" in source
 
 
+def test_lease_check_shares_writer_group_without_cloud_identity_or_rollout():
+    import yaml
+    job = yaml.safe_load(GHCR)['jobs']['lease-check']
+    assert job['if'] == "needs.detect.outputs.operation == 'lease-check'"
+    assert job['permissions'] == {'contents': 'write'}
+    setup = next(step for step in job['steps'] if step.get('uses') == './.github/actions/setup-janus')
+    assert setup['with']['gcp-auth'] == 'false'
+    script = '\n'.join(step.get('run', '') for step in job['steps'])
+    assert 'ghcr_release_lease.py acquire' in script
+    assert 'ghcr_release_lease.py assert' in script
+    assert 'ghcr_release_lease.py release --safe-to-release' in script
+    assert 'gcloud' not in script and 'ghcr_jobs_rollout.py' not in script
+
+
 def test_active_ghcr_release_is_exact_sha_tested_before_immutable_public_publish():
     assert "workflow_dispatch:" in GHCR and "branches: [main]" in GHCR
     assert "'ops/ghcr-release-request.json'" in GHCR

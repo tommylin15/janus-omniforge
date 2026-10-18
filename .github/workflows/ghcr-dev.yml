@@ -8,6 +8,7 @@ on:
         type: choice
         options:
           - verify
+          - lease-check
           - release
           - candidate
           - preview
@@ -81,6 +82,35 @@ jobs:
               *) echo "operation=none" >> "$GITHUB_OUTPUT" ;;
             esac
           fi
+
+  lease-check:
+    needs: detect
+    if: needs.detect.outputs.operation == 'lease-check'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          gcp-auth: 'false'
+      - run: python -m pytest -q tests/test_ghcr_release_lease.py
+      - name: Check current-main lease without GCP operations
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/gcp/ghcr_release_lease.py inspect
+          python scripts/gcp/ghcr_release_lease.py acquire
+          trap 'python scripts/gcp/ghcr_release_lease.py release --safe-to-release' EXIT
+          python scripts/gcp/ghcr_release_lease.py assert
+          python scripts/gcp/ghcr_release_lease.py release --safe-to-release
+          trap - EXIT
+          python scripts/gcp/ghcr_release_lease.py inspect
 
   # ============ RELEASE ============
   release-tests:

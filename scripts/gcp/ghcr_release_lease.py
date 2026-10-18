@@ -133,6 +133,16 @@ def acquire(api: Callable, owner: Owner) -> str:
     # Inspection improves diagnostics; only GitHub's atomic POST-ref is the lock.
     if get_ref(api, owner) is not None:
         raise LeaseBlocked("lease_busy")
+    # A stale workflow commit may require Workflows write to tag. Dispatch
+    # current main instead of broadening the Actions token or retrying writes.
+    try:
+        head = api("GET", f"repos/{owner.repo}/git/ref/heads/main")
+    except ApiError as exc:
+        raise LeaseBlocked("lease_main_source_readback_failed") from exc
+    if (not isinstance(head, dict) or not isinstance(head.get("object"), dict)
+            or head["object"].get("type") != "commit"
+            or head["object"].get("sha") != owner.source_sha):
+        raise LeaseBlocked("lease_source_is_not_current_main_dispatch_fresh_run")
     body = {"tag": TAG, "message": MARKER + json.dumps(owner.fields(), sort_keys=True,
                                                            separators=(",", ":")),
             "object": owner.source_sha, "type": "commit"}

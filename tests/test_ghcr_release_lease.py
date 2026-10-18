@@ -29,9 +29,12 @@ class FakeApi:
         self.fail_get = False
         self.get_readbacks = 0
         self.trace = []
+        self.main_sha = SHA_A
 
     def __call__(self, method, path, body=None):
         self.trace.append((method, path))
+        if method == "GET" and path.endswith("/git/ref/heads/main"):
+            return {"object": {"type": "commit", "sha": self.main_sha}}
         if method == "GET" and "/git/ref/tags/" in path:
             self.get_readbacks += 1
             if self.fail_get:
@@ -75,6 +78,35 @@ def test_concurrent_claim_rejected_not_overwritten():
     with pytest.raises(lease.LeaseBlocked, match="lease_busy"):
         lease.acquire(api, O2)
     assert lease._validated_lease(api, O1) == TAG_SHA_A
+
+
+def test_stale_workflow_source_cannot_create_lease_objects():
+    api = FakeApi()
+    api.main_sha = SHA_B
+    with pytest.raises(lease.LeaseBlocked, match="dispatch_fresh_run"):
+        lease.acquire(api, O1)
+    assert api.ref is None and api.tags == {}
+    assert all(method == "GET" for method, _ in api.trace)
+
+
+def test_current_owner_can_release_after_main_advances():
+    api = FakeApi()
+    lease.acquire(api, O1)
+    api.main_sha = SHA_B
+    assert lease._validated_lease(api, O1) == TAG_SHA_A
+    lease.release(api, O1)
+    assert api.ref is None
+
+
+def test_main_source_read_failure_blocks_before_any_write():
+    api = FakeApi()
+    def denied(method, path, body=None):
+        if path.endswith("/git/ref/heads/main"):
+            raise lease.ApiError(403)
+        return api(method, path, body)
+    with pytest.raises(lease.LeaseBlocked, match="lease_main_source_readback_failed"):
+        lease.acquire(denied, O1)
+    assert api.ref is None and api.tags == {}
 
 
 def test_atomic_race_conflict_rejects_claim():

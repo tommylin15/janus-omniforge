@@ -129,6 +129,7 @@ gh workflow run finops-dev.yml -f operation=gcs-hourly-io
 | Operation | 說明 | 觸發檔案 |
 |---|---|---|
 | `verify` | 合併執行完整 Python／隔離 PostgreSQL 與 Flutter 檢查；不發布映像、不修改 runtime | 僅 workflow_dispatch |
+| `lease-check` | 當前 main 原子租約 acquire／assert／release；無 GCP 身分或操作，與發布共用互斥 | 僅 workflow_dispatch |
 | `release` | 完整測試 + 4 image 並行 build | `ops/ghcr-release-request.json` |
 | `candidate` | 0% 候選部署 | `ops/ghcr-candidate-request.json` |
 | `preview` | Preview tag 更新 | `ops/ghcr-preview-request.json` |
@@ -147,6 +148,8 @@ gh workflow run ghcr-dev.yml -f operation=jobs-rollout -f release-run=12345678
 ```
 
 候選操作必須在 `ops/ghcr-candidate-request.json` 指定 `release_run`，或由手動輸入 `release-run` 提供；其成功完整發布 SHA 必須等於 request 的 `sha`。統一 workflow 的成功必須另核對實際 operation jobs；`verify` 成功、其他操作或 skipped gate 不作發布證據。候選與 OAuth 步驟沿既有 GHCR 流程，不呼叫舊 Cloud Build controller。
+
+取得部署租約前，執行 run 的 `GITHUB_SHA` 必須仍為遠端 main HEAD；過期來源在建立 tag／ref 前停止，改從當前 main dispatch 全新 run，不能自動重送失敗／未知部署。已持有的 owner 不因 main 後續前進而失去 assert／安全 release 能力。這項檢查不消除檢查後 main 再前進的競爭，仍由原子 ref 與完整 owner readback 拒絕衝突或未知狀態；發布期間避免提交 workflow 改動。
 
 ## 新增 Workflow 規範
 
