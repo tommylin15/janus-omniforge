@@ -1,12 +1,12 @@
 {
   "intent": "one-shot-existing-dev-iceberg-maintenance",
   "no_new_resources": true,
-  "mode": "ci-approved-orphans",
-  "rollout_run": 38875865395,
-  "expected_source_sha": "740e54c25842f39ddf0b912c88a82012a851997d",
-  "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:9d87fb5179ff21214fe271a70a5c29b16704edad169c94270fc47b7ac08c2a20",
-  "purpose": "User explicitly requests another method and authorizes necessary cleanup permissions. Delete the 477 exact audit orphan generations already proven unreferenced by runtime census #38874199530 using existing GitHub Actions WIF identity, instead of blocked runtime identity. Validate original artifact, exact generation/size, >7day age and no holds before each DELETE. No IAM changes unless separately implemented from actual permission error; current/named/known references remain protected.",
-  "acceptance": "Require completed successful new Jobs rollout #38875865395, exact shutdown digest, enabled baseline Scheduler and all-page terminal fence. Validate 477 objects against original successful read-only runtime artifact. First actual DELETE verifies CI authority; then bounded concurrency eight, generation-fenced deletes, before/after small-file reduction and exact generation receipts. No table drop, canonical rows, private bucket or Core manifests.",
-  "request_attempt": 8,
+  "mode": "compact-nightly",
+  "rollout_run": 39099136306,
+  "expected_source_sha": "dead98d35abc8c38448791494fb97d99f37c660b",
+  "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:59a1a2adb4eb97ec18886f06fd1bc72aaf0514f8288b3b859bf9420f0065a698",
+  "purpose": "FINOPS-AB user-approved existing small-file reduction: first bounded compaction with current-data readback, before current-only Mart/Core cleanup. No historical 477-object replay.",
+  "acceptance": "Require successful same-source reversible four-Jobs rollout, immutable Core digest, owned writer lease, hourly Scheduler pause/restore, all-page terminal fence, dry-run/apply parity and actual object/byte receipt.",
+  "request_attempt": 9,
   "user_approved_unlinked_small_file_cleanup": true
 }
