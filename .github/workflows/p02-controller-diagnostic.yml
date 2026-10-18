@@ -1,0 +1,37 @@
+name: P0-2 Controller dispatch diagnostic
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Check latest Controller execution logs
+        run: |
+          echo "## Latest Controller Execution"
+          LATEST=$(gcloud run jobs executions list --job=janus-batch-controller \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --limit=1 --format='value(name.basename())')
+          echo "Latest: $LATEST"
+          echo ""
+          echo "## Controller Logs (last 50 lines)"
+          gcloud logging read "resource.type=\"cloud_run_job\" AND labels.\"run.googleapis.com/execution_name\"=\"$LATEST\"" \
+            --project=gen-lang-client-0593591102 --limit=50 --format='value(timestamp,textPayload,jsonPayload)' 
+      - name: Check batch_occurrences for data-supplement
+        run: |
+          echo "## Looking for data-supplement dispatch decisions"
+          LATEST=$(gcloud run jobs executions list --job=janus-batch-controller \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --limit=1 --format='value(name.basename())')
+          gcloud logging read "resource.type=\"cloud_run_job\" AND labels.\"run.googleapis.com/execution_name\"=\"$LATEST\" AND (textPayload:\"data-supplement\" OR textPayload:\"dispatch\" OR textPayload:\"occurrence\")" \
+            --project=gen-lang-client-0593591102 --limit=30 --format='value(timestamp,textPayload,jsonPayload)' || echo "No dispatch logs found"
