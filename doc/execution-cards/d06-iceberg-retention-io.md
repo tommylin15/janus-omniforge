@@ -1,5 +1,7 @@
 # D06｜Iceberg／受引用保護清理／I/O — AI 任務執行卡
 
+> **2026-10-18 覆蓋決策：本卡已停止作為獨立 active 施工／驗收入口。** 所有剩餘安全引用保護、Snapshot／Orphan、Core／Mart retention 與 live readback 整併 [FINOPS-AB 唯一任務卡](finops-ingestion-iceberg-ab-and-c-gate.md)；已成功的 D06 477-object cleanup 與 audit mirror 不重跑。**兩天／長時間等量 I/O 量測取消，CANCELLED_BY_USER，不是 PASS。** 以下既有操作僅供歷史事實／引用 guard 查閱，不授權另派 D06 Job、另開 rollout 或啟動長時間量測。
+
 更新：2026-10-15；v1 文件指示，非工程驗收。
 
 > **本文件是獨立 AI 開發指令卡，不是第二份 TODO。** 唯一狀態、先後順序及執行授權以 [TODO](../todo.md) 為準；現況以 GitHub `main`、CI、實際 GCP dev runtime 為準。製卡不自動啟動工程／Job／部署／訓練／刪除。不得以歷史 archive 或舊 PASS 覆蓋最新結果。
@@ -31,13 +33,13 @@
 2. 完整核對 19 份 oversized research 引用清單，以及 Core/Mart/Research/private/PG publication、模型/OOS、generation/snapshot/hash 等不可刪 protected references；任何引用未明時 fail closed。
 3. 分開記錄 compact dry-run、actual compact、snapshot expiry、7天 orphan/generation-fenced clean、manifest retirement 的候選／protected／刪除量／bytes；不得因 audit-only 自動放行一般 retention。
 4. 在完整保護集與授權範圍內做 bounded cleanup，保護研究、模型、私人與publication正在使用的檔；90天以上 execution manifest 當時為0，不為求刪除量修改門檻。
-5. 用相同日期股票數、同負載、相同時間窗／冷暖比例比較 objects、bytes、ReadObject、GetObjectMetadata、耗時、RSS，隔離一次性 maintenance 成本；夜批仍服從總控 fence。
+5. **舊兩天／長時間等量 I/O 比較已取消，不執行**。現行 FINOPS-AB 只使用短窗有界相同工作量 sample（有數值才報告，不能推算節省）；夜批仍服從總控 fence。
 
 ## 4. 驗收、禁止事項與失敗恢復
 
 **專屬 acceptance：**
 - 單元/整合驗證 snapshot/research/PG/private references、未完寫入、orphan 7天、dry-run/apply、generation fence/unknown fail-closed。
-- live readback 被清理與受保護 generations、published snapshot 與所有下游資料讀取一致；actual 刪除、bytes回收及 I/O matched counters，不憑 dry-run 回報成功。
+- live readback 被清理與受保護 generations、published snapshot 與所有下游資料讀取一致；actual 刪除／bytes回收具 evidence，不憑 dry-run 回報成功；短窗 I/O 適用即記，兩天 matched window 不作 gate。
 - 所有新數字須標明 same-workload 方法和時間區間；未量測不得承諾節省百分比。
 
 **禁止／安全 guard：**
