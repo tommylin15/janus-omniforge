@@ -3,11 +3,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 GHCR = (ROOT / ".github/workflows/ghcr-dev.yml").read_text()
-AUTO = (ROOT / ".github/workflows/auto-release.yml").read_text()
+ARCHIVED_AUTO = (ROOT / ".github/workflows/archive/auto-release-obsolete-2026-10-19.yml").read_text()
 
 
 def test_consolidated_workflows_share_global_runtime_writer_group():
-    for source in (GHCR, AUTO):
+    for source in (GHCR,):
         assert "janus-dev-runtime-writers" in source
         assert "cancel-in-progress: false" in source
         assert "id-token: write" in source
@@ -52,14 +52,12 @@ def test_active_ghcr_operations_keep_canonical_and_jobs_fail_closed():
     assert "python scripts/gcp/ghcr_api_promote.py --release-run" in GHCR
 
 
-def test_auto_release_cannot_publish_with_skipped_python_or_flutter_gates():
-    assert "ops/auto-release-request.json" in AUTO
-    assert '.approved == true' in AUTO
-    assert "needs.python-tests.result == 'success'" in AUTO
-    assert "needs.flutter-tests.result == 'success'" in AUTO
-    assert "skip-tests" not in AUTO
-    assert "needs.jobs-rollout.result == 'success'" in AUTO
-    assert "needs.validate.outputs.skip-api-promote != 'true'" in AUTO
+def test_obsolete_auto_release_is_archived_and_not_executable():
+    assert not (ROOT / ".github/workflows/auto-release.yml").exists()
+    assert "build-receipt.json" in ARCHIVED_AUTO
+    assert "scripts/gcp/cicd-v2-candidate.py" in ARCHIVED_AUTO
+    assert "scripts/gcp/cicd-v2-candidate.py" not in GHCR
+    assert "scripts/gcp/ghcr_candidate_auth_boundary.py" not in GHCR
 
 
 def test_verify_runs_full_suites_without_publishing_or_changing_runtime():
