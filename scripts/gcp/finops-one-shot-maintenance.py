@@ -172,16 +172,11 @@ def main():
     if len(images) != 1 or images[0] != expected or not expected.startswith(
             "ghcr.io/tommylin15/janus-ingestion-core@sha256:"):
         raise RuntimeError("currently deployed Core job digest is not the approved SHA image")
-    executions = jsoncall("gcloud", "run", "jobs", "executions", "list",
-                          "--job=" + JOB, "--project=" + PROJECT, "--region=" + REGION,
-                          "--limit=100", "--format=json")
-    if not isinstance(executions, list) or any(
-            item.get("status", {}).get("completionTime") is None for item in executions):
-        raise RuntimeError("existing Core execution active or execution status unknown")
-    # The last 100 Cloud Run executions are not a complete terminal fence.
-    # The shared all-page fence is mandatory before touching the live Core Job.
-    import ghcr_jobs_rollout as rollout
-    rollout.fence()
+    # Do not infer Cloud Run v2 terminality from gcloud's legacy
+    # status.completionTime: older executions may omit it despite Completed=true.
+    # The shared runtime fence acquires the owner lease, pauses Scheduler, then
+    # waits for ALL-PAGE Cloud Run v2 terminality (bounded and fail closed).
+    # A pre-pause latest-100 check also races naturally scheduled workloads.
     with runtime_fence(rollout) as snapshots:
         execute_maintenance(request, job, rollout, snapshots)
 
