@@ -10,5 +10,7 @@
     "gen-lang-client-0593591102-dev-private",
     "gen-lang-client-0593591102-dev-research-big-move-500",
     "gen-lang-client-0593591102-cloudbuild-regional"
-  ]
+  ],
+  "audit_attempt": 2,
+  "first_attempt": "39245576636 WIF invalid audience, no GCS audit performed"
 }
