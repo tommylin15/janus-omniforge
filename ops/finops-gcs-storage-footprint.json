@@ -11,11 +11,13 @@
     "gen-lang-client-0593591102-dev-research-big-move-500",
     "gen-lang-client-0593591102-cloudbuild-regional"
   ],
-  "audit_attempt": 7,
+  "audit_attempt": 8,
   "first_attempt": "39245576636 WIF invalid audience, no GCS audit performed",
   "second_attempt": "39245782268 GCP WIF and 8 unit tests PASS; audit returned opaque BLOCKED before listing",
   "third_attempt": "39246076678 WIF and tests passed; audit BLOCKED, improve reason-only output",
   "fourth_attempt": "39246311296 gcloud auth print-access-token blocked; try WIF ADC fallback, sanitized codes",
   "fifth_attempt": "39246633901 gcloud and ADC INVALID_CREDENTIAL; escaped service-account identified; fixed",
-  "sixth_attempt": "39254809190 COMPLETE 6 buckets; refine Stage subcategory and metadata age cohorts only"
+  "sixth_attempt": "39254809190 COMPLETE 6 buckets; refine Stage subcategory and metadata age cohorts only",
+  "seventh_attempt": "39255701650 COMPLETE six buckets, total 1668447433 bytes; Stage 1023972078 bytes",
+  "eighth_attempt": "Emit Stage category and age breakdown in redacted job stdout; no deletion"
 }
