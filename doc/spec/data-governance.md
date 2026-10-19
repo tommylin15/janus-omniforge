@@ -18,7 +18,7 @@ Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當�
 
 ## 2. 現役保存政策與歷史研究
 
-**Row 保留與 Iceberg snapshot 是不同層次。** Core 一般市場 row 365 天；Deep `ohlcv`／`valuation`、benchmark 1,096 天；財報每公司/statement/source 最新 12 季；Stage/quarantine 7 天；Mart 分析 row 90 天；每檔 Specialist 最近 3 代；OOS/ML 依現役成果引用與過期規則。這些是政策，不保證真實每股皆已收滿年數。Private Ledger/持股/筆記不套用公開 TTL。
+**Row 保留與 Iceberg snapshot 是不同層次。** Core 一般市場 row 365 天；Deep `ohlcv`／`valuation`、benchmark 1,096 天；財報每公司/statement/source 最新 12 季；Stage/quarantine **2 天（48 小時）**；Mart 分析 row 90 天；每檔 Specialist 最近 3 代；OOS/ML 依現役成果引用與過期規則。這些是政策，不保證真實每股皆已收滿年數。Private Ledger/持股/筆記不套用公開 TTL。
 
 2026-10-18 後 Core／Mart Iceberg 表**只保留 current snapshot**；取消舊 named refs、最近24h與研究／publication 外部引用作為舊 snapshot 保留 gate。非 current 過期、超過7天且無 current 引用的 orphan，仍須按 lock、catalog pointer、GCS generation、allowlist、readback 安全刪除。**已刪歷史 snapshot 不保證能重播**；保存舊 `snapshot_id` 文字不會重新建立歷史資料。重跑研究應另保留合法、有界的 versioned Parquet、feature/label/cohort/date range/schema/hash、授權/provenance。
 
@@ -37,6 +37,7 @@ Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當�
 | `mobile-ledger`／private-pipeline | 每小時 :30 | 只有 pending 才執行 |
 | `specialist-retrain`／intelligence-mart | 每月**第一個週六 10:30** | 依 ingestion＋supplement、成熟 labels；無新資料 skip/reuse |
 | `data-quality`／ingestion-core | 每週六 12:30 | 獨立品質檢核，不是全量多年補抓 |
+| `stage-cleanup`／ingestion-core | **每日 18:30** | 只處理超過48小時且不被 active execution 使用的 Stage 物件；不啟動 Iceberg | 
 | `iceberg-compaction → mart-cleanup → core-cleanup` | **每週六 23:30** | `FINOPS_WEEKLY_MAINTENANCE=true` 才週維護；依序且可能跨小時 |
 
 `effective_batches()` 有 legacy `FINOPS_WEEKLY_MAINTENANCE=false` 的每日 23:30 分支，**不是**目前核准的週維護目標。2026-10-18 文件收據記錄週維護切換成功，但本次未做新一輪 Scheduler/env/自然 occurrence live 讀回。不要引用 [2026-10-13 歷史盤點](../archive/batch-inventory-2026-10-13.md) 當作目前 cron。
