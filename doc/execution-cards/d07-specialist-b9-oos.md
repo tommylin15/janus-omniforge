@@ -6,7 +6,7 @@
 
 **WBS 責任：**WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9）
 
-**相依與順序（2026-10-19 更新）：**唯一 D07-PRE 合併兩年資料覆蓋／補收/PIT、Colab 離線訓練及原 FINOPS-C 的 BQ／PyIceberg／Cloud Run 成本/安全/回退評估；需依 [統一 AI 指令 §4](finops-ingestion-iceberg-ab-and-c-gate.md) 完成同一份 go/no-go/defer 決議後才能啟動 D07。**若決議 DEFER BigQuery，無須先完成 BQ cutover；若證據不足仍 PARTIAL/BLOCKED。** B7 完成不是 B9 模型品質 PASS。
+**相依與順序（2026-10-19 更新）：**唯一 D07-PRE 合併兩年資料覆蓋／補收/PIT、**Colab 唯一資料整理／特徵／標籤／模型訓練／OOS 執行器**及大資料才啟動 BigQuery 前置縮減的成本/安全/回退評估；需依 [統一 AI 指令 §4](finops-ingestion-iceberg-ab-and-c-gate.md) 完成同一份 go/no-go/defer 決議後才能啟動 D07。**BigQuery 預設 DEFER；Colab 仍是訓練器，不建立 BQML／GCP training 的替代路徑；若 Colab 實跑或安全證據不足仍 PARTIAL/BLOCKED。** B7 完成不是 B9 模型品質 PASS。
 
 **執行宣告：**只在使用者明確授權本工作包、TODO 為可執行時，依下列程序完成「分析→修改→適用測試→commit→dev 發布→真實驗收／修復」的整個工作包，不因內部 checkpoint 自行停止；外部安全／授權 blocker 保持 BLOCKED 並記錄。
 
@@ -21,6 +21,8 @@
 - [Admin v2 四頁 UI](../ui/admin.md) 與 [Admin v2 順序決策](../decision-2026-10-17-admin-v2.md)（只供 VF-09 呈現契約；不重啟 D01～D06）
 
 > **D07-PRE 共用評估文件**：[已整理的資料與 Colab 可行性](../colab-d07-modeling-feasibility-2026-10-19.md) 是唯一前置工作包的研究證據，尚需 FinOps、來源、樣本與權限 live readback 才可結案，不是第二個 Colab 工單。
+
+**單一路徑實作要求：** 既有 Core→受控 Parquet 出口；Colab notebook 執行資料清理／feature & label／所有候選模型 fit／walk-forward OOS；結果以 hash/manifest 送回 Janus Mart 驗收、登錄與正式推論。原 `specialist-retrain` GCP 月度 Job 已實作 ML 訓練，是**待改造的現況**；切換前先安全保存當前服務，切換後不得在 Mart 再 fit 新模型或擅自以 GCP 取代 Colab。首週六10:30 只維持單一 Controller due，免費 Colab 先人工啟動及驗收，不宣稱無人值守。資料多時僅 BQ 前置縮減；預設直接 Colab，不另開工單。
 
 **實作入口：**`jobs/intelligence-mart/intelligence_mart/evaluation.py`、`quant_pit.py`、`event_labeling.py`、`scripts/gcp/b9-specialist-oos-quality.py`、月度 retrain artifacts。
 
@@ -47,7 +49,7 @@
 
 **禁止／安全 guard：**
 - 不能虛構人審標籤、未驗來源授權；模型已 fit ≠ OOS 有效 ≠ publication 可以用。
-- 不自動叫 CEO，不為研究加付費模型；BigQuery 僅 opt-in，PyIceberg 默認、禁 Storage Read API。
+- 不自動叫 CEO，不為研究加付費模型；BigQuery 僅大資料前置縮減後 opt-in，不在 BQML 訓練；PyIceberg 只負責既有 Core 讀取／匯出，Colab 唯一整理研究資料與訓練，禁 BQ Storage Read API。
 
 **失敗恢復：**保留舊有效 deterministic baseline 和 frozen datasets，訓練/評估失敗不覆寫 immutable artifacts；新候選只依明確版本與獨立 gates 升級。
 

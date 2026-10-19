@@ -55,9 +55,9 @@ Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當�
 
 研究財報如使用已核准 `strict_pit=false` 比較，僅標 research-only；不能對外發布為嚴格 PIT。需重跑同一實驗者保存可驗證的 frozen inputs，不依賴已刪除 snapshot。
 
-## 6. D07-PRE 單一前置評估（資料／Colab／FINOPS-C）
+## 6. D07-PRE 單一 Colab 研究資料與訓練流程（FINOPS-C 條件式）
 
-資料兩年窗口/補收、Colab CPU 與原 FINOPS-C 成本／BQ／PyIceberg／Cloud Run 比較合併為 [TODO D07-PRE](../todo.md) **一個工作包**；不另創平行 C-preflight 或 Colab 工單。按相同 source/Parquet/feature/label/hash 分別核對資料可用性、成熟 OOS、PIT、不同 executor 費用／來源授權／GCS IO/CPU、same Core parity、回退與 IAM，產生唯一 GO/NO-GO/DEFER/BLOCKED 決議。BQ 可依此決議 DEFER，D07 使用現有 Jobs/PyIceberg；免費 Colab 不代替正式唯一 Scheduler。已作的 [研究評估](../colab-d07-modeling-feasibility-2026-10-19.md) 不是完整 live preflight PASS。
+2026-10-19 選定 **Colab 統一執行研究資料清理、Join、特徵/標籤、兩年滾動模型訓練與 OOS**；Janus Core/Ingestion/PG/正式推論仍在原環境、PyIceberg 負責受控唯讀資料出口，BigQuery **只在 Colab 實測資料量／Join／記憶體／時間／I/O 瓶頸時**，按成本/PIT/parity/授權 gate 作前置縮減 Parquet，**不是另一個訓練平台**。唯一工作包為 [TODO D07-PRE](../todo.md)，執行方法與驗收在 [Colab 單一流程](../colab-d07-modeling-feasibility-2026-10-19.md)、[AI 指令](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)。每月首週六10:30 仍只有既有 Controller due；Colab 免費版無保證無人值守能力，需人工執行／留收據，欠缺能力保持 NOT_VERIFIED，不暗中在 Mart 再跑第二模型訓練。尚未完成 live Colab 的模型/PIT/成本驗證，不標 D07-PRE PASS。
 
 ## 7. 驗收與工作佇列
 

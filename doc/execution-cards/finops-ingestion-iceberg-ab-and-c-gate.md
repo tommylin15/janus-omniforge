@@ -47,13 +47,15 @@
 4. **只做短窗／有界同類工作 sample（不做兩天或長期量測），**可取得時以 `vCPU-seconds`、GiB-seconds／peak RSS、elapsed、GCS ReadObject/GetObjectMetadata／List/Write、Iceberg manifests/snapshots/小檔數、actual writes、Postgres/serving row parity 作比較。GCS bucket 級量測不可硬指派給單一 worker；可用分段/identity tracing 歸因。**D06 原兩天／長時間等量 I/O 比較已取消，不可重啟或據此認定不結案；不足的成本節省數值標 UNKNOWN。**
 5. D06 引用保護與安全清理結果納入同一受控 Jobs rollout／rollback／真實 readback，不再獨立發行 D06 部署。30% CPU／50% metadata-I/O 為**改善目標而非達成事實**。若測不到就 PARTIAL；不可宣告免費額度已被恢復。避免高成本補跑或無需求的全市場歷史重算。
 
-## 4. D07-PRE｜資料可用性／Colab／FINOPS-C 整合前置評估（唯一工單）
+## 4. D07-PRE｜唯一 Colab 資料整理／訓練流程（含條件式 FINOPS-C）
 
-- **原 FINOPS-C preflight 現與 [Colab／資料覆蓋評估](../colab-d07-modeling-feasibility-2026-10-19.md) 併入同一個 D07-PRE**：先核對24月 rolling 真實資料、各角色合法特徵／label maturity／市場歷史母體與缺口補收策略；再依 A+B 實測比較現有 PyIceberg／Cloud Run、BQ opt-in 與免費 Colab CPU，按運算器同資料 hash 評估成本、安全、PIT、一致性與回退。完成一份有日期、SHA、來源證據的 go/no-go/defer 決策並回寫 [架構決策](../decision-2026-10-06-bigquery-analytics-over-iceberg.md)、WBS-5／WBS-7、[TODO](../todo.md)；原 C-preflight 不另設第二工單。B5–B8 的歷史 PASS 及此份研究草稿不等於 D07-PRE PASS。
-- 重評估至少包括：A+B 新 CPU/GCS baseline；Ingestion vs Mart attribution；PyIceberg partition/manifest 熱點；BigQuery on-demand scans/billed bytes、Cloud Run 移除多少計費時間、GCS 是否仍被 backend 訪問、免費額度按同計費帳戶其他產品消耗；來源與 catalog/region/IAM/API/價目/上限；精確 Snapshot mapping、PIT、成本、fallback、回滾；Screening、Ranking、OOS 的逐項 ROI 排序。無測量列 unknown，不得把費用轉移當節省。
-- 在重評估簽入 repo 並確認已有合格的現有 BigQuery 資源與合法授權之前，不新增付費 API、dataset、BigLake/Lakehouse catalog、reservation/connection、權限擴張；禁止 BigQuery Storage Read API，暫留 PyIceberg default，不切 production/canonical。
-- 只對有明確效益的 workload 做 C code/test/canary：全市場 screening/ranking 先行，之後 aggregate/OOS，留 PG serving、Private/Owner、Core canonical 不遷移。每項需同 Core immutable snapshot/dataset、null/coverage/結果 hash、query limit、billed bytes、rollback／fallback evidence；未過 gate 不得以 C 的計畫阻止既有使用者資料服務。
-- **結案不要求強制 BigQuery cutover**：若結果不划算或欠費用授權，正式 `DEFER C` 並依合法、成熟資料與成本/安全的共同驗收進入 D07；若各運算器無可靠成本或 PIT/來源證據，D07-PRE 仍維持 `PARTIAL/BLOCKED`。只有實測收益及授權充足才做選定 BQ workload 的 optional C-canary；免費 Colab 只供離線研究，既有月度 controller 是唯一正式排程。
+**2026-10-19 使用者決策優先於舊 C 多運算器選擇敘述。** 本工作包不比較「哪個平台來訓練」，**選定 Colab 作為模型資料驗證、Join、features、labels、rolling retrain、walk-forward OOS 的唯一執行平台**。BigQuery **只有 Colab 直接處理資料量過大且有量測證據**時可被選為唯讀 SQL 前置縮減／Parquet export，不可改用 BQML 或 Cloud Run 訓練。既有 Janus PyIceberg 作 canonical 讀取／受控最小匯出；Ingestion／Serving／日常 screening／Owner／Mart 發布與推論維持原來的責任。
+
+1. 盤點 24月研究資料逐資料集×股票×月份×成熟標籤與 source/PIT、保留退出股與實收缺口；合法受控補收及已固定研究 Parquet 優先，不改 Canonical row TTL／current-only snapshot，資料不足明列 partial。
+2. 驗 Core→合法 Parquet（含 hash/symbol/date/cohort/availability/version/source_id/label）→ Colab CPU notebook 中清理/Join/特徵、規則與 ML baseline/challenger、purged walk-forward OOS → GCS immutable 模型／評估 artifacts → Janus Mart 只驗 hash/品質/版本／受控推論的單一鏈；禁止導出 Owner 私人資料與 secret。
+3. **先不使用 BigQuery**。若 Colab RAM/超時/重複大量 I/O/Join 的真實量測形成瓶頸，同一 workload 比較「維持 Colab 分批」與「BQ SQL 前處理＋Colab 訓練」的 rows/bytes/CPU/RAM/Walltime/GCS calls/BQ billed upper-bound、source/PIT/parity、免費額度共享、IAM/region/rollback。BQ 必須既有權限／必要額外核准後才可 opt-in。沒有客觀證據保持 `DEFER C`，不自動進 BQ、禁 BQ Storage Read API。
+4. **月度排程不另建立**：Janus Controller 首個週六10:30 due，目標是檢查資料與成熟標籤、安排一次 Colab 工作、追蹤回傳與版本；免費 Colab 不能保證 background unattended，因此先使用人工啟動/回傳並明示 `PENDING_MANUAL/NOT_VERIFIED`，未完成不自動提升模型、不默默改由 Mart fit。既有 GCP Mart 月度訓練是**待遷移的現況**，不是本設計可持續的第二訓練流程；切換需單獨 tests/CI/deploy/live acceptance。
+5. **D07-PRE 單一結論**：輸出有日期、SHA、dataset coverage、Colab 實跑、成本與授權/資料安全證據、BQ 需否／DEFER、控制面與回退／未自動化阻塞、D07 開工 GO/BLOCKED/DEFER 決議，同步 TODO／WBS-5/7／BQ 架構決策，不重做 FINOPS-AB、B5-B8、DRL-01、Admin。Colab 未實跑或跨 runtime secret/source 權限不合規就不能標整體 PASS；新付費資源、IAM、OAuth consent 必須授權。
 
 ## 5. AI 交接／完成格式
 
