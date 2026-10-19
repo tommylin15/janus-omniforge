@@ -104,10 +104,15 @@ def test_mart_cleanup_requires_exact_image_and_current_only_receipt(monkeypatch,
     with pytest.raises(RuntimeError, match='policy_readback'):
         module.execute_maintenance(request, None, rollout, snapshots)
 
-def test_retention_dry_run_requires_exact_image_and_all_page_fence(monkeypatch, tmp_path, capsys):
-    from contextlib import nullcontext
+def test_retention_dry_run_uses_lease_owned_terminal_fence_not_legacy_cli_status(monkeypatch, tmp_path, capsys):
+    from contextlib import contextmanager
     m=load_module()
-    monkeypatch.setattr(m, 'runtime_fence', lambda _: nullcontext())
+    visited=[]
+    @contextmanager
+    def guarded(rollout):
+        visited.append("lease-owned-pause-and-wait-all-pages")
+        yield {}
+    monkeypatch.setattr(m, 'runtime_fence', guarded)
     req={"intent":"one-shot-existing-dev-iceberg-maintenance","no_new_resources":True,
          "mode":"retention-dry-run","rollout_run":38676820532,
          "expected_source_sha":"4"*40,
@@ -136,12 +141,15 @@ def test_retention_dry_run_requires_exact_image_and_all_page_fence(monkeypatch, 
     sys.path.insert(0,"scripts/gcp")
     import ghcr_jobs_rollout
     visited=[]
-    monkeypatch.setattr(ghcr_jobs_rollout,"fence",lambda:visited.append("full_scan"))
+    # The old latest-100 gcloud "status.completionTime" precheck is removed:
+    # v2 terminal executions need not include that legacy CLI key.
+    monkeypatch.setattr(ghcr_jobs_rollout, "fence", lambda: (_ for _ in ()).throw(
+        AssertionError("never bypass the lease-owned pause+wait for terminality")))
     m.main()
     result=json.loads(capsys.readouterr().out)
     assert result["status"]=="PASS" and result["operation"]=="retention-dry-run"
     assert result["planned_orphans"]==7 and result["planned_snapshots_to_expire"]==3
-    assert visited==["full_scan"]
+    assert visited==["lease-owned-pause-and-wait-all-pages"]
 
 def test_stage_only_one_shot_produces_exact_live_receipt_without_core_inventory(monkeypatch, capsys):
     module = load_module()
@@ -180,6 +188,37 @@ def test_stage_only_one_shot_produces_exact_live_receipt_without_core_inventory(
     with pytest.raises(RuntimeError, match="scope_and_apply_approval_required"):
         module.execute_maintenance(request, None, rollout, snapshots)
 
+
+
+def test_runtime_fence_waits_on_actual_cloud_run_terminal_gate_and_restores_after_completion():
+    """A running execution is never ignored: Scheduler is paused before bounded wait."""
+    m = load_module()
+    state, trace = {'state':'ENABLED', 'schedule':'30 * * * *'}, []
+    attempts = [False, True]
+    def wait():
+        assert state['state'] == 'PAUSED'
+        trace.append("all-page-wait")
+        if not attempts.pop(0):
+            # Simulate the wait helper safely polling until active canary finishes.
+            trace.append("saw-active-v2-execution")
+    def set_scheduler(action, expected):
+        trace.append(action)
+        state['state'] = expected
+    rollout = SimpleNamespace(
+        scheduler=lambda: dict(state), scheduler_fingerprint=lambda x: x['schedule'],
+        JOB_COMPONENT=[('janus-ingestion-core', 'ingestion-core')],
+        job=lambda name: {'image':'sha256:digest'},
+        image=lambda job:job['image'],fingerprint=lambda job:'same-hash',
+        LEASE=['lease'], command=lambda args: trace.append(args[1]),
+        writers=lambda:trace.append("check-owner"),
+        set_scheduler=set_scheduler,wait_for_terminal_executions=wait,
+        checked_image=lambda *a:trace.append("exact-image-config-check"))
+    with m.runtime_fence(rollout):
+        trace.append("safe-maintenance")
+    assert trace == ['acquire','check-owner','pause','all-page-wait',
+                     'saw-active-v2-execution','safe-maintenance','all-page-wait',
+                     'exact-image-config-check','resume','release']
+    assert state['state'] == 'ENABLED'
 
 def test_invalid_mode_fails_before_gcp_calls(monkeypatch,tmp_path):
     m=load_module()
@@ -236,7 +275,8 @@ def test_audit_only_mode_requires_exact_audit_receipt(monkeypatch,tmp_path,capsy
     import sys
     sys.path.insert(0,"scripts/gcp")
     import ghcr_jobs_rollout
-    monkeypatch.setattr(ghcr_jobs_rollout,"fence",lambda:None)
+    monkeypatch.setattr(ghcr_jobs_rollout,"fence",lambda: (_ for _ in ()).throw(
+        AssertionError("pre-lease terminal check forbidden")))
     m.main()
     value=json.loads(capsys.readouterr().out)
     assert value["operation"]=="audit-cleanup" and value["audit_only_deleted_objects"]==19
