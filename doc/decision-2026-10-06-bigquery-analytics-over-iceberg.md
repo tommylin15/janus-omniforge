@@ -1,11 +1,13 @@
 # Janus 架構決策 — Iceberg canonical + BigQuery analytics hybrid
 
 日期：2026-10-06  
-狀態：**架構已核准；B0～B8 有既有個別驗收收據，不代表 BigQuery 已切 default，B9 模型品質仍待逐角色評估**（唯一進度以 [TODO](todo.md) 與 [operations](spec/operations-and-testing.md) 為準）。現役日常仍預設 PyIceberg；FINOPS-C 的預評與 Go/No-Go 尚須獨立執行，不將以前 B8 benchmark 視為正式切換。
+狀態：**架構已核准；B0～B8 有既有個別驗收收據，不代表 BigQuery 已切 default，B9 模型品質仍待逐角色評估**（唯一進度以 [TODO](todo.md) 與 [operations](spec/operations-and-testing.md) 為準）。現役日常仍預設 PyIceberg；原 FINOPS-C 的預評已併入 D07-PRE，整體 Go/No-Go 尚需完成，不將以前 B8 benchmark 視為正式切換。
 
 > **2026-10-19 Current-only 提醒**：Core／Mart Iceberg 從 10/18 起只保留 current snapshot。下文提到「Iceberg 維持歷史 PIT」屬原架構資料層意圖，**不表示已清除的舊 snapshot 仍可讀**。FINOPS-C exact-snapshot 對照須使用當次仍可讀的固定 Core identity；若要重跑舊 OOS，應保存合法 frozen/versioned Parquet、schema/cohort/labels/hash/provenance。D07 最近24個月滾動研究窗口不變更 Core row TTL，也不代表 BigQuery 已獲開工授權。見 [資料治理](spec/data-governance.md)、[10/18 決策](decision-2026-10-18-current-only-snapshots.md)。
 
-## 2026-10-18 補充決策：FINOPS-C 順序與強制重評估
+> **2026-10-19 最新指令，優先於下方 10/18 原始 C 必先切流語句**：將 24 個月資料/補收/PIT/Colab 模型執行器評估與 FINOPS-C 成本/BigQuery/Cloud Run/PyIceberg 的 preflight **合併為唯一 [D07-PRE](todo.md)**，共用一份 [研究證據](colab-d07-modeling-feasibility-2026-10-19.md)、[AI 指令](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) 及 GO/NO-GO/DEFER/BLOCKED 決策。D07 前須完成這份真實資料與 FinOps／安全評估，**不強制實作或切換 BigQuery**；若評估不划算而正式 DEFER C，可沿現有安全 Jobs/PyIceberg 進 D07。BQ 選擇性實作只在有效益、有授權時選用。此合併目前是規格更新，live 成本/覆蓋／parity 尚未完成，不標前置 PASS。
+
+## 2026-10-18 原決策（現由 10/19 D07-PRE 覆蓋）：FINOPS-C 順序與強制重評估
 
 **本節是排程及 governance 決策，不是 C 工程開工／切流已完成。** 使用者先指定 FINOPS-A 快速節流及 FINOPS-B Ingestion／Iceberg 原地優化列 P0，完成適用現場驗收後才進 FINOPS-C。**C 一定在 D07、D08 正式工程開工前安排，且 C 自身開始工程前必須重做一次整體評估並回寫本文件、WBS-5/WBS-7 與 TODO。** AI 指令見 [FINOPS-AB／C 工程卡](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)；唯一 active priority/acceptance 見 [TODO](todo.md)。
 

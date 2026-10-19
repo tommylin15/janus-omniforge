@@ -131,11 +131,11 @@ CEO：
 - retention 依 `../spec/retention-governance.md`；有效引用、目前 snapshot 與 reference fence 必須先保護再清理。
 - private holdings／cost／PnL／owner mapping 不得寫入 public Mart specialist artifacts；必要的 Deep Coverage membership 僅保存去識別化 symbol demand／effective scope。
 
-### 5.7A FINOPS-C 重評估門檻（D07／D08 前）
+### 5.7A D07-PRE 整合前置（原 FINOPS-C + Colab／兩年資料）
 
-2026-10-18 使用者指定：先執行 [FINOPS-AB](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) 以降低 Ingestion CPU／GCS I/O；C 的 BigQuery analytics selective cutover **必須排在 D07 五角色與 D08 CEO／報告之前，但 C 工程開始前需重新完成整體評估並回寫**[既有架構決策](../decision-2026-10-06-bigquery-analytics-over-iceberg.md)。唯一工作狀態見 [TODO](../todo.md)。
+此段與 [TODO 的 D07-PRE](../todo.md) 是**同一個工作包**，不設獨立 C-preflight 或 Colab 評估待辦。先依 [資料治理](../spec/data-governance.md)／[Colab 研究](../colab-d07-modeling-feasibility-2026-10-19.md) 確定 24 月資料的市場×股票×期別×標籤成熟度、歷史成分、來源授權、PIT 和有界補收／凍結研究匯出方案；再使用最新 A+B 實測比較現有 PyIceberg／Cloud Run Jobs、BQ opt-in、免費 Colab CPU 的 CPU/RAM/GCS/BQ bytes與配額、cost、same source/hash/parity、權限／回退。
 
-C-preflight 先核對 A+B 實測 Cloud Run/GCS、現在 PyIceberg/BigQuery 版本、全市場 Screening 重複分片讀取、是否存在可靠 immutable snapshot/metadata mapping、BQ bytes billed／費率／免費配額共享、OOS 效益、回退與 IAM。未通過前 `market_screening.py` 仍 PyIceberg default，不能直接對 D07/D08 或 API/Owner 的 publication 路徑切流；舊 B0～B8 closure 不等同本次選擇已核准。
+**一份**有日期、SHA、coverage、費用與安全證據的 GO/NO-GO/DEFER/BLOCKED 決議同步回寫 TODO、WBS5/7、BQ 架構決策。C selective cutover 僅當有合理收益與已核准授權時執行；可正式 `DEFER C` 而以現有 Jobs／PyIceberg 進 D07，不必先實施 BigQuery。樣本或 live Cost/PIT evidence 不足維持 PARTIAL/BLOCKED；D07 模型品質另驗，不能藉前置完成判定模型有效。
 
 ## 5.8 Active WBS slices
 

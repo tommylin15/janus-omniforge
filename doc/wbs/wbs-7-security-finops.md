@@ -33,16 +33,16 @@
 
 ### 7.3A `WBS-7-INGESTION-ICEBERG-FINOPS-AB`｜2026-10-18 P0
 
-**唯一優先序**在 [TODO FINOPS-AB／FINOPS-C](../todo.md)；**AI 工程指令**在 [FINOPS-AB/C 卡](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)，不是第二份工單。A＋B 已授權優先實作；當前 main 夜間三維護仍每日 due，週批變更不得先當作 live PASS。
+**唯一優先序**在 [TODO FINOPS-AB／FINOPS-C](../todo.md)；**AI 工程指令**在 [FINOPS-AB/C 卡](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)，不是第二份工單。A＋B 已授權優先實作；2026-10-18 週維護啟用已有既有文件／CI 收據；程式 `effective_batches()` 在 `FINOPS_WEEKLY_MAINTENANCE=true` 時週六23:30，當期自然 occurrence 仍須另讀真實 runtime。
 
 - A：`janus-ingestion-core` 的 Iceberg Compaction、`janus-intelligence-mart` 的 Mart Cleanup、Core Cleanup 同組改每週六 23:30 邏輯時段；週六 non-trading 不得依賴當天 ingestion SUCCESS，必驗最新有效 EOD snapshot、跨日依賴、互斥、延遲、no-op、failed/ambiguous 和 rollback。不得改掉每天市場收集或當日 Private/Owner 所需處理。
 - B：Ingestion Data Supplement bounded date/selected field、同日同 Dataset 安全合併提交與 no-op、Snapshot/metadata reuse、dirty-partition compaction。不能降低 PIT、版本修正、provenance、全市場 coverage 或 research/private protected references；保存固定 Core snapshot。
 - 由 Cloud Run **可計費** vCPU-seconds／GiB-seconds、execution duration、GCS ReadObject/GetObjectMetadata/Write/List、Iceberg metadata／小檔量、Mart BQ billed bytes（若適用）、data parity 做同負載前後比較；bucket-level GCS I/O 不能未經歸因算在單一 Job。原 D06 歷史記錄不改寫，30% CPU/50% Metadata 只作改善目標。
-- A/B tests、CI、GHCR immutable digest、受控 Job deployment／Scheduler occurrence 和真實資料端到端讀回皆須通過，才可結案；現有 `CORE_RETENTION_FENCE_URI` 缺失或過期時拒絕刪除。
+- A/B tests、CI、GHCR immutable digest、受控 Job deployment／Scheduler occurrence 和真實資料端到端讀回皆須通過，才可結案；依 10/18 current-only 決策已取消 external research fence 作為舊 snapshot 的清理 gate；current 檔、7日 orphan、generation、writer/catalog 安全與實刪讀回仍需驗證。
 
-### 7.3B `WBS-7-BIGQUERY-C-PREFLIGHT`｜D07／D08 前置條件
+### 7.3B `WBS-7-BIGQUERY-C-PREFLIGHT`｜已併入 D07-PRE
 
-C 不在 A+B 的改寫範圍內。A+B 驗收後且 D07／D08 開工前，**必須重新完成全局架構/FinOps/PIT/Snapshot/IAM/BigQuery 費用與免費額度評估並回寫**[混合架構決策](../decision-2026-10-06-bigquery-analytics-over-iceberg.md)；有文件化 go/no-go、可控制成本及授權才啟用逐項 BQ workload，無法通過則標 BLOCKED/DEFERRED。新付費 API、Dataset、Catalog、Reservation、connection 與重大權限仍需人工核准。
+此 WBS ID 保留歷史引用，不作第二張執行工單。**正式唯一 D07-PRE** 見 [TODO](../todo.md) 和 [整合 AI 卡](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)。同一次前置檢查：兩年 rolling 各角色真實資料/標籤/OOS/historical membership、合法 Research Parquet 與補收、Colab CPU 互動式研究，並比較現有 PyIceberg/Cloud Run 和 BigQuery 的 CPU/RAM、GCS I/O、BQ billed bytes/免費額度、source/PIT/parity、安全/IAM、回退。交付單一 GO/NO-GO/DEFER/BLOCKED 決策；不划算可 `DEFER C` 後用既有受控路徑做 D07，**不強制 BQ cutover**；不足資訊仍維持未驗，不偽稱品質或成本 PASS。任何新增付費服務／重要 IAM 擴張另需人工核准。
 
 ### 7.4 `WBS-7-PILOT-LEDGER-DURABILITY`
 

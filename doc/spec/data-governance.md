@@ -55,6 +55,10 @@ Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當�
 
 研究財報如使用已核准 `strict_pit=false` 比較，僅標 research-only；不能對外發布為嚴格 PIT。需重跑同一實驗者保存可驗證的 frozen inputs，不依賴已刪除 snapshot。
 
-## 6. 驗收與工作佇列
+## 6. D07-PRE 單一前置評估（資料／Colab／FINOPS-C）
 
-**本文件僅統一規範，不自行授權**新的 retention apply、Cron 變更、BigQuery 切流或 D07 開工。執行權／範圍依 [TODO](../todo.md)，FinOps-C 的前置評估維持不變。完成需分別讀回 GitHub code、tests、CI、live Job image、Scheduler/occurrence、資料 rows、source provenance、清除 objects/bytes 及 API/owner boundary；沒有證據維持 UNKNOWN/PARTIAL/NOT_VERIFIED。
+資料兩年窗口/補收、Colab CPU 與原 FINOPS-C 成本／BQ／PyIceberg／Cloud Run 比較合併為 [TODO D07-PRE](../todo.md) **一個工作包**；不另創平行 C-preflight 或 Colab 工單。按相同 source/Parquet/feature/label/hash 分別核對資料可用性、成熟 OOS、PIT、不同 executor 費用／來源授權／GCS IO/CPU、same Core parity、回退與 IAM，產生唯一 GO/NO-GO/DEFER/BLOCKED 決議。BQ 可依此決議 DEFER，D07 使用現有 Jobs/PyIceberg；免費 Colab 不代替正式唯一 Scheduler。已作的 [研究評估](../colab-d07-modeling-feasibility-2026-10-19.md) 不是完整 live preflight PASS。
+
+## 7. 驗收與工作佇列
+
+**本文件僅統一規範，不自行授權**新的 retention apply、Cron 變更、BigQuery 切流或 D07 開工。執行權／範圍依 [TODO](../todo.md)，原 FINOPS-C 前置評估整併 D07-PRE，但必要的資料、安全、成本與 runtime gates 不免除。完成需分別讀回 GitHub code、tests、CI、live Job image、Scheduler/occurrence、資料 rows、source provenance、清除 objects/bytes 及 API/owner boundary；沒有證據維持 UNKNOWN/PARTIAL/NOT_VERIFIED。
