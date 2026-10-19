@@ -1,0 +1,371 @@
+# ARCHIVED: 2026-10-19. Superseded by ghcr-dev.yml.
+# This legacy workflow invoked cicd-v2-candidate.py without build-receipt.json
+# and ghcr_candidate_auth_boundary.py which no longer exists. Do not reactivate.
+name: Janus automated full release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/auto-release-request.json'
+
+permissions:
+  contents: write
+  packages: write
+  actions: read
+  id-token: write
+
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+
+env:
+  PROJECT: gen-lang-client-0593591102
+  REGION: us-central1
+
+jobs:
+  # ============ VALIDATE REQUEST ============
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.validate.outputs.sha }}
+      release-type: ${{ steps.validate.outputs.release-type }}
+      skip-api-promote: ${{ steps.validate.outputs.skip-api-promote }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: validate
+        run: |
+          if [[ ! -f ops/auto-release-request.json ]]; then
+            echo "No auto-release-request.json found"
+            exit 1
+          fi
+          
+          # Validate request structure
+          jq -e '
+            .intent == "automated-full-release" and
+            .approved == true and
+            (.release_type | IN("full", "jobs-only", "api-only"))
+          ' ops/auto-release-request.json > /dev/null
+          
+          echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "release-type=$(jq -r '.release_type' ops/auto-release-request.json)" >> "$GITHUB_OUTPUT"
+          echo "skip-api-promote=$(jq -r '.skip_api_promote // false' ops/auto-release-request.json)" >> "$GITHUB_OUTPUT"
+          
+          echo "### Auto Release Request" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA: ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Type: $(jq -r '.release_type' ops/auto-release-request.json)" >> "$GITHUB_STEP_SUMMARY"
+
+  # ============ PYTHON TESTS ============
+  python-tests:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: janus_analysis_test
+          POSTGRES_PASSWORD: analysis_ci_only
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U postgres -d janus_analysis_test" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: full
+          gcp-auth: 'false'
+      - run: pip install --disable-pip-version-check -q google-cloud-bigquery==3.46.1
+      - name: Run Python tests
+        env:
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+          ANALYSIS_TEST_DSN: postgresql://postgres:analysis_ci_only@127.0.0.1:5432/janus_analysis_test
+        run: |
+          python -m pytest -q tests \
+            --ignore=tests/stage_core_tests/test_2330_closed_loop.py \
+            --ignore=tests/test_scheduler.py \
+            --ignore=tests/test_web_auth.py \
+            --ignore=tests/test_web_runtime.py \
+            --ignore=tests/test_web_server.py \
+            --deselect=tests/test_pilot_readiness.py::PilotReadinessTests::test_baseline_records_all_revision_dimensions \
+            --deselect=tests/test_pilot_readiness.py::PilotReadinessTests::test_migration_and_backup_are_bounded_and_append_preserving
+
+  # ============ FLUTTER TESTS ============
+  flutter-tests:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: apps/user_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pil
+          python3 tool/generate_brand_assets.py
+          flutter pub get
+          flutter analyze --no-fatal-infos lib test
+          flutter test
+          flutter build web --release -t lib/final_visual.dart --base-href /app/
+
+  # ============ BUILD & PUBLISH GHCR ============
+  publish:
+    needs: [validate, python-tests, flutter-tests]
+    if: |
+      always() && 
+      needs.validate.result == 'success' &&
+      needs.python-tests.result == 'success' &&
+      needs.flutter-tests.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [ingestion-core, intelligence-mart, private-pipeline, api]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        env:
+          COMPONENT: ${{ matrix.component }}
+          GOOGLE_USER_CLIENT_ID: ${{ vars.GOOGLE_USER_CLIENT_ID }}
+          GOOGLE_ADMIN_CLIENT_ID: ${{ vars.GOOGLE_ADMIN_CLIENT_ID }}
+        run: |
+          image="ghcr.io/tommylin15/janus-${COMPONENT}:sha-${GITHUB_SHA}"
+          args=(--platform linux/amd64 --provenance=false --push
+                --label "org.opencontainers.image.source=https://github.com/tommylin15/janus-omniforge"
+                --label "org.opencontainers.image.revision=${GITHUB_SHA}"
+                --build-arg "JANUS_GIT_SHA=${GITHUB_SHA}" -t "${image}")
+          case "${COMPONENT}" in
+            ingestion-core) dockerfile="jobs/ingestion-core/Dockerfile" ;;
+            intelligence-mart) dockerfile="jobs/intelligence-mart/Dockerfile"; args+=(--target mart-specialist) ;;
+            private-pipeline) dockerfile="services/api/Dockerfile"; args+=(--target private-pipeline) ;;
+            api) dockerfile="services/api/Dockerfile"; args+=(--target api --build-arg "GOOGLE_USER_CLIENT_ID=${GOOGLE_USER_CLIENT_ID}" --build-arg "GOOGLE_ADMIN_CLIENT_ID=${GOOGLE_ADMIN_CLIENT_ID}") ;;
+          esac
+          docker buildx build -f "${dockerfile}" "${args[@]}" .
+
+  # ============ VERIFY PUBLIC GHCR ============
+  verify-ghcr:
+    needs: [validate, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      digests: ${{ steps.verify.outputs.digests }}
+    steps:
+      - run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo jq
+      - id: verify
+        run: |
+          mkdir -p receipts
+          digests="{}"
+          for component in ingestion-core intelligence-mart private-pipeline api; do
+            skopeo inspect --no-creds "docker://ghcr.io/tommylin15/janus-${component}:sha-${GITHUB_SHA}" > "receipts/${component}.json"
+            digest="$(jq -r '.Digest' "receipts/${component}.json")"
+            [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
+            digests=$(echo "$digests" | jq --arg c "$component" --arg d "$digest" '. + {($c): $d}')
+          done
+          echo "digests=$(echo $digests | jq -c)" >> "$GITHUB_OUTPUT"
+          echo "### GHCR Digests" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo "$digests" | jq >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-digests
+          path: receipts/*.json
+          retention-days: 14
+
+  # ============ API CANDIDATE (0% traffic) ============
+  api-candidate:
+    needs: [validate, verify-ghcr]
+    if: needs.validate.outputs.release-type != 'jobs-only'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - run: python -m pytest -q tests/test_ghcr_release_lease.py tests/test_ghcr_candidate_lease_guard.py
+      - run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: Deploy 0% candidate
+        run: python scripts/gcp/cicd-v2-candidate.py
+
+  # ============ AUTH BOUNDARY ============
+  auth-boundary:
+    needs: [validate, api-candidate]
+    if: needs.validate.outputs.release-type != 'jobs-only'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - run: |
+          python -m pytest -q tests/test_ghcr_candidate_auth_boundary.py
+          python scripts/gcp/ghcr_candidate_auth_boundary.py
+
+  # ============ PREVIEW ============
+  preview:
+    needs: [validate, auth-boundary]
+    if: needs.validate.outputs.release-type != 'jobs-only'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - run: python -m pytest -q tests/test_ghcr_preview_publish.py tests/test_ghcr_release_lease.py
+      - run: python scripts/gcp/ghcr_preview_publish.py --receipt /tmp/ghcr-preview.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: preview-receipt
+          path: /tmp/ghcr-preview.json
+          if-no-files-found: ignore
+
+  # ============ JOBS ROLLOUT ============
+  jobs-rollout:
+    needs: [validate, verify-ghcr, auth-boundary]
+    if: needs.validate.outputs.release-type != 'api-only'
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - run: python -m pytest -q tests/test_ghcr_jobs_rollout.py tests/test_ghcr_release_lease.py
+      - run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: Prepare Jobs rollout request
+        run: |
+          # Auto-generate jobs rollout request from current state
+          python scripts/gcp/ghcr_jobs_readonly_preflight.py --output /tmp/jobs-baseline.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          
+          baseline = json.loads(Path('/tmp/jobs-baseline.json').read_text())
+          sha = '${{ github.sha }}'
+          
+          request = {
+              "intent": "approved-dev-ghcr-jobs-rollout",
+              "approved": True,
+              "scope": "existing-dev-four-jobs",
+              "sha": sha,
+              "release_run": "${{ github.run_id }}",
+              "rollback_mode": "reversible_ghcr",
+              "accept_no_old_image_rollback": False,
+              "baseline_source_sha": baseline.get("source_sha", ""),
+              "rollback_images": baseline.get("images", {}),
+              "rollback_config_hashes": baseline.get("config_hashes", {}),
+              "auth_boundary_run": "${{ needs.auth-boundary.outputs.run-id || github.run_id }}",
+              "authorization": "Automated release"
+          }
+          Path('ops/ghcr-jobs-rollout-request.json').write_text(json.dumps(request, indent=2))
+          PY
+      - name: Rollout Jobs
+        run: python scripts/gcp/ghcr_jobs_rollout.py --release-run "${{ github.run_id }}" --receipt /tmp/ghcr-jobs-rollout.json
+      - name: Recovery on failure
+        if: failure() || cancelled()
+        run: |
+          if test -f /tmp/ghcr-jobs-rollout.json; then
+            python scripts/gcp/ghcr_jobs_rollout.py --recover --release-run "${{ github.run_id }}" --receipt /tmp/ghcr-jobs-rollout.json
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jobs-rollout-receipt
+          path: /tmp/ghcr-jobs-rollout.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ============ API PROMOTE (100% traffic) ============
+  api-promote:
+    needs: [validate, jobs-rollout, preview]
+    if: |
+      needs.validate.outputs.release-type == 'full' &&
+      needs.validate.outputs.skip-api-promote != 'true' &&
+      needs.jobs-rollout.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - run: python -m pytest -q tests/test_ghcr_api_promote.py tests/test_ghcr_jobs_rollout.py tests/test_ghcr_release_lease.py
+      - run: |
+          mkdir -p /tmp/ghcr-jobs-proof
+          gh run download "${{ github.run_id }}" -n jobs-rollout-receipt -D /tmp/ghcr-jobs-proof || true
+      - run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: Promote API to 100%
+        run: python scripts/gcp/ghcr_api_promote.py --release-run "${{ github.run_id }}" --jobs-run "${{ github.run_id }}" --receipt /tmp/ghcr-api-promote.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-promote-receipt
+          path: /tmp/ghcr-api-promote.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ============ SUMMARY ============
+  summary:
+    needs: [validate, verify-ghcr, api-candidate, auth-boundary, preview, jobs-rollout, api-promote]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate summary
+        run: |
+          echo "### Release Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Stage | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Validate | ${{ needs.validate.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| GHCR Publish | ${{ needs.verify-ghcr.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| API Candidate | ${{ needs.api-candidate.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Auth Boundary | ${{ needs.auth-boundary.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Preview | ${{ needs.preview.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Jobs Rollout | ${{ needs.jobs-rollout.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| API Promote | ${{ needs.api-promote.result }} |" >> "$GITHUB_STEP_SUMMARY"
