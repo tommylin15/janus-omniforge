@@ -22,7 +22,7 @@
 
 ## 2. 接下來的唯一施工順序
 
-**D07-PRE → D07 → D08**。D01–D05、DRL-01、FINOPS-AB＋D06、Admin v2 與持股／關注背景補收，按既有 evidence 完成範圍已閉環，**不能把其舊卡／WBS 歷史 blocker 又變新 TODO**。原 FINOPS-C 的資料／成本評估與 Colab 研究現在只屬**D07-PRE 一個工作包**，不另建立 BigQuery 工程前置或第二 Scheduler。
+**STAGE-48H → D07-PRE → D07 → D08**。STAGE-48H 是 2026-10-19 新核准的 dev Stage 保存與去重／Admin 稽核任務，不重開 FINOPS-AB 歷史範圍；具體驗收只在 [TODO](todo.md)。D01–D05、DRL-01、FINOPS-AB＋D06、Admin v2 與持股／關注背景補收，按既有 evidence 完成範圍已閉環，**不能把其舊卡／WBS 歷史 blocker 又變新 TODO**。原 FINOPS-C 的資料／成本評估與 Colab 研究現在只屬**D07-PRE 一個工作包**，不另建立 BigQuery 工程前置或第二 Scheduler。
 
 D07 資料/模型的唯一目標為：Core 合格資料固定匯出 → **Colab 做研究資料 Join/feature/labels、rolling 24 月訓練與 OOS** → 版本化模型/評估 → Janus Mart 驗收/正式推論。只有 Colab 大資料瓶頸有實測與授權才加入 BQ SQL 前置縮減；不使用 BQML 或 Cloud Run 替代訓練。現行 Mart retrain 程式未改，不能因文件承諾而稱已遷移。
 
