@@ -230,17 +230,29 @@ def report(token: str, request: dict, get=api_json) -> dict:
 
 
 def main() -> int:
-    request = json.loads(REQUEST.read_text(encoding="utf-8"))
     try:
-        token = subprocess.check_output(["gcloud", "auth", "print-access-token"],
-                                        text=True, stderr=subprocess.DEVNULL, timeout=30).strip()
-        if not token:
-            raise ValueError("identity unavailable")
-        result = report(token, request)
-    except (OSError, ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        request = json.loads(REQUEST.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
         result = {"component": "gcs-storage-footprint", "status": "BLOCKED",
-                  "reason": "IDENTITY_OR_REQUEST_UNAVAILABLE",
-                  "billing_cost": None, "buckets": []}
+                  "reason": "REQUEST_FILE_UNAVAILABLE", "buckets": []}
+    else:
+        try:
+            token = subprocess.check_output(["gcloud", "auth", "print-access-token"],
+                                            text=True, stderr=subprocess.DEVNULL, timeout=30).strip()
+            if not token:
+                raise RuntimeError("no token")
+        except (OSError, RuntimeError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            result = {"component": "gcs-storage-footprint", "status": "BLOCKED",
+                      "reason": "GCLOUD_ACCESS_TOKEN_UNAVAILABLE", "buckets": []}
+        else:
+            try:
+                result = report(token, request)
+            except (ValueError, TypeError) as exc:
+                # Only local, enumerated validation failures, never raw HTTP bodies/tokens.
+                result = {"component": "gcs-storage-footprint", "status": "BLOCKED",
+                          "reason": "AUDIT_REQUEST_VALIDATION_FAILED",
+                          "error_type": type(exc).__name__, "buckets": []}
+    result.setdefault("billing_cost", None)
     OUTPUT.write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
                       encoding="utf-8")
     print(json.dumps({"status": result["status"], "bucket_discovery": result.get("bucket_discovery"),

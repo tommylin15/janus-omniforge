@@ -11,6 +11,7 @@
     "gen-lang-client-0593591102-dev-research-big-move-500",
     "gen-lang-client-0593591102-cloudbuild-regional"
   ],
-  "audit_attempt": 2,
-  "first_attempt": "39245576636 WIF invalid audience, no GCS audit performed"
+  "audit_attempt": 3,
+  "first_attempt": "39245576636 WIF invalid audience, no GCS audit performed",
+  "second_attempt": "39245782268 GCP WIF and 8 unit tests PASS; audit returned opaque BLOCKED before listing"
 }
