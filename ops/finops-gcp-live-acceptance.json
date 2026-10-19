@@ -1,14 +1,17 @@
 {
   "intent": "one-shot-existing-dev-iceberg-maintenance",
   "no_new_resources": true,
-  "mode": "enable-weekly",
-  "rollout_run": 39101646737,
-  "expected_source_sha": "252db8c13b2c4d7f2e0e71e63159bfe1cffb6e04",
-  "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:2b5dc8fe9b0c2b94c0ca681aaa89181e2e3e69ba43252ec87021475d090af125",
+  "mode": "stage-only-dry-run",
+  "rollout_run": 39273523032,
+  "expected_source_sha": "e14259bf0117b5655862a577491cfe8f7bbe4b8b",
+  "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:15411a268e6703dd6ea8fa84890520b6a4c93bdee278332bb0013a0c435a0289",
   "core_retention_run": 39103394210,
   "mart_retention_run": 39105091080,
-  "purpose": "FINOPS-AB enable weekly maintenance: set FINOPS_WEEKLY_MAINTENANCE=true on batch controller after Core and Mart retention PASS.",
-  "acceptance": "Require controller flag readback showing weekly_maintenance=true without changing other configuration.",
-  "request_attempt": 14,
-  "user_approved_unlinked_small_file_cleanup": true
+  "purpose": "STAGE-48H exact dev Stage-only dry-run following successful full GHCR rollout #39273523032; no deletion",
+  "acceptance": "Read exact 48-hour candidates and held active references; no GCS deletion, no Core/Mart mutation. Verify scheduler restored and shared lease released.",
+  "request_attempt": 15,
+  "user_approved_unlinked_small_file_cleanup": true,
+  "approved_stage_retention_hours": 48,
+  "approved_stage_bucket": "gen-lang-client-0593591102-dev-stage",
+  "approved_stage_apply": false
 }
