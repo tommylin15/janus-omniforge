@@ -57,13 +57,6 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - 此決策不授權刪除 current snapshot 使用的檔案、Owner 私有交易／現金／持股，或繞過現役 writer／mutation lock、固定 digest、catalog pointer、7日檔齡、generation 與讀回驗證。先完成 compaction 與 current 資料讀回，再作有界清理，保留實刪 objects／bytes 與失敗收據。
 - 本節覆蓋 active SPEC／WBS／TODO／runbook 中與此相反的歷史引用保護及24小時／named snapshot 保留條款；既有 row TTL、Stage政策及其他安全邊界未由本次決策變更。
 
-### 1.8 Stage 48 小時保留期（2026-10-19 使用者最終定版）
-
-- 此決策只針對既有 dev Stage Bucket：`gen-lang-client-0593591102-dev-stage`，將原始 payload、sidecar、manifest、quarantine 與 Stage commit marker 的保留期固定為 **48 小時（2 天）**；覆蓋較早「維持7天／只執行一次2天特例」的討論。以物件 metadata `updated` 的 UTC 時間計算到期。與 Core/Mart Iceberg orphan 的 7 日檔齡及私有資料保存期限**不同**，不可連動修改。
-- 透過既有 Controller／`janus-ingestion-core` 執行每日一次 Stage-only cleanup，不把日清理拖進每週的 Iceberg compaction；既有週六 Core/Mart 維護不變。清理成功以實際 generation 刪除、物件數與 bytes 前後讀回為準，未部署、未觸發、未驗收的狀態不得稱 PASS。
-- active queued/running/retrying execution 及其有憑據的共用原始資料不得刪；不再因「可能會用到」無憑據假設將其餘到期物件無限保留。刪除限現役 dev Stage、現有 worker fencing／固定 GCS generation／allowlist／有界資源與失敗讀回。Hash/MD5 相同只代表疑似內容相同：多份 provenance/manifest 正在引用時不得直接刪去全部副本；去重需驗證代表物件與來源引用、回寫及重跑安全，未知時單獨標記。
-- 本節是使用者明確核准的 2 天 Stage TTL 與現有 dev 範圍受控清理，**不**授權刪除 Core 現用檔、Mart、Research frozen training input 或 Private Owner 資料。
-
 ### 1.7 資料補收可使用第三方來源（2026-10-18 使用者核准）
 
 - 補資料以取得可用真實資料為目標，**不要求一定來自官方，也不要求先窮盡官方來源**。可直接採用 Yahoo 股市等第三方網站／供應者已整理的歷史數值；不得再因缺官方報表或官方股數分母而停止能由第三方完成的補收。官方既有資料仍可重用，不必重抓。
@@ -71,6 +64,13 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - 保留來源網站／URL、取得時間、原始內容或 hash、股票、期別、單位與口徑。EPS 可直接採用供應者標示的「單季每股盈餘」，不必自行重建其官方分母；不得混用累季／年度／預估 EPS，不自行用累計 EPS 差分或猜股數。分割／減資等每股基準不明時保留來源口徑，不冒稱跨期可比。
 - 第三方實測值可沿既有 Stage→Core→serving→API／UI 發布；來源、修訂與差異需可追溯，不覆蓋成官方認證，不倒填歷史首次公告／PIT。僅更新文件不代表補收、部署或發布已完成。
 - 此節覆蓋 active TODO／WBS／SPEC／runbook 中「只限官方」「不得新增第三方來源」「須先找官方／另行逐源人工核准」等相反的補收限制；不擴大當前股票、期間、排程或付費範圍。本次 EPS 仍只補六股2025Q4，不自動擴成全市場。工具不限定 Firecrawl，優先直接 HTTP 或既有工具完成。
+
+### 1.8 Stage 48 小時保留期（2026-10-19 使用者最終定版）
+
+- 此決策只針對既有 dev Stage Bucket：`gen-lang-client-0593591102-dev-stage`，將原始 payload、sidecar、manifest、quarantine 與 Stage commit marker 的保留期固定為 **48 小時（2 天）**；覆蓋較早「維持7天／只執行一次2天特例」的討論。以物件 metadata `updated` 的 UTC 時間計算到期。與 Core/Mart Iceberg orphan 的 7 日檔齡及私有資料保存期限**不同**，不可連動修改。
+- 透過既有 Controller／`janus-ingestion-core` 執行每日一次 Stage-only cleanup，不把日清理拖進每週的 Iceberg compaction；既有週六 Core/Mart 維護不變。清理成功以實際 generation 刪除、物件數與 bytes 前後讀回為準，未部署、未觸發、未驗收的狀態不得稱 PASS。
+- active queued/running/retrying execution 及其有憑據的共用原始資料不得刪；不再因「可能會用到」無憑據假設將其餘到期物件無限保留。刪除限現役 dev Stage、現有 worker fencing／固定 GCS generation／allowlist／有界資源與失敗讀回。Hash/MD5 相同只代表疑似內容相同：多份 provenance/manifest 正在引用時不得直接刪去全部副本；去重需驗證代表物件與來源引用、回寫及重跑安全，未知時單獨標記。
+- 本節是使用者明確核准的 2 天 Stage TTL 與現有 dev 範圍受控清理，**不**授權刪除 Core 現用檔、Mart、Research frozen training input 或 Private Owner 資料。
 
 ## 2. Dev 平行上線環境政策
 
