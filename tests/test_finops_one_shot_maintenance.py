@@ -143,6 +143,44 @@ def test_retention_dry_run_requires_exact_image_and_all_page_fence(monkeypatch, 
     assert result["planned_orphans"]==7 and result["planned_snapshots_to_expire"]==3
     assert visited==["full_scan"]
 
+def test_stage_only_one_shot_produces_exact_live_receipt_without_core_inventory(monkeypatch, capsys):
+    module = load_module()
+    image = "ghcr.io/tommylin15/janus-ingestion-core@sha256:" + "a" * 64
+    snapshots = {"janus-ingestion-core": (image, "hash")}
+    rollout = SimpleNamespace(checked_image=lambda *args: {"image": image},
+                              image=lambda data: data["image"])
+    monkeypatch.setattr(module, "inventory", lambda: (_ for _ in ()).throw(
+        AssertionError("Core inventory must not run for Stage-only cleanup")))
+    calls = []
+    monkeypatch.setattr(module, "call", lambda *args, **kwargs: calls.append(args)
+                        or "janus-ingestion-core-test123")
+    receipt = {
+        "component": "stage-only-retention", "status": "PASS", "mode": "apply",
+        "scope": "stage-only", "policy": {"stage_days": 2, "quarantine_days": 2},
+        "core_deleted": 0, "mart_deleted": 0, "private_deleted": 0,
+        "generation_readback": "PASS", "stage": {"planned_objects": 10,
+        "planned_bytes": 150, "deleted_objects": 10, "deleted_bytes": 150},
+        "before": {"objects": 12, "bytes": 175}, "after": {"objects": 2, "bytes": 25}
+    }
+    monkeypatch.setattr(module, "log_evidence", lambda *args: receipt)
+    request = {
+        "mode": "stage-only-apply", "approved_stage_retention_hours": 48,
+        "approved_stage_bucket": "gen-lang-client-0593591102-dev-stage",
+        "approved_stage_apply": True, "expected_image": image,
+        "expected_source_sha": "e" * 40
+    }
+    module.execute_maintenance(request, None, rollout, snapshots)
+    output = json.loads(capsys.readouterr().out)
+    assert output["status"] == "PASS" and output["evidence"]["stage"]["deleted_objects"] == 10
+    assert "ICEBERG_MAINTENANCE_MODE=stage-only-apply" in str(calls)
+    receipt["generation_readback"] = "NOT_VERIFIED"
+    with pytest.raises(RuntimeError, match="generation_readback_failed"):
+        module.execute_maintenance(request, None, rollout, snapshots)
+    request.pop("approved_stage_apply")
+    with pytest.raises(RuntimeError, match="scope_and_apply_approval_required"):
+        module.execute_maintenance(request, None, rollout, snapshots)
+
+
 def test_invalid_mode_fails_before_gcp_calls(monkeypatch,tmp_path):
     m=load_module()
     p=tmp_path/"request.json"
