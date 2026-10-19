@@ -1,17 +1,17 @@
 {
   "intent": "one-shot-existing-dev-iceberg-maintenance",
   "no_new_resources": true,
-  "mode": "stage-only-dry-run",
+  "mode": "stage-only-apply",
   "rollout_run": 39273523032,
   "expected_source_sha": "e14259bf0117b5655862a577491cfe8f7bbe4b8b",
   "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:15411a268e6703dd6ea8fa84890520b6a4c93bdee278332bb0013a0c435a0289",
   "core_retention_run": 39103394210,
   "mart_retention_run": 39105091080,
-  "purpose": "STAGE-48H exact dev Stage-only dry-run following successful full GHCR rollout #39273523032; no deletion",
-  "acceptance": "Read exact 48-hour candidates and held active references; no GCS deletion, no Core/Mart mutation. Verify scheduler restored and shared lease released.",
-  "request_attempt": 15,
+  "purpose": "STAGE-48H user-approved delete after exact safe dry-run #39277206907, 2050 candidates / 650115151 bytes; preserve 60 active executions and 4927 held objects; scope only existing dev Stage bucket.",
+  "acceptance": "GCS exact-generation deletion, before/after object and byte deltas, scheduler resume and no Core/Mart/Private mutation. FAIL closed on unknown refs/changed inventory.",
+  "request_attempt": 16,
   "user_approved_unlinked_small_file_cleanup": true,
   "approved_stage_retention_hours": 48,
   "approved_stage_bucket": "gen-lang-client-0593591102-dev-stage",
-  "approved_stage_apply": false
+  "approved_stage_apply": true
 }
