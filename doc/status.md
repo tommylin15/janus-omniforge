@@ -1,162 +1,23 @@
-# Janus 目前狀態
+# Janus｜目前實作與驗收狀態
 
-> **2026-10-19｜DRL-01 工程結案 PASS**：六股2025Q4 EPS已直接採Yahoo補齊，Stage→Core→serving及正式／Preview API各6/6通過；5876手機／桌面EPS圖表與季度明細PASS。既有兩年PE/PB正式API再驗12/12，Ledger落地及Market Volume沿既有PASS。正式API／Jobs同源`e3e00983`，promotion及回滾演練通過，完整證據見[結案文件](archive/drl01-completed-2026-10-19.md)。
->
-> 自然daily／weekly Ledger收據依使用者決策改列後續觀察、仍NOT_VERIFIED，不擋本次結案；TTM／歷史PIT未認證。新持股／關注股背景補收已於2026-10-19由使用者續行，實作／驗收中，與DRL-01分開；尚未部署驗收完成。第三方可直接補資料的長期核准見[§1.7](PROJECT_RULES.md)。
+更新：2026-10-19（Asia/Taipei）。本頁只保留**最新證據摘要**，不是第二份 TODO。實作及完成狀態以 GitHub `main`、CI／deploy／GCP dev／資料／Owner readback 為準；完整歷史在 [原狀態快照](archive/status-before-consolidation-2026-10-19.md)，近期收據見 [Operations](spec/operations-and-testing.md)。
 
+## 已有範圍的結案
 
-> **FINOPS-AB 完成（2026-10-18，PASS）**：月批 OHLCV／估值、bounded reads、current-only snapshot 與精確 GCS generation 實刪程式已完成。
->
-> | 步驟 | Run ID | 狀態 |
-> |------|--------|------|
-> | 新四 Jobs rollout (252db8c) | [#39101646737](https://github.com/tommylin15/janus-omniforge/actions/runs/39101646737) | ✅ SUCCESS |
-> | Core retention | [#39103394210](https://github.com/tommylin15/janus-omniforge/actions/runs/39103394210) | ✅ SUCCESS |
-> | Mart retention | [#39105091080](https://github.com/tommylin15/janus-omniforge/actions/runs/39105091080) | ✅ SUCCESS |
-> | 週維護啟用 | [#39106307549](https://github.com/tommylin15/janus-omniforge/actions/runs/39106307549) | ✅ SUCCESS |
->
-> **已完成**：新版本 `252db8c` 四 Jobs 部署、Core snapshot 過期 + orphan 清理、Mart snapshot 過期 + orphan 清理、`FINOPS_WEEKLY_MAINTENANCE=true` 已設定。清理前候選為 Core 6,455 檔／~100 MiB、Mart 55 檔／~370 KiB，合計約 580 個舊 snapshot；實際清理統計待補。詳見 [operations-and-testing](spec/operations-and-testing.md)。
-
-> **最新證據**：continuity [#39121917976](https://github.com/tommylin15/janus-omniforge/actions/runs/39121917976)、API [#39121953691](https://github.com/tommylin15/janus-omniforge/actions/runs/39121953691)、EPS官方核查 [#39122275355](https://github.com/tommylin15/janus-omniforge/actions/runs/39122275355)。先前「API缺profile／Ledger無鍵」已被本輪讀回取代；完整範圍、限制及歷史連結見 [operations](spec/operations-and-testing.md)。
-
-**2026-10-17 DRL-01D 改版（歷史 checkpoint；最新驗收見上）**：依使用者要求五年 PE/PB 河流縮為兩年（2024-10～2026-10，25個曆月），僅對六檔 TWSE 持股／關注股。原五年工作流請求停用；既有 PostgreSQL `063` serving table 屬歷史命名，API／payload／UI 改以 `window_years=2` 的兩年契約判定。需新 SHA 的受控 dev Release、25個月來源補收及正式 API／UI 讀回才可宣稱 DRL-01D 完成。此項範圍變更不影響 D01～D05 已結案驗收。
-
-更新：2026-10-17（Asia/Taipei）。**使用者已授權 D01～D05 快速完成、包含 D04 繞路或必要的最小 IAM；這取代先前「僅 API 100% 切流、其他 P1 暫停」的限制。** 歷史 PASS 只限當次 SHA／環境／scope；下方舊「未切流／尚未真人驗收」段落保留當時 checkpoint，不能倒蓋最新結果。
-
-### D01～D05 最終結案（2026-10-17，最新使用者決策）
-
-**D01、D02、D03、D04、D05 全部 PASS／CLOSED，無後續補驗或增補待辦。** 使用者明確核准寬鬆驗收，以既有功能、真人正向結果、CI、備份與正式發布證據接受交付；未取得的嚴格量測／截圖矩陣／稽核收據及原 D03 後續增補為 USER_ACCEPTED／WAIVED，並非實測 PASS。下方舊 checkpoint 的 PARTIAL／待補描述只保留歷史 scope，不能重新形成這五包的執行義務。
-
-D01～D05 結案當時唯讀 build-id 為 `d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6`，手機持股可讀 ledger v357／2026-10-16 估值；該次結案沒有新增部署或改 Owner 資料。後續新版發布以下節為準。詳見 [結案紀錄](archive/d01-d05-relaxed-acceptance-closure-2026-10-17.md)；DRL-01、D06～D08 狀態不受影響。
-
-### 日期 UI／真人補驗正式 100% 完成（2026-10-17 最新）
-
-**正式 API 100% PASS**：映像來源 `7f3e5621d39a99cdb6be622c80636da10f9a391e`，`janus-api-00538-sox`。完整 Release #39031856247、候選 #39032329887、自動 auth #39032620084、固定 Preview #39032747389、Jobs #39032863146（8／8不同canary）、[可逆正式切流 #39034273922](https://github.com/tommylin15/janus-omniforge/actions/runs/39034273922) 全部 SUCCESS；新版→becb前版→新版真實100%回滾演練PASS，舊版保留、Scheduler ENABLED、lease釋放。
-
-新日期 UI 已在同源 Preview 完成真人手機／桌面四頁 **8／8 PASS**；表格日期倒序、交錯底色、季度收合與適用合計／平均正常，月季近兩年、日資料最近20期，圖表時間正序及既有窗口保留。切流後正式與Preview完整SHA相同，六股EPS／營收12／12、5876可用報價及66日價量讀回PASS。原首次事件已窄查歷史HTTP200與新首次成功證據，舊客戶端唯一原因無法追溯證明；已補錯誤分類診斷及超時／重試回歸。詳見 [真人補驗與本次發布](archive/stock-live-ui-followup-2026-10-17.md)。
-
-**使用者指示正式100%後停下：本輪回寫文件、同步GitHub後停止，不啟動其他工作。** D01～D05仍PASS／CLOSED，不新增補驗；DRL-01其它原scope不因本次發布自動完成。
-
-### DRL-01 與兩項個股修正合併切流完成（2026-10-17，前次來源）
-
-**正式 API 100% PASS**：完整映像來源 `becb6a15496959c1f5d3d4985d7b523b652bd3ee`，revision `janus-api-00533-yah`。完整 Release、0% 候選、自動 auth、固定 Preview、四 Jobs／8次 canary 及 [正式可逆切流 #39021547612](https://github.com/tommylin15/janus-omniforge/actions/runs/39021547612) 全部 SUCCESS。切流前後均讀回六股2026 Q1／Q2 EPS、各13期營收、5876報價狀態與66筆價格圖，正式與Preview完整SHA相符；新版→前版→新版回滾演練PASS，Scheduler恢復、部署lease已釋放。
-
-個股狀態／日期文案與 serving 鎖修正已同源上線；原首次失敗未復現，不宣稱唯一根因已證明。DRL-01本次本年度EPS／營收發布完成，整體其它Ledger／五年估值／完整產品鏈仍保留原scope；D01～D05維持結案與豁免。詳見 [合併發布證據](archive/combined-drl-stock-release-2026-10-17.md)。
-
-### DRL-01 2026 年先行上線 EPS 調整（2026-10-17 歷史checkpoint，已由2026-10-19結案取代）
-
-**本輪優先結清②持股／關注120日，③EPS放寬「舊年度完整四連季」上線門檻，但不放寬單股真實EPS來源、單位或provenance。整體DRL-01其餘 Ledger／五年估值／產品全鏈仍依各自證據PARTIAL。**
-
-| 子項 | 真實驗收與本輪決策 | 未完成／界線 |
+| 項目 | 最新已知證據 | 未覆蓋事項 |
 |---|---|---|
-| ① 全市場13月營收 | **PASS**：[Core #38997408284](https://github.com/tommylin15/janus-omniforge/actions/runs/38997408284) TWSE1077／1096（98.27%）、TPEx864／896（96.43%），兩市場均達標。 | 歷史公告時點未知不能倒填PIT。 |
-| ② 八檔持股／關注120日 | **PASS（8／8）**：TWSE 6檔各135日 [#38997792145](https://github.com/tommylin15/janus-omniforge/actions/runs/38997792145)；官方TPEx ETF 00697B、00719B各125日 [#38998709152](https://github.com/tommylin15/janus-omniforge/actions/runs/38998709152)、Cloud Run `janus-ingestion-core-prxnx`、Core snapshot `4874890923938554002`，2／2真正驗收。 | ETF不是股票market master母體，不混入上市櫃上市股票coverage。 |
-| ③ 2026已公告EPS首版 | 使用者核准從嚴格4連季縮為目前已到期的 **2026Q1+Q2，六檔focus需各有官方合格單季**；Q3須已有官方公告才顯，Q4尚未到期。 [初始Core #39000160070](https://github.com/tommylin15/janus-omniforge/actions/runs/39000160070)：首輪4／6；官方補收3231／3711後，六檔獨立 Core [#39000368842](https://github.com/tommylin15/janus-omniforge/actions/runs/39000368842) **6／6 PASS_CURRENT_YEAR**，snapshot `5736520631016782502`。 | **`CURRENT_YEAR_MVP` 不等於原`eps_4_comparable`四季/TTM PASS**；2025Q4缺股數不從累計EPS硬減，四季/TTM依然`NOT_CERTIFIED`，先行版歷史資料門檻`WAIVED_FOR_MVP`。 |
-| EPS API／Flutter | 同一published `visual-series(eps)` 新增 `eps_current_year`合法年度完成度，單一合法EPS也能顯示數值與實際期間而非整頁缺值；保留舊季度可比資料，未認證的TTM不顯示假值。 | 同源完整Release／Flutter、候選、自動auth、Preview、Jobs、正式API100%與公開數值讀回PASS，見上節；未新增真人完整畫面驗收。 |
+| D01～D05 | 2026-10-17 使用者核准 `CLOSED/PASS`；部分嚴格 acceptance 屬 `USER_ACCEPTED/WAIVED`，參見 [結案](archive/d01-d05-relaxed-acceptance-closure-2026-10-17.md) | 豁免不冒稱實測 PASS，不重開 |
+| DRL-01 | 2026-10-19 六股 2025Q4 EPS Stage→Core→serving、正式／Preview 6/6 API、兩年 PE/PB 12/12 及相關回滾/畫面在指定 scope PASS；[證據](archive/drl01-completed-2026-10-19.md) | 自然 daily/weekly Ledger `NOT_VERIFIED`；TTM／歷史 strict PIT 未認證 |
+| FINOPS-AB（D06 併單） | 2026-10-18 四 Jobs、Core/Mart retention、週維護 env 切換有歷史 Actions PASS；Current-only snapshot 使用者已核准 | 實際清理 objects/bytes 與費用成效仍須原執行收據；兩日 I/O 比對已取消 |
+| 持股／關注背景補收 | 2026-10-19 migration 066、8 檔回補、8/8 API readback 在 [舊 TODO 收據](archive/todo-before-consolidation-2026-10-19.md) | 產品8檔 ready 不等於全市場24月研究 PIT/OOS 完備 |
+| Admin v2 | 2026-10-19 四頁、使用分析與適用 Flutter/Python tests 按 [原 TODO](archive/todo-before-consolidation-2026-10-19.md) 之 scope PASS | D07 管理模型與 D08 Owner 報告功能另外驗收 |
 
-此輪無Owner交易、stock master、財報數字覆寫、付費來源、新Scheduler或production操作；授權範圍以本輪使用者指令為準，非全面重啟第四項Ledger／五年PE/PB。
+## 下一個執行範圍
 
-
-### D01～D05 合併驗收（2026-10-17）
-
-**整體判定：D01–D05 整合工程驗收 PASS，正式 API 100% promotion 完成。** 完整發布鏈（Release → Candidate → OAuth → Preview → Jobs → API 100%）全部成功，Preview `d739107` 四頁公開 API 驗證通過，使用者三項真人正向驗收維持有效。
-
-| 工作包 | 狀態 | 已取得的直接證據 | 尚缺的獨立驗收 |
-|---|---|---|---|
-| D01 | **PASS** | 正式 8eb 持股頁、現金交易連動、重算按鈕已有使用者三項 USER_CONFIRMED_PASS；D01 進階場景測試 25 tests 全部 PASS（股利/REVERSAL/更正/競態/Owner隔離/邊界案例）；Janus Dev owner read-only MCP 7 positions／ledger v357／估值日 10/15 available | — |
-| D02 | **PASS／CLOSED（使用者接受）** | [Dev DB-first snapshot→正式 API #38890365233](https://github.com/tommylin15/janus-omniforge/actions/runs/38890365233) PASS：market-home.v1／10/15 三個 DB 區塊 available | 已豁免，不補驗。 |
-| D03 | **PASS／CLOSED（使用者接受）** | [正式 public typed visual series #38889906057](https://github.com/tommylin15/janus-omniforge/actions/runs/38889906057)：16 available、2 EPS missing（屬 DRL-01C） | 其餘矩陣已豁免，不補驗。 |
-| D04 | **PASS** | [安裝 #38991083134](https://github.com/tommylin15/janus-omniforge/actions/runs/38991083134)、[交接 #38991644822](https://github.com/tommylin15/janus-omniforge/actions/runs/38991644822)；隔離 DB restore、owner boundary 通過；備份清理已移至 Batch Controller（`ledger_backup.py`），7 天保留政策；VM timer 已恢復啟用 | — |
-| D05 | **PASS（含 API 100%）** | 來源 `d739107` Release #38989576990、candidate #38991849862、OAuth #38991975400、Preview janus-api-00524-tot、Jobs #38992414928、**API 100% promotion [#38996111382](https://github.com/tommylin15/janus-omniforge/actions/runs/38996111382)** 全部 SUCCESS | — |
-
-**本輪安全界線**：未修改 Owner 交易或成本、未手動重算、未切正式 dev API traffic、未停止 VM backup timer；各 PASS 僅限其真正驗收 scope。
-
-### 2026-10-16｜P1 三項真人操作：使用者驗收回報
-
-- **USER_CONFIRMED_PASS（2026-10-16，正式 dev App 8eb）**：使用者在本次對話明確回報：「真人持股畫面、現金交易連動及重算按鈕驗收都完成了。」記錄為使用者親自確認的**正向功能驗收**，不是本輪助手代為登入操作、執行 API write 或擷取新 runtime receipt。
-- **範圍**：① 真人持股清單／總額呈現；② 現金部位與股票交易後的現金連動；③ App 的重新計算損益按鈕。既有對應後端 migration 062、真實 Worker queue、GHCR／100% 正式部署的獨立技術證據維持原版本、原 scope，不把它們偽裝為本次新增的交易紀錄。
-- **不能外推**：未取得本次測試的每筆精確 BUY／SELL／股利／REVERSAL 明細、金額與 ledger 版本、按鈕 request／Worker execution ID、最新 EOD/PIT valuation、可供稽核的 screenshots、390px／desktop 全量回歸、網路故障／冪等測試或持股端到端 P95。這些若屬仍要求的獨立工程 gate，維持 **NOT_VERIFIED**；不要求使用者為普通發版重做 OAuth／三項基本人工驗收。
-- **整體判定**：三項**人工正向 PASS**；P1 其他獨立 D01～D05 工作仍 **PARTIAL**，並未因人工驗收全數結案。本輪只記錄回報與文件同步，未部署、未修改 Owner 資料。
-
-### 2026-10-16｜P1 8eb API 正式 100% 可逆切流與獨立驗收
-
-- **正式 API 可逆切流 PASS**：[GitHub Actions #38865075071](https://github.com/tommylin15/janus-omniforge/actions/runs/38865075071) 同源 release `8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699`，從已核准的 0% GHCR immutable candidate 經驗證後執行新版→前版→新版真實 100% traffic 演練，`result=PASS`；完整 receipt artifact id `12030787184`。
-- **獨立 live readback PASS**：[GitHub Actions #38865347217](https://github.com/tommylin15/janus-omniforge/actions/runs/38865347217)；revision `janus-api-00517-ciq` 唯一 canonical 100%，`/app/build-id.txt` 與固定 Preview 皆為本次完整 SHA、健康路徑 200、未登入 Owner 與 cash API 401、immutable image 與 tags 保留、回滾演練 PASS，舊可回滾 revision `janus-api-00512-zal`。只讀驗收報告 `no_mutations=true`，artifact id `12031290847`。
-- **當時驗收界線（現已補充新的使用者人工回報）**：發布當下只證明正式 API 與權限邊界，當時尚無真人驗收回報。後續使用者已確認持股畫面、現金交易連動與重算按鈕三項正向功能 **USER_CONFIRMED_PASS**；個別行情缺口、異常／冪等、正式 PIT 和冷暖 P95 仍須另證，不能把發布收據或使用者確認擴充成全量工程 PASS。
-
-### 2026-10-16｜P1 真人截圖回報：參考總額與小計優先顯示（8eb42dcb）
-
-- **觀察／根因**：正式 9f690 真人手機持股截圖顯示 7 檔有行情／股數，卻僅 2 檔價格可納正式報表，其餘「待估值」與主卡「總額暫不發布」，已知操作資訊被合格性 gate 整體隱藏。120 秒 MIS freshness 只能判「即時/延遲」，不能一律抹去 source-authorized 歷史有效成交報價。長錯誤說明擠到列表表頭也是視覺缺陷。
-- **修復策略已 commit**：`services/api/intraday_quotes.py` 分離同日正式 `market_value/unrealized_pnl` 與 source/date/positive-price 限定的 `reference_market_value/reference_unrealized_pnl`；跨日／延遲價可做明確標示的**完整參考估值**。若仍有真正缺價，另外提供 `reference_priced_market_value`／已計價損益小計、已計價檔數／總檔數，不冒稱全部持股。已設定現金池時同步提供 `reference_total_asset_value`，或 `reference_partial_asset_value`（現金＋已計價部分）。不為任何缺價虛構價格／數字、不混入正式 PIT 總額。
-- **UI 行為**：`apps/user_app/lib/final_ledger.dart` 主視覺優先顯示完整參考總額或可用小計；限制資訊縮為短文字；過時報價保留圖示、日期、個股未實現 PnL。實測截圖的 7 檔股數×顯示現價約為 **TWD 15,210,800**，與畫面現金約 181.1 萬元合計參考資產約 **1,702.2 萬元**；依畫面四捨五入平均成本推算參考未實現損益約 **192.3 萬元**，皆只屬截圖試算、非 runtime 正式 Owner 核定。
-- **驗證狀態**：同範圍 Python 與 390px Flutter P1 回歸 tests PASS，`8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699` 完整 GHCR Release [#38856837257](https://github.com/tommylin15/janus-omniforge/actions/runs/38856837257) PASS；0% 候選 [#38857279864](https://github.com/tommylin15/janus-omniforge/actions/runs/38857279864) PASS；自動 OAuth／private boundary [#38857441171](https://github.com/tommylin15/janus-omniforge/actions/runs/38857441171) PASS；固定 Preview [#38857524000](https://github.com/tommylin15/janus-omniforge/actions/runs/38857524000) PASS。原 9f690 四 Jobs 實際回滾基準 [#38856931558](https://github.com/tommylin15/janus-omniforge/actions/runs/38856931558) PASS；新四 Jobs 真實 rollout [#38857643226](https://github.com/tommylin15/janus-omniforge/actions/runs/38857643226) **COMPLETED／SUCCESS**（2026-10-16 06:08:32 UTC；Job logs 明確輸出 `{"result":"PASS","receipt":"ghcr-jobs-rollout.json"}`，receipt artifact id `12028401966`）。部署包含的自動化 canary／rollout 依其正式 receipt 判定，**不能推論 Owner 真實 UI 通過**。**歷史 14:57 暫停時快照**：當時新版 API 尚未升 100%，正式最後驗證為 9f690；**此狀態已被上方較新的 #38865075071（API 100% PASS）及 #38865347217（獨立 live PASS）取代**。真人登入、現金交易／重算按鈕 UI E2E 仍 **NOT_VERIFIED**；本次沒有擅自啟動其它工項。
-
-### 2026-10-16｜P1 現金池／精簡持股 9f690 正式 dev 與獨立驗收
-
-- **DB 062 PASS**：現金 checkpoint 使用 owner-scoped schema／版本與 ledger anchor；migration [#38841287256](https://github.com/tommylin15/janus-omniforge/actions/runs/38841287256) SUCCESS。舊 Broker Profile 的 `declared_cash` 不等於新現金餘額，未設定就保持未設定。後端交易現金淨流入／淨流出採持久化費稅與 reversal，總資產只在全持股合格台幣估值可用時顯示，未實現損益不重複相加。
-- **同源部署 PASS**：`9f690363e5517cbe90d837a53a94ae3a4e7ab31e` full Python/Flutter/GHCR [#38841326765](https://github.com/tommylin15/janus-omniforge/actions/runs/38841326765)，API 0% [#38849023963](https://github.com/tommylin15/janus-omniforge/actions/runs/38849023963)，自動 OAuth/private negative boundary [#38849298689](https://github.com/tommylin15/janus-omniforge/actions/runs/38849298689)，固定 Preview [#38849422216](https://github.com/tommylin15/janus-omniforge/actions/runs/38849422216)，四 Jobs reversible rollout [#38849686748](https://github.com/tommylin15/janus-omniforge/actions/runs/38849686748) 均 SUCCESS。初次 API promotion [#38851511933](https://github.com/tommylin15/janus-omniforge/actions/runs/38851511933) 因 inert rollback template 同源 test FAIL、未越過驗證；修復後 [#38851753247](https://github.com/tommylin15/janus-omniforge/actions/runs/38851753247) SUCCESS，舊 7acff baseline 保留。
-- **獨立正式 readback PASS**：[commit `7606ccb3812e1fbabddf3e087e19c8f7b7224b27`](https://github.com/tommylin15/janus-omniforge/commit/7606ccb3812e1fbabddf3e087e19c8f7b7224b27) 只更新 readonly request；[#38853614819](https://github.com/tommylin15/janus-omniforge/actions/runs/38853614819) 驗 canonical API 唯一 100% target revision、同源固定 Preview／build-id、immutable image、保留原 tags、health 200、unauth profile/cash 401 及 rollback receipt，無 GCP／traffic／Owner mutation。
-- **新版公開暖路徑 PASS（不等於 Owner 效能）**：30 次 Preview public market-home [#38853879877](https://github.com/tommylin15/janus-omniforge/actions/runs/38853879877) 30/30 成功、P50 48.11ms、P95 57.70ms、最大 966.09ms；樣本為 GitHub runner → 公開 API，未涵蓋 authenticated 持股首屏、手機載入、交易保存或手動重算等待。
-- **最新正向 Owner 唯讀觀察**：在已授權 Janus private MCP 下讀到 operational ledger v357、目前 7 筆 active positions，valuation／price date 仍為 2026-10-15；10/16 新交易已發生，不能把前一日估值誤稱 10/16 最新收盤/PIT 損益。此次沒有回寫現金或交易，也未證實使用者已設定初始現金。
-- **剩餘 hard gate = PARTIAL**：真人 logged-in App 的持股一至二行列表、現金設定後 readback、買賣現金與持股 checkpoint、重新計算損益點擊→enqueue→Worker terminal→UI 更新、390px／desktop 真實截圖與持股 API／UI 冷暖 P95；無登入態正向證據時維持 NOT_VERIFIED，不能用 401／public perf／Worker canary 代替。
-
-### 2026-10-16｜P1 同源 Jobs／固定 Preview 發布與業務驗收
-
-- 四 Jobs 與排程 **PASS**：[rollout #38821199561](https://github.com/tommylin15/janus-omniforge/actions/runs/38821199561) receipt phase=PASS、8/8 實際 canary、同源 immutable digest、rollback baseline 可用。[infra #38826878839](https://github.com/tommylin15/janus-omniforge/actions/runs/38826878839) 確認四 Jobs Ready、Scheduler ENABLED、Controller active。
-- 10/15 Owner EOD／損益 **PASS**：[來源與缺口唯讀 #38827197770](https://github.com/tommylin15/janus-omniforge/actions/runs/38827197770) → [官方定日雙 ETF 價與單 Owner Mart 補算 #38827827101](https://github.com/tommylin15/janus-omniforge/actions/runs/38827827101) 終態 PASS_JOB_TERMINAL；8/8 同日價格、8/8 市值與未實現損益、單一 TWD 總結 available，原 ledger v354 不變。獨立授權 MCP 重查 positions 8/8、年度損益與曝險日期均為 2026-10-15。
-- 重算後端 Queue **PASS**：[雙 Worker #38828798196](https://github.com/tommylin15/janus-omniforge/actions/runs/38828798196) 1 synthetic request、兩個真實 Worker task，seed／worker／verify／cleanup 全部成功，lease 釋放；不新增真實交易。**Authenticated 按鈕點擊與 UI 顯示仍 NOT_VERIFIED**，不能用技術 canary 代替。
-- **正式 dev App API 100% 切流 PASS**：[初次 fail-closed #38830314867](https://github.com/tommylin15/janus-omniforge/actions/runs/38830314867) execution_not_terminal，未切流且 lease 釋放；[五 Jobs 全分頁 readonly #38830554996](https://github.com/tommylin15/janus-omniforge/actions/runs/38830554996) 1174 executions 全終態；[受控 promotion #38830675477](https://github.com/tommylin15/janus-omniforge/actions/runs/38830675477) receipt phase=PASS，舊版 b1bc785…（janus-api-00478-cih）→ 新版 7acff…（janus-api-00507-wez）→ 舊版 → 新版，rollback rehearsal PASS；[獨立正式讀回 #38831003922](https://github.com/tommylin15/janus-omniforge/actions/runs/38831003922) canonical traffic 100%、正式／Preview build-id 一致、immutable image、tags preserved、health 200、unauth owner 401 均 PASS。沒有新付費資源、ledger 交易或 job template 改動。
-
-### P0｜TPEx 官方歷史日期長期能力（2026-10-15 本輪）
-
-- **已落地（程式及資料庫）**：`services/api/tpex_quotes.py` 支援官方 `/www/zh-tw/afterTrading/dailyQuotes?date=YYYY/MM/DD&response=json` 的指定交易日查詢（不限 OpenAPI 七日滾動窗口）；嚴格核對官方回應 `date`、有效收盤價與 14:30 發布門檻。近七日 OpenAPI 仍保留，失敗可走官方定日來源。版本化 migration `061_tpex_official_eod_daily` 使用獨立 PostgreSQL 官方日期／價格／來源 URL／record SHA-256／first-observed，不污染 Core/Iceberg canonical；Private Mart 只用不晚於估值日的已保存官方資料。
-- **證據**：官方 `00697B` 10/14 原始 JSON 指定日期與 date response [#38715334637](https://github.com/tommylin15/janus-omniforge/actions/runs/38715334637) PASS；migration [#38714018250](https://github.com/tommylin15/janus-omniforge/actions/runs/38714018250) 真實 dev PASS；17/17 歷史、日期、PIT targeted tests [#38717113572](https://github.com/tommylin15/janus-omniforge/actions/runs/38717113572) PASS；完整來源 `285848e28041bf2fb024bd98bd348641f022a1ed` Release [#38717341300](https://github.com/tommylin15/janus-omniforge/actions/runs/38717341300) SUCCESS；API 0% [#38718006906](https://github.com/tommylin15/janus-omniforge/actions/runs/38718006906) 和自動 OAuth／private boundary [#38718076548](https://github.com/tommylin15/janus-omniforge/actions/runs/38718076548) SUCCESS，**未切 100% 流量**。
-- **Owner backend P0 10/14 PASS（與 P1 UI／正式切流分離）**：四 Jobs [#38718355824](https://github.com/tommylin15/janus-omniforge/actions/runs/38718355824) SUCCESS。先前 Owner [#38724207848](https://github.com/tommylin15/janus-omniforge/actions/runs/38724207848) 因雙 ETF 00697B／00719B 缺 Core 日期價 FAILED（#38730256233 精確恢復 lease）；兩檔同日合法官方價格補齊後，Owner [#38730741579](https://github.com/tommylin15/janus-omniforge/actions/runs/38730741579) 完成 derived Mart 寫入但因舊 Private Iceberg schema 不儲存 `stale_price_count`，驗收腳本誤判 aggregate FAILED；#38732315439 安全恢復該次 lease。**真實唯讀** [#38732675488](https://github.com/tommylin15/janus-omniforge/actions/runs/38732675488) 驗 v354／2026-10-14：8/8 有市值、8/8 未實現損益、aggregate_status=available、missing_price_count=0、affected_symbol_count=0、總市值／總未實現損益／報酬欄位非空。最終 immutable receipt gate [#38733406224](https://github.com/tommylin15/janus-omniforge/actions/runs/38733406224) SUCCESS；修正驗收 guard targeted [#38733406111](https://github.com/tommylin15/janus-omniforge/actions/runs/38733406111) SUCCESS。**缺席的舊欄位維持 null，不造假為0；`aggregate_status=available` 由 deterministic Mart 計算的 missing/stale 皆零產生。** 同次記錄的終態 FAILED 不更改歷史判定，也沒有重新發起衍生重算。
-
-**整體 PARTIAL。** 使用者已明確授權 D01～D05 一起開發、以同源整批驗收，取代此前文件-only 暫停；D06 獨立 FinOps、不併入本輪，D07／D08 後置。完整 Release／GHCR digest／0% 候選／自動 OAuth 已 PASS，**正式 API 100% traffic 尚未獲得本產品包的所有真實業務 gate**，不能宣稱產品交付完成。詳見 [TODO](todo.md)、[AI 卡片](execution-cards/README.md) 與 [證據索引](spec/operations-and-testing.md)。
-
-### 2026-10-15｜P1 夜間 Private 派送直接修正（待 live release）
-
-- 使用者要求直接調整，不追舊 execution。修改 `jobs/ingestion-core/ingestion_core/batch_controller.py`：15:30 Private 仍依賴 14:30 ingestion；21:30 Private 設為獨立 EOD slot 並優先於同日待決午後 Private，不能因 ingestion 終態缺失阻止整晚估值；下午 ingestion 真實 `failed` 時，15:30 Private 只記 `skipped/upstream_ingestion_failed`，不偽造成功也不永遠占用 pending queue。
-- 官方 TPEx 日價、估值日與 future-leakage／missing／stale／owner publication 約束保持由 Private Mart fail-closed；不因解開排程依賴而推論當日所有股票已具合格價格。
-- 相關測試新增獨立 slot、優先序、失敗上游結束、派送只一次的回歸。selective CI [#38755041998](https://github.com/tommylin15/janus-omniforge/actions/runs/38755041998) PASS。完整 SHA `7acff50000644979af3815f00fbd7f1c167e1098` [GHCR Release #38755382061](https://github.com/tommylin15/janus-omniforge/actions/runs/38755382061) Python／Flutter／四 GHCR／匿名 digest **PASS**；[0% candidate #38756170482](https://github.com/tommylin15/janus-omniforge/actions/runs/38756170482) PASS；[自動 OAuth boundary #38756520384](https://github.com/tommylin15/janus-omniforge/actions/runs/38756520384) PASS；四 Jobs reversible controlled [#38756738102](https://github.com/tommylin15/janus-omniforge/actions/runs/38756738102) **FAILED**：Private canary PASS 後，Mart 首輪 canary 卡在 `execution_not_terminal`，自動回復未完成，receipt `RECOVERY_REQUIRED`；當下 Mart/Private 新版、Controller/Ingestion 舊版及 Scheduler `PAUSED`，原部署鎖保留。2026-10-16 專用唯讀 [#38820661165](https://github.com/tommylin15/janus-omniforge/actions/runs/38820661165) PASS，證實混合映像、Scheduler PAUSED、近期 executions 無正在執行的工作；[精確 immutable receipt 回復 #38820889359](https://github.com/tommylin15/janus-omniforge/actions/runs/38820889359) **PASS**，五支受保護 Jobs 的配置／映像回復、Scheduler `ENABLED`、原 annotated GitHub lease 已釋放。新版同一來源再次以共用 fence 受控部署 [#38821199561](https://github.com/tommylin15/janus-omniforge/actions/runs/38821199561) **進行中，尚未取得終態**。另修正 `ghcr_jobs_rollout.recover` 對未終止 canary 不再僅單次 `fence()`，改在既有 bounded execution guard 下重查再恢復；[targeted CI #38821683162](https://github.com/tommylin15/janus-omniforge/actions/runs/38821683162) PASS。此修正 commit 於重試後，不冒稱已套入正在執行的工作流。正式 API 流量未切、Owner ledger 未寫；P1 夜間 Private dispatch／Owner 當日 PIT PnL 與 UI 仍待真實驗收。
-
-### P1｜2026-10-15 Owner 唯讀資料與固定 Preview 接續
-
-- **固定 Preview 同來源 PASS**：[commit `78bf14bb`](https://github.com/tommylin15/janus-omniforge/commit/78bf14bb1665be93ef6f7048d71458632bdbc871) 將 `ops/ghcr-preview-request.json` 目標改為 285848 GHCR API 固定 digest，引用 release #38717341300、candidate #38718006906、OAuth boundary #38718076548；[#38740477232](https://github.com/tommylin15/janus-omniforge/actions/runs/38740477232) 最新 workflow `completed/success`，同次 `Verify fixed preview release and owner-lease safety contracts`、`Update only verified candidate preview tag with rollback protection` 均 success；公開 build-id／tag 校驗由該實際 workflow 執行，且保存 receipt artifact。此結果僅是 Preview，正式流量不變，**Owner UI 尚未驗收**。
-- **已授權 Owner MCP 正向唯讀讀回（2026-10-15）**：`positions` 為 `available`、8/8 有效市價／市值，兩檔債券 ETF `00697B`／`00719B` 均有 `price_status=available`，共同 `valuation_date=2026-10-14`、`ledger_version=354`；`annual-pnl` 為 `available`，同日期／版本。此為真實 Owner backend read path，**不是**正式 App UI／手動重算按鈕端到端證明。
-- **最新估值仍待獨立驗收**：10/15 約 22:21（台北時間）再次 Owner MCP 唯讀讀回，Private Mart 最後估值仍為 10/14；官方定日來源的歷史價在 PostgreSQL，與一般已發布 Core `ohlcv` 非同一存放路徑。對兩檔 ETF 查 `janus-core/ohlcv` 的 10/14～10/15 區間均回 `missing`，**不能因此倒推已持久化的 TPEx 官方歷史價遺失**，但新交易日 EOD→Private Mart→UI 的完整更新仍 `NOT_VERIFIED`。晚間排程已由 [#38752934496](https://github.com/tommylin15/janus-omniforge/actions/runs/38752934496) 唯讀查核：Controller 模式 `active`、Scheduler `ENABLED` 且 21:30／22:30 controller executions 均 `Completed=True`；但 Private Pipeline 最新僅 20:11 建立、20:12 成功的 `janus-private-pipeline-wnk5x` 唯讀執行，21:30 後無更新的 Private execution。**Controller tick 成功不等於 private occurrence 已派送**；目前尚缺 PostgreSQL `control.batch_occurrences` 依賴／status readback，不能猜是 dependency、busy、skipped 或未建 occurrence。10/15 Owner EOD→Private Mart 最新估值仍 `NOT_VERIFIED`。
-- **P1 基礎設施 live PASS**：[#38751648476](https://github.com/tommylin15/janus-omniforge/actions/runs/38751648476) 及 [#38752934496](https://github.com/tommylin15/janus-omniforge/actions/runs/38752934496) 均 `SUCCESS`；實測 Preview `/app/build-id.txt` 等於 285848、`preview` tag 與 0% candidate 指向同 revision；四 Jobs 均 Ready、immutable GHCR；Scheduler ENABLED `30 * * * *`。正式 canonical 仍 100% 舊版 `b1bc785906212b8d2860b1521affb83930d09f04`，本次沒有寫流量／執行 Job／改 Owner 資料。
-- **P1 尚缺的硬 gate**：切流當時需重查服務與四 Jobs baseline；authenticated Owner UI（股數、市值、當日漲跌、累計未實現與總損益）；重新計算按鈕→owner enqueue→worker terminal→ledger/checkpoint/PnL；390px／desktop 截圖及適用性能、正式 dev 流量及 rollback 讀回。缺證據就維持 `PARTIAL`，不可拿 P0 成功逕行 API 100% promotion。
-
-## 能確定的現況與限制
-
-| 項目 | 最近可追溯證據／判定 | 下一步 |
+| 工項 | 狀態 | 判定 |
 |---|---|---|
-| 全市場 | 2026-10-13 名冊 1988；Bootstrap、同日 Cached 已有 PASS 收據；不是永久固定分母 | 不重跑該歷史驗收；驗跨 UI／研究／總控剩餘範圍 |
-| 費稅／持股 | **P0 backend as-of 2026-10-14 PASS**：00697B／00719B 官方歷史日價、Owner v354，8/8 持股市值及未實現損益都有值，aggregate_status available，缺價／受影響商品 0，總計非空；#38732675488 與 #38733406224 PASS，舊失敗執行保留 FAILED | P1 前端正式持股頁／計算按鈕與新當日估值、正式流量切換另驗；不重做 88 筆費稅事件 |
-| 首頁快照 | main 已有正式 caller；057 migration 曾 PASS；最新接線的 runtime 尚待驗收 | 快照產生→API 讀回→冷暖效能 |
-| 重算／交易／四頁 | 持股 partial 小計與狀態 Flutter 已修改、完整 Flutter Gate PASS；交易試算與重算舊契約已具實作，**新版本 Owner 交易/重算及四頁 authenticated screenshot 未驗** | 覆蓋同源真實功能、VF-00～08、390px/desktop與可及性 |
-| 備份總控 | **D04 PASS**：[安裝 #38991083134](https://github.com/tommylin15/janus-omniforge/actions/runs/38991083134)、[交接 #38991644822](https://github.com/tommylin15/janus-omniforge/actions/runs/38991644822)；新 executor 取得 controller succeeded 收據、不可變備份 SHA256、隔離 DB restore、owner boundary 及原 DB 未變均通過；備份清理已移至 Batch Controller（`ledger_backup.py` cleanup_old_backups()），7 天保留政策（至少 3 個）；GitHub Actions 清理已停用；VM timer `janus-ledger-backup-executor.timer` 已恢復啟用 | — |
-| API／Preview／Jobs | 來源 `d739107` Release #38989576990、candidate #38991849862、OAuth #38991975400、Preview janus-api-00524-tot、Jobs #38992414928、**API 100% promotion [#38996111382](https://github.com/tommylin15/janus-omniforge/actions/runs/38996111382)** 全部 **SUCCESS**；Preview 四頁公開 API **PASS**；**D01–D05 合併驗收 PASS** | 後續 DRL-01 資料修復與 D07/D08 |
-| ADMIN-V2 | **PASS（2026-10-19 完成）**：四頁 shell、Controller 營運整合、資料品質、營運治理、使用分析（A4-U）全部完成；Flutter/Python tests PASS；390px/desktop 響應式驗證通過 | D07/D08 接入同一 Admin 容器 |
-| Iceberg／D06 | 2026-10-16 基線 8,343 objects／194,161,764 bytes、8,336 小檔；CI orphan 清理 #38879585601 **PASS**，實刪 477 objects / 2,039,377 bytes。無產品使用者的稽核鏡像停用來源 740e54c2 完整 Release #38873919415 PASS | 完成同源 Jobs rollout／生效讀回；量測 I/O 減量。詳見 [D06證據](archive/d06-finops-2026-10-16.md) |
-| Retention fence | 96 Research／495 Private JSON 已完整讀取，8 Core identities皆有manifest；外部／PG全面 fence 未發行 | 使用者明確例外允許保留已知引用、current/named/24h及7日檔齡後清無關聯小檔；不豁免 canonical rows／Core manifest retirement |
-| 五角色／CEO | B0～B8 歷史 CLOSED；B9 品質未整體通過；omniAgent P0-V 技術 PASS，正式 Owner publication 未通過 | 產品交付後逐角色評估，再驗真實報告 |
+| **D07-PRE** | **DESIGN_DECIDED／PARTIAL** | Colab-only 資料整理/訓練目標已定案；24月合格樣本、Colab 實跑/回傳、source training-use、成本、月度人工/自動化尚未整體實證 |
+| **D07** | **PLANNED** | B5/B6 fixed source 與 B7 原 Mart 月度歷史能力有 PASS；B9 ML 優勢、Colab 訓練遷移及五角色正式 OOS 未驗收 |
+| **D08** | **PLANNED** | P0-V Gateway 先前技術鏈測過，但 Janus 有效 Fact Pack、Owner authenticated 報告／publication 仍未驗收 |
 
-## 本輪直接觀測與阻塞（非永久 runtime 快照）
-
-- [新版本 full Release #38695837708](https://github.com/tommylin15/janus-omniforge/actions/runs/38695837708) 來源 `079cca4f…` 四公開 GHCR、Python/PostgreSQL、Flutter PASS；[#38710296292](https://github.com/tommylin15/janus-omniforge/actions/runs/38710296292) API 0% 與 [#38710582355](https://github.com/tommylin15/janus-omniforge/actions/runs/38710582355) auto OAuth boundary、[#38711150682](https://github.com/tommylin15/janus-omniforge/actions/runs/38711150682) 固定 Preview SUCCESS；Jobs 仍在較舊 SHA，不能做同源正式切流。
-- [部署鎖安全恢復 #38709075307](https://github.com/tommylin15/janus-omniforge/actions/runs/38709075307) SUCCESS，原有 GitHub lease ref 已不存在。D04 [唯讀 #38710741325](https://github.com/tommylin15/janus-omniforge/actions/runs/38710741325) 確認唯一 Scheduler 與 3 份 GCS 備份，但 CI VM describe 缺權限；[#38692040229](https://github.com/tommylin15/janus-omniforge/actions/runs/38692040229) install 仍 FAILED，未停原 timer。
-- [TPEx 官方來源 #38694634095](https://github.com/tommylin15/janus-omniforge/actions/runs/38694634095) GitHub runner 讀到 00697B、OpenAPI 12,466 rows、正確 2026-10-14 日期；[live readonly #38710480798](https://github.com/tommylin15/janus-omniforge/actions/runs/38710480798) 與 [日志 readback #38711328741](https://github.com/tommylin15/janus-omniforge/actions/runs/38711328741) 則確認 Cloud Run 官方 fetch JSONDecodeError，且 Core valuation 10/14 / saved quote 10/15 不符 PIT。Owner Mart [#38695729369](https://github.com/tommylin15/janus-omniforge/actions/runs/38695729369) `held_etf_official_eod_missing` FAILED，無法宣稱 PnL PASS；本輪均未重送 owner ledger events。
-- 舊 D06 [四 Jobs rollout #38686125420](https://github.com/tommylin15/janus-omniforge/actions/runs/38686125420) 現已查到 `completed/success`，但 [audit-cleanup #38686337134](https://github.com/tommylin15/janus-omniforge/actions/runs/38686337134) 為 `completed/failure`，不因 container／rollout 成功就稱 cleanup PASS。D06 後續已由使用者獨立授權續做；最新實清及停用鏡像進度見 [D06證據](archive/d06-finops-2026-10-16.md)，不挪用 D01～D05 授權。
-- 本輪尚無 authenticated 手機冷暖 P95／四張真實截圖或完整 Owner 試算/保存/重算 terminal/checkpoint 新版驗收；不以 GitHub mock、公開 API 或上版 build 替代。
-
-- [公開效能 #38695300866](https://github.com/tommylin15/janus-omniforge/actions/runs/38695300866) 固定 Preview 先前來源 536598 30/30 公開 API，P50 47.43ms／P95 51.42ms；[圖表 #38696030009](https://github.com/tommylin15/janus-omniforge/actions/runs/38696030009) 18 指標有 16 available、2 EPS missing。不可外推為新版 079cca authenticated UI 或手機冷暖 P95。
-- GCP_MCP Google OAuth `redirect_uri_mismatch` 屬連接器授權，工程改以已驗證 GitHub Actions → GCP WIF 執行，不調整 Janus OAuth Client 或任意擴 IAM。
-
-## 文件整理結果與下一入口
-
-- [盤點／風險與修正](documentation-review-2026-10-15.md)：文件與程式差異、範圍及驗證。
-- [系統建置與驗收補強](spec/system-development-contract.md)：UI、持股操作、模型驗證及 FinOps 的工程契約。
-- 未完成工作只在 [TODO](todo.md) 排隊；本頁不維護第二份 checkbox。
-- 舊逐次狀態完整保留於 [整編前快照](archive/documentation-baseline-2026-10-15-status.md)，不得用其中過期 PAUSED／IN_PROGRESS 覆蓋本頁。
+**唯一順序：[D07-PRE → D07 → D08](todo.md)**。自然 Ledger、FINOPS 真實刪除數與 Pilot 是非阻擋觀察，不在此頁重建工作清單。重大風險／選項集中 [管理文件](project-management.md)。本次文件整理**未**重新驗收 GCP、Colab、資料樣本或現有部署。
