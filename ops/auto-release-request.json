@@ -2,21 +2,19 @@
   "intent": "automated-full-release",
   "approved": true,
   "release_type": "full",
-  "skip_api_promote": false,
-  "reason": "DRL-01A-D official 5Y valuation profile, schema 063 PASS and tested Flutter/serving; reversible dev rollout",
+  "skip_api_promote": true,
+  "reason": "STAGE-48H: ship 48-hour Stage TTL and daily stage-only controller via gated dev Jobs rollout; preserve canonical API traffic",
   "notes": {
     "scope": "existing-dev",
-    "migration": "063_stock_valuation_five_year",
-    "live_accepted_migration_run": 39029732124,
-    "source_focus": [
-      "1513",
-      "2327",
-      "2382",
-      "3231",
-      "3711",
-      "5876"
-    ],
     "no_owner_mutation": true,
-    "no_paid_resource": true
+    "no_paid_resource": true,
+    "no_new_scheduler": true,
+    "stage_bucket_only": "gen-lang-client-0593591102-dev-stage",
+    "preserve_weekly_iceberg_maintenance": true,
+    "expected_worker": "janus-ingestion-core",
+    "expected_controller": "janus-batch-controller",
+    "approved_stage_ttl_hours": 48,
+    "acceptance": "full tests, GHCR digest, current config rollback, 4-job canary, controller schedule and Stage-only safe runtime readback",
+    "no_api_traffic_promotion": true
   }
 }
