@@ -200,6 +200,42 @@ jobs:
               out['execution_fence'] = 'ALL_TERMINAL'
           except (ValueError, RuntimeError):
               out['execution_fence'] = 'BLOCKED_OR_ACTIVE'
+          # Metadata-only diagnosis of the existing four Jobs, never an
+          # execution dispatch, cancellation or Scheduler state mutation.
+          out['execution_diagnostic'] = {}
+          from urllib.parse import quote
+          for name, _ in r.JOB_COMPONENT:
+              path = f"{r.ROOT}/jobs/{name}/executions?pageSize=100"
+              seen, pages, counts, samples = set(), 0, 0, []
+              while path and pages < 15:
+                  data = r.cloud(path)
+                  pages += 1
+                  for execution in data.get('executions', []):
+                      if not r.terminal(execution):
+                          counts += 1
+                          if len(samples) < 10:
+                              conditions = [c for c in execution.get('conditions', [])
+                                            if c.get('type') == 'Completed']
+                              samples.append({
+                                  'execution': execution.get('name', '').rsplit('/', 1)[-1][:100],
+                                  'created_utc': execution.get('createTime'),
+                                  'running_count': execution.get('runningCount', 0),
+                                  'reconciling': execution.get('reconciling', False),
+                                  'completed_condition': conditions[0].get('state') if len(conditions) == 1 else 'MISSING_OR_AMBIGUOUS'
+                              })
+                  token = data.get('nextPageToken')
+                  if token in seen:
+                      raise RuntimeError('read_only_diagnostic_pagination_loop')
+                  if token:
+                      seen.add(token)
+                  path = (f"{r.ROOT}/jobs/{name}/executions?pageSize=100&pageToken={quote(token, safe='')}"
+                          if token else None)
+              out['execution_diagnostic'][name] = {
+                  'nonterminal_count_observed': counts,
+                  'pagination_complete': path is None,
+                  'pages': pages,
+                  'sample': samples
+              }
           print(json.dumps(out, sort_keys=True))
           PY
 
