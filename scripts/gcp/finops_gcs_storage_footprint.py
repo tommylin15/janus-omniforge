@@ -334,7 +334,15 @@ def main() -> int:
                                      "status": x["status"],
                                      "current_bytes": (x["current"] or {}).get("bytes"),
                                      "noncurrent_bytes": (x["noncurrent"] or {}).get("bytes"),
-                                     "soft_deleted_bytes": (x["soft_deleted"] or {}).get("bytes")}
+                                     "soft_deleted_bytes": (x["soft_deleted"] or {}).get("bytes"),
+                                     "current_objects": (x["current"] or {}).get("objects"),
+                                     "age_7d": ((x["current"] or {}).get("older_than_7d_metadata_only")
+                                                if x["role"] == "stage" else None),
+                                     "stage_categories": ((x["current"] or {}).get("by_category")
+                                                          if x["role"] == "stage" else None),
+                                     "potential_same_hash_extra_bytes": ((x["current"] or {}).get("possible_same_hash_extra_bytes")
+                                                                         if x["role"] == "stage" else None),
+                                     "soft_delete_retention_seconds": x.get("soft_delete_retention_seconds")}
                                     for x in result.get("buckets", [])]}, sort_keys=True))
     return 0 if result["status"] == "OBSERVED_COMPLETE" else 2
 
