@@ -1,13 +1,15 @@
+> **封存歷史文件｜不得作為現行 TODO／排程／部署指令。** 最新工作看 [TODO](../todo.md)、[管理入口](../project-management.md)。
+
 # 批次、即時路徑及快照盤點
 
-> **此文件是 2026-10-13～15 歷史截面，不是現役 Schedule／Job 操作契約。** 下方保留當時「每日23:30」、研究 workflow、尚未完成任務和全市場工程判定供稽核，不能逆轉 2026-10-18 **current-only snapshot／每週六23:30週維護** 和 2026-10-19 的背景持股/關注股補收。現在依 [資料治理總入口](spec/data-governance.md)、[總控 Runbook](runbook-batch-controller-dev.md)、[補資料 Runbook](runbook-data-supplement.md) 及 `batch_controller.py::effective_batches()` 判斷。沒有新的 GCP 實機讀回時，不能宣稱歷史盤點列的 Cron 就是現在的 runtime。
+> **此文件是 2026-10-13～15 歷史截面，不是現役 Schedule／Job 操作契約。** 下方保留當時「每日23:30」、研究 workflow、尚未完成任務和全市場工程判定供稽核，不能逆轉 2026-10-18 **current-only snapshot／每週六23:30週維護** 和 2026-10-19 的背景持股/關注股補收。現在依 [資料治理總入口](../spec/data-governance.md)、[總控 Runbook](../runbook-batch-controller-dev.md)、[補資料 Runbook](../runbook-data-supplement.md) 及 `batch_controller.py::effective_batches()` 判斷。沒有新的 GCP 實機讀回時，不能宣稱歷史盤點列的 Cron 就是現在的 runtime。
 
 
 **2026-10-14 新 coverage 決策：**本清冊執行目標中的舊統一 10% 門檻改為「TWSE ≤10%、TPEx ≤30%」，均含邊界，仍分市場、資料集、期間固定分母驗證；歷史記錄及已失敗的 bootstrap 不追溯改寫。部署／批次暫停狀態不變。
 
 **最新執行狀態：**使用者已恢復 P0-1 至 P1-2 合併開發；下方「只更新文件停止」為前次盤點邊界，不再是開發禁令。新版程式／migration 未通過整合驗收前維持 PARTIAL。
 
-盤點：2026-10-13；本輪依使用者要求 **只更新文件後停止**。下列「目標」尚未實作／切換。以 [全市場與總控契約](spec/full-market-batch-policy.md) 為後續開發依據。
+盤點：2026-10-13；本輪依使用者要求 **只更新文件後停止**。下列「目標」尚未實作／切換。以 [全市場與總控契約](../spec/full-market-batch-policy.md) 為後續開發依據。
 
 
 > **2026-10-15 Iceberg FinOps 獨立維護補充（不改本文件 10/13 盤點基線）**：預定在既有 23:30 邏輯時段新增 `iceberg-compaction`，以 `janus-ingestion-core` 的 `compact-apply` 模式合併有效 Parquet，並將夜間依賴改為 ingestion → compaction → mart-cleanup → core-cleanup。排程仍只有既有每小時 :30 GCP Scheduler；實際後兩項可能跨小時。此為獨立 [FinOps Issue #2](https://github.com/tommylin15/janus-omniforge/issues/2) 工程變更，不改產品進度；未經最新 GCP deployment／readback 不能稱已啟用。GitHub 執行業務維護入口遷出，保留純 CI 測試。

@@ -1,6 +1,8 @@
+> **封存歷史文件｜不得作為現行 TODO／排程／部署指令。** 最新工作看 [TODO](../todo.md)、[管理入口](../project-management.md)。
+
 # 2026-10-03 Admin UI 範圍與資料治理呈現決策
 
-> **歷史決策（導覽部分已被取代）**：2026-10-17 使用者改採 [Admin v2 四頁架構](decision-2026-10-17-admin-v2.md)。下文六主頁、保留獨立「個股／市場資訊／AI 分析」僅保存當時決策背景，不得作為新程式的 active UI 任務；安全／retention／owner 隔離／audit 等未衝突原則仍適用。Active TODO／WBS／UI 以更新後文件為準。
+> **歷史決策（導覽部分已被取代）**：2026-10-17 使用者改採 [Admin v2 四頁架構](../decision-2026-10-17-admin-v2.md)。下文六主頁、保留獨立「個股／市場資訊／AI 分析」僅保存當時決策背景，不得作為新程式的 active UI 任務；安全／retention／owner 隔離／audit 等未衝突原則仍適用。Active TODO／WBS／UI 以更新後文件為準。
 
 ## 決策
 

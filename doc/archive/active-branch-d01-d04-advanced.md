@@ -1,8 +1,10 @@
+> **封存歷史文件｜不得作為現行 TODO／排程／部署指令。** 最新工作看 [TODO](../todo.md)、[管理入口](../project-management.md)。
+
 # D01/D02/D03/D04 進階驗收整合支線
 
 建立：2026-10-17。本文件追蹤四項進階待辦的整合開發與驗收進度，方便新 chat 接續作業。
 
-> **本文件是執行追蹤，不是第二份 TODO。** 唯一狀態以 [TODO](todo.md) 為準；完成後將證據移入 [operations](spec/operations-and-testing.md) 並更新 [status](status.md)。
+> **本文件是執行追蹤，不是第二份 TODO。** 唯一狀態以 [TODO](../todo.md) 為準；完成後將證據移入 [operations](../spec/operations-and-testing.md) 並更新 [status](../status.md)。
 
 ## 整合範圍
 
@@ -15,12 +17,12 @@
 
 ## 執行原則
 
-依 [PROJECT_RULES](PROJECT_RULES.md) §4：
+依 [PROJECT_RULES](../PROJECT_RULES.md) §4：
 - 合併同來源、共用整合路徑或可一起驗收的工作
 - 不在內部 checkpoint 反覆停等
 - 外部安全／授權 blocker 保持 BLOCKED 並記錄
 
-依 [codex-execution-plan](codex-execution-plan.md)：
+依 [codex-execution-plan](../codex-execution-plan.md)：
 - D01～D05 既有授權及成功證據保留，不重做
 - 共用 authenticated 路徑一起驗收
 
@@ -186,4 +188,4 @@
 | 正式 API | `d739107aa26ae4641d6f3e1b9c80f2e9aa1a57b6` |
 | API Revision | `janus-api-00524-tot` |
 
-**接續作業時**：先讀本文件確認進度，再讀 [TODO](todo.md) 確認授權，最後依各 Phase 狀態繼續執行。
+**接續作業時**：先讀本文件確認進度，再讀 [TODO](../todo.md) 確認授權，最後依各 Phase 狀態繼續執行。

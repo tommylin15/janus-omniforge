@@ -1,3 +1,5 @@
+> **封存歷史文件｜不得作為現行 TODO／排程／部署指令。** 最新工作看 [TODO](../todo.md)、[管理入口](../project-management.md)。
+
 # 文件盤點與改進結果
 
 日期：2026-10-13。範圍：repository README 與 `doc/` Markdown 的文件入口、路徑、角色及優先序檢索；深入核對持股／報價／交易／UI／模型／WBS／AI 指示。歷史 archive 只保留追溯，不逐筆重新驗證 runtime；未讀取外部 Drive 版本。這是文件審查，不是全庫程式稽核或 live 驗收。
@@ -19,10 +21,10 @@
 
 ## 文件責任與接手入口
 
-- [持股優先契約](spec/holdings-first.md)：功能、資料、交易損益、速度目標及模型報告 gate。
-- [四頁 UI](ui/visual-first-four-pages.md)：頁面順序、簡圖選型、外部官方參考與閱讀規範。
-- [AI 作業指示](codex-execution-plan.md)：可直接貼用的後續開發 prompt、程式入口、順序與驗收方式。
-- [TODO](todo.md)：唯一 active queue；[status](status.md)：實際進度。舊 WBS ID 保留，不另建平行待辦系統。
+- [持股優先契約](../spec/holdings-first.md)：功能、資料、交易損益、速度目標及模型報告 gate。
+- [四頁 UI](../ui/visual-first-four-pages.md)：頁面順序、簡圖選型、外部官方參考與閱讀規範。
+- [AI 作業指示](../codex-execution-plan.md)：可直接貼用的後續開發 prompt、程式入口、順序與驗收方式。
+- [TODO](../todo.md)：唯一 active queue；[status](../status.md)：實際進度。舊 WBS ID 保留，不另建平行待辦系統。
 
 ## 驗證與限制
 

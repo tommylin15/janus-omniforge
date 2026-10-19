@@ -1,3 +1,5 @@
+> **封存歷史文件｜不得作為現行 TODO／排程／部署指令。** 最新工作看 [TODO](../todo.md)、[管理入口](../project-management.md)。
+
 # 2026-10-15 文件盤點、風險與修正
 
 基準main：`301e7f7229458e2d1f26818a66b90d0a464fc68f`。範圍：根入口、PROJECT_RULES、TODO／status／WBS／SPEC／UI／runbook的跨文件搜尋，直接相關API／Flutter／ingestion／研究／retention／workflow入口抽查，以及四張PNG實際檢視。**不是逐行全程式安全稽核，也未重新驗收所有runtime。**只修改Markdown；不改程式／migration／workflow／ops請求或PNG，不部署／訓練／刪業務資料。
@@ -34,7 +36,7 @@
 
 ## 系統補強規劃
 
-採既有系統漸進改善，未引入新基礎設施。完整兩方案比較、UI與資料契約、逐角色模型評估、成本／安全及工程入口見 [系統建置補強](spec/system-development-contract.md)。重點是持股可用與低延遲、通用圖表先行、前瞻資料與公平OOS、引用保護及可量測I/O。新唯讀情境影響構想放Parking Lot，不塞進目前發布gate。VF-09模型狀態視覺化仍後置D07，不阻塞D03的VF-00～08。
+採既有系統漸進改善，未引入新基礎設施。完整兩方案比較、UI與資料契約、逐角色模型評估、成本／安全及工程入口見 [系統建置補強](../spec/system-development-contract.md)。重點是持股可用與低延遲、通用圖表先行、前瞻資料與公平OOS、引用保護及可量測I/O。新唯讀情境影響構想放Parking Lot，不塞進目前發布gate。VF-09模型狀態視覺化仍後置D07，不阻塞D03的VF-00～08。
 
 外部參考採W3C、scikit-learn、Apache Iceberg官方文件；來源連結與本案推論分開記於補強契約。沒有引用外國稅制、沒有承諾獲利／模型優勢或I/O節省率。
 

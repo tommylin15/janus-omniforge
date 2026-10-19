@@ -1,6 +1,8 @@
+> **封存歷史文件｜不得作為現行 TODO／排程／部署指令。** 最新工作看 [TODO](../todo.md)、[管理入口](../project-management.md)。
+
 # 補資料第一版 S0 evidence／決策入口
 
-歷史 checkpoint：2026-10-02。本文保留當時 S0 查核與決策；目前完成判定見 [2026-10-03 結案證據](archive/wbs-3-data-supplement-v1-completed-2026-10-03.md)。
+歷史 checkpoint：2026-10-02。本文保留當時 S0 查核與決策；目前完成判定見 [2026-10-03 結案證據](wbs-3-data-supplement-v1-completed-2026-10-03.md)。
 
 以下「尚未接線／部署／驗收」等敘述均為 2026-10-02 當時狀態，已由結案證據取代；不得作為目前 blocker 或 active 指令。當時使用者指定優先執行補資料，Provider WBS 保持 partial。
 
@@ -12,7 +14,7 @@
 - Core snapshot `sha256:dbac33d5af89ba57047ee499fbe9800dd2906d08c5b2662f2080522f8f3b44e5`。
 - 唯讀 GCS input／manifest readback 成功；manifest 包含九張 Core tables。
 - 四個 input symbols：`1102,2327,2330,4958`；這不等於目前全部 active AI targets。
-- 原五角色 hash 相符證據見 [Provider checkpoint](archive/wbs-5-mart-ai-providers-checkpoint-2026-10-02.md)。
+- 原五角色 hash 相符證據見 [Provider checkpoint](wbs-5-mart-ai-providers-checkpoint-2026-10-02.md)。
 
 ## 已查證的程式路徑
 
@@ -44,7 +46,7 @@ FinMind 現行 fallback 僅 `TaiwanStockFinancialStatements`、window 400 日、
 
 ## 可重跑 dev 檢查
 
-[`ops/data-supplement-s0-probe.py`](../ops/data-supplement-s0-probe.py) 使用正式 catalog／pinned snapshot，檢查 input 四 symbols 的 raw／qualified periods、metrics、日期與 provenance 欄位；驗證 input／manifest hashes，不呼叫模型、不寫 publication。
+[`ops/data-supplement-s0-probe.py`](../../ops/data-supplement-s0-probe.py) 使用正式 catalog／pinned snapshot，檢查 input 四 symbols 的 raw／qualified periods、metrics、日期與 provenance 欄位；驗證 input／manifest hashes，不呼叫模型、不寫 publication。
 
 2026-10-02 dev Job execution `janus-intelligence-mart-t9zd5` Completed=True、succeededCount=1、exit(0)。結果見 `ops/data-supplement-s0-runtime.json`；provider_calls=0、publication_writes=0。四個 targets 原始財報都有 2025Q1～2026Q2，但 qualified period 都只有 2026Q2；2327 有 628 筆因 missing_availability_time 被排除。OHLCV qualified rows 分別為 16／21／17／21。部分 machine-readable matrix 見 `ops/data-supplement-s0-gap-matrix.json`，尚非完整 S0 acceptance。
 
