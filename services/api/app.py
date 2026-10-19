@@ -1485,6 +1485,21 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def admin_data_governance():
         return jsonable_encoder(admin_service.data_governance())
 
+    @admin.post("/gcs-storage/inspect")
+    async def admin_gcs_storage_inspect(response: Response):
+        """Explicit Admin-only metadata scan, no object reads or deletions."""
+        import asyncio
+        from packages.admin_api.gcs_inventory import scan_allowlisted_buckets
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            result = await asyncio.wait_for(asyncio.to_thread(scan_allowlisted_buckets), timeout=80)
+        except TimeoutError:
+            raise HTTPException(status_code=504, detail="GCS metadata scan timed out")
+        except Exception as exc:
+            LOGGER.warning("admin GCS metadata scan unavailable: %s", type(exc).__name__)
+            raise HTTPException(status_code=503, detail="GCS metadata scan unavailable") from None
+        return jsonable_encoder(result)
+
     @admin.get('/operational-summary')
     def operational_summary():
         result = admin_service.operational_summary()
