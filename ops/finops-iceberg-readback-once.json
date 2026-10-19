@@ -3,6 +3,6 @@
   "no_gcp_mutation": true,
   "project": "gen-lang-client-0593591102",
   "region": "us-central1",
-  "scope": "STAGE-48H before deployment: read exact existing dev four Jobs image/config hashes, Scheduler state and running execution fence; read-only and no mutation",
-  "attempt": 10
+  "scope": "STAGE-48H read-only mid-rollout recovery diagnostics: compare existing dev four Cloud Run Jobs image/config with prior #39272561307 and Scheduler state/execution fence; do not change runtime or lease",
+  "attempt": 11
 }
