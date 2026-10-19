@@ -226,6 +226,39 @@ def test_core_routes_require_admin_audience_and_preserve_legacy_contract():
     assert page.json()=={"dataset_id":"ohlcv","symbol":"2330","rows":[],"limit":10,"offset":2}
 
 
+
+def test_admin_gcs_inventory_requires_admin_and_is_read_only(monkeypatch):
+    import packages.admin_api.gcs_inventory as gcs
+    calls = []
+    def scan():
+        calls.append("metadata_only")
+        return {"status": "KNOWN_BUCKETS_COMPLETE",
+                "buckets": [{"role": "stage", "current_bytes": 123}],
+                "totals": {"current_bytes": 123}}
+    monkeypatch.setattr(gcs, "scan_allowlisted_buckets", scan)
+    api, _, _ = client()
+    url = "/api/v1/admin/gcs-storage/inspect"
+    assert api.post(url, json={}).status_code == 401
+    assert api.post(url, json={}, headers=auth()).status_code == 401
+    assert api.post(url, json={}, headers={"Authorization": "Bearer other-admin-token"}).status_code == 403
+    assert calls == []
+    ok = api.post(url, json={}, headers=admin_auth())
+    assert ok.status_code == 200 and ok.json()["totals"]["current_bytes"] == 123
+    assert ok.headers["Cache-Control"] == "no-store"
+    assert calls == ["metadata_only"]
+
+
+def test_admin_gcs_inventory_errors_are_redacted(monkeypatch):
+    import packages.admin_api.gcs_inventory as gcs
+    def deny():
+        raise PermissionError("secret-account-token-do-not-leak")
+    monkeypatch.setattr(gcs, "scan_allowlisted_buckets", deny)
+    api, _, _ = client()
+    response = api.post("/api/v1/admin/gcs-storage/inspect", json={}, headers=admin_auth())
+    assert response.status_code == 503
+    assert "secret-account-token" not in response.text
+
+
 def test_oidc_rejects_admin_audience_expiry_and_untrusted_issuer():
     for changed in ({"aud":"admin-client"},{"exp":1},{"iss":"https://attacker.example"}):
         claims={"iss":"https://accounts.google.com","aud":"user-client","sub":"google-a","email":"a@example.com","email_verified":True,"exp":1_900_000_000,**changed}
