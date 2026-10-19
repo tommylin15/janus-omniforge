@@ -42,7 +42,7 @@
 
 | 類別 | 到期候選 | 主要 guard |
 |---|---|---|
-| Stage raw/quarantine | 7天 | Active execution 及其共用原料保護 |
+| Stage raw/quarantine | **2天（48小時）** | Active execution 及其共用原料保護 |
 | Core 一般 rows | 365天 | 來源、date/period、缺值語意；不是全市場已有兩年 |
 | Core Deep `ohlcv`／`valuation`、benchmark | 1,096天 | 限符合 Deep/Benchmark 條件之 rows |
 | Core 財報 | 最近12季 | symbol/statement/source/版本口徑 |
