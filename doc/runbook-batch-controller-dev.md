@@ -1,42 +1,22 @@
-# Dev 批次總控
+# Dev 批次總控與週維護 Runbook
 
-> 2026-10-18 使用者最新決策：Core／Mart每表只留current snapshot；其餘歷史snapshot／舊named refs可移除，不再用研究／模型／報告引用或external fence阻擋。7日orphan／generation／現役writer與current資料驗證維持。下文較早的歷史引用保護指示由 [新決策](decision-2026-10-18-current-only-snapshots.md)／[PROJECT_RULES §1.6](PROJECT_RULES.md)取代，部署及實刪仍需真實驗收。
+更新：2026-10-19。本檔是可重跑操作程序；[資料治理統一入口](spec/data-governance.md) 保存**唯一人讀排程／任務表**。實際程式權威為 `jobs/ingestion-core/ingestion_core/batch_controller.py::BATCHES/effective_batches()`；完成與已部署配置依真實 Cloud Scheduler、Jobs、occurrence/執行收據。舊 [2026-10-13 盤點](batch-inventory-2026-10-13.md) 是歷史證據，不能當現役 Cron。
 
-## 契約
+## 唯一排程責任與週維護
 
-現況 Cloud Scheduler 每小時 :30 喚醒 Cloud Run 總控；是否縮短需先量測 dispatch lag。所有業務定時工作以此總控為唯一入口，GitHub Actions 只保留備份清理 schedule。總控不等待子批次、不取消既有 execution。批次自身保留每日、每日多次或限定星期的排程，喚醒頻率不等於批次執行頻率。時區為 Asia/Taipei。
+- Cloud Scheduler 唯一業務定時入口目標 `janus-batch-controller:run`，既有 `30 * * * *`、`Asia/Taipei`。GitHub Actions 只保留備份清理的定時工作；其它 workflow_dispatch、CI、Release、診斷不是第二套業務 Cron。due 時段**不是** worker 真正啟動時間，每小時喚醒**不是**每小時重跑全業務。
+- 日常 `ingestion` 07:30/14:30、`data-supplement` 08:30（依 07:30）、週一～五 `mart` 09:00、`market-screening` 16:30；每週六 `data-quality` 12:30；每月**第一個週六** `specialist-retrain` 10:30；`private`、`mobile-ledger`、`ledger-backup` 的具體 due 和依賴見 [總入口 §3](spec/data-governance.md)。新持股／關注股 demand 補收共用既有 ingestion Job，沒有新建第二個 Scheduler。
+- `FINOPS_WEEKLY_MAINTENANCE=true` 時 `effective_batches()` 僅把三個維護操作改為**週六23:30 due**，依賴是 `iceberg-compaction → mart-cleanup → core-cleanup`；busy/lease、unique occurrence 和每小時 tick 可能使後續 Job 跨日。false 是 legacy daily branch，**不是**最新核准的週維護節奏。FINOPS-AB 2026-10-18 的既有收據記錄週維護開啟，但本次未重新查驗 current env 與自然 execution，不冒稱新的 live PASS。
+- `control.batch_occurrences` 先保留決策及 dispatch intent，再向 Cloud Run 派送；advisory lock `(1835102836,3)` 及 worker busy fence 保證單一控制面。Cloud Run dispatch ambiguous、unknown、active 不能取消後盲目再派，先讀 job/execution terminal 與 durable status。
+- **current-only Iceberg**：依 [Retention SPEC](spec/retention-governance.md) 和 [10/18 決策](decision-2026-10-18-current-only-snapshots.md)，非 current Iceberg snapshot 不再要求 named/24h/外部研究引用 fence。舊 `CORE_RETENTION_FENCE_URI` 完整研究清冊不是非current過期 gate；但必須保護 current files、7日 orphan 年齡、generation、catalog pointer、lock／dev allowlist，逐項讀回。Private Owner 不在公開資料清理範圍。
 
-`ingestion` 由同一總控在 07:30 與 14:30 產生 occurrence；14:30 不建立第二支 Scheduler／Job，而是對既有 `janus-ingestion-core` 做 execution-level override，將 `INGESTION_DATE` 固定為該台北日期，且只收斂盤後價格／指數所需的 `twse-market-volume,tpex-market-volume,taiex`（TPEx 新需求，實際映像尚須驗證）。全上市櫃個股皆納入，首頁仍只用 TAIEX benchmark。07:30 維持原本完整 ingestion 契約。21:30 Private Pipeline 與晚間 retention 依賴同日最新的 14:30 ingestion occurrence。
+## 操作／失敗恢復與驗收
 
-> **2026-10-18 FINOPS-AB＋D06 整合指令（尚未實際切換）**：使用者核准將 Iceberg Compaction → Mart Cleanup → Core Cleanup 收斂為每週六 23:30 的週維護鏈，優先執行 A+B（[FINOPS AI 指令](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)）。**以下 2026-10-15「每日」敘述仍忠實記錄當前 main 的實作／歷史目標，非新核准的最終節奏。** 若尚未完成 weekly controller code、依賴/fence tests、GHCR Jobs rollout 與 GCP occurrence readback，顯示 `PENDING_CUTOVER`，不得宣稱週批生效；週六不是交易日，依賴需先改為可證明最近成功 EOD Core Snapshot。新週批生效後應更新本章為實際最新版，並把舊每日描述移到 archive。
-
-**2026-10-18 程式落地（仍未切換 live）：** `effective_batches()` 在 `FINOPS_WEEKLY_MAINTENANCE=true` 時才改為週六 23:30；預設 `false` 仍保留舊每日行為。週六 compaction 不再硬等同日（非交易日）14:30 ingestion，而是在派送前以 bounded PostgreSQL `control.batch_occurrences` 成功 EOD 與同日期 `control.core_ready_events` 的 immutable Core SnapshotId/URI 雙證據判定；欠缺則停在 pending。Mart/Core Cleanup 仍按 occurrence 依序等待前者終態，跨週日延用同一已建 occurrence。此階段僅 `main` code＋CI PASS，**未設 dev Job 環境、未啟用旗標、未驗 live Scheduler/dispatch**；任何人不得憑此段假定週批已生效。核心 Snapshot URI 尚需正式 Worker／GCS 讀回，以及 D06 完整 retention fence，才能啟用清理 Apply；不可擅自修改 DRL-01／Admin v2 在途的 Jobs image/lease。
-\n### 23:30 夜間 Iceberg 壓縮（獨立 FinOps 事件）
-
-2026-10-15 起的目標程式契約：每日 **23:30 Asia/Taipei** 由既有每小時 `:30` 喚醒的 `janus-batch-controller` 建立 `iceberg-compaction/YYYY-MM-DD/23` occurrence；沿用**現有** `janus-ingestion-core` Cloud Run Job，以 execution-level overrides 執行 `ICEBERG_MAINTENANCE_MODE=compact-nightly`（同次 execution 先執行 `compact-dry-run`、通過後再 `compact-apply`，並受控合併先前被遺漏的 `ops.batch_events_v1` 稽核事件表），不增開 Cloud Scheduler／Job，也不依賴 GitHub Actions 執行業務。
-
-相依順序改為：**14:30 ingestion 成功 → iceberg-compaction → mart-cleanup → core-cleanup**。三項夜間工作維持同一個 23:30 邏輯時段，但因總控每小時喚醒且不得併發，後兩項的實際派送可能跨到翌日 00:30／01:30 或更晚；故 23:30 表示 **due 時段，不保證每支 Job 23:30 真正啟動**。compaction 在 ingestion 尚未成功、worker 忙碌、前一輪未終態或權限/資料異常時留 pending；不跳過依賴、不盲目重試 ambiguous dispatch。這是既有資料維護路徑，不計入產品 TODO／WBS。
-
-`compact-apply` 會按月／年分區重寫可合併的有效 Parquet，驗證 row count 與舊 snapshot 可讀；**不代表同時刪除所有歷史 snapshot／孤兒檔，也不保證 GCS 課金立即下降**。既有 `core-cleanup` 的 retention 及引用保護仍獨立運作；包含稽核表 `ops.batch_events_v1` 的到期 snapshot expiration + 引用保護後的 Avro／Parquet orphan cleanup，並停止無用途的 90 日 daily snapshot 無差別保留；本次不把「刪除全部舊 snapshot」變成每日無條件執行的破壞性 cron。Release 必須遵守完整 SHA CI／GHCR Jobs rollout gate，並從 GCP readback 真實 scheduler、controller／worker image、occurrence 及 Cloud Run execution；僅 GitHub commit 不代表 schedule 已生效。
-
-GitHub 原本直派 `Maintain dev Core Iceberg` workflow、`ops/iceberg-maintenance-mode` 與 operations audit workflow 在本變更移除；保留 `iceberg-compaction-ci.yml` **純測試**。原有 GitHub run 歷史與獨立 FinOps Issue #2 保留作稽核。
-
-> **最新施工邊界：**D06 不再獨立部署或另開量測作業，尚欠 retention fence／受保護 cleanup 與 readback 由 FINOPS-AB 的週維護鏈一次完成。舊 D06 兩天／長時間 I/O 比較取消，僅允許 AB 必要的短窗有限樣本；既有 audit mirror 已停用，不重新啟動任何舊版週／每日鏡像。
-
-### Core 引用保護與獨立 Controller Audit 清理
-
-- `compact-nightly` 先寫入合併後新檔，不做全庫到期 Snapshot／Orphan 清除；驗收必須分別保存 Core GCS objects、bytes、1 MiB 以下物件數與 Cloud Monitoring `ReadObject`／`GetObjectMetadata`。
-- `audit-cleanup` 限既有 `janus-ingestion-core` Cloud Run Job 的 execution override，只處理 `ops.batch_events_v1` 稽核鏡像：使用已驗證 immutable GHCR digest、完整 execution fence 和部署佇列，執行受引用保護的 Snapshot expiration 及七日以上 orphan 刪除；維持 current event rows、PostgreSQL outbox，不變更市場／財務 Core canonical、PIT／模型／Research 或歷史 Core execution manifests。這不是一般 Core retention 的豁免。
-- 一般 `retention-apply` 在缺少 `CORE_RETENTION_FENCE_URI` 時，必須於讀取或寫入 Storage／DB 前 fail closed；`retention-dry-run` 的 planned 數值不能作為刪除證據。
-- `CORE_RETENTION_FENCE_URI` 必須指向 Core `maintenance/retention-fences/` 下當次新建 immutable 清單。Fence 一小時後過期，**不能永久固定同一 URI**：每輪清理之前須查核 PostgreSQL active／publication、Mart Specialist／ML-OOS、Research／Private 以及外部研究引用，記錄來源與 PIT，再將當次完整清單傳給 worker；任何來源未掃完、超界或資料不一致都不得發行可刪除的 fence。
-- `scripts/gcp/finops_core_reference_audit.py` 的 GitHub artifact 僅為 `PARTIAL_NOT_AUTHORIZED_FOR_DELETION` 候選引用清冊，包含 provenance／generation／SHA256；不能冒充 production 或 canonical reference registry，亦不能直接填入 `CORE_RETENTION_FENCE_URI`。沒有達 90 天且確定無研究引用的 execution manifest，不建立刪除候選。
-
-
-總控使用 PostgreSQL advisory lock `(1835102836,3)`，同時間只有一支能決策。`control.batch_occurrences` 以批次、日期、排程時段唯一識別，先提交派送意圖才呼叫 Cloud Run。執行中與派送結果不明的紀錄持續阻擋相同 Job；Cloud Run 查詢失敗不解除阻擋。結果不明須人工核對 execution，不自動重新派送。
-
-`control.batch_event_outbox` 與狀態更新同一 transaction 提交，PostgreSQL 是即時且持久的事件稽核來源。2026-10-16 使用者決策：停止額外匯出至 Iceberg `ops.batch_events_v1`；程式庫未找到產品查詢使用者，原先每日／每週頻率方案撤銷。observe、active、seed、manual 均不再開啟 Iceberg catalog 或匯出事件，回報 `exported_events=0`、`iceberg_audit_disabled=true`；事件仍保存在 PostgreSQL，`exported_at` 不再代表待執行的鏡像 SLA。既有 Iceberg 歷史表維持受引用保護的清理，本次停用不刪除整張表。減少的是鏡像專用掃描／寫入，不得把此路徑停用等同整個 Core I/O 降為零。程式契約生效仍須同源 Release、Jobs rollout 與 runtime readback。
-
-完整現況／收斂清冊見 [批次盤點](batch-inventory-2026-10-13.md)，即時與快照責任見 [新契約](spec/full-market-batch-policy.md)。備份產生 timer 及研究 Actions 的遷移未完成；不得因本文件更新宣稱已收斂。
+1. 檢查當前 GitHub 完整 SHA、controller 與 ingestion/Mart jobs immutable digest，Scheduler cron/timezone/target/state，當前 `FINOPS_WEEKLY_MAINTENANCE`、active executions、schema/migration 與共用 lease。沒有 live 權限時標 `NOT_VERIFIED`，不以 GitHub 文件取代 readback。
+2. 週維護依 **current Core 確認 → compaction → Mart retirement/retention → Core row/Stage/noncurrent snapshot/orphan cleanup → current Core/Mart readback**。所有刪除都先符合適用時限與 generation；歷史 snapshot 不因研究引用保護，但活躍 Writer/當前檔案必須安全。
+3. 必須分開記錄候選與**實際**刪除 Core、Stage、Mart 各層 `objects/bytes`、實際 row count、active bytes 前後、已保留 current 數值、錯誤與未驗證費用。Dry-run/compaction/job success 不是 GCS 計費節省證據。
+4. 補收 `daily|demand|quality`、來源治理、去識別化 demand lease、部分成功與 Ledger publication 分開驗；步驟詳見 [補資料 Runbook](runbook-data-supplement.md)。遇 source stale、Job 失敗、週批依賴未終態，維持 partial/pending 並從唯一總控復原，不透過外部 Cron 重送。
+5. 改變 Cron、worker env 或啟用 retention apply 屬工程作業，另依 [TODO](todo.md)、PROJECT_RULES、Release 與真實驗收授權；本次文件整理沒有進行上述 mutation。
 
 ## 部署與操作
 

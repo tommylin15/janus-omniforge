@@ -1,5 +1,20 @@
 # 資料補充與週六檢核操作
 
+更新：2026-10-19。正式資料治理、row retention、current-only snapshot 和排程表請先讀 [統一治理入口](spec/data-governance.md)；總控操作另見 [批次 Runbook](runbook-batch-controller-dev.md)。此檔只管理**補資料模式／來源／佇列／安全重跑與驗收**，不創建另一支 Scheduler 或第二份 TODO。第三方可直接補收的正式核准見 [PROJECT_RULES §1.7](PROJECT_RULES.md)。
+
+## 兩條資料補充機制（不要混成單一路徑）
+
+| 機制 | 執行入口 | 預期行為 |
+|---|---|---|
+| 每日增量／歷史修復 | 既有 `data_supplement.py::run_backfill`，`JANUS_DATA_SUPPLEMENT_MODE=daily|backfill|fundamental-history|valuation-history` | daily 於08:30補缺與變更；歷史 repair 按已核准股票/月份有界修復 |
+| 新增持股／關注背景需求 | `stock_supplement.py::run_pending`，`JANUS_DATA_SUPPLEMENT_MODE=demand`；08:30 daily 亦執行佇列兜底 | API 提交去識別化 symbol demand 後才背景取數，generation/lease 防舊需求重覆；部分資料 ready 不包裝全項 ready |
+| 週六品質 | `data_quality.py::run_quality`、`JANUS_DATA_SUPPLEMENT_MODE=quality` | 週六12:30獨立品質檢查與缺口分類，不是每週全市場三年盲抓 |
+
+兩條路徑**共用**來源授權、Stage raw/receipt、合法 schema、Core 版本化與 serving/API readback，但現有 `run_backfill` 的部分 TWSE/MOPS 限制**不等於** `stock_supplement` 的 TWSE/TPEx＋FinMind/Yahoo 規格。新需求的驗收請依 [目前 TODO](todo.md) 的 2026-10-19 收據；不要以舊的「六股 EPS」checkpoint 否定新背景補收工項。
+
+**補收閉環**：確定資料集/股號/合法期別及 Core 現有可用值 → 只對缺口取來源 → Stage raw/hash + source_id/URL/receipt → period/unit/adjustment/來源口徑驗證 → Core 去重/更正版次 → serving/API讀回 → Admin/Readiness 更新與失敗類別。來源未發佈、限流、新上市與ETF不適用，應列 partial/not_applicable，不補零、不把本次抓取時間寫成歷史公告時間；Job terminal success 不等於每檔資料 ready 或自然 Ledger 成功。
+
+
 本文件對應 `WBS-3-DATA-SUPPLEMENT-V1`。順序為首次回補 → 每日增量 → 週六獨立檢查。使用者採「有資料優先」：缺期與未知公告時間如實呈現；不得把本次取得時間倒填成歷史公告時間。
 
 ## 補收來源選擇（2026-10-18 最新）
@@ -51,7 +66,7 @@ Windows 的 .cmd wrapper 可能把 ^|^ 參數解讀成 shell 管線，因此上�
 
 記下回傳 execution 名稱，查此 execution 的完成狀態，不因等待較久再啟動第二個。無指定 symbols 時，採既有 ingestion 的 first-batch focus 與去識別化 portfolio coverage 股號聯集；上限 50 檔，目前回補 adapter 限已核對的 TWSE 合併財報。
 
-原始回應先 Stage，再驗證公司、期別、單位、報表口徑並寫入 Core。財報與月營收採實際 receipt availability；歷史 publication 與原始數值版次維持 unknown。相同觀測值重跑會 reuse，數值變動新增版次。不得覆寫舊 snapshot。
+原始回應先 Stage，再驗證公司、期別、單位、報表口徑並寫入 Core。財報與月營收採實際 receipt availability；歷史 publication 與原始數值版次維持 unknown。相同觀測值重跑會 reuse，數值變動新增版次。不得覆寫 immutable 原始收據或既有固定研究 artifact；Core 更新只需保證新的 current snapshot 正確可讀，**不保證**上一版 Iceberg snapshot 在 current-only 清理後仍可重播。
 
 五分析師模型補資料使用同一入口：`backfill` 同時補官方每日 PE/PB/殖利率；只補估值可設 `JANUS_DATA_SUPPLEMENT_MODE=valuation-history`，搭配 `JANUS_DATA_SUPPLEMENT_PRICE_MONTHS=36` 與已核准 Deep Coverage 股號，不重抓完整價量／財報。daily 自動核對最新估值月份，且既有財報缺 `same-filing-comparatives-v1` 時重新解析一次；這是來源／特徵版本更新，不把 receipt 倒填成歷史 availability。模型使用同份財報 EPS／母公司獲利同比，原始跨版本 EPS 口徑未知仍保留缺值。
 
@@ -72,7 +87,7 @@ Windows 的 .cmd wrapper 可能把 ^|^ 參數解讀成 shell 管線，因此上�
 
 ## 每日增量與週六檢查
 
-程式已接線，是否正式啟用以 `doc/status.md` 與最新 dev evidence 為準。總控定義在 `jobs/ingestion-core/ingestion_core/batch_controller.py` 的 `BATCHES`，沿用既有每小時 :30 總控 Scheduler，不另建 Scheduler：
+程式已接線，是否正式啟用以 [TODO](todo.md)／[status](status.md) 與最新 dev evidence 為準。總控定義在 `jobs/ingestion-core/ingestion_core/batch_controller.py` 的 `BATCHES`，沿用既有每小時 :30 總控 Scheduler，不另建 Scheduler：
 
 | 批次 | 台北時間 | 入口／依賴 |
 |---|---|---|
@@ -82,7 +97,7 @@ Windows 的 .cmd wrapper 可能把 ^|^ 參數解讀成 shell 管線，因此上�
 
 每日 `run_backfill(incremental=True)` 先讀 Core：只抓首次缺期、申報上傳時間變更、週六檢查指出的更正期別；月營收補缺期並重新核對最新已到期月份，行情依既有交易日曆檢查最近 121 個交易日，只重抓缺失日期所在月份；已由 ingestion 補齊就略過行情與 benchmark。歷史財報完整時只查最近兩年的申報索引，較舊期別僅在缺期／檢查要求修復時查詢。同值 reuse；新增／修正才送新的 Core ready/Mart 請求，沒有變動就完成檢查。財報按個股合併 Core commit，每筆仍保留各自 Stage provenance。當期尚未公告的月份不算缺期。
 
-週六 `data_quality.py::run_quality()` 獨立讀取 Core，檢查已核對的 12 季、到期的 12 月、最近一年至少 121 個價格交易日、OHLCV validator、數值格式／單位／同版次衝突／receipt；另外從官方重抓各檔最新一季財報與 12 個月營收核對。此來源重抓範圍不涵蓋全部歷史財報的每一版次，不能宣稱完整 PIT 復原。unknown publication／原始版次是已接受限制，不單獨令本次檢查失敗。
+週六 `data_quality.py::run_quality()` 獨立讀取 Core，檢查已核對的 12 季、到期的 12 月、最近一年至少 121 個價格交易日、OHLCV validator、數值格式／單位／同版次衝突／receipt；另外從官方重抓各檔最新一季財報與 12 個月營收核對。此來源重抓範圍不涵蓋全部歷史財報的每一版次，不能宣稱完整 PIT 復原；已刪的舊 snapshot 更不能當成仍可回播。unknown publication／原始版次是已接受限制，不單獨令本次檢查失敗。
 
 ## 收到 Admin 異常後如何處理
 
