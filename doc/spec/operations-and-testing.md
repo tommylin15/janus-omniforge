@@ -1,5 +1,11 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-19｜一次性 GCS 容量歸因：程式 PASS／實機 TOKEN BLOCKED
+
+- [唯一調查紀錄](../gcs-storage-footprint-audit-2026-10-19.md)；main `e00100dba56a835626e055e6f727aa8544adbd21` 新增既有 FinOps Workflow 的 metadata-only `gcs-storage-footprint` 和 Python 報表／8項測試。
+- [正式唯讀工作 #39246633901](https://github.com/tommylin15/janus-omniforge/actions/runs/39246633901)：WIF setup PASS、8/8 PASS，但 GCP Access Token `gcloud/ADC` 均 `INVALID_CREDENTIAL`，Job terminal FAILURE／no GCS LIST／no mutation。故**目前無真實2026-10-19 project 2GB current/versions/soft-delete ledger**，不得將10/18 Core 222.7MB及105.4MB候選當本次容量或節省。
+- 未改 IAM／GCS 設定、未做物件內容讀取及刪除。後續唯讀 token 修復／人工一次觸發可沿 OPS-OBS 觀察，不重開已結案 FINOPS-AB。
+
 ### 2026-10-19｜DRL-01 工程結案 PASS
 
 六股2025Q4 Yahoo EPS[補收 #39205780588](https://github.com/tommylin15/janus-omniforge/actions/runs/39205780588) PASS，execution `janus-ingestion-core-8lj4b`，6筆Core提交／6筆serving發布；正式與Preview API各6/6正確，5876桌面1440×1000／手機390×844圖表、2025Q4明細0.50及Yahoo來源讀回PASS。正式兩年PE/PB另再驗12/12 ready；Ledger落地、指定8檔120日、全市場13月營收與Market Volume既有證據沿用。

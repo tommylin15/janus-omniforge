@@ -9,7 +9,7 @@
 | **P0** | **D07-PRE：Colab 單一資料整理與模型訓練前置**（含原 FINOPS-C preflight） | **DESIGN_DECIDED / LIVE_PARTIAL**；[研究與工程流程](colab-d07-modeling-feasibility-2026-10-19.md)、[AI 指令 §4](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) |
 | **P1** | **D07：五角色 ML／OOS 品質及正式介接** | **PLANNED**、待前置評估有合格處置；[唯一 D07 卡](execution-cards/d07-specialist-b9-oos.md) |
 | **P2** | **D08：CEO、Admin 模型管理與受控 Owner 報告** | **PLANNED**、有效 Fact Pack 後；[唯一 D08 卡](execution-cards/d08-ceo-admin-owner-report.md) |
-| 非阻擋 | **OPS-OBS：自然排程／Retention 收據與 Pilot 觀察** | **OBSERVATION / NOT_VERIFIED**；既有 [Operations](spec/operations-and-testing.md)／[總控 Runbook](runbook-batch-controller-dev.md) |
+| 非阻擋 | **OPS-OBS：自然排程／Retention 收據、GCS 容量歸因與 Pilot** | **GCS live audit TOKEN_BLOCKED（10/19）；無真實2GB拆解**；[唯讀稽核](gcs-storage-footprint-audit-2026-10-19.md)／[Operations](spec/operations-and-testing.md)／[總控 Runbook](runbook-batch-controller-dev.md) |
 
 **不重開**：D01～D05 `CLOSED/USER_ACCEPTED`、DRL-01 `CLOSED`、FINOPS-AB（已含 D06）`CLOSED`、背景持股/關注股補收 `PASS`、ADMIN-V2 `PASS`。原驗收範圍與缺口不改判；完整實測收據在 [原 TODO](archive/todo-before-consolidation-2026-10-19.md)、[D01～05](archive/d01-d05-relaxed-acceptance-closure-2026-10-17.md)、[DRL](archive/drl01-completed-2026-10-19.md) 和 [Operations](spec/operations-and-testing.md)。歷史工作包的卡片留作維運參考，不能變第二套 active queue。
 
