@@ -255,7 +255,9 @@ def main() -> int:
     result.setdefault("billing_cost", None)
     OUTPUT.write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
                       encoding="utf-8")
-    print(json.dumps({"status": result["status"], "bucket_discovery": result.get("bucket_discovery"),
+    print(json.dumps({"status": result["status"], "reason": result.get("reason"),
+                      "error_type": result.get("error_type"),
+                      "bucket_discovery": result.get("bucket_discovery"),
                       "buckets_inspected": result.get("buckets_inspected"),
                       "totals_only_if_complete": result.get("totals_only_if_complete"),
                       "observed_lower_bound_bytes": result.get("observed_lower_bound_bytes"),
