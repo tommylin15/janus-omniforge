@@ -104,8 +104,62 @@ class StageWriterTests(unittest.TestCase):
             self.assertTrue(Path(directory, staged.object_name).exists())
             writer.mark_core_committed("exec-1", stage_results=(staged,))
             result = writer.cleanup_committed_execution("exec-1")
-            self.assertEqual(result, {"committed": True, "deleted": 3})
-            self.assertFalse(Path(directory, staged.object_name).exists())
+            self.assertEqual(result, {"committed": True, "deleted": 2})
+            # Execution metadata is retired; content-addressed raw may still
+            # belong to another execution and is removed by Stage 48h TTL.
+            self.assertTrue(Path(directory, staged.object_name).exists())
+            self.assertFalse(Path(directory, staged.sidecar_name).exists())
+            self.assertFalse(Path(directory, staged.manifest_name).exists())
+
+    def test_execution_scoped_payload_reuse_keeps_distinct_manifest_provenance(self):
+        payload = b'{"symbol":"2330"}'
+        with tempfile.TemporaryDirectory() as directory:
+            store = LocalObjectStore(Path(directory))
+            writer = StageWriter(store)
+            first = writer.write_raw(
+                payload=payload, media_type="application/json", extension="json",
+                execution_id="exec-a", provenance=self.provenance(payload),
+                execution_scoped=True)
+            from dataclasses import replace
+            other = replace(self.provenance(payload), provenance_id="prov-b")
+            second = writer.write_raw(
+                payload=payload, media_type="application/json", extension="json",
+                execution_id="exec-b", provenance=other, execution_scoped=True)
+            self.assertFalse(first.reused)
+            self.assertTrue(second.reused)
+            self.assertEqual(first.object_name, second.object_name)
+            self.assertTrue(first.object_name.startswith("raw/twse/ohlcv/"))
+            self.assertNotEqual(first.manifest_name, second.manifest_name)
+            self.assertNotEqual(first.sidecar_name, second.sidecar_name)
+            self.assertEqual(store.read(first.object_name), payload)
+            self.assertEqual(json.loads(store.read(first.manifest_name))["provenance"]["provenance_id"], "prov-1")
+            self.assertEqual(json.loads(store.read(second.manifest_name))["provenance"]["provenance_id"], "prov-b")
+            writer.mark_core_committed("exec-a", stage_results=(first,))
+            self.assertEqual(writer.cleanup_committed_execution("exec-a")["deleted"], 2)
+            self.assertEqual(store.read(second.object_name), payload)
+            self.assertTrue(Path(directory, second.manifest_name).exists())
+
+    def test_shared_payload_is_not_reused_for_distinct_source_or_day(self):
+        from dataclasses import replace
+        from datetime import timedelta
+        payload = b'{"symbol":"2330"}'
+        with tempfile.TemporaryDirectory() as directory:
+            writer = StageWriter(LocalObjectStore(Path(directory)))
+            base = self.provenance(payload)
+            first = writer.write_raw(payload=payload, media_type="application/json",
+                                     extension="json", execution_id="a", provenance=base,
+                                     execution_scoped=True)
+            second = writer.write_raw(payload=payload, media_type="application/json",
+                                      extension="json", execution_id="b",
+                                      provenance=replace(base, source_id="tpex"),
+                                      execution_scoped=True)
+            third = writer.write_raw(payload=payload, media_type="application/json",
+                                     extension="json", execution_id="c",
+                                     provenance=replace(base, observed_at=base.observed_at + timedelta(days=1)),
+                                     execution_scoped=True)
+            self.assertEqual(len({first.object_name, second.object_name, third.object_name}), 3)
+            self.assertFalse(second.reused)
+            self.assertFalse(third.reused)
 
     def test_failed_execution_without_commit_fence_is_preserved(self):
         payload = b'{"symbol":"2330"}'
@@ -133,7 +187,7 @@ class StageWriterTests(unittest.TestCase):
             staged = writer.write_raw(payload=payload, media_type="application/json", extension="json", execution_id=execution.execution_id, provenance=self.provenance(payload), execution_scoped=True)
             writer.mark_core_committed(execution.execution_id, stage_results=(staged,))
             candidate = control.cleanup_candidates(before=datetime(2026, 2, 1, tzinfo=timezone.utc))[0]
-            self.assertEqual(writer.cleanup_committed_execution(candidate), {"committed": True, "deleted": 3})
+            self.assertEqual(writer.cleanup_committed_execution(candidate), {"committed": True, "deleted": 2})
             control.close()
 
     def test_scheduled_runtime_persists_execution_and_honors_disable(self):
