@@ -101,8 +101,8 @@
 
 - `jobs/ingestion-core/ingestion_core/__main__.py` 已呼叫 `materialize_home_market_snapshot`；舊「只有test caller」敘述失效。最新版本的runtime產生／readback仍需證據。
 - `scripts/gcp/b9-specialist-oos-quality.py` 的歷史診斷仍列硬編碼PIT／baseline blockers。正式研究協議允許標示strict_pit=false的財報比較，不能把此診斷當成禁止研究；也不能用文件將它改判品質PASS。
-- 2026-10-15 文件盤點本身沒有跑產品測試；**隨後使用者已另行授權 D01～D05 整合工程**，新測試／Release／候選及部分 GCP 證據見上表，不能套用原文件-only 範圍判斷。原文件工作證據另見 [盤點](../documentation-review-2026-10-15.md)。
+- 2026-10-15 文件盤點本身沒有跑產品測試；**隨後使用者已另行授權 D01～D05 整合工程**，新測試／Release／候選及部分 GCP 證據見上表，不能套用原文件-only 範圍判斷。原文件工作證據另見 [盤點](../archive/documentation-review-2026-10-15.md)。
 
 ## 已結案及詳細入口
 
-A／B0～B8保留原結案；[B7 freshness](../archive/group-b-b7-derived-cache-freshness-closure-2026-10-10.md)、[B8](../archive/group-b-b8-closure-2026-10-10.md)、[CI/CD](../archive/cicd-ghcr-api-promotion-2026-10-10.md)。產品暫停交接見 [checkpoint](../archive/pause-checkpoint-2026-10-15.md)，CEO技術詳情見 [P0-V](../ceo-omniagent-p0v-integration.md)，六個月自然觀察仍見 [Pilot evidence](../pilot-operational-evidence.md)。不得為整理文件重做自然週期或更改歷史FAIL。
+A／B0～B8保留原結案；[B7 freshness](../archive/group-b-b7-derived-cache-freshness-closure-2026-10-10.md)、[B8](../archive/group-b-b8-closure-2026-10-10.md)、[CI/CD](../archive/cicd-ghcr-api-promotion-2026-10-10.md)。產品暫停交接見 [checkpoint](../archive/pause-checkpoint-2026-10-15.md)，CEO技術詳情見 [P0-V](../archive/ceo-omniagent-p0v-integration.md)，六個月自然觀察仍見 [Pilot evidence](../pilot-operational-evidence.md)。不得為整理文件重做自然週期或更改歷史FAIL。

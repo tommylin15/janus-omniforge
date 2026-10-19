@@ -16,7 +16,7 @@
 - UI shell／layout／read-path acceptance 與「資料已足以形成可用產品」是不同完成條件。只證明頁面可載入、能顯示 missing／stale，不得延伸宣稱 market coverage、portfolio valuation 或整體功能完成。
 - User「今日」必須先能呈現 deterministic published market baseline；Mart／AI Daily Brief 是 enhancement。Mart unavailable 時只降級相關研究區塊，不應讓已存在的 Core 市場資料整頁不可見。
 - 個人持股主要畫面應使用 canonical 股票名稱＋代號，正式報表 aggregate 只讀 Private Mart；持股 operational 即時估值與交易試算讀 backend deterministic 計算，明示估值及 ledger version。缺價／stale 時必須指出受影響範圍並 withholding 不可靠 aggregate，不由 Flutter 補算。
-- Admin Flutter shell、Overview／Batch 與 Stock Workbench 的既有 acceptance 保留；2026-10-03 operational convergence 不重做整個 Admin，保留 `個股`、`市場資訊`、`AI 分析`，原 `進階管理` 目標收斂為精簡 `資料治理`。詳細 contract 見 [Admin UI](ui/admin.md) 與 [Admin UI 範圍決策](decision-2026-10-03-admin-ui-scope-and-governance.md)。
+- **2026-10-19 現役 Admin v2 四頁**為 `總覽／批次／資料品質／系統設定`，原個股、市場與 AI 導覽已改放四頁內的子功能。正式 UI 合約見 [Admin UI](ui/admin.md)，[原六頁決策](archive/decision-2026-10-03-admin-ui-scope-and-governance.md) 僅作歷史追溯；此文件不重開已完成的 Admin A1～A5。
 - Janus User App 的 [四張 Final Visual PNG](ui/reference/user-app-final/README.md) 是最低 presentation baseline；2026-10-11 新的 [四頁視覺優先 UI 契約（A）](ui/visual-first-four-pages.md) 和 [工程工作單（B）](ui/visual-first-delivery.md) 定義逐頁 Hero／圖表／真實驗收。示意值仍不得當 canonical。
 
 ## AI 最小讀取規則

@@ -1,6 +1,6 @@
 # Dev 批次總控與週維護 Runbook
 
-更新：2026-10-19。本檔是可重跑操作程序；[資料治理統一入口](spec/data-governance.md) 保存**唯一人讀排程／任務表**。實際程式權威為 `jobs/ingestion-core/ingestion_core/batch_controller.py::BATCHES/effective_batches()`；完成與已部署配置依真實 Cloud Scheduler、Jobs、occurrence/執行收據。舊 [2026-10-13 盤點](batch-inventory-2026-10-13.md) 是歷史證據，不能當現役 Cron。
+更新：2026-10-19。本檔是可重跑操作程序；[資料治理統一入口](spec/data-governance.md) 保存**唯一人讀排程／任務表**。實際程式權威為 `jobs/ingestion-core/ingestion_core/batch_controller.py::BATCHES/effective_batches()`；完成與已部署配置依真實 Cloud Scheduler、Jobs、occurrence/執行收據。舊 [2026-10-13 盤點](archive/batch-inventory-2026-10-13.md) 是歷史證據，不能當現役 Cron。
 
 ## 唯一排程責任與週維護
 

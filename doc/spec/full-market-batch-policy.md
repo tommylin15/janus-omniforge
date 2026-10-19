@@ -39,7 +39,7 @@
 
 ## 實作及驗收
 
-接手盤點見 [批次清冊](../batch-inventory-2026-10-13.md)。全市場變更須一次覆蓋 SQL membership／rank constraint、ingestion、screening／研究讀取、Admin、搜尋／watchlist、API schema、UI、fixtures、tests 與資源界限。舊 migration 不改寫，用新 migration／相容退場及同源發布。
+接手盤點見 [批次清冊](../archive/batch-inventory-2026-10-13.md)。全市場變更須一次覆蓋 SQL membership／rank constraint、ingestion、screening／研究讀取、Admin、搜尋／watchlist、API schema、UI、fixtures、tests 與資源界限。舊 migration 不改寫，用新 migration／相容退場及同源發布。
 
 必驗 >500 且混合 TWSE／TPEx、新增／退出名冊、上市 ≤10% 與上櫃 ≤30% 的含邊界／超標、未知市場／分母、來源失敗、版本／owner 隔離、超過單批／row cap 的完整分片、crash resume 和同一輸入去重。保留 1 CPU／1 GiB 等現有成本約束，以分片／欄位裁切／快照先解決；不得直接提高資源。
 

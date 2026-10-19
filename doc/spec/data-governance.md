@@ -39,7 +39,7 @@ Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當�
 | `data-quality`／ingestion-core | 每週六 12:30 | 獨立品質檢核，不是全量多年補抓 |
 | `iceberg-compaction → mart-cleanup → core-cleanup` | **每週六 23:30** | `FINOPS_WEEKLY_MAINTENANCE=true` 才週維護；依序且可能跨小時 |
 
-`effective_batches()` 有 legacy `FINOPS_WEEKLY_MAINTENANCE=false` 的每日 23:30 分支，**不是**目前核准的週維護目標。2026-10-18 文件收據記錄週維護切換成功，但本次未做新一輪 Scheduler/env/自然 occurrence live 讀回。不要引用 [2026-10-13 歷史盤點](../batch-inventory-2026-10-13.md) 當作目前 cron。
+`effective_batches()` 有 legacy `FINOPS_WEEKLY_MAINTENANCE=false` 的每日 23:30 分支，**不是**目前核准的週維護目標。2026-10-18 文件收據記錄週維護切換成功，但本次未做新一輪 Scheduler/env/自然 occurrence live 讀回。不要引用 [2026-10-13 歷史盤點](../archive/batch-inventory-2026-10-13.md) 當作目前 cron。
 
 ## 4. 資料補充：兩條路徑、同一來源治理
 

@@ -97,7 +97,7 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 
 ### 4.1 全市場及批次總控（2026-10-13 最新決策）
 
-**全市場與總控契約（2026-10-14 coverage 更新）：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。實作／切換依最新 status 與 runtime evidence 分項判定；授權及暫停範圍只由當次使用者指令與 active TODO 決定。 [全市場／總控契約](spec/full-market-batch-policy.md) 定義分母、快照、即時操作與遷移驗收；[批次盤點](batch-inventory-2026-10-13.md) 記錄現況。交易入帳／試算及報價按需刷新不等定時批次，背景工作共用 request／fence。此決策取代舊 Liquid 500 admission，保留 50 筆關注 quota、來源與金額／模型品質約束。
+**全市場與總控契約（2026-10-14 coverage 更新）：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。實作／切換依最新 status 與 runtime evidence 分項判定；授權及暫停範圍只由當次使用者指令與 active TODO 決定。 [全市場／總控契約](spec/full-market-batch-policy.md) 定義分母、快照、即時操作與遷移驗收；[2026-10-13 歷史批次盤點](archive/batch-inventory-2026-10-13.md) 只供追溯，**現況**以 [治理總入口](spec/data-governance.md) 與 Controller/runtime 認定。交易入帳／試算及報價按需刷新不等定時批次，背景工作共用 request／fence。此決策取代舊 Liquid 500 admission，保留 50 筆關注 quota、來源與金額／模型品質約束。
 
 ## 5. 最小文件讀取
 
