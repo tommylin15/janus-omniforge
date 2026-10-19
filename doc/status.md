@@ -1,10 +1,8 @@
 # Janus 目前狀態
 
-> **2026-10-18｜DRL-01 PARTIAL；更新後停止（使用者指示）**：兩年PE/PB正式API 12/12及5876手機／桌面4/4、Admin Readiness Ledger落地、Market Volume四slices均PASS。自然daily／weekly新版收據改列後續觀察，維持NOT_VERIFIED，不擋本次結案。
+> **2026-10-19｜DRL-01 工程結案 PASS**：六股2025Q4 EPS已直接採Yahoo補齊，Stage→Core→serving及正式／Preview API各6/6通過；5876手機／桌面EPS圖表與季度明細PASS。既有兩年PE/PB正式API再驗12/12，Ledger落地及Market Volume沿既有PASS。正式API／Jobs同源`e3e00983`，promotion及回滾演練通過，完整證據見[結案文件](archive/drl01-completed-2026-10-19.md)。
 >
-> 六股2025Q4 EPS可直接用Yahoo，不再找官方股數分母。首次補收在Stage被舊「僅MOPS HTML」規則拒絕，尚無六股發布成功證據；修正來源 `e3e0098399846eb337dd2ed1f8b636240bc88c20` 完整Release、0%候選、自動auth已PASS，Preview更新在取得lease前BLOCKED且未變更；Jobs更新已送出、最後讀回IN_PROGRESS，終態另見[checkpoint](archive/drl01-yahoo-stage-checkpoint-2026-10-18.md)。**仍缺修正版補收、正式API與畫面讀回**；不宣稱DRL-01完成。
->
-> 新持股／關注股背景補收僅有已核准契約，尚未實作；先停止，待使用者續行。第三方直接補收長期規則見[§1.7](PROJECT_RULES.md)。
+> 自然daily／weekly Ledger收據依使用者決策改列後續觀察、仍NOT_VERIFIED，不擋本次結案；TTM／歷史PIT未認證。新持股／關注股背景補收尚未實作、維持暫停，與本次DRL-01分開。第三方可直接補資料的長期核准見[§1.7](PROJECT_RULES.md)。
 
 
 > **FINOPS-AB 完成（2026-10-18，PASS）**：月批 OHLCV／估值、bounded reads、current-only snapshot 與精確 GCS generation 實刪程式已完成。
@@ -44,7 +42,7 @@ D01～D05 結案當時唯讀 build-id 為 `d739107aa26ae4641d6f3e1b9c80f2e9aa1a5
 
 個股狀態／日期文案與 serving 鎖修正已同源上線；原首次失敗未復現，不宣稱唯一根因已證明。DRL-01本次本年度EPS／營收發布完成，整體其它Ledger／五年估值／完整產品鏈仍保留原scope；D01～D05維持結案與豁免。詳見 [合併發布證據](archive/combined-drl-stock-release-2026-10-17.md)。
 
-### DRL-01 2026 年先行上線 EPS 調整（2026-10-17）
+### DRL-01 2026 年先行上線 EPS 調整（2026-10-17 歷史checkpoint，已由2026-10-19結案取代）
 
 **本輪優先結清②持股／關注120日，③EPS放寬「舊年度完整四連季」上線門檻，但不放寬單股真實EPS來源、單位或provenance。整體DRL-01其餘 Ledger／五年估值／產品全鏈仍依各自證據PARTIAL。**
 
