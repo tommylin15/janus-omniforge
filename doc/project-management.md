@@ -45,14 +45,21 @@ D07 資料/模型的唯一目標為：Core 合格資料固定匯出 → **Colab 
 
 | 風險 | A：保守方案 | B：必要時升級 | 目前影響 |
 |---|---|---|---|
-| **R1 免費 Colab 不保證每月無人值守** | **人工啟動／留 hash 與 execution receipt，Janus 每月 Controller 只登記／驗回；沒跑就 pending** | 評估官方受控託管／排程、費用與 OAuth/IAM，授權後才自動化 | 新 Colab auto retrain 未驗證；不在 GCP 暗中再 fit |
+| **R1 免費 Colab 不保證每月無人值守** | **【使用者已選 A｜2026-10-19】人工啟動／留 hash 與 execution receipt，Janus 原月度 Controller 只登記／驗回；沒跑就 pending** | **暫不執行、不列現階段驗收門檻**。日後若使用者另提需求才評估官方受控託管／排程及費用／OAuth/IAM | 決策已結；Colab 實跑、receipt 對接仍須 D07-PRE/D07 工程驗證，免費版 auto retrain 不需實作 |
 | **R2 全市場 24 月研究 vs Core 一般365天** | **用實際有效資料及合規 frozen Parquet 累積，缺的月份標 insufficient** | 有界擴充合法歷史回補／研究保存，但先核成本、來源及回復路徑 | 24 月是模型窗口目標，不是已實收 |
 | **R3 Current-only snapshots 與歷史 as-known PIT** | **`strict_pit=false` 限研究，保留 hash/source/time availability；沒有證據不對外說嚴格 PIT** | 額外引入歷史版次/first-observed 有憑據的來源與 frozen PIT replay，先核授權／成本 | 嚴格 PIT／publication 與研究品質 gate 分開 |
 | **R4 資料帶往 Colab 的 training-use／Owner 安全** | **只允許合規公開研究特徵、短效／最小權限，不帶 Owner/secret** | 新來源/第三方外部訓練授權不足時評估合約或替代合法來源 | 缺授權就不送 Colab，不補造 |
 | **R5 FINOPS 實際刪除和成本節省未清楚核實** | **唯讀原已執行 Job receipts 算 objects/bytes，不能拿候選數當實刪** | 真實 I/O／費用仍過高時另決定有界優化／必要 BQ 前處理 | 已結案 scope 不重跑 destructive cleanup |
 
-**需優先由使用者選定**：R1（人工或另外取得可自動的 Colab 方案）、R2（接受分段／稀疏歷史還是另擴充回補）、R3（維持研究級 PIT 還是投資更完整歷史版次）；決定前只做保守、合法、有界研究，受影響正式模型 promotion／自動化維持 `BLOCKED/NOT_VERIFIED`。不要自動選新增付費、破壞性資料刪除或 IAM 擴權。
+**R1 已定案 A（人工執行 Colab）**，本階段不追求免費版無人值守能力，不把它當 D07-PRE 阻擋；只要求可人工操作且有不可變結果及 Janus 驗收收據。**R2／R3 尚未選定擴大資料取得或歷史版次建置**；先按現有資料做有界、合法研究並精確盤點，再由使用者選擇是否補全，不能自動批准新增付費、不可逆資料操作或 IAM 擴張。嚴格 PIT 模型 promotion 的未通過條件仍不放寬。
 
 ## 5. 封存與防止文件重新膨脹
 
 已結案 release/事故、日期快照、舊 Admin 六頁規格、當時的資料/批次盤點移入 `archive/`，保留原始證據與當時 FAIL，不用舊狀態當現在工作。仍會被程式、CI、active SPEC／Runbook 使用的文件先查連結再搬；本次不隨意刪源碼、Migration、附件或其他專案 Drive。正式治理修改須同步最小入口，而不是每個 WBS、README、UI 都複寫一份 TODO。
+
+
+## 6. 2026-10-19 R2／R3 可量化缺口之證據界線
+
+- **R2（24 月全市場 OHLCV 規模）**：按 [因子容量矩陣](spec/factor-coverage-retention-ledger.md) 之規劃情境，1,992 股×每年約250日×兩年＝**996,000 股日組合**；[2026-10-18 Core census #39083283620](https://github.com/tommylin15/janus-omniforge/actions/runs/39083283620) OHLCV 為 **111,929 筆**。**884,071／88.76% 是兩個不同母體及口徑的規劃算術差額，不是實際去重後缺口率，不授權按該差額盲抓。** 缺少 historical membership/退市、dataset/date/market/symbol 去重、上市停牌、fresh 10/19 全量 COUNT、eligible feature/label/PIT 排除後分母。B5 固定 Parquet 499 股、10,978 row、2026-03-19～09-03，僅約5.5個曆月日期跨度，不能當作全市場24月。一般 Core OHLCV row TTL 365 天，亦不等於實際每股已有滿一年。
+- **R3（嚴格 PIT 缺口）**：當前**沒有可驗證的全市場分母、通過筆數、缺少歷史 original-published／first-observed/version 的分項 COUNT**，所以 `unknown`，不能聲稱 PIT 缺 100% 或 0%。2026-10-19 Janus 公開 MCP bounded readback 中 5876 財報樣本具有 `observed_at`／`availability_at`、部分 `published_at`，但 `publication_time_authoritative=false`、`numeric_revision_verified=null` 等未證明歷史原版數值；樣本不能推論全體。已核准財報 `strict_pit=false` 僅 research-only，Core/Mart current-only Iceberg snapshot 不可用文字 ID 重建歷史 as-seen。
+- **D07-PRE 唯一精查產物**：按 `dataset × market × symbol × calendar_month × horizon × source` 輸出預期/有效/缺失股日與 coverage%，再按 `available_at_evidence (official_timestamp / verified_first_observed / assumption / unknown) × revision_trace × training_use_authorization` 輸出嚴格 PIT 合格與不合格／UNKNOWN 分子分母。24 月 window 與 5/20/60/120日成熟 label、purged OOS/holdout 分開計；未有稽核無法給具體回補清單或每個角色之缺口百分比。不另建 R2／R3 WBS。

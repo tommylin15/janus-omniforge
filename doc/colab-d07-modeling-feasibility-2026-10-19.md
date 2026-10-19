@@ -13,7 +13,7 @@
 | [B5 ML/OOS 實機結案](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md) | 10,978 rows、499 symbols、Parquet 533,945 bytes、日期 2026-03-19～09-03；20 trading-day label＋5日 stride，含 5/20D returns、turnover、volume、source/provenance | CPU 計算規模小，適合驗證 notebook reproducibility；不能推成 24 月或所有五角色特徵已完整。平均每股約22筆 cohort，重疊 horizon 不是同數獨立樣本 |
 | [10/18 Core census #39083283620](https://github.com/tommylin15/janus-omniforge/actions/runs/39083283620) | OHLCV 111,929、valuation 16,595、financials 88,131、benchmark 759、market-volume 39,699、market-activity 135,050 rows | 表間口徑／交易日／市場不同，不能相加成 ML 訓練列，也不是新鮮 10/19 全表 COUNT |
 | [全市場保存矩陣](spec/factor-coverage-retention-ledger.md) | 2026-10-17 假設 1,992 普通股 × 約500交易日＝兩年約996,000股日（理論情境） | 不應把111,929與理論值直接當 coverage 分母；一般 Core 價量 row TTL 365 天、Deep 1,096 天，current-only Snapshot 不保證全市場兩年歷史 |
-| [10/19 DRL 與背景補收](todo.md) | 月營收13月分市場門檻既有 PASS；八股需求補收 8/8 ready；六股兩年 PE/PB 12/12 正式 API 讀回 | 產品資料可用≠所有股/日期具兩年 OHLCV、合規標籤、嚴格 PIT 或完整 12 季 |
+| [10/19 DRL 與背景補收](archive/todo-before-consolidation-2026-10-19.md) | 月營收13月分市場門檻既有 PASS；八股需求補收 8/8 ready；六股兩年 PE/PB 12/12 正式 API 讀回 | 產品資料可用≠所有股/日期具兩年 OHLCV、合規標籤、嚴格 PIT 或完整 12 季 |
 | [B9 品質證據](b9-quality-evidence.md) | Fundamental／Valuation／Quant 既有七個5日模型的 MSE 都比 zero-excess-return 基準差；同日最多2/5/5檔；Risk 23個 OOS 月份、452筆 returns、15月改善8月未改善；Event 無合法人審分類 OOS | 模型品質瓶頸是歷史母體、有效時點、樣本獨立性、基準改善，不是 GPU。已 fit、GCS readback 與品質 PASS 必須分開 |
 
 ## 3. 五角色適用順序
@@ -54,7 +54,9 @@
 
 **大量資料啟動條件**：Colab 直接讀取/Join 的 RAM 耗盡、實測超時、重複 I/O 成本不合理或 SQL 聚合量級過大，提出同一 workload 的筆數/bytes、峰值 RAM、耗時、GCS I/O、BQ dry-run/可能 billed bytes、來源/PIT parity/rollback、配額/IAM 及收益對照；合格且已有授權才用 BQ 前置，否則維持有界 Colab 工作或標 BLOCKED，不偷偷移轉訓練器。**不設定憑空的列數或大小閾值。**
 
-**月度安排**：每月第一個週六 10:30（Asia/Taipei）維持 Janus 現有 Controller **唯一 due slot**。目標由 Controller 判定是否有成熟新標籤、準備 frozen input、登記一次訓練任務/結果與可回復狀態；**模型 fit／OOS 一律在 Colab**。一般免費 Colab 缺少保證可靠的遠端 unattended execution，本階段先採受控人工啟動 Notebook 並匯回 hash 驗收；未完成當月標 `PENDING_MANUAL／NOT_VERIFIED`、沿用已核准 Champion/Deterministic，不得把 Core 或 Mart 自動訓練當成已完成的 Colab，也不可建立第二個 Scheduler。未來若一定要無人值守，先確認**合規可靠的 Colab 執行方式及所需費用／OAuth/IAM 授權**，才修改月度路由，沒有此路徑就不能宣稱完成自動化。
+**2026-10-19 使用者新增決策 R1.A**：本階段 Colab 月度操作採人工啟動 Notebook＋人工確認執行終態；沿用 Janus 首週六10:30 due/結果追蹤、固定資料 hash、模型/eval/hash receipt、未執行保持 pending。**Colab 無人值守能力不是目前要實作的前置，不能因未具免費自動化而阻擋本階段完成，但人工流程未實測前同樣不可宣稱 D07-PRE PASS。**
+
+**月度安排**：每月第一個週六 10:30（Asia/Taipei）維持 Janus 現有 Controller **唯一 due slot**。目標由 Controller 判定是否有成熟新標籤、準備 frozen input、登記一次訓練任務/結果與可回復狀態；**模型 fit／OOS 一律在 Colab**。一般免費 Colab 缺少保證可靠的遠端 unattended execution，本階段先採受控人工啟動 Notebook 並匯回 hash 驗收；未完成當月標 `PENDING_MANUAL／NOT_VERIFIED`、沿用已核准 Champion/Deterministic，不得把 Core 或 Mart 自動訓練當成已完成的 Colab，也不可建立第二個 Scheduler。未來若**使用者另核准**無人值守，再評估合規 Colab 執行方式、費用/OAuth/IAM；本階段 R1.A 已定案，無人值守不是交付項目，不能因此新增第二個 Scheduler。
 
 **版本輸出**：`dataset_manifest`、`model artifact`、`oos_predictions`、`metrics`、`feature/label/source availability`、`requirements/seed`、`hash`、每月 `execution status` 與保留/回退參照。Colab notebook 不存密鑰、不寫 Canonical、不讀 Owner 私有資料；模型結果不能直接 publication。
 
@@ -64,7 +66,7 @@
 
 只匯出核准 source training-use 的公開研究欄位；不移出 Owner 持股、交易、現金、個資、PostgreSQL secret/token/private key。Colab 使用受限短效讀取／人工匯入；Notebook 不存 GCP 長效憑證或將私有 GCS 資料公開。輸入固定 dataset sha256、schema/feature/label/source/provenance/analysis_as_of、cohort與月度 cutoff；輸出固定 requirements-lock、seed、OOS predictions、metrics、artifact hashes、訓練失敗紀錄。不可只存 Colab ephemeral local file。
 
-ChatGPT 可建立 Notebook／訓練程式／測試及研究收據，卻**不能保證本對話直接控制免費 Colab runtime**。免費版優先互動式 PoC；Google 官方不保證免費 CPU/GPU 或持續時長。若需要無人值守，評估 Colab 官方可受控的執行／排程整合並在必要時取得費用、IAM、OAuth 批准；不能以既有 GCP Job 繼續訓練冒充符合「全模型訓練在 Colab」的新設計，不新增第二個 Scheduler。
+ChatGPT 可建立 Notebook／訓練程式／測試及研究收據，**不能保證本對話直接控制免費 Colab runtime**。依 R1.A 採人工作業，不需要正式無人值守 Colab 排程；仍須實際上傳結果、Janus readback/hash 與失敗回復收據。不能以既有 GCP Job 訓練冒充 Colab。任何新付費／IAM／OAuth consent 均需另行使用者核准。
 
 ## 7. Gate 與下一步
 
@@ -75,3 +77,13 @@ ChatGPT 可建立 Notebook／訓練程式／測試及研究收據，卻**不能�
 **唯一選定的目標：Colab 做資料整理＋模型訓練，BQ 只在有實測效益時前置處理，Janus 只管 canonical、月度待辦、治理驗收與正式推論。** Colab 免費版自動化依然 NOT_VERIFIED，PoC、量測與受控流程接線仍屬 D07-PRE／D07 待完成的工程，不列三套同等選項。
 
 官方參考：[Colab FAQ](https://research.google.com/colaboratory/intl/zh-TW/faq.html)、[Colab Enterprise Scheduled Runs](https://docs.cloud.google.com/colab/docs/schedule-notebook-run?hl=zh-tw)。
+## 8. R2／R3 缺口量化 — 2026-10-19 有界證據（不是全市場最新 COUNT）
+
+| 項目 | 目前已知 | 尚缺／如何避免誤判 |
+|---|---|---|
+| **R2：24月全市場 OHLCV 股日** | 規劃使用當時 1,992 普通股 × 500 日＝**996,000 股日組**；2026-10-18 Core 快照總 `ohlcv=111,929` 筆，差額 **884,071 / 88.76%** | **這是不同口徑的規劃數字差，不是 certified coverage/missing %。** 實際市場成分隨日期改變、Core 可含不屬目標市場/窗口者，同筆是否重複或多版本未去重；缺逐月日期×股票 eligible matrix 及 10/19 新 Core census。不得直接開 884,071 筆補抓。 |
+| **R2：現有固定訓練 dataset** | B5 immutable `10,978 rows / 499 symbols`、2026-03-19 至 2026-09-03（約 5.5 曆月跨度），不是 500 日×全市場 | 有 20D label/5D stride 重疊，不等同 10,978 筆獨立監督樣本；不足股票和月份須另按 OOS folds/horizons 查，不能外推 24 個月皆可用。 |
+| **R2：保存政策** | 一般 Core OHLCV 365 天、Deep OHLCV 1,096 天，模型研究窗口目標 24 月 | 政策相差約12個月（一般 tier），**非現有實際日期缺口**；Deep 亦不保證滿三年。先 inventory 已存在 verified research Parquet 再定向補收，不改 row TTL。 |
+| **R3：嚴格 PIT 合格率** | **UNKNOWN；不是 0% 或 100%**。live 5876 financials bounded sample 顯示 `observed_at/availability_at/published_at` 及 source/provenance，但 `publication_time_authoritative=false`、`numeric_revision_verified=null` 的樣本不能認定歷史當時版本完整 | 尚缺每個 dataset 的 authoritative first-published／first-observed、修訂版次、`available_at <= feature_as_of`、train-use 授權、歷史 membership/labels 同時合格的完整去重分母。Current-only snapshot 不能重播舊版；`strict_pit=false` 僅限有清楚 revision leakage 標示的研究。 |
+
+**下一個 D07-PRE 動作**：產 `coverage_by_market_symbol_month`（expected/eligible/available/usable/missing）與 `pit_by_dataset_source_revision`（authoritative timestamp/first-observed/estimated/unknown、original revision verified/unknown、authorized/unknown）雙表，另輸出 5/20/60/120 日成熟 label count、purged folds/holdout。**只有這兩張讀回報表完成後才能說 R2 真缺多少、R3 合格率多少**；不另建獨立 R2/R3 工項、不造假缺值。
