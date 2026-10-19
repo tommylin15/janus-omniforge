@@ -1,7 +1,7 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "3026bda11fe193631b9be6e15fba6e26420f644d",
+  "sha": "e14259bf0117b5655862a577491cfe8f7bbe4b8b",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "驗證持股／關注股背景補收同來源0%候選的OAuth metadata及User/Admin/MCP負向邊界；不寫Owner資料。"
+  "purpose": "STAGE-48H: verify exact-source 0% GHCR candidate OAuth metadata, unauthenticated User/Admin/Owner/MCP guards after candidate PASS #39272980460; no API promotion"
 }
