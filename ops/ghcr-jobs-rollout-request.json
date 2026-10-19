@@ -2,25 +2,25 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "3026bda11fe193631b9be6e15fba6e26420f644d",
-  "release_run": "39210126649",
+  "sha": "e14259bf0117b5655862a577491cfe8f7bbe4b8b",
+  "release_run": "39272058864",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "e3e0098399846eb337dd2ed1f8b636240bc88c20",
+  "baseline_source_sha": "3026bda11fe193631b9be6e15fba6e26420f644d",
   "rollback_images": {
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:3d36abb88a356c020581a170fe2e8d8ce5035f673dd2ac73a94efc086c0b2d9c",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:90c24c54605d5e150426570bc75af8174cbcb62d55e33394b982e4f16d356651",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:59fbf1b58196df048f90e63fb78f761787095ce8ab16555931a3ca84c1287506",
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:59fbf1b58196df048f90e63fb78f761787095ce8ab16555931a3ca84c1287506"
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:7cf7e51917475445e4bdac2d3bf99a39331a68335077070aee8727cb67eff35d",
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:7cf7e51917475445e4bdac2d3bf99a39331a68335077070aee8727cb67eff35d",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:58b2a60b8f015a7049d278ae203fefeaf6acd6a80e5c116c23e51e5c3bdd3554",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:cca110ff35c4c54fd75189bd2212aae8aa65821586e0c8a68891b8c4022a9510"
   },
   "rollback_config_hashes": {
-    "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f",
-    "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
-    "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048"
+    "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
+    "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
+    "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 42,
-  "auth_boundary_run": "39211292550",
-  "safety": "Reversible existing dev four Jobs, preserve current FINOPS weekly maintenance config, eight real canaries, shared lease and Scheduler readback. No IAM expansion.",
-  "authorization": "使用者要求持股／關注股背景補收直接實作並驗收；沿PROJECT_RULES §3／§12既有dev閉環。066 migration需先PASS；保持原資源、排程與可回滾基準，不新增付費或IAM資源。"
+  "auth_boundary_run": "39273298250",
+  "request_attempt": 43,
+  "safety": "Stage-48H existing dev: baseline four Jobs from read-only audit #39272561307, exact GHCR SHA from #39272058864, OAuth negative #39273298250; preserve Scheduler weekly flag and 100% API traffic; dual canaries with reversible rollback; no new resources",
+  "authorization": "User approved Janus dev Stage retention fixed at 48h and requested next engineering. No Core/Mart/Private data deletion, no IAM expansion, no API promotion."
 }
