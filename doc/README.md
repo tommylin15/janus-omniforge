@@ -32,8 +32,8 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `spec/data-governance.md`：現行保存、唯一業務排程與週維護、補資料兩路徑、D07 研究窗口的單一導覽；不新增工作包。
 - `status.md`：目前狀態與下一個執行序列的短入口；不是新的 source of truth。
 - `todo.md`：只保存確定要做的 active queue 與未完成 acceptance；暫不做與已接受缺口見 `parking-lot.md`。
-- `codex-execution-plan.md`：持股 → 通用圖表 → 模型研究與有效後報告的作業指示；先整合再驗收，不另維護待辦狀態。
-- `execution-cards/README.md`：八張 D01～D08 獨立 AI 任務執行卡與驗收／恢復指示；只作執行路由，不建立另一份待辦。
+- `codex-execution-plan.md`：**只路由 D07-PRE → D07 → D08** 的現行 AI 操作；舊 DRL／D01–D06 工程指令已封存。
+- `execution-cards/README.md`：現行 D07-PRE/D07/D08 路由；D01～D06 卡保留維運/歷史，不形成工作義務。
 - `decision-2026-10-06-bigquery-analytics-over-iceberg.md`：保留原 Iceberg/BQ 研究歷史與讀取契約；**2026-10-19 更新為 Colab 唯一模型整理/訓練，BQ 只在大資料時前置縮減**，不取代 PostgreSQL／Canonical。
 - `future-market-alerts.md`：使用者指定獨立保存的未來預警增補；狀態由 `parking-lot.md` 管理，不是 active scope。
 - `spec.md`：SPEC 索引；正式契約在 `spec/*.md`。
@@ -41,7 +41,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `ui.md`：UI 索引；頁面／元件契約在 `ui/*.md`。
 - `ui/reference/user-app-final/README.md`：既有四張 PNG 的視覺基礎契約；sample 值不能作 canonical。
 - `ui/visual-first-four-pages.md`：2026-10-11 [四頁視覺優先正式 UI 規格（A）](ui/visual-first-four-pages.md)。
-- `ui/visual-first-delivery.md`： [工程工作單（B）](ui/visual-first-delivery.md)，涵蓋資料缺口、Flutter／API／Mart、P0/P1/P2 與真實 acceptance。
+- `ui/visual-first-delivery.md`：[已結案 D02/D03 原工程對照 B](ui/visual-first-delivery.md)，繼續作產品/資料/UI 契約參考，但不是新的 active TODO。
 - `spec/operations-and-testing.md`：最新證據索引；完整舊ledger已移至archive，日常定位先看status。
 - `pilot-operational-evidence.md`：`WBS-8-DEV-PILOT-RUN` 六個 calendar months evidence window 的新增 bounded checkpoint；保存 observed failure／recovery／manual intervention 與尚未觀察到的 evidence category，不把 checkpoint 當成 WBS 完成。
 - `runbook-data-supplement.md`：每日增量、週六品質檢查、Admin 結果與排程修復程序。

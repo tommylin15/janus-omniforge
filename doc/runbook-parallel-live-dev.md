@@ -45,7 +45,7 @@ Dev 預設使用：
 
 Janus 不需要為一般 real-path acceptance 部署獨立 MCP fixture。timeout／cancel、disconnect／transport failure、tools list changed／invalid schema、secret-redaction／leakage 等情境可由本機／CI contract tests 做可重現故障注入。
 
-Janus MCP／OAuth connector 的現行驗收狀態以 [`todo.md`](todo.md) 與 [`spec/operations-and-testing.md`](spec/operations-and-testing.md) 為準。omniAgent 自身 gateway／chat runtime 的後續決策屬於獨立專案，不再是 Janus split gate；歷史入口見 [`omniagent-split-status.md`](omniagent-split-status.md)。
+Janus MCP／OAuth connector 的現行驗收狀態以 [`todo.md`](todo.md) 與 [`spec/operations-and-testing.md`](spec/operations-and-testing.md) 為準。omniAgent 自身 gateway／chat runtime 的後續決策屬於獨立專案，不再是 Janus split gate；歷史入口見 [`omniagent-split-status.md`](archive/omniagent-split-status.md)。
 
 ## 6. 未來 Production
 

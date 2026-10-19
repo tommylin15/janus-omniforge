@@ -1,7 +1,7 @@
 # Janus — Project Specification
 
 版本：2.1
-日期：2026-10-03
+更新：2026-10-19
 狀態：索引；正式契約依下列領域切片為準
 
 ## 全域環境定位
@@ -14,7 +14,7 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 
 先讀本索引，再只讀任務直接相關的切片。只有遇到跨領域契約、安全邊界或引用缺失時才增讀其他切片；目前實作與完成證據另讀 GitHub `main`、runtime 及 `spec/operations-and-testing.md`。
 
-本次持股／交易損益、速度目標及模型報告分階段 gate 見 [持股優先契約](spec/holdings-first.md)。
+已結案 D01～D05／DRL／Admin 的有效業務契約仍見 [持股優先](spec/holdings-first.md) 與相應 domain SPEC，不代表當前仍需重做；**目前工程只依 [TODO](todo.md) 的 D07-PRE、D07、D08**。
 
 全上市櫃母體、TWSE缺失率≤10%／TPEx≤30% coverage、批次總控與即時快照見 [新契約](spec/full-market-batch-policy.md)。
 

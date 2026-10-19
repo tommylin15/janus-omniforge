@@ -1,6 +1,6 @@
 # Janus — Work Breakdown Structure
 
-更新：2026-10-03
+更新：2026-10-19
 狀態：索引；執行順序與未完成條件以 [TODO](todo.md) 為準
 
 ## AI 最小讀取規則
@@ -17,7 +17,7 @@
 
 ## AI角色分工（非工具可用性閘門）
 
-Sol／Luna等舊標記只表示任務難度及分工參考，不要求使用者切模型、不因模型或非系統skill不可用停等。依目前能力、PROJECT_RULES及適用驗收執行；不自動建立branch／PR。D01～D08整合工作包及授權只見TODO，既有WBS責任與歷史ID保留。
+舊 Sol／Luna 是歷史分工註記，不是模型選擇或前置閘門。**唯一新工程順序 D07-PRE → D07 → D08**（見 [TODO](todo.md)）；下表 A／B／C、WBS3/4/5/6 的已結案範圍只用於找舊設計、修復所屬模組及稽核，不能成為另列的 backlog。工程依現有能力與 PROJECT_RULES 在 main 執行，不主動建 branch/PR。
 
 ## WBS 路由
 
@@ -37,6 +37,6 @@ Sol／Luna等舊標記只表示任務難度及分工參考，不要求使用者�
 | 7：安全、監控、FinOps | 【Sol】 | [WBS 7](wbs/wbs-7-security-finops.md) | 依受影響服務增讀其 WBS |
 | 8：PIT、QA、發布／evaluation | 依 TODO | [WBS 8](wbs/wbs-8-qa-release.md) | 需要現況證據時讀 status／operations；歷史 Pilot checkpoint 不覆蓋 active TODO |
 | Research Context（Planned） | 【Sol】 | [WBS 3](wbs/wbs-3-ingestion-admin.md)、[4J](wbs/wbs-4j-personal-workspace.md)、[5](wbs/wbs-5-intelligence-mart.md)、[6](wbs/wbs-6-api-and-apps.md)、[8](wbs/wbs-8-qa-release.md) | 只在 active TODO 啟動後執行；不重開 WBS 4C |
-| 里程碑規劃 | 【Sol】 | [建議里程碑](wbs/milestones.md) | 不作單一 WBS 的驗收來源 |
+| 里程碑規劃 | 索引 | [目前管理里程碑](wbs/milestones.md) | 不作單一 WBS 的驗收來源 |
 
 任何歷史 WBS 名稱、舊 Pilot milestone 或 archive 內容若與 active TODO／SPEC 衝突，不得反向取得 active execution authority。

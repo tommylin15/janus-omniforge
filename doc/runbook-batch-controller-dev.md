@@ -36,7 +36,7 @@ GitHub 的 bounded 入口 `.github/workflows/run-dev-specialist-retrain.yml` 只
 
 ### B7 衍生快取新鮮度獨立刷新（不重新訓練）
 
-B7 月度 retrain／OOS／原始 reconciliation 已完成時，若 B6 ML/OOS derived cache 仍對舊 Core 顯示 `historical`，只執行 [B7 derived-cache workflow](../.github/workflows/b7-derived-cache-freshness.yml) 所定義的 standalone PyIceberg 路徑，不派送 `specialist-retrain`、不重用舊 10/08 request，也不重開 B8 benchmark。對應 script 為 `scripts/gcp/b7-refresh-derived-cache.py`，只使用現有 dev buckets／GitHub WIF、已鎖定依賴及既有 B5/B6 schema。
+**歷史 B7 修復流程（2026-10-10 已結案，原 workflow 在 main 已不存在）：**若現役 B6 derived cache 新發生與舊 Core 的 identity 漂移，先依 [D07-PRE／D07 TODO](todo.md) 建立新合格的 bounded readback／修復工作；下述舊操作只供診斷參考，不可直接盲重播： [B7 歷史派送與結案](archive/group-b-b7-derived-cache-freshness-closure-2026-10-10.md) 所定義的 standalone PyIceberg 路徑，不派送 `specialist-retrain`、不重用舊 10/08 request，也不重開 B8 benchmark。對應 script 為 `scripts/gcp/b7-refresh-derived-cache.py`，只使用現有 dev buckets／GitHub WIF、已鎖定依賴及既有 B5/B6 schema。
 
 1. 選最近七天的**最新 immutable Core snapshot**，驗證 `core-snapshot.json` 原始 bytes SHA-256、`core.ohlcv_v1` Iceberg metadata snapshot/pointer 與分析日期；月度原始 `specialist-manifest.json` 必須是**同一 Core identity**，否則 fail closed，不重訓補缺。
 2. 以當次 pinned Core、版本、日期界線和 source authorization 產出 B5 格式 ML/OOS Parquet；相同 immutable cache 命中先核對 bytes/hash 才 reuse，cache miss 才以 PyIceberg 建立 `ml-oos-data/v1/<identity>/` 的 create-only shard／manifest。驗證前後 latest Core source 未改變。無 BigQuery／Storage Read API、無 canonical 寫入、無 CEO、無 champion promotion。
