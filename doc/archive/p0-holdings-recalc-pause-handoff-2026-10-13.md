@@ -1,3 +1,5 @@
+> **歷史／結案 checkpoint｜不形成目前待辦、Cron 或新工程授權。** 現況見 [TODO](../todo.md) 和 [status](../status.md)。
+
 # 持股／手動損益重算 P0 暫停交接（2026-10-13）
 
 狀態：**PAUSED BY USER／整體 PARTIAL，尚不可宣告最終版上線**。此交接為已核准 P0 工作的恢復入口，不是新工作包；使用者於 2026-10-13 明確要求「先暫停，把目前的工作和最新進度以及需求更新回文件」。**不得因本文件存在而自動重啟**。下一次使用者指示繼續時，先核對 GitHub `main` 與當時 runtime，不盲目重送任何 Job、owner request 或部署。
@@ -46,4 +48,4 @@
 - 使用者取消的是發版的**人工** OAuth 登入 gate；可自動執行的 OAuth／安全負測仍必須跑。
 - 只使用 `main`，不建 branch／PR；保留舊版可回滾的 immutable digest、lease／Scheduler fence；無來源不造數，partial 不能說成完成。
 
-參考：[最新狀態](status.md)／[Active TODO](todo.md)／[User UI 契約](ui/user-app.md)／[工程規則](PROJECT_RULES.md)。
+參考：[最新狀態](../status.md)／[Active TODO](../todo.md)／[User UI 契約](../ui/user-app.md)／[工程規則](../PROJECT_RULES.md)。

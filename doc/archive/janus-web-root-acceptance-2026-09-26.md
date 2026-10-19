@@ -1,3 +1,5 @@
+> **歷史／結案 checkpoint｜不形成目前待辦、Cron 或新工程授權。** 現況見 [TODO](../todo.md) 和 [status](../status.md)。
+
 # Janus Web Root Routing Acceptance — 2026-09-26
 
 用途：記錄 `janus-api`／Flutter User App 直接開啟 Cloud Run service root 時的 404 修復與 dev live acceptance。這是單一 routing incident 的 evidence，不代表 User product completeness、Admin completeness 或 `WBS-8-DEV-PILOT-RUN` 整體完成。

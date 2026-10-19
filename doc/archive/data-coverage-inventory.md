@@ -1,3 +1,5 @@
+> **歷史／結案 checkpoint｜不形成目前待辦、Cron 或新工程授權。** 現況見 [TODO](../todo.md) 和 [status](../status.md)。
+
 # Janus Data Coverage & Quality Inventory
 
 > 目的：區分「API／resource 可查」與「來源、adapter、Core publication、PIT、DQ 與歷史深度實際可用」。

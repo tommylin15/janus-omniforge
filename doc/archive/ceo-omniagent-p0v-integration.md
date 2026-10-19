@@ -1,3 +1,5 @@
+> **歷史／結案 checkpoint｜不形成目前待辦、Cron 或新工程授權。** 現況見 [TODO](../todo.md) 和 [status](../status.md)。
+
 # Janus CEO → omniAgent P0-V Gateway（技術證據）
 
 > 現況索引：技術整合PASS，真實Owner publication未驗收。下文按日期保存測試歷程，舊PARTIAL／503／暫停／候選端點不是新任務指令；當次scope看TODO，部署endpoint先讀Janus實際配置。上游獨立發布不證明Janus已改route。

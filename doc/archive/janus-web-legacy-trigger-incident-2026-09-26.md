@@ -1,3 +1,5 @@
+> **歷史／結案 checkpoint｜不形成目前待辦、Cron 或新工程授權。** 現況見 [TODO](../todo.md) 和 [status](../status.md)。
+
 # `janus-web` legacy trigger 事故紀錄（2026-09-26）
 
 ## 摘要
@@ -150,7 +152,7 @@ probe 當下兩個 Cloud Run Jobs 都為 `Ready=True`：
 
 ## 後續 consolidation closure
 
-上述 `NOT YET APPLIED` 是 cleanup 前的歷史 checkpoint，已被後續 closure 取代。正式完成證據見 [`deployment-controller-consolidation-2026-09-26.md`](deployment-controller-consolidation-2026-09-26.md)。
+上述 `NOT YET APPLIED` 是 cleanup 前的歷史 checkpoint，已被後續 closure 取代。正式完成證據見 [`deployment-controller-consolidation-2026-09-26.md`](../deployment-controller-consolidation-2026-09-26.md)。
 
 後續 evidence：
 
