@@ -7,11 +7,12 @@
   "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:15411a268e6703dd6ea8fa84890520b6a4c93bdee278332bb0013a0c435a0289",
   "core_retention_run": 39103394210,
   "mart_retention_run": 39105091080,
-  "purpose": "STAGE-48H user-approved delete after exact safe dry-run #39277206907, 2050 candidates / 650115151 bytes; preserve 60 active executions and 4927 held objects; scope only existing dev Stage bucket.",
-  "acceptance": "GCS exact-generation deletion, before/after object and byte deltas, scheduler resume and no Core/Mart/Private mutation. FAIL closed on unknown refs/changed inventory.",
-  "request_attempt": 16,
+  "purpose": "STAGE-48H controlled retry after #39279113708 pre-execution false-positive legacy status.completionTime check; corrected gate on main commit 0af994c2e8d5; no prior Stage apply invocation; re-evaluate current candidates at execution time.",
+  "acceptance": "The active dev Scheduler must be enabled before acquiring lease; lease-owned paused Scheduler must await all-page v2 execution terminality, then enforce exact 48h-only stage generation deletions with before/after object+byte readback. If runtime state unknown fail closed, do not bypass.",
+  "request_attempt": 17,
   "user_approved_unlinked_small_file_cleanup": true,
   "approved_stage_retention_hours": 48,
   "approved_stage_bucket": "gen-lang-client-0593591102-dev-stage",
-  "approved_stage_apply": true
+  "approved_stage_apply": true,
+  "retry_failed_run": 39279113708
 }
