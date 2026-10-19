@@ -8,6 +8,7 @@ on:
         type: choice
         options:
           - gcs-hourly-io
+          - gcs-storage-footprint
           - core-reference-audit
           - runtime-references
           - iceberg-readback
@@ -21,6 +22,7 @@ on:
     branches: [main]
     paths:
       - 'ops/finops-gcs-hourly-io.json'
+      - 'ops/finops-gcs-storage-footprint.json'
       - 'ops/finops-core-reference-audit.json'
       - 'ops/finops-reference-runtime.json'
       - 'ops/finops-iceberg-readback-once.json'
@@ -52,6 +54,7 @@ jobs:
           else
             changed=$(git diff --name-only HEAD~1 HEAD -- ops/finops-*.json 2>/dev/null || echo "")
             case "$changed" in
+              *gcs-storage-footprint*) echo "operation=gcs-storage-footprint" >> "$GITHUB_OUTPUT" ;;
               *gcs-hourly-io*) echo "operation=gcs-hourly-io" >> "$GITHUB_OUTPUT" ;;
               *core-reference-audit*) echo "operation=core-reference-audit" >> "$GITHUB_OUTPUT" ;;
               *reference-runtime*) echo "operation=runtime-references" >> "$GITHUB_OUTPUT" ;;
@@ -81,6 +84,34 @@ jobs:
           jq -e '.intent=="read-only-gcs-hourly-method-audit" and .no_gcp_mutation==true' ops/finops-gcs-hourly-io.json
       - name: Inspect GCS method counts
         run: python scripts/gcp/finops_gcs_hourly_io.py
+
+
+  gcs-storage-footprint:
+    needs: detect
+    if: needs.detect.outputs.operation == 'gcs-storage-footprint'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: \${{ vars.GCP_WIF_PROVIDER }}
+          service-account: \${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Validate metadata-only request and tests
+        run: |
+          python -m pytest -q tests/test_finops_gcs_storage_footprint.py
+          jq -e '.intent=="read-only-gcs-storage-footprint" and .no_gcp_mutation==true and .project=="gen-lang-client-0593591102"' ops/finops-gcs-storage-footprint.json
+      - name: Read bounded bucket sizes and versions without payload access
+        run: python scripts/gcp/finops_gcs_storage_footprint.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: janus-gcs-storage-footprint-readonly
+          path: gcs-storage-footprint-report.json
+          if-no-files-found: ignore
+          retention-days: 14
 
   core-reference-audit:
     needs: detect

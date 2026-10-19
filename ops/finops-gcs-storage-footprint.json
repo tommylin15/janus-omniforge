@@ -1,0 +1,14 @@
+{
+  "intent": "read-only-gcs-storage-footprint",
+  "no_gcp_mutation": true,
+  "project": "gen-lang-client-0593591102",
+  "max_pages_per_bucket": 20,
+  "known_buckets": [
+    "gen-lang-client-0593591102-dev-core",
+    "gen-lang-client-0593591102-dev-stage",
+    "gen-lang-client-0593591102-dev-mart",
+    "gen-lang-client-0593591102-dev-private",
+    "gen-lang-client-0593591102-dev-research-big-move-500",
+    "gen-lang-client-0593591102-cloudbuild-regional"
+  ]
+}
