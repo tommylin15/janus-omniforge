@@ -1,11 +1,14 @@
 {
-  "intent": "promote-ghcr-candidate-to-full-traffic",
+  "intent": "promote-authenticated-reversible-ghcr-dev",
   "approved": true,
-  "scope": "janus-api-traffic-only",
-  "source_sha": "b5df7e30bc02676a41d0d3300325b9ca5d6fb553",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:1fa62d926669c45a9c0f6dea0c2e140860e72b09b4414e53cf7b90cff2bf6802",
-  "release_run": "39108738006",
-  "jobs_run": "39101646737",
-  "purpose": "DRL-01 P0-1: Promote API with two_year_profile field name fix to 100%",
-  "requested_at": "2026-10-18T16:02:00+08:00"
+  "scope": "existing-dev-janus-api-only",
+  "source_sha": "e3e0098399846eb337dd2ed1f8b636240bc88c20",
+  "release_run": "39126918277",
+  "jobs_run": "39127659349",
+  "rollback_mode": "reversible_ghcr",
+  "baseline_source_sha": "b5df7e30bc02676a41d0d3300325b9ca5d6fb553",
+  "allow_legacy_forward_only": false,
+  "auth_boundary_run": "39127497388",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:5cf4121aabb60e8196f1542674ad2ac48264fc403210051fe2e98a2fa4e75365",
+  "purpose": "DRL-01 six-stock 2025Q4 Yahoo EPS: supplement #39205780588 PASS and Preview API 6/6 readback PASS; release/auth/Jobs/Preview gates verified."
 }
