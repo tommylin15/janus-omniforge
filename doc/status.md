@@ -20,4 +20,4 @@
 | **D07** | **PLANNED** | B5/B6 fixed source 與 B7 原 Mart 月度歷史能力有 PASS；B9 ML 優勢、Colab 訓練遷移及五角色正式 OOS 未驗收 |
 | **D08** | **PLANNED** | P0-V Gateway 先前技術鏈測過，但 Janus 有效 Fact Pack、Owner authenticated 報告／publication 仍未驗收 |
 
-**唯一順序：[D07-PRE → D07 → D08](todo.md)**。自然 Ledger、FINOPS 真實刪除數與 Pilot 是非阻擋觀察，不在此頁重建工作清單。重大風險／選項集中 [管理文件](project-management.md)。本次文件整理**未**重新驗收 GCP、Colab、資料樣本或現有部署。
+**唯一順序：[STAGE-48H → D07-PRE → D07 → D08](todo.md)**。Stage 48h TTL、Stage-only worker 與每日 Controller due 已有 GitHub 變更／targeted tests；尚未有新 GHCR digest、Cloud Run Job rollout、自然 due、實刪 generation 收據，維持 `CODE_PARTIAL / LIVE_NOT_VERIFIED`。自然 Ledger、FINOPS 真實刪除數與 Pilot 是非阻擋觀察，不在此頁重建工作清單。重大風險／選項集中 [管理文件](project-management.md)。本次文件整理**未**重新驗收 GCP、Colab、資料樣本或現有部署。
