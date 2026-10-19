@@ -142,7 +142,7 @@ Admin 後續至少管理：
 
 | 資料 | 保留／清理契約 |
 |---|---|
-| Stage 公開 raw／sidecar／提交證明／隔離資料 | 超過 7 天清理；queued／running／retrying 共用引用暫時保護 |
+| Stage 公開 raw／sidecar／提交證明／隔離資料 | 超過 **2 天（48 小時）**清理；queued／running／retrying 共用引用暫時保護 |
 | Core 一般行情 | 365 天 |
 | Deep Coverage 價量與 benchmark | 1096 天 |
 | 財報 | 12 季 |
