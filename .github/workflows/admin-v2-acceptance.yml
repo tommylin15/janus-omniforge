@@ -1,0 +1,48 @@
+name: ADMIN-V2 bounded synthetic dev acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Full successfully released and deployed source SHA
+        required: true
+        type: string
+      release-run:
+        description: Exact source successful full GHCR release run
+        required: true
+        type: string
+      approved:
+        description: Approve disposable synthetic usage data only; no financial writes
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  accept:
+    if: inputs.approved == true
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: sudo apt-get update -qq && sudo apt-get install -y skopeo
+      - name: Verify bounded synthetic usage on existing dev Job
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE: ${{ inputs.source }}
+          RELEASE_RUN: ${{ inputs.release-run }}
+        run: python scripts/gcp/admin_v2_acceptance.py --source "$SOURCE" --release-run "$RELEASE_RUN" --approved
+      - uses: actions/upload-artifact@v4
+        with:
+          name: admin-v2-acceptance
+          path: admin-v2-acceptance.json

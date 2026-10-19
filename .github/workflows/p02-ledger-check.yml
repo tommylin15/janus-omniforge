@@ -1,0 +1,49 @@
+name: P0-2 Readiness Ledger check
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Check recent executions with details
+        run: |
+          echo "## Recent Controller Executions"
+          gcloud run jobs executions list --job=janus-batch-controller \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --limit=5 --format='table(name.basename(),createTime,completionTime,succeededCount,failedCount)'
+          echo ""
+          echo "## Recent Ingestion Core Executions"
+          gcloud run jobs executions list --job=janus-ingestion-core \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --limit=5 --format='table(name.basename(),createTime,completionTime,succeededCount,failedCount)'
+      - name: Check latest data-supplement logs for readiness
+        run: |
+          echo "## Latest data-supplement execution logs (looking for data_readiness)"
+          LATEST=$(gcloud run jobs executions list --job=janus-ingestion-core \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --limit=1 --format='value(name.basename())')
+          echo "Latest execution: $LATEST"
+          echo ""
+          gcloud logging read "resource.type=\"cloud_run_job\" AND labels.\"run.googleapis.com/execution_name\"=\"$LATEST\" AND (textPayload:\"readiness\" OR jsonPayload.data_readiness_status:* OR textPayload:\"data_readiness\")" \
+            --project=gen-lang-client-0593591102 --limit=20 --format='table(timestamp,textPayload)' || echo "No readiness logs found"
+      - name: Check PostgreSQL admin settings via API
+        run: |
+          echo "## Check data_readiness_ledger via Preview API"
+          # Get preview URL
+          PREVIEW_URL=$(gcloud run services describe janus-api \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --format='value(status.traffic[0].url)')
+          echo "API URL: $PREVIEW_URL"
+          # This endpoint requires auth, so we just check if the service is healthy
+          curl -s "$PREVIEW_URL/health" || echo "Health check failed"

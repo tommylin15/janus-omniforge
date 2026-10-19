@@ -1,0 +1,39 @@
+name: P0-2 Full execution logs
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Get latest execution full logs
+        run: |
+          LATEST=$(gcloud run jobs executions list --job=janus-ingestion-core \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --limit=1 --format='value(name.basename())')
+          echo "Latest execution: $LATEST"
+          echo ""
+          echo "=== Full Logs ==="
+          gcloud logging read "resource.type=\"cloud_run_job\" AND labels.\"run.googleapis.com/execution_name\"=\"$LATEST\"" \
+            --project=gen-lang-client-0593591102 --limit=200 --format='value(textPayload)'
+      - name: Check execution status
+        run: |
+          LATEST=$(gcloud run jobs executions list --job=janus-ingestion-core \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --limit=1 --format='value(name.basename())')
+          echo "Execution details:"
+          gcloud run jobs executions describe $LATEST \
+            --job=janus-ingestion-core \
+            --project=gen-lang-client-0593591102 \
+            --region=us-central1 \
+            --format='yaml(status)'
