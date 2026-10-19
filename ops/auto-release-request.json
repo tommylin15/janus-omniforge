@@ -15,6 +15,9 @@
     "expected_controller": "janus-batch-controller",
     "approved_stage_ttl_hours": 48,
     "acceptance": "full tests, GHCR digest, current config rollback, 4-job canary, controller schedule and Stage-only safe runtime readback",
-    "no_api_traffic_promotion": true
+    "no_api_traffic_promotion": true,
+    "retry_of_run": 39269117162,
+    "retry_reason": "Use existing GHCR approved two retired Pilot-test deselections; original 2 failed 1505 passed; no release from failed run",
+    "request_attempt": 2
   }
 }
