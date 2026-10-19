@@ -34,7 +34,9 @@
 | 模型 training／OOS／evaluation／GCS research derived | 已核准 D 或具 PIT 的 M 歷史研究 cohort，定期有界觸發 | 依 frozen cohort、label 成熟度、request 計；**沒有固定 1,992 × 5 全量** | 最新使用的 OOS／固定 ML 資料保留；無引用過時逾 7 天候選清理 | model/dataset hash 與 lineage 須獨立留存；BigQuery temporary 可重建，不是 canonical |
 | 私人持股、交易、現金、成本、配息與損益／PG + Private | P；事件／持股變動或 EOD | owner 實際事件數／持股檔數，不按 1,992 推導 | **不套用公開 7／90／365／1,096 天清理**；Ledger 及 reversal 不就地刪改 | bounded 備份保存政策與交易事實 retention 分開；owner 隔離 |
 
-表中「12 季」不是表示所有股票都已有 12 季完整 EPS；「1,096 天」也不表示所有關注股都已補足 3 年。現行深度歷史估值補收 adapter 最多可詢問 36 月，但**目前 DRL-01D 指定的產品河流僅兩年六檔**，不可把 36 月能力當成當次新回## 3. 到期後：Row、Snapshot、研究重播與是否搬區
+表中「12 季」不是表示所有股票都已有 12 季完整 EPS；「1,096 天」也不表示所有關注股都已補足 3 年。現行深度歷史估值補收 adapter 最多可詢問 36 月，但**目前 DRL-01D 指定的產品河流僅兩年六檔**，不可把 36 月能力當成當次新回補請求。未核准分 K/Tick／新聞全文／券商／社群不計入預計收錄量，不排程。
+
+## 3. 到期後：Row、Snapshot、研究重播與是否搬區
 
 **沒有獨立歷史區搬遷 Job 或新增 archive bucket。** 2026-10-18 決策以來 Core／Mart **只保留 current Iceberg snapshot**；已撤銷舊 named refs、24h snapshot、外部歷史研究引用保護，不能把已刪的 `snapshot_id` 當成仍可回播。參見 [正式清理契約](retention-governance.md) 和 [新決策](../decision-2026-10-18-current-only-snapshots.md)。
 
@@ -56,14 +58,14 @@ D07 第一版設定**最近24個月滾動研究窗口**：這是每月訓練/OOS
 
 **不延伸**為可直接刪除任何 canonical rows／私人資料的權限。
 
-## 4. 目前有實測證據的覆蓋 vs 尚無 COUNT 的部分（2026-10-17）
+## 4. 有時間戳的實測覆蓋 vs 未認證的模型歷史（2026-10-17～19）
 
 | 項目 | 有證據的實測情況 | 不可推論 |
 |---|---|---|
 | M 的 13 月營收（2025-09～2026-09） | TWSE **1,077/1,096**、TPEx **864/896**，合計 **1,941/1,992**，分市場 PASS | 不等於 25,233 實際 Core row 數／所有 13 個月版次完整 PIT |
 | Focus D 價量 | 6 TWSE 各 **135 日**，00697B／00719B 各 **125 日**，8/8 120 日 gate PASS | 不等於市場其餘股票 120 日覆蓋或所有持股 3 年已齊 |
-| EPS 首版 | 6 focus TWSE 的 2026 Q1＋Q2 各有合法單季，6/6 PASS_CURRENT_YEAR | 2025Q4／四連季 TTM 仍未認證 |
-| DRL-01D 兩年 PE/PB 河流 | 2026-10-18 實測六股 × PE/PB = 12 個 ready（PG publication）；三段官方25月補收 #39051869951 PASS | 正式 API #39083839390 仍未回 two_year_profile，畫面驗收待補 |
+| Focus EPS | 6 股 2026 Q1／Q2 已有合格單季；2026-10-19 Yahoo 2025Q4 六股補收 Stage→Core→serving/API 6/6 PASS（見 DRL-01 結案） | 第三方來源、歷史嚴格 PIT、四季 TTM 可比較仍未認證；不等於全市場歷史完整 |
+| DRL-01D 兩年 PE/PB 河流 | 2026-10-19 新版正式 API 6股×PE/PB=12/12 讀回 PASS（此前六股25月補收沿用） | 僅六股估值產品，不能推論全市場兩年 OHLCV、PIT 與成熟標籤完整 |
 | GCS Core／Mart 實際物件量與 dataset 細項 | D06 曾有具時間戳的物件統計及有限 orphan 清理 | 無本次新鮮 SQL/Iceberg live COUNT，不聲稱現有總筆數、冷封存量或節省百分比 |
 
 **後續 Admin/資料品質表格的口徑**：對每一 dataset × market × period × tier 列出 `expected_symbols`、`eligible_symbols`、`covered_symbols`、`observed_rows`、`missing_symbols`、`snapshot_id`、`source_as_of`、`retention_policy`、`next_retention_candidate_at`、`protected_reference_count`、`archive_migration_status=not_implemented`、`last_verified_at`；未知應為 null／UNKNOWN。這是既有 ADMIN-V2 A3 / D06 讀取欄位的**契約參考**，不是新建獨立 Admin 頁面或新的 daily job。未驗證的實際 row counts 不得用估算值帶入。
@@ -78,4 +80,4 @@ D07 第一版設定**最近24個月滾動研究窗口**：這是每月訓練/OOS
 
 ### 2026-10-18 補充：actual Core continuity，勿和容量預算混淆
 
-[Core census #39083283620](https://github.com/tommylin15/janus-omniforge/actions/runs/39083283620) 實際 snapshot records：benchmark759、market-volume39699、ohlcv111929、market-activity135050、valuation16595、financials88131；[逐月 #39083573483](https://github.com/tommylin15/janus-omniforge/actions/runs/39083573483) 指定股票樣本 market-volume 在2026-07/08為0、09為19、10截至16日11個交易日期；market-activity 0/3/14/11；TAIEX 7–10月連續、TPEx指數日數僅39。這不是全股票各日期分母，不能將同一「大盤」畫面所需的不同 dataset 用 TAIEX 完整度替代。EPS 2025Q4六股有原始季報卻無驗證合法單季，首版2026Q1/Q2 6/6合格。Readiness Ledger當次DB設定不存在，即使自然data-supplement occurrence success也不代表發布PASS。本表保存期不變；資料回補實作和受控驗收詳見 `../todo.md`、`operations-and-testing.md`。
+[Core census #39083283620](https://github.com/tommylin15/janus-omniforge/actions/runs/39083283620) 實際 snapshot records：benchmark759、market-volume39699、ohlcv111929、market-activity135050、valuation16595、financials88131；[逐月 #39083573483](https://github.com/tommylin15/janus-omniforge/actions/runs/39083573483) 指定股票樣本 market-volume 在2026-07/08為0、09為19、10截至16日11個交易日期；market-activity 0/3/14/11；TAIEX 7–10月連續、TPEx指數日數僅39。這不是全股票各日期分母，不能將同一「大盤」畫面所需的不同 dataset 用 TAIEX 完整度替代。EPS、API 與 Ledger 的 2026-10-18 當次缺口已被 2026-10-19 DRL-01 結案的新版讀回部分取代；自然 daily/weekly Ledger 收據仍 NOT_VERIFIED、TTM／嚴格 PIT 未認證。此 Core census 是 10/18 固定歷史截面而非本次 live COUNT。本表保存期不變；資料回補實作及受控驗收詳見 `../todo.md`、`operations-and-testing.md`。

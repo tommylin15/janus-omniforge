@@ -20,6 +20,8 @@
 - [wbs-5-intelligence-mart.md](../wbs/wbs-5-intelligence-mart.md)
 - [Admin v2 四頁 UI](../ui/admin.md) 與 [Admin v2 順序決策](../decision-2026-10-17-admin-v2.md)（只供 VF-09 呈現契約；不重啟 D01～D06）
 
+> **2026-10-19 Colab 離線建模可行性研究**：[依現有 ML/OOS、Core 與 B9 品質證據評估](../colab-d07-modeling-feasibility-2026-10-19.md)。研究文件不等於 FINOPS-C 預評完成、D07 開工或模型品質 PASS。
+
 **實作入口：**`jobs/intelligence-mart/intelligence_mart/evaluation.py`、`quant_pit.py`、`event_labeling.py`、`scripts/gcp/b9-specialist-oos-quality.py`、月度 retrain artifacts。
 
 ## 2. 開工前證據與前置條件
