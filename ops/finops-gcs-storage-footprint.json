@@ -11,8 +11,9 @@
     "gen-lang-client-0593591102-dev-research-big-move-500",
     "gen-lang-client-0593591102-cloudbuild-regional"
   ],
-  "audit_attempt": 4,
+  "audit_attempt": 5,
   "first_attempt": "39245576636 WIF invalid audience, no GCS audit performed",
   "second_attempt": "39245782268 GCP WIF and 8 unit tests PASS; audit returned opaque BLOCKED before listing",
-  "third_attempt": "39246076678 WIF and tests passed; audit BLOCKED, improve reason-only output"
+  "third_attempt": "39246076678 WIF and tests passed; audit BLOCKED, improve reason-only output",
+  "fourth_attempt": "39246311296 gcloud auth print-access-token blocked; try WIF ADC fallback, sanitized codes"
 }

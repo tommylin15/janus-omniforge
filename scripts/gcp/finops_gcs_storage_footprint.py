@@ -229,6 +229,35 @@ def report(token: str, request: dict, get=api_json) -> dict:
                       "Possible identical MD5 is not evidence of safe deletion.")}
 
 
+def get_access_token() -> tuple[str | None, list[str]]:
+    """Try regular gcloud and ADC WIF, reporting codes only, not stderr/identity."""
+    checks = []
+    commands = (
+        ("gcloud", ["gcloud", "auth", "print-access-token"]),
+        ("adc", ["gcloud", "auth", "application-default", "print-access-token"]),
+    )
+    for label, command in commands:
+        try:
+            done = subprocess.run(command, check=False, capture_output=True,
+                                  text=True, timeout=30)
+            token = done.stdout.strip()
+            if done.returncode == 0 and token:
+                return token, checks + [label + ":OK"]
+            message = done.stderr.lower()
+            if "getaccesstoken" in message or "permission denied" in message:
+                code = "IAM_OR_IMPERSONATION_DENIED"
+            elif "invalid" in message and ("credential" in message or "grant" in message):
+                code = "INVALID_CREDENTIAL"
+            elif "account" in message and "no" in message:
+                code = "NO_ACTIVE_ACCOUNT"
+            else:
+                code = "TOKEN_COMMAND_FAILED"
+            checks.append(label + ":" + code + ":exit" + str(done.returncode))
+        except (OSError, subprocess.TimeoutExpired):
+            checks.append(label + ":UNAVAILABLE")
+    return None, checks
+
+
 def main() -> int:
     try:
         request = json.loads(REQUEST.read_text(encoding="utf-8"))
@@ -237,14 +266,15 @@ def main() -> int:
                   "reason": "REQUEST_FILE_UNAVAILABLE", "buckets": []}
     else:
         try:
-            token = subprocess.check_output(["gcloud", "auth", "print-access-token"],
-                                            text=True, stderr=subprocess.DEVNULL, timeout=30).strip()
+            token, token_checks = get_access_token()
             if not token:
-                raise RuntimeError("no token")
-        except (OSError, RuntimeError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                result = {"component": "gcs-storage-footprint", "status": "BLOCKED",
+                          "reason": "GCP_WIF_TOKEN_UNAVAILABLE",
+                          "auth_checks": token_checks, "buckets": []}
+        except (OSError, subprocess.TimeoutExpired):
             result = {"component": "gcs-storage-footprint", "status": "BLOCKED",
-                      "reason": "GCLOUD_ACCESS_TOKEN_UNAVAILABLE", "buckets": []}
-        else:
+                      "reason": "GCP_AUTH_COMMAND_UNAVAILABLE", "buckets": []}
+        if token:
             try:
                 result = report(token, request)
             except (ValueError, TypeError) as exc:
@@ -257,6 +287,7 @@ def main() -> int:
                       encoding="utf-8")
     print(json.dumps({"status": result["status"], "reason": result.get("reason"),
                       "error_type": result.get("error_type"),
+                      "auth_checks": result.get("auth_checks"),
                       "bucket_discovery": result.get("bucket_discovery"),
                       "buckets_inspected": result.get("buckets_inspected"),
                       "totals_only_if_complete": result.get("totals_only_if_complete"),
