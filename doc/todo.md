@@ -6,14 +6,23 @@
 
 | 優先 | 工項 | 狀態／責任入口 |
 |---|---|---|
-| **P0** | **D07-PRE：Colab 單一資料整理與模型訓練前置**（含原 FINOPS-C preflight） | **DESIGN_DECIDED / LIVE_PARTIAL**；[研究與工程流程](colab-d07-modeling-feasibility-2026-10-19.md)、[AI 指令 §4](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) |
-| **P1** | **D07：五角色 ML／OOS 品質及正式介接** | **PLANNED**、待前置評估有合格處置；[唯一 D07 卡](execution-cards/d07-specialist-b9-oos.md) |
-| **P2** | **D08：CEO、Admin 模型管理與受控 Owner 報告** | **PLANNED**、有效 Fact Pack 後；[唯一 D08 卡](execution-cards/d08-ceo-admin-owner-report.md) |
+| **P0** | **STAGE-48H：2天保存、每日獨立清理、重複原始資料去重、Admin一鍵盤點** | **CODE_PARTIAL / LIVE_NOT_VERIFIED**；2天政策及 daily worker/controller 已寫入 main，tests/CI、release/live 仍需最新 SHA 確認；MD5 安全去重與 Admin 按鈕另驗。依 [正式保留政策](spec/retention-governance.md) 與 [Runbook](runbook-batch-controller-dev.md) |
+| **P1** | **D07-PRE：Colab 單一資料整理與模型訓練前置**（含原 FINOPS-C preflight） | **DESIGN_DECIDED / LIVE_PARTIAL**；[研究與工程流程](colab-d07-modeling-feasibility-2026-10-19.md)、[AI 指令 §4](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) |
+| **P2** | **D07：五角色 ML／OOS 品質及正式介接** | **PLANNED**、待前置評估有合格處置；[唯一 D07 卡](execution-cards/d07-specialist-b9-oos.md) |
+| **P3** | **D08：CEO、Admin 模型管理與受控 Owner 報告** | **PLANNED**、有效 Fact Pack 後；[唯一 D08 卡](execution-cards/d08-ceo-admin-owner-report.md) |
 | 非阻擋 | **OPS-OBS：自然排程／Retention 收據、GCS 容量歸因與 Pilot** | **GCS live audit TOKEN_BLOCKED（10/19）；無真實2GB拆解**；[唯讀稽核](gcs-storage-footprint-audit-2026-10-19.md)／[Operations](spec/operations-and-testing.md)／[總控 Runbook](runbook-batch-controller-dev.md) |
 
 **不重開**：D01～D05 `CLOSED/USER_ACCEPTED`、DRL-01 `CLOSED`、FINOPS-AB（已含 D06）`CLOSED`、背景持股/關注股補收 `PASS`、ADMIN-V2 `PASS`。原驗收範圍與缺口不改判；完整實測收據在 [原 TODO](archive/todo-before-consolidation-2026-10-19.md)、[D01～05](archive/d01-d05-relaxed-acceptance-closure-2026-10-17.md)、[DRL](archive/drl01-completed-2026-10-19.md) 和 [Operations](spec/operations-and-testing.md)。歷史工作包的卡片留作維運參考，不能變第二套 active queue。
 
-## 2. D07-PRE｜唯一需先做的完整工作包
+## 2. STAGE-48H｜最新核准的儲存清理工作（不重開 FINOPS-AB）
+
+- [ ] **先**在既有 dev Stage 清理超過48小時、沒有 queued/running/retrying active 引用的物件；唯讀盤點→安全 bounded generation 刪除→實刪物件數/bytes、前後容量及 Core readback。MD5 相同不是刪除資格。
+- [ ] **再**修正 Stage 重複原始資料寫入；有已引用的同內容物件須保留一個可驗證代表、調整合法來源引用並有重跑／provenance 驗收，不盲刪全部。
+- [ ] **接著**驗收 Controller 每日18:30 Stage-only（舊 Iceberg 每週23:30不變）、worker SHA/digest、CI、無重覆派送、自然 due/終態/失敗復原；超過48小時不是每48小時才跑一次。
+- [ ] **最後**在 Admin 四頁既有「資料品質／儲存維護」提供一鍵執行**唯讀** GCS 六桶容量盤點與執行狀態；不把一鍵清理放在 Admin，也不將非即時資料誤標 live。實施 Admin auth、GCS IAM 最小權限與 backend async/timeout fence。
+- 本項不碰 Core/Mart/Private/Research canonical 資料，未獲實際 deployment/GCS receipts 不標完成。完成後回到 D07-PRE → D07 → D08。
+
+## 3. D07-PRE｜資料整理與模型訓練前置
 
 **R1 人工執行已核准（2026-10-19）**：免費 Colab Notebook 由人工在月度 due 時段啟動／上傳有 hash 的結果，Janus 接收、驗收、存取與 trace；**不評估／實作每月無人值守 Colab**，除非使用者重新指定。人工訓練的可重跑性、權限與 receipts 仍是驗收門檻。
 
@@ -25,7 +34,7 @@
 - [ ] **FINOPS/SECURITY**：量測適用的 GCS I/O、CPU/RAM、PyIceberg 唯讀出口、Colab 外部來源使用許可、資料/Owner 隔離、金鑰不外流、same-input/hash/parity、失敗回退；僅資料量瓶頸時評估 BigQuery 前置的 billed bytes、共享額度／region／IAM、價格上限及授權。未有實測就維持 DEFER。
 - [ ] **GATE**：**一份**日期、SHA、真實覆蓋率、PoC、成本、安全、缺口與 GO/NO-GO/BLOCKED（BQ 可 DEFER）的評估；回寫 [原 BQ 決策](decision-2026-10-06-bigquery-analytics-over-iceberg.md)、WBS5／WBS7／本 TODO。文件提交不能當 live PASS，也不替代 D07 OOS 品質認證。
 
-## 3. D07、D08：前置通過後才開始
+## 4. D07、D08：前置通過後才開始
 
 **D07**（詳情只維護 [D07 卡](execution-cards/d07-specialist-b9-oos.md)）：
 - [ ] Quant→Risk 優先，Valuation/Fundamental 待可比較合法歷史，Event 缺已授權人工標籤先維持 deterministic；依同樣本 baseline/ML、成熟 labels、PIT/時間外 fold、成本／regime、來源/版本與不確定性逐角色評估。
@@ -35,7 +44,7 @@
 **D08**（詳情只維護 [D08 卡](execution-cards/d08-ceo-admin-owner-report.md)）：
 - [ ] 沿用 OmniGateway/Gemini 路由驗證 auth、quota、owner boundary、失敗及回滾；有效 Fact Pack → 手動 request → validator → immutable GCS/PG → User/Owner 授權 history。LLM 不產生 canonical number、不能決定 publication。
 
-## 4. 非阻擋觀察與決策
+## 5. 非阻擋觀察與決策
 
 - **自然 Readiness Ledger**：手動/定向已結案，但 daily/weekly 自然收據仍 `NOT_VERIFIED`，沿現行 Job/Operations 觀察，不新增 DRL 第二施工工單。
 - **FINOPS 實刪效果**：候選 Core 6,455／Mart 55 物件不等於實際刪除 objects／bytes，不能從 Job success 推算帳單節省；唯讀查已執行 receipts，**不為填文件再做清理**。使用者取消兩日等量 I/O 比較，狀態為 `CANCELLED_BY_USER`。
