@@ -147,7 +147,7 @@ def main():
     request = json.loads(REQUEST.read_text())
     if (request.get("intent") != "one-shot-existing-dev-iceberg-maintenance"
             or request.get("no_new_resources") is not True
-            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup", "unlinked-small-files", "ci-approved-orphans", "enable-weekly", "mart-retention"}
+            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup", "unlinked-small-files", "ci-approved-orphans", "enable-weekly", "mart-retention", "stage-only-dry-run", "stage-only-apply"}
             or len(request.get("expected_source_sha", "")) != 40):
         raise RuntimeError("invalid one-shot GCP maintenance authorization")
     if request['mode'] in {'unlinked-small-files','ci-approved-orphans'} and request.get('user_approved_unlinked_small_file_cleanup') is not True:
@@ -235,6 +235,56 @@ def execute_maintenance(request, job, rollout, snapshots=None):
         print(json.dumps({'status':'PASS','operation':'enable-weekly','job':name,
                           'image':rollout.image(after),'weekly_maintenance':True,
                           'scheduler_schedule_changed':False}, sort_keys=True))
+        return
+    if request["mode"] in {"stage-only-dry-run", "stage-only-apply"}:
+        # Existing dev worker and scheduler fence only; never Core/Mart mutation.
+        # Distinct apply authorization avoids turning a diagnostic into deletion.
+        mode = request["mode"]
+        if (request.get("approved_stage_retention_hours") != 48
+                or request.get("approved_stage_bucket") != PROJECT + "-dev-stage"
+                or (mode == "stage-only-apply" and request.get("approved_stage_apply") is not True)):
+            raise RuntimeError("stage_only_scope_and_apply_approval_required")
+        if snapshots is None or JOB not in snapshots:
+            raise RuntimeError("stage_only_owned_runtime_fence_required")
+        if rollout.image(rollout.checked_image(JOB, *snapshots[JOB])) != request["expected_image"]:
+            raise RuntimeError("stage_only_target_image_drift")
+        env = ",".join((
+            "ICEBERG_MAINTENANCE_MODE=" + mode, "QUEUE_CONSUMER=false",
+            "MART_JOB=", "JANUS_DATA_SUPPLEMENT_MODE=", "JANUS_CONTROL_MIGRATION=",
+            "JANUS_SERVING_SCHEMA_MIGRATION="))
+        result = call("gcloud", "run", "jobs", "execute", JOB,
+                      "--project=" + PROJECT, "--region=" + REGION,
+                      "--update-env-vars=" + env, "--tasks=1", "--wait",
+                      "--format=value(metadata.name)", timeout=1500)
+        execution = result.splitlines()[-1].rsplit("/", 1)[-1]
+        if not execution.startswith(JOB + "-"):
+            raise RuntimeError("stage_only_execution_identity_invalid")
+        evidence = log_evidence(execution, "stage-only-retention")
+        policy = evidence.get("policy", {})
+        stage = evidence.get("stage", {})
+        if (evidence.get("status") != "PASS" or
+                evidence.get("mode") != ("apply" if mode == "stage-only-apply" else "dry-run") or
+                policy.get("stage_days") != 2 or policy.get("quarantine_days") != 2 or
+                evidence.get("scope") != "stage-only" or
+                evidence.get("core_deleted") != 0 or
+                evidence.get("mart_deleted") != 0 or evidence.get("private_deleted") != 0 or
+                not isinstance(stage.get("planned_objects"), int) or
+                not isinstance(stage.get("planned_bytes"), int)):
+            raise RuntimeError("stage_only_live_receipt_contract_failed")
+        if mode == "stage-only-apply":
+            if evidence.get("generation_readback") != "PASS":
+                raise RuntimeError("stage_only_generation_readback_failed")
+            before, after = evidence["before"], evidence["after"]
+            if (before["objects"] - after["objects"] != stage.get("deleted_objects") or
+                    before["bytes"] - after["bytes"] != stage.get("deleted_bytes")):
+                raise RuntimeError("stage_only_object_delta_mismatch")
+        else:
+            if stage.get("deleted_objects") != 0 or stage.get("deleted_bytes") != 0:
+                raise RuntimeError("stage_only_dry_run_mutated_data")
+        print(json.dumps({"status": "PASS", "operation": mode,
+                          "cloud_execution": execution,
+                          "source_sha": request["expected_source_sha"],
+                          "evidence": evidence}, sort_keys=True))
         return
     if request['mode']=='ci-approved-orphans':
         from finops_ci_orphans import run
