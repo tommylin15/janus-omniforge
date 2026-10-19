@@ -6,7 +6,7 @@ names in output. A partial inventory is never labelled a project total.
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
@@ -21,7 +21,7 @@ OUTPUT = Path("gcs-storage-footprint-report.json")
 MAX_BUCKETS = 15
 MAX_PAGES = 30
 FIELDS = ("nextPageToken,items(name,size,generation,timeDeleted,md5Hash,"
-          "storageClass,timeCreated,eventBasedHold,temporaryHold)")
+          "storageClass,timeCreated,updated,eventBasedHold,temporaryHold)")
 BUCKET_FIELDS = ("nextPageToken,items(name,versioning,softDeletePolicy,"
                  "defaultEventBasedHold,retentionPolicy,storageClass)")
 BASE = "https://storage.googleapis.com/storage/v1"
@@ -43,10 +43,24 @@ def kind(name: str, role: str) -> str:
     if role == "stage":
         if name.startswith("raw/"):
             return "stage-raw"
-        if "/stage/" in name or name.startswith("executions/"):
-            return "stage-executions"
         if name.startswith("quarantine/"):
             return "stage-quarantine"
+        if name.startswith("executions/"):
+            parts = name.split("/")
+            if len(parts) >= 4 and parts[2] == "stage":
+                if parts[3] == "raw":
+                    return ("stage-exec-raw-payload" if parts[-1].startswith("payload.")
+                            else "stage-exec-raw-sidecar")
+                if parts[3] == "quarantine":
+                    return "stage-exec-quarantine"
+                if len(parts) == 4 and name.endswith(".json"):
+                    return "stage-exec-manifest"
+                return "stage-exec-other-stage"
+            if len(parts) == 3 and parts[2] == "core-commit.json":
+                return "stage-exec-core-commit"
+            return "stage-exec-other"
+        if "/stage/" in name:
+            return "stage-other"
     if name.startswith("warehouse/"):
         if name.endswith(".parquet"):
             return "iceberg-data-parquet"
@@ -127,6 +141,10 @@ def summarized(items: list[dict], role: str) -> dict:
     classes: dict[str, int] = defaultdict(int)
     hash_count: dict[tuple, list[int]] = {}
     total = 0
+    now = datetime.now(timezone.utc)
+    age_over_7 = {"objects": 0, "bytes": 0}
+    age_over_30 = {"objects": 0, "bytes": 0}
+    age_unknown = {"objects": 0, "bytes": 0}
     for obj in items:
         size = int(obj.get("size") or 0)
         if size < 0:
@@ -137,6 +155,22 @@ def summarized(items: list[dict], role: str) -> dict:
         group = kind(obj.get("name", ""), role)
         groups[group]["objects"] += 1
         groups[group]["bytes"] += size
+        # Age is observational, never a claim of deletion eligibility.
+        stamp = obj.get("updated") or obj.get("timeCreated")
+        try:
+            recorded_at = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+            elapsed = now - recorded_at
+            if elapsed >= timedelta(days=7):
+                age_over_7["objects"] += 1
+                age_over_7["bytes"] += size
+                groups[group]["older_than_7d_objects"] = groups[group].get("older_than_7d_objects", 0) + 1
+                groups[group]["older_than_7d_bytes"] = groups[group].get("older_than_7d_bytes", 0) + size
+            if elapsed >= timedelta(days=30):
+                age_over_30["objects"] += 1
+                age_over_30["bytes"] += size
+        except (AttributeError, TypeError, ValueError):
+            age_unknown["objects"] += 1
+            age_unknown["bytes"] += size
         # Same hash is only a similarity signal; deletion requires lineage checks.
         digest = obj.get("md5Hash")
         if digest and role != "private":
@@ -147,6 +181,10 @@ def summarized(items: list[dict], role: str) -> dict:
     duplicated_bytes = sum((count - 1) * size for count, size in hash_count.values() if count > 1)
     return {"objects": len(items), "bytes": total,
             "under_1mib": sum(int(x.get("size") or 0) < 1048576 for x in items),
+            "older_than_7d_metadata_only": age_over_7,
+            "older_than_30d_metadata_only": age_over_30,
+            "age_missing": age_unknown,
+            "age_is_not_retention_eligibility": True,
             "by_category": dict(sorted(groups.items())),
             "by_storage_class_bytes": dict(sorted(classes.items())),
             "possible_same_hash_extra_objects": duplicated_count,

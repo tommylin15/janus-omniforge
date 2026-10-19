@@ -85,3 +85,18 @@ def test_bounded_bucket_scope_not_misreported_as_full():
 def test_invalid_requests_fail_closed(bad):
     with pytest.raises(ValueError):
         audit.report("token", bad)
+
+
+def test_stage_execution_subcategories():
+    assert audit.kind("executions/r1/stage/raw/s/d/date/key/payload.json", "stage") == "stage-exec-raw-payload"
+    assert audit.kind("executions/r1/stage/raw/s/d/date/key/metadata.json", "stage") == "stage-exec-raw-sidecar"
+    assert audit.kind("executions/r1/stage/key.json", "stage") == "stage-exec-manifest"
+    assert audit.kind("executions/r1/core-commit.json", "stage") == "stage-exec-core-commit"
+
+
+def test_older_than_seven_days_is_not_cleanup_authorization():
+    x = audit.summarized([{"name": "executions/a/stage/x.json", "size": "200",
+                           "updated": "2026-01-01T00:00:00Z"}], "stage")
+    assert x["older_than_7d_metadata_only"]["bytes"] == 200
+    assert x["by_category"]["stage-exec-manifest"]["older_than_7d_objects"] == 1
+    assert x["age_is_not_retention_eligibility"] is True
