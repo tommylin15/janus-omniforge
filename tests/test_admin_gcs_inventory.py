@@ -1,5 +1,11 @@
 """Admin six-bucket GCS inventory: bounded, read-only, no sensitive details."""
 from unittest.mock import patch
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).parents[1]
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "jobs" / "ingestion-core"))
 
 from packages.admin_api import gcs_inventory as inventory
 
