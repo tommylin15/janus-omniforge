@@ -38,6 +38,23 @@ def test_weekly_maintenance_uses_only_saturday_chain_and_keeps_daily_core_work(m
         due_batches(due)
 
 
+def test_stage_cleanup_runs_daily_independent_of_weekly_iceberg(monkeypatch):
+    from ingestion_core.batch_controller import effective_batches
+    monkeypatch.setenv("FINOPS_WEEKLY_MAINTENANCE", "true")
+    batch = next(x for x in effective_batches() if x.name == "stage-cleanup")
+    assert batch.weekdays == tuple(range(7))
+    assert batch.dependencies == ()
+    assert dict(batch.env)["ICEBERG_MAINTENANCE_MODE"] == "stage-only-apply"
+    assert dict(batch.env)["JANUS_DATA_SUPPLEMENT_MODE"] == ""
+    before = datetime(2026, 10, 19, 10, 29, tzinfo=timezone.utc)
+    due = before.replace(minute=30)  # 18:30 Taipei
+    assert not [r for r in due_batches(before) if r[1].name == "stage-cleanup"]
+    assert [r[0] for r in due_batches(due) if r[1].name == "stage-cleanup"] == [
+        "stage-cleanup/2026-10-19/18"]
+    assert [r[0] for r in due_batches(due.replace(day=20)) if r[1].name == "stage-cleanup"] == [
+        "stage-cleanup/2026-10-20/18"]
+
+
 def test_weekly_eod_core_requires_successful_trading_slot_and_immutable_receipt():
     from unittest.mock import MagicMock
     from ingestion_core.batch_controller import weekly_eod_core_evidence
