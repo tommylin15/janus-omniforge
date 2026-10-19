@@ -9,6 +9,7 @@ on:
         options:
           - gcs-hourly-io
           - gcs-storage-footprint
+          - stage-retention-trace
           - core-reference-audit
           - runtime-references
           - iceberg-readback
@@ -23,6 +24,7 @@ on:
     paths:
       - 'ops/finops-gcs-hourly-io.json'
       - 'ops/finops-gcs-storage-footprint.json'
+      - 'ops/finops-stage-trace.json'
       - 'ops/finops-core-reference-audit.json'
       - 'ops/finops-reference-runtime.json'
       - 'ops/finops-iceberg-readback-once.json'
@@ -55,6 +57,7 @@ jobs:
             changed=$(git diff --name-only HEAD~1 HEAD -- ops/finops-*.json 2>/dev/null || echo "")
             case "$changed" in
               *gcs-storage-footprint*) echo "operation=gcs-storage-footprint" >> "$GITHUB_OUTPUT" ;;
+              *stage-trace*) echo "operation=stage-retention-trace" >> "$GITHUB_OUTPUT" ;;
               *gcs-hourly-io*) echo "operation=gcs-hourly-io" >> "$GITHUB_OUTPUT" ;;
               *core-reference-audit*) echo "operation=core-reference-audit" >> "$GITHUB_OUTPUT" ;;
               *reference-runtime*) echo "operation=runtime-references" >> "$GITHUB_OUTPUT" ;;
@@ -64,6 +67,25 @@ jobs:
               *) echo "operation=none" >> "$GITHUB_OUTPUT" ;;
             esac
           fi
+
+  stage-retention-trace:
+    needs: detect
+    if: needs.detect.outputs.operation == 'stage-retention-trace'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: none
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Validate read-only trace request
+        run: |
+          jq -e '.intent=="read-only-stage-retention-trace" and .no_gcp_mutation==true' ops/finops-stage-trace.json
+      - name: Inspect Stage cleanup receipts and lifecycle metadata
+        run: python scripts/gcp/finops_stage_trace.py
 
   gcs-hourly-io:
     needs: detect
