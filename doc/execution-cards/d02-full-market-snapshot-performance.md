@@ -15,7 +15,7 @@
 - [full-market-batch-policy.md](../spec/full-market-batch-policy.md)
 - [holdings-first.md](../spec/holdings-first.md)
 - [system-development-contract.md](../spec/system-development-contract.md)
-- [batch-inventory-2026-10-13.md](../batch-inventory-2026-10-13.md)
+- [batch-inventory-2026-10-13.md](../archive/batch-inventory-2026-10-13.md)
 - [wbs-3-ingestion-admin.md](../wbs/wbs-3-ingestion-admin.md)
 - [wbs-6-api-and-apps.md](../wbs/wbs-6-api-and-apps.md)
 

@@ -31,4 +31,4 @@
 
 全市場所有歷史無缺口回補、S3～S6 新聞／供應鏈／券商／社群擴張、額外歷史 PIT 校準目前不做，見 [Parking Lot](../parking-lot.md)。新付費來源、權限擴張或 production 仍需明確授權。
 
-原 S0～S2 詳細規劃、checkpoint minimum floor 與 Stop-and-Discuss 條件保留於 [已取代規劃](../archive/wbs-3-data-supplement-v1-plan-superseded-2026-10-03.md)；原始查核見 [歷史 S0 evidence](../data-supplement-s0-evidence.md)。兩者均不得作為新的開工或完成閘門。新的確定需求須由使用者明確加入 active TODO。
+原 S0～S2 詳細規劃、checkpoint minimum floor 與 Stop-and-Discuss 條件保留於 [已取代規劃](../archive/wbs-3-data-supplement-v1-plan-superseded-2026-10-03.md)；原始查核見 [歷史 S0 evidence](../archive/data-supplement-s0-evidence.md)。兩者均不得作為新的開工或完成閘門。新的確定需求須由使用者明確加入 active TODO。

@@ -19,7 +19,7 @@
 - [wbs-5-intelligence-mart.md](../wbs/wbs-5-intelligence-mart.md)
 - [wbs-6-api-and-apps.md](../wbs/wbs-6-api-and-apps.md)
 - [Admin v2 四頁 UI](../ui/admin.md) 與 [Admin v2 順序決策](../decision-2026-10-17-admin-v2.md)
-- [ceo-omniagent-p0v-integration.md](../ceo-omniagent-p0v-integration.md)
+- [ceo-omniagent-p0v-integration.md](../archive/ceo-omniagent-p0v-integration.md)
 - [runbook-mart-ai-providers.md](../runbook-mart-ai-providers.md)
 
 **實作入口：**既有 `OmniGatewayGeminiProvider`、manual CEO request、Admin analysis profile/capability 與 immutable report GCS/PG；具體位置先在 main 查實作。

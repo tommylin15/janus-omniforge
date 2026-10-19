@@ -4,4 +4,4 @@ Janus 不再擁有通用 Chat UI、provider runtime、Agent Gateway、Skills、a
 
 Janus 保留自己的 authenticated read-only MCP／OAuth connector 與投資 domain API。這些能力的現行未完成驗收以 [`../todo.md`](../todo.md) 為準，最新 runtime evidence 見 [`../spec/operations-and-testing.md`](../spec/operations-and-testing.md)。
 
-Janus／omniAgent hard split 的 2026-09-23 checkpoint 已轉為歷史資料；omniAgent 後續 gateway／chat runtime 的保留、清理與自身驗收屬於獨立專案，不再是 Janus WBS、Pilot Entry gate 或完成條件。歷史入口見 [`../omniagent-split-status.md`](../omniagent-split-status.md)。
+Janus／omniAgent hard split 的 2026-09-23 checkpoint 已轉為歷史資料；omniAgent 後續 gateway／chat runtime 的保留、清理與自身驗收屬於獨立專案，不再是 Janus WBS、Pilot Entry gate 或完成條件。歷史入口見 [`../omniagent-split-status.md`](../archive/omniagent-split-status.md)。

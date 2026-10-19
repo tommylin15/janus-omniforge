@@ -12,7 +12,7 @@
 
 ## 1. 最小必讀文件與工程入口
 
-- [batch-inventory-2026-10-13.md](../batch-inventory-2026-10-13.md)
+- [batch-inventory-2026-10-13.md](../archive/batch-inventory-2026-10-13.md)
 - [full-market-batch-policy.md](../spec/full-market-batch-policy.md)
 - [retention-governance.md](../spec/retention-governance.md)
 - [wbs-3-ingestion-admin.md](../wbs/wbs-3-ingestion-admin.md)

@@ -225,7 +225,7 @@ Secret 值不得出現在 command argv、shell trace、process listing、Cloud B
 
 ## 8. 歷史資料
 
-2026-09-23 Janus／omniAgent hard split、舊 Phase 5 deployment、舊 Agent Gateway／fixture、舊 Secret bundle 遷移等內容都是歷史 checkpoint，不再作為目前操作步驟。入口見 [`omniagent-split-status.md`](omniagent-split-status.md) 與 `archive/`。
+2026-09-23 Janus／omniAgent hard split、舊 Phase 5 deployment、舊 Agent Gateway／fixture、舊 Secret bundle 遷移等內容都是歷史 checkpoint，不再作為目前操作步驟。入口見 [`omniagent-split-status.md`](archive/omniagent-split-status.md) 與 `archive/`。
 
 
 ## Owner-scoped Private Mart recalculation queue

@@ -82,7 +82,7 @@
 - 驗證結果：兩個 legacy regional trigger names／IDs 仍 absent，canonical acceptance push 沒有把它們重新建立。
 - `janus-ingestion-core`：`Ready=True`，image digest `sha256:8009ae8eb017a463ea1f145942f2de910b64dc0e48234d0c8c8431c03fd6f9d8`。
 - `janus-intelligence-mart`：`Ready=True`，image digest `sha256:d0d5100085fe2f30e4b87891f0e264327cf244f46685826aa180252b39d9c456`。
-- 一次性 cleanup workflow／request 後續已從 `main` 移除，避免留下額外 mutation surface；正式 closure evidence 見 [`deployment-controller-consolidation-2026-09-26.md`](deployment-controller-consolidation-2026-09-26.md)。
+- 一次性 cleanup workflow／request 後續已從 `main` 移除，避免留下額外 mutation surface；正式 closure evidence 見 [`deployment-controller-consolidation-2026-09-26.md`](archive/deployment-controller-consolidation-2026-09-26.md)。
 
 ### Checkpoint 判定
 
