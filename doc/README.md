@@ -2,9 +2,9 @@
 
 更新：2026-10-19。本頁只導航，不保存暫停、部署版本或重複待辦。
 
-先讀 [PROJECT_RULES](PROJECT_RULES.md) → [status](status.md) → [TODO](todo.md) → [AI開發指示](codex-execution-plan.md)。產品方向：持股／交易與效能 → 通用圖表／四頁 → 五角色品質 → 有效後報告；獨立FinOps依TODO判定。
+先讀 [PROJECT_RULES](PROJECT_RULES.md) → [專案管理](project-management.md) → [status](status.md) → [TODO](todo.md) → 指定一張 [AI 任務卡](execution-cards/README.md)。現行執行序列：**D07-PRE → D07 → D08**；已完成產品工作不再重開。
 
-本次 [文件盤點及風險](documentation-review-2026-10-15.md) 與 [系統建置補強](spec/system-development-contract.md) 已整理UI、研究、資料及可執行驗收；文件完成不代表產品完成。
+文件權責、唯一待辦與**需要使用者決策的重大風險**統一見 [專案管理](project-management.md)；舊 [文件盤點](archive/documentation-review-2026-10-15.md) 轉歷史證據，不當現在的工作佇列。
 
 ## 1. 先判斷你要回答哪一種問題
 
@@ -28,12 +28,13 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 ## 2. Active 文件地圖
 
 - `PROJECT_RULES.md`：治理、權限、驗證與文件維護規則。
+- `project-management.md`：單一執行順序、文件責任、驗收與風險決策選項。
 - `spec/data-governance.md`：現行保存、唯一業務排程與週維護、補資料兩路徑、D07 研究窗口的單一導覽；不新增工作包。
 - `status.md`：目前狀態與下一個執行序列的短入口；不是新的 source of truth。
 - `todo.md`：只保存確定要做的 active queue 與未完成 acceptance；暫不做與已接受缺口見 `parking-lot.md`。
 - `codex-execution-plan.md`：持股 → 通用圖表 → 模型研究與有效後報告的作業指示；先整合再驗收，不另維護待辦狀態。
 - `execution-cards/README.md`：八張 D01～D08 獨立 AI 任務執行卡與驗收／恢復指示；只作執行路由，不建立另一份待辦。
-- `decision-2026-10-06-bigquery-analytics-over-iceberg.md`：B 組 Iceberg canonical + BigQuery analytics hybrid 決策；禁止 Storage Read API，BigQuery 不取代 PostgreSQL serving 或 canonical Iceberg。
+- `decision-2026-10-06-bigquery-analytics-over-iceberg.md`：保留原 Iceberg/BQ 研究歷史與讀取契約；**2026-10-19 更新為 Colab 唯一模型整理/訓練，BQ 只在大資料時前置縮減**，不取代 PostgreSQL／Canonical。
 - `future-market-alerts.md`：使用者指定獨立保存的未來預警增補；狀態由 `parking-lot.md` 管理，不是 active scope。
 - `spec.md`：SPEC 索引；正式契約在 `spec/*.md`。
 - `wbs.md`：WBS 索引；工作切片在 `wbs/*.md`。
@@ -51,7 +52,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `runbook-user-oauth-dev.md`：User／MCP OAuth 的專用操作與 A/B owner isolation 驗收程序。
 - `runbook-parallel-live-dev.md`：dev 作為個人真實平行上線環境的操作語意。
 - `secret_list.md`：Secret inventory 與相關 evidence；不得包含 secret payload。
-- `omniagent-split-status.md`：Janus／omniAgent 分離的歷史入口，不是 active gate。
+- [Janus／omniAgent split 歷史入口](archive/omniagent-split-status.md)：非現行 Janus active gate。
 - `decision-2026-10-07-owner-scoped-parallel-private-recalculation.md`：Private Mart owner-scoped 重新計算的契約，不是 B 組排程入口。
 
 ## 3. 文件維護原則

@@ -25,16 +25,7 @@ User 與 Admin 共用 `apps/user_app` Flutter／PWA codebase，但維持不同 n
 
 2026-10-02 已退役 legacy static HTML／JS Admin；它不再是 fallback、parity gate 或 active runtime。歷史座標只保留於 archive。
 
-Admin 目前產品範圍依 `../ui/admin.md`：
-
-- `總覽`
-- `批次`
-- `個股`
-- `市場資訊`
-- `AI 分析`
-- `資料治理`
-
-其中 `資料治理` 是原 `進階管理` placeholder 的正式目標名稱；這是既有 Admin 的精簡收斂，不是另建 metadata／orchestration 平台。`個股`、`市場資訊`、`AI 分析` 保留。
+Admin 的核准架構及現行工作區是**四頁**：`總覽`、`批次`、`資料品質`、`系統設定`。原「個股／市場資訊」併入資料品質 detail，「AI 分析」併入系統設定／AI 模型子頁，治理分配至批次／資料品質／系統設定。見 [Admin v2 UI](../ui/admin.md) 與 [設計決策](../decision-2026-10-17-admin-v2.md)。2026-10-19 指定範圍已有測試/驗收證據，但此處不宣稱本次新鮮 live Flutter readback。`個股`、`市場資訊`、`AI 分析` 保留。
 
 User／Admin 只經 FastAPI 契約讀寫已持久化資料；一般 page load 不直接讀 Stage，不觸發 scraper，也不因畫面載入自動觸發 CEO LLM。
 
@@ -46,7 +37,7 @@ User／Admin 只經 FastAPI 契約讀寫已持久化資料；一般 page load �
 - Public／Private namespace、IAM、bucket prefix、table、service index、retention 必須隔離；Flutter filter 不是 security boundary。
 - canonical number、fixed decimal、PIT／future leakage、provenance、source authorization、missing／stale／partial honesty 與 immutable lineage 必須維持。
 
-公開 retention 依 `retention-governance.md`，目前至少包括 Stage 7 天、一般 Core 365 天、Deep Coverage 價量／benchmark 1096 天、財報 12 季、Mart 分析列 90 天及有引用保護的 snapshot／manifest 規則。Private retention 未有另外核准契約時不得套用 Public 規則推測。
+公開 retention 依 `retention-governance.md`，目前至少包括 Stage 7 天、一般 Core 365 天、Deep Coverage 價量／benchmark 1096 天、財報 12 季、Mart 分析列 90 天；**每張 Iceberg Core/Mart 表只保留 current snapshot**，另保護 current 使用檔、catalog/writer lock、generation 與滿7日孤兒檔（見 [Retention](retention-governance.md)）。舊模型/研究引用不能恢復已刪 snapshot。Private retention 未有另外核准契約時不得套用 Public 規則推測。
 
 ## 5. 市場覆蓋與 Deep Coverage
 
@@ -104,7 +95,7 @@ Janus ChatGPT MCP 是 authenticated read-only external consumer，沿用 existin
 - `core-cleanup`
 - `mart-cleanup`
 
-未來 全市場 screening、dirty specialist update、monthly retrain／reconciliation、On-demand CEO execution 只有在 implementation／runtime 真正存在後才進 Admin Job Control Center，不由文件或 placeholder 提前宣稱。
+全市場 screening、dirty specialist、原 Mart 月度 retrain/reconciliation 與 CEO 的**具體實作和 runtime 状態各自依最新 evidence 判斷**。D07 新目標統一在 Colab 做研究資料整理、模型訓練與 OOS；現有 Mart fit 尚未遷移，免費 Colab unattended 尚未驗收，不能用新規格宣稱已上線。見 [D07-PRE](../colab-d07-modeling-feasibility-2026-10-19.md)。
 
 Manual rerun／retry 必須經 backend allowlist、idempotency／duplicate guard、dependency／exclusive guard 與 audit；UI 不直接操作任意 Cloud Run job name、checkpoint 或 storage object。
 

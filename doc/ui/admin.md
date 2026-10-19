@@ -6,7 +6,7 @@ Admin 的目標是 `apps/user_app` 內的 Flutter workspace，與 User 共用 co
 
 2026-10-02 使用者已決定 legacy static HTML／JS Admin 退役，不再作為 fallback，也不再等待 Flutter parity／rollback gate；Flutter／PWA 是唯一 active Admin frontend。Legacy source 的可還原座標保留於 `archive/legacy-static-admin-retired-2026-10-02.md`，除非使用者日後另行決定，不得重新納入 runtime。
 
-**2026-10-17 Admin v2 最新目標：**依 [Admin v2 四頁設計決策](../decision-2026-10-17-admin-v2.md)，取代 [2026-10-03 六頁導航](../decision-2026-10-03-admin-ui-scope-and-governance.md) 的主選單與功能位置，但保留既有權限、稽核、資料安全與已接受功能。**這是待實作 UI 契約，非 live Flutter 已切換四頁的聲明。**
+**2026-10-17 Admin v2 最新目標：**依 [Admin v2 四頁設計決策](../decision-2026-10-17-admin-v2.md)，取代 [2026-10-03 六頁導航](../archive/decision-2026-10-03-admin-ui-scope-and-governance.md) 的主選單與功能位置，但保留既有權限、稽核、資料安全與已接受功能。**2026-10-19 四頁重構已有適用 Flutter／Python 及權限測試與原 TODO 指定範圍 PASS；本次文件整理未獨立重驗 live 部署。** 本頁是四頁長期 UI 契約，不另開 Admin v2 待辦。
 
 主導覽固定為：
 
@@ -15,7 +15,7 @@ Admin 的目標是 `apps/user_app` 內的 Flutter workspace，與 User 共用 co
 3. `資料品質`
 4. `系統設定`
 
-原「個股」和「市場資訊」歸「資料品質」搜尋／detail；原「AI 分析」歸「系統設定 → AI 模型與 Gateway」子頁；原「資料治理」按監控、Private 執行與低頻設定分散到資料品質／批次／系統設定，**原能力不能直接砍掉**。不另開第 5 個 AI 或股票主頁。工程順序以 [TODO ADMIN-V2](../todo.md) A1～A5 為準；D01～D06 不加驗收範圍。
+原「個股」和「市場資訊」歸「資料品質」搜尋／detail；原「AI 分析」歸「系統設定 → AI 模型與 Gateway」子頁；原「資料治理」按監控、Private 執行與低頻設定分散到資料品質／批次／系統設定，**原能力不能直接砍掉**。不另開第 5 個 AI 或股票主頁。工程 A1～A5 歷史驗收見 [原 TODO 快照](../archive/todo-before-consolidation-2026-10-19.md)；D01～D06 不加工作，D07／D08 在四頁容器內接入即可，不重開 A1～A5。
 
 ## 9.0.1 Admin interaction 原則
 

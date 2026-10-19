@@ -4,7 +4,7 @@ GCP-first AI lakehouse investment research platform.
 
 Janus 目前以 GCP `dev` 作為個人使用階段的真實平行上線環境。Janus source 不再包含通用 Chat／Agent runtime；保留投資 User／Admin、domain API，以及 authenticated read-only MCP／OAuth connector。**目前功能、驗收與剩餘工作以 repository 實作、測試／CI、GCP runtime evidence 與 `doc/status.md`／`doc/todo.md` 為準，不在 README 固定 revision、image digest 或一次性 checkpoint。**
 
-目前優先交付持股報價／交易損益與效能，再做個股通用圖表；五分析師有效後才建整合報告。[後續 AI 開發指示](doc/codex-execution-plan.md)。
+現階段唯一待辦順序：**D07-PRE（Colab 單一資料與模型訓練流程）→ D07 五角色模型品質 → D08 受控 CEO 報告**。已結案 D01～D05、DRL-01、FINOPS-AB、背景補收及 Admin v2 不重啟；詳見 [目前 TODO](doc/todo.md)、[專案管理／重大風險](doc/project-management.md)、[AI 開發指示](doc/codex-execution-plan.md)。
 
 開始工作前先讀：
 
