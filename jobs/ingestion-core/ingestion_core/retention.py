@@ -9,7 +9,7 @@ from typing import Any
 from .stage import GcsObjectStore
 from .iceberg_maintenance import maintain_financials
 
-POLICY = {"stage_days": 7, "quarantine_days": 7, "mart_days": 90, "core_days": 365, "deep_price_days": 1096,
+POLICY = {"stage_days": 2, "quarantine_days": 2, "mart_days": 90, "core_days": 365, "deep_price_days": 1096,
           "financial_quarters": 12, "orphan_days": 7, "target_bytes": 1_000_000_000, "alert_bytes": 2_000_000_000}
 
 
@@ -66,6 +66,58 @@ def clean_stage(store: Any, *, apply: bool, now: datetime,
             "deleted_objects": len(candidates) if apply else 0, "held_active_objects": held,
             "held_quarantine_objects": 0}
 
+
+
+def maintain_stage_only(*, apply: bool, now: datetime | None = None) -> dict[str, Any]:
+    """Daily Stage-only retention; no Iceberg catalog, Core, Mart or Private mutations.
+
+    The controller supplies the existing janus-ingestion-core worker fence. Active
+    execution references are read from PostgreSQL, and GCS deletes use generations.
+    """
+    now = now or datetime.now(timezone.utc)
+    stage_bucket = os.environ.get("STAGE_BUCKET", "")
+    if stage_bucket != "gen-lang-client-0593591102-dev-stage":
+        raise ValueError("stage-only maintenance requires the approved dev Stage bucket")
+    from .__main__ import _control_plane
+
+    with _control_plane() as control, control.connection.cursor() as cursor:
+        cursor.execute("SELECT execution_id FROM control.executions WHERE status IN ('queued','running','retrying')")
+        active = frozenset(str(row[0]) for row in cursor.fetchall())
+    stage_store = GcsObjectStore(stage_bucket)
+    before_items = stage_store.objects("")
+    if len(before_items) > 20000:
+        raise RuntimeError("stage-only inventory exceeds bounded safety budget")
+    before = {"objects": len(before_items),
+              "bytes": sum(int(x["size"]) for x in before_items)}
+    planned = clean_stage(stage_store, apply=False, now=now, active_executions=active)
+    if planned["planned_objects"] > 15000 or planned["planned_bytes"] > 2_000_000_000:
+        raise RuntimeError("stage-only cleanup exceeds bounded safety budget")
+    if apply:
+        # Do not act on a stale two-day candidate list if the bucket changed.
+        refreshed = stage_store.objects("")
+        if {(x["name"], x["generation"]) for x in refreshed} != {
+                (x["name"], x["generation"]) for x in before_items}:
+            raise RuntimeError("Stage inventory changed before deletion")
+        result = clean_stage(stage_store, apply=True, now=now, active_executions=active)
+        after_items = stage_store.objects("")
+        after = {"objects": len(after_items),
+                 "bytes": sum(int(x["size"]) for x in after_items)}
+        if (before["objects"] - after["objects"] != result["deleted_objects"] or
+                before["bytes"] - after["bytes"] != result["deleted_bytes"] or
+                (result["deleted_objects"], result["deleted_bytes"]) !=
+                (planned["planned_objects"], planned["planned_bytes"])):
+            raise RuntimeError("Stage generation deletion readback mismatch")
+    else:
+        result = planned
+        after = before
+    return {"component": "stage-only-retention",
+            "status": "PASS", "mode": "apply" if apply else "dry-run",
+            "policy": {"stage_days": POLICY["stage_days"],
+                       "quarantine_days": POLICY["quarantine_days"]},
+            "active_execution_count": len(active),
+            "stage": result, "before": before, "after": after,
+            "scope": "stage-only", "core_deleted": 0, "mart_deleted": 0,
+            "private_deleted": 0, "generation_readback": "PASS" if apply else "NOT_APPLICABLE"}
 
 def clean_orphans(core: Any, store: Any, identifier: str, *, apply: bool, now: datetime) -> dict[str, Any]:
     table = core.catalog.load_table(identifier)
