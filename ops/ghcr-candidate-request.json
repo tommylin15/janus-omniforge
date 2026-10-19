@@ -1,11 +1,11 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "3026bda11fe193631b9be6e15fba6e26420f644d",
-  "digest": "sha256:8f2f3883b019850731a52e8798afba49f1d204091c3db193b644cfb31d0d0a8a",
-  "release_run": "39210126649",
+  "sha": "e14259bf0117b5655862a577491cfe8f7bbe4b8b",
+  "digest": "",
+  "release_run": "39272058864",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "持股／關注股背景補收：完整 Python/PostgreSQL 1490 tests、Flutter 與公開 GHCR digest PASS；只建立0%候選。"
+  "purpose": "STAGE-48H: source SHA full Python/Flutter GHCR release PASS. Only 0% candidate and negative auth probes; preserve existing API 100% revision."
 }
