@@ -2,14 +2,14 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "e3e0098399846eb337dd2ed1f8b636240bc88c20",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:5cf4121aabb60e8196f1542674ad2ac48264fc403210051fe2e98a2fa4e75365",
+  "source_sha": "3026bda11fe193631b9be6e15fba6e26420f644d",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:8f2f3883b019850731a52e8798afba49f1d204091c3db193b644cfb31d0d0a8a",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
-  "release_run": "39126918277",
-  "candidate_run": "39127304288",
-  "boundary_run": "39127497388",
-  "purpose": "DRL-01 Yahoo EPS approved provider values; verify new same-source Preview before canonical traffic."
+  "release_run": "39210126649",
+  "candidate_run": "39210895001",
+  "boundary_run": "39211292550",
+  "purpose": "持股／關注股背景補收同來源Preview，正式流量仍保留舊版；完整Release／0%候選／auth皆PASS。"
 }
