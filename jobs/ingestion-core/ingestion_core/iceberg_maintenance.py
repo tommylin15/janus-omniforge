@@ -610,10 +610,13 @@ def core_health(*, core: Any) -> dict[str, Any]:
 
 
 def run(mode: str) -> dict[str, Any]:
-    supported = {"dry-run", "apply", "retention-dry-run", "retention-apply",
+    supported = {"stage-only-dry-run", "stage-only-apply", "dry-run", "apply", "retention-dry-run", "retention-apply",
                  "health", "compact-dry-run", "compact-apply", "compact-nightly", "cost-inventory", "audit-cleanup"}
     if mode not in supported:
         raise ValueError("unsupported Iceberg maintenance mode")
+    if mode in {"stage-only-dry-run", "stage-only-apply"}:
+        from .retention import maintain_stage_only
+        return maintain_stage_only(apply=mode == "stage-only-apply")
     bucket = os.environ.get("CORE_BUCKET", "").strip()
     if bucket != "gen-lang-client-0593591102-dev-core":
         raise ValueError("Iceberg maintenance is restricted to the existing dev Core bucket")
