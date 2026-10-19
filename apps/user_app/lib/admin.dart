@@ -1214,6 +1214,9 @@ class _AdminGovernancePageState extends State<AdminGovernancePage> {
   late Future<List<dynamic>> data = _load();
   Timer? refreshTimer;
   int? selectedWorkers;
+  Map<String, dynamic>? gcsScan;
+  bool gcsScanning = false;
+  String? gcsScanError;
 
   Future<List<dynamic>> _load() => Future.wait([
         widget.api.get('/api/v1/admin/data-governance'),
@@ -1243,6 +1246,31 @@ class _AdminGovernancePageState extends State<AdminGovernancePage> {
   }
 
   void _reload() => setState(() => data = _load());
+
+  Future<void> _scanGcs() async {
+    if (gcsScanning) return;
+    setState(() {
+      gcsScanning = true;
+      gcsScanError = null;
+    });
+    try {
+      final result = await widget.api.post(
+          '/api/v1/admin/gcs-storage/inspect', const <String, dynamic>{});
+      if (!mounted) return;
+      setState(() {
+        gcsScan = (result as Map).cast<String, dynamic>();
+        gcsScanError = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        gcsScan = null;
+        gcsScanError = 'GCS 盤點失敗，請檢查讀取權限或稍後重試。';
+      });
+    } finally {
+      if (mounted) setState(() => gcsScanning = false);
+    }
+  }
 
   Future<void> _saveWorkers(int currentVersion) async {
     final workers = selectedWorkers;
@@ -1498,6 +1526,46 @@ class _AdminGovernancePageState extends State<AdminGovernancePage> {
                 const ListTile(
                   title: Text('容量與保留政策'),
                   subtitle: Text('使用已持久化營運證據；未知不補零。Private 不套用公開清理政策。'),
+                ),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        FilledButton.tonalIcon(
+                          key: const ValueKey('admin-gcs-inventory-button'),
+                          onPressed: gcsScanning ? null : _scanGcs,
+                          icon: const Icon(Icons.cloud_outlined),
+                          label: Text(gcsScanning ? 'GCS 盤點中…' : '一鍵盤點 GCS 六桶容量'),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                            '僅讀取六個已核准 Bucket 的物件 metadata，不下載原始資料、不刪檔。數據為盤點當下的儲存量，非 GCP 帳單。'),
+                        if (gcsScanning) const LinearProgressIndicator(),
+                        if (gcsScanError != null)
+                          Text(gcsScanError!, key: const ValueKey('admin-gcs-inventory-error')),
+                        if (gcsScan != null) ...[
+                          Text('狀態：${gcsScan!['status']} · 盤點時間：${gcsScan!['observed_at_utc'] ?? '未知'}'),
+                          Text(gcsScan!['totals'] == null
+                              ? '結果不完整，不計算六桶總量'
+                              : '六桶 current：${(gcsScan!['totals'] as Map)['current_bytes']} bytes'
+                                ' · 物件：${(gcsScan!['totals'] as Map)['current_objects']}'),
+                          for (final item in (gcsScan!['buckets'] as List<dynamic>? ?? const []))
+                            ListTile(
+                              dense: true,
+                              title: Text('${(item as Map)['role']} · ${item['status']}'),
+                              subtitle: Text(
+                                  'current ${item['current_bytes'] ?? '未知'} bytes'
+                                  ' ／ ${item['current_objects'] ?? '未知'} 件\n'
+                                  '歷史版本 ${item['noncurrent_bytes'] ?? '未知'} bytes'
+                                  ' · soft-deleted ${item['soft_deleted_bytes'] ?? '未知'} bytes'
+                                  '${item['role'] == 'stage' ? ' · MD5 疑似重複 ${item['possible_same_md5_extra_bytes'] ?? '未知'} bytes（不可直接刪除）' : ''}'),
+                            ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
                 for (final row in _items(root))
                   Card(
