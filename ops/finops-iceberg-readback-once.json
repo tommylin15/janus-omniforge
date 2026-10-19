@@ -3,6 +3,6 @@
   "no_gcp_mutation": true,
   "project": "gen-lang-client-0593591102",
   "region": "us-central1",
-  "scope": "STAGE-48H read-only mid-rollout recovery diagnostics: compare existing dev four Cloud Run Jobs image/config with prior #39272561307 and Scheduler state/execution fence; do not change runtime or lease",
-  "attempt": 11
+  "scope": "STAGE-48H debug active canary/previous nonterminal execution metadata while Scheduler PAUSED; only existing four Jobs. Read-only, no lease or job writes",
+  "attempt": 12
 }
