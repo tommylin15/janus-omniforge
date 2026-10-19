@@ -40,9 +40,9 @@
 - 由 Cloud Run **可計費** vCPU-seconds／GiB-seconds、execution duration、GCS ReadObject/GetObjectMetadata/Write/List、Iceberg metadata／小檔量、Mart BQ billed bytes（若適用）、data parity 做同負載前後比較；bucket-level GCS I/O 不能未經歸因算在單一 Job。原 D06 歷史記錄不改寫，30% CPU/50% Metadata 只作改善目標。
 - A/B tests、CI、GHCR immutable digest、受控 Job deployment／Scheduler occurrence 和真實資料端到端讀回皆須通過，才可結案；依 10/18 current-only 決策已取消 external research fence 作為舊 snapshot 的清理 gate；current 檔、7日 orphan、generation、writer/catalog 安全與實刪讀回仍需驗證。
 
-### 7.3B `WBS-7-BIGQUERY-C-PREFLIGHT`｜已併入 D07-PRE
+### 7.3B D07-PRE｜Colab 唯一流程與有條件的 FINOPS-C
 
-此 WBS ID 保留歷史引用，不作第二張執行工單。**正式唯一 D07-PRE** 見 [TODO](../todo.md) 和 [整合 AI 卡](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)。同一次前置檢查：兩年 rolling 各角色真實資料/標籤/OOS/historical membership、合法 Research Parquet 與補收、Colab CPU 互動式研究，並比較現有 PyIceberg/Cloud Run 和 BigQuery 的 CPU/RAM、GCS I/O、BQ billed bytes/免費額度、source/PIT/parity、安全/IAM、回退。交付單一 GO/NO-GO/DEFER/BLOCKED 決策；不划算可 `DEFER C` 後用既有受控路徑做 D07，**不強制 BQ cutover**；不足資訊仍維持未驗，不偽稱品質或成本 PASS。任何新增付費服務／重要 IAM 擴張另需人工核准。
+歷史 `WBS-7-BIGQUERY-C-PREFLIGHT` 僅供引用映射，現行只有 [TODO D07-PRE](../todo.md) 一個工作包。**Colab 是 D07 研究資料整理、特徵/標籤、模型訓練與 OOS 的唯一目標執行器**；Core/PyIceberg 僅提供 canonical 唯讀來源，Janus Controller／Mart 保留月度登記/版本治理/正式 inference。BQ **預設 DEFER**，只有資料量實測導致 Colab RAM、Join／耗時或 I/O 明確瓶頸且具收益時，才在必要已核准授權下執行 SQL 前置縮減，回送 versioned Parquet 由 Colab 繼續訓練，禁 BQML/Storage Read API。需評估免費 Colab CPU 的實跑與安全/來源許可、FINOPS-AB 後 GCS I/O、因 BQ 前處理可能新增的 billed bytes、共享配額／region／IAM／回退；不能把 BQ 省略時預設為零費用。免費 Colab 尚不具可驗證無人值守月度能力，先用人工啟動與來源/輸出 hash receipt，直到官方合規自動化另行驗收；此缺口不因選定架構而消失。
 
 ### 7.4 `WBS-7-PILOT-LEDGER-DURABILITY`
 

@@ -11,6 +11,10 @@
 
 **2026-10-19 新增治理導航：**[資料治理、定時 Job、補資料及研究保存](../spec/data-governance.md)。D07 初版最近24個月 rolling 訓練／OOS 窗口屬研究目標，不把現有 market Core 365天 TTL 改成兩年，不要求保存歷史 Iceberg snapshot，也不建立另一套月度 scheduler。每個角色依當下有效資料、成熟標籤、walk-forward/OOS/purge/holdout 及 source authorization 判斷；不以模型已訓練或研究窗長推定品質 PASS。既有每月首週六10:30 retrain/reconciliation 節奏不變。
 
+## 2026-10-19 D07 目標執行器覆蓋（新決策）
+
+依 [TODO D07-PRE](../todo.md) 及 [Colab 單一流程](../colab-d07-modeling-feasibility-2026-10-19.md)，**所有 D07 research ML 資料整理/Join、features/labels、模型訓練／校準／OOS 統一在 Colab**；合法 Canonical Core 透過既有 PyIceberg 受控匯出 fixed Parquet；BigQuery **僅 Colab 大資料瓶頸且已驗成本收益／授權時**作 SQL 前置縮減，不選 BQML／GCP 另行訓練。Janus 保留唯一月度 Controller due（每月首週六10:30）、使用者/API、推論、GCS Mart artifact 驗證、版本/promotion、回滾。既有 B7 `specialist-retrain` 在 Mart fit 的實作與歷史 PASS 保留作**切換前現況**，不代表 Colab 已接線；新程序第一階段需人工執行 Notebook 並讀回，免費版 unattended 尚 NOT_VERIFIED。歷史 B7/B8 小節是 implementation/evidence，不可指揮 D07 另建訓練後端。
+
 ## 1. 目標
 
 產品主路徑以可靠 Python／SQL／統計／規則提供五分析師，日常不使用生成式 LLM：Fundamental 財務比較、Valuation 相對估值、Quant 動能／強弱／市場排名、Risk 波動／CVaR／beta／回撤、Event parser／rules。
@@ -57,7 +61,7 @@ BigQuery 僅在明確 opt-in 的 ML/OOS batch analytics 使用：
 
 ### 3.3 Snapshot fidelity gate
 
-目前 Core catalog 為 PostgreSQL-backed PyIceberg `SqlCatalog`。BigQuery ML/OOS 選用路徑正式執行前必須對同一 immutable Core manifest/snapshot 做 canary compare，證明指定 snapshot、schema evolution、date/timestamp、decimal、null、missing、provenance 與 source authorization 一致。
+**以下屬歷史 BigQuery adapter／來源讀取契約，僅供大量資料前處理與 lineage parity，不得把 BigQuery 視為 D07 訓練路徑。** 目前 Core catalog 為 PostgreSQL-backed PyIceberg `SqlCatalog`。BigQuery ML/OOS 選用路徑正式執行前必須對同一 immutable Core manifest/snapshot 做 canary compare，證明指定 snapshot、schema evolution、date/timestamp、decimal、null、missing、provenance 與 source authorization 一致。
 
 不得把會隨 latest metadata pointer 漂移的 external table 當成 immutable execution fence。Google-supported Lakehouse/Iceberg REST catalog 可作候選，但不得在無明確授權下啟用 API、建立 catalog／connection／dataset、遷移 catalog 或擴大 IAM。
 

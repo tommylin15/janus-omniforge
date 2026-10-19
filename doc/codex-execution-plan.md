@@ -8,7 +8,7 @@
 
 | 工項 | 操作指令 | 規格／驗收依據 |
 |---|---|---|
-| **FINOPS-AB（P0）／FINOPS-C（D07/D08 前）** | [成本優化 AI 工程指令](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | [唯一 TODO](todo.md)、[WBS-7](wbs/wbs-7-security-finops.md)、[WBS-3](wbs/wbs-3-ingestion-admin.md)；A+B 先做，C 工程前必須重評並正式回寫架構決策 |
+| **D07-PRE：Colab 唯一資料整理／訓練（含條件式 FINOPS-C）** | [統一 AI 指令 §4](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | [唯一 TODO](todo.md)、[單一資料/建模流程](colab-d07-modeling-feasibility-2026-10-19.md)、[WBS-5](wbs/wbs-5-intelligence-mart.md)／[WBS-7](wbs/wbs-7-security-finops.md)；BigQuery 只有 Colab 實測大資料瓶頸才前置縮減；不建立平行訓練器 |
 | D01、D04～D08 | [任務卡索引](execution-cards/README.md)內相應卡 | 該卡SPEC與TODO |
 | D02首屏／快照 | [D02卡](execution-cards/d02-full-market-snapshot-performance.md) | [三層交付](ui/visual-first-delivery.md)，與D03共享數值證據 |
 | D03首頁／個股／四頁 | [D03卡](execution-cards/d03-four-page-charts-visual.md) | [A具體版面第5節](ui/visual-first-four-pages.md)、[User App語意](ui/user-app.md)、[B三層交付](ui/visual-first-delivery.md) |
@@ -17,6 +17,8 @@
 UI實際長相按A第5節逐項實作，不能自行換區塊順序、堆重複卡、增導航或將三行事實改健康分數。資料→共用公式→serving/API→現有UI同一功能一起交付，不等全部OOS才顯基本圖表。
 FINOPS-AB 與 DRL-01 分別於各自授權範圍優先，已有月營收月份修復與上櫃3個歷史交易日直接PASS；仍需OHLCV窗口、EPS真正Core讀回、13月YoY、定期Ledger實機與合理後置估值河流。D01～D05既有授權及成功證據保留，不重做、不把DRL新需求反向加到D05 gate。
 版型只維護A，三層映射只維護B，任務卡保存操作／驗收，TODO保存範圍／狀態。Drive為研究參考，舊逐步指令與此路由不同時以此路由及TODO為準。通用發布／資源／交接依第4～6節。
+
+**2026-10-19 強制 AI 路由：**D07-PRE 與 D07 後續的研究資料清洗/Join、特徵與標籤、ML baseline/challenger fit、24月 rolling/OOS **只能在 Google Colab**，現有 Iceberg Core/PyIceberg 只負責 canonical／受控唯讀原料出口，Janus Mart/Cloud Run 負責單一月度 Controller（首週六10:30）及正式模型驗收、版本/promotion/inference。僅當 Colab RAM/時間／I/O 有實測瓶頸、BQ 前置縮減具效益且已獲必要授權，才容許 BQ SQL → fixed Parquet → Colab；不用 BQML、Cloud Run 另訓練。當前 Mart retrain 程式仍未切換，免費 Colab 無可驗證無人值守，因此先人工啟動留 receipt；未驗則 NOT_VERIFIED，不要承諾已自動化。此決策不擴及每日 Screening、資料 ingestion、canonical 或 D08 報告管線。
 
 ## 2. 開發定位與集體驗收
 

@@ -86,7 +86,7 @@ LLM 不得計算或改寫 canonical number，也不得持有 publication authori
 
 ## 5.4 Model evaluation／promotion
 
-第一版 ML retrain／calibration／OOS evaluation／reconciliation 固定每月第一個週六 10:30（Asia/Taipei）；不代表 specialist data 每月才更新，也不建立每週六 全市場×5 全量模型排程。
+第一版 ML retrain／calibration／OOS evaluation／reconciliation **仍保留唯一 Controller 每月第一個週六10:30 due**（Asia/Taipei）；**D07 目標**是在 Colab 執行實際模型資料加工／訓練／OOS、Janus 做控制與驗收，既有 Mart 訓練待工程遷移，免費 Colab 自動執行 NOT_VERIFIED。不代表每月前完全不更新資料，也不另建每週全市場×5。
 
 至少評估：
 
@@ -131,11 +131,11 @@ CEO：
 - retention 依 `../spec/retention-governance.md`；有效引用、目前 snapshot 與 reference fence 必須先保護再清理。
 - private holdings／cost／PnL／owner mapping 不得寫入 public Mart specialist artifacts；必要的 Deep Coverage membership 僅保存去識別化 symbol demand／effective scope。
 
-### 5.7A D07-PRE 整合前置（原 FINOPS-C + Colab／兩年資料）
+### 5.7A D07-PRE｜Colab 唯一資料整理／訓練執行器（BQ 僅大資料前置）
 
-此段與 [TODO 的 D07-PRE](../todo.md) 是**同一個工作包**，不設獨立 C-preflight 或 Colab 評估待辦。先依 [資料治理](../spec/data-governance.md)／[Colab 研究](../colab-d07-modeling-feasibility-2026-10-19.md) 確定 24 月資料的市場×股票×期別×標籤成熟度、歷史成分、來源授權、PIT 和有界補收／凍結研究匯出方案；再使用最新 A+B 實測比較現有 PyIceberg／Cloud Run Jobs、BQ opt-in、免費 Colab CPU 的 CPU/RAM/GCS/BQ bytes與配額、cost、same source/hash/parity、權限／回退。
+**2026-10-19 使用者決策已定案；工程尚未切換。** [TODO D07-PRE](../todo.md) 與 [單一路徑契約](../colab-d07-modeling-feasibility-2026-10-19.md) 是唯一 AI 作業依據，不另開 C-preflight/Colab 子工單。Janus 現有 Iceberg Core（canonical）及 PyIceberg 的最小 read/export、Cloud Run 既有 Scheduler/Mart 推論／正式發布保持不變；**所有 D07 研究資料 Join/清理、features、labels、baseline、模型 fit、OOS 和每月滾動調校統一在 Colab**。僅 Colab 處理大資料有實測 RAM/超時/I/O/Join 成本瓶頸，才考慮已授權 BigQuery SQL **前置資料縮減**並固定 Parquet/hash 回 Colab；不允許 BQML 與 Cloud Run 另行訓練，也不為 BQ 建另一套 Canonical。
 
-**一份**有日期、SHA、coverage、費用與安全證據的 GO/NO-GO/DEFER/BLOCKED 決議同步回寫 TODO、WBS5/7、BQ 架構決策。C selective cutover 僅當有合理收益與已核准授權時執行；可正式 `DEFER C` 而以現有 Jobs／PyIceberg 進 D07，不必先實施 BigQuery。樣本或 live Cost/PIT evidence 不足維持 PARTIAL/BLOCKED；D07 模型品質另驗，不能藉前置完成判定模型有效。
+唯一 Controller 第一個週六 10:30 due 維持月度責任／execution tracking；**目前 Mart 月度 fit/retrain 是要替換的已實作現況，不是假定 Colab 已正式接線**。免費 Colab 無保證無人值守；第一階段人工啟動與有憑據回傳，未完成記 pending/manual，不自動 promotion/出版；需要 unattended 前須驗官方合規方法、費用/IAM/OAuth 授權、Job endpoint/parity/rollback。完成 D07-PRE 需要實際 coverage/labels、Colab CPU 實跑、不可變成果與 hash、來源授權、費用/安全/重試門檻；未達仍 PARTIAL，不因文字改完宣稱已實際 Colab 生產化。
 
 ## 5.8 Active WBS slices
 

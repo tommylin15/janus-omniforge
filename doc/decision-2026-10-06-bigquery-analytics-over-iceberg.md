@@ -7,6 +7,12 @@
 
 > **2026-10-19 最新指令，優先於下方 10/18 原始 C 必先切流語句**：將 24 個月資料/補收/PIT/Colab 模型執行器評估與 FINOPS-C 成本/BigQuery/Cloud Run/PyIceberg 的 preflight **合併為唯一 [D07-PRE](todo.md)**，共用一份 [研究證據](colab-d07-modeling-feasibility-2026-10-19.md)、[AI 指令](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) 及 GO/NO-GO/DEFER/BLOCKED 決策。D07 前須完成這份真實資料與 FinOps／安全評估，**不強制實作或切換 BigQuery**；若評估不划算而正式 DEFER C，可沿現有安全 Jobs/PyIceberg 進 D07。BQ 選擇性實作只在有效益、有授權時選用。此合併目前是規格更新，live 成本/覆蓋／parity 尚未完成，不標前置 PASS。
 
+## 2026-10-19 D07-PRE 執行器定案（本節優先於歷史混合方案）
+
+依 [唯一 D07-PRE](todo.md) 和 [Colab 流程](colab-d07-modeling-feasibility-2026-10-19.md)，**D07 研究資料整理／特徵與標籤／所有模型訓練與 OOS 一律在 Colab 執行**。Janus Iceberg canonical／PyIceberg 僅提供合格唯讀資料出口，Mart/Cloud Run 負責唯一 Scheduler、收件/驗證／模型登錄、正式推論與業務 API。**BigQuery 不作模型訓練或例行必經路徑**，Colab 有 RAM／Join／計算耗時／GCS I/O 實測瓶頸且已確認成本、來源授權、same-input parity、回退及必要付費/IAM 授權後，才可選擇 SQL 前置縮減並將 fixed Parquet 交 Colab；**不得啟用 BQML、第二個訓練 Job 或 parallel Cron**。使用者已決定模型執行器，D07-PRE 不再是四選一評比，而是驗證這條流程可用及 BQ 是否例外必要。
+
+原 2026-10-06 hybrid 決議仍記載 B5/B8 已完成的查詢抽象／BQ option、source fidelity 與歷史成本證據，**不能**將其「BQ 應優先接 Screening／模型 preparation」讀作新 D07 必做。2026-10-19 新目標還沒有相應 Colab live 訓練/自動化實作；現役 GCP `specialist-retrain` 仍屬待遷移現況。免費 Colab unattended 尚不可驗證，僅採人工執行並保留月度 pending/manual/receipt；要正式無人值守需先獲合規執行方式和費用／IAM／OAuth 授權。D07-PRE 保持 PARTIAL，不聲稱已完成 cutover。
+
 ## 2026-10-18 原決策（現由 10/19 D07-PRE 覆蓋）：FINOPS-C 順序與強制重評估
 
 **本節是排程及 governance 決策，不是 C 工程開工／切流已完成。** 使用者先指定 FINOPS-A 快速節流及 FINOPS-B Ingestion／Iceberg 原地優化列 P0，完成適用現場驗收後才進 FINOPS-C。**C 一定在 D07、D08 正式工程開工前安排，且 C 自身開始工程前必須重做一次整體評估並回寫本文件、WBS-5/WBS-7 與 TODO。** AI 指令見 [FINOPS-AB／C 工程卡](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)；唯一 active priority/acceptance 見 [TODO](todo.md)。
@@ -19,7 +25,7 @@
 
 Janus 保留目前 **Apache Iceberg V2 + GCS** 作為 public Core 的 canonical／PIT／provenance／history 資料層，不把 BigQuery native tables 改成新的 canonical warehouse，也不因導入 BigQuery 重做 A 組已成立的 PostgreSQL serving projection。
 
-BigQuery 的定位限定為 **analytics compute layer**，優先承接 B 組的：
+**以下為 2026-10-06 舊分析運算範圍，10/19 已被上述 D07 Colab 唯一訓練流程覆蓋；現有讀取與前置縮減功能仍可保留。** BigQuery 的定位限定為 **analytics compute layer**，原先規劃承接 B 組的：
 
 - liquid-全上市櫃 market screening／cross-sectional ranking；
 - specialist feature aggregation／window／join；

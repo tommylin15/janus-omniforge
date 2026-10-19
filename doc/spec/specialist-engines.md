@@ -4,6 +4,12 @@
 
 > 2026-10-13 順序修訂：持股／交易損益 → 通用圖表／四頁整合 → 五角色模型驗證 → 有效後整合報告。下列舊 B9→C→產品順序已被取代；研究技術契約與歷史證據保留。見 [AI 作業指示](../codex-execution-plan.md)。
 
+## 2026-10-19 使用者定案：D07 單一 Colab 建模資料與訓練路徑
+
+**唯一流程**：[Janus Core + 受控唯讀 Parquet 出口] → [Colab 完成模型資料 Join、清理／特徵與標籤、全部 baseline/challenger 訓練、rolling walk-forward OOS] → [immutable evaluation/model/hash] → [Janus Mart 驗證、版本管理、正式推論／報告]。BigQuery **只有 Colab 規模超出實測可承受 RAM／時間／I/O/Join**、且前置縮減可量化減少成本/風險時 opt-in 作 SQL **預處理**，其後仍回 Colab 訓練。**不採 BQML 或 Cloud Run 做新模型訓練，不建立第二訓練器。** Ingestion、Canonical、日常 Market Screening、PG、Private/Owner 與 D08 的權威原封不動，PyIceberg 保留原生讀/最小匯出，不等於它是另一個 ML 資料整理平台。
+
+**目前 implementation 與新目標分開**：2026-10-10 已有 Mart `specialist-retrain` Job／reconciliation 歷史 PASS，但 2026-10-19 尚無新 Colab 月度訓練/live artifacts 接線。後續需修改現有月度 Job 的職責（維持單一 Controller due、準備 frozen input、安排／收受 Colab run、驗來源/hash/品質），不直接讓現有 Mart 再做 fit 並冒稱完成新設計。免費 Colab 長期 unattended **NOT_VERIFIED**，目前受控人工執行，月度未完成記 pending/manual、沿用已核准模型；如要自動化需先選有合規可控的 Colab 執行介面與人工授權費用／IAM/OAuth，不能另加平行 Cron。具體 Gate 見 [D07-PRE](../colab-d07-modeling-feasibility-2026-10-19.md)。
+
 ## 2026-10-19 D07 兩年滾動研究資料窗口（治理更新）
 
 - **最近24個月 rolling research window** 為五角色模型候選訓練/OOS 的第一版目標；每月第一個週六 10:30 隨最新成熟資料向前平移，再比較 baseline/challenger、必要時 retrain，未增添有效樣本則 skip/reuse。這不是正式資料庫的 row retention 變更，亦非宣稱現有全市場已具完整兩年。
@@ -45,6 +51,8 @@ Event／Catalyst 的人工繁中標註、source-specific training-use 授權、e
 使用者 2026-10-03 最新指示取代歷史財報的嚴格可用時間門檻：**有官方資料就進行歷史模型驗證**，不因原始數值版次／當時公開時間未證明而禁止 Fundamental OOS。模型回放每期最新取得的官方數值版本，先用 authoritative publication，其次官方申報附件上傳時間；兩者皆缺時，以財報期末後 90 天作明示估計。Core 保留實際取得時間、unknown 與原始數值，不改寫 canonical 歷史；訓練使用有版本的時間投影。成果物保存 `financial_history_policy`、時間依據筆數與 `strict_pit=false`，明示可能包含後續修正與估計時間。這是正式採用的資料優先 OOS 方法，可用於模型比較；報酬標籤成熟／purge、來源授權、股號／期別／單位檢查與私人資料隔離繼續生效。模型是否有效依實際結果，不因放寬而自動 promotion。
 
 ## Analytics compute boundary
+
+2026-10-19 使用者已將未來 D07 模型資料整理與訓練統一交 Colab，所以下列 BigQuery/PyIceberg 路由僅描述**現行已實作的讀取／B5～B8 資料出口契約和必要大資料前置處理**，不是一組同等模型訓練方案。歷史來源 identity/fallback、Core/PIT/來源授權 guard 不得刪。
 
 2026-10-06 起，B 組採 [Iceberg canonical + BigQuery analytics hybrid](../decision-2026-10-06-bigquery-analytics-over-iceberg.md) 作為優先架構。這是 target contract；目前 implementation 是否已切換仍以 `main` code／runtime evidence 判定。
 
