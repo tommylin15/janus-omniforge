@@ -212,7 +212,7 @@ def test_stage_policy_is_two_days_and_cleanup_uses_48_hour_boundary():
     items = [
         {"name": "raw/source/expired.json", "size": "17", "generation": "1", "updated": "2026-10-17T12:00:00Z"},
         {"name": "quarantine/source/recent.json", "size": "31", "generation": "2", "updated": "2026-10-17T12:00:01Z"},
-        {"name": "executions/live/stage/old.json", "size": "37", "generation": "3", "updated": "2026-10-15T12:00:00Z"},
+        {"name": "executions/live/stage/quarantine/old.json", "size": "37", "generation": "3", "updated": "2026-10-15T12:00:00Z"},
     ]
     removed = []
     store = SimpleNamespace(bucket="dev", objects=lambda _: list(items),
