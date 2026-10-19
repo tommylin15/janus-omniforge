@@ -2,6 +2,8 @@
 
 **2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。實作與 runtime 切換狀態見 status／operations，不以本契約推定完成。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](../spec/full-market-batch-policy.md)。
 
+> **2026-10-19 治理覆蓋註記**：公開 Core／Mart Iceberg **只保留 current snapshot**，不再以 named/24h/研究引用保護歷史 snapshot；所以舊「immutable snapshot 支援歷史完整 PIT 重播」不能再當現況。研究需要可重跑，須另存經合法來源授權且有 hash 的 versioned Parquet／features/labels/cohort。新增持股／關注股補收採既有去識別化 demand＋每日08:30兜底；第三方直接補資料依 PROJECT_RULES §1.7。路由見 [資料治理入口](data-governance.md)、[補資料](../runbook-data-supplement.md) 與 [Retention](retention-governance.md)。
+
 ## 5. 湖倉分層
 
 | 層 | 格式 | 責任 | 寫入者 | 讀取者 |
@@ -16,7 +18,7 @@
 
 - 不可把所有 0 一律轉成 null；須依欄位語意處理。
 - 單日漲跌超過 11% 不可直接刪除；先檢查市場限制、除權息、公司行動與跨源差異。
-- Core／Mart 使用 immutable snapshot 或 versioned partition，支援重跑與 PIT。
+- Core／Mart 的 current snapshot 保證當次合法讀取；需要重播研究／歷史 PIT 須保有經驗證的 frozen/versioned 輸入與 availability/provenance，已清除的舊 snapshot 不保證可讀。
 - UI 不得直接讀 Stage 或未發布 Core。
 - Core 保存可重算的來源資料與 deterministic 標準化結果；NER 關聯必須保留模型／規則版本與 evidence。情緒分數、AI 示警、動態權重與投資判讀屬 Mart，不得回寫成來源事實。
 - Public 與 Private namespace、bucket prefix、Iceberg table、service index、IAM 與 retention 必須隔離；不得以只靠 Flutter 篩選來保護使用者交易資料。

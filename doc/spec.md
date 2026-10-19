@@ -18,7 +18,7 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 
 全上市櫃母體、TWSE缺失率≤10%／TPEx≤30% coverage、批次總控與即時快照見 [新契約](spec/full-market-batch-policy.md)。
 
-新增跨領域 [因子收錄、容量與保存矩陣](spec/factor-coverage-retention-ledger.md)：串接全市場／Deep Coverage／私人資料收錄範圍、估算筆數與 Stage/Core/Mart 到期處置。期限治理權威仍是 [公開資料刪除治理](spec/retention-governance.md)，非獨立歷史搬移授權。
+資料保存、批次、補資料及模型研究先經 [統一資料治理入口](spec/data-governance.md) 路由；已改 current-only Snapshot、週維護以現役 Controller/env/occurrence 驗收。新增跨領域 [因子收錄、容量與保存矩陣](spec/factor-coverage-retention-ledger.md)：串接全市場／Deep Coverage／私人資料收錄範圍、估算筆數與 Stage/Core/Mart 到期處置。期限治理權威仍是 [公開資料刪除治理](spec/retention-governance.md)，非獨立歷史搬移授權。
 
 ## 領域路由
 
@@ -28,7 +28,7 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 | Monorepo、服務責任、GCP 拓撲 | [Monorepo 與 GCP 拓撲](spec/repository-and-gcp.md) | 涉及 IAM／release 時讀品質與發布 |
 | Iceberg／PostgreSQL、公開／私人資料、來源、Ingestion | [儲存、資料供應與 Ingestion](spec/storage-data-and-ingestion.md) | 產製 Mart 時讀 Intelligence |
 | Mart、Fact Pack、五 specialist、evaluation、On-demand CEO boundary、publication、DuckDB boundary | [Intelligence、Aggregator 與 Runtime](spec/intelligence-and-governance.md) | specialist 細節再讀 [Specialist Engines](spec/specialist-engines.md) |
-| 公開資料 retention／Stage-Core-Mart 清理與 reference fence | [公開資料刪除治理](spec/retention-governance.md) | 需要 runtime evidence 時讀 Operations |
+| 公開資料 retention／Stage-Core-Mart 清理與 current-only snapshot | [公開資料保存治理](spec/retention-governance.md) | 排程、補收先讀 [統一治理入口](spec/data-governance.md)；真實執行查 Operations |
 | FastAPI、User／Admin、MCP／OAuth、GCP 開發與 CI/CD | [API、User、Admin 與交付](spec/api-and-delivery.md) | UI 行為另讀 UI 索引 |
 | 非功能需求、驗收與發布 gate | [非功能需求與 Release Gate](spec/quality-and-release.md) | 需要現況證據時讀測試摘要 |
 | 最新測試／dev 驗收摘要 | [Operations and Testing](spec/operations-and-testing.md) | 不需預讀其他歷史紀錄 |

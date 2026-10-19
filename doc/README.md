@@ -1,6 +1,6 @@
 # Janus 文件入口
 
-更新：2026-10-15。本頁只導航，不保存暫停、部署版本或重複待辦。
+更新：2026-10-19。本頁只導航，不保存暫停、部署版本或重複待辦。
 
 先讀 [PROJECT_RULES](PROJECT_RULES.md) → [status](status.md) → [TODO](todo.md) → [AI開發指示](codex-execution-plan.md)。產品方向：持股／交易與效能 → 通用圖表／四頁 → 五角色品質 → 有效後報告；獨立FinOps依TODO判定。
 
@@ -23,11 +23,12 @@
 
 GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtime evidence 為準；原始設計與核准規格可參考 Drive。差異要明確指出，不自行把其中一方覆蓋成另一方。**
 
-因子資料量與保存期的跨領域對照見 [因子收錄、容量與保存矩陣](spec/factor-coverage-retention-ledger.md)；此表不代表實際資料庫筆數或自動封存已完成。
+資料治理、週維護 Scheduler／Jobs、兩種補資料機制與 D07 研究資料窗口，請先讀 **[統一資料治理入口](spec/data-governance.md)**，再按需要查 [因子矩陣](spec/factor-coverage-retention-ledger.md)、[Retention](spec/retention-governance.md)、[總控](runbook-batch-controller-dev.md)／[補資料](runbook-data-supplement.md)。文件不等同實際資料筆數、清理成功或自然排程驗收。
 
 ## 2. Active 文件地圖
 
 - `PROJECT_RULES.md`：治理、權限、驗證與文件維護規則。
+- `spec/data-governance.md`：現行保存、唯一業務排程與週維護、補資料兩路徑、D07 研究窗口的單一導覽；不新增工作包。
 - `status.md`：目前狀態與下一個執行序列的短入口；不是新的 source of truth。
 - `todo.md`：只保存確定要做的 active queue 與未完成 acceptance；暫不做與已接受缺口見 `parking-lot.md`。
 - `codex-execution-plan.md`：持股 → 通用圖表 → 模型研究與有效後報告的作業指示；先整合再驗收，不另維護待辦狀態。
