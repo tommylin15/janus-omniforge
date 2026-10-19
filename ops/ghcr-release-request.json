@@ -1,6 +1,6 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "5c1374d5cb19e098ee04813e3542b7be0c5c8699",
-  "purpose": "DRL-01 P0-1: Deploy API with two_year_profile field name (replacing five_year_profile). Includes diagnostic workflow and market-volume request update.",
+  "sha": "488ed0efb072183abe73ef78c56b5739f750464c",
+  "purpose": "STAGE-48H: publish tested current main with 48h Stage-only worker/controller; subsequent 0% GHCR candidate and guarded Jobs cutover. No API traffic promotion.",
   "scope": "full-python-flutter-ghcr"
 }
