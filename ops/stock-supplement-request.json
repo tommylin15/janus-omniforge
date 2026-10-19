@@ -1,0 +1,8 @@
+{
+  "intent": "stock-supplement-dev",
+  "approved": true,
+  "source_sha": "3026bda11fe193631b9be6e15fba6e26420f644d",
+  "release_run": "39210126649",
+  "image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:59fbf1b58196df048f90e63fb78f761787095ce8ab16555931a3ca84c1287506",
+  "purpose": "使用現役固定映像套用066 additive migration；需求佇列僅保存股號，不寫Owner交易或持股。新映像須後續通過Jobs gate才更新。"
+}
