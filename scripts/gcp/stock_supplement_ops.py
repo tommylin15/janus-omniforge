@@ -7,7 +7,7 @@ import re
 import subprocess
 import time
 
-from ghcr_jobs_rollout import ROOT, JOB_COMPONENT, REQUIRED_JOBS, cloud, command, image, job, terminal, fingerprint, successful_operation, LEASE
+from ghcr_jobs_rollout import ROOT, cloud, command, image, job, terminal, fingerprint, successful_operation, LEASE, existing_jobs, fence
 
 MIGRATION_PROBE = '''
 import base64,json
@@ -69,8 +69,8 @@ def save(payload):
 
 
 def baseline():
-    jobs = {name:job(name) for name,_ in JOB_COMPONENT}
-    active = {name:[r['name'].rsplit('/',1)[-1] for r in cloud(f'{ROOT}/jobs/{name}/executions?pageSize=100').get('executions',[]) if not terminal(r)] for name in REQUIRED_JOBS}
+    jobs = existing_jobs()
+    active = {name:[r['name'].rsplit('/',1)[-1] for r in cloud(f'{ROOT}/jobs/{name}/executions?pageSize=100').get('executions',[]) if not terminal(r)] for name in jobs}
     save({'read_only':True,'jobs':{name:{'image':image(value),'configuration_hash':fingerprint(value)} for name,value in jobs.items()},'active_executions':active})
 
 
@@ -93,9 +93,7 @@ def run(operation):
     command(LEASE+['acquire'])
     safe=True
     try:
-        for name in REQUIRED_JOBS:
-            if any(not terminal(row) for row in cloud(f'{ROOT}/jobs/{name}/executions?pageSize=100').get('executions',[])):
-                raise RuntimeError('active_execution_do_not_dispatch')
+        fence()
         if operation=='migrate':
             text=Path('infra/postgres/migrations/066_stock_supplement_queue.sql').read_bytes()
             probe='SQL_B64='+repr(base64.b64encode(text).decode())+'\n'+MIGRATION_PROBE
@@ -123,7 +121,11 @@ def run(operation):
         execution=op.get('response',{})
         safe=bool(op.get('done') and terminal(execution))
         if op.get('done') and op.get('error'):
-            safe=all(not any(not terminal(row) for row in cloud(f'{ROOT}/jobs/{job_name}/executions?pageSize=100').get('executions',[])) for job_name in REQUIRED_JOBS)
+            try:
+                fence()
+                safe=True
+            except Exception:
+                safe=False
         if not safe or op.get('error') or execution.get('succeededCount')!=1:
             raise RuntimeError('execution_not_successful_inspect_existing_operation')
         execution_name=execution['name'].rsplit('/',1)[-1]

@@ -30,3 +30,16 @@ def test_migration_and_readback_probes_compile_without_owner_payloads(monkeypatc
     compile(module.READBACK_PROBE,'readback','exec')
     assert 'INSERT INTO private.' not in module.MIGRATION_PROBE
     assert 'user_id' not in module.READBACK_PROBE and 'shares' not in module.READBACK_PROBE
+
+
+def test_baseline_uses_live_job_inventory_including_retirement_fence(monkeypatch):
+    module=load(monkeypatch)
+    monkeypatch.setattr(module,'existing_jobs',lambda:{'janus-ingestion-core':{'test':True}})
+    monkeypatch.setattr(module,'cloud',lambda *_args,**_kwargs:{'executions':[]})
+    monkeypatch.setattr(module,'image',lambda _job:'pinned')
+    monkeypatch.setattr(module,'fingerprint',lambda _job:'hash')
+    saved=[]
+    monkeypatch.setattr(module,'save',saved.append)
+    module.baseline()
+    assert list(saved[0]['jobs'])==['janus-ingestion-core']
+    assert saved[0]['active_executions']=={'janus-ingestion-core':[]}
