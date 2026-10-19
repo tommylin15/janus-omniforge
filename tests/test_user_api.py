@@ -152,6 +152,21 @@ def auth(): return {"Authorization":"Bearer valid-user-token"}
 def admin_auth(): return {"Authorization":"Bearer valid-admin-token"}
 
 
+def test_new_follow_wakes_shared_stock_queue_and_dispatch_failure_does_not_undo_mutation(monkeypatch):
+    from unittest.mock import Mock
+    pipeline = Mock()
+    monkeypatch.setattr(app_module,'build_pipeline_service',lambda:pipeline)
+    api,repo,_ = client()
+    repo.reserve_supplement_dispatch = lambda:True
+    headers = {**auth(),'Idempotency-Key':'supplement-follow-1'}
+    response = api.post('/api/v1/me/watchlist',json={'symbol':'1513'},headers=headers)
+    assert response.status_code==201
+    pipeline.supplement.assert_called_once_with()
+    pipeline.supplement.side_effect = TimeoutError('unknown accepted state')
+    response = api.post('/api/v1/me/watchlist',json={'symbol':'6488'},headers={**headers,'Idempotency-Key':'supplement-follow-2'})
+    assert response.status_code==201 and response.json()['symbol']=='6488'
+
+
 def test_health_is_public_and_private_routes_require_bearer():
     api,_,_=client()
     assert api.get("/health").json()=={"status":"ok"}

@@ -40,12 +40,13 @@ def two_year_profile(rows: Iterable[Mapping[str, Any]], *, symbol: str,
     # a version/publication ordering key: exclude those days.
     observations: dict[date, set[Decimal]] = defaultdict(set)
     seen = 0
+    source_ids = set()
     for row in rows:
         seen += 1
         if seen > max_rows:
             raise ValueError("valuation_scan_limit_exceeded")
         if (str(row.get("symbol")) != symbol
-                or row.get("source_id") != "twse" or not row.get("provenance_id")):
+                or row.get("source_id") not in {"twse", "tpex", "finmind"} or not row.get("provenance_id")):
             continue
         try:
             day = date.fromisoformat(str(row.get("observed_date"))[:10])
@@ -54,7 +55,10 @@ def two_year_profile(rows: Iterable[Mapping[str, Any]], *, symbol: str,
             continue
         if not start <= day <= as_of or not value.is_finite() or value <= 0:
             continue
+        source_ids.add(row['source_id'])
         observations[day].add(value)
+    if 'finmind' in source_ids:
+        common['calculation_version'] = 'approved-provider-two-year-retrospective-v1'
     series = sorted((day, next(iter(values))) for day, values in observations.items()
                     if len(values) == 1)
     if not series:
@@ -153,10 +157,14 @@ def publish_focus_profiles(core: Any, control: Any, *, symbols: list[str],
             profile = two_year_profile(grouped[symbol], symbol=symbol,
                                         metric=metric, as_of=as_of)
             profile.update(
-                source_id="twse",
+                source_id=(next(iter({r['source_id'] for r in grouped[symbol]}))
+                           if len({r['source_id'] for r in grouped[symbol]}) == 1 else 'mixed'),
+                source_ids=sorted({r['source_id'] for r in grouped[symbol]}),
                 core_snapshot_id=str(snapshot.snapshot_id),
                 source_coverage="source_observed_date_not_historical_publication",
             )
+            if 'finmind' in profile['source_ids']:
+                profile['calculation_version'] = 'approved-provider-two-year-retrospective-v1'
             output.append((symbol, metric, as_of, snapshot.snapshot_id,
                            json.dumps(profile, sort_keys=True, ensure_ascii=False)))
     with control.connection.transaction():

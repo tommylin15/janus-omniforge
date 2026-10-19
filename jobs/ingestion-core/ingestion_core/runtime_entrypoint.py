@@ -281,7 +281,10 @@ def main() -> None:
             from .private_recalc_acceptance import run_from_env
             result = run_from_env()
         elif supplement_mode:
-            if supplement_mode == "market-history":
+            if supplement_mode == 'demand':
+                from .stock_supplement import run_pending
+                result = run_pending()
+            elif supplement_mode == "market-history":
                 from .market_history import run_market_history
                 result = run_market_history()
             elif supplement_mode == "quality":
@@ -289,7 +292,13 @@ def main() -> None:
                 result = run_quality()
             elif supplement_mode in {"backfill", "daily"}:
                 from .data_supplement import run_backfill
+                demand_result = None
+                if supplement_mode == 'daily' and os.getenv('JANUS_STOCK_SUPPLEMENT_ENABLED','true').lower() == 'true':
+                    from .stock_supplement import run_pending
+                    demand_result = run_pending(daily=True)
                 result = run_backfill(incremental=supplement_mode == "daily")
+                if demand_result is not None:
+                    result['stock_supplement'] = demand_result
             elif supplement_mode == "valuation-history":
                 from .data_supplement import run_backfill
                 result = run_backfill(valuation_only=True)

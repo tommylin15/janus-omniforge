@@ -101,7 +101,7 @@ class StockServingProjection:
                 cursor.execute(
                     f"DELETE FROM control.{table} "
                     "WHERE dataset_id=%s AND sort_at < now() - (%s * interval '1 day')",
-                    (dataset_id, self.retention_days),
+                    (dataset_id, max(self.retention_days,1096) if dataset_id=='financials' else self.retention_days),
                 )
         return len(prepared)
 
@@ -148,6 +148,10 @@ class StockServingProjection:
     @classmethod
     def _row(cls, dataset_id: str, input_row: dict[str, Any], *, execution_id: str,
              provenance_id: str, source_id: str, core_snapshot_id: int | None) -> tuple[Any, ...] | None:
+        if (dataset_id == 'financials' and input_row.get('statement_type') == 'monthly_revenue'
+                and str(input_row.get('metric','')).startswith('monthly_revenue_')
+                and input_row.get('unit') == 'TWD_thousands'):
+            input_row = {**input_row, 'canonical_metric':input_row['metric'], 'metric':'monthly_revenue'}
         symbol = str(input_row.get("symbol") or input_row.get("benchmark_id") or "").strip().upper()
         if not symbol:
             return None

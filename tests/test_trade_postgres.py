@@ -18,7 +18,9 @@ from services.api.repository import ConflictError, NotFoundError, OversellError,
 
 
 @pytest.fixture
-def ledger():
+def ledger(monkeypatch):
+    # Arithmetic fixtures intentionally omit control tables; outbox SQL has its own real-DB suite.
+    monkeypatch.setenv('JANUS_STOCK_SUPPLEMENT_ENABLED','false')
     source = os.getenv('ANALYSIS_TEST_DSN')
     if not source:
         pytest.skip('isolated CI PostgreSQL not configured')

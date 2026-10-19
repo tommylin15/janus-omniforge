@@ -35,9 +35,16 @@ def parse_eps(raw: bytes, symbol: str, *, year: int, quarter: int, received_at: 
     """Read a displayed provider value; never calculate EPS or infer publication."""
     if symbol not in SYMBOLS or (year, quarter) != (2025, 4):
         raise ValueError('unapproved_eps_scope')
+    return parse_reported_quarter(raw, symbol, year=year, quarter=quarter, received_at=received_at)
+
+
+def parse_reported_quarter(raw: bytes, symbol: str, *, year: int, quarter: int,
+                           received_at: str, suffix: str = 'TW'):
+    if not re.fullmatch(r'[1-9][0-9]{3}', symbol) or suffix not in {'TW', 'TWO'} or not 1 <= quarter <= 4:
+        raise ValueError('invalid_eps_identity')
     html = raw.decode('utf-8')
     title = re.search(r'<title[^>]*>(.*?)</title>', html, re.S)
-    if not title or f'({symbol}.TW)' not in title[1] or '每股盈餘' not in title[1]:
+    if not title or f'({symbol}.{suffix})' not in title[1] or '每股盈餘' not in title[1]:
         raise ValueError('yahoo_stock_identity_mismatch')
     parser = _Text()
     parser.feed(html)
@@ -46,7 +53,7 @@ def parse_eps(raw: bytes, symbol: str, *, year: int, quarter: int, received_at: 
     if len(section) != 2 or '年度/季別' not in section[1]:
         raise ValueError('missing_single_quarter_table')
     table = section[1].split('單季每股盈餘', 1)[0]
-    matches = re.findall(r'2025\s+Q4\s+(-?\s*\d[\d,]*(?:\.\d+)?)', table)
+    matches = re.findall(rf'{year}\s+Q{quarter}\s+(-?\s*\d[\d,]*(?:\.\d+)?)', table)
     if len(matches) != 1:
         raise ValueError('missing_or_ambiguous_quarter')
     try:

@@ -372,6 +372,17 @@ class PipelineService:
         credentials, _ = google.auth.default(scopes=("https://www.googleapis.com/auth/cloud-platform",))
         return AuthorizedSession(credentials)
 
+    def supplement(self) -> dict[str, Any]:
+        """Wake the durable symbol queue; the worker enforces the shared writer lock."""
+        env = [{'name': name, 'value': value} for name, value in (
+            ('JANUS_DATA_SUPPLEMENT_MODE', 'demand'), ('QUEUE_CONSUMER', 'false'),
+            ('MART_JOB', ''), ('ICEBERG_MAINTENANCE_MODE', ''),
+            ('JANUS_SERVING_SCHEMA_MIGRATION', ''), ('JANUS_CONTROL_MIGRATION', ''))]
+        response = self._authorized_session().post(self._jobs_url(self._ingestion_job) + ':run',
+            json={'overrides': {'taskCount': 1, 'containerOverrides': [{'env': env}]}}, timeout=10)
+        response.raise_for_status()
+        return {'status': 'accepted'}
+
     def backfill(self, start_date: str, end_date: str, *, trigger_mart: bool = False) -> dict[str, Any]:
         """Execute a bounded ingestion backfill without mutating the Cloud Run Job definition."""
         from datetime import date as _date

@@ -242,7 +242,9 @@ def test_owner_deletion_clears_profile_before_user_and_keeps_shared_quotes():
     repository.complete_deletion(UUID(int=10),USER_ID)
     sql = [s for s,_ in statements]
     assert sql.index('DELETE FROM private.broker_profile_revisions WHERE user_id=%s') < sql.index('DELETE FROM private.users WHERE user_id=%s')
-    assert all(params[0] == USER_ID for _,params in statements[:-1])
+    assert all(params[0] == USER_ID for sql,params in statements[:-1]
+               if sql != 'SELECT control.sync_stock_supplement_demand()')
+    assert ('SELECT control.sync_stock_supplement_demand()',()) in statements
     assert not any('operational_last_quotes' in s for s in sql)
     for table in ('usage_preferences','usage_recent_events','usage_ingest_receipts','usage_user_feature_daily','usage_daily_sessions'):
         assert f'DELETE FROM private.{table} WHERE user_id=%s' in sql

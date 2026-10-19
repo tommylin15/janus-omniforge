@@ -6,7 +6,7 @@
 
 映像來源`e3e0098399846eb337dd2ed1f8b636240bc88c20`：完整Release #39126918277、0%候選 #39127304288、自動auth #39127497388、Jobs #39127659349（8/8 canary）、Preview #39205683042、[正式promotion #39206641641](https://github.com/tommylin15/janus-omniforge/actions/runs/39206641641)全部PASS；正式`janus-api-00558-xon`100%，新版→舊版→新版回滾演練PASS，現役Jobs／Scheduler fence與lease釋放正常。部署腳本修正退役研究Job快照契約`3cca4709`，137項回歸PASS，不冒稱它是映像SHA。
 
-完整數值／snapshot／digest、真實畫面與失敗修復見[結案文件](../archive/drl01-completed-2026-10-19.md)。自然daily／weekly新版Ledger收據依使用者決策改列後續觀察、維持NOT_VERIFIED，不擋工程結案；TTM／PIT仍未認證。新持股／關注股背景補收未實作，維持暫停，不混入此PASS。
+完整數值／snapshot／digest、真實畫面與失敗修復見[結案文件](../archive/drl01-completed-2026-10-19.md)。自然daily／weekly新版Ledger收據依使用者決策改列後續觀察、維持NOT_VERIFIED，不擋工程結案；TTM／PIT仍未認證。新持股／關注股背景補收已於2026-10-19由使用者續行，實作／驗收中，不混入此PASS。
 
 ### 2026-10-18｜FINOPS-AB 發布、compaction與實刪前checkpoint（PARTIAL）
 

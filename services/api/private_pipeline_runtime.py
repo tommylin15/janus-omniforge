@@ -45,6 +45,9 @@ def main() -> None:
         mobile_repository = PostgresWorkspaceRepository(os.environ["MOBILE_LEDGER_DATABASE_URL"])
         mobile_result = process_mobile_ledger_queue(mobile_repository,
             on_persisted=(lambda owner: mobile_repository.enqueue_recalculation(owner, 'mutation')) if mobile_only else None)
+        if mobile_result['processed']:
+            from .stock_supplement import wake_stock_supplement
+            wake_stock_supplement(mobile_repository)
     except (MobileLedgerQueueError, NotFoundError):
         if mobile_only:
             raise

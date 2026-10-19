@@ -12,12 +12,18 @@
 
 | 資料 | 可直接使用的第三方入口 | 補收邊界 |
 |---|---|---|
-| 日價量 | Yahoo歷史chart | 至少120有效交易日；標示供應者價格與還原口徑，不冒稱官方未還原價 |
-| 月營收 | Yahoo股市營收歷史 | 至少13個應到月份供同月YoY；辨識當月欄，不取累計欄冒充 |
+| 日價量 | FinMind TaiwanStockPrice；Yahoo歷史chart可作後續替代 | 至少120有效交易日；標示供應者價格與還原口徑，不冒稱官方未還原價 |
+| 月營收 | FinMind TaiwanStockMonthRevenue；Yahoo股市營收可作後續替代 | 至少13個應到月份供同月YoY；辨識當月欄，不取累計欄冒充 |
 | 單季EPS | Yahoo股市單季EPS | 最近12個已發布季度；不混年度／累季／預估，不要求官方股數分母 |
 | PE／PB／殖利率 | FinMind TaiwanStockPER | 兩年河流按既有有效日／月份規則驗收；非正PE不捏造 |
 
 可重用既有可用資料，缺口直接取第三方，不必逐檔先找官方。ETF等不適用營收／EPS者標示不適用；來源未發布、限流或新上市歷史不足保留partial。以上是新增需求的驗收契約，**目前六股EPS定向補收不等於這條自動化已完成**；需另驗新增／取消持股與關注、去重佇列、失敗重試、每日兜底及Stage→Core→serving→API讀回。公開控制面只能保存股號及需求狀態，不保存Owner對應、股數或交易內容。
+
+實作路徑（部署狀態依TODO／runtime）：先套 `066_stock_supplement_queue`，再更新 Jobs，最後切換 API。新版本預設啟用；`JANUS_STOCK_SUPPLEMENT_ENABLED=false` 可停用 API 喚醒與 daily 新路徑。記帳／更正／沖銷完成 current_positions 後，以及關注／取消關注的同一交易內，重算去識別化需求聯集。任一持股或關注仍存在就保留需求；最後需求取消才遞增 generation 並取消舊 lease，不刪既有歷史資料。
+
+API 回應後才喚醒既有 ingestion Job，以 `JANUS_DATA_SUPPLEMENT_MODE=demand` 處理最多50股／約20分鐘；單股來源尚未發布、限流或工作失敗保留partial，24小時後重試，每日08:30在原增量前重算聯集、補漏並重排前一日結果。中斷的 running lease 35分鐘後可重新領取；相同股號不重複處理，取消／重加後的舊工作不能結案新 generation。來源HTTP期間不持有Owner交易或佇列的長交易鎖。個別已開始的公共Core寫入不因取消需求回滾；下一個安全邊界停止，舊lease不能覆寫新請求結果。
+
+FinMind使用公開免token入口，不新增訂閱。Core保留月營收月份metric，serving以`canonical_metric`保留映射並顯示`monthly_revenue`；保留元與千元轉換、供應者source_id、實際receipt、raw/hash與原lineage。兩年profile接受既有TWSE／TPEx與核准FinMind資料；第三方profile明示provider版本，不宣稱官方認證。財務serving保存至少1096天，以容納12季；Core的current-only snapshot保留政策不變。
 
 ## DRL-01：既有官方 MOPS 市場月份批次回補（2026-10-16 新增）
 

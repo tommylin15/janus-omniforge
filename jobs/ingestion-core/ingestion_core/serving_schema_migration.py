@@ -31,7 +31,9 @@ MIGRATION_MARKET_SERVING = "054_market_serving"
 MIGRATION_FULL_MARKET = "055_full_market_universe"
 MIGRATION_LEDGER_BACKUP = "056_controller_ledger_backup"
 MIGRATION_HOME_MARKET_SNAPSHOT = "057_home_market_snapshot"
+MIGRATION_STOCK_SUPPLEMENT = "066_stock_supplement_queue"
 SUPPORTED = frozenset({
+    MIGRATION_STOCK_SUPPLEMENT,
     MIGRATION_POSITION,
     MIGRATION_STOCK_SERVING,
     MIGRATION_OPERATIONS,
@@ -402,6 +404,30 @@ def cicd_readiness(control: Any, *, apply_missing: bool = False) -> dict[str, ob
 
 def run(control: Any, name: str) -> None:
     """Apply one allow-listed serving migration using existing DB identities."""
+    if name == MIGRATION_STOCK_SUPPLEMENT:
+        text = _migration_path(name).read_text(encoding='utf-8')
+        _, rest = text.split('-- PHASE: control-prepare', 1)
+        prepare, rest = rest.split('-- PHASE: private-api', 1)
+        private_part, rest = rest.split('-- PHASE: control-finalize', 1)
+        finalize, acceptance = rest.split('-- PHASE: acceptance', 1)
+        checks, record = acceptance.split('INSERT INTO control.schema_migrations', 1)
+        with control.connection.transaction(), control.connection.cursor() as cursor:
+            _require_current_user(cursor, 'janus_control')
+            cursor.execute(_without_role_lines(prepare))
+        try:
+            with _private_api_connection() as private:
+                with private.transaction(), private.cursor() as cursor:
+                    _require_current_user(cursor, 'janus_private_api')
+                    cursor.execute(_without_role_lines(private_part))
+        finally:
+            with control.connection.transaction(), control.connection.cursor() as cursor:
+                cursor.execute(_without_role_lines(finalize))
+        with control.connection.transaction(), control.connection.cursor() as cursor:
+            cursor.execute(_without_role_lines(checks))
+            if not all(cursor.fetchone() or (False,)):
+                raise RuntimeError('stock supplement schema acceptance failed')
+            cursor.execute('INSERT INTO control.schema_migrations' + _without_role_lines(record))
+        return
     if name in {MIGRATION_QUOTES_BROKER, MIGRATION_ANALYSIS_PRODUCT, MIGRATION_CEO_QUOTA_50, MIGRATION_MARKET_SERVING, MIGRATION_FULL_MARKET, MIGRATION_LEDGER_BACKUP, MIGRATION_HOME_MARKET_SNAPSHOT}:
         try:
             text = _without_role_lines(_migration_path(name).read_text(encoding='utf-8'))

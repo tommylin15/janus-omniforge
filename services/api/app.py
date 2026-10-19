@@ -350,6 +350,10 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                 type(error).__name__,
             )
 
+    def supplement_stocks_safely() -> None:
+        from .stock_supplement import wake_stock_supplement
+        wake_stock_supplement(repository,pipeline_service)
+
     def resolve_prices(identities: dict[str, dict[str, Any]], *, force: bool = False):
         # Read *all* actual owner holdings, even outside the research 500
         # and including unconfirmed TPEx ETFs. Only TWSE-verified identities
@@ -851,6 +855,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def add_ledger(value: LedgerEventIn, background_tasks: BackgroundTasks,
                    current: AuthenticatedUser = Depends(user), idempotency_key: str = Depends(key)):
         result = repository.add_ledger(current.user_id,value,idempotency_key)
+        background_tasks.add_task(supplement_stocks_safely)
         background_tasks.add_task(recalculate_private_mart_safely,current.user_id)
         return jsonable_encoder(result)
 
@@ -858,6 +863,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def correct_ledger(event_id: UUID,value:CorrectionIn,background_tasks:BackgroundTasks,
                        current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
         result=repository.correct_ledger(current.user_id,event_id,value.expected_version,value.replacement,idempotency_key)
+        background_tasks.add_task(supplement_stocks_safely)
         background_tasks.add_task(recalculate_private_mart_safely,current.user_id)
         return jsonable_encoder(result)
 
@@ -866,6 +872,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                        current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
         """Append a reversal-only event; the original ledger row remains immutable for audit."""
         result=repository.reverse_ledger(current.user_id,event_id,value.expected_version,idempotency_key)
+        background_tasks.add_task(supplement_stocks_safely)
         background_tasks.add_task(recalculate_private_mart_safely,current.user_id)
         return jsonable_encoder(result)
 
@@ -1241,12 +1248,16 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return jsonable_encoder(result)
 
     @private.post("/watchlist",status_code=201)
-    def follow(value:WatchlistIn,current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
-        return jsonable_encoder(repository.follow(current.user_id,value,idempotency_key))
+    def follow(value:WatchlistIn,background_tasks:BackgroundTasks,current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
+        result = repository.follow(current.user_id,value,idempotency_key)
+        background_tasks.add_task(supplement_stocks_safely)
+        return jsonable_encoder(result)
 
     @private.delete("/watchlist/{symbol}",status_code=204)
-    def unfollow(symbol:str,current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
-        repository.unfollow(current.user_id,symbol,idempotency_key); return Response(status_code=204)
+    def unfollow(symbol:str,background_tasks:BackgroundTasks,current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
+        repository.unfollow(current.user_id,symbol,idempotency_key)
+        background_tasks.add_task(supplement_stocks_safely)
+        return Response(status_code=204)
 
     @private.put("/watchlist/order")
     def reorder(value:WatchlistOrderIn,current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):

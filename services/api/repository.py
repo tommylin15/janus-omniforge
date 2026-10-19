@@ -19,6 +19,22 @@ class OversellError(ValueError): pass
 
 
 class PostgresWorkspaceRepository:
+    @staticmethod
+    def _sync_supplement_demand(connection: Any) -> None:
+        if os.getenv('JANUS_STOCK_SUPPLEMENT_ENABLED', 'true').lower() == 'true':
+            connection.execute('SELECT control.sync_stock_supplement_demand()',())
+
+    def reserve_supplement_dispatch(self) -> bool:
+        if os.getenv('JANUS_STOCK_SUPPLEMENT_ENABLED', 'true').lower() != 'true':
+            return False
+        with self._connection() as connection:
+            return connection.execute("""UPDATE control.stock_supplement_dispatch SET reserved_at=now()
+                WHERE singleton AND (reserved_at IS NULL OR reserved_at<now()-interval '35 minutes')
+                  AND EXISTS(SELECT 1 FROM control.stock_supplement_requests
+                    WHERE demanded AND status IN ('pending','partial') AND next_attempt_at<=now())
+                RETURNING singleton"""
+            ).fetchone() is not None
+
     def __init__(self, dsn: str) -> None:
         if not dsn.strip():
             raise ValueError("PRIVATE_DATABASE_URL is required")
@@ -141,6 +157,7 @@ class PostgresWorkspaceRepository:
             self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", row["event_id"], None)
             result = self._ledger_result(connection, user_id, row)
             connection.execute("SELECT private.refresh_current_positions(%s)", (user_id,))
+            self._sync_supplement_demand(connection)
             return result
 
     def _symbol_events(self, connection: Any, user_id: UUID, symbol: str) -> list[dict[str, Any]]:
@@ -241,6 +258,7 @@ class PostgresWorkspaceRepository:
             self._ledger_result(connection, user_id, original)
         result = self._ledger_result(connection, user_id, row)
         connection.execute("SELECT private.refresh_current_positions(%s)", (user_id,))
+        self._sync_supplement_demand(connection)
         return result
 
     def reprice_ledger_fees(self, user_id: UUID, *, expected_ledger_version: int, expected_profile_version: int, apply=False):
@@ -349,6 +367,7 @@ class PostgresWorkspaceRepository:
             ).fetchone()
             self._change(connection,user_id,self._next_change_version(connection,user_id),"ledger",reversal_id,None)
             connection.execute("SELECT private.refresh_current_positions(%s)",(user_id,))
+            self._sync_supplement_demand(connection)
             return dict(row)
 
     def ledger_history(self, user_id: UUID, symbol: str | None, year: int | None, limit: int = 200) -> list[dict[str, Any]]:
@@ -896,6 +915,7 @@ class PostgresWorkspaceRepository:
             change_version=self._next_change_version(connection,user_id); self._change(connection,user_id,change_version,"watchlist",value.symbol,None)
             self._record_mutation(connection,user_id,key,"watchlist",value.symbol)
             connection.execute("SELECT control.record_deep_tracking_demand(%s)", (value.symbol,))
+            self._sync_supplement_demand(connection)
             return dict(row)
 
     def unfollow(self, user_id: UUID, symbol: str, key: str) -> None:
@@ -908,6 +928,7 @@ class PostgresWorkspaceRepository:
             version=self._next_change_version(connection,user_id); self._change(connection,user_id,version,"watchlist",symbol,None)
             self._record_mutation(connection,user_id,key,"watchlist",symbol)
             connection.execute("SELECT control.record_deep_tracking_demand(%s)", (symbol,))
+            self._sync_supplement_demand(connection)
 
     def reorder(self, user_id: UUID, symbols: list[str], expected: int, key: str) -> list[dict[str, Any]]:
         with self._connection() as connection:
@@ -1438,6 +1459,7 @@ class PostgresWorkspaceRepository:
             connection.execute("DELETE FROM private.assistant_skill_revisions WHERE user_id=%s",(user_id,))
             for table in ("analysis_feedback","change_log","mutation_keys","note_index","watchlist","mcp_servers","mcp_oauth_refresh_tokens","mcp_oauth_codes","broker_profile_revisions","investment_profiles","cash_balance_snapshots","current_positions","ledger_events","users"):
                 connection.execute(f"DELETE FROM private.{table} WHERE user_id=%s",(user_id,))
+            self._sync_supplement_demand(connection)
             connection.execute("""UPDATE private.deletion_requests SET status='COMPLETED',cleanup_pending='{}',completed_at=now()
                                 WHERE request_id=%s AND user_id=%s""",(request_id,user_id))
 

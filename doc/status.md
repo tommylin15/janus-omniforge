@@ -2,7 +2,7 @@
 
 > **2026-10-19｜DRL-01 工程結案 PASS**：六股2025Q4 EPS已直接採Yahoo補齊，Stage→Core→serving及正式／Preview API各6/6通過；5876手機／桌面EPS圖表與季度明細PASS。既有兩年PE/PB正式API再驗12/12，Ledger落地及Market Volume沿既有PASS。正式API／Jobs同源`e3e00983`，promotion及回滾演練通過，完整證據見[結案文件](archive/drl01-completed-2026-10-19.md)。
 >
-> 自然daily／weekly Ledger收據依使用者決策改列後續觀察、仍NOT_VERIFIED，不擋本次結案；TTM／歷史PIT未認證。新持股／關注股背景補收尚未實作、維持暫停，與本次DRL-01分開。第三方可直接補資料的長期核准見[§1.7](PROJECT_RULES.md)。
+> 自然daily／weekly Ledger收據依使用者決策改列後續觀察、仍NOT_VERIFIED，不擋本次結案；TTM／歷史PIT未認證。新持股／關注股背景補收已於2026-10-19由使用者續行，實作／驗收中，與DRL-01分開；尚未部署驗收完成。第三方可直接補資料的長期核准見[§1.7](PROJECT_RULES.md)。
 
 
 > **FINOPS-AB 完成（2026-10-18，PASS）**：月批 OHLCV／估值、bounded reads、current-only snapshot 與精確 GCS generation 實刪程式已完成。
