@@ -1,8 +1,8 @@
 # Janus 因子收錄母體、容量預算與資料保存矩陣
 
-更新：2026-10-18（Asia/Taipei）。狀態：**正式規格對照／既有實作盤點；本文件不是新的資料回補、歸檔搬移或刪除授權，也不是 runtime 完成證據。**
+更新：2026-10-19（Asia/Taipei）。狀態：**正式規格對照／既有實作盤點；本文件不是新的資料回補、歸檔搬移或刪除授權，也不是 runtime 完成證據。**
 
-此矩陣將 [全市場批次契約](full-market-batch-policy.md)、[來源與 Stage/Core](storage-data-and-ingestion.md)、[五角色](specialist-engines.md)、[公開資料清理治理](retention-governance.md) 與 [DRL-01 active TODO](../todo.md) 接在一起；與它們衝突時以明確的 active 決策及實際 main/runtime 為準。涉及實際保留、清除、generation、fence，唯一權威仍是 `retention-governance.md` + 對應程式；私人 Ledger/筆記不得套用公開資料 TTL。
+資料治理導航見 [統一入口](data-governance.md)。此矩陣將 [全市場批次契約](full-market-batch-policy.md)、[來源與 Stage/Core](storage-data-and-ingestion.md)、[五角色](specialist-engines.md)、[公開資料清理治理](retention-governance.md) 與 [DRL-01 active TODO](../todo.md) 接在一起；與它們衝突時以明確的 active 決策及實際 main/runtime 為準。涉及實際保留、清除、generation、fence，唯一權威仍是 `retention-governance.md` + 對應程式；私人 Ledger/筆記不得套用公開資料 TTL。
 
 ## 1. 計算基準、母體與資料量語意
 
@@ -18,41 +18,43 @@
 
 | 因子族群 / 對應 Core 或 derived 資料 | 收錄母體與刷新 | 情境容量（M=1,992、D=50） | **目前保存／清理契約** | 重要邊界 |
 |---|---|---|---|---|
-| 股票名冊、類型、產業／`stock-profile` | M；名冊版本依生效日期 | 最新約 1,992 檔；歷史版本另計 | Core 一般 365 天，PIT 引用／版本保護 | 保留退市／退出時已知歷史 membership；不可用今天名冊重寫過去 |
+| 股票名冊、類型、產業／`stock-profile` | M；名冊版本依生效日期 | 最新約 1,992 檔；歷史版本另計 | Core 一般 365 天；研究要重播須獨立保存已核准輸入 | 保留退市／退出時已知歷史 membership；不可用今天名冊重寫過去 |
 | 日 OHLCV：開高低收量、成交值／`ohlcv`、`market-volume` | M，交易日增量 | 一年約 **498,000 股日組**，實際視停牌與缺值而變；MVP 20/21 日約 39,840～41,832 組 | 一般 365 天；D 對 `ohlcv` 保留 1,096 天；`market-volume` 不自動延長 | 持股 ETF 另跟行情、不混股票分母 |
 | 每日 PE／PB／殖利率／`valuation` | M 官方可得增量 | 理論一年最多約 498,000 股日組；實收可低於此值 | 一般 365 天；D `valuation` 1,096 天 | 虧損 PE 可合法為 null，不以 0 代替 |
 | 三大法人／`institutional` | M，來源允許才更新 | 一年最多約 498,000 股日 × 實收投資人類別數 | Core 一般 365 天 | investor_type 是複合鍵；不能把一股日當成一個類別總數 |
 | 融資／融券／借券／當沖／警示／`market-activity` | M，按核准市場批次能力 | 每年最多約 498,000 股日 × 實際 metric 數 | Core 一般 365 天 | 不適用、來源缺漏維持 unavailable |
 | 月營收、YoY／財務 Core `financials` | M 摘要；D 可定向補缺 | **13 個月 × 1,992 ≈ 25,896 股月組**；非每月重抓全 13 月 | Core 財務保留每股／statement／source 最新 **12 季**；不是月營收另設 13 月 purge | 13 月是同比計算最低資料窗口；fiscal_month 不可猜測 |
 | EPS、損益、資產負債／現金流、財務比較因子／`financials` | M 能得的摘要，D 深度 12 季 | 每股 12 季情境：**23,904 股季組**；每季數個 metric／版本另乘 | 各股／statement／source 最新 **12 季**，保留合法更正 provenance | 首版實測 focus 6 檔 2026 Q1＋Q2；完整四季 TTM 未認證不補算 |
-| 公司公告與重大訊息／`events` | M 事件索引，D 按授權深入 | 事件驅動，**不能給固定股日筆數** | 一般 Core 365 天；有效研究引用／版次依 snapshot 保護 | 原文與新聞全文、券商研究、社群仍受來源 admission；不因屬 D 自動開始 |
+| 公司公告與重大訊息／`events` | M 事件索引，D 按授權深入 | 事件驅動，**不能給固定股日筆數** | 一般 Core 365 天；歷史研究引用不再保護非 current snapshot | 原文與新聞全文、券商研究、社群仍受來源 admission；不因屬 D 自動開始 |
 | Benchmark、指數與市場狀態／`benchmark` | B 市場級，每交易日 | **每指數**約 750 日／3 年，不乘 1,992 | 1,096 天 | 指數基準、報酬指數與價格指數不可混稱 |
 | 全市場 Market Screening：5/20/60/120 日報酬、RS、量能、波動、排名／Mart derived | M，Core ready 後每日一次、同 input reuse | 每交易日約 **1,992 股日訊號組**；90 曆日約 60～66 交易日，即約 **119,520～131,472** 組 | Mart 分析列 **90 天**；未引用 screening artifact 到期清理 | 這是 Mart 產物；所需回看窗口不足時 individual factor missing |
 | 深度技術與風險：MA、KD、ATR、RS、Beta、CVaR、相對強弱／Core + Mart | D，官方資料或 dirty input 更新 | D=50，三年價量約 **37,500 股日組**；特徵按需重算 | D 的 `ohlcv`／`valuation` 1,096 天；輸出 Mart 90 天／報告每股 3 代 | 50 為估算情境；不是所有原始因子長期各存一份 |
 | PE／PB 歷史河流、P25/P50/P75、月中位／Core + serving | **目前只指定 6 檔 TWSE D 股票**，2024-10～2026-10（25 曆月） | 近似 **6 × 500 = 3,000 股日估值組**；若每月都有資料，月中位約 **6 × 25 = 150 股月組／每項 PE、PB** | **UI／分位使用 2 年窗口**；Core D `valuation` 1,096 天，不因 UI 縮成 2 年而刪到 2 年 | 每項分別要求 ≥18 個有效月、≥150 個有效日及期間雙端存在；補收／部署／API UI 未全部認證 |
 | 五位 Specialist：Fundamental、Valuation、Quant、Risk、Event | D，**dirty dependency** 更新，不是每天五角色全市場重算 | D=50、完整一次最多約 **250 份角色結果**；每股 3 代上限情境約 **750 份角色結果** | 每股最近 **3 代完整分析**；Mart 行 90 天；僅活躍報告引用保護 | 依分析日期與版本留存，並非所有角色每天都有新 generation |
-| 模型 training／OOS／evaluation／GCS research derived | 已核准 D 或具 PIT 的 M 歷史研究 cohort，定期有界觸發 | 依 frozen cohort、label 成熟度、request 計；**沒有固定 1,992 × 5 全量** | 最新使用的 OOS 結果及完整 ML/OOS dataset 保護；其餘未引用逾 7 天候選清理 | 模型檔、PIT manifest、研究引用另受保護；BigQuery temporary 可重建，不是 canonical |
+| 模型 training／OOS／evaluation／GCS research derived | 已核准 D 或具 PIT 的 M 歷史研究 cohort，定期有界觸發 | 依 frozen cohort、label 成熟度、request 計；**沒有固定 1,992 × 5 全量** | 最新使用的 OOS／固定 ML 資料保留；無引用過時逾 7 天候選清理 | model/dataset hash 與 lineage 須獨立留存；BigQuery temporary 可重建，不是 canonical |
 | 私人持股、交易、現金、成本、配息與損益／PG + Private | P；事件／持股變動或 EOD | owner 實際事件數／持股檔數，不按 1,992 推導 | **不套用公開 7／90／365／1,096 天清理**；Ledger 及 reversal 不就地刪改 | bounded 備份保存政策與交易事實 retention 分開；owner 隔離 |
 
-表中「12 季」不是表示所有股票都已有 12 季完整 EPS；「1,096 天」也不表示所有關注股都已補足 3 年。現行深度歷史估值補收 adapter 最多可詢問 36 月，但**目前 DRL-01D 指定的產品河流僅兩年六檔**，不可把 36 月能力當成當次新回補請求。未核准分 K/Tick／新聞全文／券商／社群不計入預計收錄量，不排程。
+表中「12 季」不是表示所有股票都已有 12 季完整 EPS；「1,096 天」也不表示所有關注股都已補足 3 年。現行深度歷史估值補收 adapter 最多可詢問 36 月，但**目前 DRL-01D 指定的產品河流僅兩年六檔**，不可把 36 月能力當成當次新回## 3. 到期後：Row、Snapshot、研究重播與是否搬區
 
-## 3. 到期後：清除、保護的歷史與是否搬區
+**沒有獨立歷史區搬遷 Job 或新增 archive bucket。** 2026-10-18 決策以來 Core／Mart **只保留 current Iceberg snapshot**；已撤銷舊 named refs、24h snapshot、外部歷史研究引用保護，不能把已刪的 `snapshot_id` 當成仍可回播。參見 [正式清理契約](retention-governance.md) 和 [新決策](../decision-2026-10-18-current-only-snapshots.md)。
 
-**現行並無獨立「歷史區」搬遷 Job 或新的 GCS archive bucket。** 已存在、需要還原的歷史，是透過 **Iceberg immutable snapshot、版本化研究／模型 artifact、named snapshot/metadata reference 與 provenance** 保存；不能把一般的 `doc/archive/`（文件存放區）或 PostgreSQL serving recent cache 稱為歷史市場倉。需要分層低成本實體封存，必須先提出真實用途、PIT 可讀證據、成本／restore 契約及授權，**不得先搬後報**。
-
-| 儲存位置／物件 | 到期處置 | 強制保護 |
+| 類別 | 到期候選 | 主要 guard |
 |---|---|---|
-| Stage 原始回應／隔離資料 | **超過 7 天**、不屬活躍執行引用即可清理 | queued/running/retrying 與共用 raw 引用；核心 provenance 已抽至 Core |
-| Core 一般市場資料（OHLCV、valuation、法人等） | **365 天**之外列為 row-retention 候選；新版 current Core 可不再提供 | PIT／研究／模型／publication／execution 仍引用的 immutable snapshots；引用清單未齊不得 apply |
-| Core 深度 `ohlcv`／`valuation` + benchmark | **1,096 天**之外列為 row-retention 候選 | 同上；深度集合依當日 active D 判定，歷史引用不得因退觀察而失效 |
-| Core 財務 `financials` | 最新 **12 季**以外列候選，按 symbol + statement_type + source 分組 | 原申報更正版次、被引用的 PIT/研究 snapshot；不假裝跨年同季度可比 |
-| Mart 分析列／全市場 screening | **90 天**以外清理 | published report / active execution 仍需的 snapshot／artifact |
-| 五角色報告與 OOS | 每股保留 **3 代**；只留仍使用的最新 OOS；過時且無引用者清除 | 有效共用 hash 引用、活躍 execution、新版模型／資料引用；淘汰 marker |
-| Core execution manifest | **超過 90 天且沒有有效引用**才退休 | 新鮮（≤1 小時）、COMPLETE_VERIFIED 的 `CORE_RETENTION_FENCE_URI`，含研究、模型、publication 與 active execution 引用 |
-| snapshot 到期後的孤立 Parquet／Avro／metadata | **超過 7 天且確認無存活引用**，generation-fenced delete | current／named／最近 24 小時及全部有效歷史 refs；孤兒判定不等於按日期整桶刪 |
-| Private Ledger／筆記／交易、更正 | 不適用公開清理，不移入公開歷史區 | Owner 權限、append-only、更正與備份／還原界線 |
+| Stage raw/quarantine | 7天 | Active execution 及其共用原料保護 |
+| Core 一般 rows | 365天 | 來源、date/period、缺值語意；不是全市場已有兩年 |
+| Core Deep `ohlcv`／`valuation`、benchmark | 1,096天 | 限符合 Deep/Benchmark 條件之 rows |
+| Core 財報 | 最近12季 | symbol/statement/source/版本口徑 |
+| Mart 分析 rows | 90天 | live worker + 活躍引用 |
+| Specialist 與 OOS | 每股3代、最新使用的 OOS | 無引用且逾7天的過時 artifact 可列候選 |
+| Core execution manifest | 90天、活躍執行保護 | 外部歷史 fence 不再保留非 current snapshot |
+| Orphan | 非current、年齡≥7天 | catalog pointer/lock/generation/current readback |
+| Owner 交易與筆記 | 不套公開 TTL | 私有範圍／備份獨立 |
 
-特別注意：**TTL 是候選條件，不是清理授權。** 由 `Mart 退休舊成果物 → 建立可驗證 Core 引用 fence → Core Stage/row/snapshot/orphan dry-run → apply → 逐項讀回` 依序進行。缺完整引用 fence 時 fail closed；歷史 Core row 在 current 退出不代表仍被引用的老 snapshot 應被破壞。既有 D06 曾獨立獲得「特定無引用小檔」清理例外，但**不延伸**為可直接刪除任何 canonical rows／私人資料的權限。
+D07 第一版設定**最近24個月滾動研究窗口**：這是每月訓練/OOS 的目標，不是改 Core row TTL、也不保證所有股票已具完整兩年。若要重現實驗，研究層另保存合法有界 versioned Parquet、日期/cohort、feature/label/schema、來源與 hash，避免依賴已刪 snapshot。嚴格 PIT 不足需標研究限定／insufficient，不為湊視窗填假值或啟動無界補收。
+
+清理先 compact、再 Mart、再 Core。TTL／planned 清理候選、實刪 objects/bytes 與可計費儲存變化須分開記錄；實際週維護節奏見 [資料治理總覽](data-governance.md)。
+
+**不延伸**為可直接刪除任何 canonical rows／私人資料的權限。
 
 ## 4. 目前有實測證據的覆蓋 vs 尚無 COUNT 的部分（2026-10-17）
 
