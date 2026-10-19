@@ -205,6 +205,49 @@ def test_stage_protects_active_execution_and_recent_unknown_payload():
     assert deleted == [items[2]["name"]] and result["held_active_objects"] == 1
 
 
+def test_stage_policy_is_two_days_and_cleanup_uses_48_hour_boundary():
+    from ingestion_core.retention import POLICY
+    assert POLICY["stage_days"] == POLICY["quarantine_days"] == 2
+    now = datetime(2026, 10, 19, 12, tzinfo=timezone.utc)
+    items = [
+        {"name": "raw/source/expired.json", "size": "17", "generation": "1", "updated": "2026-10-17T12:00:00Z"},
+        {"name": "quarantine/source/recent.json", "size": "31", "generation": "2", "updated": "2026-10-17T12:00:01Z"},
+        {"name": "executions/live/stage/old.json", "size": "37", "generation": "3", "updated": "2026-10-15T12:00:00Z"},
+    ]
+    removed = []
+    store = SimpleNamespace(bucket="dev", objects=lambda _: list(items),
+                            delete=lambda name, generation: removed.append((name, generation)))
+    result = clean_stage(store, apply=True, now=now, active_executions=frozenset({"live"}))
+    assert removed == [("raw/source/expired.json", "1")]
+    assert (result["planned_objects"], result["deleted_bytes"], result["held_active_objects"]) == (1, 17, 1)
+
+
+def test_stage_only_worker_never_opens_core_catalog_and_reads_back_deletions(monkeypatch):
+    from unittest.mock import MagicMock
+    from ingestion_core import retention, iceberg_maintenance
+    monkeypatch.setenv("STAGE_BUCKET", "gen-lang-client-0593591102-dev-stage")
+    fake = MagicMock()
+    fake.connection.cursor.return_value.__enter__.return_value.fetchall.return_value = []
+    monkeypatch.setattr(__import__("ingestion_core.__main__", fromlist=["_control_plane"]), "_control_plane",
+                        lambda: fake)
+    items = [
+        {"name": "raw/expired.json", "size": "8", "generation": "1", "updated": "2026-10-01T00:00:00Z"},
+        {"name": "raw/recent.json", "size": "4", "generation": "2", "updated": "2099-01-01T00:00:00Z"},
+    ]
+    def remove(name, generation):
+        items[:] = [x for x in items if (x["name"], x["generation"]) != (name, generation)]
+    store = SimpleNamespace(bucket="gen-lang-client-0593591102-dev-stage",
+                            objects=lambda _: list(items), delete=remove)
+    monkeypatch.setattr(retention, "GcsObjectStore", lambda _: store)
+    monkeypatch.setattr(__import__("ingestion_core.__main__", fromlist=["_iceberg_core"]), "_iceberg_core",
+                        lambda *a, **kw: (_ for _ in ()).throw(AssertionError("Core must not be opened")))
+    report = iceberg_maintenance.run("stage-only-apply")
+    assert report["scope"] == "stage-only"
+    assert (report["before"], report["after"]) == ({"objects": 2, "bytes": 12}, {"objects": 1, "bytes": 4})
+    assert report["generation_readback"] == "PASS"
+    assert report["stage"]["deleted_objects"] == 1
+
+
 def test_core_manifest_cleanup_ignores_historical_report_references_but_holds_active_work():
     import json
     from ingestion_core.retention import clean_core_manifests
