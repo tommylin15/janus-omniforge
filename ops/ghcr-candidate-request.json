@@ -1,11 +1,11 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "e3e0098399846eb337dd2ed1f8b636240bc88c20",
-  "digest": "sha256:5cf4121aabb60e8196f1542674ad2ac48264fc403210051fe2e98a2fa4e75365",
-  "release_run": "39126918277",
+  "sha": "3026bda11fe193631b9be6e15fba6e26420f644d",
+  "digest": "sha256:8f2f3883b019850731a52e8798afba49f1d204091c3db193b644cfb31d0d0a8a",
+  "release_run": "39210126649",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "DRL-01 repair approved Yahoo financial HTML Stage admission; full release PASS."
+  "purpose": "持股／關注股背景補收：完整 Python/PostgreSQL 1490 tests、Flutter 與公開 GHCR digest PASS；只建立0%候選。"
 }
