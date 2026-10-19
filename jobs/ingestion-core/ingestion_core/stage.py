@@ -269,10 +269,14 @@ class StageWriter:
             provenance.source_id, provenance.dataset_id, provenance.observed_at, provenance.content_hash
         )
         date = provenance.observed_at.astimezone(timezone.utc).date().isoformat()
-        base = f"executions/{execution_id}/stage/raw" if execution_scoped else "raw"
-        prefix = f"{base}/{provenance.source_id}/{provenance.dataset_id}/observed_date={date}/{key}"
+        # Share an immutable content-addressed payload across executions of the
+        # SAME source/dataset/observed day only. Hash alone never joins sources.
+        # Per-execution metadata/manifest retains the independent provenance.
+        # Legacy execution-scoped objects remain readable and TTL-managed.
+        prefix = f"raw/{provenance.source_id}/{provenance.dataset_id}/observed_date={date}/{key}"
         object_name = f"{prefix}/payload.{extension}"
-        sidecar_name = f"{prefix}/metadata.json"
+        sidecar_name = (f"executions/{execution_id}/stage/metadata/{key}.json"
+                        if execution_scoped else f"{prefix}/metadata.json")
         manifest_name = f"executions/{execution_id}/stage/{key}.json"
 
         created = self.store.create(object_name, payload, media_type)
@@ -297,7 +301,11 @@ class StageWriter:
         return marker
 
     def cleanup_committed_execution(self, execution_id: str) -> dict[str, int | bool]:
-        """Delete only execution-scoped Stage objects behind a Core commit fence."""
+        """Remove only execution-specific metadata behind a Core commit fence.
+
+        Shared raw payloads must survive another execution referencing them;
+        their 48-hour age and live manifest references are handled by retention.
+        """
         execution_id = self._segment(execution_id)
         marker = f"executions/{execution_id}/core-commit.json"
         try:
