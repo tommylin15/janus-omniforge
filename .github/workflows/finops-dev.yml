@@ -98,7 +98,7 @@ jobs:
         with:
           install-deps: minimal
           wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service-account: \${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - name: Validate metadata-only request and tests
         run: |
           python -m pytest -q tests/test_finops_gcs_storage_footprint.py
