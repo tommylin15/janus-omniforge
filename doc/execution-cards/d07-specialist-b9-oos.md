@@ -6,7 +6,7 @@
 
 **WBS 責任：**WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9）
 
-**相依與順序（2026-10-18 更新）：**產品 D01～D05 既有驗收不重做；**FINOPS-AB 優先施作，FINOPS-C（BigQuery）需先依 [統一 AI 指令 §4](finops-ingestion-iceberg-ab-and-c-gate.md) 完成開工前全局重評估、正式文件回寫及 go/no-go/blocked 處置後，才能開啟 D07 新工程**。不能以舊 B0～B8 歷史 PASS 當本次 C 預評完成；B7 PASS 不是 B9 PASS。
+**相依與順序（2026-10-19 更新）：**唯一 D07-PRE 合併兩年資料覆蓋／補收/PIT、Colab 離線訓練及原 FINOPS-C 的 BQ／PyIceberg／Cloud Run 成本/安全/回退評估；需依 [統一 AI 指令 §4](finops-ingestion-iceberg-ab-and-c-gate.md) 完成同一份 go/no-go/defer 決議後才能啟動 D07。**若決議 DEFER BigQuery，無須先完成 BQ cutover；若證據不足仍 PARTIAL/BLOCKED。** B7 完成不是 B9 模型品質 PASS。
 
 **執行宣告：**只在使用者明確授權本工作包、TODO 為可執行時，依下列程序完成「分析→修改→適用測試→commit→dev 發布→真實驗收／修復」的整個工作包，不因內部 checkpoint 自行停止；外部安全／授權 blocker 保持 BLOCKED 並記錄。
 
@@ -20,7 +20,7 @@
 - [wbs-5-intelligence-mart.md](../wbs/wbs-5-intelligence-mart.md)
 - [Admin v2 四頁 UI](../ui/admin.md) 與 [Admin v2 順序決策](../decision-2026-10-17-admin-v2.md)（只供 VF-09 呈現契約；不重啟 D01～D06）
 
-> **2026-10-19 Colab 離線建模可行性研究**：[依現有 ML/OOS、Core 與 B9 品質證據評估](../colab-d07-modeling-feasibility-2026-10-19.md)。研究文件不等於 FINOPS-C 預評完成、D07 開工或模型品質 PASS。
+> **D07-PRE 共用評估文件**：[已整理的資料與 Colab 可行性](../colab-d07-modeling-feasibility-2026-10-19.md) 是唯一前置工作包的研究證據，尚需 FinOps、來源、樣本與權限 live readback 才可結案，不是第二個 Colab 工單。
 
 **實作入口：**`jobs/intelligence-mart/intelligence_mart/evaluation.py`、`quant_pit.py`、`event_labeling.py`、`scripts/gcp/b9-specialist-oos-quality.py`、月度 retrain artifacts。
 

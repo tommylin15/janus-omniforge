@@ -47,16 +47,16 @@
 4. **只做短窗／有界同類工作 sample（不做兩天或長期量測），**可取得時以 `vCPU-seconds`、GiB-seconds／peak RSS、elapsed、GCS ReadObject/GetObjectMetadata／List/Write、Iceberg manifests/snapshots/小檔數、actual writes、Postgres/serving row parity 作比較。GCS bucket 級量測不可硬指派給單一 worker；可用分段/identity tracing 歸因。**D06 原兩天／長時間等量 I/O 比較已取消，不可重啟或據此認定不結案；不足的成本節省數值標 UNKNOWN。**
 5. D06 引用保護與安全清理結果納入同一受控 Jobs rollout／rollback／真實 readback，不再獨立發行 D06 部署。30% CPU／50% metadata-I/O 為**改善目標而非達成事實**。若測不到就 PARTIAL；不可宣告免費額度已被恢復。避免高成本補跑或無需求的全市場歷史重算。
 
-## 4. C｜BigQuery 混合運算：排在 D07／D08 前，但**開工前重評估**
+## 4. D07-PRE｜資料可用性／Colab／FINOPS-C 整合前置評估（唯一工單）
 
-- A＋B 的適用程式/成本/正式 dev 驗收之後，且在 **D07、D08 開工之前**先產生有日期、真實測量、版本與範圍的 **C-preflight 整體重評估報告**並回寫 [混合架構決策](../decision-2026-10-06-bigquery-analytics-over-iceberg.md)、WBS-5/WBS-7 與 TODO。**舊 B0～B8 歷史結案不等於 C 本輪開工或切換已核准。**
+- **原 FINOPS-C preflight 現與 [Colab／資料覆蓋評估](../colab-d07-modeling-feasibility-2026-10-19.md) 併入同一個 D07-PRE**：先核對24月 rolling 真實資料、各角色合法特徵／label maturity／市場歷史母體與缺口補收策略；再依 A+B 實測比較現有 PyIceberg／Cloud Run、BQ opt-in 與免費 Colab CPU，按運算器同資料 hash 評估成本、安全、PIT、一致性與回退。完成一份有日期、SHA、來源證據的 go/no-go/defer 決策並回寫 [架構決策](../decision-2026-10-06-bigquery-analytics-over-iceberg.md)、WBS-5／WBS-7、[TODO](../todo.md)；原 C-preflight 不另設第二工單。B5–B8 的歷史 PASS 及此份研究草稿不等於 D07-PRE PASS。
 - 重評估至少包括：A+B 新 CPU/GCS baseline；Ingestion vs Mart attribution；PyIceberg partition/manifest 熱點；BigQuery on-demand scans/billed bytes、Cloud Run 移除多少計費時間、GCS 是否仍被 backend 訪問、免費額度按同計費帳戶其他產品消耗；來源與 catalog/region/IAM/API/價目/上限；精確 Snapshot mapping、PIT、成本、fallback、回滾；Screening、Ranking、OOS 的逐項 ROI 排序。無測量列 unknown，不得把費用轉移當節省。
 - 在重評估簽入 repo 並確認已有合格的現有 BigQuery 資源與合法授權之前，不新增付費 API、dataset、BigLake/Lakehouse catalog、reservation/connection、權限擴張；禁止 BigQuery Storage Read API，暫留 PyIceberg default，不切 production/canonical。
 - 只對有明確效益的 workload 做 C code/test/canary：全市場 screening/ranking 先行，之後 aggregate/OOS，留 PG serving、Private/Owner、Core canonical 不遷移。每項需同 Core immutable snapshot/dataset、null/coverage/結果 hash、query limit、billed bytes、rollback／fallback evidence；未過 gate 不得以 C 的計畫阻止既有使用者資料服務。
-- 若 C 重評估指出 BigQuery 不划算、缺費用授權或 snapshot fidelity 未能證明，寫入 `DEFERRED/BLOCKED` 的明確決議，再依使用者核准的次序安排 D07/D08；不得私自跳過 C-preflight 或宣稱已完成切流。
+- **結案不要求強制 BigQuery cutover**：若結果不划算或欠費用授權，正式 `DEFER C` 並依合法、成熟資料與成本/安全的共同驗收進入 D07；若各運算器無可靠成本或 PIT/來源證據，D07-PRE 仍維持 `PARTIAL/BLOCKED`。只有實測收益及授權充足才做選定 BQ workload 的 optional C-canary；免費 Colab 只供離線研究，既有月度 controller 是唯一正式排程。
 
 ## 5. AI 交接／完成格式
 
-每次交接明列：`work_package(A1/A2/B1/B2/B3/C-preflight/C-cutover)`、Git SHA/main HEAD、修改路徑與安全評估、targeted/CI run URL、runtime Job execution ID + digest、Scheduler/occurrence、資料期間/股票數/成敗、CPU/RAM/GCS/BQ before-after 方法及值、snapshot/PIT/provenance parity、rollback evidence、`PASS/PARTIAL/BLOCKED/UNKNOWN`、剩餘阻塞。**只有文件儲存，僅可標 `DOC_UPDATED`，不是工程完工。**
+每次交接明列：`work_package(A1/A2/B1/B2/B3/D07-PRE/conditional-C-cutover)`、Git SHA/main HEAD、修改路徑與安全評估、targeted/CI run URL、runtime Job execution ID + digest、Scheduler/occurrence、資料期間/股票數/成敗、CPU/RAM/GCS/BQ before-after 方法及值、snapshot/PIT/provenance parity、rollback evidence、`PASS/PARTIAL/BLOCKED/UNKNOWN`、剩餘阻塞。**只有文件儲存，僅可標 `DOC_UPDATED`，不是工程完工。**
 
 本文件不修改既有 D06 已驗證的歷史收據、不重開 D01～D05、不重造第二套 DRL、研究資料或平行任務清單。

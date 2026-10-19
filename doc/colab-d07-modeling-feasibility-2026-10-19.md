@@ -1,6 +1,6 @@
-# D07｜Colab 模型可行性與資料差距（2026-10-19）
+# D07-PRE｜資料與運算器整合前置評估（含 FINOPS-C，2026-10-19）
 
-> **研究評估，非已啟動工程或核准的付費／排程變更。** 來源：截至 2026-10-19 的 Janus GitHub main、既有 CI／GCS 讀回收據；本次未進行新 GCP live census 或 Colab 訓練。TODO 與 FINOPS-C preflight 仍是正式開工 gate。
+> **這是 [TODO D07-PRE](todo.md) 唯一共用前置任務的研究證據，不是新 Colab 或 C-preflight 工單，也不是整體 PASS。** 本輪未重新執行 GCP census、FinOps 收費驗收或 Colab 訓練；資料覆蓋、Colab 建模方式與原 FINOPS-C 成本/安全/parity 必須產生同一份 GO/NO-GO/DEFER 決議。
 
 ## 1. 結論
 
@@ -42,7 +42,7 @@ ChatGPT 可建立 Notebook／訓練程式／測試及研究收據，卻**不能�
 
 - P0：確認舊 B5 Parquet 仍可讀，使用現有 immutable dataset 做 CPU Quant baseline/LightGBM parity，不新增來源、Cron、Model promotion。
 - P1：完成 Quant 真實歷史成分/PIT、每月成熟標籤與 OOS cross-section coverage；Risk 真正逐日證據，分模型決策。
-- FINOPS-C：依 [TODO](todo.md) 必先做 preflight（CPU/GCS/BQ、成本、同源/回退、既有配額與授權）並完成正式 go/no-go；本研究可作 preflight 證據，但不能取代它。
+- **D07-PRE 合併驗收**：依 [TODO](todo.md) 統一完成 24月逐角色資料覆蓋、成熟 labels、必要補收/Research Export、FINOPS-AB 後 CPU/GCS/BQ 費用／既有額度、Colab/Jobs/PyIceberg 運算比較、exact Core identity/parity、回退與安全，產生一份 go/no-go/defer 結論；**可正式 DEFER BigQuery 直接用既有 Jobs 進入 D07**，不必為開發 D07 強制切換 BQ。
 
 **最終選項：GO（免費 Colab 離線 Quant/Risk CPU PoC）；NO-GO（免費 Colab 正式無人值守月度重訓）；CONDITIONAL（24月完整研究、五角色 Champion、Enterprise 計費排程）。**
 
