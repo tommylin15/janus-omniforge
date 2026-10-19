@@ -6,7 +6,7 @@
 
 | 優先 | 工項 | 狀態／責任入口 |
 |---|---|---|
-| **P0** | **STAGE-48H：2天保存、每日獨立清理、重複原始資料去重、Admin一鍵盤點** | **CODE/TEST PASS · LIVE_BLOCKED**；2天政策及 daily worker/controller 已入 main，Stage target tests 77/77、完整 Python/Flutter 與 GHCR 映像 PASS；[Release #39269705984](https://github.com/tommylin15/janus-omniforge/actions/runs/39269705984) 因 candidate `build-receipt.json` 缺失，Jobs rollout SKIPPED，真實 Stage 清理仍未執行；MD5 安全去重與 Admin 一鍵盤點尚未實作／驗收。依 [正式保留政策](spec/retention-governance.md) 與 [Runbook](runbook-batch-controller-dev.md) |
+| **P0** | **STAGE-48H：2天保存、每日獨立清理、重複原始資料去重、Admin一鍵盤點** | **RELEASE/CANDIDATE/AUTH PASS · JOBS ROLLOUT IN_PROGRESS · LIVE_DELETE NOT_VERIFIED**；[正式 GHCR release #39272058864](https://github.com/tommylin15/janus-omniforge/actions/runs/39272058864)、[0% candidate #39272980460](https://github.com/tommylin15/janus-omniforge/actions/runs/39272980460)、[OAuth 負向邊界 #39273298250](https://github.com/tommylin15/janus-omniforge/actions/runs/39273298250) PASS；[四 Jobs rollout #39273523032](https://github.com/tommylin15/janus-omniforge/actions/runs/39273523032) 尚未取得終態與真實 48h Stage delete receipt。既有 FinOps one-shot 已補 Stage-only dry-run/apply 與 tests，未執行；MD5 安全去重和 Admin 一鍵盤點尚待進行。依 [正式政策](spec/retention-governance.md) 與 [Runbook](runbook-batch-controller-dev.md) |
 | **P1** | **D07-PRE：Colab 單一資料整理與模型訓練前置**（含原 FINOPS-C preflight） | **DESIGN_DECIDED / LIVE_PARTIAL**；[研究與工程流程](colab-d07-modeling-feasibility-2026-10-19.md)、[AI 指令 §4](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) |
 | **P2** | **D07：五角色 ML／OOS 品質及正式介接** | **PLANNED**、待前置評估有合格處置；[唯一 D07 卡](execution-cards/d07-specialist-b9-oos.md) |
 | **P3** | **D08：CEO、Admin 模型管理與受控 Owner 報告** | **PLANNED**、有效 Fact Pack 後；[唯一 D08 卡](execution-cards/d08-ceo-admin-owner-report.md) |
