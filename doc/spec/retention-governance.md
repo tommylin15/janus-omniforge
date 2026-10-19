@@ -12,7 +12,7 @@
 
 | 資料 | 保存期／候選 | 保護／驗證 |
 |---|---|---|
-| Stage 原始 API／quarantine／sidecar | 7 天 | active queued/running/retrying execution 與其共用來源保護 |
+| Stage 原始 API／quarantine／sidecar／manifest | **2 天（48 小時）** | active queued/running/retrying execution 與其共用來源保護；只刪 Stage Bucket |
 | Core 一般公開市場 rows | 365 天 | 按合法 date/period；不代表所有股票已收滿一年 |
 | Core Deep `ohlcv`／`valuation` | 1,096 天 | `watchlist ∪ holdings`，不自動延長全市場 |
 | Benchmark rows | 1,096 天 | 指數/市場級資料 |
@@ -24,14 +24,14 @@
 | 非 current orphan Parquet/Avro/metadata | ≥7天 | generation 刪除＋catalog/current readback |
 | 私有 ledger、成本、現金、筆記、交易 | 公開 retention 不適用 | Owner 隔離及私人備份政策獨立 |
 
-`POLICY` 實作常數為 `stage_days=7`、`core_days=365`、`deep_price_days=1096`、`financial_quarters=12`、`mart_days=90`、`orphan_days=7`。TTL 是**候選**而非已執行刪除；實際 row count、GCS object/bytes、舊 generation/soft delete 費用需從 live receipt 判斷。資料版本保存與歷史 Iceberg snapshot 同一性不能混淆。
+`POLICY` 實作常數為 `stage_days=2`、`quarantine_days=2`、`core_days=365`、`deep_price_days=1096`、`financial_quarters=12`、`mart_days=90`、`orphan_days=7`。TTL 是**候選**而非已執行刪除；實際 row count、GCS object/bytes、舊 generation/soft delete 費用需從 live receipt 判斷。資料版本保存與歷史 Iceberg snapshot 同一性不能混淆。
 
 ## 3. 排程／執行與恢復
 
-Cloud Scheduler → 既有 Controller 是唯一業務定時入口。當 `FINOPS_WEEKLY_MAINTENANCE=true`，**每週六23:30 due**：`iceberg-compaction → mart-cleanup → core-cleanup`，其餘 due 不因此變成週批；實際相依跨小時執行。false 的 legacy daily due 不是核准目標，需讀實際 deployed env/自然 occurrence 驗證。
+Cloud Scheduler → 既有 Controller 是唯一業務定時入口。**Stage-only cleanup 每日 18:30（Asia/Taipei）由既有 `janus-ingestion-core` 執行，`ICEBERG_MAINTENANCE_MODE=stage-only-apply`，48 小時已到期且無 active execution 引用才刪除；此工作不載入 Iceberg catalog，也不修改 Core／Mart／Private。**當 `FINOPS_WEEKLY_MAINTENANCE=true`，**每週六23:30 due**：`iceberg-compaction → mart-cleanup → core-cleanup`，其餘 due 不因此變成週批；實際相依跨小時執行。false 的 legacy daily due 不是核准目標，需讀實際 deployed env/自然 occurrence 驗證。
 
-Mart `MART_OPERATION=retention`、`MART_RETENTION_MODE=dry-run|apply`，Core `ICEBERG_MAINTENANCE_MODE=retention-dry-run|retention-apply`；步驟為 current Core readback → compact → Mart retirement/cleanup → Core row/Stage/snapshot expiration/orphan cleanup → 按資料集分列 planned/actual objects、bytes、失敗、active bytes 與 current readback。不可在 source/writer/job 終態未知時盲目重送 apply。操作詳見 [總控 Runbook](../runbook-batch-controller-dev.md)，證據放 [operations](operations-and-testing.md)。
+Mart `MART_OPERATION=retention`、`MART_RETENTION_MODE=dry-run|apply`，Core `ICEBERG_MAINTENANCE_MODE=retention-dry-run|retention-apply`；步驟為 current Core readback → compact → Mart retirement/cleanup → Core row/Stage（再次確保到期）/snapshot expiration/orphan cleanup → 按資料集分列 planned/actual objects、bytes、失敗、active bytes 與 current readback。不可在 source/writer/job 終態未知時盲目重送 apply。操作詳見 [總控 Runbook](../runbook-batch-controller-dev.md)，證據放 [operations](operations-and-testing.md)。
 
 ## 4. 已退休說明
 
-2026-10-15～16 的小於1MiB專案限定清理、24h/named snapshot、完整外部研究 fence、每日23:30的版本**只屬歷史 checkpoint**，不再放在現役操作步驟。舊 scope／receipt 查 [FINOPS-AB 卡](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) 及 [D06 卡](../execution-cards/d06-iceberg-retention-io.md)。此文件本身不授權新的大量不可逆刪除、改 TTL 或第二套維護排程。
+2026-10-15～16 的小於1MiB專案限定清理、24h/named snapshot、完整外部研究 fence、每日23:30的版本**只屬歷史 checkpoint**，不再放在現役操作步驟。舊 scope／receipt 查 [FINOPS-AB 卡](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) 及 [D06 卡](../execution-cards/d06-iceberg-retention-io.md)。Stage 2 天期限及每日獨立清理依 2026-10-19 使用者最新明確核准；其他大量刪除、Core/Mart TTL 改動或第二套 Scheduler 仍不在本次範圍。
