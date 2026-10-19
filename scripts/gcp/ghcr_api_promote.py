@@ -166,7 +166,9 @@ def check_jobs_receipt(proof, source_sha):
                 or proof.get("old_image_rollback_exercised") is not False):
             raise ValueError("regular_jobs_reversible_baseline_unverified")
         snapshots = proof.get("snapshots")
-        if not isinstance(snapshots, dict) or set(snapshots) != set(REQUIRED_JOBS):
+        required = {name for name, _ in JOB_COMPONENT}
+        if (not isinstance(snapshots, dict) or not required <= set(snapshots)
+                or not set(snapshots) <= set(REQUIRED_JOBS)):
             raise ValueError("jobs_snapshot_coverage_incomplete")
         for snapshot in snapshots.values():
             if not isinstance(snapshot, dict) or not snapshot.get("image") or not snapshot.get("configuration_hash"):
@@ -239,8 +241,11 @@ def verify_current_jobs_before_api_traffic(proof):
     snapshots = proof.get("snapshots", {})
     if not isinstance(targets, dict):
         raise ValueError("accepted_jobs_targets_missing")
+    current_jobs = jobs.existing_jobs()
+    if set(current_jobs) != set(snapshots):
+        raise ValueError("api_promotion_live_job_set_drift")
     for name, _ in JOB_COMPONENT:
-        current = jobs.job(name)
+        current = current_jobs[name]
         if (jobs.image(current) != targets.get(name)
                 or jobs.fingerprint(current) != snapshots.get(name, {}).get("configuration_hash")):
             raise ValueError("api_promotion_live_job_drift")

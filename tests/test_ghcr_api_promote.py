@@ -70,7 +70,7 @@ def test_promote_stops_when_current_jobs_or_scheduler_drift():
     with (patch.object(promote.jobs, "legacy_writers"),
           patch.object(promote.jobs, "scheduler", return_value={"state":"ENABLED"}),
           patch.object(promote.jobs, "fence"),
-          patch.object(promote.jobs, "job", return_value=current),
+          patch.object(promote.jobs, "existing_jobs", return_value={name: current for name in proof['snapshots']}),
           patch.object(promote.jobs, "image") as image,
           patch.object(promote.jobs, "fingerprint", return_value="c"*64)):
         image.side_effect = iter(proof["targets"].values())
@@ -94,6 +94,19 @@ def test_jobs_receipt_requires_two_distinct_canaries_per_target_job():
     duplicated["canaries"][1]["execution"] = duplicated["canaries"][0]["execution"]
     with pytest.raises(ValueError, match="jobs_canary_execution_duplicated"):
         promote.check_jobs_receipt(duplicated, "a" * 40)
+
+
+def test_retired_research_job_may_be_absent_but_live_job_set_must_match():
+    proof = receipt()
+    proof['snapshots'].pop('janus-research-big-move-500')
+    promote.check_jobs_receipt(proof, 'a' * 40)
+    proof['targets'] = {}
+    with (patch.object(promote.jobs, 'legacy_writers'),
+          patch.object(promote.jobs, 'scheduler', return_value={'state': 'ENABLED'}),
+          patch.object(promote.jobs, 'fence'),
+          patch.object(promote.jobs, 'existing_jobs', return_value={name: {} for name in promote.REQUIRED_JOBS})):
+        with pytest.raises(ValueError, match='api_promotion_live_job_set_drift'):
+            promote.verify_current_jobs_before_api_traffic(proof)
 
 
 @pytest.mark.parametrize("change", [
