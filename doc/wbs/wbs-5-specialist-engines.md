@@ -9,6 +9,8 @@
 
 本 WBS 依 [`../decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md`](../decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md)、[`../decision-2026-10-06-bigquery-analytics-over-iceberg.md`](../decision-2026-10-06-bigquery-analytics-over-iceberg.md)、active TODO 與 [`../spec/specialist-engines.md`](../spec/specialist-engines.md) 執行。歷史 implementation／runtime evidence 只作追溯，不改變本 WBS 的現行目標。
 
+**2026-10-19 新增治理導航：**[資料治理、定時 Job、補資料及研究保存](../spec/data-governance.md)。D07 初版最近24個月 rolling 訓練／OOS 窗口屬研究目標，不把現有 market Core 365天 TTL 改成兩年，不要求保存歷史 Iceberg snapshot，也不建立另一套月度 scheduler。每個角色依當下有效資料、成熟標籤、walk-forward/OOS/purge/holdout 及 source authorization 判斷；不以模型已訓練或研究窗長推定品質 PASS。既有每月首週六10:30 retrain/reconciliation 節奏不變。
+
 ## 1. 目標
 
 產品主路徑以可靠 Python／SQL／統計／規則提供五分析師，日常不使用生成式 LLM：Fundamental 財務比較、Valuation 相對估值、Quant 動能／強弱／市場排名、Risk 波動／CVaR／beta／回撤、Event parser／rules。

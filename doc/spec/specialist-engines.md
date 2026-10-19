@@ -4,6 +4,13 @@
 
 > 2026-10-13 順序修訂：持股／交易損益 → 通用圖表／四頁整合 → 五角色模型驗證 → 有效後整合報告。下列舊 B9→C→產品順序已被取代；研究技術契約與歷史證據保留。見 [AI 作業指示](../codex-execution-plan.md)。
 
+## 2026-10-19 D07 兩年滾動研究資料窗口（治理更新）
+
+- **最近24個月 rolling research window** 為五角色模型候選訓練/OOS 的第一版目標；每月第一個週六 10:30 隨最新成熟資料向前平移，再比較 baseline/challenger、必要時 retrain，未增添有效樣本則 skip/reuse。這不是正式資料庫的 row retention 變更，亦非宣稱現有全市場已具完整兩年。
+- 依角色和 horizon，先用**實際存在且合格**的日期、股票、特徵與成熟標籤選取 train/walk-forward OOS；最後 untouched holdout 不作反覆調參，purge/embargo 避免 overlapping label future leakage。少於24個月可有界研究，但需標示實際窗口、coverage、無法評估的指標與不確定性；**不得**因月份不足而對全市場無界補收、補假值或將模型 fit 當 promotion。
+- `Iceberg` Core/Mart 依 2026-10-18 決策只留 **current snapshot**；為重跑研究另保留合法 versioned Parquet、cohort/membership、feature/schema/label/source authorization、analysis_as_of 與 hash。只有已驗證 frozen input 可當作重跑證據；`snapshot_id` 文字不能保證舊資料可讀。歷史財報如使用核准的 `strict_pit=false` 投影，只供研究比較，不能冒稱嚴格 PIT publication。
+- 保存、來源補收與批次單一控制面見 [資料治理總入口](data-governance.md)，模型品質驗收仍依 [D07 卡](../execution-cards/d07-specialist-b9-oos.md) 與 [TODO](../todo.md)。本段不是 D07 開工、Champion promotion 或新排程授權。
+
 ## 2026-10-11 產品與模型研究分階段契約
 
 使用者核准先完成持股／交易損益及通用圖表，再建立全上市櫃個股歷史研究池並驗證五角色；有效後才建立整合報告。完整執行切片見 [Codex 作業指示](../codex-execution-plan.md)，狀態見 [TODO](../todo.md)。本節取代下文將研究缺口視為產品整體 blocker 的語意，不改寫歷史 evidence。
