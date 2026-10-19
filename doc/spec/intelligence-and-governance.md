@@ -2,6 +2,8 @@
 
 **2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。實作與 runtime 切換狀態見 status／operations，不以本契約推定完成。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](../spec/full-market-batch-policy.md)。
 
+> **2026-10-19 現役治理覆蓋**：公開 Core／Mart 只保留 current Iceberg snapshot。本文 `versioned snapshot`、研究或報告引用是 lineage／成果物身分，不保證已淘汰 Iceberg 歷史 snapshot 可讀。確保 OOS/PIT 實驗可重現應另保有合法 immutable source/feature/label/cohort export 及 hash/availability/provenance；不得以研究結果覆寫 canonical。排程、補資料與研究 24 個月 rolling policy 的導覽見 [資料治理入口](data-governance.md)。
+
 ## 9.0 Token-first 分析引擎
 
 依 2026-10-03 使用者最新指示，舊五角色分數／LLM worker、prompt、validator、sidecar 與契約已刪除，不保留可執行相容分支。歷史 persisted artifacts 仍受保護，不能以程式清理授權大量刪除資料。

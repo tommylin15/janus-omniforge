@@ -1,7 +1,9 @@
 # Janus 架構決策 — Iceberg canonical + BigQuery analytics hybrid
 
 日期：2026-10-06  
-狀態：**架構已核准；B0～B6 的實作／live gate 已完成，B7～B9 仍待驗收**（進度以 [TODO](todo.md) 為準）。目前 PyIceberg 為 default，尚未取得 B8 cutover evidence。
+狀態：**架構已核准；B0～B8 有既有個別驗收收據，不代表 BigQuery 已切 default，B9 模型品質仍待逐角色評估**（唯一進度以 [TODO](todo.md) 與 [operations](spec/operations-and-testing.md) 為準）。現役日常仍預設 PyIceberg；FINOPS-C 的預評與 Go/No-Go 尚須獨立執行，不將以前 B8 benchmark 視為正式切換。
+
+> **2026-10-19 Current-only 提醒**：Core／Mart Iceberg 從 10/18 起只保留 current snapshot。下文提到「Iceberg 維持歷史 PIT」屬原架構資料層意圖，**不表示已清除的舊 snapshot 仍可讀**。FINOPS-C exact-snapshot 對照須使用當次仍可讀的固定 Core identity；若要重跑舊 OOS，應保存合法 frozen/versioned Parquet、schema/cohort/labels/hash/provenance。D07 最近24個月滾動研究窗口不變更 Core row TTL，也不代表 BigQuery 已獲開工授權。見 [資料治理](spec/data-governance.md)、[10/18 決策](decision-2026-10-18-current-only-snapshots.md)。
 
 ## 2026-10-18 補充決策：FINOPS-C 順序與強制重評估
 
