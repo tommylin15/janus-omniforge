@@ -53,6 +53,13 @@ BATCHES = (
     # failed or has no terminal receipt. Private Mart enforces PIT/price safety.
     Batch("private", "janus-private-pipeline", (15, 21), tuple(range(5)), ("ingestion",),
           independent_hours=(21,)),
+    # Independent daily 48h Stage TTL: reuse existing ingestion Job, not weekly Iceberg scans.
+    Batch("stage-cleanup", "janus-ingestion-core", (18,),
+          env=(("ICEBERG_MAINTENANCE_MODE", "stage-only-apply"),
+               ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""),
+               ("JANUS_DATA_SUPPLEMENT_MODE", ""), ("JANUS_CONTROL_MIGRATION", ""),
+               ("JANUS_SERVING_SCHEMA_MIGRATION", "")),
+          exclusive_jobs=("janus-ingestion-core",)),
     Batch("mobile-ledger", "janus-private-pipeline", tuple(range(24)),
           env=(("MOBILE_LEDGER_ONLY", "true"),), catch_up=False),
     # This is an execution override of the existing ingestion Job, not another Scheduler or Cloud Run Job.
