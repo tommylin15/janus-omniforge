@@ -1,0 +1,12 @@
+{
+  "intent": "read-only-stage-retention-trace",
+  "no_gcp_mutation": true,
+  "project": "gen-lang-client-0593591102",
+  "stage_bucket": "gen-lang-client-0593591102-dev-stage",
+  "window_utc": [
+    "2026-10-19T15:28:00Z",
+    "2026-10-19T23:05:00Z"
+  ],
+  "scope": "find receipt or GCS lifecycle that caused pre-apply loss of 2050 objects 650115151 bytes; sanitized aggregates only",
+  "attempt": 1
+}
