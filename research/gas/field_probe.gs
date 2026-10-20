@@ -34,14 +34,14 @@ function janusResearchProbe() {
       throw new Error("FinMind source-use license has not been acknowledged");
     }
     const month = props.getProperty("JANUS_RESEARCH_MONTH");
-    if (!/^20\\d{2}-(0[1-9]|1[0-2])$/.test(month || "")) throw new Error("invalid research month");
+    if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month || "")) throw new Error("invalid research month");
     const revision = props.getProperty("JANUS_RESEARCH_REVISION") || "r1";
-    if (!/^r[1-9]\\d{0,3}$/.test(revision)) throw new Error("invalid immutable probe revision");
+    if (!/^r[1-9]\d{0,3}$/.test(revision)) throw new Error("invalid immutable probe revision");
     const symbols = String(props.getProperty("JANUS_RESEARCH_SYMBOLS") || "")
       .split(",").map(s => s.trim()).filter(Boolean);
     if (!symbols.length || symbols.length > JANUS_PROBE.maxSymbols ||
         new Set(symbols).size !== symbols.length ||
-        symbols.some(s => !/^[1-9]\\d{3}$/.test(s))) {
+        symbols.some(s => !/^[1-9]\d{3}$/.test(s))) {
       throw new Error("set 1-20 unique four-digit ordinary-stock candidates");
     }
     const folderId = props.getProperty("JANUS_RESEARCH_FOLDER_ID");
