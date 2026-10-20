@@ -34,7 +34,8 @@
 
 **2026-10-20 定案：[研究資料唯一規格](spec/research-collection-gas-drive-colab.md)。** 新研究資料使用 GAS 直連允許的第三方來源→私有 Drive `資料源/YYYY-MM.zip`→Colab 人工建模；只包含 TWSE／TPEx 普通股、排除 ETF；研究資料每市場×dataset 覆蓋率 ≥70%。第一輪先比較既有持股／觀察股的公開欄位、欄位存在與非空數；暫不以歷史 PIT／兩年完整回補作收集前置。正式 Core 品質與 Owner 行情不改。
 
-- [x] **退役舊排程的 GitHub 定義（待實機驗收）**：已移除 Controller `specialist-retrain` 月度 due、舊 manual workflow/request；歷史 pending 將在新版 Controller 部署執行後記錄 `retired_research_retrain` skipped。舊 Mart `MART_OPERATION=specialist-retrain` 入口尚待清理，**不等新研究開發才停**。
+- [x] **退役舊排程的 GitHub 定義（待實機驗收）**：已移除 Controller `specialist-retrain` 月度 due、舊 manual workflow/request；舊 Mart `specialist-retrain`、`specialist-baseline`、`ml-oos-data-acceptance` 操作入口亦已自 GitHub main 拆除；歷史 pending 以通用 `schedule_superseded` 處理。**GCP 新映像尚待部署及真實 readback**。
+- [ ] **CI 修復**：舊重訓測試刪除後的 2026-10-20 [selective CI #39354033133](https://github.com/tommylin15/janus-omniforge/actions/runs/39354033133) 曾 FAIL（刪除測試仍被本次路由選入、Mart replay 回傳欄位尚未一致）；目前後續文件型 selective CI PASS 不代表完整測試回歸 PASS。須修正 replay contract／選路並重跑 targeted/全相關 tests。
 - [ ] **GCP live 切換／讀回**：部署 controller 退役版本、確認自然 Scheduler 不再派送舊月度 Job、查舊 pending/running 收據；稽核全部 Cloud Run Jobs／Scheduler 真實引用，確定研究專用無正式依賴者直接移除。
 - [ ] **BQ 即時資源清理**：列出 BigQuery datasets/tables/views/jobs 使用來源，移除不再使用的 B5～B8／模型研究中轉及其重複排程；與 Screening/API 共用的 BQ 資源保留。未讀到 GCP 資源清單標 `UNKNOWN`，不可假稱已刪。
 - [ ] **GAS/Drive**：建立分批、續跑、限額、去重／來源版次／SHA256、月 zip、quality/manifest，實抓現有公開資料欄位及全市場 70% 合格率。資料品質不足可 PARTIAL 封存，不補造資料。
@@ -47,7 +48,7 @@
 
 **D07**（詳情只維護 [D07 卡](execution-cards/d07-specialist-b9-oos.md)）：
 - [ ] Quant→Risk 優先，Valuation/Fundamental 待可比較合法歷史，Event 缺已授權人工標籤先維持 deterministic；依同樣本 baseline/ML、成熟 labels、PIT/時間外 fold、成本／regime、來源/版本與不確定性逐角色評估。
-- [ ] 受控更換原 Mart 月度 fit 為 Colab-only 模型訓練；Janus Mart 僅保留接受、驗證、註冊、rollback、inference 和 Admin VF-09；不要雙執行或自動 promotion。
+- [ ] Colab-only 新模型正式介接：Janus Mart 只負責接受、驗證、註冊、rollback、inference 與 Admin VF-09；不恢復已刪除的舊 Cloud Run fit。
 - [ ] 各角色 baseline 與模型品質分級獨立；訓練成功、GCS readback 或 B7 歷史 PASS 不等於 B9／真實 PIT 品質 PASS。
 
 **D08**（詳情只維護 [D08 卡](execution-cards/d08-ceo-admin-owner-report.md)）：
