@@ -159,6 +159,7 @@ function janusLoaderTarget_(props) {
       !/^[a-f0-9]{64}$/.test(t.approvedSha256 || '')) {
     throw new Error('selected target is missing or has unsafe configuration');
   }
+  if (t.scriptId === ScriptApp.getScriptId()) throw new Error('Loader cannot sync itself');
   return t;
 }
 
