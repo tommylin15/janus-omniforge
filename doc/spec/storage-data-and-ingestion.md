@@ -2,7 +2,7 @@
 
 **2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。實作與 runtime 切換狀態見 status／operations，不以本契約推定完成。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](../spec/full-market-batch-policy.md)。
 
-> **2026-10-19 治理覆蓋註記**：公開 Core／Mart Iceberg **只保留 current snapshot**，不再以 named/24h/研究引用保護歷史 snapshot；所以舊「immutable snapshot 支援歷史完整 PIT 重播」不能再當現況。研究需要可重跑，須另存經合法來源授權且有 hash 的 versioned Parquet／features/labels/cohort。新增持股／關注股補收採既有去識別化 demand＋每日08:30兜底；第三方直接補資料依 PROJECT_RULES §1.7。路由見 [資料治理入口](data-governance.md)、[補資料](../runbook-data-supplement.md) 與 [Retention](retention-governance.md)。
+> **2026-10-19 治理覆蓋註記**：公開 Core／Mart Iceberg **只保留 current snapshot**，不再以 named/24h/研究引用保護歷史 snapshot；所以舊「immutable snapshot 支援歷史完整 PIT 重播」不能再當現況。正式 Core／Mart 的受控數值及來源繼續可追溯；**五分析師新版研究資料不經本 Stage/Core/Ingestion 必經鏈**，改由 [GAS→Drive 每月ZIP→Colab](research-collection-gas-drive-colab.md) 獨立保存 hash/manifest/quality。新增持股／關注股補收採既有去識別化 demand＋每日08:30兜底；第三方直接補資料依 PROJECT_RULES §1.7。路由見 [資料治理入口](data-governance.md)、[補資料](../runbook-data-supplement.md) 與 [Retention](retention-governance.md)。
 
 ## 5. 湖倉分層
 
