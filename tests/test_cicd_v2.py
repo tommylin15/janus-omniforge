@@ -83,6 +83,13 @@ def test_ci_selects_only_affected_tests_and_controller_dependencies():
     controller = v2.ci_matrix(["cloudbuild-v2.yaml"])["include"][0]
     assert controller["requirements"] == ["requirements-ci.txt"]
     assert v2.ci_matrix(["tests/test_cicd_v2.py"])["include"][0]["tests"] == ["tests/test_cicd_v2.py"]
+    # Removed tests appear in --name-only diffs, but are absent from HEAD.
+    assert v2.ci_matrix(["tests/test_batch_controller_manual_retrain.py"])["include"] == []
+    selected = v2.ci_matrix(["tests/test_batch_controller_manual_retrain.py",
+                             "jobs/intelligence-mart/intelligence_mart/specialist_runtime.py"])["include"]
+    assert [row["group"] for row in selected] == ["mart"]
+    assert all("test_batch_controller_manual_retrain.py" not in test
+               for row in selected for test in row["tests"])
 
 
 def test_push_has_no_canonical_runtime_deployment():
