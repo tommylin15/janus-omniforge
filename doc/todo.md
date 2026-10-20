@@ -7,7 +7,7 @@
 | 優先 | 工項 | 狀態／責任入口 |
 |---|---|---|
 | **P0** | **STAGE-48H：48小時 TTL／安全去重／Admin 六桶盤點** | **DEPLOY PASS / FUNCTIONAL ACCEPTANCE PARTIAL**：歷史 Stage 真實清理兩輪已驗證 2,503 objects／650,604,317 bytes（[來源追查 #39344827401](https://github.com/tommylin15/janus-omniforge/actions/runs/39344827401)）；新 Stage 去重與 Admin 盤點程式經 [完整 GHCR #39345633766](https://github.com/tommylin15/janus-omniforge/actions/runs/39345633766)（1,515 Python PASS、Flutter PASS）、[四 Jobs rollout #39346705950](https://github.com/tommylin15/janus-omniforge/actions/runs/39346705950) PASS、[Jobs 與 Scheduler 讀回 #39348777969](https://github.com/tommylin15/janus-omniforge/actions/runs/39348777969) PASS（固定 digest/config、Scheduler ENABLED、全頁 0 nonterminal）、[API 100% 切流 #39348904538](https://github.com/tommylin15/janus-omniforge/actions/runs/39348904538) PASS（rollback rehearsal）、[獨立 API 驗收 #39349499000](https://github.com/tommylin15/janus-omniforge/actions/runs/39349499000) PASS（revision janus-api-00566-biq、build/image/health、未授權 Admin GCS POST 401）。**仍待三項實機**：真實 Admin OAuth 六桶 GCS 查詢、真實新 raw 跨 execution 重用/provenance、10/20 18:30 自然 Stage-only due/48h 與 weekly Iceberg unchanged；不把 code/deploy PASS 包裝成三項 LIVE PASS。D07-PRE 另開對話。 |
-| **P1** | **D07-PRE：Colab 單一資料整理與模型訓練前置**（含原 FINOPS-C preflight） | **DESIGN_DECIDED / LIVE_PARTIAL**；[研究與工程流程](colab-d07-modeling-feasibility-2026-10-19.md)、[AI 指令 §4](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) |
+| **P1** | **D07-PRE：GAS→Drive 月檔→Colab；舊研究雲端路線立即退役** | **DOC_UPDATED／GitHub 排程入口退役；GCP/BQ 實機待驗**；[唯一新契約](spec/research-collection-gas-drive-colab.md) |
 | **P2** | **D07：五角色 ML／OOS 品質及正式介接** | **PLANNED**、待前置評估有合格處置；[唯一 D07 卡](execution-cards/d07-specialist-b9-oos.md) |
 | **P3** | **D08：CEO、Admin 模型管理與受控 Owner 報告** | **PLANNED**、有效 Fact Pack 後；[唯一 D08 卡](execution-cards/d08-ceo-admin-owner-report.md) |
 | 非阻擋 | **OPS-OBS：自然排程與 GCS 保留量觀察** | 六桶 GCS metadata 稽核 10/19 PASS，Stage 10/19 實刪累計 650,604,317 bytes 已有兩張 generation 收據；自然 18:30 首次新版本收據仍未知，不等同每週 Iceberg 驗收。追查見 [唯讀收據 #39344827401](https://github.com/tommylin15/janus-omniforge/actions/runs/39344827401)。 |
@@ -30,17 +30,18 @@
 - [ ] **Admin 六桶正向驗收**：UI＋後端 Admin-only POST 已上線，未登入 401 PASS；仍須真的 Admin OAuth 授權按鍵、確認既有 API runtime metadata IAM 與六桶完整/部分/timeout 處理。無新增刪除功能。
 - 本工程不變更 Core/Mart/Private/Research 保留政策、不新增付費資源；D07-PRE／Colab 建模另由獨立對話承接，本對話完成 STAGE-48H 收尾後結案。
 
-## 3. D07-PRE｜資料整理與模型訓練前置
+## 3. D07-PRE｜GAS／Drive 月檔／Colab 與舊雲端研究立即退役
 
-**R1 人工執行已核准（2026-10-19）**：免費 Colab Notebook 由人工在月度 due 時段啟動／上傳有 hash 的結果，Janus 接收、驗收、存取與 trace；**不評估／實作每月無人值守 Colab**，除非使用者重新指定。人工訓練的可重跑性、權限與 receipts 仍是驗收門檻。
+**2026-10-20 定案：[研究資料唯一規格](spec/research-collection-gas-drive-colab.md)。** 新研究資料使用 GAS 直連允許的第三方來源→私有 Drive `資料源/YYYY-MM.zip`→Colab 人工建模；只包含 TWSE／TPEx 普通股、排除 ETF；研究資料每市場×dataset 覆蓋率 ≥70%。第一輪先比較既有持股／觀察股的公開欄位、欄位存在與非空數；暫不以歷史 PIT／兩年完整回補作收集前置。正式 Core 品質與 Owner 行情不改。
 
-**已決策的單一路徑**：Janus 現有合法來源 → Stage／Canonical Iceberg Core → 限定、唯讀 frozen Parquet／hash 出口 → **Colab 統一研究資料清理／Join、feature／label、24 月 rolling 訓練與 OOS** → 不可變模型／評估成果 → Janus Mart 品質驗證、version／rollback、正式推論。**BigQuery 先 DEFER**，只有 Colab 發生**實測**大規模 Join／RAM／時間／I/O 瓶頸，確認收益、合法權限和 parity 後才可作**資料前置縮減**，不是 BQML 或另一訓練平台。日常 Ingestion、Market Screening、Owner／API 不改動。
+- [x] **退役舊排程的 GitHub 定義（待實機驗收）**：已移除 Controller `specialist-retrain` 月度 due、舊 manual workflow/request；歷史 pending 將在新版 Controller 部署執行後記錄 `retired_research_retrain` skipped。舊 Mart `MART_OPERATION=specialist-retrain` 入口尚待清理，**不等新研究開發才停**。
+- [ ] **GCP live 切換／讀回**：部署 controller 退役版本、確認自然 Scheduler 不再派送舊月度 Job、查舊 pending/running 收據；稽核全部 Cloud Run Jobs／Scheduler 真實引用，確定研究專用無正式依賴者直接移除。
+- [ ] **BQ 即時資源清理**：列出 BigQuery datasets/tables/views/jobs 使用來源，移除不再使用的 B5～B8／模型研究中轉及其重複排程；與 Screening/API 共用的 BQ 資源保留。未讀到 GCP 資源清單標 `UNKNOWN`，不可假稱已刪。
+- [ ] **GAS/Drive**：建立分批、續跑、限額、去重／來源版次／SHA256、月 zip、quality/manifest，實抓現有公開資料欄位及全市場 70% 合格率。資料品質不足可 PARTIAL 封存，不補造資料。
+- [ ] **Colab**：直接從研究月檔訓練五位分析師；Quant／Risk 優先，其他依欄位可得性與 Event 真人標籤；OOS、模型版本與正式 promotion 獨立驗收。
+- [ ] **規格一致性**：GitHub Active SPEC／WBS／runbook／AI 指令及 Drive 五份分析師研究規格同步淘汰舊研究來源與門檻，不重新啟動已結案的 D01～D06/DRL/FinOps。
 
-- [ ] **DATA**：盤點最近24月逐資料集×市場×日期／月份×symbol×horizon 的實際有效 coverage、歷史股票池／退出股、來源 training-use 與時點/PIT、特徵缺失率、成熟 labels、walk-forward folds／purge/holdout。Core 一般 row TTL 365天不等於已具24月；**10/18 census OHLCV 111,929 筆對 1,992×500＝996,000 目標差 884,071 只是未對齊母體的規劃差，不是已認證 missing count（約 88.8% 非 coverage 結論）**；按合法有界補收／累積 Research Parquet／insufficient 分類，不補零也不無界補抓。嚴格 PIT 通過率缺分母／版次合格數，目前 UNKNOWN；需逐類真實稽核。
-- [ ] **COLAB**：現有 B5/B6 輸入固定 hash，實際以 Colab CPU 做資料驗證／Join、Quant 零訊號／Linear／LightGBM 與 Risk 統計 baseline／OOS PoC；紀錄 seed、schema、cohort、label maturity、source provenance、CPU/RAM/耗時及模型／結果回傳 GCS/Janus 的不可變 receipts。未達品質保持 baseline。
-- [ ] **RUN**：Controller 每月第一個週六 10:30 仍是唯一 due；目前舊 Mart 有訓練程式且**尚未遷至 Colab**。免費 Colab 不保證 unattended，首版先受控人工啟動、回傳、留 `PENDING_MANUAL／NOT_VERIFIED`；使用者已選 R1.A：**人工 Colab 是本階段最終操作方式**，免費版 unattended **不要求／不列阻擋**；Notebook 可重跑、每次 hash+receipt 與 Janus status 回寫仍須真實測試。不允許偷偷在 GCP 再訓練冒充 Colab。
-- [ ] **FINOPS/SECURITY**：量測適用的 GCS I/O、CPU/RAM、PyIceberg 唯讀出口、Colab 外部來源使用許可、資料/Owner 隔離、金鑰不外流、same-input/hash/parity、失敗回退；僅資料量瓶頸時評估 BigQuery 前置的 billed bytes、共享額度／region／IAM、價格上限及授權。未有實測就維持 DEFER。
-- [ ] **GATE**：**一份**日期、SHA、真實覆蓋率、PoC、成本、安全、缺口與 GO/NO-GO/BLOCKED（BQ 可 DEFER）的評估；回寫 [原 BQ 決策](decision-2026-10-06-bigquery-analytics-over-iceberg.md)、WBS5／WBS7／本 TODO。文件提交不能當 live PASS，也不替代 D07 OOS 品質認證。
+新流程未驗收標 `NOT_VERIFIED`；從 GitHub 移除排程不等於 GCP 已部署停用或 BigQuery 實刪。
 
 ## 4. D07、D08：前置通過後才開始
 
