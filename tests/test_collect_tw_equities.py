@@ -1,0 +1,162 @@
+import gzip
+import hashlib
+import json
+from datetime import date
+from pathlib import Path
+
+import pytest
+
+from research.colab.collect_tw_equities import (
+    company_universe, parse_twse, parse_tpex, months_between, month_days,
+    collect_chunk, finalize_month, digest, json_bytes, read_chunk,
+)
+
+
+def roster():
+    return {'2330': {'symbol': '2330', 'market': 'twse', 'name': '台積電'},
+            '0062': {'symbol': '0062', 'market': 'twse', 'name': 'ETF測試'}}
+
+
+def test_company_master_excludes_etf_etn_foreign_nonstock_codes():
+    rows = [{'公司代號': '2330', '公司名稱': '台積電'},
+            {'公司代號': '0050', '公司名稱': 'ETF基金'},
+            {'公司代號': '03001', '公司名稱': '權證'},
+            {'公司代號': '9900', '公司名稱': '認購特別股'}]
+    assert list(company_universe(rows, 'twse')) == ['2330']
+    otc = [{'SecuritiesCompanyCode': '6488', 'CompanyName': '環球晶'},
+           {'SecuritiesCompanyCode': '0098', 'CompanyName': 'ETN'}]
+    assert list(company_universe(otc, 'tpex')) == ['6488']
+
+
+def test_twse_table_by_field_name_not_magic_table_number():
+    payload = {'stat': 'OK', 'tables': [{
+        'fields': ['名稱', '交易統計'], 'data': []
+    }, {
+        'fields': ['證券代號', '證券名稱', '成交股數', '成交筆數', '成交金額',
+                   '開盤價', '最高價', '最低價', '收盤價'],
+        'data': [['2330', '台積電', '1,200', '10', '600,000', '500', '510', '490', '505'],
+                 ['0050', '台灣50', '3,000', '10', '50,000', '50', '51', '49', '50']]}
+    ]}
+    bars = parse_twse(payload, date(2026, 10, 19), {'2330': roster()['2330']}, '2026-10-20T00:00:00Z')
+    assert len(bars) == 1
+    assert bars[0]['symbol'] == '2330'
+    assert bars[0]['volume'] == 1200
+    assert bars[0]['close'] == 505
+
+
+def test_tpex_legacy_table_uses_official_layout_only_whitelisted():
+    payload = {'tables': [{'data': [
+        ['6488', '環球晶', '355', '+1', '352', '356', '349', '', '2,500', '887,500', '40'],
+        ['0088', 'ETF', '10', '0', '9', '11', '8', '', '900', '9,000', '4'],
+    ]}]}
+    bars = parse_tpex(payload, date(2026, 10, 19), {'6488': {}}, 'now')
+    assert len(bars) == 1
+    assert bars[0]['close'] == 355
+    assert bars[0]['volume'] == 2500
+
+
+def test_parser_refuses_schema_silent_success():
+    with pytest.raises(ValueError, match='equity table missing'):
+        parse_twse({'stat': 'OK', 'tables': []}, date(2026, 10, 19), {'2330': {}}, 'now')
+    with pytest.raises(ValueError, match='data table missing'):
+        parse_tpex({'stat': 'OK'}, date(2026, 10, 19), {'6488': {}}, 'now')
+
+
+def test_calendar_months_and_weekends():
+    assert months_between('2026-09', '2026-10') == ['2026-09', '2026-10']
+    assert all(day.weekday() < 5 for day in month_days('2026-10', date(2026, 10, 5)))
+    with pytest.raises(ValueError):
+        months_between('2026-10', '2025-01')
+
+
+class FakeSession:
+    def __init__(self, payload):
+        self.payload = payload
+        self.calls = 0
+
+    def get(self, url, params, timeout, headers):
+        self.calls += 1
+        payload = self.payload
+        class R:
+            status_code = 200
+            content = json.dumps(payload).encode()
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return payload
+        return R()
+
+
+def test_chunk_restart_no_rerequest_and_pins_universe(tmp_path):
+    payload = {'tables': [{'fields': ['證券代號','證券名稱','成交股數','成交筆數','成交金額',
+                                     '開盤價','最高價','最低價','收盤價'],
+                            'data': [['2330','台積電','100','2','500','5','6','4','5']]}]}
+    session = FakeSession(payload)
+    path = tmp_path/'chunks'/'twse-000.json.gz'
+    dates = [date(2026, 10, 19)]
+    budget = [1]
+    assert collect_chunk(session, 'twse', dates, {'2330': {}}, 'expected', path,
+                         min_interval=0, request_budget=budget)
+    assert session.calls == 1 and budget[0] == 0
+    assert collect_chunk(session, 'twse', dates, {'2330': {}}, 'expected', path,
+                         min_interval=0, request_budget=budget)
+    assert session.calls == 1
+    with pytest.raises(ValueError, match='universe/schema'):
+        read_chunk(path, 'other')
+
+
+def test_month_folder_gzip_sha_and_immutable(tmp_path):
+    month = '2026-10'
+    day = date(2026, 10, 19)
+    universe = {'twse': {'2330': {'symbol':'2330','market':'twse','name':'台積電'}},
+                'tpex': {'6488': {'symbol':'6488','market':'tpex','name':'環球晶'}}}
+    for market, symbol in (('twse', '2330'), ('tpex', '6488')):
+        path = tmp_path/month/'_checkpoint'/'r1'/f'{market}-000.json.gz'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = {'schema_version': 1, 'universe_hash': 'abc', 'market': market,
+                'days': [{'day': day.isoformat(), 'status': 'COLLECTED', 'sha256': 'xy'}],
+                'rows': [{'symbol': symbol, 'market': market, 'trade_date': day.isoformat(),
+                          'open': 100, 'high': 101, 'low': 99, 'close': 100,
+                          'volume': 1000, 'turnover': 100000, 'source': 'official',
+                          'observed_at': 'now'}]}
+        path.write_bytes(gzip.compress(json_bytes(data), mtime=0))
+    hashes = {'universe': 'abc', 'captured_at': 'now'}
+    result = finalize_month(tmp_path, month, 'r1', [day], universe, hashes)
+    assert result['status'] == 'PROBE_ARCHIVED'
+    folder = tmp_path / month
+    manifest = json.loads((folder/'manifest-r1.json').read_text())
+    for fname, h in manifest['sha256'].items():
+        assert digest((folder / fname).read_bytes()) == h
+    assert json.loads((folder/'quality-r1.json').read_text())['research_70pct_certified'] is False
+    assert finalize_month(tmp_path, month, 'r1', [day], universe, hashes)['status'] == 'ALREADY_ARCHIVED'
+    (folder/'ohlcv-r1.csv.gz').write_bytes(b'corrupt')
+    with pytest.raises(ValueError, match='corrupted'):
+        finalize_month(tmp_path, month, 'r1', [day], universe, hashes)
+
+
+def test_incomplete_month_is_partial_not_pass(tmp_path):
+    a = finalize_month(tmp_path, '2026-10', 'r1', [date(2026, 10, 19)],
+                       {'twse': {}, 'tpex': {}}, {'universe': 'hash', 'captured_at': 'now'})
+    assert a['status'] == 'PARTIAL' and a['pending_chunks'] == 2
+
+
+def test_risk_folder_reader_accepts_verified_month_and_rejects_corruption(tmp_path):
+    from research.colab.monthly_folder_io import load_monthly_folders
+    day = date(2026, 10, 19)
+    roster = {'twse': {'2330': {'symbol':'2330','market':'twse','name':'台積電'}},
+              'tpex': {'6488': {'symbol':'6488','market':'tpex','name':'環球晶'}}}
+    for market, symbol in [('twse','2330'), ('tpex','6488')]:
+        folder = tmp_path/'2026-10'/'_checkpoint'/'r1'
+        folder.mkdir(parents=True, exist_ok=True)
+        d = {'schema_version': 1, 'universe_hash': 'H', 'market': market,
+             'days': [{'day': day.isoformat(), 'status':'COLLECTED','sha256':'x'}],
+             'rows': [{'symbol': symbol, 'market': market, 'trade_date': day.isoformat(),
+                       'open': 5, 'high': 6, 'low': 4, 'close': 5, 'volume': 100,
+                       'turnover': 500, 'source': 'test', 'observed_at': 'now'}]}
+        (folder/f'{market}-000.json.gz').write_bytes(gzip.compress(json_bytes(d), mtime=0))
+    finalize_month(tmp_path, '2026-10', 'r1', [day], roster, {'universe':'H','captured_at':'now'})
+    combined, source = load_monthly_folders([tmp_path/'2026-10'])
+    assert len(combined) == 2 and source[0]['quality_status'] == 'PROBE'
+    (tmp_path/'2026-10'/'ohlcv-r1.csv.gz').write_bytes(b'bad')
+    with pytest.raises(ValueError, match='SHA256 mismatch'):
+        load_monthly_folders([tmp_path/'2026-10'])

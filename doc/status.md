@@ -13,10 +13,10 @@
 | 工作包 | 目前狀態與可操作的剩餘驗收 |
 |---|---|
 | **P0 STAGE-48H** | **部署與既有清理／跨 execution 去重 PASS；功能收尾中。** [4,927 件／96,321,204 bytes 實刪 #39355428497](https://github.com/tommylin15/janus-omniforge/actions/runs/39355428497)、[shared raw/provenance #39358645373](https://github.com/tommylin15/janus-omniforge/actions/runs/39358645373)、[48h dry-run #39359037869](https://github.com/tommylin15/janus-omniforge/actions/runs/39359037869) PASS。只餘 2026-10-20 18:30 自然 Stage-only 執行收據、Admin OAuth 登入後六桶一鍵正向驗收；已通過的刪除／部署不再重做。 |
-| **P1 D07-PRE** | **資料鏈建置中。** `research/gas/field_probe.gs` 是小範圍欄位探測程式，尚非實測全市場月檔；接續實抓合法公開欄位、GAS 分批→Drive `YYYY-MM.zip`／quality／SHA、Colab 讀取 smoke。研究分市場×dataset ≥70%，不拿完整 24 月 PIT 作採集前置。 |
+| **P1 D07-PRE** | **Colab-first 程式已建／待真實採集。** 官方 TWSE/TPEx 整市場逐日抓取、普通股名冊白名單、`YYYY-MM/` 資料夾、續跑 SHA 與 Risk reader 已建立；GAS 路線退役。缺 Colab 實抓月資料讀回、歷史已下市股票母體及正式70%證據，研究資料仍 PROBE。 |
 | **P2 D07** | **待開發。** 五角色 Colab 訓練／OOS、Janus Mart Registry／推論／rollback／Admin 品質；Quant／Risk 優先，Event 缺真人標籤保留 rules。 |
 | **P3 D08** | **待開發。** 有效五角色 Fact Pack 後之 CEO／Admin／Owner 受控報告與真人登入歷史驗收；沿用已驗證 Gateway 技術鏈。 |
 
 ## 文件與執行約束
 
-採用 [有界驗收結案原則](PROJECT_RULES.md#111-有界驗收與結案原則2026-10-20-使用者決策)：**原定範圍查核成功且沒有具體異常即結案**，不要求排除一切未知情境；實際失敗或原定未驗收條件仍依證據處理。新版研究唯一來源為 [GAS → Drive → Colab 契約](spec/research-collection-gas-drive-colab.md)，正式 Core／Owner／Stage／週 Iceberg 不受舊研究退役影響。
+採用 [有界驗收結案原則](PROJECT_RULES.md#111-有界驗收與結案原則2026-10-20-使用者決策)：**原定範圍查核成功且沒有具體異常即結案**，不要求排除一切未知情境；實際失敗或原定未驗收條件仍依證據處理。新版研究唯一來源為 [Colab → Drive 月資料夾契約](spec/research-collection-gas-drive-colab.md)，正式 Core／Owner／Stage／週 Iceberg 不受舊研究退役影響。

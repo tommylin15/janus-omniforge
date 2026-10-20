@@ -1,9 +1,9 @@
 # D07｜五分析師建模、OOS 與正式介接唯一 AI 任務卡
 
-更新：2026-10-20。唯一狀態依 [TODO](../todo.md)；研究資料入口以 [GAS／Drive／Colab](../spec/research-collection-gas-drive-colab.md) 為準。此卡不再要求 Core frozen export、B5–B8 中轉、BQ SQL、Cloud Run monthly retrain 或 FINOPS-C 作為開工前提；過往 B9 證據只作研究比較。
+更新：2026-10-20。唯一狀態依 [TODO](../todo.md)；研究資料入口以 [官方 TWSE／TPEx → Colab → Drive 月資料夾](../spec/research-collection-gas-drive-colab.md) 為準。此卡不再要求 Core frozen export、B5–B8 中轉、BQ SQL、Cloud Run monthly retrain 或 FINOPS-C 作為開工前提；過往 B9 證據只作研究比較。
 
 ## 1. 第一階段：新研究資料
-1. 從 `janusChatGPT/資料源/YYYY-MM.zip`、manifest、quality 資訊讀取第三方合法採得的公開資料，TWSE/TPEx 普通股分開核對 ≥70%，排除 ETF 等其他證券。
+1. 從 `janusChatGPT/資料源/YYYY-MM/` 的壓縮行情及 manifest／quality 讀取 Colab 官方公開資料；先明確標記現行公司名冊歷史倖存者偏差，正式 PIT/70% 未驗證不得宣稱合格，TWSE/TPEx 普通股分開核對 ≥70%，排除 ETF 等其他證券。
 2. 先用現行持股/觀察股公開欄位確認可取得內容，再延伸全市場。Quant：OHLCV、量額、基準、法人；Risk：價格及指數；Valuation：PE/PB/殖利率與財務；Fundamental：營收/EPS/淨利/財務比率；Event：公告內容/類型/來源。缺欄位保留 null/unavailable。
 3. 來源時間欄位可貼標，**採集階段不以 PIT 版次/24 月完整歷史回補當阻擋**；不可冒稱以前即可取得。資料研究分母 70% 不可用作正式模型品質 PASS。
 
@@ -18,4 +18,4 @@
 - 本工項不新增付費 API、GCP 資源、擴權或刪除任何尚有正式引用的 canonical、private、已核准保護資料。個人非商業研究仍遵守資料來源存取、模型訓練與存放條款。
 
 ## 4. 每次執行必須回報
-最新 GitHub main SHA、改動檔案、GAS 實際來源/月份/合格率、Drive 月檔 checksum、Colab OOS、各角色相對 baseline、Janus inference/readback、退役 GCP/BQ 資源 ID、測試 CI/live 工作與回滾。各子項 `DOC_UPDATED`／`COLLECTED`／`TRAINED`／`OOS_VALIDATED`／`PROMOTED`／`RUNTIME_REMOVED` 獨立判定，不把部分成功寫成全部完成。
+最新 GitHub main SHA、改動檔案、Colab 官方真實採集來源／月份／合格率、Drive 月檔 checksum、Colab OOS、各角色相對 baseline、Janus inference/readback、退役 GCP/BQ 資源 ID、測試 CI/live 工作與回滾。各子項 `DOC_UPDATED`／`COLLECTED`／`TRAINED`／`OOS_VALIDATED`／`PROMOTED`／`RUNTIME_REMOVED` 獨立判定，不把部分成功寫成全部完成。

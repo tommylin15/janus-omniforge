@@ -7,7 +7,7 @@
 | 優先 | 工作包 | 已完成 | 尚需完成 |
 |---|---|---|---|
 | **P0** | **STAGE-48H** | 48h Stage TTL／過期資料受控實刪、跨 execution shared raw/provenance、四 Jobs 更新與獨立讀回 PASS | **自然 18:30 Stage-only 執行驗收；Admin 六桶 OAuth 登入後一鍵正向驗收** |
-| **P1** | **D07-PRE｜GAS／Drive 資料源** | 新研究契約及小範圍 GAS 欄位探測程式已提交；舊 GCP/BQ 研究執行器 **CLOSED** | **公開欄位實測 → 分批 GAS 採集與月 ZIP → Drive 品質／SHA 讀回、Colab 讀取準備** |
+| **P1** | **D07-PRE｜Colab／Drive 資料源** | 官方歷史整市場 Colab 採集器、普通股白名單、每月資料夾/續跑/雜湊及 Risk 資料讀取已實作並有本地 targeted tests；舊 GAS/GCP/BQ 研究路線退出 | **Colab 官方 API 實抓 → 每月資料夾品質／SHA 讀回 → 補歷史已下市股票母體證據／正式 70% 分母** |
 | **P2** | **D07｜五分析師建模** | 五角色規格、OOS／registry 責任界線已定案 | **Colab 模型訓練與 OOS；Janus Mart 受控模型匯入、推論與 Admin 品質呈現** |
 | **P3** | **D08｜CEO／Admin／Owner 報告** | 原 Gateway 技術驗證可重用 | **有效 Fact Pack → CEO 手動請求 → Gateway／validator → immutable 報告與 Owner UI／Admin 管理驗收** |
 
@@ -18,15 +18,15 @@
 
 已完成證據：[GHCR／四 Jobs #39355867356／#39356643823](https://github.com/tommylin15/janus-omniforge/actions/runs/39356643823)、[獨立 readback #39358461946](https://github.com/tommylin15/janus-omniforge/actions/runs/39358461946)、[Stage 實刪 4,927 件／96,321,204 bytes #39355428497](https://github.com/tommylin15/janus-omniforge/actions/runs/39355428497)、[shared raw/provenance #39358645373](https://github.com/tommylin15/janus-omniforge/actions/runs/39358645373)、[48h dry-run 零候選 #39359037869](https://github.com/tommylin15/janus-omniforge/actions/runs/39359037869)。歷史細節集中 [Operations](spec/operations-and-testing.md)，不在 Active TODO 重複列流水帳。此項由原 Stage 對話承接，與 D07-PRE 分開。
 
-## 3. D07-PRE｜只負責新研究資料及 Colab 輸入
+## 3. D07-PRE｜Colab 官方歷史資料採集與每月資料夾
 
-**GAS 共用 Loader 已實作（2026-10-20）**：`research/gas/janus_gas_loader.gs`、`appsscript.loader.json`、`LOADER_README.md` 與 `tests/gas_loader/` 已在 `main`，本地 Node 13/13 PASS；Drive 私有 `janusChatGPT/GAS 程式/janus_gas_loader.gs` 已讀回核對。此項僅為同步工具的程式／測試及 Drive 備份完成；首次 Google Apps Script API／OAuth 授權、實際目標專案 preview/apply/readback 尚未執行，保留在本 D07-PRE 人工安裝驗收，不另開 WBS 或排程。\n\n**Risk 第一試點已建立（2026-10-20）**：`research/gas/risk_monthly_pilot.gs`（至多10檔、來源限流、分月 PROBE ZIP）、`research/colab/risk_pilot.py`（20日歷史波動 baseline 與 Ridge challenger）、`tests/test_research_risk_pilot.py`、`research/colab/README.md` 已寫入 main；本地 targeted pytest 4 PASS、GAS syntax PASS。Drive `janusChatGPT/資料源` 私有資料夾已建立。GAS 真實擷取與 Colab OOS 仍待現場執行；試點不冒稱全市場70%或完成 D07。
+**新架構（2026-10-20）**：GAS 方案已退役，不保留 GAS 安裝、OAuth、Loader 或人工 GAS 實跑待辦。程式：`research/colab/collect_tw_equities.py`、`monthly_folder_io.py`、`run_risk_folder_pilot.py`；Drive 結構：`janusChatGPT/資料源/YYYY-MM/{ohlcv-r1.csv.gz,universe-r1.csv,quality-r1.json,manifest-r1.json}`。官方 TWSE/TPEx 逐日整市場取數，最新公司名冊白名單先排除 ETF 等；來源請求限速，10 平日 checkpoint，完整月封存後驗 hash 並清掉中繼碎檔。資料研究用途 `PROBE`、現行名冊歷史涵蓋限制明確保留。此前 GAS 程式僅存 Git 歷史及舊 Drive 備份，無現役引用。
 
-- [ ] **實際公開欄位探測**：以既有 `research/gas/field_probe.gs` 驗證 FinMind 等來源可用欄位、資料值、授權用途與缺值，先取小範圍合法普通股樣本；目前僅程式提交，沒有真實採集 PASS 收據。
-- [ ] **GAS → Drive 月檔**：批次／checkpoint／續跑、provenance、`YYYY-MM.zip`、quality／manifest／content SHA、實際 TWSE／TPEx 普通股分市場×dataset ≥70% 驗收；來源缺值不造假，ETF 不進研究母體。
-- [ ] **Colab 資料讀取準備**：確認實際研究月檔能由免費 Colab **人工執行**、檢查 schema/hash 並重跑讀取；模型 fit、OOS 與 promotion **只列 D07，不在 D07-PRE 重複計工項**。
+- [ ] **Colab 真實歷史採集驗收**：先跑閉合月份範圍（建議 2025-01～2026-09），讀回 TWSE／TPEx 真實來源、API schema、實際成功／休市／失敗日期、股票數及每月資料夾 manifest SHA；已有程式及 fixture PASS 不等於真人 Colab 已執行。
+- [ ] **正式歷史母體／品質修復**：現行公司名冊無法收錄已下市股票；如要宣稱歷史普通股全市場與每市場×dataset×月份 ≥70%，需先補歷史合格名冊證據、查核適用分母及公司行動；首輪資料只能是 `PROBE`，不造假完成。
+- [ ] **Colab Risk OOS**（屬 D07 品質驗證）：對真實封存月資料直接執行 OOS，和 baseline 比較；不可因生成模型或存檔而自動 publication。
 
-[唯一研究資料 SPEC](spec/research-collection-gas-drive-colab.md)；已核准 R1：Colab 人工啟動。舊 `specialist-retrain`／GCP Jobs／Scheduler／BQ ML/OOS 清理 **CLOSED**，只有[單一歷史收據](archive/d07-gcp-bq-retirement-live-2026-10-20.md)，不重開。
+[唯一研究資料 SPEC](spec/research-collection-gas-drive-colab.md)；[Colab 執行說明](../research/colab/README.md)。已結案舊 GCP/BQ 研究清理保持 CLOSED，不重開。
 
 ## 4. D07｜五角色模型與正式介接
 

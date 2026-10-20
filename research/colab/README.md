@@ -1,35 +1,56 @@
-# D07-PRE｜Risk Analyst 第一個研究試點
+# D07-PRE｜Colab 原生台股歷史資料採集（唯一正式研究入口）
 
-**範圍**：個人非商業研究、上市／上櫃普通股小樣本。這是第一個角色的 **PROBE**，不是全市場 70% 合格月檔，也不是正式 Janus 模型。正式市場資料、Owner 資料、API、Mart、GCP、Scheduler 均不修改。
+2026-10-20：新研究路徑為 **官方 TWSE／TPEx → Colab Python → 私有 Drive 每月資料夾 → Colab 五分析師**。GAS／GAS Loader 已退役，不需要 GAS MCP、Apps Script API 或 GCP Job。Colab MCP 可用時可作選配操控介面，**不是**採集或訓練前置條件；目前 ChatGPT 無已連線的 Colab MCP，尚無 Colab 真實執行收據。
 
-## GAS 資料入口
+## 1. Google Colab 一次設定
 
-將 `research/gas/risk_monthly_pilot.gs` 放入既有私有 GAS 專案，設定 Script Properties：
+在 [Colab](https://colab.research.google.com/) 建立個人的 notebook，手動授權掛載 Drive，再執行：
 
-- `JANUS_RESEARCH_FOLDER_ID`：`janusChatGPT/資料源` 的私有 Drive folder ID（不得放在程式或 GitHub）
-- `JANUS_FINMIND_LICENSE_ACK=true`：人工核對來源授權、目前帳戶非商業範圍、留存和訓練條款；若無法確認，不執行採集
-- `JANUS_RISK_START_MONTH=2025-01`、`JANUS_RISK_END_MONTH=2026-09`：示例範圍，不是預設自動執行
-- `JANUS_RISK_SYMBOLS`：最多 10 個上市/上櫃普通股，盡量各市場都有；勿填 ETF 或任何 Owner 私人資訊
-- `JANUS_RISK_REVISION=r1`（選填），`JANUS_FINMIND_TOKEN`（選填；只能放 Script Properties）
-
-手動執行 `janusRiskPilotCollect()`，若回報 `PARTIAL`，重跑同一函式，直到 `PROBE_ARCHIVED`。每回合至多 8 次 FinMind 請求、12.5 秒間隔；已落地的每檔 shard 不重抓，同 revision 已存在的 ZIP 不覆寫。發現資料源限額、條款或帳戶限制時停止並保留原始錯誤狀態，不嘗試繞過。
-
-輸出僅位於 `janusChatGPT/資料源/_pilot_risk/r1/YYYY-MM.zip`；正式月檔 `資料源/YYYY-MM.zip` 由日後全市場合格流程建立。每個試點 ZIP 含規格要求的檔名、檔案 SHA256、來源、時間與 `PROBE` 品質標記；尚無資料的 dataset 保持空檔、標 `UNAVAILABLE`，**不補造**。首版未提供 benchmark、adjusted_close、Beta、Regime probability，不發布模型。
-
-## Colab 人工實驗
-
-在私有 Colab 掛載 Drive，將欲使用的各月 ZIP 路徑傳入：
-
-```bash
-!pip -q install pandas numpy scikit-learn
+```python
+from google.colab import drive
+drive.mount('/content/drive')
+!pip -q install requests pandas numpy scikit-learn pytest
 !git clone -q --depth 1 https://github.com/tommylin15/janus-omniforge.git
-!python janus-omniforge/research/colab/risk_pilot.py --cutoff 2026-03-31 --result risk_pilot_oos.json /content/drive/MyDrive/janusChatGPT/資料源/_pilot_risk/r1/2025-*.zip /content/drive/MyDrive/janusChatGPT/資料源/_pilot_risk/r1/2026-*.zip
 ```
 
-> Shell 萬用字元須由 notebook shell 正確展開；Drive 若非位於 MyDrive 此路徑，依實際掛載點調整。此命令為操作範例，非已完成實跑的證據。完整樣本通常需要足夠的 60 日特徵暖機、20 日成熟標籤及 OOS 區間。
+## 2. 整批歷史 OHLCV（**只收 TWSE／TPEx 上市上櫃普通股**）
 
-`risk_pilot.py` 檢查月 ZIP 欄位與 SHA、股票／日期重複、上市／上櫃市場；先以過去 20 日歷史波動作 baseline，再使用過去 20/60 日特徵訓練 Ridge challenger，目標是**之後 20 個交易日**的已成熟實際波動。訓練只用在 cutoff 已成熟的標籤，OOS 日期晚於 cutoff；輸出兩者 MAE/RMSE、樣本數與來源 hash。研究評估無法自動授權正式使用，所有輸出固定 `RESEARCH_OOS_ONLY_NOT_PROMOTABLE`、`publication_allowed=false`。
+第一批建議 **2025-01 至 2026-09**（都是已結束月份）；程式先抓最新官方上市／上櫃公司基本資料建立普通股白名單，再逐日抓 TWSE MI_INDEX、TPEx 官方上櫃歷史行情。**不使用** `STOCK_DAY_ALL` 當歷史 API，也不逐檔下載：同一天每市場原則上只請求一次。空值保持空值、未核准歷史股票保持缺口。
 
-建議驗收：既有 10 檔小樣本真實 GAS 取值 → 21 個月 ZIP／manifest hash → Colab 讀回並輸出 OOS 比較。若 challenger 不勝 baseline，保留 baseline，不為了建立 ML 而硬上線。大盤 benchmark、Beta／CVaR、公司行動調整、source training-use 與 70% 全市場品質依現行 D07-PRE 規格另做，不混成試點 PASS。
+```bash
+!python janus-omniforge/research/colab/collect_tw_equities.py \
+  --drive-root '/content/drive/MyDrive/janusChatGPT/資料源' \
+  --start 2025-01 --end 2026-09 --revision r1 \
+  --max-requests 120 --interval 2
+```
 
-本地 targeted tests：`python -m pytest -q tests/test_research_risk_pilot.py`。Google GAS 必須經真實執行收據才可標 `COLLECTED`；Colab 必須有真實 OOS 結果才可標 `OOS_VALIDATED`。
+重跑**相同指令**會從已完成 checkpoint 繼續。每 10 個平日／市場落一份壓縮 checkpoint；兩市場皆完成整月才寫入最終 manifest，先驗證全部 SHA256，再移除該月份的 checkpoint。單次 120 次請求為控制用量而設的上限，不是 API 官方配額；若來源拒絕或限流，保留錯誤並停止，不繞過。實際採集速度由來源反應及 Colab 免費執行時長決定，不保證一輪完成兩年。**尚未結束的月份不封存**，避免當月早期資料被誤標完整。
+
+Drive 範例結構：
+
+```text
+janusChatGPT/資料源/
+  _control/universe-r1.json              # 這個 revision 的現行公司名冊/來源摘要
+  2025-01/
+    ohlcv-r1.csv.gz                       # 該月兩市場所有合格股票行情
+    universe-r1.csv                       # TWSE/TPEx 名冊快照
+    quality-r1.json                       # PROBE、涵蓋率與已知缺口
+    manifest-r1.json                      # 各檔 SHA256、來源日期/證據
+  2025-02/
+    ...
+```
+
+這是**第一階段 OHLCV**，其他因子在同月份資料夾依資料集補檔；不應把未取得的財報、法人、事件硬補零。單月已封存檔不能無聲覆蓋；資料修訂要用 `r2` 並保存 manifest hash。**目前公司名冊不含歷史已下市股票**，此版標記 `historical_survivorship=CURRENT_MASTER_ONLY`、`historical_pit=NOT_VERIFIED`，不是完整 PIT 母體；不可因此把 70% 全市場門檻或模型上線宣稱 PASS。來源網站使用規範、內容保存與 ML 訓練授權仍須逐一遵守。
+
+## 3. 直接讀每月資料夾跑 Risk OOS 試點
+
+```bash
+!python janus-omniforge/research/colab/run_risk_folder_pilot.py \
+  --cutoff 2026-03-31 --result '/content/drive/MyDrive/janusChatGPT/資料源/risk-r1-oos.json' \
+  /content/drive/MyDrive/janusChatGPT/資料源/2025-*/ \
+  /content/drive/MyDrive/janusChatGPT/資料源/2026-*/
+```
+
+在同一 revision 的月份資料夾中只可有一個 `manifest-rN.json`；新增 r2 並存時，執行前先選定 revision 或另行指定目錄清單。Risk 仍以歷史20日波動 baseline 對 Ridge challenger，採成熟標籤、cutoff 分割及 OOS，不會自動上線／回寫正式 Janus。模型有效性與真實收據需由 Colab 實跑產生；GitHub 的 fixture tests 只證明解析與封存控制。
+
+本地：`PYTHONPATH=. python -m pytest -q tests/test_collect_tw_equities.py tests/test_research_risk_pilot.py`。
