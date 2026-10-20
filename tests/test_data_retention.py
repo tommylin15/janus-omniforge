@@ -205,6 +205,43 @@ def test_stage_protects_active_execution_and_recent_unknown_payload():
     assert deleted == [items[2]["name"]] and result["held_active_objects"] == 1
 
 
+def test_stage_large_expired_batch_uses_bounded_generation_deletes():
+    now = datetime(2026, 10, 20, 1, tzinfo=timezone.utc)
+    items = [
+        {"name": f"executions/expired/stage/raw/payload-{i}.json",
+         "size": "12", "generation": str(i+1), "updated": "2026-10-01T00:00:00Z"}
+        for i in range(72)
+    ]
+    from threading import Lock
+    guard = Lock()
+    deleted = []
+    def remove(name, *, generation):
+        with guard:
+            deleted.append((name, generation))
+    store = SimpleNamespace(bucket="dev", objects=lambda _: list(items), delete=remove)
+    plan = clean_stage(store, apply=False, now=now)
+    assert plan["planned_objects"] == 72 and plan["planned_bytes"] == 72*12
+    actual = clean_stage(store, apply=True, now=now)
+    assert actual["deleted_objects"] == 72 and actual["deleted_bytes"] == 72*12
+    assert set(deleted) == {(x["name"], x["generation"]) for x in items}
+
+
+def test_stage_large_batch_propagates_generation_delete_failures():
+    import pytest
+    now = datetime(2026, 10, 20, 1, tzinfo=timezone.utc)
+    items = [
+        {"name": f"executions/expired/stage/raw/payload-{i}.json",
+         "size": "12", "generation": str(i+1), "updated": "2026-10-01T00:00:00Z"}
+        for i in range(40)
+    ]
+    def remove(name, *, generation):
+        if name.endswith("payload-4.json"):
+            raise RuntimeError("generation_delete_denied")
+    store = SimpleNamespace(bucket="dev", objects=lambda _: list(items), delete=remove)
+    with pytest.raises(RuntimeError, match="generation_delete_denied"):
+        clean_stage(store, apply=True, now=now)
+
+
 def test_stage_policy_is_two_days_and_cleanup_uses_48_hour_boundary():
     from ingestion_core.retention import POLICY
     assert POLICY["stage_days"] == POLICY["quarantine_days"] == 2
