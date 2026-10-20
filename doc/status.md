@@ -2,6 +2,8 @@
 
 更新：2026-10-20（Asia/Taipei）。本頁只保留**最新證據摘要**，不是第二份 TODO。實作及完成狀態以 GitHub `main`、CI／deploy／GCP dev／資料／Owner readback 為準；完整歷史在 [原狀態快照](archive/status-before-consolidation-2026-10-19.md)，近期收據見 [Operations](spec/operations-and-testing.md)。
 
+**2026-10-20 D07 新架構與退役狀態：**新版研究採集採 GAS→私有 Drive 每月 ZIP→Colab，普通股／ETF排除、研究70%門檻；舊 Controller 月度 retrain 與 workflow 已自 GitHub main 移除，Mart retrain/OOS 入口已自原始程式拆除。**GCP Cloud Run 新映像尚無本次部署讀回、BigQuery 物件實刪未知**，不可聲稱 live 清理完成。詳見 [新研究契約](spec/research-collection-gas-drive-colab.md)、[唯一 TODO](todo.md)。
+
 ## 已有範圍的結案
 
 | 項目 | 最新已知證據 | 未覆蓋事項 |
