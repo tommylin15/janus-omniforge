@@ -1,6 +1,6 @@
 # Janus — 唯一 Active TODO
 
-更新：2026-10-19。**只記未完成工程與驗收**；原有結案/部署流水帳完整保留在 [整編前 TODO](archive/todo-before-consolidation-2026-10-19.md)。實際狀態：GitHub main／tests／CI／GCP dev runtime；最高權限與授權依 [PROJECT_RULES](PROJECT_RULES.md)，操作依 [AI 指令](codex-execution-plan.md)。
+更新：2026-10-20。**只記未完成工程與驗收**；原有結案/部署流水帳完整保留在 [整編前 TODO](archive/todo-before-consolidation-2026-10-19.md)。實際狀態：GitHub main／tests／CI／GCP dev runtime；最高權限與授權依 [PROJECT_RULES](PROJECT_RULES.md)，操作依 [AI 指令](codex-execution-plan.md)。
 
 ## 1. 單一執行順序
 
@@ -16,7 +16,7 @@
 
 ## 2. STAGE-48H｜最新核准的儲存清理工作（不重開 FINOPS-AB）
 
-**2026-10-20 老 Stage 物件清理補充（使用者明確核准）**：[實機 dry-run #39351045998](https://github.com/tommylin15/janus-omniforge/actions/runs/39351045998) 觀察 61 筆 active control record，其中 4,927 個舊 Stage 物件因 status=running 被 hold；[GCP Stage apply #39351609294](https://github.com/tommylin15/janus-omniforge/actions/runs/39351609294) 已 generation PASS 實刪另外 37 件／38,396 bytes。後續 [控制紀錄稽核 #39352303651](https://github.com/tommylin15/janus-omniforge/actions/runs/39352303651) 確認 24 筆超過 7 天的 running control 紀錄持有該 4,927 件／96,321,204 bytes，**有效未到期的 claimed_until 為 0**；這是控制面 active status 的保守保護，**不是模型訓練引用證據**。使用者已授權移除超過 7 天的這類失效 Stage 舊物件與證實可移除的實體重複副本，但**尚未實際刪除 4,927 件**；批次刪除執行路徑未成功建立，仍不得冒稱執行完成。MD5 潛在額外 165,308,239 bytes 未核對實體副本／刪除 generation，不得列入已釋放容量。不得影響 Core/Mart/Private 或將未驗證標 PASS。
+**2026-10-20 老 Stage 物件清理補充（使用者明確核准）**：[實機 dry-run #39351045998](https://github.com/tommylin15/janus-omniforge/actions/runs/39351045998) 觀察 61 筆 active control record，其中 4,927 個舊 Stage 物件因 status=running 被 hold；[GCP Stage apply #39351609294](https://github.com/tommylin15/janus-omniforge/actions/runs/39351609294) 已 generation PASS 實刪另外 37 件／38,396 bytes。後續 [控制紀錄稽核 #39352303651](https://github.com/tommylin15/janus-omniforge/actions/runs/39352303651) 確認 24 筆超過 7 天的 running control 紀錄持有該 4,927 件／96,321,204 bytes，**有效未到期的 claimed_until 為 0**；這是控制面 active status 的保守保護，**不是模型訓練引用證據**。使用者已授權移除超過 7 天的這類失效 Stage 舊物件與證實可移除的實體重複副本，目前已透過 [dry-run #39354898619](https://github.com/tommylin15/janus-omniforge/actions/runs/39354898619) 驗證候選 4,927 件／96,321,204 bytes，並由 [GCP apply #39355428497](https://github.com/tommylin15/janus-omniforge/actions/runs/39355428497) **generation PASS 實刪全數 4,927 件／96,321,204 bytes**（Stage 6,384 件／415,180,394 bytes → 1,457 件／318,859,190 bytes；Core/Mart/Private 刪除 0）。MD5 潛在額外 165,308,239 bytes 未核對實體副本／刪除 generation，不得列入已釋放容量。不得影響 Core/Mart/Private 或將未驗證標 PASS。
 
 
 
