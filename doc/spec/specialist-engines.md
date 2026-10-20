@@ -1,131 +1,31 @@
-# 五分析師引擎目前契約
+# 五分析師｜正式個股輸出與新版研究模型契約
 
-**2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。實作與 runtime 切換狀態見 status／operations，不以本契約推定完成。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](../spec/full-market-batch-policy.md)。
+更新：2026-10-20。**研究唯一入口：[GAS→Drive月檔→Colab](research-collection-gas-drive-colab.md)**。舊 BigQuery ML/OOS 中轉、Core frozen Parquet 必經出口、Cloud Run 月度 retrain 等 B5～B8 研究路線全部退休，僅歷史 Git／archive 可追溯，不作新 WBS/前置驗收。
 
-> 2026-10-13 順序修訂：持股／交易損益 → 通用圖表／四頁整合 → 五角色模型驗證 → 有效後整合報告。下列舊 B9→C→產品順序已被取代；研究技術契約與歷史證據保留。見 [AI 作業指示](../codex-execution-plan.md)。
+## 分析師資料及輸出
 
-## 2026-10-19 使用者定案：D07 單一 Colab 建模資料與訓練路徑
+| 角色 | 第一批既有公開欄位 | 尚待核對／補充 | 個股頁輸出 |
+|---|---|---|---|
+| Quant | OHLCV、成交量/金額、指數、法人 | adjusted price／公司行動／產業分類 | 歷史動能、相對強度、排名；OOS合格才有預測 |
+| Risk／Regime | OHLCV、benchmark，可算 Beta/CVaR/回撤 | adjusted price／無風險利率 | 波動、尾端損失、市場風險 |
+| Valuation | PE、PB、殖利率、EPS/ROE | 每股淨值、股數、TTM EPS、FCF、同業分類 | PE/PB 河流、估值位置與情境 |
+| Fundamental | 月營收、EPS、淨利、ROE、負債 | 毛利、營益率、營業現金流、CapEx | 營運成長與財務品質 |
+| Event／Catalyst | event_id、公告內容/來源/類型 | 事件方向/重大性/人審標籤 | 事件摘要、來源、修訂／不確定性 |
 
-**唯一流程**：[Janus Core + 受控唯讀 Parquet 出口] → [Colab 完成模型資料 Join、清理／特徵與標籤、全部 baseline/challenger 訓練、rolling walk-forward OOS] → [immutable evaluation/model/hash] → [Janus Mart 驗證、版本管理、正式推論／報告]。BigQuery **只有 Colab 規模超出實測可承受 RAM／時間／I/O/Join**、且前置縮減可量化減少成本/風險時 opt-in 作 SQL **預處理**，其後仍回 Colab 訓練。**不採 BQML 或 Cloud Run 做新模型訓練，不建立第二訓練器。** Ingestion、Canonical、日常 Market Screening、PG、Private/Owner 與 D08 的權威原封不動，PyIceberg 保留原生讀/最小匯出，不等於它是另一個 ML 資料整理平台。
+## 研究母體／資料顆粒度
 
-**目前 implementation 與新目標分開**：2026-10-10 已有 Mart `specialist-retrain` Job／reconciliation 歷史 PASS，但 2026-10-19 尚無新 Colab 月度訓練/live artifacts 接線。後續需修改現有月度 Job 的職責（維持單一 Controller due、準備 frozen input、安排／收受 Colab run、驗來源/hash/品質），不直接讓現有 Mart 再做 fit 並冒稱完成新設計。免費 Colab 長期 unattended **NOT_VERIFIED**，目前受控人工執行，月度未完成記 pending/manual、沿用已核准模型；如要自動化需先選有合規可控的 Colab 執行介面與人工授權費用／IAM/OAuth，不能另加平行 Cron。具體 Gate 見 [D07-PRE](../colab-d07-modeling-feasibility-2026-10-19.md)。
+研究只採 TWSE／TPEx 全部普通股，排除 ETF、ETN、債券ETF、基金、權證。各市場×dataset×月份有效收集資料 ≥70% 即達**研究採集門檻**；未過門檻標 PARTIAL 不造值，不能當 ML 模型有效性。第一輪盤點對照持股/觀察股的**公開欄位**，不匯出 Owner 成本、股數、現金或交易。時間欄位有就貼 published_at/observed_at/fiscal_period/collected_at/version，初次收集不要求先完成歷史 PIT 稽核或固定24月回補。
 
-## 2026-10-19 D07 兩年滾動研究資料窗口（治理更新）
+Quant/Risk 股票×交易日；Valuation 股票×估值交易日加財務期別；Fundamental 股票×月營收／季報／版本；Event 股票×事件×版本。每月ZIP將不同顆粒度存在各自 CSV/JSONL，而不是強制合成每日一列。
 
-- **最近24個月 rolling research window** 為五角色模型候選訓練/OOS 的第一版目標；每月第一個週六 10:30 隨最新成熟資料向前平移，再比較 baseline/challenger、必要時 retrain，未增添有效樣本則 skip/reuse。這不是正式資料庫的 row retention 變更，亦非宣稱現有全市場已具完整兩年。
-- 依角色和 horizon，先用**實際存在且合格**的日期、股票、特徵與成熟標籤選取 train/walk-forward OOS；最後 untouched holdout 不作反覆調參，purge/embargo 避免 overlapping label future leakage。少於24個月可有界研究，但需標示實際窗口、coverage、無法評估的指標與不確定性；**不得**因月份不足而對全市場無界補收、補假值或將模型 fit 當 promotion。
-- `Iceberg` Core/Mart 依 2026-10-18 決策只留 **current snapshot**；為重跑研究另保留合法 versioned Parquet、cohort/membership、feature/schema/label/source authorization、analysis_as_of 與 hash。只有已驗證 frozen input 可當作重跑證據；`snapshot_id` 文字不能保證舊資料可讀。歷史財報如使用核准的 `strict_pit=false` 投影，只供研究比較，不能冒稱嚴格 PIT publication。
-- 保存、來源補收與批次單一控制面見 [資料治理總入口](data-governance.md)，模型品質驗收仍依 [D07 卡](../execution-cards/d07-specialist-b9-oos.md) 與 [TODO](../todo.md)。本段不是 D07 開工、Champion promotion 或新排程授權。
+## 正式服務邊界
 
-## 2026-10-11 產品與模型研究分階段契約
+現有 Core Iceberg、日常 EOD、market-screening、Mart 確定性計算、持股/觀察股、Owner 私有資料、API、週維護及備份**繼續服務**。研究不經 Cloud Run/Core/BQ 強制搬運，但正式服務仍沿既有合格價、來源與 Core 品質 gate（TWSE ≥90%、TPEx ≥70%），個人持有 ETF 行情不受研究排除政策影響。全市場低成本 screening，watchlist ∪ effective holdings 深度運算和 dirty cache 不變。LLM 無 canonical number 或 publication authority。
 
-使用者核准先完成持股／交易損益及通用圖表，再建立全上市櫃個股歷史研究池並驗證五角色；有效後才建立整合報告。完整執行切片見 [Codex 作業指示](../codex-execution-plan.md)，狀態見 [TODO](../todo.md)。本節取代下文將研究缺口視為產品整體 blocker 的語意，不改寫歷史 evidence。
+## 模型與上線
 
-- 產品基準：Fundamental 財務比較；Valuation 相對估值；Quant 動能／強弱／市場排名；Risk 波動／CVaR／beta／回撤；Event parser／rules。產品 PASS 仍需真實資料、CI／deployment、workload、artifact/API readback 與適用整合驗收。
-- ML 品質、champion／publication 獨立驗收；未驗證機率不發布，模型狀態保留 NOT VERIFIED／PARTIAL；可靠基準不必等待 ML 勝出。缺必要輸入的 DCF 為 unavailable，不要求為產品結案補造假設。
-- Market Coverage、historical research cohort、Deep Coverage 分離。研究目標全上市櫃個股，按當日可得 membership 重建且保留退出股票，不以當前 500 回填過去；每日完整五角色仍只做 watchlist ∪ holdings。市場排名參照當日市場截面。
-- 產品階段即保存可取得的 membership／公告版本／publication／first-observed／source receipts；沿用授權與 retention，不假造缺失歷史。全面研究回補在產品交付後。
-- 日增量、週六補漏／品質檢查、每月首週六 10:30 評估候選模型；不新增每週 全市場×5 重訓。無新增成熟合格資料時應明示 skip/reuse reason；此差異須另核對實作，文件不代表已上線。
-- 研究按角色評估：基本面／估值偏中期資訊與規則比較，Quant 排序與成本後績效，Risk 尾端／環境／穩定性，Event 人審分類品質。全上市櫃行情不等於五者研究資料完整；財報資料優先策略 strict_pit=false 及既有來源／標籤成熟約束不變。
+Colab 人工做五角色 baseline/challenger、特徵標籤、時間外 walk-forward OOS、成熟標籤、防未來洩漏、可重現模型及結果 SHA。Quant/Risk 先行；Valuation/Fundamental 視可得欄位；Event 沒有真正人審及可用訓練權限時只能使用 Parser/Rules，分類機率為 null。未驗證 ML 不顯示虛構報酬機率，保留 deterministic baseline。
 
+正式 Janus Mart 僅收驗證通過的模型版本、註冊/推論/回退；新模型訓練不在 Cloud Run/BQ。五角色 Fact Pack 的 source/provenance、input hash、model_version、analysis_as_of、quality/missing/staleness 可展開，CEO 按需只讀已驗證 Facts。學習資料達70%不能取代模型發布門檻。
 
-日常 Mart 使用 `specialist_runtime`，不使用生成式 LLM；但「日常」不等於每天把五 specialist 全量重算。Market Coverage 在每個交易日 EOD canonical data ready 後跑低成本 screening，Deep Coverage 則依 dirty dependency／input change 增量更新。舊五角色引擎、prompt、compatibility 與 provider daily entry 已刪除；歷史資料僅保留作稽核。On-demand CEO 由 C 組驗收，不屬 B9 產品切片。
-
-## 覆蓋與資料
-
-Market Coverage 由 `control.specialist_market_symbols(date)` 取得具 PIT 日期與版本的全上市櫃有效個股 membership。每個交易日 EOD canonical data ready 後執行一次低成本 screening；篩選回報最新價/量/金額、5/20/60/120 日報酬、規則分數、排序與異常旗標，不自動加入自選股。**2026-10-10 使用者最新決策：市場 Screening 繼續由 PyIceberg 擔任正式預設；不得因通過 BigQuery fidelity gate 自動切換。** BigQuery 僅保留為 ML/OOS 大型 SQL／Window／Parquet 產製的明確 opt-in 批次路徑。
-
-B3 新增獨立 `market-screening` operation：既有 controller 交易日台北 16:30、等待 ingestion／data-supplement、沿用休市日曆；同日 Core date fence 不成立則拒絕。新增 20D 平均成交金額／年化波動、5/20/60/120D 相對 benchmark 強弱、可用官方估值與 cross-sectional ranks。輸入列順序不影響結果／provenance hash。相同 Core manifest hash／snapshot／membership／feature version／date bounds 在昂貴 read 前 reuse，成果與 receipt immutable、90 日 derived retention；不呼叫完整五 specialist／training／CEO。操作與切換限制見 [screening runbook](../runbook-market-screening.md)，完成狀態仍以 runtime evidence 為準。
-
-現行市場 coverage：按當日官方適用分母及必要資料集，TWSE 缺失率 ≤10%、TPEx ≤30%（含邊界）才通過各自 gate；超標記錄原因並依全市場契約處理，不將部分市場成功當成整批 PASS。每檔最新交易日、價格、成交量及成交金額必須合格且對齊，否則算該檔 EOD 缺失；各歷史窗口另外列缺失比例，模型未訓練不算行情缺失。缺失仍保留 null，PIT/來源不合格資料先排除後計入缺失。
-
-補資料共用既有交易所全市場日期批次，不建立新 fallback 或調度系統。目前規格涵蓋 TWSE／TPEx 全部合格個股，依官方市場身分選來源；歷史 TWSE-only liquid-500 artifacts 保留原版本，不重標全市場。先使用已有資料與短批次，品質過差先討論，不為了填滿每欄展開複雜歷史補資料。
-
-Deep Coverage 使用既有去識別化資料庫函式取得 active watchlist ∪ effective holdings，去重、離榜持股保留、清倉且不在 watchlist 才退出。完整五 specialist 只對 Deep Coverage 執行，並依 input change／dirty dependency 增量更新，不因每日 screening 而把 500 檔全部深算。成果物不包含 owner、持股數量、成本或損益。
-
-所有輸入以 Core immutable manifest / table snapshot、availability / publication / observation 時點、provenance 與 source authorization 驗證；未合格資料不進特徵。缺資料及未驗證模型明示 partial / blocked，不填假機率。
-
-Event／Catalyst 的人工繁中標註、source-specific training-use 授權、event/revision ID、reviewer／label version、chronological holdout 與本機 classifier 研究 gate 見 [Event 標註與 OOS 契約](event-labeling.md)。目前 Parser／Rules 為 deterministic 主路徑；沒有真實核准標籤及本機 Transformer OOS 時，Event ML 保持 NOT VERIFIED，classifier_probability=null，不能自動 promotion。
-
-
-使用者 2026-10-03 最新指示取代歷史財報的嚴格可用時間門檻：**有官方資料就進行歷史模型驗證**，不因原始數值版次／當時公開時間未證明而禁止 Fundamental OOS。模型回放每期最新取得的官方數值版本，先用 authoritative publication，其次官方申報附件上傳時間；兩者皆缺時，以財報期末後 90 天作明示估計。Core 保留實際取得時間、unknown 與原始數值，不改寫 canonical 歷史；訓練使用有版本的時間投影。成果物保存 `financial_history_policy`、時間依據筆數與 `strict_pit=false`，明示可能包含後續修正與估計時間。這是正式採用的資料優先 OOS 方法，可用於模型比較；報酬標籤成熟／purge、來源授權、股號／期別／單位檢查與私人資料隔離繼續生效。模型是否有效依實際結果，不因放寬而自動 promotion。
-
-## Analytics compute boundary
-
-2026-10-19 使用者已將未來 D07 模型資料整理與訓練統一交 Colab，所以下列 BigQuery/PyIceberg 路由僅描述**現行已實作的讀取／B5～B8 資料出口契約和必要大資料前置處理**，不是一組同等模型訓練方案。歷史來源 identity/fallback、Core/PIT/來源授權 guard 不得刪。
-
-2026-10-06 起，B 組採 [Iceberg canonical + BigQuery analytics hybrid](../decision-2026-10-06-bigquery-analytics-over-iceberg.md) 作為優先架構。這是 target contract；目前 implementation 是否已切換仍以 `main` code／runtime evidence 判定。
-
-- Core Apache Iceberg V2／GCS 維持 canonical／PIT／provenance/history；既有 PostgreSQL-backed PyIceberg `SqlCatalog` 不因文件決策自動遷移。
-- PostgreSQL serving projection 維持 User／Admin request-time hot path；BigQuery 不作 Flutter page-load database。
-- Specialist data access 必須先抽象成 exact-snapshot reader；PyIceberg reader 是 reference／fallback，BigQuery adapter 只有在同一 immutable Core snapshot fidelity 可證明後才可逐 workload 切換。
-- **現在採用的路由規則**：每日全市場 screening／日常 specialist ／incremental 和一般處理預設 PyIceberg；BigQuery 不作全市場 screening 的預設或自動 cutover。BigQuery 僅在**明確選用**的 ML/OOS SQL window/aggregation/reduction 與 Parquet export 使用，並保留 Core exact snapshot、PIT/provenance/來源授權 fence；不預設複製完整 Core warehouse。
-- **禁止 BigQuery Storage Read API**：不依賴 `bigquery.readsessions.*`／`google-cloud-bigquery-storage`。小型結果使用一般 query/result API；大型 training input 先在 BigQuery SQL 縮減，再輸出 versioned GCS Parquet artifact 供 Python/ML Job 使用。
-- BigQuery intermediate／destination table 預設 bounded／TTL／可重建且屬 derived/research；不要求把每個中間結果再寫回 canonical Iceberg。大型 training/evaluation dataset 以 versioned GCS Parquet 固定，只有已有 publication／retention contract 的成果才永久保存。
-- 每個 BigQuery-derived artifact 必須保留可追溯的 Core snapshot identity、analysis_as_of、schema/feature/model version、hash/provenance；不能只保存「latest」語意。
-- Query 必須 column/date/symbol/partition bounded，並記錄可取得的 processed/billed bytes、elapsed、fallback 與輸出規模。未知成本不補 0。
-- 目前 Google legacy Iceberg external table metadata-URI 路徑不作預設正式解；BigQuery compatibility spike 應優先驗證 Google-supported shared Iceberg/Lakehouse path或其他可證明 exact snapshot 的方案。任何 catalog migration、API enablement、新計費資源或 IAM 擴張仍需人工授權。
-- 若 BigQuery 不能保持 exact-snapshot／PIT／provenance contract，該 workload 必須留在 PyIceberg；效能理由不得覆蓋 canonical correctness。
-
-### Exact-snapshot reader contract
-
-`AnalyticsSnapshotReader.read(manifest, requested_symbols, core_snapshot_id=..., row_limit=...)` 回傳 `AnalyticsSnapshot`，包含明確的 Core snapshot identity、datasets 與 read telemetry；`close()` 釋放 reader 持有的 catalog connection。Specialist runtime 透過 `reader_factory` 注入 reader，預設使用 `IcebergSnapshotReader`；`load_core_datasets()` 保留為相容入口。
-
-PyIceberg reference reader 必須先比對 manifest 與要求的 Core identity，再依各 table 的固定 `snapshot_id` 讀取，不改讀 latest。保留 symbol filter、null、原始欄位型別與 `__table_identifier`／`__snapshot_id` provenance；超過總 row limit 必須拒絕，不能悄悄截斷。PIT／source authorization 仍由既有 specialist validation 處理。Runtime 在成功或失敗後都關閉 reader，且拒絕 reader 回傳不同 Core identity。未知 GCS bytes 保持 null；此契約不代表 BigQuery adapter 或自動 fallback 已完成。
-
-### B8 經驗證的 ML/OOS 選路與故障回退政策（2026-10-10）
-
-- `intelligence_mart.ml_oos_backend_policy` 提供**預設 PyIceberg**、ML/OOS 專用且明確 `bigquery_opt_in` 的選路政策；非 ML/OOS workload（含 Screening）不能選用 BigQuery。保留 `cutover=false`、不允許 canonical write、cache promotion 或 Storage Read API。
-- BigQuery opt-in 出現**已分類的運作性故障**（timeout／unavailable／permission denied／quota）時，只允許在相同 immutable Core snapshot／date bounds／版本／PIT source fence 下執行一次 PyIceberg 後備；成功輸出必須再通過相同 reference parity。BigQuery 資料不一致、Core metadata drift、PIT、schema 或 provenance 錯誤 **fail closed，不用 fallback 掩蓋**。不盲目重送失敗 BigQuery job；局部研究 export 不 promote 為 cache。
-- [B8 回退驗證 workflow](https://github.com/tommylin15/janus-omniforge/actions/runs/38036167787) 在現有 dev WIF 真實讀固定 Core，故障採**注入的 BigQuery unavailable**（不是真的 BigQuery outage），PyIceberg 重新讀回 74,999 筆來源→10,978 筆 ML/OOS，與 B5 immutable dataset 0 diff；此為 B8 受控故障注入 evidence；此外 B5 standalone materialization 腳本已在 GitHub `main` 接入相同 policy，cache miss 的兩種路由與 export-started fail closed 已經通過 44 項整合測試，真實 GCS 已驗證舊 immutable cache hit。既有 Cloud Run Mart `ml-oos-data-acceptance` 仍是 consumer，而非 B5 materialization 入口；**本次沒有重新部署 Mart image、不宣稱 fresh-Core cache miss 已在 Cloud Run Job 實測**。B8 已核准固定 Core 同源路由/FinOps/故障驗收結案，見 [B8 完成記錄](../archive/group-b-b8-closure-2026-10-10.md)；B7 新 Core cache freshness 已另於 2026-10-10 通過獨立 real-source readback，詳見下方 B7 節。
-
-
-## 成果物
-
-新 `specialist.v1.json` 定義 Fundamental / Valuation / Quant / Risk / Event。財務可比值、PE/PB/殖利率、動能、波動/CVaR/回撤/對齊 beta、事件數與嚴重度採確定性計算；中文報告使用規則模板。DCF/reverse-DCF 有嚴格計算函式，但真實 Core 未提供完整每股自由現金流與核准假設時回報缺值。
-
-`specialists/<output_hash>.json` 與 execution manifest 不可變、寫入後讀回驗證；相同 execution replay 只驗證並 reuse。B4 已完成 cross-execution dependency cache：cache identity 納入 symbol/role、accepted + rejected PIT dependency state、feature/engine/model version；只有 dirty specialist 重算，clean role reuse immutable artifact，並保留 source Core snapshot identity。2026-10-07 真實 dev acceptance 在同一 Core snapshot 第二輪達成 0 computed / 25 reused。2026-10-08 B5 ML/OOS data path 已由 BigQuery TEMP staging → versioned Parquet + Cloud Run Mart 真實驗收結案（10,978 rows／499 symbols／immutable hash 相等，見 [B5 結案](../archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)）；月度 reconciliation 與後續模型品質仍未完成；B6 derived artifact cache 已 CLOSED（見 [B6 結案](../archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)）。
-
-### B6 ML/OOS derived cache
-
-僅對 B5 SQL reduction 的 `core.ohlcv_v1` snapshot/pointer、analysis_as_of、日期邊界、schema/query/feature/model version、label horizon、cohort stride 計算 `b6-ml-oos-dirty-v1` identity；新增來源必須更新 dependency contract，不可默默重用。global Core snapshot 若因非依賴資料表改變，可重用相同 source snapshot 的 immutable Parquet，但一定保留原始 artifact Core identity，另列 requested identity。
-
-快取命中前必須驗證實際 GCS shard SHA256、bytes、manifest、retention 保護與 catalog pointer；掃描上限 128 manifest、驗證 240 秒上限，fail closed。命中才可記本輪 BigQuery billed=0；cache miss 維持原有 1 GiB execution budget／每 query 60 秒；失敗未知 billed bytes 為 null。B4 五 specialist cache 不改變。已由 CI #37708769385（137 PASS）與 live #37708769182（GCS immutable hit verified、BigQuery jobs 0／billed 0、Cloud Run Mart hash readback PASS）驗收 B6 scope。無關 Core 更新和相依資料 dirty invalidation 由 targeted tests 驗證；B7/B8/B9 仍未完成。
-
-### B7 月度排程／reconciliation 契約（執行機制與當次 derived cache freshness 均 PASS）
-
-既有 `janus-ingestion-daily` 以台北每小時 `:30` 執行總控；唯一 monthly `specialist-retrain` slot 為**第一個週六 10:30 Asia/Taipei**（每月 1–7 日且星期六）。同日 07:30 ingestion 與 08:30 data-supplement 都必須 succeeded；舊 1 日未派送 pending 在改版後記 `schedule_superseded/skipped`，不誤派。
-
-固定 Core snapshot byte hash 下執行既有 challenger fit／OOS／calibration；月度 ML/OOS dataset model version 與 specialist model version 各自保留 lineage，不互比；Global Core ID 不同時僅在 OHLCV exact snapshot/pointer、資料日期與特徵版本都相同才視為 B6 source-only reuse；`mart_monthly_cache_reconciliation_v1` immutable receipt 驗證目前 Deep Coverage 五個角色的 cache identity、source artifact SHA256、model version，並只讀盤點 B6 最新 ML/OOS dataset 的 immutable lineage。歷史 unreferenced pointer **只能標記 retention candidates**，缺跨 execution reference evidence 不得當 orphan 刪除；B6 缺失、舊 Core 或 bounded inventory 不完整都維持 `partial`，不得冒充 PASS。Event classifier 未符合 labeled-data／drift gate 時不自動重訓；訓練成功亦不自動 champion promotion，也不觸發 CEO。
-
-2026-10-10 已取得新版 GHCR/Scheduler/controller、Mart retrain、OOS/reconciliation immutable readback 證據，B7 **月度執行機制 PASS**；舊 B6 derived cache 對當次 Core snapshot 曾為 historical；現已使用獨立 PyIceberg latest-source refresh（不重新訓練）建立 11,432 rows immutable ML/OOS dataset，並於 [#38056677635](https://github.com/tommylin15/janus-omniforge/actions/runs/38056677635) 驗證新 `reconciliation.status=pass`／`ml_oos_derived_cache.status=current`／`exact-core`、25 refs 與 GCS create-only receipt readback，B7 當次 freshness **PASS**。舊月度 `partial` 收據不可覆寫，完整 [結案證據](../archive/group-b-b7-derived-cache-freshness-closure-2026-10-10.md)。2026-11-07 自然首週六尚未發生；手動 execution 不冒充自然觸發。B8 已 CLOSED；此 B7 PASS 不構成 B9 模型品質或 cutover PASS。
-
-## 歷史模型
-
-Linear / LightGBM / CatBoost 使用逐月擴張訓練窗，訓練標籤必須已於測試日前成熟；每 5 個市場交易日建立候選訓練樣本，5/20/60/120 日樣本外 cohort 不重疊，以 benchmark 交易日對齊起訖。至少 100 訓練樣本與三個訓練月份才能 fit。最後三個已成熟月份可獨立校準機率，不能使用當月測試資料；LightGBM/CatBoost 使用原生 Tree SHAP，Linear 使用加總式貢獻，必須重建同一預測。Rank IC/ICIR、decile spread、hit rate、after-cost Sharpe / drawdown / turnover 可計算；不足 10 檔不造出 decile 統計，另列各深度標的時間序列 IC/命中率，校準驗收需至少 30 筆 OOS 機率。30 bps 僅研究敏感度，不是實際券商成本。回測僅 current Deep Coverage，不是歷史母體重建，禁止自動 promotion。
-
-Riskfolio-Lib 計算歷史 CVaR；statsmodels 二狀態 Markov variance challenger 需至少 252 筆 benchmark returns。逐月用此前參數 forward filter（不用事後 smoothing），以 OOS log score 比較簡單 Gaussian 波動基準；至少 30 筆 OOS returns 才標示已評估，沒有自動 promotion 或正式 regime probability 權限。
-
-Fundamental/Valuation 共用既有成熟價格標籤。Fundamental 依上述資料優先時間投影驗證，不再因原始版次／公開時間未知而阻擋；缺必要數值才回報 `insufficient_financial_features`。Valuation 的官方每日估值沿用日期 fence；缺數值回報 `insufficient_pit_financial_features`。Fundamental LightGBM 使用同一份官方財報的當期／去年同期基本 EPS 與歸屬母公司獲利年增率；核對公司、合併口徑、concept、期間與單位，優先單季、其次同期間累計，前期為零則缺值。公式為 `(當期−前期)/abs(前期)×100`，負前期代表相對前期絕對值的改善／惡化。`same-filing-comparatives-v1` 保留比較期間、數值、context 與原文 hash；EPS 僅標示報表內比較，不宣稱跨報表股數可比。原始 EPS 跨版本趨勢仍在股數口徑未知時回報 null。Valuation 使用官方每日 PE/PB/殖利率的 LightGBM／CatBoost。此 bounded baseline 不代表完整財務品質特徵或 DCF 假設已齊備；PPE 支出也不冒充完整自由現金流。
-
-歷史估值沿用既有 Stage/Core ingestion，從 TWSE `BWIBBU` 個股月查詢讀取，僅補 Deep Coverage、最多 36 月；驗證月份、公司名稱、欄位、每日日期與非負有限比例，虧損造成的缺 PE 保留 null。每筆保存官方日期與 Stage provenance，日常 data-supplement 核對最新月份並重用既有資料，月度 specialist-retrain 固定 Core snapshot 後驗證。成功來源與比較特徵直接納入正式模型作法，不依賴獨立驗收腳本。
-
-Quant 增加 Qlib v0.9.7 的單一 DoubleEnsemble bounded adapter，保留 MIT license 與原始來源 SHA；不引入完整 Qlib tracking／data provider。固定三個子模型、20 rounds、seed 17、single thread，保留 sample reweighting 與 feature selection，ensemble 原生 Tree SHAP 必須重建同一預測。IC decay 以同一 OOS signal 對 5/20/60/120 日成熟結果的各股時間序列 Rank IC 評估；不足 20 筆保留 null，重疊長窗口結果不當成獨立報酬樣本。
-
-月度 challenger／OOS 使用 `specialist-retrain` operation；B 組 target schedule 固定為**每月第一個週六台北 10:30**，在 ingestion／data-supplement 成功後執行，沿用 1 CPU／1 GiB Mart Job。B 組實作需同步修改實際 Scheduler／controller definition 並以 runtime readback 驗證；歷史 runtime 只由 operations 保存，不在 active SPEC 重述舊排程。從既有 Core bucket 選最新 immutable manifest 並固定 raw-byte hash，超過 7 天或未來日期拒絕執行；手動重跑同 operation 產生新 execution。資料不足仍回報 insufficient_history，不視為模型通過；不自動 promotion。Event 依標記資料另行驗證，尚未具備的 classifier 不因共同批次而宣稱已重訓。快取／月度 reconciliation 依 active TODO 的後續 WBS 處理。
-
-尚未完成：Fundamental/Valuation 的新版資料回補、資料優先 OOS 與真實 dev readback、台灣繁中 Event 人工標記資料與本機 encoder、歷史 membership replay 與 champion promotion。原生 SHAP、機率校準、regime OOS、Qlib 與金融特徵 evaluator 已有實作；是否已部署、具足夠真實台股資料及有效性，仍以 operations 的 dev／readback 結果判定。這些缺口使 WBS 保持 partial。
-
-## 依賴與資源
-
-LightGBM 4.6.0 MIT、CatBoost 1.2.8 Apache-2.0、Riskfolio-Lib 7.0.1 BSD-3、statsmodels 0.14.5 BSD、NumPy 2.2.6 BSD、scikit-learn 1.7.2 BSD-3。pandas 固定 2.3.3，避免 pandas 3 與 statsmodels 0.14.5 相容性錯誤。全部 Python runtime 依賴 pin version 並 hash lock，模型 fit 固定 seed / single thread，沒有下載遠端模型或執行 upstream 範例。
-
-Cloud Run Job 固定 1 CPU / 1 GiB、單 task、單 parallelism。真實 acceptance 記錄 elapsed_seconds 與 peak_rss_mib；未確認需求前不提高資源。免費 pip-audit 2.10.1 掃描 83 個鎖定依賴，修正 urllib3 三項已知漏洞後固定 2.8.0，重掃沒有已知漏洞。此結果不保證未知漏洞或 container OS 安全；禁止付費 Artifact Analysis。
-
-## 歷史回補與現行範圍
-
-2026-10-03的21交易日／500輕量資料／Deep Coverage多年回補是歷史工作，不再是本次可重播指令。現行市場資料與研究母體為全上市櫃，歷史研究依日期membership與來源可得性；實際回補範圍、時間窗、成本和retention先固定於版本化request，不因本契約自動全量回補。
-
-篩選規則分數與5/20/60/120日報酬需明示窗口與feature version，不因歷史長短而混合窗口排名；分數不是預測機率。Core持續保存當時available-at與provenance，不回填假歷史。
-
-Stage／Core／Deep Coverage／財報／Mart保留期與引用保護唯一依 [retention治理](retention-governance.md)。全市場研究所需歷史若超出現有保留窗，先提出分片／快照與來源／成本差異，不能悄悄改成全市場1096天或刪除研究引用。
+執行與狀態：[TODO](../todo.md)、[D07 任務卡](../execution-cards/d07-specialist-b9-oos.md)、[PROJECT_RULES](../PROJECT_RULES.md)。新 GAS/Drive/Colab 並非已上線；live GCP/BQ 真實退役須有獨立 readback。
