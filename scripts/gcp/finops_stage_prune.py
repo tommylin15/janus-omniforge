@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 import json
 import os
 from ingestion_core.__main__ import _control_plane
-from ingestion_core.retention import POLICY, clean_stage
+from ingestion_core.retention import POLICY, clean_stage, _stage_live_execution_ids
 from ingestion_core.stage import GcsObjectStore
 
 BUCKET = "gen-lang-client-0593591102-dev-stage"
@@ -33,11 +33,7 @@ def run():
     store = GcsObjectStore(BUCKET)
     # Read the actual control-plane state, never assume that all executions are terminal.
     with _control_plane() as control, control.connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT execution_id FROM control.executions "
-            "WHERE status IN ('queued','running','retrying')"
-        )
-        active = frozenset(str(row[0]) for row in cursor.fetchall())
+        active = _stage_live_execution_ids(cursor, now=now)
     before_items = store.objects("")
     if len(before_items) > MAX_BUCKET_OBJECTS:
         raise RuntimeError("stage_bucket_inventory_exceeds_limit")
@@ -48,6 +44,12 @@ def run():
         raise RuntimeError("stage_prune_budget_exceeded")
     # For a write pass, reject a changed inventory before any delete.
     if mode == "apply":
+        # A stale status alone is not an active Stage fence. Recheck live
+        # leases immediately before deletion; a newly claimed execution
+        # invalidates the entire candidate plan.
+        with _control_plane() as control, control.connection.cursor() as cursor:
+            if _stage_live_execution_ids(cursor, now=datetime.now(timezone.utc)) != active:
+                raise RuntimeError("stage_prune_live_lease_drift")
         latest = store.objects("")
         if {(i["name"], i["generation"]) for i in before_items} != {
                 (i["name"], i["generation"]) for i in latest}:
