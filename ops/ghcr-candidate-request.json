@@ -1,11 +1,11 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "a7e1e7c276e735f629f90525f7f7cf6e7411b07b",
+  "sha": "caca7d383c236425417b582167d26fafbcba3e27",
   "digest": "",
-  "release_run": "39345633766",
+  "release_run": "39355867356",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "STAGE-48H combined dedupe/Admin GCS inventory: exact release #39345633766 PASS; deploy only 0% candidate, unauthenticated readback. Preserve current 100% active service until OAuth boundary, Jobs rollout and guarded promotion."
+  "purpose": "Release #39355867356 full Python + Flutter + four pinned GHCR images PASS; stage lease-aware 48-hour cleanup and removed legacy Mart retrain contract. Create existing dev API 0% candidate without traffic mutation; verify public/OAuth negative gate before four Jobs update."
 }
