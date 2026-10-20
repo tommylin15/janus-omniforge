@@ -3,6 +3,6 @@
   "no_gcp_mutation": true,
   "project": "gen-lang-client-0593591102",
   "region": "us-central1",
-  "scope": "STAGE-48H debug active canary/previous nonterminal execution metadata while Scheduler PAUSED; only existing four Jobs. Read-only, no lease or job writes",
-  "attempt": 12
+  "scope": "STAGE-48H combined deployment preflight: read-only four existing Jobs exact GHCR immutable images and configuration fingerprints, Cloud Scheduler state and all-page execution terminal fence, verify weekly maintenance preserved; no mutations",
+  "attempt": 13
 }
