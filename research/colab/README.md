@@ -21,7 +21,7 @@ drive.mount('/content/drive')
 !python janus-omniforge/research/colab/collect_tw_equities.py \
   --drive-root '/content/drive/MyDrive/janusChatGPT/資料源' \
   --start 2025-01 --end 2026-09 --revision r1 \
-  --max-requests 120 --interval 2
+  --max-requests 20 --max-minutes 10 --interval 2
 ```
 
 **2026-10-20 休市日修復**：已按交易所公告將 2025／2026 年已知休市日（含元旦、春節「僅結算不交易」日）列為 `SCHEDULED_CLOSURE`，跳過行情 API 請求但在 checkpoint、manifest、quality 保留日期證據。正常交易日回傳空行情仍視為失敗；不把 API 故障當成休市。既有完成 checkpoint 不需重抓；若 Colab 已 clone 舊版，先更新：
@@ -30,7 +30,9 @@ drive.mount('/content/drive')
 !git -C /content/janus-omniforge pull --ff-only origin main
 ```
 
-重跑**相同指令**會從已完成 checkpoint 繼續。每 10 個平日／市場落一份壓縮 checkpoint；兩市場皆完成整月才寫入最終 manifest，先驗證全部 SHA256，再移除該月份的 checkpoint。單次 120 次請求為控制用量而設的上限，不是 API 官方配額；若來源拒絕或限流，保留錯誤並停止，不繞過。實際採集速度由來源反應及 Colab 免費執行時長決定，不保證一輪完成兩年。**尚未結束的月份不封存**，避免當月早期資料被誤標完整。
+**分段斷線續跑（Colab 無須一直開）**：建議每次手動執行 `--max-requests 20 --max-minutes 10`，先達到請求數或時間上限就回報 `PARTIAL`，正常停止；再次連上 Colab、掛載**同一個 Drive**，更新 GitHub 後執行**同一命令**，從缺少的日期續抓。即使免費 Colab 中途斷線，已成功的一天會立刻寫入同一個 10 日 checkpoint，最多重抓當日未完成的請求；檔案存 Drive，非 Colab 暫存 `/content`。時間限制預留 90 秒安全餘裕以防長請求／Drive 寫入；來源長時間重試可能仍超時。**沒有背景自動執行：斷線後需由使用者重新連線並啟動。** 用 `r1` 繼續，不要換版號、刪 checkpoint 或重抓已封存月份。
+
+重跑**相同指令**會從已完成 checkpoint 繼續。每 10 個平日／市場使用同一份壓縮 checkpoint，**每完成一個交易日就更新保存**；兩市場皆完成整月才寫入最終 manifest，先驗證全部 SHA256，再移除該月份的 checkpoint。單次 20 次請求為建議的短批次控制用量，不是 API 官方配額；若來源拒絕或限流，保留錯誤並停止，不繞過。實際採集速度由來源反應及 Colab 免費執行時長決定，不保證一輪完成兩年。**尚未結束的月份不封存**，避免當月早期資料被誤標完整。
 
 Drive 範例結構：
 
