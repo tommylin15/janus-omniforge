@@ -69,7 +69,7 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 
 - 此決策只針對既有 dev Stage Bucket：`gen-lang-client-0593591102-dev-stage`，將原始 payload、sidecar、manifest、quarantine 與 Stage commit marker 的保留期固定為 **48 小時（2 天）**；覆蓋較早「維持7天／只執行一次2天特例」的討論。以物件 metadata `updated` 的 UTC 時間計算到期。與 Core/Mart Iceberg orphan 的 7 日檔齡及私有資料保存期限**不同**，不可連動修改。
 - 透過既有 Controller／`janus-ingestion-core` 執行每日一次 Stage-only cleanup，不把日清理拖進每週的 Iceberg compaction；既有週六 Core/Mart 維護不變。清理成功以實際 generation 刪除、物件數與 bytes 前後讀回為準，未部署、未觸發、未驗收的狀態不得稱 PASS。
-- active queued/running/retrying execution 及其有憑據的共用原始資料不得刪；不再因「可能會用到」無憑據假設將其餘到期物件無限保留。刪除限現役 dev Stage、現有 worker fencing／固定 GCS generation／allowlist／有界資源與失敗讀回。Hash/MD5 相同只代表疑似內容相同：多份 provenance/manifest 正在引用時不得直接刪去全部副本；去重需驗證代表物件與來源引用、回寫及重跑安全，未知時單獨標記。
+- **有效租約**而非單純 `status` 決定 Stage active 引用保護：僅 `queued/running/retrying` 且 PostgreSQL `claimed_until > UTC now` 的執行與其共用原始資料受保護；`running/retrying/queued` 過期或無租約，不得讓 **48 小時已到期** Stage 永久保留。未滿 48 小時的物件仍由 TTL 保護；apply 前需重新讀取有效租約，若執行集合改變即 fail closed。此處只調整 dev Stage 的 active 判定，不修改 Core manifest／row 的有效引用政策。刪除限現役 dev Stage、既有 worker fencing／固定 GCS generation／allowlist／有界資源與失敗讀回。Hash/MD5 相同只代表疑似內容相同：有有效租約仍在引用時不得直接刪去全部副本；去重需保留代表物件與 provenance，實際可刪容量需 generation 讀回。
 - 本節是使用者明確核准的 2 天 Stage TTL 與現有 dev 範圍受控清理，**不**授權刪除 Core 現用檔、Mart、Research frozen training input 或 Private Owner 資料。
 
 ### 1.9 D07-PRE 研究路線、資料門檻與立即退役（2026-10-20）
