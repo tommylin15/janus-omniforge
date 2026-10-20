@@ -32,6 +32,40 @@ EMPTY_TOKENS = {'', '--', '---', '-', '－', 'N/A', 'null', '除權', '除息'}
 EXCLUDE_NAME = re.compile(r'ETF|ETN|指數投資|認購|認售|權證|存託憑證|特別股|受益憑證|債券|基金', re.I)
 
 
+# Official exchange non-trading dates, limited to the approved 2025-2026 backfill.
+# 2025 TWSE holiday announcement and year schedule:
+#   https://eshop.twse.com.tw/zh/news/detail/8a82e9e69471d3e8019495d93c4f0019
+#   https://www.twse.com.tw/zh/trading/holiday.html
+# 2026 TWSE published calendar:
+#   https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule
+# Scheduled "settlement only" sessions are CLOSED to securities trading.
+# These dates apply to TWSE + TPEx cash equities, NOT futures trading.
+# Unscheduled typhoon closures are not inferred or silently ignored.
+_SCHEDULED_CLOSURES = {
+    2025: (
+        '01-01', '01-23', '01-24', '01-27', '01-28', '01-29', '01-30', '01-31',
+        '02-28', '04-03', '04-04', '05-01', '05-30', '09-29', '10-06',
+        '10-10', '10-24', '12-25',
+    ),
+    2026: (
+        '01-01', '02-12', '02-13', '02-16', '02-17', '02-18', '02-19',
+        '02-20', '02-27', '04-03', '04-06', '05-01', '06-19', '09-25',
+        '09-28', '10-09', '10-26', '12-25',
+    ),
+}
+EXCHANGE_CLOSURES = frozenset(
+    date.fromisoformat(f'{year}-{md}')
+    for year, month_days in _SCHEDULED_CLOSURES.items()
+    for md in month_days
+)
+TRADING_CALENDAR_SOURCE = 'TWSE:annual_market_holidays_2025_2026'
+
+
+def is_scheduled_closure(day: date) -> bool:
+    return day in EXCHANGE_CLOSURES
+
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -229,10 +263,17 @@ def collect_chunk(session, market: str, dates: list[date], universe: dict, unive
     if path.exists():
         read_chunk(path, universe_hash)
         return True
-    if request_budget[0] < len(dates):
+    # A scheduled closure consumes no API request but remains traceable in
+    # monthly quality/manifest. Reserve budget only for actual trading dates.
+    planned_requests = sum(not is_scheduled_closure(day) for day in dates)
+    if request_budget[0] < planned_requests:
         return False
     rows, statuses = [], []
     for day in dates:
+        if is_scheduled_closure(day):
+            statuses.append({'day': day.isoformat(), 'status': 'SCHEDULED_CLOSURE',
+                             'calendar_source': TRADING_CALENDAR_SOURCE})
+            continue
         url, params = daily_url(market, day)
         payload, source_hash = fetch_json(session, url, params)
         request_budget[0] -= 1
@@ -323,7 +364,8 @@ def finalize_month(root: Path, month: str, revision: str, days: list[date], rost
     quality = {'status': 'PROBE', 'market_counts': market_counts,
                'historical_pit': 'NOT_VERIFIED', 'historical_survivorship': 'CURRENT_MASTER_ONLY',
                'research_70pct_certified': False, 'missing_financials': 'UNAVAILABLE',
-               'corporate_actions': 'UNADJUSTED', 'market_calendar': 'EXPLICIT_OFFICIAL_NO_DATA',
+               'corporate_actions': 'UNADJUSTED', 'market_calendar': TRADING_CALENDAR_SOURCE + '_AND_EXPLICIT_OFFICIAL_NO_DATA',
+               'scheduled_closure_days': sum(s['status'] == 'SCHEDULED_CLOSURE' for s in statuses),
                'collected_days': sum(s['status'] == 'COLLECTED' for s in statuses),
                'no_data_days': sum(s['status'] == 'OFFICIAL_NO_DATA' for s in statuses)}
     content[f'quality-{revision}.json'] = json_bytes(quality)
