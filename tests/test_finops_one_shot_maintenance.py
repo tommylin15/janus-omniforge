@@ -341,3 +341,39 @@ def test_stage_aged_purge_fenced_worker_receipt(monkeypatch, capsys, operation, 
     if worker_mode == 'apply':
         with pytest.raises(RuntimeError, match='generation_readback_failed'):
             m.execute_maintenance(request, {'containers': [{'image': image}]}, rollout, snapshots)
+
+
+
+def test_stage_dedupe_canary_fenced_receipt(monkeypatch, capsys):
+    module = load_module()
+    image = "ghcr.io/tommylin15/janus-ingestion-core@sha256:" + "e" * 64
+    snapshots = {"janus-ingestion-core": (image, "fingerprint")}
+    rollout = SimpleNamespace(
+        checked_image=lambda *args: {"image": image},
+        image=lambda job: job["image"])
+    request = {"mode": "stage-dedupe-canary", "expected_image": image,
+               "approved_stage_bucket": "gen-lang-client-0593591102-dev-stage",
+               "user_approved_stage_dedupe_canary": True,
+               "stage_canary_no_core_mutation": True}
+    calls = []
+    monkeypatch.setattr(module, "call", lambda *args, **kwargs:
+                        calls.append(args) or "janus-ingestion-core-dedupe8")
+    evidence = {
+        "component": "stage-shared-raw-live-canary", "status": "PASS",
+        "proof": {"raw_created_once": True, "second_execution_reused": True,
+                  "distinct_provenance_manifests": True,
+                  "raw_payload_verified": True, "created_objects": 4},
+        "generation_cleanup": "PASS", "deleted_canary_objects": 4,
+        "leftover_canary_objects": 0, "core_deleted": 0,
+        "mart_deleted": 0, "private_deleted": 0,
+    }
+    monkeypatch.setattr(module, "log_evidence", lambda *args: evidence)
+    module.execute_maintenance(request, {"containers": [{"image": image}]}, rollout, snapshots)
+    assert json.loads(capsys.readouterr().out)["status"] == "PASS"
+    assert len(calls) == 1 and "JANUS_STAGE_DEDUPE_CANARY_APPROVED=true" in str(calls)
+    evidence["leftover_canary_objects"] = 1
+    with pytest.raises(RuntimeError, match="runtime_receipt_failed"):
+        module.execute_maintenance(request, {"containers": [{"image": image}]}, rollout, snapshots)
+    request.pop("user_approved_stage_dedupe_canary")
+    with pytest.raises(RuntimeError, match="explicit_scope_required"):
+        module.execute_maintenance(request, {"containers": [{"image": image}]}, rollout, snapshots)
