@@ -422,10 +422,9 @@ def run(*, now=None, session=None, control=None):
         pending = prioritize_nightly_private(pending, now)
         batches = {batch.name: batch for batch in effective_batches()}
         for key, state in pending:
-            if state.get("batch") == "specialist-retrain":
-                record(connection, tick, key,
-                       {**state, "status": "skipped", "reason": "retired_research_retrain"},
-                       "retired_research_retrain")
+            # Already-persisted rows for removed schedules must never dispatch.
+            if state.get("batch") not in batches:
+                record(connection, tick, key, {**state, "status": "skipped", "reason": "schedule_superseded"}, "schedule_superseded")
                 continue
             batch = batches[state["batch"]]
             if batch.name == "market-screening":

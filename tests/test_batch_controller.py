@@ -83,14 +83,6 @@ def test_weekly_eod_core_requires_successful_trading_slot_and_immutable_receipt(
     assert weekly_eod_core_evidence(db, slot) is None
 
 
-def test_old_monthly_retraining_does_not_schedule_on_first_saturday():
-    from ingestion_core.batch_controller import BATCHES
-    assert "specialist-retrain" not in {batch.name for batch in BATCHES}
-    for day in (3, 7, 5):
-        month = {3: 10, 7: 11, 5: 12}[day]
-        due = datetime(2026, month, day, 2, 30, tzinfo=timezone.utc)
-        assert all(row[1].name != "specialist-retrain" for row in due_batches(due))
-
 def test_private_pipeline_effective_schedule_is_controller_owned():
     from ingestion_core.batch_controller import BATCHES
     private = next(batch for batch in BATCHES if batch.name == "private")

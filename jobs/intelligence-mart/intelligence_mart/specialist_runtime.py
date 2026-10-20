@@ -256,18 +256,6 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 "specialist_status": "partial" if any(r["status"] != "ready" for r in references) else "ready",
                 "specialists": references, "llm_api_tokens": 0, "ceo_triggered": False,
                 "publication_authority": False}
-    if os.environ.get("MART_OOS_EVALUATION", "false").lower() == "true":
-        from .evaluation import evaluate_core_history
-        evaluations = evaluate_core_history(datasets, target["symbols"], as_of, execution.core_snapshot_id)
-        manifest["evaluation"] = _write_immutable_json(store, bucket, f"executions/{execution.execution_id}/oos-evaluation.json", evaluations)
-        manifest["evaluation_output_hash"] = manifest["evaluation"]["artifact_hash"]
-    if execution.config_id == "specialist-retrain":
-        from .monthly_reconciliation import reconcile_monthly_cache
-        monthly = reconcile_monthly_cache(store, bucket, target["symbols"], references, execution.core_snapshot_id,
-                                         core_manifest=core)
-        manifest["reconciliation"] = _write_immutable_json(
-            store, bucket, f"executions/{execution.execution_id}/monthly-reconciliation.json", monthly)
-        manifest["reconciliation_status"] = monthly["status"]
     manifest["output_hash"] = digest(manifest)
     ref = _write_immutable_json(store, bucket, manifest_name, manifest)
     if publication_connection is not None and os.environ.get("MART_PRODUCT_PROJECTION", "false").lower() == "true":
@@ -284,8 +272,7 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
             "rows_by_dataset": manifest["input_telemetry"].get("rows_by_dataset", {}),
             "scan_evidence": manifest["input_telemetry"].get("scan_evidence", {}),
             "screening_output_hash": manifest["screening_output_hash"],
-            "evaluation_output_hash": manifest.get("evaluation_output_hash"),
-            "reconciliation_status": manifest.get("reconciliation_status")}
+            "model_training": "external_colab_only"}
 
 
 def run_acceptance(*, processor=None, operation="specialist-acceptance"):
@@ -331,34 +318,6 @@ def run_deep_coverage():
     store = GcsObjectStore("gen-lang-client-0593591102-dev-core")
     event = latest_training_input(store, datetime.now(ZoneInfo("Asia/Taipei")).date())
     return _run_event(event, "deep-coverage")
-
-
-def run_baseline():
-    """B0 read/compute baseline on the latest immutable dev Core snapshot; never promotes a model."""
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
-    from ingestion_core.stage import GcsObjectStore
-    if os.environ.get("GCP_PROJECT_ID") != "gen-lang-client-0593591102" or os.environ.get("MART_BUCKET") != "gen-lang-client-0593591102-dev-mart":
-        raise ValueError("baseline is restricted to existing dev resources")
-    if os.environ.get("MART_OOS_EVALUATION", "false").lower() != "true":
-        raise ValueError("baseline requires OOS evaluation")
-    store = GcsObjectStore("gen-lang-client-0593591102-dev-core")
-    event = latest_training_input(store, datetime.now(ZoneInfo("Asia/Taipei")).date())
-    return _run_event(event, "specialist-baseline")
-
-
-def run_retraining():
-    """Monthly challenger fit/OOS on current data; never promotes a model."""
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
-    from ingestion_core.stage import GcsObjectStore
-    if os.environ.get("GCP_PROJECT_ID") != "gen-lang-client-0593591102" or os.environ.get("MART_BUCKET") != "gen-lang-client-0593591102-dev-mart":
-        raise ValueError("retraining is restricted to existing dev resources")
-    if os.environ.get("MART_OOS_EVALUATION", "false").lower() != "true":
-        raise ValueError("retraining requires OOS evaluation")
-    store = GcsObjectStore("gen-lang-client-0593591102-dev-core")
-    event = latest_training_input(store, datetime.now(ZoneInfo("Asia/Taipei")).date())
-    return _run_event(event, "specialist-retrain")
 
 
 def _run_event(event, operation, *, processor=None):

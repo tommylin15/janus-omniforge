@@ -36,21 +36,12 @@ def main():
         elif name == "specialist-acceptance":
             from .specialist_runtime import run_acceptance
             operation = run_acceptance
-        elif name == "specialist-baseline":
-            from .specialist_runtime import run_baseline
-            operation = run_baseline
         elif name == "deep-coverage":
             from .specialist_runtime import run_deep_coverage
             operation = run_deep_coverage
-        elif name == "specialist-retrain":
-            from .specialist_runtime import run_retraining
-            operation = run_retraining
         elif name == "market-screening":
             from .market_screening import run_daily
             operation = run_daily
-        elif name == "ml-oos-data-acceptance":
-            from .ml_oos_data import run_acceptance
-            operation = run_acceptance
         elif name == "market-screening-acceptance":
             from .market_screening import run_acceptance
             operation = run_acceptance
