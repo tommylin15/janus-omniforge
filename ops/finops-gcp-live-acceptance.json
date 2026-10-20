@@ -1,15 +1,15 @@
 {
   "intent": "one-shot-existing-dev-iceberg-maintenance",
   "no_new_resources": true,
-  "mode": "stage-aged-purge-dry-run",
+  "mode": "stage-aged-purge-apply",
   "rollout_run": 39346705950,
   "expected_source_sha": "a7e1e7c276e735f629f90525f7f7cf6e7411b07b",
   "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:aa9d56e477c2688128b96ebe7f658533502755e8827de8a2ee1448fd7632b65d",
   "core_retention_run": 39103394210,
   "mart_retention_run": 39105091080,
-  "purpose": "Explicitly approved 2026-10-20 >7-day stale-execution Stage objects only: bounded dry-run from existing 4,927-object 96,321,204-byte audit; no Core/Mart/Private or active-lease deletions.",
-  "acceptance": "Use existing GHCR rollback/source-fixed ingestion Job with owned lease, paused Scheduler and all-page terminal fence. Read current PG active leases and GCS generations before prospective aged purge; dry-run must write zero objects.",
-  "request_attempt": 21,
+  "purpose": "2026-10-20 user-authorized Stage-only aged stale running purge: dry-run #39354898619 PASS, 24 old expired/unclaimed running rows, exactly 4,927 objects/96,321,204 bytes. Delete only matching >7d execution Stage generations, protected live leases remain.",
+  "acceptance": "Under existing runtime lease, paused Scheduler, all-page Cloud Run terminal fence and exact fixed image: re-read PG leases, current GCS generations and refuse drift. Apply bounded deletions then independently read object+bytes deltas, restore Scheduler and release lease. No Core/Mart/Private mutation.",
+  "request_attempt": 22,
   "user_approved_unlinked_small_file_cleanup": true,
   "approved_stage_retention_hours": 48,
   "approved_stage_bucket": "gen-lang-client-0593591102-dev-stage",
@@ -19,5 +19,5 @@
   "stage_audit_read_only": true,
   "approved_stage_purge_older_days": 7,
   "user_approved_aged_stage_purge": true,
-  "approved_stage_purge_apply": false
+  "approved_stage_purge_apply": true
 }
