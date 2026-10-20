@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "f1c58a6885874baf6a8dc5e97a1e75dd7d1b25dc",
-  "purpose": "STAGE-48H lease-aware Stage retention fix and bounded concurrent generation deletes; full current-main GHCR release to deploy safe cleanup after 4,927-object stale-status issue. Keep current API/Owner/Core/Mart unchanged until separate controlled rollout.",
+  "sha": "77f9ab1dbc302388bfd0fe27f728d30e2782bab6",
+  "purpose": "Re-run complete 1513+ Python tests and Flutter for Stage 48h lease-aware cleanup, plus fix cached Mart analyst result contract. Publish immutable four-component GHCR images after both test families PASS; existing dev runtime remains unchanged until gated rollout.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
