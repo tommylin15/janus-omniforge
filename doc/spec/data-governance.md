@@ -35,7 +35,6 @@ Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當�
 | `market-screening`／intelligence-mart | 平日 16:30 | EOD ready、同日來源與排他鎖 |
 | `private`／private-pipeline | 平日 15:30、21:30 | 前者依 ingestion；後者為獨立 fallback slot |
 | `mobile-ledger`／private-pipeline | 每小時 :30 | 只有 pending 才執行 |
-| `specialist-retrain`／intelligence-mart | 每月**第一個週六 10:30** | 依 ingestion＋supplement、成熟 labels；無新資料 skip/reuse |
 | `data-quality`／ingestion-core | 每週六 12:30 | 獨立品質檢核，不是全量多年補抓 |
 | `stage-cleanup`／ingestion-core | **每日 18:30** | 只處理超過48小時且不被 active execution 使用的 Stage 物件；不啟動 Iceberg | 
 | `iceberg-compaction → mart-cleanup → core-cleanup` | **每週六 23:30** | `FINOPS_WEEKLY_MAINTENANCE=true` 才週維護；依序且可能跨小時 |
@@ -60,4 +59,4 @@ Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當�
 
 ## 7. 驗收與工作佇列
 
-**本文件僅統一規範，不自行授權**新的 retention apply、Cron 變更、BigQuery 切流或 D07 開工。執行權／範圍依 [TODO](../todo.md)，原 FINOPS-C 前置評估整併 D07-PRE，但必要的資料、安全、成本與 runtime gates 不免除。完成需分別讀回 GitHub code、tests、CI、live Job image、Scheduler/occurrence、資料 rows、source provenance、清除 objects/bytes 及 API/owner boundary；沒有證據維持 UNKNOWN/PARTIAL/NOT_VERIFIED。
+**本文件僅統一規範，不自行授權**新的 retention apply、Cron 變更、BigQuery 切流或 D07 開工。執行權／範圍依 [TODO](../todo.md)，已退休 FINOPS-C 模型資料前置路徑不再構成 D07-PRE 必經條件；新研究採集及正式模型發布各自保留必要安全與品質門檻。完成需分別讀回 GitHub code、tests、CI、live Job image、Scheduler/occurrence、資料 rows、source provenance、清除 objects/bytes 及 API/owner boundary；沒有證據維持 UNKNOWN/PARTIAL/NOT_VERIFIED。
