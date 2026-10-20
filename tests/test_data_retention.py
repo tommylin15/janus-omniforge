@@ -222,6 +222,105 @@ def test_stage_policy_is_two_days_and_cleanup_uses_48_hour_boundary():
     assert (result["planned_objects"], result["deleted_bytes"], result["held_active_objects"]) == (1, 17, 1)
 
 
+def test_stage_live_execution_fence_rejects_stale_status_without_valid_lease():
+    from datetime import timedelta
+    from unittest.mock import MagicMock
+    from ingestion_core.retention import _stage_live_execution_ids
+    now = datetime(2026, 10, 20, 1, tzinfo=timezone.utc)
+    cursor = MagicMock()
+    # PostgreSQL filters by claimed_until in the server, returning only
+    # real leases. Stale running/retrying/queued rows must not be considered
+    # live merely because of their nonterminal status.
+    def query(sql, params):
+        assert "claimed_until > %s" in sql
+        assert "status IN ('queued','running','retrying')" in sql
+        assert params == (now,)
+        fixtures = (
+            ("old-running", "running", now-timedelta(days=7)),
+            ("stale-retry", "retrying", now-timedelta(seconds=1)),
+            ("old-queued", "queued", None),
+            ("live-running", "running", now+timedelta(minutes=5)),
+            ("live-retrying", "retrying", now+timedelta(minutes=2)),
+        )
+        cursor.fetchall.return_value = [
+            (ident,) for ident, status, claimed_until in fixtures
+            if status in {"queued", "running", "retrying"}
+            and claimed_until is not None and claimed_until > now
+        ]
+    cursor.execute.side_effect = query
+    assert _stage_live_execution_ids(cursor, now=now) == frozenset({"live-running", "live-retrying"})
+
+
+def test_expired_control_lease_does_not_protect_old_stage_or_its_shared_payload():
+    import json
+    from datetime import timedelta
+    from unittest.mock import MagicMock
+    from ingestion_core.retention import _stage_live_execution_ids
+    now = datetime(2026, 10, 20, 1, tzinfo=timezone.utc)
+    current = [
+        {"name": "executions/stale/stage/key.json", "updated": "2026-10-01T00:00:00Z", "size": "2", "generation": "1"},
+        {"name": "raw/twse/ohlcv/shared/payload.json", "updated": "2026-10-01T00:00:00Z", "size": "3", "generation": "2"},
+        {"name": "executions/live/stage/key.json", "updated": "2026-10-01T00:00:00Z", "size": "2", "generation": "3"},
+        {"name": "raw/twse/ohlcv/live/payload.json", "updated": "2026-10-01T00:00:00Z", "size": "3", "generation": "4"},
+        {"name": "raw/twse/ohlcv/recent/payload.json", "updated": "2026-10-19T01:00:00Z", "size": "1", "generation": "5"},
+    ]
+    bodies = {
+        "executions/stale/stage/key.json": json.dumps({"raw_object_name": current[1]["name"]}).encode(),
+        "executions/live/stage/key.json": json.dumps({"raw_object_name": current[3]["name"]}).encode(),
+    }
+    deleted = []
+    store = SimpleNamespace(
+        bucket="dev",
+        objects=lambda _: list(current),
+        read=lambda name: bodies[name],
+        delete=lambda name, generation: deleted.append((name, generation)))
+    cursor = MagicMock()
+    cursor.fetchall.return_value = [("live",)]  # stale running has expired claim
+    effective_active = _stage_live_execution_ids(cursor, now=now)
+    plan = clean_stage(store, apply=False, now=now, active_executions=effective_active)
+    assert plan["planned_objects"] == 2 and plan["planned_bytes"] == 5
+    assert plan["held_active_objects"] == 2
+    assert plan["deleted_objects"] == 0
+    clean_stage(store, apply=True, now=now, active_executions=effective_active)
+    assert set(deleted) == {(current[0]["name"], "1"), (current[1]["name"], "2")}
+    assert all(item["name"] not in dict(deleted) for item in current[2:])
+
+
+def test_stage_only_refuses_delete_if_live_execution_claim_appears_between_scans(monkeypatch):
+    from contextlib import contextmanager
+    from unittest.mock import MagicMock
+    import pytest
+    from ingestion_core import retention
+    from ingestion_core import __main__ as runtime
+    monkeypatch.setenv("STAGE_BUCKET", "gen-lang-client-0593591102-dev-stage")
+    @contextmanager
+    def control():
+        cur = MagicMock()
+        yield SimpleNamespace(connection=SimpleNamespace(cursor=lambda: cursor(cur)))
+    @contextmanager
+    def cursor(obj):
+        yield obj
+    calls = {"reads": 0}
+    @contextmanager
+    def controlled():
+        cur = MagicMock()
+        calls["reads"] += 1
+        cur.fetchall.return_value = [] if calls["reads"] == 1 else [("new-live-claim",)]
+        yield SimpleNamespace(connection=SimpleNamespace(cursor=lambda: cursor(cur)))
+    monkeypatch.setattr(runtime, "_control_plane", controlled)
+    items = [{"name": "executions/new-live-claim/stage/item.json",
+              "updated": "2026-10-01T00:00:00Z", "generation": "1", "size": "5"}]
+    deletes = []
+    store = SimpleNamespace(
+        bucket="gen-lang-client-0593591102-dev-stage",
+        objects=lambda _: list(items),
+        delete=lambda name, generation: deletes.append((name, generation)))
+    monkeypatch.setattr(retention, "GcsObjectStore", lambda _: store)
+    with pytest.raises(RuntimeError, match="leases changed before deletion"):
+        retention.maintain_stage_only(apply=True, now=datetime(2026, 10, 20, 1, tzinfo=timezone.utc))
+    assert not deletes
+
+
 def test_stage_only_worker_never_opens_core_catalog_and_reads_back_deletions(monkeypatch):
     from unittest.mock import MagicMock
     from ingestion_core import retention, iceberg_maintenance
