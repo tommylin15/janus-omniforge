@@ -7,9 +7,9 @@
   "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:508a05b2fdb465caad4d589b041e420aff22ce048faae21d5bb0d4c66eba2165",
   "core_retention_run": 39103394210,
   "mart_retention_run": 39105091080,
-  "purpose": "Bounded Stage 48-hour actual apply acceptance after #39359037869 dry-run PASS confirmed 0 eligible objects/0 bytes, Stage 1457 objects/318859190 bytes. Exercise generation-fenced 48h apply code, confirm zero mutation and unchanged Core/Mart/Private; preserve weekly Iceberg cadence.",
+  "purpose": "STAGE-48H exact-source retry of no-op 48h apply. Prior #39359331473 fail-closed before GCP due concurrent D07 commit moving main; NO Stage deletion. Other GCP D07 cleanup #39359490206 now terminal SUCCESS. Earlier true Stage 48h dry-run #39359037869 found 0 expired of 1,457 objects, live raw reuse #39358645373 PASS. Retry current-main lease safety, do not relax gate.",
   "acceptance": "Run with pinned caca7d38 image under global dev lease and paused Scheduler, all-page Cloud Run execution fence. PostgreSQL live leases rechecked and GCS generations re-listed before apply; verify exact before/after and stage-only receipt, restore Scheduler; if no expired objects must return 0/0 PASS.",
-  "request_attempt": 25,
+  "request_attempt": 26,
   "approved_stage_retention_hours": 48,
   "approved_stage_bucket": "gen-lang-client-0593591102-dev-stage",
   "approved_stage_apply": true,
@@ -18,5 +18,6 @@
   "approved_stage_purge_older_days": 7,
   "approved_stage_purge_apply": false,
   "user_approved_stage_dedupe_canary": false,
-  "stage_canary_no_core_mutation": true
+  "stage_canary_no_core_mutation": true,
+  "blocked_attempt": "39359331473 FRESH_MAIN_DISPATCH_LEASE_SOURCE_MISMATCH no deletion"
 }
