@@ -13,7 +13,7 @@
 6. 以可重現的 immutable evaluation/model/hash 導入 Janus Mart，只用於受控驗證、registry、rollback、推論／報告；正式服務不得改用 Drive 資料當 canonical number，不在 BigQuery／Cloud Run 建第二模型訓練器。
 
 ## 3. 退役及保留
-- **舊 `specialist-retrain` Controller 月度派送、手動 workflow/request，及專屬舊研究 ML/OOS BQ 路線現在直接退役，不等新 GAS／Colab 完成。** Live 資源須獨立確認已停派、刪除與讀回；無法驗證保持 NOT_VERIFIED。沒有研究相依的共用正式服務必須保留。
+- **舊 `specialist-retrain` Controller 月度派送、手動 workflow/request 與專屬舊研究 ML/OOS BQ 路線已退役，2026-10-20 實機驗收 `CLOSED`。** 詳見 [唯一結案收據](../archive/d07-gcp-bq-retirement-live-2026-10-20.md)；不為無異常證據的未知排程或資源重開工項。沒有研究相依的共用正式服務繼續保留。
 - 保留現役正式 Core／Mart、TWSE/TPEx 正式品質 Gate、Owner/Portfolio、Market Screening、API、Stage 48h、Iceberg 週維護及備份。個人持有 ETF 仍能在持股頁顯示，但研究訓練母體不能包含 ETF。
 - 本工項不新增付費 API、GCP 資源、擴權或刪除任何尚有正式引用的 canonical、private、已核准保護資料。個人非商業研究仍遵守資料來源存取、模型訓練與存放條款。
 
