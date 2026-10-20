@@ -1,11 +1,11 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "e14259bf0117b5655862a577491cfe8f7bbe4b8b",
+  "sha": "a7e1e7c276e735f629f90525f7f7cf6e7411b07b",
   "digest": "",
-  "release_run": "39272058864",
+  "release_run": "39345633766",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "STAGE-48H: source SHA full Python/Flutter GHCR release PASS. Only 0% candidate and negative auth probes; preserve existing API 100% revision."
+  "purpose": "STAGE-48H combined dedupe/Admin GCS inventory: exact release #39345633766 PASS; deploy only 0% candidate, unauthenticated readback. Preserve current 100% active service until OAuth boundary, Jobs rollout and guarded promotion."
 }
