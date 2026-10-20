@@ -16,6 +16,10 @@
 
 ## 2. STAGE-48H｜最新核准的儲存清理工作（不重開 FINOPS-AB）
 
+**2026-10-20 老 Stage 物件清理補充（使用者明確核准）**：[實機 dry-run #39351045998](https://github.com/tommylin15/janus-omniforge/actions/runs/39351045998) 觀察 61 筆 active control record，其中 4,927 個舊 Stage 物件因 status=running 被 hold；[GCP Stage apply #39351609294](https://github.com/tommylin15/janus-omniforge/actions/runs/39351609294) 已 generation PASS 實刪另外 37 件／38,396 bytes。後續 [控制紀錄稽核 #39352303651](https://github.com/tommylin15/janus-omniforge/actions/runs/39352303651) 確認 24 筆超過 7 天的 running control 紀錄持有該 4,927 件／96,321,204 bytes，**有效未到期的 claimed_until 為 0**；這是控制面 active status 的保守保護，**不是模型訓練引用證據**。使用者已授權移除超過 7 天的這類失效 Stage 舊物件與證實可移除的實體重複副本，但**尚未實際刪除 4,927 件**；批次刪除執行路徑未成功建立，仍不得冒稱執行完成。MD5 潛在額外 165,308,239 bytes 未核對實體副本／刪除 generation，不得列入已釋放容量。不得影響 Core/Mart/Private 或將未驗證標 PASS。
+
+
+
 **10/20 最新 GCS 六桶 metadata-only readback（獨立 CI 身分，非 Admin OAuth）**：[FinOps #39349927067](https://github.com/tommylin15/janus-omniforge/actions/runs/39349927067) OBSERVED_COMPLETE，六桶 current **1,055,828,835 bytes**／noncurrent **16,877,094 bytes**／soft-deleted 0；Stage current **6,265 objects／406,329,684 bytes**。其中 **4,927 個／96,321,204 bytes 已超過 7 天**，與過往 active 引用保護數目吻合但**未逐筆驗證有效性**，要查 PG queued/running/retrying 與 manifest 是否仍有真實工作，不能盲刪；Stage 同 MD5 潛在重複 **165,308,239 bytes** 不是刪除資格。CI 的 GCS metadata 讀權限不等於 API serving identity 或 Admin 正向按鈕已可用。
 
 
