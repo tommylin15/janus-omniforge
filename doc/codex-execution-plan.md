@@ -14,11 +14,13 @@
 | **D08** | [D08 CEO 卡](execution-cards/d08-ceo-admin-owner-report.md) | [AI/Mart SPEC](spec/intelligence-and-governance.md)、[Admin UI](ui/admin.md)；Validated Fact Pack/Owner/報告 |
 | **已結案 D01～D06／DRL-01／Admin v2** | [歷史任務卡索引](execution-cards/README.md)＋[結案](wbs/completed-index.md) | **不重啟**歷史 gate；若新缺陷實際影響正在開發的 D07/D08，按該工項修復 |
 
-## 2. D07-PRE/D07 禁止多套訓練流程
+## 2. D07-PRE／D07：立即清理舊流程，新研究路線分離
 
-- **定案的唯一建模工作流程**：合格 canonical Core/受控唯讀 Parquet → **Colab 做資料清理／join、特徵、標籤、24月 rolling 模型 fit／校準／OOS** → immutable model/metric/hash → Janus Mart 驗證／登錄／正式推論。BigQuery 預設 DEFER，只有 Colab 大規模資料處理**實測 RAM/耗時/I/O 瓶頸**、成本/PIT／授權合格時才用 SQL **前置縮減**後回 Colab；**不是 BQML、Cloud Run 訓練器或第二套 Cron**。
-- 既有第一個週六 10:30 Controller due 保留，但 Mart 的既有 `specialist-retrain` 含訓練程式，尚未遷移；免費 Colab 未證實 unattended。D07 前置先有界人工執行／回傳 hash，未跑標 `PENDING_MANUAL／NOT_VERIFIED`，沿用已核准 baseline，**不可假裝已自動重訓**。若要正式自動化，先取得合法 Colab 執行方式與必要帳號/IAM／付費授權。
-- Quant → Risk 先行；Fundamental/Valuation 按真實季度與 source availability；Event 未有合法訓練授權與人審標籤先維持規則。先採 baseline vs challenger 同資料/OOS，成熟 labels、purge、holdout、成本／source/PIT、效能、回滾與受控 promotion；fit success ≠ quality PASS。
+- **只要新架構確定不使用、正式服務無引用，舊研究執行器現在就移除，不等待新 GAS／Colab 系統建置或驗收。** 退役順序優先 Controller `specialist-retrain` 月度派送、手動 workflow/request、Mart fit、專屬 B5～B8 ML/OOS Cloud Run/BQ 中轉。GCP 真正資源刪除後必須讀回；GitHub commit 不代表 live 已清理。
+- 新研究唯一輸入：[GAS 第三方 API → 私有 Drive 每月 ZIP → Colab 人工建模](spec/research-collection-gas-drive-colab.md)，普通股母體排除 ETF，TWSE／TPEx 各 dataset 最低 70%。先盤點現有公開欄位可得性與缺值，不用舊 Core frozen Parquet、BQ SQL 或完整歷史 PIT census 才能開始抓資料。研究時點欄位仍保留供後續標籤，正式 OOS/promotion 要防 future leakage。
+- 五分析師 Quant／Risk 優先、Valuation/Fundamental 依欄位、Event 真人標註及來源權利未核准時保留 Rules。Colab 模型與確定性 baseline 同一 OOS、模型 version/hash、費用/安全/rollback；Janus Mart 不再訓練新模型。
+- **保留正式服務**：Core/EOD／Screening、Private Owner、持股 ETF 行情、API、週 Iceberg 清理、Stage 48h 及備份。正式 Core 90%/70% 品質規範不被研究 70% 改掉。現役共用 BQ/Job 只有在確認其他服務不使用後才能刪。
+- 舊研究日誌及歷史 B5～B8 artifacts 可以保留必要 audit 證據，但不得重新成為開發 prerequisite，也不得將它們的殘留排程保留為「相容性」。
 
 ## 3. 最小工程閉環與合併驗收
 
