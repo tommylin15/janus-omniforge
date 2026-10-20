@@ -22,7 +22,8 @@
 
 ```bash
 !pip -q install pandas numpy scikit-learn
-!python research/colab/risk_pilot.py --cutoff 2026-03-31 --result risk_pilot_oos.json /content/drive/MyDrive/janusChatGPT/資料源/_pilot_risk/r1/2025-*.zip
+!git clone -q --depth 1 https://github.com/tommylin15/janus-omniforge.git
+!python janus-omniforge/research/colab/risk_pilot.py --cutoff 2026-03-31 --result risk_pilot_oos.json /content/drive/MyDrive/janusChatGPT/資料源/_pilot_risk/r1/2025-*.zip /content/drive/MyDrive/janusChatGPT/資料源/_pilot_risk/r1/2026-*.zip
 ```
 
 > Shell 萬用字元須由 notebook shell 正確展開；Drive 若非位於 MyDrive 此路徑，依實際掛載點調整。此命令為操作範例，非已完成實跑的證據。完整樣本通常需要足夠的 60 日特徵暖機、20 日成熟標籤及 OOS 區間。
