@@ -1,6 +1,7 @@
 """Bounded public-data retention; only current snapshots survive maintenance."""
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 import json
 import os
@@ -78,7 +79,19 @@ def clean_stage(store: Any, *, apply: bool, now: datetime,
         elif age >= timedelta(days=POLICY["stage_days"]):
             candidates.append(item)
     if apply:
-        for item in candidates: store.delete(item["name"], generation=item["generation"])
+        # Stage can accumulate thousands of stale execution artefacts. Use
+        # bounded I/O parallelism to complete the same generation-fenced
+        # deletion plan within the Cloud Run task deadline. Exceptions propagate
+        # and must never be reported as a successful full cleanup.
+        if len(candidates) > 20:
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                futures = [pool.submit(store.delete, item["name"], generation=item["generation"])
+                           for item in candidates]
+                for future in futures:
+                    future.result()
+        else:
+            for item in candidates:
+                store.delete(item["name"], generation=item["generation"])
     return {"bucket": store.bucket, "planned_objects": len(candidates),
             "planned_bytes": sum(int(item["size"]) for item in candidates),
             "deleted_bytes": sum(int(item["size"]) for item in candidates) if apply else 0,
