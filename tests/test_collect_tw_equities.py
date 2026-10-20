@@ -9,6 +9,7 @@ import pytest
 from research.colab.collect_tw_equities import (
     company_universe, parse_twse, parse_tpex, months_between, month_days,
     collect_chunk, finalize_month, digest, json_bytes, read_chunk,
+    is_scheduled_closure,
 )
 
 
@@ -160,3 +161,52 @@ def test_risk_folder_reader_accepts_verified_month_and_rejects_corruption(tmp_pa
     (tmp_path/'2026-10'/'ohlcv-r1.csv.gz').write_bytes(b'bad')
     with pytest.raises(ValueError, match='SHA256 mismatch'):
         load_monthly_folders([tmp_path/'2026-10'])
+
+def test_2025_new_year_closure_does_not_fetch_or_consume_budget(tmp_path):
+    """Regression for real Colab traceback: TPEx 2025-01-01."""
+    payload = {'tables': [{'data': [
+        ['6488', '環球晶', '355', '+1', '352', '356', '349', '', '2,500', '887,500', '40'],
+    ]}]}
+    session = FakeSession(payload)
+    path = tmp_path/'tpex-000.json.gz'
+    budget = [1]
+    dates = [date(2025, 1, 1), date(2025, 1, 2)]
+    assert is_scheduled_closure(dates[0])
+    assert not is_scheduled_closure(dates[1])
+    assert collect_chunk(session, 'tpex', dates, {'6488': {}}, 'u1', path,
+                         min_interval=0, request_budget=budget)
+    assert session.calls == 1 and budget == [0]
+    chunk = read_chunk(path, 'u1')
+    assert [s['status'] for s in chunk['days']] == ['SCHEDULED_CLOSURE', 'COLLECTED']
+    assert chunk['days'][0]['calendar_source'].startswith('TWSE:')
+    assert [r['trade_date'] for r in chunk['rows']] == ['2025-01-02']
+    assert collect_chunk(session, 'tpex', dates, {'6488': {}}, 'u1', path,
+                         min_interval=0, request_budget=budget)
+    assert session.calls == 1
+
+
+def test_holiday_only_chunk_with_no_budget_still_checkpoints(tmp_path):
+    session = FakeSession({'unexpected': True})
+    path = tmp_path/'new-year-2026.json.gz'
+    assert collect_chunk(session, 'twse', [date(2026, 1, 1)],
+                         {'2330': {}}, 'u2', path, min_interval=0, request_budget=[0])
+    assert session.calls == 0
+    saved = read_chunk(path, 'u2')
+    assert saved['rows'] == [] and saved['days'][0]['status'] == 'SCHEDULED_CLOSURE'
+
+
+def test_exchange_settlement_only_days_are_not_trading_days():
+    assert all(is_scheduled_closure(date(2025, 1, d)) for d in (23, 24, 27, 28, 29, 30, 31))
+    assert all(is_scheduled_closure(date(2026, 2, d)) for d in (12, 13, 16, 17, 18, 19, 20))
+    assert is_scheduled_closure(date(2026, 9, 28))
+    assert not is_scheduled_closure(date(2025, 1, 2))
+    assert not is_scheduled_closure(date(2026, 2, 23))
+
+
+def test_empty_response_on_expected_trading_day_still_fails(tmp_path):
+    session = FakeSession({'tables': [{'data': []}]})
+    with pytest.raises(ValueError, match='no valid ordinary-stock bars'):
+        collect_chunk(session, 'tpex', [date(2025, 1, 2)], {'6488': {}}, 'u3',
+                      tmp_path/'bad.json.gz', min_interval=0, request_budget=[1])
+    assert session.calls == 1
+    assert not (tmp_path/'bad.json.gz').exists()
