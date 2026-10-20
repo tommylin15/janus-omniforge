@@ -16,6 +16,10 @@
 
 ## 2. STAGE-48H｜最新核准的儲存清理工作（不重開 FINOPS-AB）
 
+**10/20 最新 GCS 六桶 metadata-only readback（獨立 CI 身分，非 Admin OAuth）**：[FinOps #39349927067](https://github.com/tommylin15/janus-omniforge/actions/runs/39349927067) OBSERVED_COMPLETE，六桶 current **1,055,828,835 bytes**／noncurrent **16,877,094 bytes**／soft-deleted 0；Stage current **6,265 objects／406,329,684 bytes**。其中 **4,927 個／96,321,204 bytes 已超過 7 天**，與過往 active 引用保護數目吻合但**未逐筆驗證有效性**，要查 PG queued/running/retrying 與 manifest 是否仍有真實工作，不能盲刪；Stage 同 MD5 潛在重複 **165,308,239 bytes** 不是刪除資格。CI 的 GCS metadata 讀權限不等於 API serving identity 或 Admin 正向按鈕已可用。
+
+
+
 - [x] **48 小時到期資料清理**：dry-run → 受控 generation apply → before/after bytes 讀回；另以 Cloud Logging 確認 2,050 筆的獨立 apply 收據。
 - [ ] **Stage 安全去重實機驗收**：程式、tests、雙 canary、四 Jobs 部署已 PASS；仍須驗新 raw object reused flag、不同 execution provenance manifest、active 引用保護、48h TTL/舊資料相容性。
 - [ ] **每日自然排程驗收**：Scheduler 與 Jobs 部署 readback PASS；待今天 18:30 Asia/Taipei 的 Controller occurrence、Stage-only execution 終態、generation delete bytes、無重覆派送及每週 Iceberg 保持不變的實際收據。
