@@ -1,6 +1,15 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "488ed0efb072183abe73ef78c56b5739f750464c",
-  "purpose": "STAGE-48H: publish tested current main with 48h Stage-only worker/controller; subsequent 0% GHCR candidate and guarded Jobs cutover. No API traffic promotion.",
-  "scope": "full-python-flutter-ghcr"
+  "sha": "d4bdf7363c997e9e770905ca341cf5cb12aee9f2",
+  "purpose": "STAGE-48H combined work: shared immutable Stage payload with per-execution provenance; admin-authorized six-bucket GCS inventory; bounded trace and tests. Release all required images with existing CI/rollback controls.",
+  "scope": "full-python-flutter-ghcr",
+  "requested_component_scope": [
+    "ingestion-core",
+    "intelligence-mart",
+    "private-pipeline",
+    "api"
+  ],
+  "no_new_resources": true,
+  "keep_weekly_iceberg": true,
+  "stage_ttl_hours": 48
 }
