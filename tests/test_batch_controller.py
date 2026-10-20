@@ -83,32 +83,13 @@ def test_weekly_eod_core_requires_successful_trading_slot_and_immutable_receipt(
     assert weekly_eod_core_evidence(db, slot) is None
 
 
-def test_monthly_retraining_only_first_saturday_at_taipei_1030_with_dependencies():
-    # Oct starts on Thursday, November on Sunday, December on Tuesday.
+def test_old_monthly_retraining_does_not_schedule_on_first_saturday():
+    from ingestion_core.batch_controller import BATCHES
+    assert "specialist-retrain" not in {batch.name for batch in BATCHES}
     for day in (3, 7, 5):
         month = {3: 10, 7: 11, 5: 12}[day]
-        local_before = datetime(2026, month, day, 2, 29, tzinfo=timezone.utc)  # 10:29 Taipei
-        local_due = local_before.replace(minute=30)
-        assert not [row for row in due_batches(local_before) if row[1].name == "specialist-retrain"]
-        rows = [row for row in due_batches(local_due) if row[1].name == "specialist-retrain"]
-        assert len(rows) == 1
-        assert rows[0][0] == f"specialist-retrain/2026-{month:02d}-{day:02d}/10"
-        assert rows[0][3] == [f"ingestion/2026-{month:02d}-{day:02d}/07",
-                              f"data-supplement/2026-{month:02d}-{day:02d}/08"]
-        assert dict(rows[0][1].env) == {
-            "MART_OPERATION": "specialist-retrain",
-            "MART_OOS_EVALUATION": "true",
-            "MART_AI_ENABLED": "false",
-        }
-        assert not [row for row in due_batches(local_due.replace(day=day + 7))
-                    if row[1].name == "specialist-retrain"]
-    # Historical day-one schedule must never create a new monthly occurrence.
-    assert not [row for row in due_batches(datetime(2026, 11, 1, 4, tzinfo=timezone.utc))
-                if row[1].name == "specialist-retrain"]
-    with pytest.raises(ValueError):
-        due_batches(datetime(2026, 11, 7, tzinfo=timezone.utc),
-                    (Batch("invalid", "unused", (10,), month_days=(0,)),))
-
+        due = datetime(2026, month, day, 2, 30, tzinfo=timezone.utc)
+        assert all(row[1].name != "specialist-retrain" for row in due_batches(due))
 
 def test_private_pipeline_effective_schedule_is_controller_owned():
     from ingestion_core.batch_controller import BATCHES
