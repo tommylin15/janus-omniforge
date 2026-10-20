@@ -148,7 +148,7 @@ def main():
     request = json.loads(REQUEST.read_text())
     if (request.get("intent") != "one-shot-existing-dev-iceberg-maintenance"
             or request.get("no_new_resources") is not True
-            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup", "unlinked-small-files", "ci-approved-orphans", "enable-weekly", "mart-retention", "stage-only-dry-run", "stage-only-apply", "stage-control-audit", "stage-aged-purge-dry-run", "stage-aged-purge-apply"}
+            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup", "unlinked-small-files", "ci-approved-orphans", "enable-weekly", "mart-retention", "stage-only-dry-run", "stage-only-apply", "stage-control-audit", "stage-aged-purge-dry-run", "stage-aged-purge-apply", "stage-dedupe-canary"}
             or len(request.get("expected_source_sha", "")) != 40):
         raise RuntimeError("invalid one-shot GCP maintenance authorization")
     if request['mode'] in {'unlinked-small-files','ci-approved-orphans'} and request.get('user_approved_unlinked_small_file_cleanup') is not True:
@@ -231,6 +231,50 @@ def execute_maintenance(request, job, rollout, snapshots=None):
         print(json.dumps({'status':'PASS','operation':'enable-weekly','job':name,
                           'image':rollout.image(after),'weekly_maintenance':True,
                           'scheduler_schedule_changed':False}, sort_keys=True))
+        return
+    if request["mode"] == "stage-dedupe-canary":
+        # A tiny, synthetic Stage-only canary proves *real* immutable payload
+        # reuse, distinct per-execution provenance and exact-generation teardown.
+        if (request.get("approved_stage_bucket") != PROJECT + "-dev-stage"
+                or request.get("user_approved_stage_dedupe_canary") is not True
+                or request.get("stage_canary_no_core_mutation") is not True):
+            raise RuntimeError("stage_dedupe_canary_explicit_scope_required")
+        if snapshots is None or JOB not in snapshots:
+            raise RuntimeError("stage_dedupe_canary_owned_runtime_fence_required")
+        if rollout.image(rollout.checked_image(JOB, *snapshots[JOB])) != request["expected_image"]:
+            raise RuntimeError("stage_dedupe_canary_image_drift")
+        payload = Path("scripts/gcp/stage_shared_raw_canary.py").read_bytes()
+        inline = "import base64;exec(compile(base64.b64decode('" + base64.b64encode(payload).decode() + "'),'<stage-dedupe-canary>','exec'))"
+        if len(inline) > 28000 or "|" in inline:
+            raise RuntimeError("stage_dedupe_canary_command_budget")
+        container = list(containers(job))[0]
+        default_command = container.get("command") or []
+        if default_command not in ([], ["python"]):
+            raise RuntimeError("stage_dedupe_canary_entrypoint_drift")
+        args = (["-c", inline] if default_command else ["python", "-c", inline])
+        out = call("gcloud", "run", "jobs", "execute", JOB,
+                   "--project=" + PROJECT, "--region=" + REGION,
+                   "--args=^|^" + "|".join(args),
+                   "--update-env-vars=JANUS_STAGE_DEDUPE_CANARY_APPROVED=true,QUEUE_CONSUMER=false,ICEBERG_MAINTENANCE_MODE=,MART_JOB=,JANUS_DATA_SUPPLEMENT_MODE=",
+                   "--tasks=1", "--task-timeout=300s", "--wait",
+                   "--format=value(metadata.name)", timeout=480)
+        execution = out.splitlines()[-1].rsplit("/", 1)[-1]
+        if not execution.startswith(JOB + "-"):
+            raise RuntimeError("stage_dedupe_canary_execution_unknown")
+        evidence = log_evidence(execution, "stage-shared-raw-live-canary")
+        expected = {"raw_created_once": True, "second_execution_reused": True,
+                    "distinct_provenance_manifests": True, "raw_payload_verified": True,
+                    "created_objects": 4}
+        if (evidence.get("status") != "PASS" or
+                evidence.get("proof") != expected or
+                evidence.get("generation_cleanup") != "PASS" or
+                evidence.get("deleted_canary_objects") != 4 or
+                evidence.get("leftover_canary_objects") != 0 or
+                any(evidence.get(key) != 0 for key in
+                    ("core_deleted", "mart_deleted", "private_deleted"))):
+            raise RuntimeError("stage_dedupe_canary_runtime_receipt_failed")
+        print(json.dumps({"status": "PASS", "operation": "stage-dedupe-canary",
+                          "cloud_execution": execution, "evidence": evidence}, sort_keys=True))
         return
     if request["mode"] in {"stage-aged-purge-dry-run", "stage-aged-purge-apply"}:
         # Old running rows with expired or absent lease must not permanently
