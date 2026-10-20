@@ -6,7 +6,7 @@
 
 - 程式來源：私人 `janusChatGPT/GAS 程式/<檔名>.gs`。首次範例 `risk_monthly_pilot.gs`（Drive 檔案 ID：`1DTybrJBjYGwLmjXpAwBJH3ZiFeZwVzZq`）。
 - 建議 GitHub `main` 是程式審查/版本控制來源；Drive 的 `.gs` 是待同步副本。只允許明列的 Drive 檔案 ID、指定 Apps Script `scriptId` 及目標程式檔名。**修改 Drive 程式須重新審核並更新 `approvedSha256`。**
-- 人工執行 `janusGasLoaderPreview()`，檢查差異並取得10分鐘確認碼 → 設定 `JANUS_LOADER_CONFIRM_CODE` → 執行 `janusGasLoaderApply()`。不使用 `eval`。沒有確認碼絕不修改遠端 HEAD。
+- 人工執行 `janusGasLoaderPreviewFromEditor()`，檢查差異並取得10分鐘確認碼 → 設定 `JANUS_LOADER_CONFIRM_CODE` → 執行 `janusGasLoaderApplyFromEditor()`。不使用 `eval`。沒有確認碼絕不修改遠端 HEAD。
 - 同步保留目標專案其他 `.gs`/HTML/`appsscript.json` 的原始 `source`/`type`；`updateContent` 是整個專案內容覆寫 API，因此新增/替換檔案之前必須取得並攜回**完整**專案檔案清單。首次變更前建立 `projects.versions.create` 不可變版本，讀回備份一致才 PUT，PUT 後讀回全部檔案雜湊。失敗嘗試用備份版本復原、重新驗證，失敗標示 `rollback NOT VERIFIED`。
 - 只同步 HEAD 原始碼；不建立/執行觸發器、不更新 deployments、不修改來源、Owner 私有資料或 canonical。目標專案已有的觸發器在 HEAD 更新後可能使用新程式碼，因此**只挑選已核准的測試/專用目標**；不要對正在執行的正式 GAS 專案直接測試。
 - 不自行擴權、啟用付費服務，也不將 OAuth token、Secret、原始程式全文寫進 log。
@@ -29,8 +29,8 @@
 [{"key":"risk_pilot","sourceFileId":"1DTybrJBjYGwLmjXpAwBJH3ZiFeZwVzZq","scriptId":"填入你自己的目標ScriptID","destinationName":"risk_monthly_pilot","approvedSha256":"0000000000000000000000000000000000000000000000000000000000000000"}]
 ```
 
-6. 第一次執行 `janusGasLoaderPreview()` 將回報 `SOURCE_HASH_NOT_APPROVED` 及 `observedSha256`。請比對 Drive 程式和經審核的 GitHub 內容，**只有核對正確後**，把 JSON 的 `approvedSha256` 改成 `observedSha256`，再執行 Preview。Drive 複製/匯出可能帶 BOM 或 CRLF；Loader 統一為 LF 並保留一道尾行換行，SHA 依**正規化後的程式碼**計算。不可只因提示哈希就不看內容直接批准。
-7. Preview 若顯示 `REVIEW_REQUIRED`，核對 `targetScriptId`、`destination`、`existingFileCount`、`unchangedFileCount` 和 `sourceSha256`。於10分鐘內新增指令碼屬性 `JANUS_LOADER_CONFIRM_CODE`（填回 Preview 的12位碼），再執行 `janusGasLoaderApply()`。
+6. 第一次執行 `janusGasLoaderPreviewFromEditor()` 將回報 `SOURCE_HASH_NOT_APPROVED` 及 `observedSha256`。請比對 Drive 程式和經審核的 GitHub 內容，**只有核對正確後**，把 JSON 的 `approvedSha256` 改成 `observedSha256`，再執行 Preview（查看「執行紀錄」輸出）。Drive 複製/匯出可能帶 BOM 或 CRLF；Loader 統一為 LF 並保留一道尾行換行，SHA 依**正規化後的程式碼**計算。不可只因提示哈希就不看內容直接批准。
+7. Preview 若顯示 `REVIEW_REQUIRED`，核對 `targetScriptId`、`destination`、`existingFileCount`、`unchangedFileCount` 和 `sourceSha256`。於10分鐘內新增指令碼屬性 `JANUS_LOADER_CONFIRM_CODE`（填回 Preview 的12位碼），再執行 `janusGasLoaderApplyFromEditor()`。
 8. 成功應回傳 `SYNCED_VERIFIED`、`backupVersion`、檔案數與 `collectorExecuted=false`。開啟**目標** Apps Script 專案確認 `risk_monthly_pilot.gs` 已出現、其他檔案還在。之後 Risk 採集器本身需依 `research/colab/README.md` 設定 `JANUS_RESEARCH_FOLDER_ID`、來源授權等腳本屬性，並**另外手動**執行 `janusRiskPilotCollect()`；同步不會代跑。
 
 ## 日後更新 / 多專案
