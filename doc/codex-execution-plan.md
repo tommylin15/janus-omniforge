@@ -14,13 +14,13 @@
 | **D08** | [D08 CEO 卡](execution-cards/d08-ceo-admin-owner-report.md) | [AI/Mart SPEC](spec/intelligence-and-governance.md)、[Admin UI](ui/admin.md)；Validated Fact Pack/Owner/報告 |
 | **已結案 D01～D06／DRL-01／Admin v2** | [歷史任務卡索引](execution-cards/README.md)＋[結案](wbs/completed-index.md) | **不重啟**歷史 gate；若新缺陷實際影響正在開發的 D07/D08，按該工項修復 |
 
-## 2. D07-PRE／D07：立即清理舊流程，新研究路線分離
+## 2. D07-PRE／D07：舊研究退役已結案，新研究路線分離
 
-- **只要新架構確定不使用、正式服務無引用，舊研究執行器現在就移除，不等待新 GAS／Colab 系統建置或驗收。** 退役順序優先 Controller `specialist-retrain` 月度派送、手動 workflow/request、Mart fit、專屬 B5～B8 ML/OOS Cloud Run/BQ 中轉。GCP 真正資源刪除後必須讀回；GitHub commit 不代表 live 已清理。
+- **舊研究執行器退役已 CLOSED（2026-10-20）**：Controller `specialist-retrain`、手動舊 workflow/request、Mart fit、獨立研究 Job/Scheduler 與 B5～B8 中介 BQ 實體依原定範圍已完成程式退役、部署及實機查核；詳見 [結案收據](archive/d07-gcp-bq-retirement-live-2026-10-20.md)。不再分派清理工項，不為假設性未知資源新增追查。
 - 新研究唯一輸入：[GAS 第三方 API → 私有 Drive 每月 ZIP → Colab 人工建模](spec/research-collection-gas-drive-colab.md)，普通股母體排除 ETF，TWSE／TPEx 各 dataset 最低 70%。先盤點現有公開欄位可得性與缺值，不用舊 Core frozen Parquet、BQ SQL 或完整歷史 PIT census 才能開始抓資料。研究時點欄位仍保留供後續標籤，正式 OOS/promotion 要防 future leakage。
 - 五分析師 Quant／Risk 優先、Valuation/Fundamental 依欄位、Event 真人標註及來源權利未核准時保留 Rules。Colab 模型與確定性 baseline 同一 OOS、模型 version/hash、費用/安全/rollback；Janus Mart 不再訓練新模型。
 - **保留正式服務**：Core/EOD／Screening、Private Owner、持股 ETF 行情、API、週 Iceberg 清理、Stage 48h 及備份。正式 Core 90%/70% 品質規範不被研究 70% 改掉。現役共用 BQ/Job 只有在確認其他服務不使用後才能刪。
-- 舊研究日誌及歷史 B5～B8 artifacts 可以保留必要 audit 證據，但不得重新成為開發 prerequisite，也不得將它們的殘留排程保留為「相容性」。
+- 已結案的舊研究僅保留必要 audit 收據；不得重新成為 D07-PRE／D07 的前置工作。**Colab 資料讀取驗收歸 D07-PRE；五角色模型 fit／OOS／promotion 歸 D07**，不得重複派工。
 
 ## 3. 最小工程閉環與合併驗收
 
