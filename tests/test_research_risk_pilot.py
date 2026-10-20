@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from risk_pilot import evaluate_risk_pilot, load_monthly_zips, make_risk_panel
+from research.colab.risk_pilot import evaluate_risk_pilot, load_monthly_zips, make_risk_panel
 
 
 def make_prices(n=500):
