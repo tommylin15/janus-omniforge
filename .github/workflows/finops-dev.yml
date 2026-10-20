@@ -16,6 +16,7 @@ on:
           - iceberg-readback
           - gcp-acceptance
           - ci-orphans
+          - research-retire
       dry-run:
         description: 'Dry run (no mutations)'
         type: boolean
@@ -32,6 +33,7 @@ on:
       - 'ops/finops-iceberg-readback-once.json'
       - 'ops/finops-gcp-live-acceptance.json'
       - 'ops/finops-ci-orphan-generations.json'
+      - 'ops/d07-research-retirement.json'
 
 permissions:
   contents: read
@@ -67,6 +69,7 @@ jobs:
               *iceberg-readback*) echo "operation=iceberg-readback" >> "$GITHUB_OUTPUT" ;;
               *gcp-live-acceptance*) echo "operation=gcp-acceptance" >> "$GITHUB_OUTPUT" ;;
               *ci-orphan*) echo "operation=ci-orphans" >> "$GITHUB_OUTPUT" ;;
+              *d07-research-retirement*) echo "operation=research-retire" >> "$GITHUB_OUTPUT" ;;
               *) echo "operation=none" >> "$GITHUB_OUTPUT" ;;
             esac
           fi
@@ -352,5 +355,31 @@ jobs:
           name: finops-ci-orphan-receipts
           path: |
             finops-ci-orphan-receipt.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  research-retire:
+    needs: detect
+    if: needs.detect.outputs.operation == 'research-retire'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 20
+    concurrency:
+      group: janus-dev-runtime-writers
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: none
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Retire only exact dedicated legacy research resources and read back
+        run: python scripts/gcp/d07_research_retirement.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: d07-research-retirement-receipt
+          path: d07-research-retirement-receipt.json
           if-no-files-found: ignore
           retention-days: 14
