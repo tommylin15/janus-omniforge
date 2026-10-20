@@ -210,3 +210,79 @@ def test_empty_response_on_expected_trading_day_still_fails(tmp_path):
                       tmp_path/'bad.json.gz', min_interval=0, request_budget=[1])
     assert session.calls == 1
     assert not (tmp_path/'bad.json.gz').exists()
+
+
+def test_daily_checkpoint_resumes_inside_ten_day_chunk_without_refetch(tmp_path):
+    """A notebook may stop between days and resume without losing the prior day."""
+    dates = [date(2025, 1, 2), date(2025, 1, 3), date(2025, 1, 6)]
+    payload = {'tables': [{'data': [
+        ['6488', '環球晶', '355', '+1', '352', '356', '349', '', '2,500', '887,500', '40']
+    ]}]}
+    session = FakeSession(payload)
+    path = tmp_path / 'tpex-000.json.gz'
+    universe = {'6488': {'symbol': '6488'}}
+    for completed in (1, 2):
+        budget = [1]
+        assert collect_chunk(session, 'tpex', dates, universe, 'H', path,
+                             min_interval=0, request_budget=budget) is False
+        partial = read_chunk(path, 'H')
+        assert len(partial['days']) == completed
+        assert len(partial['rows']) == completed
+        assert session.calls == completed and budget[0] == 0
+    assert collect_chunk(session, 'tpex', dates, universe, 'H', path,
+                         min_interval=0, request_budget=[1])
+    assert session.calls == 3
+    assert [s['day'] for s in read_chunk(path, 'H')['days']] == [d.isoformat() for d in dates]
+
+
+def test_partial_day_checkpoint_does_not_seal_month(tmp_path):
+    day1, day2 = date(2025, 1, 2), date(2025, 1, 3)
+    month = tmp_path / '2025-01'
+    folder = month / '_checkpoint' / 'r1'
+    folder.mkdir(parents=True)
+    payload = {'schema_version': 1, 'universe_hash': 'H', 'market': 'twse',
+               'days': [{'day': day1.isoformat(), 'status': 'COLLECTED', 'sha256': 'a'}],
+               'rows': [{'symbol': '2330', 'trade_date': day1.isoformat()}]}
+    (folder / 'twse-000.json.gz').write_bytes(gzip.compress(json_bytes(payload), mtime=0))
+    roster = {'twse': {'2330': {'symbol': '2330', 'market': 'twse'}},
+              'tpex': {'6488': {'symbol': '6488', 'market': 'tpex'}}}
+    result = finalize_month(tmp_path, '2025-01', 'r1', [day1, day2], roster,
+                            {'universe': 'H', 'captured_at': 'now'})
+    assert result['status'] == 'PARTIAL' and result['pending_chunks'] == 2
+    assert not (month / 'manifest-r1.json').exists()
+
+
+def test_deadline_safely_stops_then_restarts_without_discarding_previous_day(tmp_path, monkeypatch):
+    from research.colab import collect_tw_equities as c
+    dates = [date(2025, 1, 2), date(2025, 1, 3)]
+    payload = {'tables': [{'data': [
+        ['6488', '環球晶', '355', '+1', '352', '356', '349', '', '2,500', '887,500', '40']
+    ]}]}
+    session = FakeSession(payload)
+    path = tmp_path / 'tpex-000.json.gz'
+    clock = {'now': 100.0}
+    monkeypatch.setattr(c.time, 'monotonic', lambda: clock['now'])
+    assert not collect_chunk(session, 'tpex', dates, {'6488': {}}, 'H', path,
+                             min_interval=0, request_budget=[2], deadline=185.0)
+    assert session.calls == 0 and not path.exists()
+    clock['now'] = 10.0
+    assert not collect_chunk(session, 'tpex', dates, {'6488': {}}, 'H', path,
+                             min_interval=0, request_budget=[1], deadline=200.0)
+    assert session.calls == 1 and len(read_chunk(path, 'H')['days']) == 1
+    assert collect_chunk(session, 'tpex', dates, {'6488': {}}, 'H', path,
+                         min_interval=0, request_budget=[1], deadline=200.0)
+    assert session.calls == 2
+
+
+def test_resume_rejects_checkpoint_from_another_calendar_or_market(tmp_path):
+    path = tmp_path / 'chunk.gz'
+    rows = {'schema_version': 1, 'universe_hash': 'H', 'market': 'twse',
+            'days': [{'day': '2025-01-03', 'status': 'COLLECTED', 'sha256': 'x'}],
+            'rows': []}
+    path.write_bytes(gzip.compress(json_bytes(rows), mtime=0))
+    with pytest.raises(ValueError, match='dates/order'):
+        collect_chunk(FakeSession({}), 'twse', [date(2025, 1, 2)], {},
+                      'H', path, min_interval=0, request_budget=[2])
+    with pytest.raises(ValueError, match='market changed'):
+        collect_chunk(FakeSession({}), 'tpex', [date(2025, 1, 3)], {},
+                      'H', path, min_interval=0, request_budget=[2])
