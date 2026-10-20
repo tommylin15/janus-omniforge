@@ -52,7 +52,7 @@
 | Orphan | 非current、年齡≥7天 | catalog pointer/lock/generation/current readback |
 | Owner 交易與筆記 | 不套公開 TTL | 私有範圍／備份獨立 |
 
-D07 第一版設定**最近24個月滾動研究窗口**：這是每月訓練/OOS 的目標，不是改 Core row TTL、也不保證所有股票已具完整兩年。若要重現實驗，研究層另保存合法有界 versioned Parquet、日期/cohort、feature/label/schema、來源與 hash，避免依賴已刪 snapshot。嚴格 PIT 不足需標研究限定／insufficient，不為湊視窗填假值或啟動無界補收。
+**2026-10-20 模型研究獨立化**：本矩陣只定義現役 Core／Mart 的資料保存及正式市場因子，不再定義 D07 必須從 Core 匯出24個月訓練數據。研究資料由 [GAS→Drive 月檔→Colab](research-collection-gas-drive-colab.md) 獨立收集上市櫃普通股（排除 ETF），各市場×資料集≥70%，第一輪只盤點欄位可得性，歷史 PIT/固定24月不擋採集。既有 Core 365天／Deep TTL 與正式品質門檻不變；模型 OOS 與 publication 仍另驗。
 
 清理先 compact、再 Mart、再 Core。TTL／planned 清理候選、實刪 objects/bytes 與可計費儲存變化須分開記錄；實際週維護節奏見 [資料治理總覽](data-governance.md)。
 
