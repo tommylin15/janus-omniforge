@@ -12,7 +12,7 @@
 
 | 資料 | 保存期／候選 | 保護／驗證 |
 |---|---|---|
-| Stage 原始 API／quarantine／sidecar／manifest | **2 天（48 小時）** | active queued/running/retrying execution 與其共用來源保護；只刪 Stage Bucket |
+| Stage 原始 API／quarantine／sidecar／manifest | **2 天（48 小時）** | 僅有未到期 `claimed_until` 的執行與其共用原始資料受保護；只刪 Stage Bucket |
 | Core 一般公開市場 rows | 365 天 | 按合法 date/period；不代表所有股票已收滿一年 |
 | Core Deep `ohlcv`／`valuation` | 1,096 天 | `watchlist ∪ holdings`，不自動延長全市場 |
 | Benchmark rows | 1,096 天 | 指數/市場級資料 |
@@ -25,6 +25,12 @@
 | 私有 ledger、成本、現金、筆記、交易 | 公開 retention 不適用 | Owner 隔離及私人備份政策獨立 |
 
 `POLICY` 實作常數為 `stage_days=2`、`quarantine_days=2`、`core_days=365`、`deep_price_days=1096`、`financial_quarters=12`、`mart_days=90`、`orphan_days=7`。TTL 是**候選**而非已執行刪除；實際 row count、GCS object/bytes、舊 generation/soft delete 費用需從 live receipt 判斷。資料版本保存與歷史 Iceberg snapshot 同一性不能混淆。
+
+### Stage 執行租約與保留期（2026-10-20）
+
+- **Stage active protection 不再只看 `status`**。PostgreSQL `control.executions` 僅 `status IN ('queued','running','retrying') AND claimed_until > now` 有效租約才保留過期 Stage 物件與其 shared raw；過期或 NULL `claimed_until` 不再因 `running` 狀態永久保留。
+- 已到 48 小時的 Stage 原始檔、manifest、quarantine、commit marker 按既有 generation-based cleanup 清理；新近未滿 48 小時的物件仍保留。每天 Stage-only 與每週 Core retention 皆使用此 Stage 專用計算；**Core snapshot／manifest 仍走原 Core 防護**。
+- Apply 前重新查有效租約，若集合變動則停止刪除；仍須 Scheduler/worker lease fence、Cloud Run 全頁終態與 GCS before/after generation/bytes 讀回。不存在有效租約不代表可略過這些防護。先前受 stale `running` 阻擋的 4,927 件／96,321,204 bytes 需新版 live dry-run／apply 收據證明實刪，單靠規格修改不得宣稱已清除。
 
 ### Stage payload 去重與來源分界（2026-10-20）
 
