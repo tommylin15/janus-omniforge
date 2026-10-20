@@ -1,6 +1,6 @@
 # Janus 文件入口
 
-更新：2026-10-19。本頁只導航，不保存暫停、部署版本或重複待辦。
+更新：2026-10-20。本頁只導航，不保存暫停、部署版本或重複待辦。
 
 先讀 [PROJECT_RULES](PROJECT_RULES.md) → [專案管理](project-management.md) → [status](status.md) → [TODO](todo.md) → 指定一張 [AI 任務卡](execution-cards/README.md)。現行執行序列：**STAGE-48H → D07-PRE → D07 → D08**；已完成產品工作不再重開。
 
@@ -29,12 +29,13 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 
 - `PROJECT_RULES.md`：治理、權限、驗證與文件維護規則。
 - `project-management.md`：單一執行順序、文件責任、驗收與風險決策選項。
-- `spec/data-governance.md`：現行保存、唯一業務排程與週維護、補資料兩路徑、D07 研究窗口的單一導覽；不新增工作包。
+- `spec/data-governance.md`：正式 Canonical 保存、Scheduler 與補收政策；模型研究採集另以 `spec/research-collection-gas-drive-colab.md` 為唯一規格。
 - `status.md`：目前狀態與下一個執行序列的短入口；不是新的 source of truth。
 - `todo.md`：只保存確定要做的 active queue 與未完成 acceptance；暫不做與已接受缺口見 `parking-lot.md`。
 - `codex-execution-plan.md`：**路由 STAGE-48H → D07-PRE → D07 → D08** 的現行 AI 操作；舊 DRL／D01–D06 工程指令已封存。
 - `execution-cards/README.md`：現行 D07-PRE/D07/D08 路由；D01～D06 卡保留維運/歷史，不形成工作義務。
-- `decision-2026-10-06-bigquery-analytics-over-iceberg.md`：保留原 Iceberg/BQ 研究歷史與讀取契約；**2026-10-19 更新為 Colab 唯一模型整理/訓練，BQ 只在大資料時前置縮減**，不取代 PostgreSQL／Canonical。
+- `spec/research-collection-gas-drive-colab.md`：**D07-PRE 唯一新版**；GAS 第三方來源→Drive 每月 ZIP→Colab；研究普通股（ETF 排除）、各市場70%、先盤點欄位。
+- `decision-2026-10-06-bigquery-analytics-over-iceberg.md`：**已退休的歷史決策指引**，不是 active BQ 訓練或執行前置。
 - `future-market-alerts.md`：使用者指定獨立保存的未來預警增補；狀態由 `parking-lot.md` 管理，不是 active scope。
 - `spec.md`：SPEC 索引；正式契約在 `spec/*.md`。
 - `wbs.md`：WBS 索引；工作切片在 `wbs/*.md`。
