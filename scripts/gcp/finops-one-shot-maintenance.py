@@ -148,7 +148,7 @@ def main():
     request = json.loads(REQUEST.read_text())
     if (request.get("intent") != "one-shot-existing-dev-iceberg-maintenance"
             or request.get("no_new_resources") is not True
-            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup", "unlinked-small-files", "ci-approved-orphans", "enable-weekly", "mart-retention", "stage-only-dry-run", "stage-only-apply", "stage-control-audit"}
+            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup", "unlinked-small-files", "ci-approved-orphans", "enable-weekly", "mart-retention", "stage-only-dry-run", "stage-only-apply", "stage-control-audit", "stage-aged-purge-dry-run", "stage-aged-purge-apply"}
             or len(request.get("expected_source_sha", "")) != 40):
         raise RuntimeError("invalid one-shot GCP maintenance authorization")
     if request['mode'] in {'unlinked-small-files','ci-approved-orphans'} and request.get('user_approved_unlinked_small_file_cleanup') is not True:
@@ -231,6 +231,66 @@ def execute_maintenance(request, job, rollout, snapshots=None):
         print(json.dumps({'status':'PASS','operation':'enable-weekly','job':name,
                           'image':rollout.image(after),'weekly_maintenance':True,
                           'scheduler_schedule_changed':False}, sort_keys=True))
+        return
+    if request["mode"] in {"stage-aged-purge-dry-run", "stage-aged-purge-apply"}:
+        # Old running rows with expired or absent lease must not permanently
+        # protect >7-day execution Stage. This narrowly scoped one-off runs on
+        # the already deployed ingestion image, with fresh, audited worker code
+        # injected as an inline Python command (no Core/Mart/Private writes).
+        mode = request["mode"]
+        is_apply = mode == "stage-aged-purge-apply"
+        if (request.get("approved_stage_bucket") != PROJECT + "-dev-stage"
+                or request.get("approved_stage_purge_older_days") != 7
+                or request.get("user_approved_aged_stage_purge") is not True
+                or (is_apply and request.get("approved_stage_purge_apply") is not True)):
+            raise RuntimeError("stage_aged_purge_explicit_scope_approval_required")
+        if snapshots is None or JOB not in snapshots:
+            raise RuntimeError("stage_aged_purge_requires_owned_runtime_fence")
+        if rollout.image(rollout.checked_image(JOB, *snapshots[JOB])) != request["expected_image"]:
+            raise RuntimeError("stage_aged_purge_image_drift")
+        payload = Path("scripts/gcp/stage_expired_execution_purge.py").read_bytes()
+        inline = "import base64;exec(compile(base64.b64decode('" + base64.b64encode(payload).decode() + "'),'<stage-aged-purge>','exec'))"
+        if len(inline) > 28000 or "|" in inline:
+            raise RuntimeError("stage_aged_purge_command_budget_or_delimiter")
+        container = list(containers(job))[0]
+        default_command = container.get("command") or []
+        if default_command not in ([], ["python"]):
+            raise RuntimeError("stage_aged_purge_unexpected_entrypoint")
+        args = (["-c", inline] if default_command else ["python", "-c", inline])
+        worker_mode = "apply" if is_apply else "dry-run"
+        out = call("gcloud", "run", "jobs", "execute", JOB,
+                   "--project=" + PROJECT, "--region=" + REGION,
+                   "--args=^|^" + "|".join(args),
+                   "--update-env-vars=JANUS_STAGE_AGED_PURGE_MODE=" + worker_mode +
+                   ",JANUS_STAGE_AGED_PURGE_APPROVED=true,QUEUE_CONSUMER=false,ICEBERG_MAINTENANCE_MODE=,MART_JOB=,JANUS_DATA_SUPPLEMENT_MODE=",
+                   "--tasks=1", "--task-timeout=1200s", "--wait",
+                   "--format=value(metadata.name)", timeout=1500)
+        execution = out.splitlines()[-1].rsplit("/", 1)[-1]
+        if not execution.startswith(JOB + "-"):
+            raise RuntimeError("stage_aged_purge_execution_identity_invalid")
+        evidence = log_evidence(execution, "stage-aged-stale-execution-purge")
+        if (evidence.get("component") != "stage-aged-stale-execution-purge"
+                or evidence.get("status") != "PASS"
+                or evidence.get("mode") != worker_mode
+                or evidence.get("core_deleted") != 0
+                or evidence.get("mart_deleted") != 0
+                or evidence.get("private_deleted") != 0
+                or evidence.get("planned_objects", -1) > 5500
+                or evidence.get("planned_bytes", -1) > 130_000_000):
+            raise RuntimeError("stage_aged_purge_invalid_runtime_receipt")
+        if is_apply:
+            if (evidence.get("generation_readback") != "PASS"
+                    or evidence.get("deleted_objects") != evidence.get("planned_objects")
+                    or evidence.get("deleted_bytes") != evidence.get("planned_bytes")
+                    or evidence["before"]["objects"] - evidence["after"]["objects"] != evidence["deleted_objects"]
+                    or evidence["before"]["bytes"] - evidence["after"]["bytes"] != evidence["deleted_bytes"]):
+                raise RuntimeError("stage_aged_purge_generation_readback_failed")
+        elif evidence.get("deleted_objects") != 0 or evidence.get("deleted_bytes") != 0:
+            raise RuntimeError("stage_aged_purge_dry_run_mutated_data")
+        print(json.dumps({"status": "PASS", "operation": mode,
+                          "cloud_execution": execution,
+                          "source_sha": request["expected_source_sha"],
+                          "evidence": evidence}, sort_keys=True))
         return
     if request["mode"] == "stage-control-audit":
         # Read-only investigation: the 4,927 aged Stage objects were held by
