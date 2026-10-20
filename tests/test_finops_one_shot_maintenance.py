@@ -282,3 +282,62 @@ def test_audit_only_mode_requires_exact_audit_receipt(monkeypatch,tmp_path,capsy
     assert value["operation"]=="audit-cleanup" and value["audit_only_deleted_objects"]==19
     assert value["audit_only_expired_snapshots"]==8
     assert value["audit_only_canonical_tables_modified"]==0
+
+
+def test_stage_aged_purge_requires_explicit_age_bucket_and_apply_approval(monkeypatch):
+    m = load_module()
+    image = 'ghcr.io/tommylin15/janus-ingestion-core@sha256:' + 'b'*64
+    snapshots = {'janus-ingestion-core': (image, 'fingerprint')}
+    rollout = SimpleNamespace(
+        checked_image=lambda *args: {'image': image},
+        image=lambda job: job['image'])
+    called = []
+    monkeypatch.setattr(m, 'call', lambda *args, **kwargs: called.append(args) or '')
+    request = {'mode': 'stage-aged-purge-apply', 'expected_image': image}
+    with pytest.raises(RuntimeError, match='explicit_scope_approval_required'):
+        m.execute_maintenance(request, {'containers': [{'image': image}]}, rollout, snapshots)
+    request.update(approved_stage_bucket='gen-lang-client-0593591102-dev-stage',
+                   approved_stage_purge_older_days=7,
+                   user_approved_aged_stage_purge=True)
+    with pytest.raises(RuntimeError, match='explicit_scope_approval_required'):
+        m.execute_maintenance(request, {'containers': [{'image': image}]}, rollout, snapshots)
+    assert not called
+
+
+@pytest.mark.parametrize('operation,worker_mode', [
+    ('stage-aged-purge-dry-run', 'dry-run'), ('stage-aged-purge-apply', 'apply')])
+def test_stage_aged_purge_fenced_worker_receipt(monkeypatch, capsys, operation, worker_mode):
+    m = load_module()
+    image = 'ghcr.io/tommylin15/janus-ingestion-core@sha256:' + 'b'*64
+    snapshots = {'janus-ingestion-core': (image, 'fingerprint')}
+    rollout = SimpleNamespace(
+        checked_image=lambda *args: {'image': image},
+        image=lambda job: job['image'])
+    calls = []
+    monkeypatch.setattr(m, 'call', lambda *args, **kwargs:
+                        calls.append(args) or 'janus-ingestion-core-exec7')
+    evidence = {'component': 'stage-aged-stale-execution-purge',
+                'status': 'PASS', 'mode': worker_mode,
+                'planned_objects': 4, 'planned_bytes': 120,
+                'deleted_objects': 4 if worker_mode == 'apply' else 0,
+                'deleted_bytes': 120 if worker_mode == 'apply' else 0,
+                'before': {'objects': 7, 'bytes': 160},
+                'after': {'objects': 3 if worker_mode == 'apply' else 7,
+                          'bytes': 40 if worker_mode == 'apply' else 160},
+                'generation_readback': 'PASS' if worker_mode == 'apply' else 'NOT_APPLICABLE',
+                'core_deleted': 0, 'mart_deleted': 0, 'private_deleted': 0}
+    monkeypatch.setattr(m, 'log_evidence', lambda *args: evidence)
+    request = {'mode': operation, 'expected_image': image,
+               'expected_source_sha': 'b'*40,
+               'approved_stage_bucket': 'gen-lang-client-0593591102-dev-stage',
+               'approved_stage_purge_older_days': 7,
+               'user_approved_aged_stage_purge': True,
+               'approved_stage_purge_apply': True}
+    m.execute_maintenance(request, {'containers': [{'image': image}]}, rollout, snapshots)
+    result = json.loads(capsys.readouterr().out)
+    assert result['status'] == 'PASS' and result['operation'] == operation
+    assert len(calls) == 1 and 'JANUS_STAGE_AGED_PURGE_MODE=' + worker_mode in str(calls)
+    evidence['generation_readback'] = 'FAILED'
+    if worker_mode == 'apply':
+        with pytest.raises(RuntimeError, match='generation_readback_failed'):
+            m.execute_maintenance(request, {'containers': [{'image': image}]}, rollout, snapshots)
