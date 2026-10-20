@@ -7,6 +7,7 @@ Scheduler is disabled, or a live ingestion execution is present.
 from contextlib import contextmanager
 from copy import deepcopy
 import importlib.machinery
+import base64
 import json
 import os
 from pathlib import Path
@@ -147,7 +148,7 @@ def main():
     request = json.loads(REQUEST.read_text())
     if (request.get("intent") != "one-shot-existing-dev-iceberg-maintenance"
             or request.get("no_new_resources") is not True
-            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup", "unlinked-small-files", "ci-approved-orphans", "enable-weekly", "mart-retention", "stage-only-dry-run", "stage-only-apply"}
+            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup", "unlinked-small-files", "ci-approved-orphans", "enable-weekly", "mart-retention", "stage-only-dry-run", "stage-only-apply", "stage-control-audit"}
             or len(request.get("expected_source_sha", "")) != 40):
         raise RuntimeError("invalid one-shot GCP maintenance authorization")
     if request['mode'] in {'unlinked-small-files','ci-approved-orphans'} and request.get('user_approved_unlinked_small_file_cleanup') is not True:
@@ -230,6 +231,43 @@ def execute_maintenance(request, job, rollout, snapshots=None):
         print(json.dumps({'status':'PASS','operation':'enable-weekly','job':name,
                           'image':rollout.image(after),'weekly_maintenance':True,
                           'scheduler_schedule_changed':False}, sort_keys=True))
+        return
+    if request["mode"] == "stage-control-audit":
+        # Read-only investigation: the 4,927 aged Stage objects were held by
+        # DB queued/running/retrying records, NOT model/analyst references.
+        # Run inside the original worker identity without GCP IAM changes.
+        if snapshots is None or JOB not in snapshots:
+            raise RuntimeError("stage_audit_requires_owned_runtime_fence")
+        if rollout.image(rollout.checked_image(JOB, *snapshots[JOB])) != request["expected_image"]:
+            raise RuntimeError("stage_audit_image_drift")
+        if (request.get("approved_stage_bucket") != PROJECT + "-dev-stage"
+                or request.get("stage_audit_read_only") is not True):
+            raise RuntimeError("stage_audit_scope_approval_required")
+        payload = Path("scripts/gcp/stage_control_audit.py").read_bytes()
+        inline = "import base64;exec(compile(base64.b64decode('" + base64.b64encode(payload).decode() + "'),'<stage-audit>','exec'))"
+        if len(inline) > 28000 or "|" in inline:
+            raise RuntimeError("stage_audit_command_budget_or_delimiter")
+        container = list(containers(job))[0]
+        default_command = container.get("command") or []
+        if default_command not in ([], ["python"]):
+            raise RuntimeError("stage_audit_unexpected_entrypoint")
+        args = (["-c", inline] if default_command else ["python", "-c", inline])
+        out = call("gcloud", "run", "jobs", "execute", JOB,
+                   "--project=" + PROJECT, "--region=" + REGION,
+                   "--args=^|^" + "|".join(args),
+                   "--update-env-vars=JANUS_STAGE_AUDIT=true,QUEUE_CONSUMER=false,ICEBERG_MAINTENANCE_MODE=,MART_JOB=,JANUS_DATA_SUPPLEMENT_MODE=",
+                   "--tasks=1", "--wait", "--format=value(metadata.name)", timeout=1500)
+        execution_name = out.splitlines()[-1].rsplit("/", 1)[-1]
+        if not execution_name.startswith(JOB + "-"):
+            raise RuntimeError("stage_audit_execution_identity_invalid")
+        evidence = log_evidence(execution_name, "stage-explicit-purge-audit")
+        if (evidence.get("mode") != "read-only" or evidence.get("status") != "PASS"
+                or evidence.get("all_job_states_gcs_mutations") != 0):
+            raise RuntimeError("stage_audit_live_receipt_invalid")
+        print(json.dumps({"status": "PASS", "operation": "stage-control-audit",
+                          "cloud_execution": execution_name,
+                          "source_sha": request["expected_source_sha"],
+                          "evidence": evidence}, sort_keys=True))
         return
     if request["mode"] in {"stage-only-dry-run", "stage-only-apply"}:
         # Existing dev worker and scheduler fence only; never Core/Mart mutation.
