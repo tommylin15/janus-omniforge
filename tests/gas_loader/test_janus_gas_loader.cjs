@@ -79,7 +79,7 @@ function harness(opts={}) {
     Utilities:{DigestAlgorithm:{SHA_256:'SHA_256'},Charset:{UTF_8:'UTF_8'},
       computeDigest:(_a,t)=>Array.from(crypto.createHash('sha256').update(t,'utf8').digest()).map(v=>v>127?v-256:v),
       getUuid:()=> '12345678-1234-5678-9000-111122223333'},
-    ScriptApp:{getOAuthToken:()=> 'FAKE_TOKEN'},
+    ScriptApp:{getOAuthToken:()=> 'FAKE_TOKEN',getScriptId:()=> opts.loaderScriptId || 'LOADER_SCRIPT_12345678901234567890'},
     UrlFetchApp:{fetch:api}
   };
   vm.createContext(sandbox);
@@ -174,4 +174,9 @@ test('one-time confirmation cannot be replayed',()=>{
   h.props.set('JANUS_LOADER_CONFIRM_CODE',p.confirmationCode);h.apply();
   h.props.set('JANUS_LOADER_CONFIRM_CODE',p.confirmationCode);
   assert.throws(()=>h.apply(),/no pending preview/);
+});
+test('target equal to Loader project refuses self-overwrite',()=>{
+  const h=harness({loaderScriptId:scriptId});
+  assert.throws(()=>h.preview(),/Loader cannot sync itself/);
+  assert.equal(h.io.puts,0);
 });
