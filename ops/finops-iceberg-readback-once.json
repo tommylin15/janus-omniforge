@@ -3,6 +3,6 @@
   "no_gcp_mutation": true,
   "project": "gen-lang-client-0593591102",
   "region": "us-central1",
-  "scope": "STAGE-48H live diagnostic during controlled #39356643823 reversible four-Job rollout: metadata-only Scheduler state, each immutable pinned image/config, and full-page execution fence. Do not mutate GCP or infer PASS before terminal rollout.",
-  "attempt": 15
+  "scope": "STAGE-48H postrollout independent metadata-only verification: #39356643823 PASS, check four pinned digest/config exactly, Scheduler ENABLED, full-page terminal fence, weekly Iceberg config unchanged. No GCP mutation.",
+  "attempt": 16
 }
