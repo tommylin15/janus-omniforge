@@ -30,7 +30,7 @@ def main():
         raise RuntimeError("stage_audit_wrong_bucket_or_missing_approval")
     with _control_plane() as control, control.connection.cursor() as cursor:
         cursor.execute(
-            "SELECT execution_id, status, requested_at, started_at, finished_at "
+            "SELECT execution_id, status, requested_at, started_at, finished_at, claimed_until, trigger_type "
             "FROM control.executions WHERE status IN ('queued','running','retrying')")
         rows = cursor.fetchall()
     active = {str(x[0]): x for x in rows}
@@ -65,6 +65,10 @@ def main():
         "active_control_executions": len(rows),
         "active_by_status": dict(Counter(str(x[1]) for x in rows)),
         "active_control_executions_requested_older7d": len(old),
+        "active_with_live_claim": sum(1 for x in rows if utc(x[5]) is not None and utc(x[5]) > NOW),
+        "old_active_claim_expired_or_unclaimed": sum(1 for x in old if utc(x[5]) is None or utc(x[5]) <= NOW),
+        "old_active_trigger_types": dict(Counter(str(x[6]) for x in old)),
+        "old_active_statuses": dict(Counter(str(x[1]) for x in old)),
         "active_control_executions_with_older7d_stage": len(active_stats),
         "active_executions_with_core_commit_marker": len(set(active_stats).intersection(committed)),
         "older7d_stage_by_execution_state": dict(counts),
