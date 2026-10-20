@@ -6,7 +6,7 @@
 
 | 優先 | 工項 | 狀態／責任入口 |
 |---|---|---|
-| **P0** | **STAGE-48H：48小時 TTL／安全去重／Admin 六桶一鍵盤點** | **TRACE PASS · DEDUPE/ADMIN CODE + FULL RELEASE PASS · API CANDIDATE/OAUTH PASS · JOBS ROLLOUT RUNNING · LIVE APP/DAILY ACCEPTANCE PENDING**。[trace #39344827401](https://github.com/tommylin15/janus-omniforge/actions/runs/39344827401) 證實 `janus-ingestion-core-swsb6` 於 2026-10-19T15:40Z 實刪 **2,050 objects／650,115,151 bytes** 且 generation PASS；`janus-ingestion-core-gndlr` [#39337954028](https://github.com/tommylin15/janus-omniforge/actions/runs/39337954028) 再刪 **453／489,166 bytes**；兩者合計 **2,503／650,604,317 bytes**，不再標成原因不明。原 Stage after **6,210 objects／373,367,761 bytes** 是 10/19 單次快照，不冒稱現在仍相同。10/20 程式新增跨 execution 的來源／資料集／觀測日／SHA-256 內容共用，不合併不同來源或日期、每次各留 provenance／manifest；Admin Flutter 四頁中新增 admin-only metadata 六桶盤點與 partial/error、MD5 potential 標示；**完整 GHCR #39345633766**（1,515 Python PASS、Flutter PASS、四映像 digest PASS）、**API 0% candidate #39346223610 PASS**、**OAuth/admin GCS 未登入拒絕 #39346470312 PASS**、**jobs rollback 基準 #39346513814 PASS**；**Jobs rollout #39346705950 RUNNING**，未有完整終態、API 100% 切流、真實 reuse、Admin 授權 GCS 讀回或 10/20 18:30 自然 due 收據，不得宣稱整包 PASS。每週 Iceberg 維護不變。依 [Stage 保留契約](spec/retention-governance.md)／[Admin UI](ui/admin.md)。 |
+| **P0** | **STAGE-48H：48小時 TTL／安全去重／Admin 六桶盤點** | **DEPLOY PASS / FUNCTIONAL ACCEPTANCE PARTIAL**：歷史 Stage 真實清理兩輪已驗證 2,503 objects／650,604,317 bytes（[來源追查 #39344827401](https://github.com/tommylin15/janus-omniforge/actions/runs/39344827401)）；新 Stage 去重與 Admin 盤點程式經 [完整 GHCR #39345633766](https://github.com/tommylin15/janus-omniforge/actions/runs/39345633766)（1,515 Python PASS、Flutter PASS）、[四 Jobs rollout #39346705950](https://github.com/tommylin15/janus-omniforge/actions/runs/39346705950) PASS、[Jobs 與 Scheduler 讀回 #39348777969](https://github.com/tommylin15/janus-omniforge/actions/runs/39348777969) PASS（固定 digest/config、Scheduler ENABLED、全頁 0 nonterminal）、[API 100% 切流 #39348904538](https://github.com/tommylin15/janus-omniforge/actions/runs/39348904538) PASS（rollback rehearsal）、[獨立 API 驗收 #39349499000](https://github.com/tommylin15/janus-omniforge/actions/runs/39349499000) PASS（revision janus-api-00566-biq、build/image/health、未授權 Admin GCS POST 401）。**仍待三項實機**：真實 Admin OAuth 六桶 GCS 查詢、真實新 raw 跨 execution 重用/provenance、10/20 18:30 自然 Stage-only due/48h 與 weekly Iceberg unchanged；不把 code/deploy PASS 包裝成三項 LIVE PASS。D07-PRE 另開對話。 |
 | **P1** | **D07-PRE：Colab 單一資料整理與模型訓練前置**（含原 FINOPS-C preflight） | **DESIGN_DECIDED / LIVE_PARTIAL**；[研究與工程流程](colab-d07-modeling-feasibility-2026-10-19.md)、[AI 指令 §4](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) |
 | **P2** | **D07：五角色 ML／OOS 品質及正式介接** | **PLANNED**、待前置評估有合格處置；[唯一 D07 卡](execution-cards/d07-specialist-b9-oos.md) |
 | **P3** | **D08：CEO、Admin 模型管理與受控 Owner 報告** | **PLANNED**、有效 Fact Pack 後；[唯一 D08 卡](execution-cards/d08-ceo-admin-owner-report.md) |
@@ -17,10 +17,10 @@
 ## 2. STAGE-48H｜最新核准的儲存清理工作（不重開 FINOPS-AB）
 
 - [x] **48 小時到期資料清理**：dry-run → 受控 generation apply → before/after bytes 讀回；另以 Cloud Logging 確認 2,050 筆的獨立 apply 收據。
-- [ ] **再**修正 Stage 重複原始資料寫入；有已引用的同內容物件須保留一個可驗證代表、調整合法來源引用並有重跑／provenance 驗收，不盲刪全部。
-- [ ] **接著**驗收 Controller 每日18:30 Stage-only（舊 Iceberg 每週23:30不變）、worker SHA/digest、CI、無重覆派送、自然 due/終態/失敗復原；超過48小時不是每48小時才跑一次。
-- [ ] **最後**在 Admin 四頁既有「資料品質／儲存維護」提供一鍵執行**唯讀** GCS 六桶容量盤點與執行狀態；不把一鍵清理放在 Admin，也不將非即時資料誤標 live。實施 Admin auth、GCS IAM 最小權限與 backend async/timeout fence。
-- 本項不碰 Core/Mart/Private/Research canonical 資料，未獲實際 deployment/GCS receipts 不標完成。完成後回到 D07-PRE → D07 → D08。
+- [ ] **Stage 安全去重實機驗收**：程式、tests、雙 canary、四 Jobs 部署已 PASS；仍須驗新 raw object reused flag、不同 execution provenance manifest、active 引用保護、48h TTL/舊資料相容性。
+- [ ] **每日自然排程驗收**：Scheduler 與 Jobs 部署 readback PASS；待今天 18:30 Asia/Taipei 的 Controller occurrence、Stage-only execution 終態、generation delete bytes、無重覆派送及每週 Iceberg 保持不變的實際收據。
+- [ ] **Admin 六桶正向驗收**：UI＋後端 Admin-only POST 已上線，未登入 401 PASS；仍須真的 Admin OAuth 授權按鍵、確認既有 API runtime metadata IAM 與六桶完整/部分/timeout 處理。無新增刪除功能。
+- 本工程不變更 Core/Mart/Private/Research 保留政策、不新增付費資源；D07-PRE／Colab 建模另由獨立對話承接，本對話完成 STAGE-48H 收尾後結案。
 
 ## 3. D07-PRE｜資料整理與模型訓練前置
 
