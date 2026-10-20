@@ -259,21 +259,47 @@ def read_chunk(path: Path, universe_hash: str) -> dict:
 
 
 def collect_chunk(session, market: str, dates: list[date], universe: dict, universe_hash: str,
-                  path: Path, *, min_interval: float, request_budget: list[int]) -> bool:
+                  path: Path, *, min_interval: float, request_budget: list[int],
+                  deadline: float | None = None) -> bool:
+    """Resume within a 10-day chunk. Every completed day is saved to Drive.
+
+    Existing full checkpoints from earlier versions remain readable; interrupted
+    checkpoints carry an exact prefix of days and never count as a full chunk.
+    """
     if path.exists():
-        read_chunk(path, universe_hash)
-        return True
-    # A scheduled closure consumes no API request but remains traceable in
-    # monthly quality/manifest. Reserve budget only for actual trading dates.
-    planned_requests = sum(not is_scheduled_closure(day) for day in dates)
-    if request_budget[0] < planned_requests:
-        return False
-    rows, statuses = [], []
-    for day in dates:
+        saved = read_chunk(path, universe_hash)
+        if saved.get('market') != market:
+            raise ValueError('checkpoint market changed; choose a new revision')
+        statuses = saved.get('days')
+        rows = saved.get('rows')
+        if not isinstance(statuses, list) or not isinstance(rows, list):
+            raise ValueError('invalid checkpoint content')
+        expected = [d.isoformat() for d in dates]
+        actual = [d.get('day') if isinstance(d, dict) else None for d in statuses]
+        if actual != expected[:len(actual)]:
+            raise ValueError('checkpoint dates/order changed; choose a new revision')
+        if any(r.get('trade_date') not in set(actual) for r in rows):
+            raise ValueError('checkpoint bars do not match completed days')
+        if len(statuses) == len(dates):
+            return True
+    else:
+        statuses, rows = [], []
+
+    def persist() -> None:
+        content = {'schema_version': 1, 'universe_hash': universe_hash,
+                   'market': market, 'days': statuses, 'rows': rows}
+        write_atomic(path, gzip.compress(json_bytes(content), mtime=0))
+
+    # Check for budget/time at *each* day, not before an entire 10-day chunk.
+    # Keep a 90s buffer for one request, retries and durable Drive write.
+    for day in dates[len(statuses):]:
         if is_scheduled_closure(day):
             statuses.append({'day': day.isoformat(), 'status': 'SCHEDULED_CLOSURE',
                              'calendar_source': TRADING_CALENDAR_SOURCE})
+            persist()
             continue
+        if request_budget[0] <= 0 or (deadline is not None and time.monotonic() >= deadline - 90):
+            return False
         url, params = daily_url(market, day)
         payload, source_hash = fetch_json(session, url, params)
         request_budget[0] -= 1
@@ -287,13 +313,10 @@ def collect_chunk(session, market: str, dates: list[date], universe: dict, unive
             rows.extend(parsed)
             statuses.append({'day': day.isoformat(), 'status': 'COLLECTED',
                              'rows': len(parsed), 'sha256': source_hash})
+        persist()
         if min_interval:
             time.sleep(min_interval)
-    content = {'schema_version': 1, 'universe_hash': universe_hash, 'market': market,
-               'days': statuses, 'rows': rows}
-    write_atomic(path, gzip.compress(json_bytes(content), mtime=0))
     return True
-
 
 def month_days(month: str, end: date) -> list[date]:
     start = date.fromisoformat(month + '-01')
@@ -340,9 +363,26 @@ def finalize_month(root: Path, month: str, revision: str, days: list[date], rost
             if not (folder / name).exists() or digest((folder / name).read_bytes()) != sha:
                 raise ValueError('published archive corrupted: use new revision, no overwrite')
         return {'status': 'ALREADY_ARCHIVED', 'month': month}
-    if not all(p.exists() for files in paths.values() for p in files):
-        return {'status': 'PARTIAL', 'month': month, 'pending_chunks': sum(not p.exists() for files in paths.values() for p in files)}
-    chunks = [read_chunk(p, hashes['universe']) for files in paths.values() for p in files]
+    # Existence alone is insufficient: interrupted chunks now persist daily.
+    # A month may be sealed only when *all expected days* in both markets exist.
+    incomplete = 0
+    chunks = []
+    for market, parts in paths.items():
+        for index, part in enumerate(parts):
+            expected_days = [d.isoformat() for d in days[index*10:index*10+10]]
+            if not part.exists():
+                incomplete += 1
+                continue
+            chunk = read_chunk(part, hashes['universe'])
+            actual_days = [x.get('day') for x in chunk.get('days', [])]
+            if chunk.get('market') != market or actual_days != expected_days:
+                if actual_days != expected_days[:len(actual_days)] or chunk.get('market') != market:
+                    raise ValueError('checkpoint dates/market mismatch')
+                incomplete += 1
+                continue
+            chunks.append(chunk)
+    if incomplete:
+        return {'status': 'PARTIAL', 'month': month, 'pending_chunks': incomplete}
     rows = [r for ch in chunks for r in ch['rows']]
     ids = [(r['symbol'], r['trade_date']) for r in rows]
     if len(ids) != len(set(ids)):
@@ -396,7 +436,7 @@ def finalize_month(root: Path, month: str, revision: str, days: list[date], rost
 
 def execute(root: Path, start_month: str, end_month: str, revision: str,
             *, max_requests: int = 120, min_interval: float = 2.0, session=None,
-            today: date | None = None) -> list[dict]:
+            today: date | None = None, max_minutes: float | None = None) -> list[dict]:
     if not re.fullmatch(r'r[1-9][0-9]{0,2}', revision):
         raise ValueError('revision must be r1..r999')
     today = today or datetime.now(ZoneInfo("Asia/Taipei")).date()
@@ -405,6 +445,9 @@ def execute(root: Path, start_month: str, end_month: str, revision: str,
         raise ValueError('only fully closed historical months are supported; wait until next month')
     if max_requests < 0 or max_requests > 500:
         raise ValueError('max_requests must be bounded between 0 and 500')
+    if max_minutes is not None and not (2 <= max_minutes <= 60):
+        raise ValueError('max_minutes must be between 2 and 60')
+    deadline = None if max_minutes is None else time.monotonic() + max_minutes * 60
     root.mkdir(parents=True, exist_ok=True)
     session = session or requests.Session()
     ctl = root / '_control'
@@ -440,10 +483,11 @@ def execute(root: Path, start_month: str, end_month: str, revision: str,
             for i in range(0, len(days), 10):
                 path = root / month / '_checkpoint' / revision / f'{market}-{i:03d}.json.gz'
                 if not collect_chunk(session, market, days[i:i+10], universe[market], hashes['universe'],
-                                     path, min_interval=min_interval, request_budget=budget):
+                                     path, min_interval=min_interval, request_budget=budget,
+                                     deadline=deadline):
                     break
         outputs.append(finalize_month(root, month, revision, days, universe, hashes))
-        if budget[0] == 0:
+        if budget[0] == 0 or (deadline is not None and time.monotonic() >= deadline - 90):
             break
     return outputs
 
@@ -456,11 +500,14 @@ def main() -> None:
     p.add_argument('--revision', default='r1')
     p.add_argument('--max-requests', type=int, default=120)
     p.add_argument('--interval', type=float, default=2.0)
+    p.add_argument('--max-minutes', type=float, default=10.0,
+                   help='timebox each manual Colab session, 2-60 minutes (default 10)')
     a = p.parse_args()
     if a.interval < 1.0:
         p.error('interval must be >= 1 second')
     result = execute(a.drive_root, a.start, a.end, a.revision,
-                     max_requests=a.max_requests, min_interval=a.interval)
+                     max_requests=a.max_requests, min_interval=a.interval,
+                     max_minutes=a.max_minutes)
     for item in result:
         print(json.dumps(item, ensure_ascii=False))
 
