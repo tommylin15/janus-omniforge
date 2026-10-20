@@ -132,7 +132,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     await tester.pumpWidget(MaterialApp(
-        home: AdminGovernancePage(_ShellApi(), section: 'storage')));
+        home: Scaffold(body: AdminGovernancePage(_ShellApi(), section: 'storage'))));
     await tester.pumpAndSettle();
     final button = find.byKey(const ValueKey('admin-gcs-inventory-button'));
     expect(button, findsOneWidget);
