@@ -36,10 +36,16 @@ def ci_matrix(paths: list[str]) -> dict:
     groups: dict[str, set[str]] = {}
     requirements = {"ingestion": ["jobs/ingestion-core/requirements.lock"],
                     "mart": ["jobs/intelligence-mart/requirements.lock"],
-                    "api": ["services/api/requirements.lock"], "controller": ["requirements-ci.txt"]}
+                    "api": ["services/api/requirements.lock"], "controller": ["requirements-ci.txt"],
+                    "research": ["requirements-research-ci.txt"]}
     component_group = {"ingestion-core": "ingestion", "intelligence-mart": "mart",
                        "private-pipeline": "api", "api": "api"}
     for path in paths:
+        if (path.startswith('research/colab/') or path == 'requirements-research-ci.txt'
+                or path in {'tests/test_collect_tw_equities.py', 'tests/test_research_risk_pilot.py'}):
+            groups.setdefault('research', set()).update(
+                ['tests/test_collect_tw_equities.py', 'tests/test_research_risk_pilot.py'])
+            continue
         if path.endswith('.md') or path.startswith('doc/'):
             continue
         if path.startswith(("scripts/gcp/cicd-v2", "scripts/gcp/deploy-dev", "scripts/gcp/verify-dev", ".github/workflows/", "infra/postgres/", "infra/gcp/")) or path.startswith('cloudbuild') or path == 'requirements-ci.txt':
