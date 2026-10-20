@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "d4bdf7363c997e9e770905ca341cf5cb12aee9f2",
-  "purpose": "STAGE-48H combined work: shared immutable Stage payload with per-execution provenance; admin-authorized six-bucket GCS inventory; bounded trace and tests. Release all required images with existing CI/rollback controls.",
+  "sha": "f1c58a6885874baf6a8dc5e97a1e75dd7d1b25dc",
+  "purpose": "STAGE-48H lease-aware Stage retention fix and bounded concurrent generation deletes; full current-main GHCR release to deploy safe cleanup after 4,927-object stale-status issue. Keep current API/Owner/Core/Mart unchanged until separate controlled rollout.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
