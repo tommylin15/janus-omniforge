@@ -152,8 +152,7 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 "rows_by_dataset": saved.get("input_telemetry", {}).get("rows_by_dataset", {}),
                 "scan_evidence": saved.get("input_telemetry", {}).get("scan_evidence", {}),
                 "screening_output_hash": saved.get("screening_output_hash"),
-                "evaluation_output_hash": saved.get("evaluation_output_hash"),
-                "reconciliation_status": saved.get("reconciliation_status")}
+                "model_training": "external_colab_only"}
     target, target_ref = load_or_create_target_snapshot(publication_connection, execution.execution_id,
                                                        as_of, store, bucket)
     deep_coverage = execution.config_id == "deep-coverage"
