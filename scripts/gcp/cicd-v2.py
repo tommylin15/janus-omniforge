@@ -45,6 +45,11 @@ def ci_matrix(paths: list[str]) -> dict:
         if path.startswith(("scripts/gcp/cicd-v2", "scripts/gcp/deploy-dev", "scripts/gcp/verify-dev", ".github/workflows/", "infra/postgres/", "infra/gcp/")) or path.startswith('cloudbuild') or path == 'requirements-ci.txt':
             groups.setdefault("controller", set()).update(suites["controller"])
         elif path.startswith("tests/") and path.endswith('.py'):
+            # git diff --name-only also reports deleted tests. They cannot be
+            # passed to pytest on the target checkout; other changed code
+            # still selects its live suite below.
+            if not (ROOT / path).is_file():
+                continue
             matching = ["controller"] if path in suites["controller"] else [group for group, tests in suites.items() if path in tests]
             for group in matching or ["api"]:
                 groups.setdefault(group, set()).add(path)
