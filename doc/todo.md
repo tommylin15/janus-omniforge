@@ -20,6 +20,8 @@
 
 ## 3. D07-PRE｜只負責新研究資料及 Colab 輸入
 
+**Risk 第一試點已建立（2026-10-20）**：`research/gas/risk_monthly_pilot.gs`（至多10檔、來源限流、分月 PROBE ZIP）、`research/colab/risk_pilot.py`（20日歷史波動 baseline 與 Ridge challenger）、`tests/test_research_risk_pilot.py`、`research/colab/README.md` 已寫入 main；本地 targeted pytest 4 PASS、GAS syntax PASS。Drive `janusChatGPT/資料源` 私有資料夾已建立。GAS 真實擷取與 Colab OOS 仍待現場執行；試點不冒稱全市場70%或完成 D07。
+
 - [ ] **實際公開欄位探測**：以既有 `research/gas/field_probe.gs` 驗證 FinMind 等來源可用欄位、資料值、授權用途與缺值，先取小範圍合法普通股樣本；目前僅程式提交，沒有真實採集 PASS 收據。
 - [ ] **GAS → Drive 月檔**：批次／checkpoint／續跑、provenance、`YYYY-MM.zip`、quality／manifest／content SHA、實際 TWSE／TPEx 普通股分市場×dataset ≥70% 驗收；來源缺值不造假，ETF 不進研究母體。
 - [ ] **Colab 資料讀取準備**：確認實際研究月檔能由免費 Colab **人工執行**、檢查 schema/hash 並重跑讀取；模型 fit、OOS 與 promotion **只列 D07，不在 D07-PRE 重複計工項**。
