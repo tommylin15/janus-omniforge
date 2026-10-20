@@ -1,5 +1,14 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-20｜Stage 過期失效執行實刪（generation PASS；新版正式 rollout 待查）
+
+- **核准與條件**：Stage bucket 僅 `gen-lang-client-0593591102-dev-stage`；超過 7 天且 `running` 紀錄已無有效 `claimed_until`，只清 `executions/<id>/stage/*`。不改控制紀錄、不以 MD5 推算可刪容量、不碰 Core/Mart/Private；既有 Scheduler 暫停、GitHub lease 與 Cloud Run 全頁終態 fence 均保留。
+- [受控 dry-run #39354898619](https://github.com/tommylin15/janus-omniforge/actions/runs/39354898619) execution `janus-ingestion-core-qlrlz`：24 筆 stale execution、4,927 objects／96,321,204 bytes 候選、零寫入；before=after=6,384 objects／415,180,394 bytes，PASS。
+- [受控 apply #39355428497](https://github.com/tommylin15/janus-omniforge/actions/runs/39355428497) execution `janus-ingestion-core-8zr4h`：**generation readback PASS**，實刪 **4,927 objects／96,321,204 bytes**，before **6,384／415,180,394** → after **1,457／318,859,190**。Core/Mart/Private deleted=0。不得把既有 2,503／650,604,317 或 37／38,396 的歷史收據再加進本輪單次 delta。
+- `main` 修正 `_stage_live_execution_ids` 與舊 `finops_stage_prune` 雙入口的 lease-aware 判定，包含 apply 前重讀 active leases；新增 bounded concurrent generation deletion 與 Fail Closed 測試（相關 selective CI PASS）。**舊版本仍部署中**；直到新四 Jobs rollout、自然每日 18:30 Stage-only 清理、真實跨 execution raw 重用、登入 Admin 六桶讀回獲取獨立證據，STAGE-48H 整體維持 PARTIAL。
+- 2026-10-20 原 MD5 疑似多餘 165,308,239 bytes 為歷史 metadata 候選，可能與本次 96,321,204 bytes 重疊，未驗實體重複副本、generation 與 active provenance，不能標已釋放。
+
+
 ### 2026-10-19｜一次性 GCS 容量歸因：程式 PASS／實機 TOKEN BLOCKED
 
 - [唯一調查紀錄](../gcs-storage-footprint-audit-2026-10-19.md)；main `e00100dba56a835626e055e6f727aa8544adbd21` 新增既有 FinOps Workflow 的 metadata-only `gcs-storage-footprint` 和 Python 報表／8項測試。
