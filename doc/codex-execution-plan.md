@@ -9,8 +9,8 @@
 | 現行工作包 | AI 必讀操作卡 | 必要契約／成果 |
 |---|---|---|
 | **STAGE-48H** | [Stage retention Runbook](runbook-batch-controller-dev.md) | 48h Stage TTL、每日 stage-only Controller、已證實合法引用、generation readback；後續 source 去重與 Admin GCS 唯讀盤點 |
-| **D07-PRE** | [FINOPS/Colab 整合指令 §4](execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | [Colab 單一路徑](colab-d07-modeling-feasibility-2026-10-19.md)、[資料治理](spec/data-governance.md)；24月覆蓋、PIT、來源、成本及 Colab 實跑／交回 |
-| **D07** | [D07 五角色卡](execution-cards/d07-specialist-b9-oos.md) | [Specialist SPEC](spec/specialist-engines.md)、[WBS-5](wbs/wbs-5-specialist-engines.md)；模型 fit/OOS 與各角色 Promotion Gate 獨立驗證 |
+| **D07-PRE** | [新研究採集契約](spec/research-collection-gas-drive-colab.md) | [D07 五角色任務卡](execution-cards/d07-specialist-b9-oos.md)、[資料治理](spec/data-governance.md)；先完成公開欄位可得性與缺值盤點、GAS 月檔／manifest／品質讀回，再做 Colab OOS |
+| **D07** | [D07 五角色卡](execution-cards/d07-specialist-b9-oos.md) | [Specialist SPEC](spec/specialist-engines.md)、[WBS-5](wbs/wbs-5-specialist-engines.md)；Colab 模型 fit/OOS、Janus Registry／推論及各角色 Promotion Gate 獨立驗證 |
 | **D08** | [D08 CEO 卡](execution-cards/d08-ceo-admin-owner-report.md) | [AI/Mart SPEC](spec/intelligence-and-governance.md)、[Admin UI](ui/admin.md)；Validated Fact Pack/Owner/報告 |
 | **已結案 D01～D06／DRL-01／Admin v2** | [歷史任務卡索引](execution-cards/README.md)＋[結案](wbs/completed-index.md) | **不重啟**歷史 gate；若新缺陷實際影響正在開發的 D07/D08，按該工項修復 |
 
