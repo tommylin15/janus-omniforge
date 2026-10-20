@@ -72,6 +72,14 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - active queued/running/retrying execution 及其有憑據的共用原始資料不得刪；不再因「可能會用到」無憑據假設將其餘到期物件無限保留。刪除限現役 dev Stage、現有 worker fencing／固定 GCS generation／allowlist／有界資源與失敗讀回。Hash/MD5 相同只代表疑似內容相同：多份 provenance/manifest 正在引用時不得直接刪去全部副本；去重需驗證代表物件與來源引用、回寫及重跑安全，未知時單獨標記。
 - 本節是使用者明確核准的 2 天 Stage TTL 與現有 dev 範圍受控清理，**不**授權刪除 Core 現用檔、Mart、Research frozen training input 或 Private Owner 資料。
 
+### 1.9 D07-PRE 研究路線、資料門檻與立即退役（2026-10-20）
+
+[新研究採集與模型契約](spec/research-collection-gas-drive-colab.md) 覆蓋舊 D07 的 Core→BQ／PyIceberg→Colab 必經來源、Cloud Run 月度 `specialist-retrain` 和「先取得 24 月歷史 PIT 證據才能收集欄位」等限制。新研究的獨立 GAS→Drive 月檔→Colab 路線不以 GCP Core/Mart 工作為資料採集前置。研究母體是上市／上櫃普通股（排除 ETF）；每市場×資料集最少 70%；第一輪僅盤點欄位可得性，保存時間欄位貼標，正式 OOS/promotion 仍管控 future leakage。
+
+已確定新架構不使用、也不被正式服務引用的舊研究 Job、Scheduler、Workflow、BQ 資源**立即移除，不等待新 GAS／Colab 開發或驗收**。移除 GCP 實際資源仍需依引用、安全、資源 ID 與讀回證據判定，不可把 GitHub 修改當作 live deletion；共享 Mart/Controller 不能連同市場 screening、Owner、API、週 Iceberg 維護與備份一併刪除。正式 Core 上市 90%／上櫃 70% 的市場品質規範與研究 70% 完全分開，ETF 正式持股行情仍保留。
+
+個人非商業研究不代表可以忽略第三方 API 的自動存取、訓練使用與資料保留條款。研究/canonical 分離、來源 provenance、不得補造缺值、模型品質與 LLM 非出版權力依然有效。
+
 ## 2. Dev 平行上線環境政策
 
 - 目前 `dev` 是 Janus 個人使用階段的主要真實運行環境（parallel-live environment），不是只供假資料、mock、demo 或 pre-production 演練的 staging。
