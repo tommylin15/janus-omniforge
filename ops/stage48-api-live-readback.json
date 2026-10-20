@@ -7,5 +7,7 @@
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "STAGE-48H independent post-promotion readback: serving 100% exact sha, fixed image, health 200, unauth POST Admin GCS 401/403, tags unchanged, rollback rehearsal proof. No IAM/new services or Stage data mutation."
+  "purpose": "STAGE-48H independent post-promotion readback: serving 100% exact sha, fixed image, health 200, unauth POST Admin GCS 401/403, tags unchanged, rollback rehearsal proof. No IAM/new services or Stage data mutation.",
+  "request_attempt": 2,
+  "retry_reason": "First workflow #39349401846 detected only finops-* changed paths and silently skipped all jobs. Workflow detector now includes exact stage48 JSON; no GCP mutation was performed."
 }
