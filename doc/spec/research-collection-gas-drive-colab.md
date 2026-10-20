@@ -17,11 +17,10 @@
 
 用途為個人非商業研究，不新增付費 API。但這不等於免除 API 速率、存取、保存、再利用、ML 訓練及禁止再散布條款；FinMind 以當次帳戶允許的 free plan 使用，Yahoo 未明確允許自動抓取前不作預設。不得將 secret、OAuth token 或 Owner 個資送入公開 log、研究成果或 GitHub。
 
-## 4. 立即退役舊研究執行器，不等待新開發
-- **確認新架構不使用、正式服務無相依者現在就移除**，不等 GAS／Colab 新鏈驗收後才移。首批為 Cloud Run Controller 舊 `specialist-retrain` 月度 due、手動 workflow/request、Mart 同名舊 fit 操作，既有 pending 需安全標 skipped／retired。
-- 唯讀盤點 Cloud Run Jobs/Scheduler、BQ dataset/table/view/query、相關 GCS 研究暫存與其真實引用；專屬舊研究路徑立即停用／移除，讀回後註記資源 ID、實刪數、備援。不能憑字串匹配刪除仍服務正式 Screening/API 的共用資源。
-- 正式 Janus EOD ingestion、market screening、個股／持股／Owner API、Mart、Stage 48h、週 Iceberg 維護、備份保留原職責；GAS 有自己的分批 trigger，不屬 Janus 正式 Cloud Scheduler 第二個 controller。
-- 必須分別記錄 REMOVED_FROM_MAIN、CI_PASS、DEPLOYED、RUNTIME_DISABLED、BQ_DELETED 等狀態；GitHub 退役不等於 GCP 已真刪。
+## 4. 舊研究執行器退役（2026-10-20 CLOSED）
+- Controller `specialist-retrain` due、手動舊 workflow/request、Mart 舊 fit 入口已由 GitHub `main` 移除；共用 Controller／Mart 經完整 GHCR Release 與四 Jobs rollout PASS。
+- [實機清理與精確讀回](../archive/d07-gcp-bq-retirement-live-2026-10-20.md) PASS：既有專屬研究 Job／Scheduler 與 B5～B8 BigQuery 中介實體均無殘留，實際刪除 0。依 [有界驗收原則](../PROJECT_RULES.md#111-有界驗收與結案原則2026-10-20-使用者決策)，**此工項已結案，不為假設性未知資源、排程或歷史記錄另立追查**。
+- 正式 Janus EOD ingestion、market screening、Owner/API、Mart、Stage 48h、週 Iceberg 與備份不受本次研究退役影響；新 GAS 月檔與 Colab 研發另循 D07-PRE 驗收。
 
 ## 5. 五模型品質與單一工作入口
 Quant／Risk 優先實驗，Valuation／Fundamental 依可得欄位，Event ML 沒有真實授權人審標籤維持 rules。每角色保留缺值、provenance、可重現資料 hash、OOS 和獨立 promotion gate；研究資料不可升格 canonical。工作只在 doc/todo.md 的 D07-PRE／D07，不創造平行 WBS。
