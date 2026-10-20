@@ -511,6 +511,9 @@ def test_runtime_watch_only_held_only_overlap_off_market_and_exit(monkeypatch):
     assert first["specialist_count"] == 10
     assert first["screening_count"] == 1
     assert first["publishable"] == 0
+    assert first["model_training"] == "external_colab_only"
+    assert "evaluation_output_hash" not in first
+    assert "reconciliation_status" not in first
     assert readers and readers[-1].closed
     assert run("ex1") == {k: v for k, v in first.items() if k != "artifact_hash"}
     saved = json.loads(stores["mart"].read("executions/ex1/specialist-manifest.json"))
