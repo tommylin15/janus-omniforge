@@ -123,7 +123,11 @@ def main():
         "date_utc": datetime.now(timezone.utc).isoformat(),
         "project": PROJECT, "region": REGION, "intent": config["intent"],
         "inventory": {"jobs": len(jobs), "schedulers": len(schedulers),
-                      "datasets": len(datasets), "tables": sum(map(len, table_sets.values()))},
+                      "datasets": len(datasets), "tables": sum(map(len, table_sets.values())),
+                      "job_ids": sorted(job_names), "scheduler_ids": sorted(sched_names),
+                      "dataset_ids": sorted(table_sets),
+                      "table_ids": sorted(f"{ds}.{t['tableReference']['tableId']}"
+                                          for ds, ts in table_sets.items() for t in ts)},
         "candidates": candidates, "deleted": {"jobs": [], "schedulers": [],
                                                 "tables": [], "datasets": []},
         "blocked": {}, "remaining": {}, "status": "PARTIAL",
