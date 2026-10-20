@@ -20,11 +20,11 @@
 
 入口：`AGENTS.md → PROJECT_RULES → status → TODO → 指定任務卡 → 最少相關 SPEC/code/tests`。最新 runtime/code 優先於舊文件。Drive 只主動在白名單 `janusChatGPT` 內查原始設計，不能用 Drive 研究文件替換目前 GitHub/runtime 真相。
 
-## 2. 接下來的唯一施工順序
+## 2. 唯一施工順序與研究資料責任（2026-10-20）
 
-**STAGE-48H → D07-PRE → D07 → D08**。STAGE-48H 是 2026-10-19 新核准的 dev Stage 保存與去重／Admin 稽核任務，不重開 FINOPS-AB 歷史範圍；具體驗收只在 [TODO](todo.md)。D01–D05、DRL-01、FINOPS-AB＋D06、Admin v2 與持股／關注背景補收，按既有 evidence 完成範圍已閉環，**不能把其舊卡／WBS 歷史 blocker 又變新 TODO**。原 FINOPS-C 的資料／成本評估與 Colab 研究現在只屬**D07-PRE 一個工作包**，不另建立 BigQuery 工程前置或第二 Scheduler。
+**STAGE-48H → D07-PRE → D07 → D08**，進度只在 [TODO](todo.md)。D01～D06、DRL-01、FINOPS-AB 不重新開啟。D07-PRE 唯一輸入為 [GAS→Drive 每月 ZIP→Colab](spec/research-collection-gas-drive-colab.md)：普通股且 ETF 排除，TWSE／TPEx 各資料集研究採集門檻 70%；先看現有持股/觀察股公開欄位能否取得，歷史 PIT/24月完整度不再阻擋**第一輪採集**。正式 Core 90%/70% 不變；模型 OOS/未來洩漏防護仍獨立驗證。
 
-D07 資料/模型的唯一目標為：Core 合格資料固定匯出 → **Colab 做研究資料 Join/feature/labels、rolling 24 月訓練與 OOS** → 版本化模型/評估 → Janus Mart 驗收/正式推論。只有 Colab 大資料瓶頸有實測與授權才加入 BQ SQL 前置縮減；不使用 BQML 或 Cloud Run 替代訓練。現行 Mart retrain 程式未改，不能因文件承諾而稱已遷移。
+**立即退役已確定不用的舊研究工作**：Cloud Run Controller 月度 retrain、手動入口及非共用 B5～B8／BigQuery 研究中轉，不等待新 GAS／Colab 上線。正式行情、Market Screening、Owner、API、Stage48h、週 Iceberg 和備份仍需保留；真正 GCP/BQ 資源刪除必須有 live 清單及讀回。
 
 ## 3. AI 作業與完成分層
 
@@ -58,10 +58,6 @@ D07 資料/模型的唯一目標為：Core 合格資料固定匯出 → **Colab 
 已結案 release/事故、日期快照、舊 Admin 六頁規格、當時的資料/批次盤點移入 `archive/`，保留原始證據與當時 FAIL，不用舊狀態當現在工作。仍會被程式、CI、active SPEC／Runbook 使用的文件先查連結再搬；本次不隨意刪源碼、Migration、附件或其他專案 Drive。正式治理修改須同步最小入口，而不是每個 WBS、README、UI 都複寫一份 TODO。
 
 
-## 6. 2026-10-19 R2／R3 可量化缺口之證據界線
+## 6. 歷史研究缺口（不再是收集前置）
 
-- **R2（24 月全市場 OHLCV 規模）**：按 [因子容量矩陣](spec/factor-coverage-retention-ledger.md) 之規劃情境，1,992 股×每年約250日×兩年＝**996,000 股日組合**；[2026-10-18 Core census #39083283620](https://github.com/tommylin15/janus-omniforge/actions/runs/39083283620) OHLCV 為 **111,929 筆**。**884,071／88.76% 是兩個不同母體及口徑的規劃算術差額，不是實際去重後缺口率，不授權按該差額盲抓。** 缺少 historical membership/退市、dataset/date/market/symbol 去重、上市停牌、fresh 10/19 全量 COUNT、eligible feature/label/PIT 排除後分母。B5 固定 Parquet 499 股、10,978 row、2026-03-19～09-03，僅約5.5個曆月日期跨度，不能當作全市場24月。一般 Core OHLCV row TTL 365 天，亦不等於實際每股已有滿一年。
-- **R2（六股重點 OHLCV 的局部量化）**：2026-10-19 背景補收範圍的 1513／2382／3231／3711 各158日、2327／5876 各200日，**1,032股日**；與兩年近似 6×500＝3,000 相比，**帳面差1,968股日（65.6%）**，不扣停牌／生效資格／日期缺口，僅供 sizing。這六股的 25月 PE/PB已 ready，**不可用 OHLCV 差額推論估值亦缺 65.6%**。證據：[舊 TODO 的 10/19 8檔讀回](archive/todo-before-consolidation-2026-10-19.md)。
-- **R3（嚴格 PIT 缺口）**：當前**沒有可驗證的全市場分母、通過筆數、缺少歷史 original-published／first-observed/version 的分項 COUNT**，所以 `unknown`，不能聲稱 PIT 缺 100% 或 0%。2026-10-19 Janus 公開 MCP bounded readback 中 5876 財報樣本具有 `observed_at`／`availability_at`、部分 `published_at`，但 `publication_time_authoritative=false`、`numeric_revision_verified=null` 等未證明歷史原版數值；樣本不能推論全體。已核准財報 `strict_pit=false` 僅 research-only，Core/Mart current-only Iceberg snapshot 不可用文字 ID 重建歷史 as-seen。
-- **R3（舊模型逐筆 provenance 確知缺口）**：[B9 實測](b9-quality-evidence.md) 明列歷史 **1,536筆 v4 prediction records** 無逐筆 source authorization／sample provenance，故該**固定舊版本的 1,536／1,536 需視為逐筆證據未驗**；新 v5 schema 只適用未來新資料，不能補造舊歷史 as-known。此 1,536 不等於全市場 PIT 原始資料缺筆總數，真正全體分母仍 UNKNOWN。
-- **D07-PRE 唯一精查產物**：按 `dataset × market × symbol × calendar_month × horizon × source` 輸出預期/有效/缺失股日與 coverage%，再按 `available_at_evidence (official_timestamp / verified_first_observed / assumption / unknown) × revision_trace × training_use_authorization` 輸出嚴格 PIT 合格與不合格／UNKNOWN 分子分母。24 月 window 與 5/20/60/120日成熟 label、purged OOS/holdout 分開計；未有稽核無法給具體回補清單或每個角色之缺口百分比。不另建 R2／R3 WBS。
+舊 B5/B8 Core census、24月 PIT 缺口與完整 frozen Parquet 的估算僅為歷史研究證據，可由 Git 版本查詢；**不能作 D07-PRE GAS 來源、月份或開工 gate**。新的第一批欄位清單、研究70%分母與 Colab OOS 分別按 [新契約](spec/research-collection-gas-drive-colab.md)／[TODO](todo.md) 建立真實證據。
