@@ -9,7 +9,7 @@
 | D03 | [四頁 UI／通用圖表／視覺收斂](d03-four-page-charts-visual.md) | WBS-6-USER-FINAL-VISUAL-CONVERGENCE（非 AI） |
 | D04 | [Scheduler 總控／備份交接](d04-controller-backup-handoff.md) | WBS 3／7 |
 | D05 | [產品集中發布／完整 dev 驗收](d05-integrated-release-dev.md) | WBS 8／CI-CD |
-| **D07-PRE（目前唯一前置）** | [Colab 單一資料／模型訓練／條件式 FINOPS-C 指令 §4](finops-ingestion-iceberg-ab-and-c-gate.md) | WBS-5／WBS-7；原 FINOPS-AB 已結案，BQ 只在大資料瓶頸時做前置縮減 |
+| **D07-PRE（唯一研究入口）** | [GAS／Drive 月檔／Colab 研究規格](../spec/research-collection-gas-drive-colab.md) | 研究普通股、分市場70%、欄位盤點；立即退役舊雲端 ML/OOS、BQ 研究前置 |
 | D06（已併 FINOPS-AB 結案） | [歷史清理任務卡](d06-iceberg-retention-io.md) | 只供歷史／故障定位，不執行獨立工項 |
 | D07 | [五角色／歷史母體／B9 品質](d07-specialist-b9-oos.md) | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） |
 | D08 | [CEO／Admin／正式 Owner 報告](d08-ceo-admin-owner-report.md) | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE |
@@ -18,7 +18,7 @@
 
 八張卡統一包含：責任、依賴、最小必讀、工程入口、前置讀回、執行程序、專屬驗收、安全界線、失敗恢復、相同格式的 CI／dev 真實證據與 AI 交接報告。
 
-目前範例：「接續 D07-PRE，依 §4 的 Colab 資料/模型單一流程完成必要證據與決策；不要新建 BigQuery 訓練、第二月度 Scheduler 或啟動 D08。」
+目前範例：「接續 D07-PRE，採 GAS→Drive 每月 ZIP→Colab；不使用舊 Core/BQ／Cloud Run 訓練路徑，正式 Janus 服務不受影響。」
 
 
 ## D01～D06 已結案的 UI／資料指令（歷史索引）
