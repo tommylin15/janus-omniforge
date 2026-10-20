@@ -6,11 +6,11 @@
 
 | 優先 | 工項 | 狀態／責任入口 |
 |---|---|---|
-| **P0** | **STAGE-48H：48小時 TTL／安全去重／Admin 六桶盤點** | **DEPLOY PASS / FUNCTIONAL ACCEPTANCE PARTIAL**：歷史 Stage 真實清理兩輪已驗證 2,503 objects／650,604,317 bytes（[來源追查 #39344827401](https://github.com/tommylin15/janus-omniforge/actions/runs/39344827401)）；新 Stage 去重與 Admin 盤點程式經 [完整 GHCR #39345633766](https://github.com/tommylin15/janus-omniforge/actions/runs/39345633766)（1,515 Python PASS、Flutter PASS）、[四 Jobs rollout #39346705950](https://github.com/tommylin15/janus-omniforge/actions/runs/39346705950) PASS、[Jobs 與 Scheduler 讀回 #39348777969](https://github.com/tommylin15/janus-omniforge/actions/runs/39348777969) PASS（固定 digest/config、Scheduler ENABLED、全頁 0 nonterminal）、[API 100% 切流 #39348904538](https://github.com/tommylin15/janus-omniforge/actions/runs/39348904538) PASS（rollback rehearsal）、[獨立 API 驗收 #39349499000](https://github.com/tommylin15/janus-omniforge/actions/runs/39349499000) PASS（revision janus-api-00566-biq、build/image/health、未授權 Admin GCS POST 401）。**仍待三項實機**：真實 Admin OAuth 六桶 GCS 查詢、真實新 raw 跨 execution 重用/provenance、10/20 18:30 自然 Stage-only due/48h 與 weekly Iceberg unchanged；不把 code/deploy PASS 包裝成三項 LIVE PASS。D07-PRE 另開對話。 |
+| **P0** | **STAGE-48H：48小時 TTL／安全去重／Admin 六桶盤點** | **DEPLOY PASS／LIVE PARTIAL**：[full GHCR #39355867356](https://github.com/tommylin15/janus-omniforge/actions/runs/39355867356)、[四 Jobs #39356643823](https://github.com/tommylin15/janus-omniforge/actions/runs/39356643823)、[獨立 Scheduler／固定 digest 讀回 #39358461946](https://github.com/tommylin15/janus-omniforge/actions/runs/39358461946) PASS；舊 Stage **4,927 件／96,321,204 bytes** 已 generation 實刪、[六桶讀回 #39356190151](https://github.com/tommylin15/janus-omniforge/actions/runs/39356190151) 確認超過7天0；[真實 shared raw/provenance #39358645373](https://github.com/tommylin15/janus-omniforge/actions/runs/39358645373) PASS（測試物件全部清除）；[新版48h dry-run #39359037869](https://github.com/tommylin15/janus-omniforge/actions/runs/39359037869) 候選0。**尚需**當日18:30自然 due/apply 收據與真實登入 Admin 六桶正向 OAuth/IAM；不同 observed_at 的同日 payload 去重效率未驗收，不當 full PASS。D07-PRE 在另一對話。 |
 | **P1** | **D07-PRE：GAS→Drive 月檔→Colab；舊研究雲端路線立即退役** | **DOC_UPDATED／GitHub 排程入口退役；GCP/BQ 實機待驗**；[唯一新契約](spec/research-collection-gas-drive-colab.md) |
 | **P2** | **D07：五角色 ML／OOS 品質及正式介接** | **PLANNED**、待前置評估有合格處置；[唯一 D07 卡](execution-cards/d07-specialist-b9-oos.md) |
 | **P3** | **D08：CEO、Admin 模型管理與受控 Owner 報告** | **PLANNED**、有效 Fact Pack 後；[唯一 D08 卡](execution-cards/d08-ceo-admin-owner-report.md) |
-| 非阻擋 | **OPS-OBS：自然排程與 GCS 保留量觀察** | 六桶 GCS metadata 稽核 10/19 PASS，Stage 10/19 實刪累計 650,604,317 bytes 已有兩張 generation 收據；自然 18:30 首次新版本收據仍未知，不等同每週 Iceberg 驗收。追查見 [唯讀收據 #39344827401](https://github.com/tommylin15/janus-omniforge/actions/runs/39344827401)。 |
+| 非阻擋 | **OPS-OBS：自然排程與 GCS 保留量觀察** | 2026-10-20 六桶 current 968,619,706 bytes、Stage 1,457件／318,859,190 bytes，超過7天0；18:30首次新版自然 Stage-only receipt 尚待時點到後核對，與每週 Iceberg 的正式 cadence 分開驗證。 |
 
 **不重開**：D01～D05 `CLOSED/USER_ACCEPTED`、DRL-01 `CLOSED`、FINOPS-AB（已含 D06）`CLOSED`、背景持股/關注股補收 `PASS`、ADMIN-V2 `PASS`。原驗收範圍與缺口不改判；完整實測收據在 [原 TODO](archive/todo-before-consolidation-2026-10-19.md)、[D01～05](archive/d01-d05-relaxed-acceptance-closure-2026-10-17.md)、[DRL](archive/drl01-completed-2026-10-19.md) 和 [Operations](spec/operations-and-testing.md)。歷史工作包的卡片留作維運參考，不能變第二套 active queue。
 
@@ -20,13 +20,11 @@
 
 
 
-**10/20 最新 GCS 六桶 metadata-only readback（獨立 CI 身分，非 Admin OAuth）**：[FinOps #39349927067](https://github.com/tommylin15/janus-omniforge/actions/runs/39349927067) OBSERVED_COMPLETE，六桶 current **1,055,828,835 bytes**／noncurrent **16,877,094 bytes**／soft-deleted 0；Stage current **6,265 objects／406,329,684 bytes**。其中 **4,927 個／96,321,204 bytes 已超過 7 天**，與過往 active 引用保護數目吻合但**未逐筆驗證有效性**，要查 PG queued/running/retrying 與 manifest 是否仍有真實工作，不能盲刪；Stage 同 MD5 潛在重複 **165,308,239 bytes** 不是刪除資格。CI 的 GCS metadata 讀權限不等於 API serving identity 或 Admin 正向按鈕已可用。
-
-
+**10/20 最新 GCS 六桶 metadata-only readback（獨立 CI 身分，非 Admin OAuth）**：[FinOps #39356190151](https://github.com/tommylin15/janus-omniforge/actions/runs/39356190151) OBSERVED_COMPLETE，六桶 current **968,619,706 bytes**、noncurrent **16,877,094 bytes**、soft-deleted 0；Stage current **1,457 objects／318,859,190 bytes**，**超過7天0件**。相同 MD5 潛在重複 **126,687,768 bytes** 不能直接當作刪除資格；需保護未到48h與有效引用。CI 的 GCS metadata 讀權限不等於 API serving identity 或 Admin OAuth 正向按鈕 PASS。
 
 - [x] **48 小時到期資料清理**：dry-run → 受控 generation apply → before/after bytes 讀回；另以 Cloud Logging 確認 2,050 筆的獨立 apply 收據。
-- [ ] **Stage 安全去重實機驗收**：程式、tests、雙 canary、四 Jobs 部署已 PASS；仍須驗新 raw object reused flag、不同 execution provenance manifest、active 引用保護、48h TTL/舊資料相容性。
-- [ ] **每日自然排程驗收**：Scheduler 與 Jobs 部署 readback PASS；待今天 18:30 Asia/Taipei 的 Controller occurrence、Stage-only execution 終態、generation delete bytes、無重覆派送及每週 Iceberg 保持不變的實際收據。
+- [x] **Stage 相同 observed-at shared raw/provenance 實機**：[Cloud Run canary #39358645373](https://github.com/tommylin15/janus-omniforge/actions/runs/39358645373) 一份 raw、第二 execution reused、兩份不同 provenance、4件 synthetic generation 刪除殘留0 PASS；不同 observed-at 之同日重用及正向 live lease 仍未單獨實機驗證，不能泛稱全情境已去重。
+- [ ] **每日自然排程驗收**：新版48h [dry-run #39359037869](https://github.com/tommylin15/janus-omniforge/actions/runs/39359037869) PASS，活躍租約0、過期可刪0件／0bytes；兩次手動 apply [#39359331473](https://github.com/tommylin15/janus-omniforge/actions/runs/39359331473)、[#39359630805](https://github.com/tommylin15/janus-omniforge/actions/runs/39359630805) 因 D07 同時更新 main 被全域 lease 安全拒絕（零刪除），不重試繞過鎖。2026-10-20 18:30 Asia/Taipei 自然 Controller occurrence／Stage-only apply 終態與 generation delta／無重複派送，已安排當日20:00左右一次唯讀驗收；週六 Iceberg 維持不變。
 - [ ] **Admin 六桶正向驗收**：UI＋後端 Admin-only POST 已上線，未登入 401 PASS；仍須真的 Admin OAuth 授權按鍵、確認既有 API runtime metadata IAM 與六桶完整/部分/timeout 處理。無新增刪除功能。
 - 本工程不變更 Core/Mart/Private/Research 保留政策、不新增付費資源；D07-PRE／Colab 建模另由獨立對話承接，本對話完成 STAGE-48H 收尾後結案。
 
