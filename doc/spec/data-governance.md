@@ -50,15 +50,13 @@ Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當�
 
 完整模式、手動修補限制、source URL/期別/單位與安全重試詳見 [runbook](../runbook-data-supplement.md)；不得以此頁新增第二個 Scheduler、付費資源、額外補抓範圍或寫入 Owner ledger。
 
-## 5. D07 研究兩年滾動窗口（不改 row TTL）
+## 5. 獨立模型研究資料，不再由正式 Core 綁定
 
-第一版研究採**最近 24 個月 rolling window** 作每月模型資料目標，重訓／評估週期維持每月第一個週六10:30；不是已具備完整兩年、不是 Core 365天保留期自動改為730天，也不是每月全市場×5全重算。依角色實際成熟樣本、股票/日期 coverage、標籤可得時點、walk-forward/purge、OOS 與 untouched holdout 判定；有缺值先用合法較短窗口研究，缺 OOS 證據不 promotion。
+2026-10-20 新 [GAS／Drive／Colab 唯一研究契約](research-collection-gas-drive-colab.md) 取代舊 Core→BQ／PyIceberg→Colab 的研究採集必經鏈。GAS 對第三方合格 API 依配額分批抓取，私有 Drive `資料源/YYYY-MM.zip` 作月檔，Colab 直接讀取訓練；上市／上櫃普通股，不納入 ETF；各市場×dataset 研究覆蓋最低 70%。第一輪只核對既有持股／觀察股的公開欄位可得性，時間資料保留標籤，資料採集不以歷史完整 PIT 稽核擋關。正式模型 OOS/promotion 仍驗證時間順序與 future leakage。
 
-研究財報如使用已核准 `strict_pit=false` 比較，僅標 research-only；不能對外發布為嚴格 PIT。需重跑同一實驗者保存可驗證的 frozen inputs，不依賴已刪除 snapshot。
+## 6. 舊模型研究排程與正式服務切開
 
-## 6. D07-PRE 單一 Colab 研究資料與訓練流程（FINOPS-C 條件式）
-
-2026-10-19 選定 **Colab 統一執行研究資料清理、Join、特徵/標籤、兩年滾動模型訓練與 OOS**；Janus Core/Ingestion/PG/正式推論仍在原環境、PyIceberg 負責受控唯讀資料出口，BigQuery **只在 Colab 實測資料量／Join／記憶體／時間／I/O 瓶頸時**，按成本/PIT/parity/授權 gate 作前置縮減 Parquet，**不是另一個訓練平台**。唯一工作包為 [TODO D07-PRE](../todo.md)，執行方法與驗收在 [Colab 單一流程](../colab-d07-modeling-feasibility-2026-10-19.md)、[AI 指令](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)。每月首週六10:30 仍只有既有 Controller due；Colab 免費版無保證無人值守能力，需人工執行／留收據，欠缺能力保持 NOT_VERIFIED，不暗中在 Mart 再跑第二模型訓練。尚未完成 live Colab 的模型/PIT/成本驗證，不標 D07-PRE PASS。
+原 `specialist-retrain` 月度 Controller 派送、手動派送 Workflow，以及 B5～B8 舊雲端 ML/OOS 研究中轉不再構成 D07 必要流程。已確定不用且不被正式服務引用的舊 Job/BQ 立即停用或移除，**不等待 GAS 或 Colab 上線**；live Cloud Run、BQ 的真正刪除需查驗資源／依賴與讀回。正式市場 EOD Ingestion／Screening、個股／持股／Owner、API、Stage 48h、週 Iceberg 清理、備份保留現有契約；研究 GAS 分批 trigger 是獨立平台，不另建正式 Janus Cloud Scheduler Controller。
 
 ## 7. 驗收與工作佇列
 
