@@ -1,168 +1,17 @@
-# Janus WBS 5 — Intelligence Mart
+# WBS-5｜Intelligence Mart 正式職責
 
-**2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。實作與 runtime 切換狀態見 status／operations，不以本契約推定完成。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](../spec/full-market-batch-policy.md)。
+更新：2026-10-20。本檔僅管 Janus 正式市場與五分析師結果的消費、驗證及推論，不再管研究資料採集或模型訓練。研究唯一來源：[GAS／Drive／Colab](../spec/research-collection-gas-drive-colab.md)。
 
-更新：2026-10-06
-狀態：Active WBS index；執行順序以 `../todo.md` 為準
+## 正式留存
+現有 Canonical Iceberg Core／PostgreSQL serving、日常 ingestion、market-screening、正式 Mart、Deep Coverage（watchlist ∪ holdings）、Owner 個股／ETF 行情、私人交易／現金、API/UI、Stage48h、週 Iceberg/Mart/Core retention 與備份繼續使用。公開/私人隔離、來源與 provenance、null、dirty cache、immutable Fact Pack、失敗回退保留。
 
-本文件只定義 WBS-5 的責任與驗收邊界。五 specialist 的現行實作契約見 [`wbs-5-specialist-engines.md`](wbs-5-specialist-engines.md) 與 [`../spec/specialist-engines.md`](../spec/specialist-engines.md)。舊「每日五個 Codex／LLM 分析師 + CIO」方案已被 2026-10-03 Token-first + On-demand CEO 決策取代，不再是 active WBS。
+## 新模型研究邊界
+GAS 向合格第三方資料源收集公開上市櫃普通股；每月 ZIP 入私有 Drive `資料源`，ETF 完全不計研究母體；TWSE/TPEx 各自 dataset 品質門檻 ≥70%。先盤點現有公開欄位及非空率，時間欄位若有就標記；歷史 PIT 全面稽核不是研究採集阻擋條件。
 
-## 5.0 Runtime 與資料邊界
+Colab 人工做五角色 features/labels、模型 fit、OOS、版本；Mart **不再執行** Cloud Run `specialist-retrain`、B5～B8 ML/OOS 數據中轉或 BigQuery 訓練工作。Mart 只負責合格模型的 hash/品質/來源/OOS gate、Registry、正式推論、版本與回滾，未核准模型機率保持 null。
 
-- `intelligence-mart` 只讀 `analysis_as_of` 可見的 versioned Core snapshot；不得即時補抓、呼叫 scraper 或改寫 Core。
-- canonical data、PIT／future leakage、provenance、source authorization、missing-data honesty、immutable lineage、public/private isolation 與 publication boundary 必須維持。
-- 每次 execution 保存 `execution_id`、`analysis_as_of`、Core snapshot identity、feature／engine／model version、input/output hash 與必要 governance version。
-- PostgreSQL 只保存 catalog／control／publication／audit／bounded index；Core canonical／PIT/history 保持 Iceberg/GCS。BigQuery 只作 B 組 analytics compute；可重建 intermediate 不升格 canonical，大型 training/evaluation dataset 以 versioned GCS Parquet 固定，specialist/model/evaluation artifact 依 Mart contract 保存。
-- Mart 的已持久化成果可在 dev 真實使用；完成判定仍需 tests／deployment／live execution／readback evidence，不由文件或單次成功推定。
+## 退役
+舊 Controller 月度 due、手動流程、獨立研究 BQ 資源、雲端 ML/OOS 作業已不再是產品或模型新路線的一環。只要其他正式服務不引用就立刻移除，不等待新 GAS／Colab 完工。共用 `janus-intelligence-mart` 仍服務正式 UI 與週清理，不得整支刪掉；真實 Cloud Run/BQ 的終態必須實機讀回。
 
-## 5.1 Coverage 與 Mart pipeline
-
-### Market Coverage
-
-全上市櫃個股在每個交易日 EOD canonical data ready 後執行低成本 screening／discovery 與必要 cross-sectional Quant inference，不做 全市場×5 深度分析。依既有決策仍以 PyIceberg 為預設；BigQuery 僅明確 opt-in 的研究路徑，不自動切流。
-
-至少維持：
-
-- `mart_screening_signals`
-- `mart_market_regime_daily`
-- `mart_sector_rotation_daily`
-- `mart_topic_trends_daily`
-- `mart_candidate_health`
-- `mart_daily_brief`
-
-這些資料集只能由已核准 Core／Mart inputs 產製；同一 Daily Brief 不得混用不同 `analysis_as_of` 的最新版拼裝。
-
-### Deep Coverage
-
-`active watchlist ∪ effective holdings` 去重後執行完整五 specialist。Watchlist 50 active distinct-symbol quota 保留；持股退出有效市場名冊仍保留 Deep Coverage，清倉且不在 watchlist 才退出後續更新。
-
-Deep Coverage 既有／相容 Mart surface 可包含：
-
-- `mart_core_alpha`
-- `mart_risk_portfolio`
-- `mart_alternative_sentiment`
-- `mart_scoped_analysis`
-
-相容 table name 不代表沿用舊每日 LLM role semantics；schema 演進須 additive／migration-safe，舊 immutable artifacts 不原地改寫。
-
-## 5.2 五 specialist
-
-Production 主路徑固定為：
-
-1. Fundamental — deterministic financial features + LightGBM baseline。
-2. Valuation — deterministic valuation + LightGBM／CatBoost benchmark。
-3. Quant — LightGBM baseline + Qlib DoubleEnsemble challenger。
-4. Risk／Regime — Riskfolio-Lib + statsmodels／ML。
-5. Event／Catalyst — parser／rules + local multilingual classifier。
-
-日常 specialist inference 不使用生成式 LLM。Plain-language report 由 structured outputs + SHAP／feature contribution／rules／templates 產生，正常 path 0 API token。
-
-所有 specialist artifact 至少保存：
-
-- symbol／coverage scope；
-- `analysis_as_of`；
-- Core／input snapshot or content hash；
-- feature／engine／model version；
-- structured metrics／score／probability（僅在該 specialist contract 有正式定義時）；
-- positive／negative drivers；
-- missing／stale／partial；
-- contribution／explanation；
-- output hash、computed_at、freshness；
-- evidence／provenance references。
-
-LLM 不得計算或改寫 canonical number，也不得持有 publication authority。
-
-## 5.3 Dirty dependency／reuse
-
-禁止固定每日將所有 Deep Coverage symbols × 5 全重算。
-
-- monthly revenue／financials → Fundamental；必要時 Valuation。
-- EOD price → cheap Valuation refresh、Quant、Risk。
-- event → Event。
-- input hash／feature／engine／model version 未變 → reuse。
-- specialist artifact 更新只標記 CEO report freshness／material delta；不得自動觸發 CEO LLM。
-
-`WBS-5-MART-RERUN-CACHE` 負責完成 dirty dependency graph、content-addressed reuse、incremental invalidation 與 monthly reconciliation。舊「單角色 LLM rerun → 自動 CIO」不再是 active dependency semantics。
-
-## 5.4 Model evaluation／promotion
-
-第一版 ML retrain／calibration／OOS evaluation／reconciliation **仍保留唯一 Controller 每月第一個週六10:30 due**（Asia/Taipei）；**D07 目標**是在 Colab 執行實際模型資料加工／訓練／OOS、Janus 做控制與驗收，既有 Mart 訓練待工程遷移，免費 Colab 自動執行 NOT_VERIFIED。不代表每月前完全不更新資料，也不另建每週全市場×5。
-
-至少評估：
-
-- Rank IC／ICIR／IC decay；
-- top-decile future excess-return spread；
-- hit rate；
-- Brier／calibration；
-- Sharpe／max drawdown／turnover／after-cost performance；
-- regime stability。
-
-任何 challenger 必須用 Janus Taiwan PIT walk-forward OOS evidence 決定 promotion；GitHub upstream benchmark、training success 或單次 dev run 都不能直接取得 champion authority。
-
-## 5.5 On-demand CEO boundary
-
-Codex CLI／OpenRouter／Gemini provider/runtime 不屬五 specialist 日常 production path，只保留給 authorized manual On-demand CEO／rare escalation。
-
-CEO：
-
-- 只讀最新 validated specialist outputs／Fact Pack／provenance；
-- 只由具有 backend capability 的使用者明確 request；
-- 不由 Scheduler、price、event 或 dirty update 自動觸發；
-- 每次建立新的 immutable execution／report；
-- validator failure 保持 structured partial／blocked；
-- 不覆寫 canonical numbers、不擁有 publication authority。
-
-`WBS-5-MART-AI-PROVIDERS` 目前責任是 On-demand CEO provider path 的 auth lifecycle、route snapshot、timeout／cancel／retry、fallback、usage／cost 與 zero-secret-leakage；不再驗收每日五 specialist LLM workers。
-
-`WBS-5-MART-CIO-SYNTHESIS` 的產品語意已改為 **CEO Analysis**；舊 `CIO` 名稱只可出現在歷史 artifact／schema compatibility 或 archive，不作新的 UI／API／WBS 名稱。
-
-## 5.6 Publication／governance
-
-- specialist／CEO 只能使用可定位 evidence；future data、未授權來源、缺必要 publication time 的資料不得被默認成合格 evidence。
-- `insufficient_data` 是 analysis outcome／reason，不是 publication lifecycle state。
-- blocked／review-required／invalid 不得進 publishable public index。
-- 只有 deterministic governance／publication gate 擁有發布決策權；specialist、CEO、Flutter 都不能自行發布。
-- historical artifact immutable；重新計算或重新分析建立新 artifact／execution，不原地改寫。
-
-## 5.7 Mart writer／storage
-
-- Core canonical data 由 Iceberg/GCS 保存；BigQuery intermediate 預設 bounded／TTL／可重建，不因「留一份」而回寫 canonical Iceberg。Versioned feature／training/evaluation／specialist／aggregation／report artifacts 依其 retention contract 保存於 GCS／Parquet／Mart。
-- PostgreSQL 保存 bounded metadata、snapshot／artifact reference、hash、version、publication／audit state。
-- retention 依 `../spec/retention-governance.md`；有效引用、目前 snapshot 與 reference fence 必須先保護再清理。
-- private holdings／cost／PnL／owner mapping 不得寫入 public Mart specialist artifacts；必要的 Deep Coverage membership 僅保存去識別化 symbol demand／effective scope。
-
-### 5.7A D07-PRE｜Colab 唯一資料整理／訓練執行器（BQ 僅大資料前置）
-
-**2026-10-19 使用者決策已定案；工程尚未切換。** [TODO D07-PRE](../todo.md) 與 [單一路徑契約](../colab-d07-modeling-feasibility-2026-10-19.md) 是唯一 AI 作業依據，不另開 C-preflight/Colab 子工單。Janus 現有 Iceberg Core（canonical）及 PyIceberg 的最小 read/export、Cloud Run 既有 Scheduler/Mart 推論／正式發布保持不變；**所有 D07 研究資料 Join/清理、features、labels、baseline、模型 fit、OOS 和每月滾動調校統一在 Colab**。僅 Colab 處理大資料有實測 RAM/超時/I/O/Join 成本瓶頸，才考慮已授權 BigQuery SQL **前置資料縮減**並固定 Parquet/hash 回 Colab；不允許 BQML 與 Cloud Run 另行訓練，也不為 BQ 建另一套 Canonical。
-
-唯一 Controller 第一個週六 10:30 due 維持月度責任／execution tracking；**目前 Mart 月度 fit/retrain 是要替換的已實作現況，不是假定 Colab 已正式接線**。免費 Colab 無保證無人值守；第一階段人工啟動與有憑據回傳，未完成記 pending/manual，不自動 promotion/出版；需要 unattended 前須驗官方合規方法、費用/IAM/OAuth 授權、Job endpoint/parity/rollback。完成 D07-PRE 需要實際 coverage/labels、Colab CPU 實跑、不可變成果與 hash、來源授權、費用/安全/重試門檻；未達仍 PARTIAL，不因文字改完宣稱已實際 Colab 生產化。
-
-## 5.8 Active WBS slices
-
-目前執行順序只看 `../todo.md`。WBS-5 active slices 為：
-
-| WBS | 現行責任 |
-|---|---|
-| `WBS-5-MART-SPECIALIST-ENGINES` | 全市場 screening + Deep Coverage 五 Python／SQL／ML specialist + PIT/OOS + immutable artifacts |
-| `WBS-5-MART-RERUN-CACHE` | dirty dependency、reuse、incremental invalidation、monthly reconciliation |
-| `WBS-5-MART-AI-PROVIDERS` | On-demand CEO／rare escalation provider runtime、auth、route、fallback、usage/cost |
-| `WBS-5-MART-CIO-SYNTHESIS` | **CEO Analysis**：validated specialist inputs only、immutable report、no publication authority |
-
-舊 `WBS-5-MART-AI-ROLE-CONTRACT`、每日五 provider worker、per-role LLM prompt routing 等若只剩歷史證據，應由 archive／operations 查閱，不再作 active execution target。
-
-## 5.9 Acceptance
-
-WBS-5 的相關 capability 宣稱完成時，至少需有與範圍相稱的：
-
-- deterministic／PIT replay；
-- source authorization／provenance／missing-data negative cases；
-- public/private isolation；
-- targeted tests／CI；
-- dev deployment；
-- 真實 data execution；
-- immutable artifact persistence／readback；
-- OOS／evaluation evidence（模型相關）；
-- dirty dependency／reuse evidence（cache 相關）；
-- provider auth／fallback／usage/cost／secret-redaction evidence（CEO provider 相關）。
-
-任何 partial、單次 bounded success、credential probe、router existence 或文件完成都不得包裝成整體 WBS 完成。
+## D08／驗收
+CEO 按需只用已驗證五角色 Fact Pack，Admin 模型頁維持既有位置；LLM 不產生 canonical number、不擁有 publication/Owner 權限。D07/08 實際完整狀態依 [唯一 TODO](../todo.md)、[D07 執行卡](../execution-cards/d07-specialist-b9-oos.md) 與 live evidence。
