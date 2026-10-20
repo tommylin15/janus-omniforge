@@ -32,7 +32,23 @@ class _ShellApi implements AdminApi {
   Future<dynamic> patch(String path, Map<String, dynamic> body) async => body;
 
   @override
-  Future<dynamic> post(String path, Map<String, dynamic> body) async => body;
+  Future<dynamic> post(String path, Map<String, dynamic> body) async {
+    if (path == '/api/v1/admin/gcs-storage/inspect') {
+      return <String, dynamic>{
+        'status': 'KNOWN_BUCKETS_COMPLETE',
+        'observed_at_utc': '2026-10-20T00:00:00Z',
+        'totals': <String, dynamic>{'current_bytes': 250, 'current_objects': 2},
+        'buckets': <Map<String, dynamic>>[
+          {'role': 'stage', 'status': 'OBSERVED', 'current_bytes': 100,
+           'current_objects': 1, 'noncurrent_bytes': 0, 'soft_deleted_bytes': 0,
+           'possible_same_md5_extra_bytes': 0},
+          {'role': 'core', 'status': 'OBSERVED', 'current_bytes': 150,
+           'current_objects': 1, 'noncurrent_bytes': 0, 'soft_deleted_bytes': 0},
+        ],
+      };
+    }
+    return body;
+  }
 
   @override
   Future<dynamic> put(String path, Map<String, dynamic> body) async => body;
@@ -111,6 +127,23 @@ void main() {
     expect(find.text('系統設定'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('Admin Storage has one-click readonly GCS inventory and labels MD5 as potential only',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    await tester.pumpWidget(MaterialApp(
+        home: AdminGovernancePage(_ShellApi(), section: 'storage')));
+    await tester.pumpAndSettle();
+    final button = find.byKey(const ValueKey('admin-gcs-inventory-button'));
+    expect(button, findsOneWidget);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('KNOWN_BUCKETS_COMPLETE'), findsOneWidget);
+    expect(find.textContaining('六桶 current：250 bytes'), findsOneWidget);
+    expect(find.textContaining('MD5 疑似重複 0 bytes（不可直接刪除）'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('four pages retain sections without loading hidden operations',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
