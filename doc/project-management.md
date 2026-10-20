@@ -45,7 +45,7 @@
 
 | 風險 | A：保守方案 | B：必要時升級 | 目前影響 |
 |---|---|---|---|
-| **R1 免費 Colab 不保證每月無人值守** | **【使用者已選 A｜2026-10-19】人工啟動／留 hash 與 execution receipt，Janus 原月度 Controller 只登記／驗回；沒跑就 pending** | **暫不執行、不列現階段驗收門檻**。日後若使用者另提需求才評估官方受控託管／排程及費用／OAuth/IAM | 決策已結；Colab 實跑、receipt 對接仍須 D07-PRE/D07 工程驗證，免費版 auto retrain 不需實作 |
+| **R1 免費 Colab 不保證每月無人值守** | **【使用者已選 A｜2026-10-19】人工啟動／留 hash 與 execution receipt，Janus 僅於受控模型匯入／驗證記錄新結果；舊月度 Controller 不再建立 pending fit** | **暫不執行、不列現階段驗收門檻**。日後若使用者另提需求才評估官方受控託管／排程及費用／OAuth/IAM | 決策已結；Colab 實跑、receipt 對接仍須 D07-PRE/D07 工程驗證，免費版 auto retrain 不需實作 |
 | **R2 全市場 24 月研究 vs Core 一般365天** | **用實際有效資料及合規 frozen Parquet 累積，缺的月份標 insufficient** | 有界擴充合法歷史回補／研究保存，但先核成本、來源及回復路徑 | 24 月是模型窗口目標，不是已實收 |
 | **R3 Current-only snapshots 與歷史 as-known PIT** | **`strict_pit=false` 限研究，保留 hash/source/time availability；沒有證據不對外說嚴格 PIT** | 額外引入歷史版次/first-observed 有憑據的來源與 frozen PIT replay，先核授權／成本 | 嚴格 PIT／publication 與研究品質 gate 分開 |
 | **R4 資料帶往 Colab 的 training-use／Owner 安全** | **只允許合規公開研究特徵、短效／最小權限，不帶 Owner/secret** | 新來源/第三方外部訓練授權不足時評估合約或替代合法來源 | 缺授權就不送 Colab，不補造 |
