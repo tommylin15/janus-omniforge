@@ -26,6 +26,12 @@
 
 `POLICY` 實作常數為 `stage_days=2`、`quarantine_days=2`、`core_days=365`、`deep_price_days=1096`、`financial_quarters=12`、`mart_days=90`、`orphan_days=7`。TTL 是**候選**而非已執行刪除；實際 row count、GCS object/bytes、舊 generation/soft delete 費用需從 live receipt 判斷。資料版本保存與歷史 Iceberg snapshot 同一性不能混淆。
 
+### Stage payload 去重與來源分界（2026-10-20）
+
+- 相同 `source_id + dataset_id + observed_date + content_hash(SHA-256)` 的重複執行改共用 `raw/...` 不可變 payload，以 GCS create-if-absent 實作。每次 execution 各自保留 `executions/<id>/stage/metadata/<key>.json` 與 manifest 的 provenance；不得跨來源／日期／不同內容雜湊盲目合併。
+- 已有 `executions/<id>/stage/raw/...` 舊檔按 48 小時原規則清理，**不**大規模搬移或直接按 MD5 刪除。共用 payload 受 active execution manifest 引用保護；Core commit 只清 execution-scoped metadata，raw 由 48h retention 管理。
+- 本設計已寫入 GitHub；只有全套 release、worker deploy、實際重複內容的 live reuse 與自然排程收據通過後，才可把節省的 bytes 與整項結案標為 PASS。
+
 ## 3. 排程／執行與恢復
 
 Cloud Scheduler → 既有 Controller 是唯一業務定時入口。**Stage-only cleanup 每日 18:30（Asia/Taipei）由既有 `janus-ingestion-core` 執行，`ICEBERG_MAINTENANCE_MODE=stage-only-apply`，48 小時已到期且無 active execution 引用才刪除；此工作不載入 Iceberg catalog，也不修改 Core／Mart／Private。**當 `FINOPS_WEEKLY_MAINTENANCE=true`，**每週六23:30 due**：`iceberg-compaction → mart-cleanup → core-cleanup`，其餘 due 不因此變成週批；實際相依跨小時執行。false 的 legacy daily due 不是核准目標，需讀實際 deployed env/自然 occurrence 驗證。
