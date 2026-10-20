@@ -528,6 +528,13 @@ jobs:
           ):
               assert_private(path)
 
+          # The new GCS inventory is POST-only and must reject requests before
+          # any backend metadata scan without an authenticated Admin audience.
+          code, _, _ = request("/api/v1/admin/gcs-storage/inspect", {})
+          results["/api/v1/admin/gcs-storage/inspect"] = {
+              "status_code": code, "unauthenticated_rejected": code in (401,403)}
+          assert code in (401,403), "admin GCS inventory exposed"
+
           for path in ("/.well-known/oauth-protected-resource",
                        "/.well-known/oauth-authorization-server"):
               status, _, raw = request(path)
