@@ -1,182 +1,30 @@
+"""Regression tests for immediate retirement of the old cloud retraining route."""
 from datetime import datetime, timezone
-from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
 from ingestion_core import batch_controller as controller
-from ingestion_core.batch_controller import PROJECT, REGION, insert_manual_retrain, manual_retrain_dependencies
 
 
-def test_manual_retrain_uses_newest_dependency_date_even_if_pair_is_incomplete():
-    connection = MagicMock()
-    cursor = connection.cursor.return_value.__enter__.return_value
-    cursor.fetchall.return_value = [
-        (datetime(2026, 10, 4, 23, 30, tzinfo=timezone.utc),),  # 10/05 07:30 Taipei ingestion
-        (datetime(2026, 10, 4, 0, 30, tzinfo=timezone.utc),),   # prior-day supplement
-    ]
-    assert manual_retrain_dependencies(connection, datetime(2026, 10, 5, tzinfo=timezone.utc)) == [
-        "ingestion/2026-10-05/07", "data-supplement/2026-10-05/08"
-    ]
+def test_retired_cloud_training_is_not_in_controller_schedule(monkeypatch):
+    monkeypatch.setenv("FINOPS_WEEKLY_MAINTENANCE", "true")
+    assert "specialist-retrain" not in {batch.name for batch in controller.effective_batches()}
+    first_saturday = datetime(2026, 11, 7, 2, 30, tzinfo=timezone.utc)
+    assert all(batch.name != "specialist-retrain" for _, batch, _, _ in controller.due_batches(first_saturday))
 
 
-def test_manual_retrain_occurrence_is_idempotent_and_fails_closed_without_recent_dependencies():
-    now = datetime(2026, 10, 5, tzinfo=timezone.utc)
-    connection = MagicMock()
-    cursor = connection.cursor.return_value.__enter__.return_value
-    cursor.fetchone.return_value = None
-    cursor.fetchall.return_value = [
-        (datetime(2026, 10, 4, 0, 30, tzinfo=timezone.utc),),
-        (datetime(2026, 10, 3, 23, 30, tzinfo=timezone.utc),),
-    ]
-    key = insert_manual_retrain(connection, now, "wbs5-oos-20261005")
-    assert key == "specialist-retrain/manual/wbs5-oos-20261005"
-
-    existing = MagicMock()
-    existing_cursor = existing.cursor.return_value.__enter__.return_value
-    existing_cursor.fetchone.return_value = ({
-        "batch": "specialist-retrain", "origin": "manual",
-        "request_id": "wbs5-oos-20261005", "status": "succeeded",
-    },)
-    assert insert_manual_retrain(existing, now, "wbs5-oos-20261005") == key
-    existing.transaction.assert_not_called()
-
-    missing = MagicMock()
-    missing_cursor = missing.cursor.return_value.__enter__.return_value
-    missing_cursor.fetchone.return_value = None
-    missing_cursor.fetchall.return_value = []
-    with pytest.raises(RuntimeError, match="recent dependency occurrences"):
-        insert_manual_retrain(missing, now, "missing")
-    missing.transaction.assert_not_called()
-
-
-def test_manual_retrain_occurrence_identity_conflict_fails_closed():
-    connection = MagicMock()
-    cursor = connection.cursor.return_value.__enter__.return_value
-    cursor.fetchone.return_value = ({"batch": "mart", "origin": "manual", "request_id": "same-id"},)
-    with pytest.raises(RuntimeError, match="identity conflict"):
-        insert_manual_retrain(connection, datetime(2026, 10, 5, tzinfo=timezone.utc), "same-id")
-
-
-def test_manual_controller_dispatches_only_the_persisted_manual_occurrence(monkeypatch):
-    monkeypatch.setenv("GCP_PROJECT_ID", PROJECT)
+def test_retired_manual_mode_rejected_before_db(monkeypatch):
+    monkeypatch.setenv("GCP_PROJECT_ID", controller.PROJECT)
     monkeypatch.setenv("BATCH_CONTROLLER_MODE", "manual")
-    monkeypatch.setenv("BATCH_CONTROLLER_MANUAL_REQUEST_ID", "wbs5-oos-20261005")
-    key = "specialist-retrain/manual/wbs5-oos-20261005"
-    state = {
-        "job": "janus-intelligence-mart", "batch": "specialist-retrain", "status": "pending",
-        "dependencies": ["ingestion/2026-10-04/07", "data-supplement/2026-10-04/08"],
-        "scheduled_at": "2026-10-05T00:00:00+00:00", "origin": "manual", "request_id": "wbs5-oos-20261005",
-    }
-    connection = MagicMock()
-    connection.execute.return_value.fetchone.return_value = (True,)
-    cursor = connection.cursor.return_value.__enter__.return_value
-    cursor.fetchall.side_effect = [[], [(key, state)], [(state["dependencies"][0], "succeeded"), (state["dependencies"][1], "succeeded")]]
-    cursor.fetchone.return_value = None
-    monkeypatch.setattr(controller, "record", Mock())
-    monkeypatch.setattr(controller, "insert_manual_retrain", lambda *_: key)
-    monkeypatch.setattr(controller, "manual_retrain_dependencies", lambda *_: state["dependencies"])
-    due = Mock(side_effect=AssertionError("manual mode must not create scheduled occurrences"))
-    monkeypatch.setattr(controller, "due_batches", due)
-    monkeypatch.setattr(controller, "job_active", lambda *_: False)
-    dispatch = Mock(return_value=f"projects/{PROJECT}/locations/{REGION}/operations/manual")
-    monkeypatch.setattr(controller, "dispatch_job", dispatch)
-
-    result = controller.run(now=datetime(2026, 10, 5, tzinfo=timezone.utc),
-                            control=SimpleNamespace(connection=connection), session=Mock())
-    assert result["status"] == "tick_completed"
-    assert result["iceberg_audit_disabled"] is True
-    due.assert_not_called()
-    dispatch.assert_called_once()
-    assert dispatch.call_args.args[1].name == "specialist-retrain"
-
-
-def test_manual_pending_rebinds_to_newer_dependency_date_before_dispatch(monkeypatch):
-    monkeypatch.setenv("GCP_PROJECT_ID", PROJECT)
-    monkeypatch.setenv("BATCH_CONTROLLER_MODE", "manual")
-    monkeypatch.setenv("BATCH_CONTROLLER_MANUAL_REQUEST_ID", "cross-day")
-    key = "specialist-retrain/manual/cross-day"
-    old = ["ingestion/2026-10-04/07", "data-supplement/2026-10-04/08"]
-    new = ["ingestion/2026-10-05/07", "data-supplement/2026-10-05/08"]
-    state = {"job": "janus-intelligence-mart", "batch": "specialist-retrain", "status": "pending",
-             "dependencies": old, "scheduled_at": "2026-10-04T22:50:00+00:00", "origin": "manual", "request_id": "cross-day"}
-    connection = MagicMock()
-    connection.execute.return_value.fetchone.return_value = (True,)
-    cursor = connection.cursor.return_value.__enter__.return_value
-    cursor.fetchall.side_effect = [[], [(key, state)], [(new[0], "succeeded")]]
-    cursor.fetchone.return_value = None
-    record = Mock()
-    monkeypatch.setattr(controller, "record", record)
-    monkeypatch.setattr(controller, "insert_manual_retrain", lambda *_: key)
-    monkeypatch.setattr(controller, "manual_retrain_dependencies", lambda *_: new)
-    monkeypatch.setattr(controller, "job_active", lambda *_: False)
-    dispatch = Mock()
-    monkeypatch.setattr(controller, "dispatch_job", dispatch)
-
-    controller.run(now=datetime(2026, 10, 5, 0, 10, tzinfo=timezone.utc),
-                   control=SimpleNamespace(connection=connection), session=Mock())
-    updates = [call.args for call in record.call_args_list if call.args[2] == key]
-    assert [args[4] for args in updates] == ["manual_dependency_updated", "waiting_dependency"]
-    assert updates[0][3]["dependencies"] == new
-    dispatch.assert_not_called()
-
-
-@pytest.mark.parametrize("request_id", ["", "has space", "../escape", "x" * 81])
-def test_manual_controller_rejects_invalid_request_id_before_db(monkeypatch, request_id):
-    monkeypatch.setenv("GCP_PROJECT_ID", PROJECT)
-    monkeypatch.setenv("BATCH_CONTROLLER_MODE", "manual")
-    monkeypatch.setenv("BATCH_CONTROLLER_MANUAL_REQUEST_ID", request_id)
     control = Mock()
-    with pytest.raises(ValueError, match="invalid manual request id"):
+    with pytest.raises(ValueError, match="unsupported controller mode"):
         controller.run(control=control, session=Mock())
     control.connection.execute.assert_not_called()
 
 
-def test_manual_retrain_workflow_routes_through_controller_only():
-    workflow = Path(".github/workflows/run-dev-specialist-retrain.yml").read_text()
-    assert "gcloud run jobs execute janus-batch-controller" in workflow
-    assert "BATCH_CONTROLLER_MODE=manual" in workflow
-    assert "BATCH_CONTROLLER_MANUAL_REQUEST_ID=${REQUEST_ID}" in workflow
-    assert "gcloud run jobs execute janus-intelligence-mart" not in workflow
-
-
-def test_manual_retrain_uses_approved_ghcr_digest_and_shared_release_lease():
-    workflow = Path(".github/workflows/run-dev-specialist-retrain.yml").read_text()
-    assert "group: janus-dev-runtime-writers" in workflow
-    assert "expected_release_sha" in workflow
-    assert "ops/ghcr-jobs-rollout-request.json" in workflow
-    assert '.scope == "existing-dev-four-jobs"' in workflow
-    assert '.rollback_mode == "reversible_ghcr"' in workflow
-    assert "skopeo inspect --no-creds" in workflow
-    assert "org.opencontainers.image.revision" in workflow
-    assert 'sha256:[0-9a-f]{64}' in workflow
-    assert "cache.us-docker.pkg.dev/" in workflow
-    assert "B7 controller/ingestion/Mart GHCR digest alignment PASS" in workflow
-    assert "gcloud scheduler jobs list" in workflow
-    assert "B7 live Scheduler configuration PASS" in workflow
-    assert '":dev-${EXPECTED_MART_SHA}"' not in workflow
-    assert "expected_mart_deploy_sha" not in workflow
-
-
-def test_preghcr_manual_retrain_request_is_never_replayed():
-    import json
-    request = json.loads(Path("ops/dev-specialist-retrain-request.json").read_text())
-    old_id = "b7-monthly-live-20261008-v1"
-    if request["request_id"] == old_id:
-        assert request["enabled"] is False
-        assert "Do not replay" in request["retired_reason"]
-    elif request["enabled"] is False:
-        # Historical GHCR requests remain immutable and disabled after an
-        # approved Jobs release advances. Do not rewrite a retired request
-        # just to match the latest source SHA, and never replay it.
-        assert request["request_id"].startswith("b7-ghcr-")
-        assert request["retired_reason"]
-        assert len(request["expected_release_sha"]) == 40
-    else:
-        # ONLY an active new bounded request must match the currently approved
-        # live GHCR release (also enforced by the execute workflow).
-        release = json.loads(Path("ops/ghcr-jobs-rollout-request.json").read_text())
-        assert request["request_id"].startswith("b7-ghcr-")
-        assert request["expected_release_sha"] == release["sha"]
-        assert release["approved"] is True
+def test_retired_legacy_workflow_has_been_removed():
+    from pathlib import Path
+    assert not Path(".github/workflows/run-dev-specialist-retrain.yml").exists()
+    assert not Path("ops/dev-specialist-retrain-request.json").exists()
