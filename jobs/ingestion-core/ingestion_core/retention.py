@@ -36,6 +36,25 @@ def retained_core_rows(core: Any, dataset: str, rows: list[dict[str, Any]], now:
         deep_cutoff if dataset == "benchmark" or dataset in {"ohlcv", "valuation"} and row.get("symbol") in deep_symbols else cutoff)]
 
 
+def _stage_live_execution_ids(cursor: Any, *, now: datetime) -> frozenset[str]:
+    """A stale control status is not a live Stage-retention fence.
+
+    PostgreSQL jobs can leave 'running' records behind after their worker's
+    claimed_until expires. Only nonterminal executions with an unexpired lease
+    can prevent deletion of Stage objects past the 48-hour TTL. A queued item
+    without a lease is not an active reader; recently written Stage objects
+    remain protected by their own 48-hour object age regardless.
+    """
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise ValueError("Stage retention requires timezone-aware UTC now")
+    cursor.execute(
+        "SELECT execution_id FROM control.executions "
+        "WHERE status IN ('queued','running','retrying') AND claimed_until > %s",
+        (now,),
+    )
+    return frozenset(str(row[0]) for row in cursor.fetchall())
+
+
 def clean_stage(store: Any, *, apply: bool, now: datetime,
                 active_executions: frozenset[str] = frozenset()) -> dict[str, Any]:
     objects = store.objects("")
@@ -81,8 +100,7 @@ def maintain_stage_only(*, apply: bool, now: datetime | None = None) -> dict[str
     from .__main__ import _control_plane
 
     with _control_plane() as control, control.connection.cursor() as cursor:
-        cursor.execute("SELECT execution_id FROM control.executions WHERE status IN ('queued','running','retrying')")
-        active = frozenset(str(row[0]) for row in cursor.fetchall())
+        active = _stage_live_execution_ids(cursor, now=now)
     stage_store = GcsObjectStore(stage_bucket)
     before_items = stage_store.objects("")
     if len(before_items) > 20000:
@@ -93,6 +111,11 @@ def maintain_stage_only(*, apply: bool, now: datetime | None = None) -> dict[str
     if planned["planned_objects"] > 15000 or planned["planned_bytes"] > 2_000_000_000:
         raise RuntimeError("stage-only cleanup exceeds bounded safety budget")
     if apply:
+        # Do not delete if a queued/retrying/running execution acquired a live
+        # lease after the dry-run. Retention must not trust a stale PG snapshot.
+        with _control_plane() as control, control.connection.cursor() as cursor:
+            if _stage_live_execution_ids(cursor, now=datetime.now(timezone.utc)) != active:
+                raise RuntimeError("Stage active execution leases changed before deletion")
         # Do not act on a stale two-day candidate list if the bucket changed.
         refreshed = stage_store.objects("")
         if {(x["name"], x["generation"]) for x in refreshed} != {
@@ -186,6 +209,7 @@ def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None)
         deep_symbols = frozenset(row[0] for row in cursor.fetchall())
         cursor.execute("SELECT execution_id FROM control.executions WHERE status IN ('queued','running','retrying')")
         active_executions = frozenset(str(row[0]) for row in cursor.fetchall())
+        stage_live_executions = _stage_live_execution_ids(cursor, now=now)
     def capacity(object_store):
         objects = object_store.objects("")
         return {"objects": len(objects), "bytes": sum(int(item["size"]) for item in objects)}
@@ -221,7 +245,7 @@ def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None)
         audit = maintain_financials(core=core, store=store, apply=apply, now=now,
                                     identifier="ops.batch_events_v1")
         audit_orphans = clean_orphans(core, store, "ops.batch_events_v1", apply=apply, now=now)
-    stage = clean_stage(stage_store, apply=apply, now=now, active_executions=active_executions)
+    stage = clean_stage(stage_store, apply=apply, now=now, active_executions=stage_live_executions)
     after = {"core": capacity(store), "stage": capacity(stage_store)} if apply else before
     storage = {layer: {"before": before[layer], "after": after[layer],
                        "active_bytes_reduced": before[layer]["bytes"] - after[layer]["bytes"]}
