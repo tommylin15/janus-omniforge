@@ -10,6 +10,7 @@ on:
           - gcs-hourly-io
           - gcs-storage-footprint
           - stage-retention-trace
+          - stage48-api-live-readback
           - core-reference-audit
           - runtime-references
           - iceberg-readback
@@ -25,6 +26,7 @@ on:
       - 'ops/finops-gcs-hourly-io.json'
       - 'ops/finops-gcs-storage-footprint.json'
       - 'ops/finops-stage-trace.json'
+      - 'ops/stage48-api-live-readback.json'
       - 'ops/finops-core-reference-audit.json'
       - 'ops/finops-reference-runtime.json'
       - 'ops/finops-iceberg-readback-once.json'
@@ -58,6 +60,7 @@ jobs:
             case "$changed" in
               *gcs-storage-footprint*) echo "operation=gcs-storage-footprint" >> "$GITHUB_OUTPUT" ;;
               *stage-trace*) echo "operation=stage-retention-trace" >> "$GITHUB_OUTPUT" ;;
+              *stage48-api-live-readback*) echo "operation=stage48-api-live-readback" >> "$GITHUB_OUTPUT" ;;
               *gcs-hourly-io*) echo "operation=gcs-hourly-io" >> "$GITHUB_OUTPUT" ;;
               *core-reference-audit*) echo "operation=core-reference-audit" >> "$GITHUB_OUTPUT" ;;
               *reference-runtime*) echo "operation=runtime-references" >> "$GITHUB_OUTPUT" ;;
@@ -67,6 +70,33 @@ jobs:
               *) echo "operation=none" >> "$GITHUB_OUTPUT" ;;
             esac
           fi
+
+  stage48-api-live-readback:
+    needs: detect
+    if: needs.detect.outputs.operation == 'stage48-api-live-readback'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: none
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Verify bounded read-only request and exact promotion receipt
+        run: |
+          jq -e '.intent=="stage48-read-only-api-traffic" and .no_gcp_mutation==true and
+              .no_owner_mutation==true and .no_traffic_mutation==true and
+              (.source_sha|test("^[0-9a-f]{40}$")) and (.promotion_run|test("^[0-9]+$"))' ops/stage48-api-live-readback.json >/dev/null
+          mkdir -p /tmp/stage48-promotion-proof
+          gh run download "$(jq -r '.promotion_run' ops/stage48-api-live-readback.json)" \
+            -n ghcr-api-promotion-receipt -D /tmp/stage48-promotion-proof
+          test -s /tmp/stage48-promotion-proof/ghcr-api-promote.json
+      - name: Independently read 100% traffic, fixed digest, 200 health and Admin denial
+        run: python scripts/gcp/stage48_api_live_readback.py
 
   stage-retention-trace:
     needs: detect
