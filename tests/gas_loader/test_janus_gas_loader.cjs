@@ -180,3 +180,14 @@ test('target equal to Loader project refuses self-overwrite',()=>{
   assert.throws(()=>h.preview(),/Loader cannot sync itself/);
   assert.equal(h.io.puts,0);
 });
+
+test('Apps Script editor wrappers report preview and apply outcomes',()=>{
+  const h=harness();
+  let printed=[];h.sandbox.console={log:x=>printed.push(x)};
+  const p=h.sandbox.janusGasLoaderPreviewFromEditor();
+  assert.equal(JSON.parse(printed[0]).confirmationCode,p.confirmationCode);
+  h.props.set('JANUS_LOADER_CONFIRM_CODE',p.confirmationCode);
+  const out=h.sandbox.janusGasLoaderApplyFromEditor();
+  assert.equal(out.status,'SYNCED_VERIFIED');
+  assert.equal(JSON.parse(printed[1]).status,'SYNCED_VERIFIED');
+});
