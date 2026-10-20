@@ -1,59 +1,44 @@
 # Janus — 唯一 Active TODO
 
-更新：2026-10-20。**只記未完成工程與驗收**；原有結案/部署流水帳完整保留在 [整編前 TODO](archive/todo-before-consolidation-2026-10-19.md)。實際狀態：GitHub main／tests／CI／GCP dev runtime；最高權限與授權依 [PROJECT_RULES](PROJECT_RULES.md)，操作依 [AI 指令](codex-execution-plan.md)。
+更新：2026-10-20。**只列尚未完成的工作與原定驗收，不收納歷史失敗、已結案工程、無具體異常的推測性追查。** 狀態以 GitHub `main`／真實 CI、deployment 與 runtime 為準；結案遵循 [PROJECT_RULES §1.1.1](PROJECT_RULES.md)。
 
-## 1. 單一執行順序
+## 1. 現行優先順序
 
-| 優先 | 工項 | 狀態／責任入口 |
-|---|---|---|
-| **P0** | **STAGE-48H：48小時 TTL／安全去重／Admin 六桶盤點** | **DEPLOY PASS／LIVE PARTIAL**：[full GHCR #39355867356](https://github.com/tommylin15/janus-omniforge/actions/runs/39355867356)、[四 Jobs #39356643823](https://github.com/tommylin15/janus-omniforge/actions/runs/39356643823)、[獨立 Scheduler／固定 digest 讀回 #39358461946](https://github.com/tommylin15/janus-omniforge/actions/runs/39358461946) PASS；舊 Stage **4,927 件／96,321,204 bytes** 已 generation 實刪、[六桶讀回 #39356190151](https://github.com/tommylin15/janus-omniforge/actions/runs/39356190151) 確認超過7天0；[真實 shared raw/provenance #39358645373](https://github.com/tommylin15/janus-omniforge/actions/runs/39358645373) PASS（測試物件全部清除）；[新版48h dry-run #39359037869](https://github.com/tommylin15/janus-omniforge/actions/runs/39359037869) 候選0。**尚需**當日18:30自然 due/apply 收據與真實登入 Admin 六桶正向 OAuth/IAM；不同 observed_at 的同日 payload 去重效率未驗收，不當 full PASS。D07-PRE 在另一對話。 |
-| **P1** | **D07-PRE：GAS→Drive 月檔→Colab** | **舊 GCP/BQ 研究路線退役 CLOSED**；目前只做新版研究資料與模型流程；[唯一新契約](spec/research-collection-gas-drive-colab.md) |
-| **P2** | **D07：五角色 ML／OOS 品質及正式介接** | **PLANNED**、待前置評估有合格處置；[唯一 D07 卡](execution-cards/d07-specialist-b9-oos.md) |
-| **P3** | **D08：CEO、Admin 模型管理與受控 Owner 報告** | **PLANNED**、有效 Fact Pack 後；[唯一 D08 卡](execution-cards/d08-ceo-admin-owner-report.md) |
-| 非阻擋 | **OPS-OBS：自然排程與 GCS 保留量觀察** | 2026-10-20 六桶 current 968,619,706 bytes、Stage 1,457件／318,859,190 bytes，超過7天0；18:30首次新版自然 Stage-only receipt 尚待時點到後核對，與每週 Iceberg 的正式 cadence 分開驗證。 |
+| 優先 | 工作包 | 已完成 | 尚需完成 |
+|---|---|---|---|
+| **P0** | **STAGE-48H** | 48h Stage TTL／過期資料受控實刪、跨 execution shared raw/provenance、四 Jobs 更新與獨立讀回 PASS | **自然 18:30 Stage-only 執行驗收；Admin 六桶 OAuth 登入後一鍵正向驗收** |
+| **P1** | **D07-PRE｜GAS／Drive 資料源** | 新研究契約及小範圍 GAS 欄位探測程式已提交；舊 GCP/BQ 研究執行器 **CLOSED** | **公開欄位實測 → 分批 GAS 採集與月 ZIP → Drive 品質／SHA 讀回、Colab 讀取準備** |
+| **P2** | **D07｜五分析師建模** | 五角色規格、OOS／registry 責任界線已定案 | **Colab 模型訓練與 OOS；Janus Mart 受控模型匯入、推論與 Admin 品質呈現** |
+| **P3** | **D08｜CEO／Admin／Owner 報告** | 原 Gateway 技術驗證可重用 | **有效 Fact Pack → CEO 手動請求 → Gateway／validator → immutable 報告與 Owner UI／Admin 管理驗收** |
 
-**不重開**：D01～D05 `CLOSED/USER_ACCEPTED`、DRL-01 `CLOSED`、FINOPS-AB（已含 D06）`CLOSED`、背景持股/關注股補收 `PASS`、ADMIN-V2 `PASS`。原驗收範圍與缺口不改判；完整實測收據在 [原 TODO](archive/todo-before-consolidation-2026-10-19.md)、[D01～05](archive/d01-d05-relaxed-acceptance-closure-2026-10-17.md)、[DRL](archive/drl01-completed-2026-10-19.md) 和 [Operations](spec/operations-and-testing.md)。歷史工作包的卡片留作維運參考，不能變第二套 active queue。
+## 2. STAGE-48H｜僅餘兩項原定驗收
 
-## 2. STAGE-48H｜最新核准的儲存清理工作（不重開 FINOPS-AB）
+- [ ] **每日自然排程**：於 2026-10-20 18:30 Asia/Taipei 發生後核對正式 `janus-ingestion-daily`／Stage-only occurrence、終態、到期資料處理結果與週 Iceberg 維護不變。**時點尚未到，不因等待自然事件重啟已通過的部署或歷史清理**。
+- [ ] **Admin 六桶正向操作**：真實 Admin OAuth 授權操作，一鍵讀回既有六桶 metadata、權限與部分失敗顯示；匿名拒絕 401 已 PASS，不能代替 Admin 正向驗收。
 
-**2026-10-20 老 Stage 物件清理補充（使用者明確核准）**：[實機 dry-run #39351045998](https://github.com/tommylin15/janus-omniforge/actions/runs/39351045998) 觀察 61 筆 active control record，其中 4,927 個舊 Stage 物件因 status=running 被 hold；[GCP Stage apply #39351609294](https://github.com/tommylin15/janus-omniforge/actions/runs/39351609294) 已 generation PASS 實刪另外 37 件／38,396 bytes。後續 [控制紀錄稽核 #39352303651](https://github.com/tommylin15/janus-omniforge/actions/runs/39352303651) 確認 24 筆超過 7 天的 running control 紀錄持有該 4,927 件／96,321,204 bytes，**有效未到期的 claimed_until 為 0**；這是控制面 active status 的保守保護，**不是模型訓練引用證據**。使用者已授權移除超過 7 天的這類失效 Stage 舊物件與證實可移除的實體重複副本，目前已透過 [dry-run #39354898619](https://github.com/tommylin15/janus-omniforge/actions/runs/39354898619) 驗證候選 4,927 件／96,321,204 bytes，並由 [GCP apply #39355428497](https://github.com/tommylin15/janus-omniforge/actions/runs/39355428497) **generation PASS 實刪全數 4,927 件／96,321,204 bytes**（Stage 6,384 件／415,180,394 bytes → 1,457 件／318,859,190 bytes；Core/Mart/Private 刪除 0）。MD5 潛在額外 165,308,239 bytes 未核對實體副本／刪除 generation，不得列入已釋放容量。不得影響 Core/Mart/Private 或將未驗證標 PASS。
+已完成證據：[GHCR／四 Jobs #39355867356／#39356643823](https://github.com/tommylin15/janus-omniforge/actions/runs/39356643823)、[獨立 readback #39358461946](https://github.com/tommylin15/janus-omniforge/actions/runs/39358461946)、[Stage 實刪 4,927 件／96,321,204 bytes #39355428497](https://github.com/tommylin15/janus-omniforge/actions/runs/39355428497)、[shared raw/provenance #39358645373](https://github.com/tommylin15/janus-omniforge/actions/runs/39358645373)、[48h dry-run 零候選 #39359037869](https://github.com/tommylin15/janus-omniforge/actions/runs/39359037869)。歷史細節集中 [Operations](spec/operations-and-testing.md)，不在 Active TODO 重複列流水帳。此項由原 Stage 對話承接，與 D07-PRE 分開。
 
+## 3. D07-PRE｜只負責新研究資料及 Colab 輸入
 
+- [ ] **實際公開欄位探測**：以既有 `research/gas/field_probe.gs` 驗證 FinMind 等來源可用欄位、資料值、授權用途與缺值，先取小範圍合法普通股樣本；目前僅程式提交，沒有真實採集 PASS 收據。
+- [ ] **GAS → Drive 月檔**：批次／checkpoint／續跑、provenance、`YYYY-MM.zip`、quality／manifest／content SHA、實際 TWSE／TPEx 普通股分市場×dataset ≥70% 驗收；來源缺值不造假，ETF 不進研究母體。
+- [ ] **Colab 資料讀取準備**：確認實際研究月檔能由免費 Colab **人工執行**、檢查 schema/hash 並重跑讀取；模型 fit、OOS 與 promotion **只列 D07，不在 D07-PRE 重複計工項**。
 
-**10/20 最新 GCS 六桶 metadata-only readback（獨立 CI 身分，非 Admin OAuth）**：[FinOps #39356190151](https://github.com/tommylin15/janus-omniforge/actions/runs/39356190151) OBSERVED_COMPLETE，六桶 current **968,619,706 bytes**、noncurrent **16,877,094 bytes**、soft-deleted 0；Stage current **1,457 objects／318,859,190 bytes**，**超過7天0件**。相同 MD5 潛在重複 **126,687,768 bytes** 不能直接當作刪除資格；需保護未到48h與有效引用。CI 的 GCS metadata 讀權限不等於 API serving identity 或 Admin OAuth 正向按鈕 PASS。
+[唯一研究資料 SPEC](spec/research-collection-gas-drive-colab.md)；已核准 R1：Colab 人工啟動。舊 `specialist-retrain`／GCP Jobs／Scheduler／BQ ML/OOS 清理 **CLOSED**，只有[單一歷史收據](archive/d07-gcp-bq-retirement-live-2026-10-20.md)，不重開。
 
-- [x] **48 小時到期資料清理**：dry-run → 受控 generation apply → before/after bytes 讀回；另以 Cloud Logging 確認 2,050 筆的獨立 apply 收據。
-- [x] **Stage 相同 observed-at shared raw/provenance 實機**：[Cloud Run canary #39358645373](https://github.com/tommylin15/janus-omniforge/actions/runs/39358645373) 一份 raw、第二 execution reused、兩份不同 provenance、4件 synthetic generation 刪除殘留0 PASS；不同 observed-at 之同日重用及正向 live lease 仍未單獨實機驗證，不能泛稱全情境已去重。
-- [ ] **每日自然排程驗收**：新版48h [dry-run #39359037869](https://github.com/tommylin15/janus-omniforge/actions/runs/39359037869) PASS，活躍租約0、過期可刪0件／0bytes；兩次手動 apply [#39359331473](https://github.com/tommylin15/janus-omniforge/actions/runs/39359331473)、[#39359630805](https://github.com/tommylin15/janus-omniforge/actions/runs/39359630805) 因 D07 同時更新 main 被全域 lease 安全拒絕（零刪除），不重試繞過鎖。2026-10-20 18:30 Asia/Taipei 自然 Controller occurrence／Stage-only apply 終態與 generation delta／無重複派送，已安排當日20:00左右一次唯讀驗收；週六 Iceberg 維持不變。
-- [ ] **Admin 六桶正向驗收**：UI＋後端 Admin-only POST 已上線，未登入 401 PASS；仍須真的 Admin OAuth 授權按鍵、確認既有 API runtime metadata IAM 與六桶完整/部分/timeout 處理。無新增刪除功能。
-- 本工程不變更 Core/Mart/Private/Research 保留政策、不新增付費資源；D07-PRE／Colab 建模另由獨立對話承接，本對話完成 STAGE-48H 收尾後結案。
+## 4. D07｜五角色模型與正式介接
 
-## 3. D07-PRE｜GAS／Drive 月檔／Colab
+- [ ] **模型與研究評估**：Quant／Risk 優先；Valuation／Fundamental 依資料可得性；Event 缺合規真人標籤維持 rules。與 deterministic baseline 在同一時間外 OOS／成熟標籤／資料來源下評估，禁止 future leakage。
+- [ ] **受控模型匯入與應用**：Colab model／evaluation 版本及 hash → Janus Mart Registry、推論、rollback、Admin 模型品質／狀態展示；不恢復舊 Cloud Run/BQ 訓練器。
 
-**2026-10-20 定案：[研究資料唯一規格](spec/research-collection-gas-drive-colab.md)。** 新研究資料使用 GAS 直連允許的第三方來源→私有 Drive `資料源/YYYY-MM.zip`→Colab 人工建模；只包含 TWSE／TPEx 普通股、排除 ETF；研究資料每市場×dataset 覆蓋率 ≥70%。第一輪先比較既有持股／觀察股的公開欄位、欄位存在與非空數；暫不以歷史 PIT／兩年完整回補作收集前置。正式 Core 品質與 Owner 行情不改。
+[D07 唯一任務卡](execution-cards/d07-specialist-b9-oos.md)。
 
-**舊 GCP／BQ 研究路線：CLOSED。** GitHub 舊重訓入口已移除，完整測試／四 Jobs 部署 PASS；GCP 8 Jobs／1 Scheduler、BigQuery 1 空 dataset／0 tables 經兩輪實機讀回，無舊研究獨立資源殘留，實刪 0。[結案證據](archive/d07-gcp-bq-retirement-live-2026-10-20.md)。依 [有界驗收規則](PROJECT_RULES.md#111-有界驗收與結案原則2026-10-20-使用者決策)不因假設性未知情境另列待辦。
+## 5. D08｜CEO／Admin／Owner 報告
 
-- [ ] **GAS/Drive**：建立分批、續跑、限額、去重／來源版次／SHA256、月 zip、quality/manifest，實抓現有公開資料欄位及全市場 70% 合格率。資料品質不足可 PARTIAL 封存，不補造資料。
-- [ ] **Colab**：直接從研究月檔訓練五位分析師；Quant／Risk 優先，其他依欄位可得性與 Event 真人標籤；OOS、模型版本與正式 promotion 獨立驗收。
-- [ ] **規格一致性**：GitHub Active SPEC／WBS／runbook／AI 指令及 Drive 五份分析師研究規格同步淘汰舊研究來源與門檻，不重新啟動已結案的 D01～D06/DRL/FinOps。
+- [ ] **正式整合與驗收**：具來源的有效 Fact Pack → Owner 手動 request → 現有 OmniGateway／Gemini → validator → immutable GCS／PG → Owner history／UI 與 Admin 設定／權限／回滾 readback；LLM 不決定 canonical 數字或最終 publication。
 
-新 GAS／Drive／Colab 流程獨立依實作驗收；已結案的 GCP/BQ 舊研究退役不再重開。
+[D08 唯一任務卡](execution-cards/d08-ceo-admin-owner-report.md)。正式報告依賴 D07 有效模型輸出，但**已結案的 FINOPS-AB／D06／舊 B5～B8 不得成為重新施工的前置條件**。
 
-## 4. D07、D08：前置通過後才開始
+## 6. 已結案、不再列待辦
 
-**D07**（詳情只維護 [D07 卡](execution-cards/d07-specialist-b9-oos.md)）：
-- [ ] Quant→Risk 優先，Valuation/Fundamental 待可比較合法歷史，Event 缺已授權人工標籤先維持 deterministic；依同樣本 baseline/ML、成熟 labels、PIT/時間外 fold、成本／regime、來源/版本與不確定性逐角色評估。
-- [ ] Colab-only 新模型正式介接：Janus Mart 只負責接受、驗證、註冊、rollback、inference 與 Admin VF-09；不恢復已刪除的舊 Cloud Run fit。
-- [ ] 各角色 baseline 與模型品質分級獨立；訓練成功、GCS readback 或 B7 歷史 PASS 不等於 B9／真實 PIT 品質 PASS。
-
-**D08**（詳情只維護 [D08 卡](execution-cards/d08-ceo-admin-owner-report.md)）：
-- [ ] 沿用 OmniGateway/Gemini 路由驗證 auth、quota、owner boundary、失敗及回滾；有效 Fact Pack → 手動 request → validator → immutable GCS/PG → User/Owner 授權 history。LLM 不產生 canonical number、不能決定 publication。
-
-## 5. 非阻擋觀察與決策
-
-- **自然 Readiness Ledger**：手動/定向已結案，但 daily/weekly 自然收據仍 `NOT_VERIFIED`，沿現行 Job/Operations 觀察，不新增 DRL 第二施工工單。
-- **FINOPS 實刪效果**：候選 Core 6,455／Mart 55 物件不等於實際刪除 objects／bytes，不能從 Job success 推算帳單節省；唯讀查已執行 receipts，**不為填文件再做清理**。使用者取消兩日等量 I/O 比較，狀態為 `CANCELLED_BY_USER`。
-- **Dev Pilot**：持續證據見 [Pilot Ledger](pilot-operational-evidence.md)，不另建第二長期監控工單。
-
-**R1 已決定 A（Colab 人工啟動）；R2／R3 要多少資料才足以決策，先依稽核產出分母與來源證據，不能用 88.8% 規劃差額或 UNKNOWN PIT 比率直接批量回補。** 其餘需使用者做的重大選項決定集中於 [專案管理風險 §4](project-management.md#4-重大風險及選項)。未獲付費、IAM、OAuth、無界回補或破壞性操作授權，不以文件代替；非相關的有界工作仍可進行。已接受缺口／未排程構想一律在 [Parking Lot](parking-lot.md)。
+D01～D05、DRL-01、FINOPS-AB（含 D06）、既定背景持股／關注股補收、Admin v2、舊研究 GCP 工作及排程退役、BigQuery 舊 ML/OOS 中介資源清理，均依已核准的原驗收邊界 **CLOSED／PASS 或 USER_ACCEPTED**。收據保留在 [結案索引](wbs/completed-index.md)／[Operations](spec/operations-and-testing.md)／[archive](archive/d07-gcp-bq-retirement-live-2026-10-20.md)，**不因未列舉所有理論可能性新增待辦**。新缺陷須有實際證據，再依當次工作包處理。
