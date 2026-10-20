@@ -1,0 +1,11 @@
+{
+  "intent": "stage48-read-only-api-traffic",
+  "source_sha": "a7e1e7c276e735f629f90525f7f7cf6e7411b07b",
+  "promotion_run": "39348904538",
+  "jobs_run": "39346705950",
+  "previous_sha": "e3e0098399846eb337dd2ed1f8b636240bc88c20",
+  "no_gcp_mutation": true,
+  "no_owner_mutation": true,
+  "no_traffic_mutation": true,
+  "purpose": "STAGE-48H independent post-promotion readback: serving 100% exact sha, fixed image, health 200, unauth POST Admin GCS 401/403, tags unchanged, rollback rehearsal proof. No IAM/new services or Stage data mutation."
+}
