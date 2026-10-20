@@ -257,3 +257,14 @@ function janusLoaderApi_(method, path, payload) {
   catch (_e) { throw new Error('Apps Script API response JSON invalid'); }
   return parsed;
 }
+/** Zero-argument Editor entrypoints: display result and one-time confirmation code. */
+function janusGasLoaderPreviewFromEditor() {
+  const result = janusGasLoaderPreview();
+  console.log(JSON.stringify(result));
+  return result;
+}
+function janusGasLoaderApplyFromEditor() {
+  const result = janusGasLoaderApply();
+  console.log(JSON.stringify(result));
+  return result;
+}
