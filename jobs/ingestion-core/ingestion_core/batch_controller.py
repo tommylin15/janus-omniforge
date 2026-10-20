@@ -43,9 +43,6 @@ BATCHES = (
     Batch("market-screening", "janus-intelligence-mart", (16,), tuple(range(5)), ("ingestion", "data-supplement"),
           (("MART_OPERATION", "market-screening"), ("MART_OOS_EVALUATION", "false"), ("MART_AI_ENABLED", "false")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
-    Batch("specialist-retrain", "janus-intelligence-mart", (10,), dependencies=("ingestion", "data-supplement"),
-          env=(("MART_OPERATION", "specialist-retrain"), ("MART_OOS_EVALUATION", "true"), ("MART_AI_ENABLED", "false")),
-          exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart"), weekdays=(5,), month_days=tuple(range(1, 8))),
     Batch("data-quality", "janus-ingestion-core", (12,), (5,),
           env=(("JANUS_DATA_SUPPLEMENT_MODE", "quality"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""),
                ("ICEBERG_MAINTENANCE_MODE", "")), exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
@@ -326,75 +323,6 @@ def record(connection, tick, key, state, action, *, update=True):
         cursor.execute("INSERT INTO control.batch_event_outbox(event_id,payload) VALUES (%s,%s::jsonb) ON CONFLICT DO NOTHING", (event_id, json.dumps(payload)))
 
 
-def manual_retrain_dependencies(connection, now: datetime, batch=None):
-    """Use the newest dependency date and wait until that day's full pair succeeds."""
-    batch = batch or next(batch for batch in BATCHES if batch.name == "specialist-retrain")
-    cutoff = now - timedelta(days=7)
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """SELECT scheduled_at
-                 FROM control.batch_occurrences
-                WHERE state->>'batch'=ANY(%s)
-                  AND scheduled_at >= %s
-                  AND scheduled_at <= %s
-                ORDER BY scheduled_at DESC
-                LIMIT 32""",
-            (list(batch.dependencies), cutoff, now),
-        )
-        rows = cursor.fetchall()
-    if not rows:
-        raise RuntimeError("manual retrain requires recent dependency occurrences")
-    local_dates = []
-    for row in rows:
-        scheduled_at = row[0]
-        if scheduled_at.tzinfo is None:
-            raise RuntimeError("dependency occurrence timestamp is naive")
-        local_dates.append(scheduled_at.astimezone(ZoneInfo("Asia/Taipei")).date())
-    dependency_date = max(local_dates)
-    by_name = {item.name: item for item in BATCHES}
-    dependencies = []
-    for name in batch.dependencies:
-        dependency = by_name[name]
-        if dependency_date.weekday() not in dependency.weekdays:
-            raise RuntimeError("manual retrain dependency is not scheduled on selected date")
-        preceding = [value for value in dependency.hours
-                     if value < batch.hours[0] or (value == batch.hours[0] and dependency.minute <= batch.minute)]
-        if not preceding:
-            raise RuntimeError("manual retrain dependency has no preceding slot")
-        dependencies.append(f"{name}/{dependency_date.isoformat()}/{max(preceding):02d}")
-    return dependencies
-
-
-def insert_manual_retrain(connection, now: datetime, request_id: str):
-    """Persist one idempotent manual retrain occurrence behind controller dependency fences."""
-    batch = next(batch for batch in BATCHES if batch.name == "specialist-retrain")
-    key = f"{batch.name}/manual/{request_id}"
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT state FROM control.batch_occurrences WHERE occurrence_id=%s", (key,))
-        existing = cursor.fetchone()
-    if existing is not None:
-        state = existing[0]
-        if state.get("batch") != batch.name or state.get("origin") != "manual" or state.get("request_id") != request_id:
-            raise RuntimeError("manual occurrence identity conflict")
-        return key
-    dependencies = manual_retrain_dependencies(connection, now, batch)
-    state = {
-        "job": batch.job,
-        "batch": batch.name,
-        "status": "pending",
-        "dependencies": dependencies,
-        "scheduled_at": now.isoformat(),
-        "origin": "manual",
-        "request_id": request_id,
-    }
-    with connection.transaction(), connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO control.batch_occurrences(occurrence_id,scheduled_at,state) VALUES (%s,%s,%s::jsonb) ON CONFLICT DO NOTHING",
-            (key, now, json.dumps(state)),
-        )
-    return key
-
-
 def run(*, now=None, session=None, control=None):
     from datetime import timezone
     from .__main__ import _control_plane
@@ -402,7 +330,7 @@ def run(*, now=None, session=None, control=None):
         raise ValueError("batch controller is restricted to the existing dev project")
     now = now or datetime.now(timezone.utc)
     mode = os.environ.get("BATCH_CONTROLLER_MODE", "observe")
-    if mode not in {"observe", "active", "seed", "manual", "mobile-probe"}:
+    if mode not in {"observe", "active", "seed", "mobile-probe"}:
         raise ValueError("unsupported controller mode")
     if mode == "mobile-probe":
         try:
@@ -411,11 +339,6 @@ def run(*, now=None, session=None, control=None):
             print(json.dumps({"mobile_ledger_probe": "failed", "error_code": str(error)}, sort_keys=True))
             raise
         return {"status": result["status"], "mobile_ledger_pending": bool(result["pending"])}
-    manual_request_id = ""
-    if mode == "manual":
-        manual_request_id = os.environ.get("BATCH_CONTROLLER_MANUAL_REQUEST_ID", "")
-        if re.fullmatch(r"[A-Za-z0-9._-]{1,80}", manual_request_id) is None:
-            raise ValueError("invalid manual request id")
     not_before = None
     if mode == "active":
         not_before = datetime.fromisoformat(os.environ["BATCH_CONTROLLER_NOT_BEFORE"].replace("Z", "+00:00"))
@@ -477,36 +400,33 @@ def run(*, now=None, session=None, control=None):
             except Exception:
                 # A read failure must never release the running-job fence.
                 record(connection, tick, key, state, "cloud_status_unavailable", update=False)
-        manual_key = None
         mobile_pending: bool | None = False
-        if mode == "manual":
-            manual_key = insert_manual_retrain(connection, now, manual_request_id)
-        else:
-            try:
-                mobile_pending = bool(probe_mobile_ledger_queue(write=False)["pending"])
-            except MobileLedgerQueueError:
-                mobile_pending = None
-                record(connection, tick, "mobile-ledger", {"status": "unavailable"}, "mobile_queue_unavailable", update=False)
-            for key, batch, slot, dependencies in scheduled_batches(now, mobile_pending is True):
-                if slot < not_before:
-                    continue
-                state = {"job": batch.job, "batch": batch.name, "status": "pending", "dependencies": dependencies,
-                         "scheduled_at": slot.isoformat(), "env": list(occurrence_env(batch, slot))}
-                with connection.transaction(), connection.cursor() as cursor:
-                    cursor.execute("INSERT INTO control.batch_occurrences(occurrence_id,scheduled_at,state) VALUES (%s,%s,%s::jsonb) ON CONFLICT DO NOTHING", (key, slot, json.dumps(state)))
+        try:
+            mobile_pending = bool(probe_mobile_ledger_queue(write=False)["pending"])
+        except MobileLedgerQueueError:
+            mobile_pending = None
+            record(connection, tick, "mobile-ledger", {"status": "unavailable"}, "mobile_queue_unavailable", update=False)
+        for key, batch, slot, dependencies in scheduled_batches(now, mobile_pending is True):
+            if slot < not_before:
+                continue
+            state = {"job": batch.job, "batch": batch.name, "status": "pending", "dependencies": dependencies,
+                     "scheduled_at": slot.isoformat(), "env": list(occurrence_env(batch, slot))}
+            with connection.transaction(), connection.cursor() as cursor:
+                cursor.execute("INSERT INTO control.batch_occurrences(occurrence_id,scheduled_at,state) VALUES (%s,%s,%s::jsonb) ON CONFLICT DO NOTHING", (key, slot, json.dumps(state)))
         # Persisted pending slots survive midnight and controller restarts.
         with connection.cursor() as cursor:
-            if mode == "manual":
-                cursor.execute("SELECT occurrence_id,state FROM control.batch_occurrences WHERE occurrence_id=%s AND state->>'status'='pending' LIMIT 1", (manual_key,))
-            else:
-                cursor.execute("SELECT occurrence_id,state FROM control.batch_occurrences WHERE state->>'status'='pending' ORDER BY scheduled_at,occurrence_id LIMIT 101")
+            cursor.execute("SELECT occurrence_id,state FROM control.batch_occurrences WHERE state->>'status'='pending' ORDER BY scheduled_at,occurrence_id LIMIT 101")
             pending = cursor.fetchall()
         if len(pending) > 100:
             raise RuntimeError("pending occurrence limit exceeded; dispatch blocked")
-        if mode != "manual":
-            pending = prioritize_nightly_private(pending, now)
+        pending = prioritize_nightly_private(pending, now)
         batches = {batch.name: batch for batch in effective_batches()}
         for key, state in pending:
+            if state.get("batch") == "specialist-retrain":
+                record(connection, tick, key,
+                       {**state, "status": "skipped", "reason": "retired_research_retrain"},
+                       "retired_research_retrain")
+                continue
             batch = batches[state["batch"]]
             if batch.name == "market-screening":
                 setting = control.get_admin_setting("schedule")
@@ -526,23 +446,17 @@ def run(*, now=None, session=None, control=None):
                     record(connection, tick, key, state, "mobile_queue_empty")
                     continue
             dependencies = state["dependencies"]
-            if state.get("origin") == "manual":
-                dependencies = manual_retrain_dependencies(connection, now, batch)
-                if dependencies != state["dependencies"]:
-                    state = {**state, "dependencies": dependencies}
-                    record(connection, tick, key, state, "manual_dependency_updated")
-            else:
-                # Reconcile scheduled pending slots created before a dependency-policy change.
-                due_row = next((row for row in due_batches(datetime.fromisoformat(state["scheduled_at"])) if row[0] == key), None)
-                if due_row is None:
-                    record(connection, tick, key, {**state, "status": "skipped", "reason": "schedule_superseded"},
-                           "schedule_superseded")
-                    continue
-                dependencies = due_row[3]
-                expected_env = list(occurrence_env(batch, due_row[2]))
-                if dependencies != state["dependencies"] or state.get("env") != expected_env:
-                    state = {**state, "dependencies": dependencies, "env": expected_env}
-                    record(connection, tick, key, state, "dependency_policy_updated")
+            # Reconcile scheduled pending slots created before a dependency-policy change.
+            due_row = next((row for row in due_batches(datetime.fromisoformat(state["scheduled_at"])) if row[0] == key), None)
+            if due_row is None:
+                record(connection, tick, key, {**state, "status": "skipped", "reason": "schedule_superseded"},
+                       "schedule_superseded")
+                continue
+            dependencies = due_row[3]
+            expected_env = list(occurrence_env(batch, due_row[2]))
+            if dependencies != state["dependencies"] or state.get("env") != expected_env:
+                state = {**state, "dependencies": dependencies, "env": expected_env}
+                record(connection, tick, key, state, "dependency_policy_updated")
             with connection.cursor() as cursor:
                 statuses = {}
                 if dependencies:
