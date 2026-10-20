@@ -3,6 +3,6 @@
   "no_gcp_mutation": true,
   "project": "gen-lang-client-0593591102",
   "region": "us-central1",
-  "scope": "STAGE-48H: after rollout #39346705950 terminal PASS, read back four immutable GHCR Jobs digests/config plus Scheduler enable and all-page terminal fence; read-only before API promotion",
-  "attempt": 14
+  "scope": "STAGE-48H live diagnostic during controlled #39356643823 reversible four-Job rollout: metadata-only Scheduler state, each immutable pinned image/config, and full-page execution fence. Do not mutate GCP or infer PASS before terminal rollout.",
+  "attempt": 15
 }
