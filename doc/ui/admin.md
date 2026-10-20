@@ -134,6 +134,13 @@ Admin 後續至少管理：
 
 原「資料治理」合併進「資料品質」的治理／儲存 detail；可按資料層與 retention、DQ／freshness、儲存與清理三區檢視。Private queue／cancel/force-fail 等**執行控制**放「批次」；Worker 數量及版本化低頻設定放「系統設定」。不建 metadata platform。
 
+### GCS 六桶一鍵唯讀盤點（STAGE-48H）
+
+- 在既有四頁 Admin 的「資料品質 → 儲存維護」以單一按鈕呼叫 `POST /api/v1/admin/gcs-storage/inspect`；後端每次驗證 Admin token，使用既有服務身分讀 GCS metadata（no payload GET，不觸發清理）。前端顯示六個固定 Bucket 的 current objects／bytes、noncurrent bytes、soft-deleted bytes、Stage MD5 疑似重複量、查詢時間與部分成功原因。
+- **固定 allowlist 六桶**（Stage、Core、Mart、Private、Research、Cloud Build），後端限制 GCS metadata 頁數與同一 instance 同時掃描數，HTTP 有 timeout；未授權/缺 IAM 會明確返回 blocked／partial，不隱瞞失敗也不補零。Bucket 清單不開放由前端指定，私人資料名稱、hash、payload、Owner 關係皆不得返回。
+- 若六桶未全數掃描成功，`totals=null`；成功狀態僅 `KNOWN_BUCKETS_COMPLETE`，不視為整個 project 的費用帳單／所有 Bucket 完整。Admin 僅為**查詢**，沒有「一鍵刪除」。正式啟用需 API 與 Flutter 同 SHA release、Admin OAuth 負向驗證及至少一次有授權 GCS live readback。
+- 不新增 API key、付費資源或 GCS 控制平面。缺少 Storage metadata 最小唯讀權限時標 BLOCKED，不自行擴張其他 IAM。
+
 ### 9.6.1 資料層與 Retention
 
 顯示 Stage／Core／Mart／必要 Private 摘要、最後更新、目前 retention contract 與狀態。Retention 必須依 active [`../spec/retention-governance.md`](../spec/retention-governance.md)，不能由 UI hard-code 舊規則。
