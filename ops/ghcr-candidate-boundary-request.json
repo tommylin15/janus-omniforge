@@ -1,7 +1,7 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "a7e1e7c276e735f629f90525f7f7cf6e7411b07b",
+  "sha": "caca7d383c236425417b582167d26fafbcba3e27",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "STAGE-48H new Admin GCS one-click POST requires Google Admin audience; test candidate unauthorized denial and OAuth metadata before releasing service."
+  "purpose": "Independent read-only OAuth/Owner and unauthenticated Admin GCS denial verification for 0%-traffic API candidate #39356339627 from verified full source #39355867356; preserve original 100% serving traffic until gated rollout."
 }
