@@ -70,7 +70,7 @@ Admin 的目標是 `apps/user_app` 內的 Flutter workspace，與 User 共用 co
 
 **批次清單不能硬編碼舊七支。** 實作時從 `ingestion_core.batch_controller.BATCHES` 的有效定義、PostgreSQL occurrence／execution 及 live runtime 讀回核對（包括現有 backup、compaction 等維護類）；定義存在不代表部署成功。每筆需區分 scheduled／dispatched／running／terminal、unknown／partial 與成功。
 
-UI 應以 backend／controller 的 effective job/occurrence 為準，不再由 Flutter 複製一份排程真相。未來 全市場 screening、dirty specialist update、monthly retrain／reconciliation、On-demand CEO execution 等只有在對應 implementation／runtime 真正存在後才出現，不以 placeholder 假裝可用。
+UI 應以 backend／controller 的 effective job/occurrence 為準，不再由 Flutter 複製一份排程真相。未來全市場 screening、dirty specialist update、**外部 Colab 模型提交／驗證／版本管理**、On-demand CEO execution 等只有在對應 implementation／runtime 真正存在後才出現，不以 placeholder 假裝可用。已退役的 Cloud Run monthly retrain／reconciliation 不得重新出現在批次手動操作清單。
 
 ### 9.2.1 Execution detail
 
@@ -110,7 +110,7 @@ Admin 後續管理：
 - specialist champion／model／version／evaluation；
 - coverage 與 latest validated artifact；
 - dirty dependency／reuse／reconciliation 狀態；
-- monthly retrain／calibration／evaluation evidence；
+- 外部 Colab 訓練匯入、校準／OOS／evaluation evidence（不得提供舊 Cloud Run fit 按鈕）；
 - blocked／partial／insufficient-data 狀態。
 
 五 specialist production 主路徑為 Python／SQL／ML；正常白話輸出來自 structured output + SHAP/rules/templates，正常 path 0 API token。舊「五分析師共用 LLM provider route」若與 active TODO／2026-10-03 decision 衝突，以最新 Token-first 決策為準。
@@ -156,7 +156,7 @@ Admin 後續至少管理：
 | Mart 分析列 | 90 天 |
 | 每個股完整 specialist 分析 | 最新 3 代；仍被保留成果物引用的共用內容不刪 |
 | OOS／specialist 成果物 | 最新仍使用結果；未完成、無引用且超過 7 天依 active spec 淘汰 |
-| Core execution manifest | 超過 90 天、無有效引用且有新鮮 `CORE_RETENTION_FENCE_URI` 才可淘汰 |
+| Core execution manifest | 依現行 row／manifest retention 與 current snapshot 引用、writer lock／generation 保護清理；舊 `CORE_RETENTION_FENCE_URI` 歷史研究保留 gate 已取消，不得用它當永久阻擋 |
 
 Private retention 不屬目前 Public deletion governance 範圍。若沒有另外已核准 contract，UI 顯示 `未定義／unknown`，不得把 Public retention 套到 private ledger／artifacts。
 
