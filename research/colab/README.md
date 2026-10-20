@@ -24,6 +24,12 @@ drive.mount('/content/drive')
   --max-requests 120 --interval 2
 ```
 
+**2026-10-20 休市日修復**：已按交易所公告將 2025／2026 年已知休市日（含元旦、春節「僅結算不交易」日）列為 `SCHEDULED_CLOSURE`，跳過行情 API 請求但在 checkpoint、manifest、quality 保留日期證據。正常交易日回傳空行情仍視為失敗；不把 API 故障當成休市。既有完成 checkpoint 不需重抓；若 Colab 已 clone 舊版，先更新：
+
+```bash
+!git -C /content/janus-omniforge pull --ff-only origin main
+```
+
 重跑**相同指令**會從已完成 checkpoint 繼續。每 10 個平日／市場落一份壓縮 checkpoint；兩市場皆完成整月才寫入最終 manifest，先驗證全部 SHA256，再移除該月份的 checkpoint。單次 120 次請求為控制用量而設的上限，不是 API 官方配額；若來源拒絕或限流，保留錯誤並停止，不繞過。實際採集速度由來源反應及 Colab 免費執行時長決定，不保證一輪完成兩年。**尚未結束的月份不封存**，避免當月早期資料被誤標完整。
 
 Drive 範例結構：
