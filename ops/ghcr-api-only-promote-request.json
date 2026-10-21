@@ -1,0 +1,16 @@
+{
+  "intent": "promote-existing-dev-api-only-fixed-ghcr",
+  "approved": true,
+  "scope": "existing-dev-janus-api-only",
+  "source_sha": "0b0a42b608143d62f5241d47c2d25e855949f36b",
+  "release_run": "39559241673",
+  "candidate_run": "39559998708",
+  "auth_boundary_run": "39560189398",
+  "prior_serving_sha": "a7e1e7c276e735f629f90525f7f7cf6e7411b07b",
+  "rollback_mode": "reversible_ghcr",
+  "no_jobs_mutation": true,
+  "no_scheduler_mutation": true,
+  "no_storage_mutation": true,
+  "no_iam_mutation": true,
+  "purpose": "User-authorized existing dev API 100% only for Admin GCS MB display and bounded failure-code diagnosis. Exact immutable public GHCR image, 0%-candidate and OAuth negative/Owner boundary gates passed. Runtime old GHCR source/digest required; rehearse traffic rollback. Never mutate Jobs, GCS or IAM."
+}
