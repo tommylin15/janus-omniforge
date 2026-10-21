@@ -11,6 +11,8 @@
 
 **全市場新要求：**圖中的「500 檔」僅保留為歷史示意；現在新增關注可選全上市櫃個股，50 筆 quota 保留。
 
+2026-10-21：方案A的資訊順序依[四頁UI](../../visual-first-four-pages.md)第6節與[變化SPEC](../../../spec/change-analysis.md)，本檔原圖解讀只記錄歷史圖內容，不作第二份當前版面指令。
+
 ## 固定圖片路徑
 
 - `doc/ui/reference/user-app-final/today.png` — 今日

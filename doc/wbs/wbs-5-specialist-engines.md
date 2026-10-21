@@ -5,7 +5,7 @@
 ## D07-PRE：資料與舊路線退役
 1. Colab 直接抓 TWSE／TPEx 官方歷史整市場每日行情，採現行普通股公司名冊白名單（歷史下市股票缺口標 PROBE），股票母體為 TWSE/TPEx 普通股、ETF 排除；每市場×資料集×月 ≥70% 才標研究資料完整。只盤點目前持股/觀察股的公開欄位與有效值，時間欄位貼標但不阻擋第一輪採集。
 2. 私有 Drive `janusChatGPT/資料源/YYYY-MM/`，OHLCV 先以壓縮 CSV、universe、quality、manifest 存放；其他資料集按取得授權續補，各資料有 source/SHA、限流及 checkpoint，不填不存在的資料。
-3. 舊 `specialist-retrain`、手動工作流、非共用 ML/OOS BigQuery／Cloud Run 路線一旦證實不被正式服務使用就立即移除，**不等新 Colab 採集上線**。保留實際 GCP 資源證據與刪除讀回，GitHub 修改不等於雲端完成。
+3. 舊 specialist-retrain／GCP／BQ研究路線已於2026-10-20依實機收據結案，不重開；只保留archive追溯。
 
 ## D07：五角色建模
 - Quant：動能／相對強弱，OHLCV、成交量額、指數。
@@ -20,4 +20,14 @@
 上市櫃全市場低成本 screening 仍依正式 Core 資料門檻（上市 ≥90%、上櫃 ≥70%）；Deep Coverage 只處理 watchlist ∪ holdings 的 dirty 股票與角色；Owner ETF/私有交易和正式行情/分析/UI/API、Stage48h、每週 Iceberg、備份繼續正常。LLM 沒有 canonical number／最終發布權力。
 
 ## 驗收
-D07-PRE 檢查真實 API 月檔／覆蓋、GCP/BQ 舊路線停用與來源授權；D07 驗 Colab OOS→Janus registry；D08 驗個股/CEO/Admin/Owner UI。各段 `DOC_UPDATED`、`DEPLOYED`、`OOS_VALIDATED`、`RUNTIME_REMOVED` 不得混為同一個 PASS。
+D07-PRE 檢查真實 API 月檔／覆蓋與來源授權（舊GCP/BQ退役已結案，不重驗）；D07 驗 Colab OOS→Janus registry；D08 驗個股/CEO/Admin/Owner UI。各段 `DOC_UPDATED`、`DEPLOYED`、`OOS_VALIDATED`、`RUNTIME_REMOVED` 不得混為同一個 PASS。
+
+## 方案 A 與 D07 交付責任（2026-10-21）
+A-CHANGE由WBS-5負責事實/狀態/盤前盤後facts，WBS-6負責API/UI，依[方案卡](../execution-cards/a-change-analysis.md)集中驗收。A不等D07。
+D07唯一模型/X/Y表在[Specialist SPEC](../spec/specialist-engines.md)，窗口/清洗在[時間契約](../spec/model-feature-time-contract.md)，不在WBS複製公式。
+| 切片 | 責任/相依 | 驗收 |
+|---|---|---|
+| D07-FEATURE | 資料/研究工程；依D07-PRE可用資料 | 清洗/交易日/as-of/公司行動/成熟label與train-serving一致；既有Core不重建 |
+| D07-MODEL | 模型研究；依feature | Risk現有Ridge先行，Quant其次，其他按獨立期數；同OOS baseline/challenger，失敗保留rules |
+| D07-SERVE | Mart/API/Admin；依各角色OOS | model/schema/hash/preprocessor受控匯入、真實推論、回退與缺值行為 |
+切片不是新的獨立queue，唯一狀態在TODO。

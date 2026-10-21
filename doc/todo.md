@@ -1,22 +1,34 @@
 # Janus — 唯一 Active TODO
 
-更新：2026-10-20。**只列尚未完成的工作與原定驗收，不收納歷史失敗、已結案工程、無具體異常的推測性追查。** 狀態以 GitHub `main`／真實 CI、deployment 與 runtime 為準；結案遵循 [PROJECT_RULES §1.1.1](PROJECT_RULES.md)。
+更新：2026-10-21。**只列尚未完成的工作與原定驗收，不收納歷史失敗、已結案工程、無具體異常的推測性追查。** 狀態以 GitHub `main`／真實 CI、deployment 與 runtime 為準；結案遵循 [PROJECT_RULES §1.1.1](PROJECT_RULES.md)。
 
 ## 1. 現行優先順序
+
+方案A已核准；本輪僅文件/清理完成，未啟動工程。後續產品順序 A-CHANGE → D07-PRE → D07 → D08；D07-PRE現有採集可獨立續作，STAGE-48H仍由原對話收尾，不阻擋方案A文件或研究。
 
 | 優先 | 工作包 | 已完成 | 尚需完成 |
 |---|---|---|---|
 | **P0** | **STAGE-48H** | 48h Stage TTL／過期資料受控實刪、跨 execution shared raw/provenance、四 Jobs 更新與獨立讀回 PASS | **自然 18:30 Stage-only 執行驗收；Admin 六桶 OAuth 登入後一鍵正向驗收** |
+| **P1** | **A-CHANGE｜事實解讀與站內盤前盤後** | 方案、X/Y/時間契約與AI卡已定版（DOC_UPDATED） | **A1事實解讀、A2變化狀態、A3盤前盤後、A4 UI集中驗收；工程未啟動** |
 | **P1** | **D07-PRE｜Colab／Drive 資料源** | 官方歷史整市場 Colab 採集器、普通股白名單、每月資料夾/續跑/雜湊及 Risk 資料讀取已實作並有本地 targeted tests；舊 GAS/GCP/BQ 研究路線退出 | **Colab 官方 API 實抓 → 每月資料夾品質／SHA 讀回 → 補歷史已下市股票母體證據／正式 70% 分母** |
 | **P2** | **D07｜五分析師建模** | 五角色規格、OOS／registry 責任界線已定案 | **Colab 模型訓練與 OOS；Janus Mart 受控模型匯入、推論與 Admin 品質呈現** |
 | **P3** | **D08｜CEO／Admin／Owner 報告** | 原 Gateway 技術驗證可重用 | **有效 Fact Pack → CEO 手動請求 → Gateway／validator → immutable 報告與 Owner UI／Admin 管理驗收** |
 
 ## 2. STAGE-48H｜僅餘兩項原定驗收
 
-- [ ] **每日自然排程**：於 2026-10-20 18:30 Asia/Taipei 發生後核對正式 `janus-ingestion-daily`／Stage-only occurrence、終態、到期資料處理結果與週 Iceberg 維護不變。**時點尚未到，不因等待自然事件重啟已通過的部署或歷史清理**。
+- [ ] **每日自然排程**：於 2026-10-20 18:30 Asia/Taipei 發生後核對正式 `janus-ingestion-daily`／Stage-only occurrence、終態、到期資料處理結果與週 Iceberg 維護不變。**保留原定收據待核對，不因本次文件整理猜測結果或重做已通過部署/清理**。
 - [ ] **Admin 六桶正向操作**：真實 Admin OAuth 授權操作，一鍵讀回既有六桶 metadata、權限與部分失敗顯示；匿名拒絕 401 已 PASS，不能代替 Admin 正向驗收。
 
 已完成證據：[GHCR／四 Jobs #39355867356／#39356643823](https://github.com/tommylin15/janus-omniforge/actions/runs/39356643823)、[獨立 readback #39358461946](https://github.com/tommylin15/janus-omniforge/actions/runs/39358461946)、[Stage 實刪 4,927 件／96,321,204 bytes #39355428497](https://github.com/tommylin15/janus-omniforge/actions/runs/39355428497)、[shared raw/provenance #39358645373](https://github.com/tommylin15/janus-omniforge/actions/runs/39358645373)、[48h dry-run 零候選 #39359037869](https://github.com/tommylin15/janus-omniforge/actions/runs/39359037869)。歷史細節集中 [Operations](spec/operations-and-testing.md)，不在 Active TODO 重複列流水帳。此項由原 Stage 對話承接，與 D07-PRE 分開。
+
+## 2A. A-CHANGE｜方案 A
+
+- [ ] A1 有證據的事實模板與跨角色摘要；與模型validated gate分開。
+- [ ] A2 版本化觀察、新增/持續/增強/減弱/解除/失效/過期與缺資料狀態、跨日對照。
+- [ ] A3 共用facts的站內盤前/盤後，cutoff、休市與資料晚到語意。
+- [ ] A4 首頁/個股整合及targeted/CI/dev/API/UI集中驗收，30秒理解測試。
+
+責任WBS-5/6；[唯一SPEC](spec/change-analysis.md)、[AI卡](execution-cards/a-change-analysis.md)。不含推播/日常LLM/新服務，不重開D03；工程須後續明確啟動。
 
 ## 3. D07-PRE｜Colab 官方歷史資料採集與每月資料夾
 
@@ -30,10 +42,11 @@
 
 ## 4. D07｜五角色模型與正式介接
 
+- [ ] **共用X/Y與時間處理**：依[因子時間契約](spec/model-feature-time-contract.md)建立交易日/公告as-of join、公司行動與單位、滾動feature builder、成熟label、版本/增量及訓練/推論同輸入一致性；不每天重抓整段歷史。
 - [ ] **模型與研究評估**：Quant／Risk 優先；Valuation／Fundamental 依資料可得性；Event 缺合規真人標籤維持 rules。與 deterministic baseline 在同一時間外 OOS／成熟標籤／資料來源下評估，禁止 future leakage。
 - [ ] **受控模型匯入與應用**：Colab model／evaluation 版本及 hash → Janus Mart Registry、推論、rollback、Admin 模型品質／狀態展示；不恢復舊 Cloud Run/BQ 訓練器。
 
-[D07 唯一任務卡](execution-cards/d07-specialist-b9-oos.md)。
+模型選型/X/Y/產出唯一見[五分析師](spec/specialist-engines.md)；[D07 唯一任務卡](execution-cards/d07-specialist-b9-oos.md)。Risk沿用現有Ridge試點，其他角色按資料與獨立期數判定，不為湊齊五模型而發布。
 
 ## 5. D08｜CEO／Admin／Owner 報告
 

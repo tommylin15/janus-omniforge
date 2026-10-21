@@ -2,7 +2,7 @@
 
 更新：2026-10-20。本頁只導航，不保存暫停、部署版本或重複待辦。
 
-先讀 [PROJECT_RULES](PROJECT_RULES.md) → [專案管理](project-management.md) → [status](status.md) → [TODO](todo.md) → 指定一張 [AI 任務卡](execution-cards/README.md)。現行執行序列：**STAGE-48H → D07-PRE → D07 → D08**；已完成產品工作不再重開。
+先讀 [PROJECT_RULES](PROJECT_RULES.md) → [專案管理](project-management.md) → [status](status.md) → [TODO](todo.md) → 指定一張 [AI 任務卡](execution-cards/README.md)。現行執行序列：**A-CHANGE → D07-PRE → D07 → D08；STAGE-48H 原對話獨立收尾**；已完成產品工作不再重開。
 
 文件權責、唯一待辦與**需要使用者決策的重大風險**統一見 [專案管理](project-management.md)；舊 [文件盤點](archive/documentation-review-2026-10-15.md) 轉歷史證據，不當現在的工作佇列。
 
@@ -32,9 +32,9 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `spec/data-governance.md`：正式 Canonical 保存、Scheduler 與補收政策；模型研究採集另以 `spec/research-collection-gas-drive-colab.md` 為唯一規格。
 - `status.md`：目前狀態與下一個執行序列的短入口；不是新的 source of truth。
 - `todo.md`：只保存確定要做的 active queue 與未完成 acceptance；暫不做與已接受缺口見 `parking-lot.md`。
-- `codex-execution-plan.md`：**路由 STAGE-48H → D07-PRE → D07 → D08** 的現行 AI 操作；舊 DRL／D01–D06 工程指令已封存。
+- `codex-execution-plan.md`：**路由 A-CHANGE → D07-PRE → D07 → D08；STAGE-48H 原對話獨立收尾** 的現行 AI 操作；舊 DRL／D01–D06 工程指令已封存。
 - `execution-cards/README.md`：現行 D07-PRE/D07/D08 路由；D01～D06 卡保留維運/歷史，不形成工作義務。
-- `spec/research-collection-gas-drive-colab.md`：**D07-PRE 唯一新版**；GAS 第三方來源→Drive 每月 ZIP→Colab；研究普通股（ETF 排除）、各市場70%、先盤點欄位。
+- `spec/research-collection-gas-drive-colab.md`：**D07-PRE 唯一新版（保留既有路徑，GAS已退役）**；官方 TWSE／TPEx→Colab→Drive 月資料夾→Colab；研究普通股（ETF 排除）、各市場70%、先盤點欄位。
 - `decision-2026-10-06-bigquery-analytics-over-iceberg.md`：**已退休的歷史決策指引**，不是 active BQ 訓練或執行前置。
 - `future-market-alerts.md`：使用者指定獨立保存的未來預警增補；狀態由 `parking-lot.md` 管理，不是 active scope。
 - `spec.md`：SPEC 索引；正式契約在 `spec/*.md`。
@@ -69,3 +69,6 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 ## 4. 證據維護
 
 Operations只保存當前適用摘要／歷史連結，不無限追加。原2296行ledger完整保存於 [歷史快照](archive/documentation-baseline-2026-10-15-operations-and-testing.md)，相對連結已校正；新增證據以完整SHA／run／scope／觀察時間記錄，舊FAIL不改判。Pilot自然觀察仍在原檔，不重啟六個月窗口。
+
+## 方案 A 與模型資料入口（2026-10-21）
+[變化判讀SPEC](spec/change-analysis.md) → [A-CHANGE AI卡](execution-cards/a-change-analysis.md)；[五分析師模型/X/Y](spec/specialist-engines.md) → [時間窗口與前處理](spec/model-feature-time-contract.md) → [D07 AI卡](execution-cards/d07-specialist-b9-oos.md)。唯一工作順序與驗收仍見[TODO](todo.md)。

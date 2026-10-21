@@ -1,31 +1,48 @@
-# 五分析師｜正式個股輸出與新版研究模型契約
+# D07｜五分析師模型、X/Y 與預期輸出
+更新：2026-10-21。方案 A 先交付事實解讀；模型設計已整理，不代表訓練/驗證/上線。狀態只看 [TODO](../todo.md)，資料窗口與前處理唯一契約見 [因子與時間](model-feature-time-contract.md)，研究來源見 [Colab/Drive](research-collection-gas-drive-colab.md)。
 
-更新：2026-10-20。**研究唯一入口：[官方行情→Colab→Drive每月資料夾](research-collection-gas-drive-colab.md)**。舊 BigQuery ML/OOS 中轉、Core frozen Parquet 必經出口、Cloud Run 月度 retrain 等 B5～B8 研究路線全部退休，僅歷史 Git／archive 可追溯，不作新 WBS/前置驗收。
+## 1. 目前程式與建議
+查證 main d7083890738a8660786110d0c73d58d8fe183c15：
+- 正式 specialists.py 為 deterministic-unpromoted-v1；數字及規則不等於經 OOS 的預測。
+- research/colab/risk_pilot.py 已有 StandardScaler+Ridge(alpha=10)、五個特徵、未來20日波動、固定時間切分；RESEARCH_OOS_ONLY_NOT_PROMOTABLE。真實資料、公司行動、歷史母體、來源與 promotion 仍須驗收。
+- 研究採集首版僅 OHLCV；正式 Core 有資料不代表 Drive 研究集已有同欄位。其餘 X 均為待資料對照/建置，不能假稱可訓練。
+- 模型先全市場普通股 pooled panel，按市場/產業特徵或分層評估，不為每檔訓練一套；排除 ETF。Owner 現金/成本/股數不進公開 X。
+- 順序：A 事實/變化可獨立交付；D07-PRE→Risk→Quant→Fundamental/Valuation（資料足夠才訓練）；Event 先 rules。各角色獨立 promotion。
 
-## 分析師資料及輸出
+## 2. 模型／X／Y／輸出矩陣
+表內 challenger 是建議研究候選，需贏過 baseline 才採用，不承諾準確率。
+| 角色 | 首版 baseline → challenger | X：可用時才啟用的特徵 | Y：預測目標／訓練單位 | 對小白的輸出 |
+|---|---|---|---|---|
+| Quant 價格趨勢 | 既有動能/相對強弱規則；Logistic/Ridge → 淺層 LightGBM binary/regression | 5/20/60/120日報酬、20/60日相對市場報酬、MA20/60距離、量比、20日波動/成交金額；法人5/20日買賣超除以同窗成交股數；可用產業相對強度 | 股票×交易日；5/20日未來報酬、超額報酬；分開建 p_up 與 p_outperform，定義見時間契約 | 現況轉強/轉弱；通過校準才顯「未來5/20交易日上漲／勝過市場機率」，附適用期間、反證及不確定性 |
+| Risk 風險 | 保留現有 vol20→Ridge 五因子試點；後續才比較 log-RV Ridge/LightGBM quantile | 現有 vol20/vol60/drawdown60/abs_return5/volume_ratio20；擴充 ATR14/price、120日回撤、Beta/市場波動、流動性/跳空（OHLC齊備） | 股票×交易日；先未來20日 realized volatility；後續20日累積報酬 q05/q50/q95、最大回撤分開建模 | 「未來波動可能較近期大」；校準後的風險區間。歷史CVaR不是最大損失預測，分位區間不是保證 |
+| Fundamental 營運 | YoY/三月趨勢/財務品質規則、同月去年/上一期成長延續 baseline → ElasticNet；足夠獨立期數後才 LightGBM | 月營收YoY、3月合計YoY/加速度；可比EPS、毛利/營益率、ROE、負債權益、CFO/淨利；缺欄位/資料年齡 | 股票×公告期；主目標下一個月營收YoY（百分點誤差）；次目標下一季可比EPS水準/差額，不用每日重複財報膨脹樣本 | 「營運改善/放緩」「成長是否延續」；下次公告待確認項。無足夠期數保留規則，不能硬訓練 |
+| Valuation 估值 | 自身兩年PE/PB分位/同業中位數情境 → Ridge/Huber 解釋同業 log(PE) 或 log(PB) | 當時可得成長/ROE/負債/獲利率、規模、產業、利率若有；同業因子及有效樣本 | 股票×估值日（研究抽月末減重複）；Y為當期可比市場倍數，排除目標倍數及其代數等價欄位進X；未來60/120日超額報酬僅作獨立效用評估 | 「較自身歷史/可比同業偏高或偏低」與情境區間；這是相對定價，不是內在價值或明日股價預測 |
+| Event 事件 | 公告 parser/類型/日期/修訂去重 rules → 有人審標籤才 TF-IDF+Logistic | 截止前公告文字、類型、來源、修訂、已確認事件日期；文字處理在training fold fit | 股票×事件；人審事件類別/重要性。公告後5/20日異常報酬僅獨立市場反應研究，不替代語意標籤 | 「發生什麼、何時、影響已確認或待確認、下個驗證點」；不把公告分類機率當上漲機率 |
 
-| 角色 | 第一批既有公開欄位 | 尚待核對／補充 | 個股頁輸出 |
-|---|---|---|---|
-| Quant | OHLCV、成交量/金額、指數、法人 | adjusted price／公司行動／產業分類 | 歷史動能、相對強度、排名；OOS合格才有預測 |
-| Risk／Regime | OHLCV、benchmark，可算 Beta/CVaR/回撤 | adjusted price／無風險利率 | 波動、尾端損失、市場風險 |
-| Valuation | PE、PB、殖利率、EPS/ROE | 每股淨值、股數、TTM EPS、FCF、同業分類 | PE/PB 河流、估值位置與情境 |
-| Fundamental | 月營收、EPS、淨利、ROE、負債 | 毛利、營益率、營業現金流、CapEx | 營運成長與財務品質 |
-| Event／Catalyst | event_id、公告內容/來源/類型 | 事件方向/重大性/人審標籤 | 事件摘要、來源、修訂／不確定性 |
+## 3. 各角色必要限制
+- Quant：p_up、p_outperform 不能互換；價格基準明示，預測描述不冒充可成交績效。沒有證實獲利的模型可被淘汰，baseline 仍服務。
+- Risk：原 vol20 定義為 log return 平方平均開根號×sqrt(252)，不是去均值樣本標準差。保留版本以便試點可重現；換 log target/公式必升版。現行 drawdown60 是距60日最高收盤回落，並非60日完整最大回撤。
+- Fundamental：月營收需至少13個月才能算當期YoY，3月合計YoY需15個月；季度YoY需5季，可比TTM需4季，同期TTM比較需8季。窗口不足只停相依公式。
+- Valuation：虧損PE不適用；負淨值PB不可照套；金融/非金融同業分開，無可比群不硬配。價格/同日PE、EPS倒算價格等代數洩漏不得作模型X。情境價格須有可比EPS/BVPS，否則僅倍數比較；不強行做DCF。
+- Event：人審者只看定義允許的文本證據；標註準則/一致性/類別樣本數有記錄。去重後事件分組切分，修訂不得跨train/test；沒有權利與標籤不做分類器。
+- 解釋重要因子僅為模型關聯，非因果。先用穩定規則短句；可用 permutation 等輔助，不為SHAP另建服務。
 
-## 研究母體／資料顆粒度
+## 4. 訓練、驗證、正式服務
+先不選 LSTM/Transformer/強化學習/五個LLM：目前表格與低頻資料、獨立時間樣本尚不足，先驗證低複雜度 baseline/challenger。
+研究在人工 Colab；Janus Mart 只匯入合格 artifact、同版前處理、推論、registry與rollback。正式數字仍從Core/serving，Drive不直接當正式行情來源。
+按角色記錄 feature_schema/order/units、preprocessing、model/hash、label/benchmark/horizon、as_of/cutoff、training period、OOS、資料權利、missing/age、有效市場及適用母體。不同角色可用不同模型，不平均成總買進分數。
+正式Core市場品質90%/70%與研究採集70%分開；研究70%不等模型通過。嚴格時間外驗證/成熟標籤/歷史母體/公司行動/來源權利與原promotion不放寬。
+D08只讀已驗證Fact Pack，LLM無canonical/publication權；A模板解讀不需要D08/LLM。
 
-研究只採 TWSE／TPEx 普通股，排除 ETF、ETN、債券ETF、基金、權證。現行官方公司名冊無法完整重建歷史下市股票，第一輪資料只能標研究 PROBE，不得用現行名冊假稱歷史 PIT 或 70% 全市場認證。各市場×dataset×月份有效收集資料 ≥70% 即達**研究採集門檻**；未過門檻標 PARTIAL 不造值，不能當 ML 模型有效性。第一輪盤點對照持股/觀察股的**公開欄位**，不匯出 Owner 成本、股數、現金或交易。時間欄位有就貼 published_at/observed_at/fiscal_period/collected_at/version，初次收集不要求先完成歷史 PIT 稽核或固定24月回補。
+## 5. 評估指標與發布門檻
+| 角色 | 最少評估 |
+|---|---|
+| Quant | Brier/log loss、機率校準、分市場/多空分段、PR/命中率與涵蓋率；回歸MAE/秩相關；另算成本後效用、流動性與不可成交 |
+| Risk | MAE/RMSE，追加QLIKE需正variance與一致尺度；分位用pinball loss、實際覆蓋率、分位不交叉與尾部表現 |
+| Fundamental | MAE（YoY百分點/EPS元）、對季節性baseline增益、轉盈轉虧與產業分段；不對零負值用MAPE |
+| Valuation | 時間外倍數殘差/區間覆蓋、cohort穩定性；未來報酬效用獨立報告，不以擬合市場價格證明合理價 |
+| Event | macro-F1、重要事件precision/recall、校準、修訂去重與人審一致性 |
+訓練前固定評估計畫/可接受退化幅度，不看最終test後調門檻；樣本按日期/事件block估不確定性，不能把相關股票列數當獨立日數。簡單baseline可勝出；沒有穩定增益則不promotion。保留現有有效模型回退，不能只用訓練分數驗收。
 
-Quant/Risk 股票×交易日；Valuation 股票×估值交易日加財務期別；Fundamental 股票×月營收／季報／版本；Event 股票×事件×版本。每月資料夾將不同顆粒度存在各自壓縮 CSV/JSONL，而不是強制合成每日一列。
-
-## 正式服務邊界
-
-現有 Core Iceberg、日常 EOD、market-screening、Mart 確定性計算、持股/觀察股、Owner 私有資料、API、週維護及備份**繼續服務**。研究不經 Cloud Run/Core/BQ 強制搬運，但正式服務仍沿既有合格價、來源與 Core 品質 gate（TWSE ≥90%、TPEx ≥70%），個人持有 ETF 行情不受研究排除政策影響。全市場低成本 screening，watchlist ∪ effective holdings 深度運算和 dirty cache 不變。LLM 無 canonical number 或 publication authority。
-
-## 模型與上線
-
-Colab 人工做五角色 baseline/challenger、特徵標籤、時間外 walk-forward OOS、成熟標籤、防未來洩漏、可重現模型及結果 SHA。Quant/Risk 先行；Valuation/Fundamental 視可得欄位；Event 沒有真正人審及可用訓練權限時只能使用 Parser/Rules，分類機率為 null。未驗證 ML 不顯示虛構報酬機率，保留 deterministic baseline。
-
-正式 Janus Mart 僅收驗證通過的模型版本、註冊/推論/回退；新模型訓練不在 Cloud Run/BQ。五角色 Fact Pack 的 source/provenance、input hash、model_version、analysis_as_of、quality/missing/staleness 可展開，CEO 按需只讀已驗證 Facts。學習資料達70%不能取代模型發布門檻。
-
-執行與狀態：[TODO](../todo.md)、[D07 任務卡](../execution-cards/d07-specialist-b9-oos.md)、[PROJECT_RULES](../PROJECT_RULES.md)。Colab 採集程式已有本地測試，真實歷史批次收據與 OOS 仍待執行；GCP/BQ 舊路線已依既有實機收據結案。
+## 6. 官方方法參考
+2026-10-21查閱：[LightGBM objectives](https://lightgbm.readthedocs.io/en/stable/Parameters.html)、[scikit-learn 時序切分](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html)。套件支援不證明金融有效性；版本需鎖定。股票panel需自行按交易日分組與label maturity purge，不能直接把逐列 TimeSeriesSplit 當合格金融切分。

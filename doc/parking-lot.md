@@ -21,7 +21,7 @@
 
 2026-10-09：舊 CI/CD Revision／映像／GCS／AR 資產清理目前不做，不計入新版 GitHub Actions → GHCR → Cloud Run 驗收；既有工具與歷史盤點只供日後參考。發布互斥、登入驗收與回滾仍屬 active scope。
 
-使用者指定另存 [未來增補：個股異常事件與提前預警](future-market-alerts.md)。包含預警定義、生命週期、送達／摘要／安靜時段、UI 與前瞻成效評估；目前不執行、不列 active TODO、不阻擋非預警產品收斂。本文是唯一狀態入口，獨立文件只存內容。既有 Event specialist／OOS 的 active scope 不受影響。
+2026-10-21 方案A已將站內盤前/盤後、變化生命週期與後續核對移至[TODO](todo.md)的A-CHANGE。仍暫緩的只有[站外通知/盤中即時預警](future-market-alerts.md)，不包含已核准站內分析。
 
 ## 1. Pilot observation／Production 才需要的工作
 
@@ -89,6 +89,8 @@
 暫不做獨立 `WBS-8-PILOT-MART-AI-EVALUATION` active checklist。若目前 foreground `WBS-5-MART-AI-PROVIDERS`、CIO、rerun/cache 的 acceptance 已自然產生 provider failure、latency、quota、cost、manual intervention 等 evidence，可照實保存；不另為了「填 evaluation TODO」製造工作。
 
 ## 6. PIT／Outcome／治理校準
+
+2026-10-21：A-CHANGE的小型觀察結果及D07既定5/20日成熟標籤、baseline/OOS/校準已納入各自契約，不受下方通用pipeline暫緩限制；其餘未排程平台擴張仍不做。
 
 暫不做：
 

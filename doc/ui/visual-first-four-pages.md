@@ -46,10 +46,10 @@
 2. **三行研究重點**：營運變化／估值參考／價格風險，各至多一行。只用deterministic可核對事實，直接點入對應圖與期間；缺同比仍顯營收、缺歷史位階仍顯PE/PB、有價格但無風險窗口就不造風險結論。這不是CEO或綜合研究評分，不用等五模型有效；沒有可用事實的行給簡短原因，不堆三張空卡。
 3. **一個主要圖表區**：預設短價量，切價格／營收／獲利／估值／法人／事件；價格預覽就是同一主圖，禁止重複畫兩張。最新值／單位／期別先行，點圖看值，可放大；每圖可有一則可重算事實短句。已有公告日期可在價格圖標記，僅表示同時發生，不宣稱因果。
 4. **支持與疑點**：各最多兩項可驗算事實及其來源連結，例如營收增加但毛利率下降；無足夠比較資料就不硬湊。支持的是待研究線索，不直接斷言買進／合理價；需要模型推論的結論留D07/D08。
-5. **下一個驗證點／筆記**：沿既有筆記與pending-follow-up，顯示研究理由、要觀察的指標、資料日期；可從圖表建立筆記。首版沒有可靠未來公告日時顯「下次資料更新後確認」，不猜日期。自動條件判定與自上次查看差異是後續候選，不能默默新增排程／狀態系統。
+5. **下一個驗證點／筆記**：沿既有筆記與pending-follow-up，顯示研究理由、要觀察的指標、資料日期；可從圖表建立筆記。首版沒有可靠未來公告日時顯「下次資料更新後確認」，不猜日期。方案A加入站內跨日條件判定與狀態；自上次查看差異仍未啟動，不新增獨立排程。
 6. **深入研究**：來源／口徑、五角色狀態、情境與手動CEO按原capability與模型gate收合顯示；不自動執行LLM，不顯未校準勝率／健康分。
 
-首版範圍為1–4及既有筆記可直接重用部分；5的進階自動化、首頁4–5與高階研究不成為本次發布必要條件。短資料、單值、partial的可用規則見 [三層交付](visual-first-delivery.md)。
+方案A範圍包含1–4、既有筆記及5的站內跨日觀察；自上次查看、推薦候選與高階研究不作A-CHANGE門檻。短資料、單值、partial的可用規則見 [三層交付](visual-first-delivery.md)。
 
 ## 3. 圖表語意／視覺元件規範
 
@@ -94,7 +94,7 @@
 
 必做 Flutter targeted／golden／screenshot regression，empty/single-point/gap/stale／partial 負測，對應 API／Mart tests，GCP dev 真實 authenticated owner 四頁 screenshot/readback 與正式 Release gate。只存 PNG、改文件、寫 UI、使用 fixture 或 build PASS 均不代表產品結案。
 
-AI實作入口：[D03任務卡](../execution-cards/d03-four-page-charts-visual.md)；資料／快照：[D02任務卡](../execution-cards/d02-full-market-snapshot-performance.md)；DRL-01依 [AI指令第7節](../codex-execution-plan.md)。恢復與排序只讀TODO，本次文件批准不啟動工程或加重正在收尾的D05。
+AI實作入口：[A-CHANGE卡](../execution-cards/a-change-analysis.md)；模型另見[D07卡](../execution-cards/d07-specialist-b9-oos.md)。已結案D02/D03/DRL不重啟，範圍與排序只讀TODO。
 
 
 ## 5. AI 必須照做的版面規格（2026-10-16）
@@ -154,3 +154,7 @@ AI實作入口：[D03任務卡](../execution-cards/d03-four-page-charts-visual.m
 
 提供同來源SHA的首頁與個股手機390×844及桌面1440×900真實畫面；每頁另驗無持股、無異動、短史、單點、缺同比、累計EPS、stale與單卡timeout中適用案例。若工具無法取得真人已授權畫面，只標UI實作／測試狀態，不宣稱視覺PASS。
 逐項核對：唯一主訊息、首頁至個股正確定位、圖表不重複、三行事實可回算、支持疑點有來源、筆記不自動保存、沒有新增LLM／輪詢、手機不溢出。API readback與截圖互相對值；不要求重新做已確認的交易／現金／重算真人流程。
+
+## 6. 方案 A 現行增量（2026-10-21）
+個股第2區三行重點整合為一張狀態/變化/下一觀察/失效條件卡；第5區加入既有觀察的跨日狀態。首頁重要變化可切盤前/盤後，最多三則，cutoff清楚。
+詳細資料語意唯一見[變化判讀](../spec/change-analysis.md)，不在此複製。這次核准站內狀態追蹤；自上次查看/推播/盤中tick仍不做。基本解讀不等模型validated；模型預測與CEO沿原gate。尺寸、色彩、圖表及Owner契約不變；新工程交[A-CHANGE](../execution-cards/a-change-analysis.md)，不重開D03。

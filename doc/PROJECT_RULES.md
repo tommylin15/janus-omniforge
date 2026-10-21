@@ -81,11 +81,14 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 
 ### 1.9 D07-PRE 研究路線、資料門檻與立即退役（2026-10-20）
 
-[新研究採集與模型契約](spec/research-collection-gas-drive-colab.md) 覆蓋舊 D07 的 Core→BQ／PyIceberg→Colab 必經來源、Cloud Run 月度 `specialist-retrain` 和「先取得 24 月歷史 PIT 證據才能收集欄位」等限制。新研究的獨立 GAS→Drive 月檔→Colab 路線不以 GCP Core/Mart 工作為資料採集前置。研究母體是上市／上櫃普通股（排除 ETF）；每市場×資料集最少 70%；第一輪僅盤點欄位可得性，保存時間欄位貼標，正式 OOS/promotion 仍管控 future leakage。
+[新研究採集與模型契約](spec/research-collection-gas-drive-colab.md) 定義官方 TWSE／TPEx→Colab→Drive 月資料夾→Colab 模型路線；GAS、Core→BQ／PyIceberg→Colab 必經出口及 Cloud Run 月度 retrain 已退役。採集不以24月歷史PIT先驗完整或GCP Core/Mart為前置。研究母體是上市／上櫃普通股（排除 ETF）；每市場×資料集最少 70%；第一輪僅盤點欄位可得性，保存時間欄位貼標，正式 OOS/promotion 仍管控 future leakage。
 
-已確定新架構不使用、也不被正式服務引用的舊研究 Job、Scheduler、Workflow、BQ 資源**立即移除，不等待新 GAS／Colab 開發或驗收**。移除 GCP 實際資源仍需依引用、安全、資源 ID 與讀回證據判定，不可把 GitHub 修改當作 live deletion；共享 Mart/Controller 不能連同市場 screening、Owner、API、週 Iceberg 維護與備份一併刪除。正式 Core 上市 90%／上櫃 70% 的市場品質規範與研究 70% 完全分開，ETF 正式持股行情仍保留。
+已確定新架構不使用、也不被正式服務引用的舊研究 Job、Scheduler、Workflow、BQ 資源**立即移除，不等待新 Colab 開發或驗收**。移除 GCP 實際資源仍需依引用、安全、資源 ID 與讀回證據判定，不可把 GitHub 修改當作 live deletion；共享 Mart/Controller 不能連同市場 screening、Owner、API、週 Iceberg 維護與備份一併刪除。正式 Core 上市 90%／上櫃 70% 的市場品質規範與研究 70% 完全分開，ETF 正式持股行情仍保留。
 
 個人非商業研究不代表可以忽略第三方 API 的自動存取、訓練使用與資料保留條款。研究/canonical 分離、來源 provenance、不得補造缺值、模型品質與 LLM 非出版權力依然有效。
+
+### 1.10 方案 A（2026-10-21）
+使用者選擇先交付有證據的事實解讀、站內盤前/盤後與變化追蹤，再接經驗證模型。契約見 [變化判讀](spec/change-analysis.md)、[五分析師](spec/specialist-engines.md)、[因子時間](spec/model-feature-time-contract.md)。事實模板不依賴五模型validated；未驗證ML不得顯示機率或買賣分數。公開個股判斷不以Owner現金/成本作X，私人曝險另隔離。本輪授權文件整理，不因列入TODO而自動開發/部署；後續依使用者指定工作包執行。舊結案不重開，無新推播/付費/日常LLM。
 
 ## 2. Dev 平行上線環境政策
 

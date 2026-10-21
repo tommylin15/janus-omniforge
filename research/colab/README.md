@@ -62,3 +62,7 @@ janusChatGPT/資料源/
 在同一 revision 的月份資料夾中只可有一個 `manifest-rN.json`；新增 r2 並存時，執行前先選定 revision 或另行指定目錄清單。Risk 仍以歷史20日波動 baseline 對 Ridge challenger，採成熟標籤、cutoff 分割及 OOS，不會自動上線／回寫正式 Janus。模型有效性與真實收據需由 Colab 實跑產生；GitHub 的 fixture tests 只證明解析與封存控制。
 
 本地：`PYTHONPATH=. python -m pytest -q tests/test_collect_tw_equities.py tests/test_research_risk_pilot.py`。
+## 4. 新版模型與每日窗口
+研究月檔與每日推論窗口不同；一個20交易日特徵可能跨兩個月份，60/120日需更早歷史。每日更新X並推論，不等於每日重訓。
+正式建模規格：[五角色模型/X/Y](../../doc/spec/specialist-engines.md)、[清洗/時間/成熟標籤](../../doc/spec/model-feature-time-contract.md)、[D07 AI卡](../../doc/execution-cards/d07-specialist-b9-oos.md)。
+本README命令仍是目前Risk研究試點；新版feature/多fold/其他模型需依D07實作，不宣稱已有。risk_pilot.py的舊ZIP CLI仍在程式中，正式操作使用本頁run_risk_folder_pilot.py；後續D07先核相容測試再移除無現役引用的舊CLI。

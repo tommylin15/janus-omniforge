@@ -2,7 +2,7 @@
 
 **2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。實作與 runtime 切換狀態見 status／operations，不以本契約推定完成。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](../spec/full-market-batch-policy.md)。
 
-> **2026-10-19 現役治理覆蓋**：公開 Core／Mart 只保留 current Iceberg snapshot。本文 `versioned snapshot`、研究或報告引用是 lineage／成果物身分，不保證已淘汰 Iceberg 歷史 snapshot 可讀。確保 OOS/PIT 實驗可重現應另保有合法 immutable source/feature/label/cohort export 及 hash/availability/provenance；不得以研究結果覆寫 canonical。正式排程與補資料見 [資料治理入口](data-governance.md)；**新研究採集／建模唯一入口**為 [GAS→Drive 月檔→Colab](research-collection-gas-drive-colab.md)，不再以 Cloud Run／BigQuery／Core frozen export 為 D07-PRE 開工條件。
+> **2026-10-19 現役治理覆蓋**：公開 Core／Mart 只保留 current Iceberg snapshot。本文 `versioned snapshot`、研究或報告引用是 lineage／成果物身分，不保證已淘汰 Iceberg 歷史 snapshot 可讀。確保 OOS/PIT 實驗可重現應另保有合法 immutable source/feature/label/cohort export 及 hash/availability/provenance；不得以研究結果覆寫 canonical。正式排程與補資料見 [資料治理入口](data-governance.md)；**新研究採集／建模唯一入口**為 [官方 API→Colab→Drive 月資料夾→Colab](research-collection-gas-drive-colab.md)，不再以 Cloud Run／BigQuery／Core frozen export 為 D07-PRE 開工條件。
 
 ## 9.0 Token-first 分析引擎
 
@@ -35,7 +35,7 @@
 - `mart_market_regime_daily`：每日市場狀態、資料日期、多空依據、總經／流動性風險與 confidence；狀態字彙固定且可版本化。
 - `mart_sector_rotation_daily`：產業 membership snapshot、5 日法人買超力道、力道變化、20 日成交金額與「漲潮／輪動／觀望／退潮」等 deterministic 狀態；供排行與選用泡泡圖讀取。
 - `mart_topic_trends_daily`：核准文本來源的熱門話題、相關產業／股票、聲量變化、來源分布、不確定性與 evidence。
-- `mart_candidate_health`：候選股的 1–100 健康度、籌碼狀態、白話 AI 分析、風險、完整度與來源；分數只能由版本化 deterministic Mart 聚合產生，LLM 只能翻譯已通過 Validator 的 evidence。
+- `mart_candidate_health`：既有相容讀取概念；方案A使用有證據的狀態、變化、風險與來源，不新增1–100健康總分。未經驗證分數為null，LLM不得補值。
 - `mart_daily_brief`：只組合同一 `analysis_as_of`、已發布的市場狀態、板塊輪動、熱門話題與候選股；不重算上游分數。
 
 Supply-chain Intelligence 未來沿用相同 Mart／PIT／publication 邊界，概念輸出至少能
@@ -51,14 +51,14 @@ numbers、基準分數、發布狀態或治理結果，也不得把
 必須可回溯 Core／Mart snapshot、PIT、provenance、effective time、source 與
 feature／signal revision。
 
-User App 最小個股健檢契約：
+既有相容欄位示意（非方案A新UI要求；新結構以[變化判讀](change-analysis.md)為準）：
 
 ```yaml
 stock_id: "2330"
 stock_name: "台積電"
-mart_health_score: 85        # 1..100；不是獲利機率
-chips_status: "大戶偷偷買進中"
-ai_whitepaper_analysis: "這家雞排店最近接到了蘋果和輝達的大訂單，生意爆滿…"
+mart_health_score: null      # 方案A不使用健康總分；未驗證不可填預設值
+chips_status: "外資近5個交易日累計買超（需真實證據）"
+ai_whitepaper_analysis: "依已驗證指標描述變化及下一個觀察點，不推測客戶、訂單或主力意圖。"
 analysis_as_of: datetime
 data_status: publishable | partial | stale
 confidence: number | null
@@ -147,3 +147,6 @@ Supply-chain Research Context 僅沿用 `supply_chain_node`、`supply_chain_edge
 `supply_chain_signal`、`expectation_signal` 的共用規劃，保留 effective time、
 provenance、quality／confidence 與 `confirmed | reported | inferred | hypothesis`。AI inference
 不得升級為 confirmed fact，且不得繞過 Gate A–E。
+
+## 方案 A 的事實與預測分流
+[變化判讀](change-analysis.md)的可核對事實模板按來源/數字/時間驗證獨立提供，不套用上方「無有效分數」對整合研究報告的門檻。這不放寬ML機率、CEO或canonical publication。五模型與時間契約分別見[specialist](specialist-engines.md)、[X/Y](model-feature-time-contract.md)，不得以舊健康分/模型全部齊備阻擋基本事實。

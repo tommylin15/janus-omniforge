@@ -17,12 +17,13 @@
 
 ## AI角色分工（非工具可用性閘門）
 
-舊 Sol／Luna 是歷史分工註記，不是模型選擇或前置閘門。**唯一新工程順序 D07-PRE → D07 → D08**（見 [TODO](todo.md)）；下表 A／B／C、WBS3/4/5/6 的已結案範圍只用於找舊設計、修復所屬模組及稽核，不能成為另列的 backlog。工程依現有能力與 PROJECT_RULES 在 main 執行，不主動建 branch/PR。
+舊 Sol／Luna 是歷史分工註記，不是模型選擇或前置閘門。**新工程順序以TODO為準：A-CHANGE → D07-PRE → D07 → D08；STAGE獨立收尾**（見 [TODO](todo.md)）；下表 A／B／C、WBS3/4/5/6 的已結案範圍只用於找舊設計、修復所屬模組及稽核，不能成為另列的 backlog。工程依現有能力與 PROJECT_RULES 在 main 執行，不主動建 branch/PR。
 
 ## WBS 路由
 
 | 任務／WBS | 預設模型 | 必讀切片 | 條件增讀 |
 |---|---|---|---|
+| A-CHANGE：站內變化判讀 | 依當前能力 | [方案A卡](execution-cards/a-change-analysis.md)、[契約](spec/change-analysis.md) | WBS-5/6增量；A1→A2→A3→A4整包驗收，不重開已結案D03 |
 | A：User／Admin／效能／資料營運 | 【Sol】 | [執行指令 A](codex-execution-plan.md)、[WBS 6](wbs/wbs-6-api-and-apps.md)、[WBS 7](wbs/wbs-7-security-finops.md) | 私人資料讀 4J／4R；Core query／projection 讀相應 SPEC；User／Admin UI |
 | B：specialist／cache | 【Sol】 | [執行指令 B](codex-execution-plan.md)、[Specialist Engines](wbs/wbs-5-specialist-engines.md)、[WBS 5](wbs/wbs-5-intelligence-mart.md) | 對應 runtime／retention／Admin 顯示 |
 | C：CEO／profile／User 最終整合 | 【Sol】 | [執行指令 C](codex-execution-plan.md)、[WBS 5](wbs/wbs-5-intelligence-mart.md)、[WBS 6](wbs/wbs-6-api-and-apps.md) | API／auth／User／Admin UI；重用 A 未受改動的驗收 |

@@ -14,7 +14,7 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 
 先讀本索引，再只讀任務直接相關的切片。只有遇到跨領域契約、安全邊界或引用缺失時才增讀其他切片；目前實作與完成證據另讀 GitHub `main`、runtime 及 `spec/operations-and-testing.md`。
 
-已結案 D01～D05／DRL／Admin 的有效業務契約仍見 [持股優先](spec/holdings-first.md) 與相應 domain SPEC，不代表當前仍需重做；**目前工程只依 [TODO](todo.md) 的 D07-PRE、D07、D08**。
+已結案 D01～D05／DRL／Admin 的有效業務契約仍見 [持股優先](spec/holdings-first.md) 與相應 domain SPEC，不代表當前仍需重做；**目前工程只依 [TODO](todo.md) 的 A-CHANGE、D07-PRE、D07、D08；Stage原對話獨立收尾**。
 
 全上市櫃母體、TWSE缺失率≤10%／TPEx≤30% coverage、批次總控與即時快照見 [新契約](spec/full-market-batch-policy.md)。
 
@@ -36,3 +36,6 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 執行工作前另依 [TODO](todo.md) 取得當前優先序與驗收條件，依 [WBS](wbs.md) 路由到指定工作切片；UI 工作再讀 [UI](ui.md)。
 
 2026-10-15 補強契約：[系統建置與驗收補強](spec/system-development-contract.md)；狀態與執行順序只看TODO。
+
+## 方案 A 與模型資料入口（2026-10-21）
+[變化判讀SPEC](spec/change-analysis.md) → [A-CHANGE AI卡](execution-cards/a-change-analysis.md)；[五分析師模型/X/Y](spec/specialist-engines.md) → [時間窗口與前處理](spec/model-feature-time-contract.md) → [D07 AI卡](execution-cards/d07-specialist-b9-oos.md)。唯一工作順序與驗收仍見[TODO](todo.md)。

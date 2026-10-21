@@ -22,7 +22,7 @@
 
 ## 2. 唯一施工順序與研究資料責任（2026-10-20）
 
-**STAGE-48H → D07-PRE → D07 → D08**，進度只在 [TODO](todo.md)。D01～D06、DRL-01、FINOPS-AB 不重新開啟。D07-PRE 唯一輸入為 [GAS→Drive 每月 ZIP→Colab](spec/research-collection-gas-drive-colab.md)：普通股且 ETF 排除，TWSE／TPEx 各資料集研究採集門檻 70%；先看現有持股/觀察股公開欄位能否取得，歷史 PIT/24月完整度不再阻擋**第一輪採集**。正式 Core 90%/70% 不變；模型 OOS/未來洩漏防護仍獨立驗證。
+**A-CHANGE → D07-PRE → D07 → D08；STAGE-48H 原對話獨立收尾**，進度只在 [TODO](todo.md)。D01～D06、DRL-01、FINOPS-AB 不重新開啟。D07-PRE 唯一輸入為 [官方 API→Colab→Drive 月資料夾→Colab](spec/research-collection-gas-drive-colab.md)：普通股且 ETF 排除，TWSE／TPEx 各資料集研究採集門檻 70%；先看現有持股/觀察股公開欄位能否取得，歷史 PIT/24月完整度不再阻擋**第一輪採集**。正式 Core 90%/70% 不變；模型 OOS/未來洩漏防護仍獨立驗證。
 
 **舊研究退役已結案（2026-10-20）**：Cloud Run Controller 月度 retrain、手動入口、Mart 舊 fit 已移除並完成四 Jobs rollout；GCP 舊研究專屬 Job／Scheduler 和 B5～B8 BigQuery 中介實體經 [實機盤點](archive/d07-gcp-bq-retirement-live-2026-10-20.md) 查無殘留，無待刪資源，依有界驗收原則 `CLOSED`。不再作 D07 開發前置、不重啟假設性調查；正式行情、Market Screening、Owner、API、Stage48h、週 Iceberg 和備份保留。
 
@@ -46,7 +46,7 @@
 | 風險 | A：保守方案 | B：必要時升級 | 目前影響 |
 |---|---|---|---|
 | **R1 免費 Colab 不保證每月無人值守** | **【使用者已選 A｜2026-10-19】人工啟動／留 hash 與 execution receipt，Janus 僅於受控模型匯入／驗證記錄新結果；舊月度 Controller 不再建立 pending fit** | **暫不執行、不列現階段驗收門檻**。日後若使用者另提需求才評估官方受控託管／排程及費用／OAuth/IAM | 決策已結；Colab 實跑、receipt 對接仍須 D07-PRE/D07 工程驗證，免費版 auto retrain 不需實作 |
-| **R2 全市場 24 月研究 vs Core 一般365天** | **用實際有效資料及合規 frozen Parquet 累積，缺的月份標 insufficient** | 有界擴充合法歷史回補／研究保存，但先核成本、來源及回復路徑 | 24 月是模型窗口目標，不是已實收 |
+| **R2 全市場 24 月研究 vs Core 一般365天** | **用 Colab／Drive 研究月檔與合格版次累積，缺月份明示；不依賴Core365天保存** | 有界擴充合法歷史回補／研究保存，但先核成本、來源及回復路徑 | 24 月是模型窗口目標，不是已實收 |
 | **R3 Current-only snapshots 與歷史 as-known PIT** | **`strict_pit=false` 限研究，保留 hash/source/time availability；沒有證據不對外說嚴格 PIT** | 額外引入歷史版次/first-observed 有憑據的來源與 frozen PIT replay，先核授權／成本 | 嚴格 PIT／publication 與研究品質 gate 分開 |
 | **R4 資料帶往 Colab 的 training-use／Owner 安全** | **只允許合規公開研究特徵、短效／最小權限，不帶 Owner/secret** | 新來源/第三方外部訓練授權不足時評估合約或替代合法來源 | 缺授權就不送 Colab，不補造 |
 | **R5 FINOPS 實際刪除和成本節省未清楚核實** | **唯讀原已執行 Job receipts 算 objects/bytes，不能拿候選數當實刪** | 真實 I/O／費用仍過高時另決定有界優化／必要 BQ 前處理 | 已結案 scope 不重跑 destructive cleanup |
@@ -60,4 +60,4 @@
 
 ## 6. 歷史研究缺口（不再是收集前置）
 
-舊 B5/B8 Core census、24月 PIT 缺口與完整 frozen Parquet 的估算僅為歷史研究證據，可由 Git 版本查詢；**不能作 D07-PRE GAS 來源、月份或開工 gate**。新的第一批欄位清單、研究70%分母與 Colab OOS 分別按 [新契約](spec/research-collection-gas-drive-colab.md)／[TODO](todo.md) 建立真實證據。
+舊 B5/B8 Core census、24月 PIT 缺口與完整 frozen Parquet 的估算僅為歷史研究證據，可由 Git 版本查詢；**不能作 D07-PRE Colab 來源、月份或開工 gate**。新的第一批欄位清單、研究70%分母與 Colab OOS 分別按 [新契約](spec/research-collection-gas-drive-colab.md)／[TODO](todo.md) 建立真實證據。

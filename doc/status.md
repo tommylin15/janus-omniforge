@@ -8,11 +8,14 @@
 - **D07 舊 GCP／BQ 研究路線退役：CLOSED。** Controller 舊 `specialist-retrain` 與 Mart 研究 fit 入口已移除；[完整 GHCR Release #39355867356](https://github.com/tommylin15/janus-omniforge/actions/runs/39355867356)、[四 Jobs rollout #39356643823](https://github.com/tommylin15/janus-omniforge/actions/runs/39356643823)、[四 Jobs/Scheduler readback #39358461946](https://github.com/tommylin15/janus-omniforge/actions/runs/39358461946) PASS。
 - **GCP/BQ 專屬研究清理：CLOSED。** [實機清理 #39359490206](https://github.com/tommylin15/janus-omniforge/actions/runs/39359490206)、[資源清單 #39359661801](https://github.com/tommylin15/janus-omniforge/actions/runs/39359661801)：8 Cloud Run Jobs、1 個現役正式 Scheduler、BigQuery 1 個空 dataset／0 table／0 view，**沒有舊研究專屬殘留；實刪 0**。沒有具體異常證據，不為假設性可能性新增待辦。
 
-## 當前四個工作包
+## 當前工作包
+
+2026-10-21文件決策：方案A事實解讀/站內盤前盤後優先；模型與X/Y/窗口已定版，**DOC_UPDATED，尚未新增實作/訓練/部署**。執行順序只看TODO。下列既有runtime狀態不因文件更新改判。
 
 | 工作包 | 目前狀態與可操作的剩餘驗收 |
 |---|---|
 | **P0 STAGE-48H** | **部署與既有清理／跨 execution 去重 PASS；功能收尾中。** [4,927 件／96,321,204 bytes 實刪 #39355428497](https://github.com/tommylin15/janus-omniforge/actions/runs/39355428497)、[shared raw/provenance #39358645373](https://github.com/tommylin15/janus-omniforge/actions/runs/39358645373)、[48h dry-run #39359037869](https://github.com/tommylin15/janus-omniforge/actions/runs/39359037869) PASS。只餘 2026-10-20 18:30 自然 Stage-only 執行收據、Admin OAuth 登入後六桶一鍵正向驗收；已通過的刪除／部署不再重做。 |
+| **P1 A-CHANGE** | 規格與AI卡已定版；事實解讀/變化狀態/盤前盤後/UI待後續工程。 |
 | **P1 D07-PRE** | **Colab-first 程式已建／待真實採集。** 官方 TWSE/TPEx 整市場逐日抓取、普通股名冊白名單、`YYYY-MM/` 資料夾、續跑 SHA 與 Risk reader 已建立；GAS 路線退役。缺 Colab 實抓月資料讀回、歷史已下市股票母體及正式70%證據，研究資料仍 PROBE。 |
 | **P2 D07** | **待開發。** 五角色 Colab 訓練／OOS、Janus Mart Registry／推論／rollback／Admin 品質；Quant／Risk 優先，Event 缺真人標籤保留 rules。 |
 | **P3 D08** | **待開發。** 有效五角色 Fact Pack 後之 CEO／Admin／Owner 受控報告與真人登入歷史驗收；沿用已驗證 Gateway 技術鏈。 |
