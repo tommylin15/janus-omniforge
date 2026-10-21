@@ -184,6 +184,7 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 
 ## 10. Context 與大型工作
 
+- **GitHub Actions 等待交接（2026-10-21 使用者決策）**：派送或推送觸發 GitHub Actions 後，若下一步只需等待 workflow 完成，提供該次 run 連結、目前已知狀態與完成後的接續步驟，隨即停止本輪工作，交由使用者觀察並回報後再接續。不得持續輪詢、阻塞等待、另設自動監看或為等待而反覆呼叫工具；使用者當次明確要求代為等待／監看時才例外。本規則不豁免必要 CI、發布或驗收 gate，尚未取得結果不得宣稱 PASS。
 - 查 API、GCP 或 logs 時只取回答／驗收需要的欄位、時間範圍與 limit；先窄查再擴大。
 - 跨多模組的大型工作拆成可獨立驗收的切片；checkpoint 要記錄已改內容、實際測試、未完成依賴與下一入口。
 - 不得以節省 token 為理由跳過驗證、遺漏失敗或宣稱未完成項目已完成。
