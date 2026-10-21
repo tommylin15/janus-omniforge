@@ -24,9 +24,9 @@ Schema baseline 為 `037_batch_controller`；`049_batch_occurrence_skipped_statu
 
 ## 舊模型工作已退役（2026-10-20）
 
-原 B7 手動月度重訓 workflow、Controller `specialist-retrain`、BigQuery ML/OOS 前置中轉與對應接線都不再是 active 作業。新研究使用 [GAS→Drive 月檔→Colab](spec/research-collection-gas-drive-colab.md)。對資料庫內**沒有現役 batch 定義**的歷史 pending 工作採通用 `schedule_superseded` 結案；正在 running/ambiguous 的既有 execution 必須查終態，不盲取消重送。
+原 B7 手動月度重訓 workflow、Controller `specialist-retrain`、BigQuery ML/OOS 前置中轉與對應接線都不再是 active 作業。新研究使用 [官方API→Colab→Drive月資料夾](spec/research-collection-gas-drive-colab.md)。對資料庫內**沒有現役 batch 定義**的歷史 pending 工作採通用 `schedule_superseded` 結案；正在 running/ambiguous 的既有 execution 必須查終態，不盲取消重送。
 
-GCP 的 controller/Mart 映像、真正 Scheduler、舊研究資源與 BQ 表仍須實機 inventory、dependency check 與刪除讀回；只在 GitHub 拆入口不能宣稱已停用雲端資源。正式 ingestion、market-screening、Owner/Private、Stage48h、每週 Iceberg、備份保留。已有現役引用的共享 Mart 或 BQ 不應因模型架構改版整支刪除。
+舊研究GCP/BQ範圍已依2026-10-20實機收據結案，不重開inventory；未來部署仍須新版本readback，不能以歷史成功替代。正式 ingestion、market-screening、Owner/Private、Stage48h、每週 Iceberg、備份保留。已有現役引用的共享 Mart 或 BQ 不應因模型架構改版整支刪除。
 
 清理報告仍要保存 Core／Stage／Mart 各層實際刪除 objects/bytes、前後容量與保護集，區分 dry-run、實刪與計費空間。安全與驗收請依 [PROJECT_RULES](PROJECT_RULES.md)、[Retention](spec/retention-governance.md)、[TODO](todo.md)。
 
@@ -34,3 +34,8 @@ GCP 的 controller/Mart 映像、真正 Scheduler、舊研究資源與 BQ 表仍
 
 - 只在 dev Stage bucket 進行：受控乾跑 #39354898619 定位 24 筆過期/無租約 `running` 對應 4,927 個超過7天 Stage execution 物件；GCP #39355428497 在 Scheduler 暫停、全部 Cloud Run execution 終態、全球部署 lease 下以固定 generation 實刪 **4,927 objects／96,321,204 bytes**。Stage before 6,384／415,180,394 → after 1,457／318,859,190；Core/Mart/Private 刪除零。操作過程未清除控制表內的歷史紀錄。相關真實執行證據以 [Operations](spec/operations-and-testing.md) 為準。
 - 日常 Stage 48h 清理**不**改為七天；七天僅此歷史失效執行的專項清理範圍。清理失敗需保存部分刪除收據並 fail closed，不得以單純 `running` 狀態長期持有失效資料；不得為 MD5 猜測容量直接刪除仍被有效租約引用的副本。每次要確認實際 Scheduler ENABLED、Cloud Run terminal、generation readback 和週六 Iceberg cadence 不變。
+
+
+## D07模型分析／回收擴充（設計，未啟用）
+[模型生命週期](spec/model-lifecycle.md)定義盤前08:30目標due、盤後接既有screening、每週成熟outcome及每月首週evaluation。現行BATCHES尚未因此改動；09:00 mart可能09:30派送，不能當盤前。實作沿原Controller/既有Mart/occurrence/鎖，模型按批載入，按股票輸出，不新增每股Job或Colab自動訓練。具體模式/參數實作後才回寫可執行命令。
+

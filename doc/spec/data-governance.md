@@ -12,7 +12,7 @@
 | Stage／Core／Mart、Iceberg current-only、清理安全 | [Retention 契約](retention-governance.md)、[2026-10-18 決策](../decision-2026-10-18-current-only-snapshots.md) |
 | 定時 due、依賴、互斥、調度 | [Controller 程式](../../jobs/ingestion-core/ingestion_core/batch_controller.py) 與 [總控 Runbook](../runbook-batch-controller-dev.md) |
 | 來源、即時／每日／週六／歷史補收 | [補資料 Runbook](../runbook-data-supplement.md)、[來源資料契約](storage-data-and-ingestion.md) |
-| 研究模型、PIT、OOS 與成果 | [GAS／Drive／Colab 研究唯一契約](research-collection-gas-drive-colab.md)、[Specialist SPEC](specialist-engines.md)、[D07 執行卡](../execution-cards/d07-specialist-b9-oos.md) |
+| 研究模型、PIT、OOS 與成果 | [Colab／Drive 研究唯一契約](research-collection-gas-drive-colab.md)、[Specialist SPEC](specialist-engines.md)、[D07 執行卡](../execution-cards/d07-specialist-b9-oos.md) |
 
 Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當時公開日期、不以最新版本冒充歷史 first-observed。Stage→Core→serving 皆保留 source_id、取得時間、URL/receipt、hash、期別、單位與 provenance。已核准的 Yahoo／FinMind 等第三方來源可以**直接**補收，不必先耗盡官方；不得偽裝成 MOPS／TWSE 官方認證。Owner 交易、成本、現金不進 public research cohort。
 
@@ -49,14 +49,17 @@ Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當�
 
 完整模式、手動修補限制、source URL/期別/單位與安全重試詳見 [runbook](../runbook-data-supplement.md)；不得以此頁新增第二個 Scheduler、付費資源、額外補抓範圍或寫入 Owner ledger。
 
-## 5. 獨立模型研究資料，不再由正式 Core 綁定
+## 5. 獨立模型研究資料與生命週期
 
-2026-10-20 新 [GAS／Drive／Colab 唯一研究契約](research-collection-gas-drive-colab.md) 取代舊 Core→BQ／PyIceberg→Colab 的研究採集必經鏈。GAS 對第三方合格 API 依配額分批抓取，私有 Drive `資料源/YYYY-MM.zip` 作月檔，Colab 直接讀取訓練；上市／上櫃普通股，不納入 ETF；各市場×dataset 研究覆蓋最低 70%。第一輪只核對既有持股／觀察股的公開欄位可得性，時間資料保留標籤，資料採集不以歷史完整 PIT 稽核擋關。正式模型 OOS/promotion 仍驗證時間順序與 future leakage。
+[Colab/Drive唯一研究契約](research-collection-gas-drive-colab.md)：官方TWSE/TPEx→人工Colab→私有Drive每月資料夾→Colab模型。GAS/ZIP路線已退役；歷史普通股母體、來源權利、研究70%與正式模型PIT/OOS分別驗證。
+[模型生命週期](model-lifecycle.md)是新模型業務candidate/回饋保存與日週月批次的**待實作目標**。不把第3節現行09:00 mart當盤前分析；規劃08:30盤前、盤後接16:30 screening、週回收及月評估需A-CHANGE/D07實作及驗收，不能因文件寫入聲稱已啟用。
+新模型/feedback prefix須分類保護，避免舊Mart90日/三代/7日清理誤刪；新回饋熱讀365日/精簡歷史36月詳見生命週期，**不改既有Stage/Core/Private TTL，也不授權本輪執行刪除**。
 
-## 6. 舊模型研究排程與正式服務切開
+## 6. 舊模型研究排程已退役
 
-原 `specialist-retrain` 月度 Controller 派送、手動派送 Workflow，以及 B5～B8 舊雲端 ML/OOS 研究中轉不再構成 D07 必要流程。已確定不用且不被正式服務引用的舊 Job/BQ 立即停用或移除，**不等待 GAS 或 Colab 上線**；live Cloud Run、BQ 的真正刪除需查驗資源／依賴與讀回。正式市場 EOD Ingestion／Screening、個股／持股／Owner、API、Stage 48h、週 Iceberg 清理、備份保留現有契約；研究 GAS 分批 trigger 是獨立平台，不另建正式 Janus Cloud Scheduler Controller。
+specialist-retrain、B5～B8 GCP/BQ研究中轉依[2026-10-20實機收據](../archive/d07-gcp-bq-retirement-live-2026-10-20.md)保持CLOSED。月評估由既有Controller/Mart作輕量scoring，Colab人工重訓；不復活雲端fit工作。正式行情/Owner/API/Stage/週Iceberg/備份保留。
 
 ## 7. 驗收與工作佇列
 
 **本文件僅統一規範，不自行授權**新的 retention apply、Cron 變更、BigQuery 切流或 D07 開工。執行權／範圍依 [TODO](../todo.md)，已退休 FINOPS-C 模型資料前置路徑不再構成 D07-PRE 必經條件；新研究採集及正式模型發布各自保留必要安全與品質門檻。完成需分別讀回 GitHub code、tests、CI、live Job image、Scheduler/occurrence、資料 rows、source provenance、清除 objects/bytes 及 API/owner boundary；沒有證據維持 UNKNOWN/PARTIAL/NOT_VERIFIED。
+

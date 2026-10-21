@@ -44,7 +44,11 @@
 
 - [ ] **共用X/Y與時間處理**：依[因子時間契約](spec/model-feature-time-contract.md)建立交易日/公告as-of join、公司行動與單位、滾動feature builder、成熟label、版本/增量及訓練/推論同輸入一致性；不每天重抓整段歷史。
 - [ ] **模型與研究評估**：Quant／Risk 優先；Valuation／Fundamental 依資料可得性；Event 缺合規真人標籤維持 rules。與 deterministic baseline 在同一時間外 OOS／成熟標籤／資料來源下評估，禁止 future leakage。
-- [ ] **受控模型匯入與應用**：Colab model／evaluation 版本及 hash → Janus Mart Registry、推論、rollback、Admin 模型品質／狀態展示；不恢復舊 Cloud Run/BQ 訓練器。
+- [ ] **Colab整體交付與資料量**：共用notebook與五角色設定，採集/清洗/as-of/X/Y/成熟標籤/OOS；列實收原生期數與建議量差距，延伸歷史前補年度日曆/來源支援；不以不足樣本硬訓練。
+- [ ] **受控模型匯入與應用**：Colab immutable bundle → GCS candidate/hash/readback → Mart validator/shadow/Registry原子切版/rollback；正式批次模型與前處理相容，Admin品質狀態；不恢復舊Cloud Run/BQ訓練器。
+- [ ] **日週推論及月評估閉環**：深度股票union分批推論，按成熟日回收outcome、每月固定cutoff與3/6/12月對baseline；精簡回饋36月/熱讀365日分類保護與壓縮。A-CHANGE負責使用者事實報告與盤前UI，D07負責模型/評估；同Controller接線共用驗收、不建第二排程。
+
+完整開發/發布/回收契約見[模型生命週期](spec/model-lifecycle.md)及[AI卡](execution-cards/d07-model-lifecycle.md)。本輪為DOC_UPDATED，未上傳模型或啟用新排程。
 
 模型選型/X/Y/產出唯一見[五分析師](spec/specialist-engines.md)；[D07 唯一任務卡](execution-cards/d07-specialist-b9-oos.md)。Risk沿用現有Ridge試點，其他角色按資料與獨立期數判定，不為湊齊五模型而發布。
 
@@ -57,3 +61,4 @@
 ## 6. 已結案、不再列待辦
 
 D01～D05、DRL-01、FINOPS-AB（含 D06）、既定背景持股／關注股補收、Admin v2、舊研究 GCP 工作及排程退役、BigQuery 舊 ML/OOS 中介資源清理，均依已核准的原驗收邊界 **CLOSED／PASS 或 USER_ACCEPTED**。收據保留在 [結案索引](wbs/completed-index.md)／[Operations](spec/operations-and-testing.md)／[archive](archive/d07-gcp-bq-retirement-live-2026-10-20.md)，**不因未列舉所有理論可能性新增待辦**。新缺陷須有實際證據，再依當次工作包處理。
+

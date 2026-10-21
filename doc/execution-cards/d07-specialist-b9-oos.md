@@ -23,3 +23,8 @@
 
 ## 回報
 完整SHA、實際欄位/月份/cohort、X/Y/label maturity、各角色baseline/OOS、artifact hash、CI與dev inference/Admin讀回、回退及具體缺口；唯一狀態回TODO，證據入Operations。
+
+
+## 完整模型週期交付
+執行D07時一併讀[生命週期SPEC](../spec/model-lifecycle.md)及[Colab→GCS→批次→月評估AI卡](d07-model-lifecycle.md)。以既有同一工作包完成notebook/資料清洗貼標、各角色訓練、candidate/registry/shadow、日週批次與成熟結果回收，不另立五套queue。資料量不足照SPEC列實收/建議差距；允許rules交付，不冒稱ML發布。
+

@@ -83,3 +83,8 @@
 - 同期跨股票及重疊H日label高度相關，報告unique dates/months/events與block uncertainty；大量股票列不等足夠時間證據。
 - 日頻Quant/Risk可先研究；兩年每股僅約8季，Fundamental季模型與估值長期效用不因股票多就自動通過。必要時保留規則，不能為五模型湊齊而發布。
 - 每次新訓練版本記錄實際起訖、cutoff、label maturity、母體、source/feature hash、dependency版本、seed及驗證結果。
+
+
+## 9. 資料量與結果回收路由
+前節24月切分是短史試點示例；成熟研究建議量按[生命週期第2節](model-lifecycle.md#2-建議資料量研究規劃目標不是保證有效或統一硬門檻)。目前README建議2025-01～2026-09僅21月，不代表已實收。日/週推論、各角色結果成熟、前瞻評估與每月重訓決策見該文件第6–10節；固定預測不可用新版回寫。
+

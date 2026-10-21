@@ -66,3 +66,10 @@ janusChatGPT/資料源/
 研究月檔與每日推論窗口不同；一個20交易日特徵可能跨兩個月份，60/120日需更早歷史。每日更新X並推論，不等於每日重訓。
 正式建模規格：[五角色模型/X/Y](../../doc/spec/specialist-engines.md)、[清洗/時間/成熟標籤](../../doc/spec/model-feature-time-contract.md)、[D07 AI卡](../../doc/execution-cards/d07-specialist-b9-oos.md)。
 本README命令仍是目前Risk研究試點；新版feature/多fold/其他模型需依D07實作，不宣稱已有。risk_pilot.py的舊ZIP CLI仍在程式中，正式操作使用本頁run_risk_folder_pilot.py；後續D07先核相容測試再移除無現役引用的舊CLI。
+
+
+## 5. 完整開發與模型發布流程
+[模型生命週期](../../doc/spec/model-lifecycle.md)列五角色建議資料量、採集/清洗/貼標/訓練/測試/封裝/發布；[AI操作卡](../../doc/execution-cards/d07-model-lifecycle.md)含現有可執行命令及未來exporter完成後的候選上傳範例。
+目前命令窗口2025-01～2026-09是21個月，不等已收齊；延伸到2025以前先補對應交易日曆、來源支援和歷史普通股母體。新增pipeline/五角色notebook/模型bundle/匯入尚待D07實作，不能直接把示範當現成工具。
+GCS只收模型業務candidate；Janus受控驗證、shadow與registry啟用才算發布。正式每日推論由既有Controller/Mart運作，不需Colab每天開機；每月評估後才人工回Colab決定重訓。
+

@@ -29,3 +29,7 @@
 
 ## 方案 A 新入口
 [A-CHANGE AI卡](a-change-analysis.md)：事實解讀→變化狀態→盤前盤後→UI集中驗收；[D07卡](d07-specialist-b9-oos.md)負責X/Y/模型；不重開D01～D06。
+
+
+D07詳細操作：[Colab採集/清洗/貼標/訓練→GCS→日週批次→月評估](d07-model-lifecycle.md)，沿原D07卡/WBS，不是新queue。
+

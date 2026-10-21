@@ -39,3 +39,7 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 
 ## 方案 A 與模型資料入口（2026-10-21）
 [變化判讀SPEC](spec/change-analysis.md) → [A-CHANGE AI卡](execution-cards/a-change-analysis.md)；[五分析師模型/X/Y](spec/specialist-engines.md) → [時間窗口與前處理](spec/model-feature-time-contract.md) → [D07 AI卡](execution-cards/d07-specialist-b9-oos.md)。唯一工作順序與驗收仍見[TODO](todo.md)。
+
+
+模型開發/運作/回收唯一契約：[模型生命週期](spec/model-lifecycle.md)，涵蓋五角色建議資料量、GCS候選與受控發布、批次推論、結果成熟、36月回饋保存與每月評估；實作狀態依TODO。
+

@@ -72,3 +72,7 @@ Operations只保存當前適用摘要／歷史連結，不無限追加。原2296
 
 ## 方案 A 與模型資料入口（2026-10-21）
 [變化判讀SPEC](spec/change-analysis.md) → [A-CHANGE AI卡](execution-cards/a-change-analysis.md)；[五分析師模型/X/Y](spec/specialist-engines.md) → [時間窗口與前處理](spec/model-feature-time-contract.md) → [D07 AI卡](execution-cards/d07-specialist-b9-oos.md)。唯一工作順序與驗收仍見[TODO](todo.md)。
+
+
+模型週期補充：[資料量→Colab→GCS→日週分析→每月有效性](spec/model-lifecycle.md)，[完整AI指令](execution-cards/d07-model-lifecycle.md)。這是D07同一工作包的交付，不新增獨立模型訓練服務。
+

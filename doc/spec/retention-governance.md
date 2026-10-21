@@ -47,3 +47,9 @@ Mart `MART_OPERATION=retention`、`MART_RETENTION_MODE=dry-run|apply`，Core `IC
 ## 4. 已退休說明
 
 2026-10-15～16 的小於1MiB專案限定清理、24h/named snapshot、完整外部研究 fence、每日23:30的版本**只屬歷史 checkpoint**，不再放在現役操作步驟。舊 scope／receipt 查 [FINOPS-AB 卡](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) 及 [D06 卡](../execution-cards/d06-iceberg-retention-io.md)。Stage 2 天期限及每日獨立清理依 2026-10-19 使用者最新明確核准；其他大量刪除、Core/Mart TTL 改動或第二套 Scheduler 仍不在本次範圍。
+
+
+## 5. 新模型與回饋資料（D07待實作契約）
+[模型生命週期](model-lifecycle.md)第9節定義新model/feedback的分類：精簡預測/X/outcome36月、熱讀365日、active與前兩有效rollback保護、已發布引用模型與必要研究輸入保護、失敗candidate有界清理。這是新資料類型規格，不直接改上表既有TTL；D07必須先實作明確prefix/classification、reference/generation guard與dry-run/readback，再執行該新類型retention，防止現有OOS/ML逾7日規則誤套。
+不恢復非current Iceberg snapshot歷史保護，也不延長Stage48h；訓練重現所需研究檔另合法保存。本輪文件更新未執行刪除、增加儲存或改IAM。
+

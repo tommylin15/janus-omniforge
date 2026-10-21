@@ -46,3 +46,8 @@ D08只讀已驗證Fact Pack，LLM無canonical/publication權；A模板解讀不�
 
 ## 6. 官方方法參考
 2026-10-21查閱：[LightGBM objectives](https://lightgbm.readthedocs.io/en/stable/Parameters.html)、[scikit-learn 時序切分](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html)。套件支援不證明金融有效性；版本需鎖定。股票panel需自行按交易日分組與label maturity purge，不能直接把逐列 TimeSeriesSplit 當合格金融切分。
+
+
+## 7. 資料量、部署與成效閉環
+各角色試點/成熟研究的年數與標籤數、Colab八階段、GCS候選/registry、日週批次、成熟結果與36月回饋保存，統一見[模型生命週期](model-lifecycle.md)。建議量不是已收量，也不是所有功能共同硬門檻；21月OHLCV可先Risk PROBE，基本面/事件按原生獨立期數判斷。實作指令見[生命週期AI卡](../execution-cards/d07-model-lifecycle.md)。
+
