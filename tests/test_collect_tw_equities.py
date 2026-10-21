@@ -309,3 +309,40 @@ def test_resume_rejects_checkpoint_from_another_calendar_or_market(tmp_path):
     with pytest.raises(ValueError, match='market changed'):
         collect_chunk(FakeSession({}), 'tpex', [date(2025, 1, 3)], {},
                       'H', path, min_interval=0, request_budget=[2])
+
+
+def test_research_ordinary_stock_coverage_thresholds_and_provenance():
+    """90% TWSE / 70% TPEx are inclusive research gates, not PIT certification."""
+    import pandas as pd
+    from research.colab.monthly_folder_io import assess_monthly_ordinary_stock_coverage
+    universe = pd.DataFrame([
+        {'symbol': str(1000 + i), 'market': 'twse'} for i in range(10)
+    ] + [
+        {'symbol': str(2000 + i), 'market': 'tpex'} for i in range(10)
+    ])
+    bars = pd.DataFrame([
+        {'symbol': str(1000 + i), 'market': 'twse'} for i in range(9)
+    ] + [
+        {'symbol': str(2000 + i), 'market': 'tpex'} for i in range(7)
+    ])
+    quality = {'status': 'PROBE', 'market_counts': {
+        'twse': {'snapshot_symbols': 10, 'symbols_with_bars': 9, 'observed_ratio': 0.9},
+        'tpex': {'snapshot_symbols': 10, 'symbols_with_bars': 7, 'observed_ratio': 0.7},
+    }}
+    accepted = assess_monthly_ordinary_stock_coverage(quality, universe, bars)
+    assert accepted['status'] == 'RESEARCH_COVERAGE_ACCEPTED_NOT_PIT_CERTIFIED'
+    assert all(x['passes'] for x in accepted['markets'].values())
+    assert accepted['basis'] == 'CURRENT_MASTER_ONLY'
+    for market, remaining, count in [('twse', 8, 8), ('tpex', 6, 6)]:
+        reduced = pd.concat([
+            bars[bars['market'] != market],
+            bars[bars['market'] == market].head(remaining),
+        ], ignore_index=True)
+        q = json.loads(json.dumps(quality))
+        q['market_counts'][market]['symbols_with_bars'] = count
+        q['market_counts'][market]['observed_ratio'] = count / 10
+        with pytest.raises(ValueError, match='below 90% TWSE / 70% TPEx'):
+            assess_monthly_ordinary_stock_coverage(q, universe, reduced)
+    with pytest.raises(ValueError, match='disagrees'):
+        assess_monthly_ordinary_stock_coverage(quality, universe, bars.iloc[:-1])
+
