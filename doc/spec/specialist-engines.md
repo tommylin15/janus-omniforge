@@ -4,7 +4,7 @@
 ## 1. 目前程式與建議
 查證 main d7083890738a8660786110d0c73d58d8fe183c15：
 - 正式 specialists.py 為 deterministic-unpromoted-v1；數字及規則不等於經 OOS 的預測。
-- research/colab/risk_pilot.py 已有 StandardScaler+Ridge(alpha=10)、五個特徵、未來20日波動、固定時間切分；RESEARCH_OOS_ONLY_NOT_PROMOTABLE。真實資料、公司行動、歷史母體、來源與 promotion 仍須驗收。
+- `research/colab/risk_pilot.py` 五因子 Ridge v0 已有真實 21 月 OOS；另 `risk_v1.py` 增加 `atr14_pct`、`abs_overnight_gap5`、`log_turnover20` 三因子，於同股票日期樣本比較 v0/v1。2026-10-22 研究環境 v1 MAE 0.127537、matched v0 0.133647；但未在 Colab 正式重跑，PIT／公司行動／授權／新樣本尚未達 promotion，不代表已部署。詳見 [v1實測收據](../archive/d07-risk-v1-ohlcv-oos-2026-10-22.md)。
 - 研究採集首版僅 OHLCV；正式 Core 有資料不代表 Drive 研究集已有同欄位。其餘 X 均為待資料對照/建置，不能假稱可訓練。
 - 模型先全市場普通股 pooled panel，按市場/產業特徵或分層評估，不為每檔訓練一套；排除 ETF。Owner 現金/成本/股數不進公開 X。
 - 順序：A 事實/變化可獨立交付；D07-PRE→Risk→Quant→Fundamental/Valuation（資料足夠才訓練）；Event 先 rules。各角色獨立 promotion。
@@ -31,7 +31,7 @@
 先不選 LSTM/Transformer/強化學習/五個LLM：目前表格與低頻資料、獨立時間樣本尚不足，先驗證低複雜度 baseline/challenger。
 研究在人工 Colab；Janus Mart 只匯入合格 artifact、同版前處理、推論、registry與rollback。正式數字仍從Core/serving，Drive不直接當正式行情來源。
 按角色記錄 feature_schema/order/units、preprocessing、model/hash、label/benchmark/horizon、as_of/cutoff、training period、OOS、資料權利、missing/age、有效市場及適用母體。不同角色可用不同模型，不平均成總買進分數。
-正式Core市場品質90%/70%與研究採集70%分開；研究70%不等模型通過。嚴格時間外驗證/成熟標籤/歷史母體/公司行動/來源權利與原promotion不放寬。
+正式 Core 與研究資料皆採上市90%／上櫃70% 的數字門檻，但母體、分母、驗收與發布 gate 不同；達標不代表 PIT 完整或模型有效。嚴格時間外驗證/成熟標籤/歷史母體/公司行動/來源權利與原promotion不放寬。
 D08只讀已驗證Fact Pack，LLM無canonical/publication權；A模板解讀不需要D08/LLM。
 
 ## 5. 評估指標與發布門檻
