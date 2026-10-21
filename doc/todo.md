@@ -11,7 +11,7 @@
 | **P0** | **STAGE-48H** | 48h Stage 清理與自然排程 PASS；**新版 Admin MB／千分位已在正式 dev API 100% 發布**，且回滾演練 PASS | **僅餘新版登入 Admin 六桶全數 `OBSERVED` 與合計容量實機驗收** |
 | **P1** | **A-CHANGE｜事實解讀與站內盤前盤後** | 方案、X/Y/時間契約與AI卡已定版；A1～A4 已啟動整合實作 | **集中 targeted/CI、既有 dev 發布與真實 API/UI 驗收；完成前維持 IN_PROGRESS** |
 | **P1** | **D07-PRE｜Colab／Drive 資料源** | 官方歷史整市場 Colab 採集器、普通股白名單、每月資料夾/續跑/雜湊及 Risk 資料讀取已實作並有本地 targeted tests；舊 GAS/GCP/BQ 研究路線退出 | **21 個月 Drive r1 完整 SHA／上市90%上櫃70%研究准入、Risk 真實 single-cutoff OOS 及四段 walk-forward 診斷已有收據；Risk 不可 promotion，正式歷史 PIT／公司行動／來源授權／模型發布仍屬 D07 gate** |
-| **P2** | **D07｜五分析師建模** | 五角色規格、OOS／registry 責任界線已定案 | **Colab 模型訓練與 OOS；Janus Mart 受控模型匯入、推論與 Admin 品質呈現** |
+| **P2** | **D07｜五分析師建模** | 五角色規格已定版；Risk v0 五因子 OOS 與 Risk v1 八因子同樣本真實研究 OOS 已完成（研究環境，非 Colab/CI） | **Colab 真實重跑與 CI、Risk 未使用期間驗證及來源/PIT/公司行動；其他四模型按資料成熟度開發；通過 gate 才進 Mart 受控匯入／推論與 Admin 品質呈現** |
 | **P3** | **D08｜CEO／Admin／Owner 報告** | 原 Gateway 技術驗證可重用 | **有效 Fact Pack → CEO 手動請求 → Gateway／validator → immutable 報告與 Owner UI／Admin 管理驗收** |
 
 ## 2. STAGE-48H｜自然排程及 Admin 登入操作 PASS，僅餘六桶完整數據
@@ -43,7 +43,7 @@
 ## 4. D07｜五角色模型與正式介接
 
 - [ ] **共用X/Y與時間處理**：依[因子時間契約](spec/model-feature-time-contract.md)建立交易日/公告as-of join、公司行動與單位、滾動feature builder、成熟label、版本/增量及訓練/推論同輸入一致性；不每天重抓整段歷史。
-- [ ] **模型與研究評估**：Quant／Risk 優先；Valuation／Fundamental 依資料可得性；Event 缺合規真人標籤維持 rules。與 deterministic baseline 在同一時間外 OOS／成熟標籤／資料來源下評估，禁止 future leakage。
+- [ ] **模型與研究評估**：Risk v0／v1 的原始普通股同樣本 OOS 已完成；八因子 v1 MAE 0.127537、對五因子 v0 0.133647 改善4.57%，但2026-08 v1 小幅退步，且四段皆為已檢視歷史非新 holdout；收據見 [Risk v1](archive/d07-risk-v1-ohlcv-oos-2026-10-22.md)。**剩餘** Colab 本人重跑/targeted/CI、可比較公司行動與PIT/授權、未使用期間驗證及 Quant／其餘角色各自 OOS；未達 gate 不上線。
 - [ ] **Colab整體交付與資料量**：共用notebook與五角色設定，採集/清洗/as-of/X/Y/成熟標籤/OOS；列實收原生期數與建議量差距，延伸歷史前補年度日曆/來源支援；不以不足樣本硬訓練。
 - [ ] **受控模型匯入與應用**：Colab immutable bundle → GCS candidate/hash/readback → Mart validator/shadow/Registry原子切版/rollback；正式批次模型與前處理相容，Admin品質狀態；不恢復舊Cloud Run/BQ訓練器。
 - [ ] **日週推論及月評估閉環**：深度股票union分批推論，按成熟日回收outcome、每月固定cutoff與3/6/12月對baseline；精簡回饋36月/熱讀365日分類保護與壓縮。A-CHANGE負責使用者事實報告與盤前UI，D07負責模型/評估；同Controller接線共用驗收、不建第二排程。
