@@ -1,5 +1,5 @@
 # D07-PRE｜Colab → Drive 月資料夾研究資料唯一有效契約
-更新：2026-10-20。狀態：COLAB_CODE_IMPLEMENTED / LIVE_COLLECTION_PENDING。檔案路徑因既有 GitHub 連結保留，**內容正式覆蓋舊 GAS→ZIP 方案**。
+更新：2026-10-21。狀態：21 個月 r1 Drive 月檔真實讀回並達普通股研究准入門檻；Risk OOS／歷史 PIT／模型發布仍未通過驗收。檔案路徑因既有 GitHub 連結保留，**內容正式覆蓋舊 GAS→ZIP 方案**。
 
 ## 唯一資料路線
 **官方 TWSE/TPEx（歷史每日全市場行情 + 上市/上櫃公司名冊）→ Google Colab 手動 Python 批量採集、斷點與品質處理 → 私有 Drive `janusChatGPT/資料源/YYYY-MM/` → Colab 因子／標籤／模型 OOS → Janus Mart 受控匯入。** 無需 GAS、GAS Loader、GCP 重訓 Jobs、BQ ML/OOS；Colab MCP 若將來可用只作操作介面，不列前置必要條件。目前 ChatGPT 尚未連上 Colab MCP。禁止把程式已提交冒稱 Colab 現場已執行。
