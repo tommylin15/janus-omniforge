@@ -1,11 +1,11 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "0b0a42b608143d62f5241d47c2d25e855949f36b",
+  "sha": "b3ecba5ea87bff8b7cdec0730ee857a611a71951",
   "digest": "",
-  "release_run": "39559241673",
+  "release_run": "39561334687",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Exact full release source SHA 0b0a42b608143d62f5241d47c2d25e855949f36b (GHCR #39559241673 PASS) contains latest Admin 2-decimal MB/thousands-separator UI. First candidate run used ancestor SHA and safely failed before GCP writes; retry immutable source-only 0% candidate."
+  "purpose": "A-CHANGE A1-A4 existing-dev acceptance: exact source b3ecba5ea87bff8b7cdec0730ee857a611a71951 passed full Python/PostgreSQL, Flutter, four GHCR images and anonymous digest readback in release #39561334687. Create only a fixed-digest API 0% traffic candidate; retain active API traffic, Jobs, Scheduler, storage and IAM. OAuth boundary, Jobs rollout and positive API/UI acceptance remain separate gates."
 }
