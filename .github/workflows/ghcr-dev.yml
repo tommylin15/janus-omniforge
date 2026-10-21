@@ -14,6 +14,7 @@ on:
           - preview
           - promote
           - jobs-rollout
+          - jobs-baseline
           - auth-boundary
       release-run:
         description: 'Release run ID (for candidate/promote/jobs)'
@@ -578,6 +579,55 @@ jobs:
             echo "OAuth metadata and negative owner/Admin/MCP boundaries: PASS."
             echo "**Not verified:** a real logged-in owner, OAuth callback, PnL correctness, refresh token, or owner isolation."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  jobs-baseline:
+    needs: detect
+    if: needs.detect.outputs.operation == 'jobs-baseline'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Install public image metadata reader
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: Read existing four Jobs rollback baseline without cloud writes
+        run: |
+          python - <<'PY'
+          import json, sys
+          from pathlib import Path
+          sys.path.insert(0, 'scripts/gcp')
+          from ghcr_jobs_rollout import JOB_COMPONENT, PIN, job, image, fingerprint, command
+          result = {'rollback_images': {}, 'rollback_config_hashes': {}, 'gcp_writes': 0}
+          sources = set()
+          for name, _ in JOB_COMPONENT:
+              data = job(name)
+              ref = image(data)
+              assert ref.startswith('ghcr.io/tommylin15/janus-') and PIN.fullmatch(ref)
+              result['rollback_images'][name] = ref
+              result['rollback_config_hashes'][name] = fingerprint(data)
+              metadata = json.loads(command(['skopeo', 'inspect', '--no-creds', 'docker://' + ref]))
+              sources.add(metadata.get('Labels', {}).get('org.opencontainers.image.revision', ''))
+          assert len(sources) == 1
+          source = sources.pop()
+          assert len(source) == 40 and all(c in '0123456789abcdef' for c in source)
+          result['baseline_source_sha'] = source
+          receipt = json.dumps(result, sort_keys=True)
+          Path('/tmp/ghcr-jobs-baseline.json').write_text(receipt)
+          print(receipt)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-jobs-baseline
+          path: /tmp/ghcr-jobs-baseline.json
+          retention-days: 14
 
   # ============ JOBS ROLLOUT ============
   jobs-rollout:

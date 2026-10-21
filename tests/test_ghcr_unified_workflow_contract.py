@@ -6,6 +6,27 @@ GHCR = (ROOT / ".github/workflows/ghcr-dev.yml").read_text()
 ARCHIVED_AUTO = (ROOT / ".github/workflows/archive/auto-release-obsolete-2026-10-19.yml").read_text()
 
 
+def test_jobs_baseline_only_reads_four_jobs_and_exports_sanitized_fields():
+    import ast
+    import yaml
+    job = yaml.safe_load(GHCR)['jobs']['jobs-baseline']
+    assert job['permissions'] == {'contents': 'read', 'id-token': 'write'}
+    assert job['if'] == "needs.detect.outputs.operation == 'jobs-baseline'"
+    script = next(step['run'] for step in job['steps'] if "<<'PY'" in step.get('run', ''))
+    embedded = script.split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
+    ast.parse(embedded)
+    assert 'for name, _ in JOB_COMPONENT:' in embedded
+    assert 'PIN.fullmatch(ref)' in embedded
+    assert 'fingerprint(data)' in embedded
+    tree = ast.parse(embedded)
+    printed = [ast.unparse(node.args[0]) for node in ast.walk(tree)
+               if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+               and node.func.id == 'print']
+    assert printed == ['receipt']
+    assert 'cloud(' not in embedded
+    assert "command(['skopeo', 'inspect', '--no-creds', 'docker://' + ref])" in embedded
+
+
 def test_consolidated_workflows_share_global_runtime_writer_group():
     for source in (GHCR,):
         assert "janus-dev-runtime-writers" in source
