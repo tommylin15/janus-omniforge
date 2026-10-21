@@ -1,5 +1,11 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-21｜STAGE-48H 每日自然執行只讀驗收
+
+- [GitHub Actions #39523200448](https://github.com/tommylin15/janus-omniforge/actions/runs/39523200448) PASS：WIF 唯讀查 GCP Logs／Cloud Run execution／Scheduler／Controller job 設定。`janus-ingestion-daily` Scheduler `ENABLED`、`30 * * * *`、`Asia/Taipei`；2026-10-20 18:31:32 Controller `tick_completed`，18:33:20 `janus-ingestion-core-qnfjv` `stage-only-retention` apply `PASS`／generation readback `PASS`、Cloud Run execution terminal `PASS`。此輪 Stage **1,025 objects／265,691,880 bytes** 已刪；`FINOPS_WEEKLY_MAINTENANCE=true`。此次讀回無 GCP／Stage mutation，不重跑 Stage 清理。
+- **證據邊界**：讀到 Scheduler／Controller tick／worker receipt／Job 終態之同輪關聯；未獨立登入 PostgreSQL 讀取 `control.batch_occurrences` 原始列，不能聲稱做了直接 DB readback。依有界驗收，此項自然派送和清理已 PASS，不額外重做已完成操作。
+- **唯一剩餘原定驗收**：真實 Admin OAuth 使用者於「資料品質 → 儲存維護」按六桶一鍵查詢，確認六桶結果、部分失敗顯示、權限。匿名 Admin 401 已有 PASS；服務帳號讀 GCS metadata 不能替代真人 Admin 正向登入。STAGE-48H 全包在此之前維持 PARTIAL。
+
 ### 2026-10-20｜Stage 過期失效執行實刪（generation PASS；新版正式 rollout 待查）
 
 - **核准與條件**：Stage bucket 僅 `gen-lang-client-0593591102-dev-stage`；超過 7 天且 `running` 紀錄已無有效 `claimed_until`，只清 `executions/<id>/stage/*`。不改控制紀錄、不以 MD5 推算可刪容量、不碰 Core/Mart/Private；既有 Scheduler 暫停、GitHub lease 與 Cloud Run 全頁終態 fence 均保留。

@@ -8,15 +8,15 @@
 
 | 優先 | 工作包 | 已完成 | 尚需完成 |
 |---|---|---|---|
-| **P0** | **STAGE-48H** | 48h Stage TTL／過期資料受控實刪、跨 execution shared raw/provenance、四 Jobs 更新與獨立讀回 PASS | **自然 18:30 Stage-only 執行驗收；Admin 六桶 OAuth 登入後一鍵正向驗收** |
+| **P0** | **STAGE-48H** | 48h Stage TTL／過期實刪、跨 execution shared raw/provenance、四 Jobs 讀回及 **10/20 18:30 自然 Stage-only 執行 PASS** | **僅餘 Admin 六桶 OAuth 登入後一鍵正向驗收** |
 | **P1** | **A-CHANGE｜事實解讀與站內盤前盤後** | 方案、X/Y/時間契約與AI卡已定版（DOC_UPDATED） | **A1事實解讀、A2變化狀態、A3盤前盤後、A4 UI集中驗收；工程未啟動** |
 | **P1** | **D07-PRE｜Colab／Drive 資料源** | 官方歷史整市場 Colab 採集器、普通股白名單、每月資料夾/續跑/雜湊及 Risk 資料讀取已實作並有本地 targeted tests；舊 GAS/GCP/BQ 研究路線退出 | **Colab 官方 API 實抓 → 每月資料夾品質／SHA 讀回 → 補歷史已下市股票母體證據／正式 70% 分母** |
 | **P2** | **D07｜五分析師建模** | 五角色規格、OOS／registry 責任界線已定案 | **Colab 模型訓練與 OOS；Janus Mart 受控模型匯入、推論與 Admin 品質呈現** |
 | **P3** | **D08｜CEO／Admin／Owner 報告** | 原 Gateway 技術驗證可重用 | **有效 Fact Pack → CEO 手動請求 → Gateway／validator → immutable 報告與 Owner UI／Admin 管理驗收** |
 
-## 2. STAGE-48H｜僅餘兩項原定驗收
+## 2. STAGE-48H｜自然排程 PASS，僅餘 Admin 正向驗收
 
-- [ ] **每日自然排程**：於 2026-10-20 18:30 Asia/Taipei 發生後核對正式 `janus-ingestion-daily`／Stage-only occurrence、終態、到期資料處理結果與週 Iceberg 維護不變。**保留原定收據待核對，不因本次文件整理猜測結果或重做已通過部署/清理**。
+- [x] **每日自然排程 PASS（2026-10-20 18:30 Asia/Taipei）**：[唯讀驗收 #39523200448](https://github.com/tommylin15/janus-omniforge/actions/runs/39523200448) 讀得 Scheduler `janus-ingestion-daily` ENABLED／`30 * * * *`／Asia/Taipei、Controller 18:31:32 tick、Stage-only worker `janus-ingestion-core-qnfjv` 18:33:20 `apply`＋`generation_readback=PASS`、Cloud Run execution terminal PASS；實刪 **1,025 objects／265,691,880 bytes**，週維護設定 `FINOPS_WEEKLY_MAINTENANCE=true` 不變。這是既有自然執行的只讀驗證，本輪 GCP/Stage 刪除操作為零；未單獨直接查詢 Controller PostgreSQL occurrence row，不把該直接查詢冒稱已做。
 - [ ] **Admin 六桶正向操作**：真實 Admin OAuth 授權操作，一鍵讀回既有六桶 metadata、權限與部分失敗顯示；匿名拒絕 401 已 PASS，不能代替 Admin 正向驗收。
 
 已完成證據：[GHCR／四 Jobs #39355867356／#39356643823](https://github.com/tommylin15/janus-omniforge/actions/runs/39356643823)、[獨立 readback #39358461946](https://github.com/tommylin15/janus-omniforge/actions/runs/39358461946)、[Stage 實刪 4,927 件／96,321,204 bytes #39355428497](https://github.com/tommylin15/janus-omniforge/actions/runs/39355428497)、[shared raw/provenance #39358645373](https://github.com/tommylin15/janus-omniforge/actions/runs/39358645373)、[48h dry-run 零候選 #39359037869](https://github.com/tommylin15/janus-omniforge/actions/runs/39359037869)。歷史細節集中 [Operations](spec/operations-and-testing.md)，不在 Active TODO 重複列流水帳。此項由原 Stage 對話承接，與 D07-PRE 分開。
