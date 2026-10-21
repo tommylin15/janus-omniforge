@@ -7,8 +7,8 @@
 ## 普通股母體及歷史限制
 - 僅 TWSE／TPEx 上市上櫃**普通股**；以官方公司基本資料（TWSE `opendata/t187ap03_L`、TPEx `mopsfin_t187ap03_O`，必要時官方 CSV）建立白名單，ETF、ETN、基金、權證、債券及非普通股在**下載後入庫前**過濾。優先用官方名冊，而非單靠四碼。
 - 歷史按**每日整市場**查詢 TWSE `MI_INDEX` 日期 API 與 TPEx 歷史每日行情，不把 OpenAPI `STOCK_DAY_ALL` 目前快照誤用成歷史 API；每市場×交易日約一筆 HTTP 請求。遵守回應錯誤／429 與限流，不迴避來源限制。
-- **重要限制：官方最新公司名冊並非歷史逐日有效名冊，包含不了當時曾上市但已下市的股票。** 首版明列 `historical_survivorship=CURRENT_MASTER_ONLY`、`historical_pit=NOT_VERIFIED`、`research_70pct_certified=false`，只能做研究 PROBE；即使月檔完成，也不能聲稱全歷史 PIT、全市場 70% 品質合格或正式訓練核准。後續如需正式研究門檻，須補歷史普通股名冊或取得合規完整來源及按月適用分母。
-- 研究採集正式目標仍以 TWSE、TPEx × dataset × month 的適用資料涵蓋率 ≥70% 衡量；上市／上櫃正式 Core 的 TWSE ≥90%、TPEx ≥70%、Owner 個人行情／ETF 顯示不變。缺值不可補造；來源時間貼標，不得倒填 published_at／observed_at。
+- **重要限制：官方最新公司名冊並非歷史逐日有效名冊，包含不了當時曾上市但已下市的股票。** 首版明列 `historical_survivorship=CURRENT_MASTER_ONLY`、`historical_pit=NOT_VERIFIED`、`research_70pct_certified=false`（舊 r1 原檔欄位維持不變），只能做研究 PROBE；符合 TWSE 90%／TPEx 70% 的現行名冊涵蓋率即可進 Risk OOS 研究，不需等歷史下市名冊補完。不得將此准入當成歷史 PIT 認證、來源授權或模型正式發布核准；若要主張完整歷史母體須另取得適用分母證據。
+- 研究每個 dataset×month **分市場獨立准入：上市普通股 TWSE ≥90%；上櫃普通股 TPEx ≥70%（等號通過）**。第一輪 OHLCV 的有證據分母為 `CURRENT_MASTER_ONLY` 普通股快照，分子為該月至少一筆合格行情的不同股票數；另保留每日缺日與模型可用窗口報告，不以只出現一次行情代替完整每日序列。正式 Core 原本同為 90%／70%，但其品質驗收與本研究 PROBE 仍獨立。Owner 個人行情／ETF 顯示不變。缺值不可補造；來源時間貼標，不得倒填 published_at／observed_at。
 
 ## Drive 每月資料夾與效能
 ```text
