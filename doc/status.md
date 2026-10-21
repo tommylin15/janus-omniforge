@@ -10,14 +10,14 @@
 
 ## 當前工作包
 
-2026-10-21文件決策：方案A事實解讀/站內盤前盤後優先；模型與X/Y/窗口已定版，**A-CHANGE 已啟動實作及集中驗收；D07 模型尚未訓練或部署**。執行順序只看TODO。下列既有runtime狀態不因文件更新改判。
+2026-10-21文件決策：方案A事實解讀/站內盤前盤後優先；模型與X/Y/窗口已定版，**A-CHANGE 已啟動實作及集中驗收；D07 Risk 已在研究環境實際訓練並完成 OOS，尚未部署正式模型**。執行順序只看TODO。下列既有runtime狀態不因文件更新改判。
 
 | 工作包 | 目前狀態與可操作的剩餘驗收 |
 |---|---|
 | **P0 STAGE-48H** | **原部署／清理／去重及 10/20 自然 Stage-only 執行 PASS；2026-10-21 新版 dev API 已 100% 發布（GHCR source `0b0a42b6`，MB／千分位 UI／有界錯誤碼、回滾演練 PASS）[#39560369519](https://github.com/tommylin15/janus-omniforge/actions/runs/39560369519)。真人 Admin 登入及按鈕曾 PASS；尚待在新版驗收 Stage／Cloud Build 兩桶並確認六桶 `OBSERVED`，目前整包 PARTIAL。** [原 4,927 件實刪 #39355428497](https://github.com/tommylin15/janus-omniforge/actions/runs/39355428497)、[shared raw #39358645373](https://github.com/tommylin15/janus-omniforge/actions/runs/39358645373)、[自然執行讀回 #39523200448](https://github.com/tommylin15/janus-omniforge/actions/runs/39523200448)：Controller 18:31 tick，worker 18:33 terminal／generation PASS，該輪實刪 1,025 件／265,691,880 bytes，週維護 true；直接 PG occurrence row 未另查。既有刪除／部署不重做。 |
 | **P1 A-CHANGE** | **IN_PROGRESS**：使用者已啟動 A1～A4 整包；事實／跨日狀態／盤前盤後與首頁／個股接線已實作，集中 targeted／CI／dev／真實 API/UI 驗收進行中，尚未結案。 |
-| **P1 D07-PRE** | **Colab-first 程式已建／待真實採集。** 官方 TWSE/TPEx 整市場逐日抓取、普通股名冊白名單、`YYYY-MM/` 資料夾、續跑 SHA 與 Risk reader 已建立；GAS 路線退役。缺 Colab 實抓月資料讀回、歷史已下市股票母體及正式70%證據，研究資料仍 PROBE。 |
-| **P2 D07** | **待開發。** 五角色 Colab 訓練／OOS、Janus Mart Registry／推論／rollback／Admin 品質；Quant／Risk 優先，Event 缺真人標籤保留 rules。 |
+| **P1 D07-PRE** | **21 個月 Drive r1 實際封存、SHA 與普通股研究品質 PASS（TWSE ≥90%、TPEx ≥70%）；Risk 研究 OOS 已實跑完成。** 已確認 799,468 行／1,979 有行情股票；Rolling20 vs Ridge：181,557 OOS 行 MAE 改善8.49%，但2026 Q1 walk-forward 退步7.09%，仍是 `RESEARCH_OOS_ONLY_NOT_PROMOTABLE`。來源授權、歷史PIT與公司行動留在D07正式promotion gate；研究收據見 [Risk OOS](archive/d07-risk-oos-real-2026-10-21.md)。Colab本人執行／新版CI尚無收據。 |
+| **P2 D07** | **Risk pooled Ridge 研究 OOS 已完成但不升版；其他角色／正式發布仍待開發。** 現行 Risk 維持baseline，Quant等其他角色之 Colab OOS、Janus Mart Registry／推論／rollback／Admin 品質未完成；Event 缺真人標籤仍採rules。 |
 | **P3 D08** | **待開發。** 有效五角色 Fact Pack 後之 CEO／Admin／Owner 受控報告與真人登入歷史驗收；沿用已驗證 Gateway 技術鏈。 |
 
 ## 文件與執行約束
