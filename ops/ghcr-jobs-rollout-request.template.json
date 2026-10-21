@@ -6,18 +6,18 @@
   "release_run": "38153154441",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "e3e0098399846eb337dd2ed1f8b636240bc88c20",
+  "baseline_source_sha": "b3ecba5ea87bff8b7cdec0730ee857a611a71951",
   "rollback_images": {
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:3d36abb88a356c020581a170fe2e8d8ce5035f673dd2ac73a94efc086c0b2d9c",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:90c24c54605d5e150426570bc75af8174cbcb62d55e33394b982e4f16d356651",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:59fbf1b58196df048f90e63fb78f761787095ce8ab16555931a3ca84c1287506",
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:59fbf1b58196df048f90e63fb78f761787095ce8ab16555931a3ca84c1287506"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:32c50462876f57dbc15d822352d6a54d9d3bd9f2741dfbc5ce980adfb1b00b31",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:32c50462876f57dbc15d822352d6a54d9d3bd9f2741dfbc5ce980adfb1b00b31",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:67366d049d6c16db77b2d9b121cad0f191ebb4b2b14503924928dd1b98e4d0d1",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:3be570fcd702cd990eff503177550531ae07b09b935a3562848964ad92583f42"
   },
   "rollback_config_hashes": {
-    "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f",
-    "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
+    "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
     "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
-    "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048"
+    "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
+    "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
   "request_attempt": 0,
   "safety": "INERT approved=false. Rollback maps match the versioned active baseline; every future explicit request must revalidate live images/config under the shared lease. This template never dispatches.",

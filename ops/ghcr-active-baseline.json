@@ -1,24 +1,24 @@
 {
   "status": "VERIFIED_PUBLIC_GHCR_ROLLBACK_BASELINE",
-  "source_sha": "e3e0098399846eb337dd2ed1f8b636240bc88c20",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:5cf4121aabb60e8196f1542674ad2ac48264fc403210051fe2e98a2fa4e75365",
-  "release_run": "39126918277",
-  "validation_run": "39206641641",
-  "job_source_sha": "e3e0098399846eb337dd2ed1f8b636240bc88c20",
+  "source_sha": "0b0a42b608143d62f5241d47c2d25e855949f36b",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:254bf70d102b86aa60e38155da46eb46947e9c830b860fb65c4429b3272a89ea",
+  "release_run": "39559241673",
+  "validation_run": "39560369519",
+  "job_source_sha": "b3ecba5ea87bff8b7cdec0730ee857a611a71951",
   "job_images": {
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:3d36abb88a356c020581a170fe2e8d8ce5035f673dd2ac73a94efc086c0b2d9c",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:90c24c54605d5e150426570bc75af8174cbcb62d55e33394b982e4f16d356651",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:59fbf1b58196df048f90e63fb78f761787095ce8ab16555931a3ca84c1287506",
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:59fbf1b58196df048f90e63fb78f761787095ce8ab16555931a3ca84c1287506"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:32c50462876f57dbc15d822352d6a54d9d3bd9f2741dfbc5ce980adfb1b00b31",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:32c50462876f57dbc15d822352d6a54d9d3bd9f2741dfbc5ce980adfb1b00b31",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:67366d049d6c16db77b2d9b121cad0f191ebb4b2b14503924928dd1b98e4d0d1",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:3be570fcd702cd990eff503177550531ae07b09b935a3562848964ad92583f42"
   },
   "job_config_hashes": {
-    "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f",
-    "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
+    "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
     "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
-    "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048"
+    "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
+    "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
   "private_historical_config_parity": "NOT_VERIFIED",
   "old_ar_rollback_exercised": false,
-  "observed_evidence": "Jobs #39127659349 PASS 8/8; live readback #39205643115; Preview #39205683042 PASS; API promotion #39206641641 PASS with reversible traffic rehearsal; formal EPS 6/6 and 2Y profiles 12/12 readback.",
-  "semantics": "Current API and four Jobs share e3e00983; prior API b5df7e30 and prior Jobs da1c5093 remain in immutable rollout/promotion receipts."
+  "observed_evidence": "API-only promotion #39560369519 PASS with 100% traffic and rollback rehearsal; four Jobs rollout #39566457538 PASS with 8/8 canaries and exact image/config readback.",
+  "semantics": "API rollback baseline is 0b0a42b6; four Jobs now use b3ecba5e. Independent API and Jobs sources are intentional and separately verified."
 }

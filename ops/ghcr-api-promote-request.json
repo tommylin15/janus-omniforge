@@ -2,13 +2,13 @@
   "intent": "promote-authenticated-reversible-ghcr-dev",
   "approved": true,
   "scope": "existing-dev-janus-api-only",
-  "source_sha": "a7e1e7c276e735f629f90525f7f7cf6e7411b07b",
-  "release_run": "39345633766",
-  "jobs_run": "39346705950",
+  "source_sha": "b3ecba5ea87bff8b7cdec0730ee857a611a71951",
+  "release_run": "39561334687",
+  "jobs_run": "39566457538",
   "rollback_mode": "reversible_ghcr",
-  "baseline_source_sha": "e3e0098399846eb337dd2ed1f8b636240bc88c20",
+  "baseline_source_sha": "0b0a42b608143d62f5241d47c2d25e855949f36b",
   "allow_legacy_forward_only": false,
-  "auth_boundary_run": "39346470312",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:5cf4121aabb60e8196f1542674ad2ac48264fc403210051fe2e98a2fa4e75365",
-  "purpose": "STAGE-48H: old API serving SHA e3e00983 and public immutable GHCR rollback baseline verified by ops/ghcr-active-baseline.json; 1515 Python tests + Flutter + GHCR public digests #39345633766 PASS, 0% candidate #39346223610 PASS, OAuth/Admin GCS POST negative #39346470312 PASS, four Jobs canary rollout #39346705950 PASS. Controlled reversible promote to existing dev; preserve old service and traffic rollback with live readback. No new resources, permissions or unrelated tasks."
+  "auth_boundary_run": "39564026541",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:703f30f209791616860dac57f0d3d9e294c479dcbeff796ebd324bacf5315981",
+  "purpose": "User explicitly authorized A-CHANGE A1-A4 existing dev rollout and centralized acceptance. Full Release, zero-traffic candidate and OAuth boundary PASS; four Jobs #39566457538 PASS 8/8. API rollback source/digest from successful #39560369519. Revalidate live baseline under lease, rehearse new-old-new traffic and verify immutable source. No new resources or IAM expansion."
 }
