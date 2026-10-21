@@ -66,6 +66,26 @@ Risk 資料讀取器現在依每月 `manifest`／`quality`／原始 OHLCV 與名
 在同一 revision 的月份資料夾中只可有一個 `manifest-rN.json`；新增 r2 並存時，執行前先選定 revision 或另行指定目錄清單。Risk 仍以歷史20日波動 baseline 對 Ridge challenger，採成熟標籤、cutoff 分割及 OOS，不會自動上線／回寫正式 Janus。已於 2026-10-21 在研究執行環境用 Drive 21 個 r1 月檔真實完成一次 single-cutoff OOS 與四段 walk-forward 診斷，詳見 [研究收據](../../doc/archive/d07-risk-oos-real-2026-10-21.md)；以上並非 Colab console 收據、CI PASS 或可發布證明。新版 CLI 也輸出兩市場逐月/逐市場 baseline vs Ridge 指標、未調整價格單日 >35% 變動窗口的敏感度（不是官方公司行動認證）、四段固定 cutoff 診斷、來源 hash 與 `publication_allowed=false`。
 
 本地：`PYTHONPATH=. python -m pytest -q tests/test_collect_tw_equities.py tests/test_research_risk_pilot.py`。
+### 3A. Risk v1（八因子）與 v0 相同樣本 OOS
+
+已用真實 21 個月 r1 月檔在 ChatGPT Python 研究環境做 v0／v1 對照，見[2026-10-22研究收據](../../doc/archive/d07-risk-v1-ohlcv-oos-2026-10-22.md)。**Colab 尚需執行同一最新版程式重跑，研究環境數字不能代替 Colab 驗收。**
+
+新版本只加三個既有 OHLCV 衍生因子：`atr14_pct`（14日ATR／close）、`abs_overnight_gap5`、`log_turnover20`。原五因子保留為 v0，三種方法（Rolling20／v0／v1）必須用**完全相同的成熟標籤與有效股票日期**公平比較；資料缺日不補造，排除未驗證的極端價差窗口做敏感度情境。市場指數／產業／公司行動在本批r1尚未具備正式資料證據，**不能冒充已加入模型**。
+
+在 Colab 掛載 Drive、更新 GitHub 後執行：
+
+```bash
+!git -C /content/janus-omniforge pull --ff-only origin main
+!cd /content/janus-omniforge && python -m pytest -q tests/test_risk_v1.py tests/test_research_risk_pilot.py tests/test_collect_tw_equities.py
+!python /content/janus-omniforge/research/colab/run_risk_v1_comparison.py \
+  --cutoff 2026-03-31 \
+  --result '/content/drive/MyDrive/給ai專用/janusChatGPT/資料源/risk-v1-comparison.json' \
+  /content/drive/MyDrive/給ai專用/janusChatGPT/資料源/2025-*/ \
+  /content/drive/MyDrive/給ai專用/janusChatGPT/資料源/2026-*/
+```
+
+輸出包含 source hashes、分市場／分月指標、四段固定 cutoff 診斷、label maturity、`publication_allowed=false`；**不是模型 bundle**，GCS 上傳／正式 Risk 切版都不在這一步。舊版研究結果保留，不覆寫。
+
 ## 4. 新版模型與每日窗口
 研究月檔與每日推論窗口不同；一個20交易日特徵可能跨兩個月份，60/120日需更早歷史。每日更新X並推論，不等於每日重訓。
 正式建模規格：[五角色模型/X/Y](../../doc/spec/specialist-engines.md)、[清洗/時間/成熟標籤](../../doc/spec/model-feature-time-contract.md)、[D07 AI卡](../../doc/execution-cards/d07-specialist-b9-oos.md)。
