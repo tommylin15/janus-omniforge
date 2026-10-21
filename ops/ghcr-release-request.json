@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "77f9ab1dbc302388bfd0fe27f728d30e2782bab6",
-  "purpose": "Re-run complete 1513+ Python tests and Flutter for Stage 48h lease-aware cleanup, plus fix cached Mart analyst result contract. Publish immutable four-component GHCR images after both test families PASS; existing dev runtime remains unchanged until gated rollout.",
+  "sha": "8d3e8a4958b9584e3c4e043975decf1e0756a268",
+  "purpose": "STAGE-48H final Admin GCS six-bucket diagnostics: sanitized HTTP status/failure step, no object payload or private paths. Full Python/Flutter + immutable GHCR prerequisite, no GCP mutations from release.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
