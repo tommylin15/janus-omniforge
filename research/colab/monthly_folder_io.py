@@ -107,6 +107,17 @@ def load_monthly_folders(folders: Iterable[str | Path]) -> tuple[pd.DataFrame, l
             if not (match['_merge'] == 'both').all():
                 raise ValueError('research row outside official company roster')
         coverage = assess_monthly_ordinary_stock_coverage(quality, universe, df, manifest)
+        statuses = manifest.get('source_daily_sha256', [])
+        if not statuses or len(statuses) % 2:
+            raise ValueError('monthly official session evidence missing')
+        half = len(statuses) // 2
+        market_sessions = {}
+        for market, part in (('twse', statuses[:half]), ('tpex', statuses[half:])):
+            dates = [entry['day'] for entry in part]
+            if len(dates) != len(set(dates)) or dates != sorted(dates):
+                raise ValueError('invalid official trading-day order')
+            market_sessions[market] = [entry['day'] for entry in part
+                                       if entry.get('status') == 'COLLECTED']
         df['source_month'] = month
         df['source_archive_sha256'] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
         frames.append(df)
@@ -114,7 +125,8 @@ def load_monthly_folders(folders: Iterable[str | Path]) -> tuple[pd.DataFrame, l
                            'sha256': df['source_archive_sha256'].iloc[0] if not df.empty else hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
                            'quality_status': quality['status'],
                            'historical_survivorship': quality.get('historical_survivorship', 'UNKNOWN'),
-                           'research_coverage': coverage})
+                           'research_coverage': coverage,
+                           'market_sessions': market_sessions})
     if not frames:
         raise ValueError('no monthly research folders')
     combined = pd.concat(frames, ignore_index=True)
