@@ -53,11 +53,18 @@ _SCHEDULED_CLOSURES = {
         '09-28', '10-09', '10-26', '12-25',
     ),
 }
+# Exchange-confirmed exceptional closures are separate from the published
+# annual calendar. 2026-07-10: Typhoon Bavi closed both TWSE and TPEx for
+# the entire day. Exchange announcements reported 2026-07-09:
+# https://www.cna.com.tw/news/afe/202607090360.aspx
+_CONFIRMED_AD_HOC_CLOSURES = {
+    date(2026, 7, 10): 'TWSE_TPEX:2026-07-09_typhoon_Bavi:https://www.cna.com.tw/news/afe/202607090360.aspx',
+}
 EXCHANGE_CLOSURES = frozenset(
     date.fromisoformat(f'{year}-{md}')
     for year, month_days in _SCHEDULED_CLOSURES.items()
     for md in month_days
-)
+).union(_CONFIRMED_AD_HOC_CLOSURES)
 TRADING_CALENDAR_SOURCE = 'TWSE:annual_market_holidays_2025_2026'
 
 
@@ -295,7 +302,7 @@ def collect_chunk(session, market: str, dates: list[date], universe: dict, unive
     for day in dates[len(statuses):]:
         if is_scheduled_closure(day):
             statuses.append({'day': day.isoformat(), 'status': 'SCHEDULED_CLOSURE',
-                             'calendar_source': TRADING_CALENDAR_SOURCE})
+                             'calendar_source': _CONFIRMED_AD_HOC_CLOSURES.get(day, TRADING_CALENDAR_SOURCE)})
             persist()
             continue
         if request_budget[0] <= 0 or (deadline is not None and time.monotonic() >= deadline - 90):
