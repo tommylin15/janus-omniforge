@@ -63,17 +63,17 @@ janusChatGPT/資料源/
 
 Risk 資料讀取器現在依每月 `manifest`／`quality`／原始 OHLCV 與名冊交叉驗證，按上市普通股 TWSE ≥90%、上櫃普通股 TPEx ≥70%（月度股票數與交易日有效股票筆數兩項皆達標）決定是否進入研究；缺日不可填零。這是現行普通股名冊下的 **PROBE 研究准入**，不改寫不可變的 `r1`、不補造歷史下市股、不代表 PIT 認證或模型 promotion。
 
-在同一 revision 的月份資料夾中只可有一個 `manifest-rN.json`；新增 r2 並存時，執行前先選定 revision 或另行指定目錄清單。Risk 仍以歷史20日波動 baseline 對 Ridge challenger，採成熟標籤、cutoff 分割及 OOS，不會自動上線／回寫正式 Janus。模型有效性與真實收據需由 Colab 實跑產生；GitHub 的 fixture tests 只證明解析與封存控制。
+在同一 revision 的月份資料夾中只可有一個 `manifest-rN.json`；新增 r2 並存時，執行前先選定 revision 或另行指定目錄清單。Risk 仍以歷史20日波動 baseline 對 Ridge challenger，採成熟標籤、cutoff 分割及 OOS，不會自動上線／回寫正式 Janus。已於 2026-10-21 在研究執行環境用 Drive 21 個 r1 月檔真實完成一次 single-cutoff OOS 與四段 walk-forward 診斷，詳見 [研究收據](../../doc/archive/d07-risk-oos-real-2026-10-21.md)；以上並非 Colab console 收據、CI PASS 或可發布證明。新版 CLI 也輸出兩市場逐月/逐市場 baseline vs Ridge 指標、未調整價格單日 >35% 變動窗口的敏感度（不是官方公司行動認證）、四段固定 cutoff 診斷、來源 hash 與 `publication_allowed=false`。
 
 本地：`PYTHONPATH=. python -m pytest -q tests/test_collect_tw_equities.py tests/test_research_risk_pilot.py`。
 ## 4. 新版模型與每日窗口
 研究月檔與每日推論窗口不同；一個20交易日特徵可能跨兩個月份，60/120日需更早歷史。每日更新X並推論，不等於每日重訓。
 正式建模規格：[五角色模型/X/Y](../../doc/spec/specialist-engines.md)、[清洗/時間/成熟標籤](../../doc/spec/model-feature-time-contract.md)、[D07 AI卡](../../doc/execution-cards/d07-specialist-b9-oos.md)。
-本README命令仍是目前Risk研究試點；新版feature/多fold/其他模型需依D07實作，不宣稱已有。risk_pilot.py的舊ZIP CLI仍在程式中，正式操作使用本頁run_risk_folder_pilot.py；後續D07先核相容測試再移除無現役引用的舊CLI。
+本 README 的命令是 Risk 研究試點；Risk 官方市場交易日對齊、四段 OOS 診斷與研究准入已加入 GitHub，其他角色的 feature/multi-fold/notebook 仍依 D07 開發。risk_pilot.py的舊ZIP CLI仍在程式中，正式操作使用本頁run_risk_folder_pilot.py；後續D07先核相容測試再移除無現役引用的舊CLI。
 
 
 ## 5. 完整開發與模型發布流程
 [模型生命週期](../../doc/spec/model-lifecycle.md)列五角色建議資料量、採集/清洗/貼標/訓練/測試/封裝/發布；[AI操作卡](../../doc/execution-cards/d07-model-lifecycle.md)含現有可執行命令及未來exporter完成後的候選上傳範例。
-目前命令窗口2025-01～2026-09是21個月，不等已收齊；延伸到2025以前先補對應交易日曆、來源支援和歷史普通股母體。新增pipeline/五角色notebook/模型bundle/匯入尚待D07實作，不能直接把示範當現成工具。
+目前 Drive 已實收並封存 2025-01～2026-09 共21個月 r1；延伸到2025以前先補對應交易日曆、來源支援和歷史普通股母體。新增pipeline/五角色notebook/模型bundle/匯入尚待D07實作，不能直接把示範當現成工具。
 GCS只收模型業務candidate；Janus受控驗證、shadow與registry啟用才算發布。正式每日推論由既有Controller/Mart運作，不需Colab每天開機；每月評估後才人工回Colab決定重訓。
 
