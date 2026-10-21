@@ -148,12 +148,23 @@ def make_risk_panel(prices: pd.DataFrame, horizon: int = HORIZON,
     return pd.concat(output, ignore_index=True)
 
 
-def evaluate_risk_pilot(panel: pd.DataFrame, cutoff: str | pd.Timestamp, *, min_train: int = 100, min_test: int = 20) -> dict:
-    """Fixed time split and horizon purge; never use OOS labels to train."""
+def evaluate_risk_pilot(panel: pd.DataFrame, cutoff: str | pd.Timestamp,
+                        *, min_train: int = 100, min_test: int = 20,
+                        exclude_unverified_shocks: bool = False) -> dict:
+    """Predeclared time-cut Ridge vs rolling20; all train labels mature by cutoff.
+
+    Single fixed-cutoff research OOS, not multi-fold walk-forward or a
+    production promotion gate.  Market/date cohorts remain together.
+    """
     cutoff = pd.Timestamp(cutoff)
     as_of = panel["trade_date"].max()
     eligible = panel.dropna(subset=[*FEATURES, "target_fwd_vol20", "label_matures_on"]).copy()
     eligible = eligible.loc[eligible["label_matures_on"] <= as_of]
+    if exclude_unverified_shocks:
+        required = ("unverified_shock_feature", "unverified_shock_label")
+        if any(col not in eligible for col in required):
+            raise ValueError("corporate action sensitivity flags missing")
+        eligible = eligible.loc[(eligible[required[0]] == 0) & (eligible[required[1]] == 0)]
     train = eligible[(eligible["trade_date"] <= cutoff) & (eligible["label_matures_on"] <= cutoff)]
     test = eligible[(eligible["trade_date"] > cutoff) & (eligible["label_matures_on"] <= as_of)]
     if len(train) < min_train or len(test) < min_test:
@@ -163,12 +174,28 @@ def evaluate_risk_pilot(panel: pd.DataFrame, cutoff: str | pd.Timestamp, *, min_
     actual = test["target_fwd_vol20"].to_numpy()
     baseline = test["vol20"].to_numpy()
     challenger = np.clip(estimator.predict(test[list(FEATURES)]), 0, None)
-    metrics = {}
-    for name, pred in (("rolling20_baseline", baseline), ("ridge_challenger", challenger)):
-        metrics[name] = {
-            "mae": float(np.mean(np.abs(pred - actual))),
-            "rmse": float(np.sqrt(np.mean((pred - actual) ** 2))),
+
+    def score(y, base, candidate):
+        return {
+            "rolling20_baseline": {"mae": float(np.mean(np.abs(y - base))),
+                                   "rmse": float(np.sqrt(np.mean((y - base)**2)))},
+            "ridge_challenger": {"mae": float(np.mean(np.abs(y - candidate))),
+                                 "rmse": float(np.sqrt(np.mean((y - candidate)**2)))},
         }
+    metrics = score(actual, baseline, challenger)
+    sampled = test[["trade_date", "market", "symbol", "target_fwd_vol20"]].copy()
+    sampled["baseline"] = baseline
+    sampled["challenger"] = challenger
+    by_market = {}
+    by_month = {}
+    for market, group in sampled.groupby("market"):
+        by_market[market] = {"rows": int(len(group)), "unique_dates": int(group["trade_date"].nunique()),
+                             "metrics": score(group["target_fwd_vol20"].to_numpy(),
+                                              group["baseline"].to_numpy(), group["challenger"].to_numpy())}
+    for month, group in sampled.groupby(sampled["trade_date"].dt.to_period("M")):
+        by_month[str(month)] = {"rows": int(len(group)), "unique_dates": int(group["trade_date"].nunique()),
+                                "metrics": score(group["target_fwd_vol20"].to_numpy(),
+                                                 group["baseline"].to_numpy(), group["challenger"].to_numpy())}
     return {
         "model": "risk-forward-20d-realized-volatility-ridge-v0",
         "status": "RESEARCH_OOS_ONLY_NOT_PROMOTABLE",
@@ -179,10 +206,15 @@ def evaluate_risk_pilot(panel: pd.DataFrame, cutoff: str | pd.Timestamp, *, min_
         "as_of": as_of.date().isoformat(),
         "train_rows": len(train),
         "oos_rows": len(test),
+        "train_unique_dates": int(train["trade_date"].nunique()),
+        "oos_unique_dates": int(test["trade_date"].nunique()),
         "train_latest_label_maturity": train["label_matures_on"].max().date().isoformat(),
         "oos_latest_label_maturity": test["label_matures_on"].max().date().isoformat(),
         "oos_symbols": int(test["symbol"].nunique()),
         "metrics": metrics,
+        "oos_by_market": by_market,
+        "oos_by_month": by_month,
+        "sensitivity_exclude_unverified_gt35pct_shocks": exclude_unverified_shocks,
         "candidate_beats_baseline_mae": bool(metrics["ridge_challenger"]["mae"] < metrics["rolling20_baseline"]["mae"]),
         "publication_allowed": False,
     }
