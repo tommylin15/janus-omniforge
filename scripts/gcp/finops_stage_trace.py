@@ -44,7 +44,73 @@ def sanitize_logs(entries):
     return results
 
 
+
+
+def natural_stage_closeout(config):
+    """Read-only evidence for the approved 2026-10-20 18:30 Taipei Stage slot."""
+    from datetime import datetime, timezone
+    window = config.get("window_utc")
+    expected = ["2026-10-20T10:25:00Z", "2026-10-20T13:00:00Z"]
+    if (window != expected or config.get("no_gcp_mutation") is not True
+            or config.get("project") != PROJECT
+            or config.get("stage_bucket") != BUCKET):
+        raise ValueError("stage48_exact_read_only_scope_required")
+    selector = ('resource.type="cloud_run_job" AND '
+                'resource.labels.job_name="janus-ingestion-core" AND '
+                f'timestamp>="{expected[0]}" AND timestamp<="{expected[1]}"')
+    entries = command("gcloud", "logging", "read", selector,
+                      "--project="+PROJECT, "--limit=2000", "--order=asc", "--format=json")
+    receipts = sanitize_logs(entries)
+    good = [r for r in receipts if
+            r["component"] == "stage-only-retention" and
+            r["status"] == "PASS" and r["mode"] == "apply" and
+            r["generation_readback"] == "PASS"]
+    results = []
+    for record in good[:5]:
+        name = record["execution"]
+        if not isinstance(name, str) or not name.startswith("janus-ingestion-core-"):
+            results.append({"execution": None, "terminal": "UNVERIFIED"})
+            continue
+        try:
+            execution = command("gcloud", "run", "jobs", "executions", "describe", name,
+                                "--project="+PROJECT, "--region=us-central1", "--format=json")
+            conditions = execution.get("status", {}).get("conditions", []) or execution.get("conditions", [])
+            completed = [c for c in conditions if c.get("type") == "Completed"]
+            succeeded = bool(execution.get("completionTime") or
+                             execution.get("status", {}).get("completionTime"))
+            succeeded = succeeded and not execution.get("failedCount") and not execution.get("status", {}).get("failedCount")
+            succeeded = succeeded and not any(c.get("state") == "CONDITION_FAILED" or c.get("status") == "False"
+                                             for c in completed)
+            results.append({"execution": name, "terminal": "PASS" if succeeded else "UNVERIFIED"})
+        except (subprocess.CalledProcessError, ValueError):
+            results.append({"execution": name, "terminal": "UNVERIFIED"})
+    try:
+        controller = command("gcloud", "run", "jobs", "describe", "janus-batch-controller",
+                             "--project="+PROJECT, "--region=us-central1", "--format=json")
+        containers = (controller.get("spec", {}).get("template", {}).get("spec", {}).get("template", {}).get("spec", {}).get("containers")
+                      or controller.get("template", {}).get("template", {}).get("containers") or [])
+        config_values = [entry.get("value") for item in containers for entry in item.get("env", [])
+                         if entry.get("name") == "FINOPS_WEEKLY_MAINTENANCE"]
+        weekly = config_values[0] if len(config_values) == 1 else "UNKNOWN"
+    except (subprocess.CalledProcessError, ValueError, KeyError):
+        weekly = "UNKNOWN"
+    print(json.dumps({
+        "component": "stage48-natural-closeout", "mode": "read-only",
+        "slot_local": "2026-10-20T18:30:00+08:00",
+        "window_utc": expected, "scanned_log_entries": len(entries),
+        "scan_truncated_possible": len(entries) == 2000,
+        "stage_apply_receipts": good, "execution_terminal_checks": results,
+        "weekly_maintenance_enabled": weekly,
+        "natural_due_receipt": ("PASS" if good and any(r["terminal"] == "PASS" for r in results)
+                                and len(entries) < 2000 else "NOT_VERIFIED"),
+        "occurrence_database_readback": "NOT_VERIFIED",
+        "gcp_mutations": 0, "stage_object_mutations": 0
+    }, sort_keys=True))
+
 def main():
+    config = json.loads(__import__("pathlib").Path("ops/finops-stage-trace.json").read_text())
+    if config.get("scope") == "STAGE48_NATURAL_20261020":
+        return natural_stage_closeout(config)
     selector = (f'resource.type="cloud_run_job" AND '
                 f'resource.labels.job_name="janus-ingestion-core" AND '
                 f'timestamp>="{START}" AND timestamp<="{END}"')
