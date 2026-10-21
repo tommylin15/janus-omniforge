@@ -126,3 +126,17 @@ def test_oos_month_market_and_research_only_shock_sensitivity():
     assert screened['sensitivity_exclude_unverified_gt35pct_shocks']
     for month in result['oos_by_month']:
         assert result['oos_by_month'][month]['metrics']['ridge_challenger']['mae'] >= 0
+
+
+def test_bounded_walk_forward_does_not_train_on_future_labels_or_extend_test():
+    panel = make_risk_panel(make_prices(500))
+    cutoff = pd.Timestamp('2025-04-01')
+    end = pd.Timestamp('2025-05-30')
+    full = evaluate_risk_pilot(panel, cutoff)
+    bounded = evaluate_risk_pilot(panel, cutoff, oos_end=end)
+    assert bounded['oos_end'] == '2025-05-30'
+    assert bounded['train_rows'] == full['train_rows']
+    assert bounded['train_latest_label_maturity'] <= '2025-04-01'
+    assert bounded['oos_rows'] < full['oos_rows']
+    assert bounded['oos_latest_label_maturity'] <= bounded['as_of']
+    assert bounded['publication_allowed'] is False
