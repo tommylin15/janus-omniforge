@@ -3,7 +3,7 @@
 ### 2026-10-21｜A-CHANGE A1～A4 整包實作／集中驗收進行中
 
 - 使用者啟動整包工程；沿既有 specialist batch、immutable product、PG serving 與 authenticated API，加入有來源／期別／可得時間的事實、前後狀態、盤前／盤後 cutoff 及首頁／個股整合。GET 不做計算、外網讀取、ML 或 LLM；不新增服務、排程、供應商或權限。
-- 本機 targeted Python **88 PASS**（facts／狀態／API／product／retention／CI路由）、Flutter **43 PASS**（手機／桌面大字、首頁順序／切盤前盤後／個股單主圖、既有受影響回歸）；本機缺模型依賴的完整回歸由 [完整 Release #39561334687](https://github.com/tommylin15/janus-omniforge/actions/runs/39561334687) 補足：來源 `b3ecba5ea87bff8b7cdec0730ee857a611a71951`，Python／真實隔離 PostgreSQL／Flutter／四 GHCR 映像及匿名 digest readback 全部 PASS。下一步建立同來源 0% API candidate；OAuth boundary、Jobs rollout、真實 API/UI 尚未驗收，A-CHANGE 維持 **IN_PROGRESS**，四個子項不分批結案。
+- 本機 targeted Python **88 PASS**（facts／狀態／API／product／retention／CI路由）、Flutter **43 PASS**（手機／桌面大字、首頁順序／切盤前盤後／個股單主圖、既有受影響回歸）；本機缺模型依賴的完整回歸由 [完整 Release #39561334687](https://github.com/tommylin15/janus-omniforge/actions/runs/39561334687) 補足：來源 `b3ecba5ea87bff8b7cdec0730ee857a611a71951`，Python／真實隔離 PostgreSQL／Flutter／四 GHCR 映像及匿名 digest readback 全部 PASS。[同來源 0% API candidate #39562231524](https://github.com/tommylin15/janus-omniforge/actions/runs/39562231524) PASS；接續唯讀 OAuth boundary（含新 today-changes／個股 changes 未登入拒絕）。Jobs rollout、真實 API/UI 尚未驗收，A-CHANGE 維持 **IN_PROGRESS**，四個子項不分批結案。
 
 ### 2026-10-21｜STAGE-48H Admin MB 版本正式 dev API 切流 PASS
 

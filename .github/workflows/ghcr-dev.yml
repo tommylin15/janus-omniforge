@@ -520,6 +520,8 @@ jobs:
 
           for path in (
               "/api/v1/me/profile",
+              "/api/v1/me/today-changes",
+              "/api/v1/me/analysis/2330/changes",
               "/api/v1/me/journal/positions",
               "/api/v1/me/journal/pnl",
               "/api/v1/me/portfolio/summary",

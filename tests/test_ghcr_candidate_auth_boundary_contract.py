@@ -4,6 +4,16 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 
 
+def test_active_boundary_probes_change_routes_without_runtime_mutation():
+    text = (ROOT / '.github/workflows/ghcr-dev.yml').read_text()
+    boundary = text.split('  auth-boundary:', 1)[1].split('  # ============ JOBS ROLLOUT', 1)[0]
+    for route in ('/api/v1/me/today-changes', '/api/v1/me/analysis/2330/changes'):
+        assert f'"{route}",' in boundary
+    assert 'assert_private(path)' in boundary
+    for command in ('gcloud run deploy', 'update-traffic', 'gcloud run jobs execute'):
+        assert command not in boundary
+
+
 def test_boundary_probe_tracks_approved_sha_not_a_stale_hardcoded_candidate():
     text = (ROOT / ".github/workflows/archive/ghcr-candidate-auth-boundary.yml").read_text()
     assert "ops/ghcr-candidate-request.json" in text
