@@ -2,25 +2,25 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "caca7d383c236425417b582167d26fafbcba3e27",
-  "release_run": "39355867356",
+  "sha": "b3ecba5ea87bff8b7cdec0730ee857a611a71951",
+  "release_run": "39561334687",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "a7e1e7c276e735f629f90525f7f7cf6e7411b07b",
+  "baseline_source_sha": "caca7d383c236425417b582167d26fafbcba3e27",
   "rollback_images": {
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:aa9d56e477c2688128b96ebe7f658533502755e8827de8a2ee1448fd7632b65d",
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:aa9d56e477c2688128b96ebe7f658533502755e8827de8a2ee1448fd7632b65d",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:4bbb88dd831a50932d3040eda180edbfbe3b8935ddf0fa643a4665fda5a69515",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:bc48bf86731e6161ade7e3c3d2c9c58a9e933e163860d9c2ae33904e319eea7c"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:508a05b2fdb465caad4d589b041e420aff22ce048faae21d5bb0d4c66eba2165",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:508a05b2fdb465caad4d589b041e420aff22ce048faae21d5bb0d4c66eba2165",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:364cb1b15f473693b4344de854c82280311557ad7ac614b6234e3319d629fcd9",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:9104255b5f9ebcdcef7a88bb04e6b638a2f7a55607e3c1538a24f8cbcb2b77d2"
   },
   "rollback_config_hashes": {
-    "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
     "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
+    "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "auth_boundary_run": "39356488678",
-  "request_attempt": 45,
-  "safety": "Source caca7d38 full Python/Flutter/GHCR release #39355867356 PASS; 0%-traffic candidate #39356339627 PASS; independent OAuth/Owner and Admin-unauthorized #39356488678 PASS; all four live image/config rollback baselines read from independent #39348777969, checked again under lease. Existing reversible four dev Jobs only; retain weekly Iceberg and Stage 48-hour TTL.",
-  "authorization": "User directs complete STAGE-48H cleanup and lease-aware daily retention deployment; existing dev four Jobs, reversible pinned-GHCR rollback; no new resources, IAM expansion, Core/Mart/Private deletion, or API traffic promotion."
+  "auth_boundary_run": "39564026541",
+  "request_attempt": 46,
+  "safety": "A-CHANGE full release #39561334687, zero-traffic candidate #39562231524 and OAuth boundary #39564026541 PASS. Four live immutable rollback images and configuration hashes read by #39564867084; revalidate under lease before writes. Keep Scheduler fence, full config snapshots, isolated canaries and reversible rollback.",
+  "authorization": "User explicitly authorized necessary commits/pushes and completion of A-CHANGE A1-A4 existing dev deployment and centralized acceptance. Existing four Jobs only; no new resources, IAM expansion or API traffic promotion."
 }
