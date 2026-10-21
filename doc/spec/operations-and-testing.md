@@ -1,5 +1,11 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-21｜Admin 六桶真人正向操作：功能 PASS／盤點 PARTIAL
+
+- 使用者本人 2026-10-21 手機已登入 Janus Admin「資料品質 → 儲存維護」，按「一鍵盤點 GCS 六桶容量」後取得盤點時間 `2026-10-21T01:02:17Z`。正向登入與操作 **USER_CONFIRMED_POSITIVE_PASS**；畫面顯示 `PARTIAL_NOT_TOTAL`、`Stage BLOCKED`、`Cloud Build BLOCKED`，其它桶是否全部成功未由截圖逐桶證明；系統未虛構合計，`totals=null` 行為正確。六桶完整數值 **PARTIAL**，STAGE-48H 整包不冒充全 PASS。
+- [唯讀 GCP IAM 診斷 #39525449445](https://github.com/tommylin15/janus-omniforge/actions/runs/39525449445) 確認正式 API 執行身分；但 GitHub CI 身分對六個 Bucket policy／project IAM 讀取均 `IAM_DENIED`。[同窗唯讀稽核 #39525668778](https://github.com/tommylin15/janus-omniforge/actions/runs/39525668778) 讀取成功、相關拒絕事件 0；**不能判斷 API 執行身分究竟被 403、限流、資料規格或其它錯誤阻擋**。兩輪皆無 IAM、GCS、Owner mutation，診斷入口用畢移除，不留新 Job／Scheduler。
+- 後續處置限於查明 Stage／Cloud Build 盤點錯誤類型、最小必要修復與一次真人重驗；已 PASS 的 Admin 登入／匿名拒絕／Stage 48h 自然清理不重測。非當次核准的新 IAM 擴權不自行套用。
+
 ### 2026-10-21｜STAGE-48H 每日自然執行只讀驗收
 
 - [GitHub Actions #39523200448](https://github.com/tommylin15/janus-omniforge/actions/runs/39523200448) PASS：WIF 唯讀查 GCP Logs／Cloud Run execution／Scheduler／Controller job 設定。`janus-ingestion-daily` Scheduler `ENABLED`、`30 * * * *`、`Asia/Taipei`；2026-10-20 18:31:32 Controller `tick_completed`，18:33:20 `janus-ingestion-core-qnfjv` `stage-only-retention` apply `PASS`／generation readback `PASS`、Cloud Run execution terminal `PASS`。此輪 Stage **1,025 objects／265,691,880 bytes** 已刪；`FINOPS_WEEKLY_MAINTENANCE=true`。此次讀回無 GCP／Stage mutation，不重跑 Stage 清理。

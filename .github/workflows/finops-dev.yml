@@ -26,7 +26,6 @@ on:
       - 'ops/finops-gcs-hourly-io.json'
       - 'ops/finops-gcs-storage-footprint.json'
       - 'ops/finops-stage-trace.json'
-      - 'ops/finops-stage48-admin-acl-audit.json'
       - 'ops/stage48-api-live-readback.json'
       - 'ops/finops-core-reference-audit.json'
       - 'ops/finops-reference-runtime.json'
@@ -61,7 +60,6 @@ jobs:
             case "$changed" in
               *gcs-storage-footprint*) echo "operation=gcs-storage-footprint" >> "$GITHUB_OUTPUT" ;;
               *stage-trace*) echo "operation=stage-retention-trace" >> "$GITHUB_OUTPUT" ;;
-              *stage48-admin-acl-audit*) echo "operation=stage48-admin-acl-audit" >> "$GITHUB_OUTPUT" ;;
               *stage48-api-live-readback*) echo "operation=stage48-api-live-readback" >> "$GITHUB_OUTPUT" ;;
               *gcs-hourly-io*) echo "operation=gcs-hourly-io" >> "$GITHUB_OUTPUT" ;;
               *core-reference-audit*) echo "operation=core-reference-audit" >> "$GITHUB_OUTPUT" ;;
@@ -118,25 +116,6 @@ jobs:
           jq -e '.intent=="read-only-stage-retention-trace" and .no_gcp_mutation==true' ops/finops-stage-trace.json
       - name: Inspect Stage cleanup receipts and lifecycle metadata
         run: python scripts/gcp/finops_stage_trace.py
-
-  stage48-admin-acl-audit:
-    needs: detect
-    if: needs.detect.outputs.operation == 'stage48-admin-acl-audit'
-    runs-on: ubuntu-latest
-    environment: dev
-    timeout-minutes: 12
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-janus
-        with:
-          install-deps: none
-          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
-      - name: Check bounded read-only audit intent
-        run: |
-          jq -e '.intent=="stage48-admin-readonly-acl" and .no_gcp_mutation==true and .no_owner_mutation==true' ops/finops-stage48-admin-acl-audit.json >/dev/null
-      - name: Inspect API service identity and six bucket IAM roles
-        run: python scripts/gcp/stage48_admin_acl_audit.py
 
   gcs-hourly-io:
     needs: detect
