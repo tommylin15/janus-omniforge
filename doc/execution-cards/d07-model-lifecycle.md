@@ -16,8 +16,8 @@ from google.colab import drive
 drive.mount('/content/drive')
 ```
 ```bash
-!python /content/janus-omniforge/research/colab/collect_tw_equities.py --drive-root '/content/drive/MyDrive/janusChatGPT/資料源' --start 2025-01 --end 2026-09 --revision r1 --max-requests 20 --max-minutes 10 --interval 2
-!python /content/janus-omniforge/research/colab/run_risk_folder_pilot.py --cutoff 2026-03-31 --result '/content/drive/MyDrive/janusChatGPT/資料源/risk-r1-oos.json' /content/drive/MyDrive/janusChatGPT/資料源/2025-*/ /content/drive/MyDrive/janusChatGPT/資料源/2026-*/
+!python /content/janus-omniforge/research/colab/collect_tw_equities.py --drive-root '/content/drive/MyDrive/給ai專用/janusChatGPT/資料源' --start 2025-01 --end 2026-09 --revision r1 --max-requests 20 --max-minutes 10 --interval 2
+!python /content/janus-omniforge/research/colab/run_risk_folder_pilot.py --cutoff 2026-03-31 --result '/content/drive/MyDrive/給ai專用/janusChatGPT/資料源/risk-r1-oos.json' /content/drive/MyDrive/給ai專用/janusChatGPT/資料源/2025-*/ /content/drive/MyDrive/給ai專用/janusChatGPT/資料源/2026-*/
 ```
 這是已有研究試點命令，不是五角色新pipeline已存在；資料夾須有合格manifest且選定同版，實際月份不足時改明確清單。2025以前歷史採集先補程式交易日曆/來源支援再延伸，不僅改start。
 新clean/label/train/export指令與notebook由本工項建立，完成後將真實路徑和測試命令回寫README；不能寫不存在的CLI讓使用者直接貼。
