@@ -1,7 +1,7 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "caca7d383c236425417b582167d26fafbcba3e27",
+  "sha": "0b0a42b608143d62f5241d47c2d25e855949f36b",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Independent read-only OAuth/Owner and unauthenticated Admin GCS denial verification for 0%-traffic API candidate #39356339627 from verified full source #39355867356; preserve original 100% serving traffic until gated rollout."
+  "purpose": "Read-only OAuth and owner/private/MCP and unauthenticated Admin GCS inventory negative gate on accepted API-only zero-traffic dev candidate #39559998708. Do not mutate GCP, traffic, Jobs or Stage."
 }
