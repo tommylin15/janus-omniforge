@@ -86,8 +86,14 @@ def load_monthly_zips(paths: Iterable[str | Path]) -> tuple[pd.DataFrame, list[d
     return merged, provenance
 
 
-def make_risk_panel(prices: pd.DataFrame, horizon: int = HORIZON) -> pd.DataFrame:
-    """Prior-only features at t, matured next-horizon realized RMS return label."""
+def make_risk_panel(prices: pd.DataFrame, horizon: int = HORIZON,
+                    *, market_sessions: dict | None = None) -> pd.DataFrame:
+    """Risk X/Y on full market-session grids; never bridge a stock's missing day.
+
+    Explicit sessions come from the hashed monthly research manifests.  If
+    absent (legacy fixture callers), infer each market's dates from all its
+    observed stocks.  Neither path forward-fills prices, volumes, or labels.
+    """
     if horizon < 2:
         raise ValueError("horizon must be at least 2")
     if any(col not in prices for col in REQUIRED):
@@ -105,18 +111,39 @@ def make_risk_panel(prices: pd.DataFrame, horizon: int = HORIZON) -> pd.DataFram
     if work.duplicated(["symbol", "trade_date"]).any():
         raise ValueError("duplicate research bars")
     work = work.sort_values(["symbol", "trade_date"]).reset_index(drop=True)
+    grids = {}
+    for market in work["market"].unique():
+        observed = pd.DatetimeIndex(work.loc[work["market"] == market, "trade_date"].unique()).sort_values()
+        if market_sessions is None:
+            grid = observed
+        else:
+            if market not in market_sessions:
+                raise ValueError(f"{market} official market sessions missing")
+            grid = pd.DatetimeIndex(pd.to_datetime(market_sessions[market]))
+            if not grid.is_monotonic_increasing or grid.has_duplicates or len(grid) == 0:
+                raise ValueError(f"{market} market sessions not ordered or unique")
+            if len(observed.difference(grid)):
+                raise ValueError(f"{market} price outside evidenced trading sessions")
+        grids[market] = grid
+
     output = []
-    for (_, _), g in work.groupby(["symbol", "market"], sort=False):
-        g = g.copy().reset_index(drop=True)
+    for (symbol, market), g in work.groupby(["symbol", "market"], sort=False):
+        g = g.set_index("trade_date").reindex(grids[market]).rename_axis("trade_date").reset_index()
+        g["symbol"] = symbol
+        g["market"] = market
         ret = np.log(g["close"] / g["close"].shift(1))
         g["vol20"] = ret.pow(2).rolling(20, min_periods=20).mean().pow(.5) * math.sqrt(252)
         g["vol60"] = ret.pow(2).rolling(60, min_periods=60).mean().pow(.5) * math.sqrt(252)
         g["drawdown60"] = g["close"] / g["close"].rolling(60, min_periods=60).max() - 1.0
         g["abs_return5"] = (g["close"] / g["close"].shift(5) - 1.0).abs()
         g["volume_ratio20"] = g["volume"] / g["volume"].shift(1).rolling(20, min_periods=20).mean().replace(0, np.nan)
-        # At index t, the following shift aligns returns t+1 ... t+horizon.
+        # At t, label returns are t+1 ... t+H; missing sessions imply NaN.
         g["target_fwd_vol20"] = (ret.shift(-1).pow(2).rolling(horizon, min_periods=horizon).mean().shift(-(horizon - 1))).pow(.5) * math.sqrt(252)
         g["label_matures_on"] = g["trade_date"].shift(-horizon)
+        # Screening is a research-only sensitivity, NOT proof of a split.
+        shock = (ret.abs() > math.log(1.35)).astype(float)
+        g["unverified_shock_feature"] = shock.rolling(60, min_periods=60).max()
+        g["unverified_shock_label"] = shock.shift(-1).rolling(horizon, min_periods=horizon).max().shift(-(horizon - 1))
         output.append(g)
     return pd.concat(output, ignore_index=True)
 
