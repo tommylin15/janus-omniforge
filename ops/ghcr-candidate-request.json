@@ -1,11 +1,11 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "caca7d383c236425417b582167d26fafbcba3e27",
+  "sha": "01ea9a62880b394d581f7727fe27280f457dae1e",
   "digest": "",
-  "release_run": "39355867356",
+  "release_run": "39559241673",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Release #39355867356 full Python + Flutter + four pinned GHCR images PASS; stage lease-aware 48-hour cleanup and removed legacy Mart retrain contract. Create existing dev API 0% candidate without traffic mutation; verify public/OAuth negative gate before four Jobs update."
+  "purpose": "STAGE-48H existing dev Admin six-bucket MB + grouped format release #39559241673 PASS. Immutable public GHCR API only to existing zero-traffic revision, preserve current API 100%; no Jobs, IAM or storage mutation."
 }
