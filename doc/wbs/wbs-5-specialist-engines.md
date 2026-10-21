@@ -3,7 +3,7 @@
 更新：2026-10-20。唯一研究資料契約：[官方歷史行情→Colab→Drive每月資料夾](../spec/research-collection-gas-drive-colab.md)；五角色輸出：[Specialist SPEC](../spec/specialist-engines.md)；唯一工作狀態：[TODO](../todo.md)。舊 B5～B8 Core/BQ/Cloud Run 訓練路徑不再是本 WBS。
 
 ## D07-PRE：資料與舊路線退役
-1. Colab 直接抓 TWSE／TPEx 官方歷史整市場每日行情，採現行普通股公司名冊白名單（歷史下市股票缺口標 PROBE），股票母體為 TWSE/TPEx 普通股、ETF 排除；每市場×資料集×月 ≥70% 才標研究資料完整。只盤點目前持股/觀察股的公開欄位與有效值，時間欄位貼標但不阻擋第一輪採集。
+1. Colab 直接抓 TWSE／TPEx 官方歷史整市場每日行情，採現行普通股公司名冊白名單（歷史下市股票缺口標 PROBE），股票母體為 TWSE/TPEx 普通股、ETF 排除；每市場×資料集×月上市 ≥90%、上櫃 ≥70% 才可標記當前名冊的研究資料涵蓋達標（仍為 PROBE，不宣稱 PIT）。只盤點目前持股/觀察股的公開欄位與有效值，時間欄位貼標但不阻擋第一輪採集。
 2. 私有 Drive `janusChatGPT/資料源/YYYY-MM/`，OHLCV 先以壓縮 CSV、universe、quality、manifest 存放；其他資料集按取得授權續補，各資料有 source/SHA、限流及 checkpoint，不填不存在的資料。
 3. 舊 specialist-retrain／GCP／BQ研究路線已於2026-10-20依實機收據結案，不重開；只保留archive追溯。
 
@@ -13,7 +13,7 @@
 - Valuation：PE／PB 河流、殖利率、財報估值因子。
 - Fundamental：月營收、EPS、淨利與財務品質。
 - Event：來源公告與事件修訂；沒有合格人審標籤／使用許可時保留規則，不訓練分類器。
-- Colab 人工執行各自 baseline／challenger／成熟標籤 OOS、回測防 future leakage 與 hash／版本。資料達70%不是模型可發布的證據；各角色獨立 promotion。
+- Colab 人工執行各自 baseline／challenger／成熟標籤 OOS、回測防 future leakage 與 hash／版本。資料達上市90%／上櫃70%不是模型可發布的證據；各角色獨立 promotion。
 - Janus Mart 只做已驗證 model artifact 的接收、驗證、版本、推論、rollback；不在 Cloud Run/BQ fit 模型。
 
 ## 正式服務不受研究重構影響
