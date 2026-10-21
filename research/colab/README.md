@@ -61,6 +61,8 @@ janusChatGPT/資料源/
   /content/drive/MyDrive/給ai專用/janusChatGPT/資料源/2026-*/
 ```
 
+Risk 資料讀取器現在依每月 `manifest`／`quality`／原始 OHLCV 與名冊交叉驗證，按上市普通股 TWSE ≥90%、上櫃普通股 TPEx ≥70%（月度股票數與交易日有效股票筆數兩項皆達標）決定是否進入研究；缺日不可填零。這是現行普通股名冊下的 **PROBE 研究准入**，不改寫不可變的 `r1`、不補造歷史下市股、不代表 PIT 認證或模型 promotion。
+
 在同一 revision 的月份資料夾中只可有一個 `manifest-rN.json`；新增 r2 並存時，執行前先選定 revision 或另行指定目錄清單。Risk 仍以歷史20日波動 baseline 對 Ridge challenger，採成熟標籤、cutoff 分割及 OOS，不會自動上線／回寫正式 Janus。模型有效性與真實收據需由 Colab 實跑產生；GitHub 的 fixture tests 只證明解析與封存控制。
 
 本地：`PYTHONPATH=. python -m pytest -q tests/test_collect_tw_equities.py tests/test_research_risk_pilot.py`。
