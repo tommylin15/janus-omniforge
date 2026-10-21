@@ -8,5 +8,6 @@
     "2026-10-20T13:00:00Z"
   ],
   "scope": "STAGE48_NATURAL_20261020",
-  "attempt": 2
+  "attempt": 3,
+  "recheck": "controller-tick-and-scheduler-metadata-readonly"
 }
