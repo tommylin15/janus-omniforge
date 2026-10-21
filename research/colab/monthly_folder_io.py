@@ -10,6 +10,44 @@ from typing import Iterable
 import pandas as pd
 
 
+# First-stage research admission by ordinary-stock *snapshot* coverage.
+# This is not historical PIT certification or a model promotion decision.
+MIN_RESEARCH_COVERAGE = {"twse": 0.90, "tpex": 0.70}
+
+
+def assess_monthly_ordinary_stock_coverage(quality: dict, universe: pd.DataFrame,
+                                           bars: pd.DataFrame) -> dict:
+    """Check separately by market without inventing missing stocks or prices.
+
+    Denominator: current ordinary-stock roster snapshot. Numerator: distinct
+    symbols with >=1 observed bar in the month. Historical delistings remain
+    unknown, so accepted data stays research-only / non-PIT.
+    """
+    report = {}
+    counts = quality.get('market_counts')
+    if not isinstance(counts, dict):
+        raise ValueError('monthly market coverage evidence missing')
+    for market, minimum in MIN_RESEARCH_COVERAGE.items():
+        denominator = int(universe['market'].eq(market).sum())
+        observed = int(bars.loc[bars['market'].eq(market), 'symbol'].nunique())
+        if denominator <= 0:
+            raise ValueError(f'{market} ordinary-stock roster empty')
+        fraction = observed / denominator
+        saved = counts.get(market)
+        if (not isinstance(saved, dict)
+                or saved.get('snapshot_symbols') != denominator
+                or saved.get('symbols_with_bars') != observed
+                or abs(float(saved.get('observed_ratio', -1)) - fraction) > 1e-9):
+            raise ValueError(f'{market} published coverage evidence disagrees with OHLCV/roster')
+        report[market] = {'observed_symbols': observed, 'snapshot_symbols': denominator,
+                          'observed_ratio': fraction, 'minimum': minimum,
+                          'passes': fraction >= minimum}
+    if not all(x['passes'] for x in report.values()):
+        raise ValueError('ordinary-stock research coverage below 90% TWSE / 70% TPEx')
+    return {'status': 'RESEARCH_COVERAGE_ACCEPTED_NOT_PIT_CERTIFIED',
+            'basis': 'CURRENT_MASTER_ONLY', 'markets': report}
+
+
 def load_monthly_folders(folders: Iterable[str | Path]) -> tuple[pd.DataFrame, list[dict]]:
     frames = []
     provenance = []
@@ -54,13 +92,15 @@ def load_monthly_folders(folders: Iterable[str | Path]) -> tuple[pd.DataFrame, l
             match = df.merge(universe[['symbol', 'market']], on=['symbol', 'market'], how='left', indicator=True)
             if not (match['_merge'] == 'both').all():
                 raise ValueError('research row outside official company roster')
+        coverage = assess_monthly_ordinary_stock_coverage(quality, universe, df)
         df['source_month'] = month
         df['source_archive_sha256'] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
         frames.append(df)
         provenance.append({'archive': str(directory), 'month': month,
                            'sha256': df['source_archive_sha256'].iloc[0] if not df.empty else hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
                            'quality_status': quality['status'],
-                           'historical_survivorship': quality.get('historical_survivorship', 'UNKNOWN')})
+                           'historical_survivorship': quality.get('historical_survivorship', 'UNKNOWN'),
+                           'research_coverage': coverage})
     if not frames:
         raise ValueError('no monthly research folders')
     combined = pd.concat(frames, ignore_index=True)
