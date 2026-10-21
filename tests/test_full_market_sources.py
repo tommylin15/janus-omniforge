@@ -42,6 +42,9 @@ def test_tpex_institutional_uses_requested_day_and_preserves_duplicate_column_gr
         urls.append(url)
         return json.dumps(document).encode()
     adapter = dataset_adapters(transport)['tpex-institutional']
+    # Snapshot-only source: fixture clock must not drift with wall time.
+    from datetime import datetime, timezone
+    adapter.clock = lambda: datetime(2026, 10, 13, 15, 0, tzinfo=timezone.utc)
     request = CollectionRequest('test', 'test', 'tpex', 'institutional', 'TPEX',
                                 ('6488',), None, date(2026, 10, 13), 30)
     rows = adapter.fetch(request).rows
