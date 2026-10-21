@@ -346,3 +346,35 @@ def test_research_ordinary_stock_coverage_thresholds_and_provenance():
     with pytest.raises(ValueError, match='disagrees'):
         assess_monthly_ordinary_stock_coverage(quality, universe, bars.iloc[:-1])
 
+
+
+def test_market_stock_day_coverage_rejects_sparse_bars_even_with_monthly_symbol_presence():
+    import pandas as pd
+    from research.colab.monthly_folder_io import assess_monthly_ordinary_stock_coverage
+    roster = pd.DataFrame([
+        {'symbol': str(1000 + i), 'market': 'twse'} for i in range(10)
+    ] + [
+        {'symbol': str(2000 + i), 'market': 'tpex'} for i in range(10)
+    ])
+    daily = pd.DataFrame([
+        {'symbol': str(1000 + i), 'market': 'twse'} for i in range(9)
+    ] + [
+        {'symbol': str(2000 + i), 'market': 'tpex'} for i in range(7)
+    ])
+    bars = pd.concat([daily] * 10, ignore_index=True)
+    manifest = {'source_daily_sha256': [{'status': 'COLLECTED'}] * 20}
+    quality = {'market_counts': {
+        'twse': {'snapshot_symbols': 10, 'symbols_with_bars': 9, 'observed_ratio': .9},
+        'tpex': {'snapshot_symbols': 10, 'symbols_with_bars': 7, 'observed_ratio': .7},
+    }}
+    status = assess_monthly_ordinary_stock_coverage(quality, roster, bars, manifest)
+    assert status['markets']['twse']['stock_day_ratio'] == pytest.approx(.9)
+    assert status['markets']['tpex']['stock_day_ratio'] == pytest.approx(.7)
+    # Every ordinary stock still has a bar this month, but one trading-day
+    # observation vanished; monthly-presence alone must not pass.
+    twse_sparse = bars.drop(index=bars[bars['market'] == 'twse'].index[0])
+    with pytest.raises(ValueError, match='below 90% TWSE / 70% TPEx'):
+        assess_monthly_ordinary_stock_coverage(quality, roster, twse_sparse, manifest)
+    tpex_sparse = bars.drop(index=bars[bars['market'] == 'tpex'].index[0])
+    with pytest.raises(ValueError, match='below 90% TWSE / 70% TPEx'):
+        assess_monthly_ordinary_stock_coverage(quality, roster, tpex_sparse, manifest)
