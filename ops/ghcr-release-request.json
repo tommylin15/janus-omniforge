@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "7946026ba41754365d92a7b8c42406054fb8a799",
-  "purpose": "STAGE-48H Admin six-bucket MB grouped presentation (two decimal MB, thousands separator, unknown guarded) with bounded failure-code visibility. Full Python/Flutter tests and immutable GHCR images; no GCP/IAM/storage mutation from image publishing.",
+  "sha": "01ea9a62880b394d581f7727fe27280f457dae1e",
+  "purpose": "Deploy existing Janus dev six-bucket Admin storage UI with decimal MB/two decimals/thousands separators on all storage cards. Full Python, Flutter, four immutable GHCR images, followed by guarded API-only candidate and 100% dev promotion; no Stage/Jobs trigger, no new paid resources or IAM mutation.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
