@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import pandas as pd
 from pathlib import Path
 
 from monthly_folder_io import load_monthly_folders
@@ -34,6 +35,24 @@ def main() -> None:
         'publication_allowed': False,
     }
     result['official_market_sessions'] = {market: len(dates) for market, dates in market_sessions.items()}
+    # Diagnostic walk-forward quarters: fixed cutoffs, no test-period tuning.
+    # These are retrospective diagnostics, not a never-observed holdout.
+    fold_bounds = [('2025-09-30', '2025-12-31'),
+                   ('2025-12-31', '2026-03-31'),
+                   ('2026-03-31', '2026-06-30'),
+                   ('2026-06-30', '2026-08-31')]
+    result['walk_forward_diagnostic_folds'] = []
+    for cutoff, end in fold_bounds:
+        if panel['trade_date'].min() > pd.Timestamp(cutoff) or panel['trade_date'].max() < pd.Timestamp(end):
+            continue
+        fold = evaluate_risk_pilot(panel, cutoff, oos_end=end)
+        result['walk_forward_diagnostic_folds'].append({
+            'train_cutoff': fold['cutoff'], 'oos_end': end,
+            'train_rows': fold['train_rows'], 'oos_rows': fold['oos_rows'],
+            'oos_unique_dates': fold['oos_unique_dates'],
+            'train_latest_label_maturity': fold['train_latest_label_maturity'],
+            'oos_latest_label_maturity': fold['oos_latest_label_maturity'],
+            'metrics': fold['metrics'], 'candidate_beats_baseline_mae': fold['candidate_beats_baseline_mae']})
     result['sources'] = sources
     result['historical_survivorship'] = 'CURRENT_MASTER_ONLY_NOT_PIT'
     result['publication_allowed'] = False
