@@ -4,6 +4,8 @@
 
 ## 1. Google Colab 一次設定
 
+本專案使用者的單一 Drive 根目錄在 `MyDrive/給ai專用/janusChatGPT`；Colab `--drive-root` 固定指向 `/content/drive/MyDrive/給ai專用/janusChatGPT/資料源`，不得改回 MyDrive 直下的舊範例。若 Google Drive 資料夾再次移動，先實際確認掛載後路徑，再調整執行命令；既有 `r1`、已封存月份與 checkpoint 不因路徑修正重抓。
+
 在 [Colab](https://colab.research.google.com/) 建立個人的 notebook，手動授權掛載 Drive，再執行：
 
 ```python
@@ -19,7 +21,7 @@ drive.mount('/content/drive')
 
 ```bash
 !python janus-omniforge/research/colab/collect_tw_equities.py \
-  --drive-root '/content/drive/MyDrive/janusChatGPT/資料源' \
+  --drive-root '/content/drive/MyDrive/給ai專用/janusChatGPT/資料源' \
   --start 2025-01 --end 2026-09 --revision r1 \
   --max-requests 20 --max-minutes 10 --interval 2
 ```
@@ -54,9 +56,9 @@ janusChatGPT/資料源/
 
 ```bash
 !python janus-omniforge/research/colab/run_risk_folder_pilot.py \
-  --cutoff 2026-03-31 --result '/content/drive/MyDrive/janusChatGPT/資料源/risk-r1-oos.json' \
-  /content/drive/MyDrive/janusChatGPT/資料源/2025-*/ \
-  /content/drive/MyDrive/janusChatGPT/資料源/2026-*/
+  --cutoff 2026-03-31 --result '/content/drive/MyDrive/給ai專用/janusChatGPT/資料源/risk-r1-oos.json' \
+  /content/drive/MyDrive/給ai專用/janusChatGPT/資料源/2025-*/ \
+  /content/drive/MyDrive/給ai專用/janusChatGPT/資料源/2026-*/
 ```
 
 在同一 revision 的月份資料夾中只可有一個 `manifest-rN.json`；新增 r2 並存時，執行前先選定 revision 或另行指定目錄清單。Risk 仍以歷史20日波動 baseline 對 Ridge challenger，採成熟標籤、cutoff 分割及 OOS，不會自動上線／回寫正式 Janus。模型有效性與真實收據需由 Colab 實跑產生；GitHub 的 fixture tests 只證明解析與封存控制。
