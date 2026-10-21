@@ -76,8 +76,31 @@ def main() -> None:
                         if member in p.get("members", []) and isinstance(p.get("role"), str)})
         rows.append({"bucket": bucket, "iam_policy_read": status,
                      "direct_api_sa_roles": roles})
+    # Check only metadata of denied calls at the user-observed scan time.
+    # Audit logs may be unavailable when Data Access logging is disabled.
+    filter_expr = (
+        'timestamp>="2026-10-21T01:00:00Z" AND '
+        'timestamp<="2026-10-21T01:05:30Z" AND '
+        'protoPayload.authenticationInfo.principalEmail="' + principal + '" AND '
+        'protoPayload.status.code=7'
+    )
+    audit, audit_status = read("gcloud", "logging", "read", filter_expr,
+                                "--project=" + PROJECT, "--limit=100", "--format=json")
+    denied = []
+    if isinstance(audit, list):
+        for entry in audit:
+            p = entry.get("protoPayload") or {}
+            resource = (p.get("resourceName") or "")
+            if not isinstance(resource, str):
+                continue
+            bucket = next((name for name in BUCKETS if name in resource), None)
+            if bucket:
+                denied.append({"bucket": bucket,
+                               "method": (p.get("methodName") or "")[:120],
+                               "code": (p.get("status") or {}).get("code")})
     print(json.dumps({"component": "stage48-admin-acl-readonly", "status": "OBSERVED",
-                      "api_sa": principal, "project_iam_read": project_status,
+                      "api_sa": principal, "audit_log_read": audit_status,
+                      "denied_events": denied[:40], "project_iam_read": project_status,
                       "project_api_sa_roles": project_roles, "buckets": rows,
                       "writes": 0, "bucket_payload_get": 0}, sort_keys=True))
 

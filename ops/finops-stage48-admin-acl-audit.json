@@ -3,5 +3,6 @@
   "project": "gen-lang-client-0593591102",
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
-  "scope": "six existing GCS buckets and deployed Janus API service account IAM readback only"
+  "scope": "Existing six bucket IAM (may be denied), API identity and sanitized recent GCS denied audit records, readonly",
+  "attempt": 2
 }
