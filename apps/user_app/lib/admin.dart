@@ -1602,9 +1602,9 @@ class _AdminGovernancePageState extends State<AdminGovernancePage> {
                       title: Text('${row['layer']}'),
                       subtitle: Text(
                         '保留 ${row['retention'] ?? '未定義'}\n最後維護 ${row['maintenance_at'] ?? '未知'}\n'
-                        '有效物件 ${row['live_objects'] ?? '未知'} · 有效 bytes ${row['active_bytes'] ?? '未知'}\n'
-                        '非當前版本 bytes ${row['noncurrent_bytes'] ?? '未知'} · soft-deleted bytes ${row['soft_deleted_bytes'] ?? '未知'}\n'
-                        '計費 bytes ${row['billable_bytes'] ?? '未知'}',
+                        '有效物件 ${formatAdminStorageCount(row['live_objects'])} 件 · 有效 ${formatAdminStorageMb(row['active_bytes'])}\n'
+                        '非當前版本 ${formatAdminStorageMb(row['noncurrent_bytes'])} · soft-deleted ${formatAdminStorageMb(row['soft_deleted_bytes'])}\n'
+                        '計費容量 ${formatAdminStorageMb(row['billable_bytes'])}',
                       ),
                     ),
                   ),
