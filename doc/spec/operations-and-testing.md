@@ -1,5 +1,11 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-21｜STAGE-48H Admin MB 版本正式 dev API 切流 PASS
+
+- **原始碼與完整測試**：最新 UI 容量全以十進位 MB／兩位小數／千分位呈現、物件數千分位，NULL 保留未知；Stage、Core、Mart、Private、Research、Cloud Build 六桶、Stage MD5 容量以及儲存維護下方 retention 卡片皆一致。來源 commit `01ea9a62880b394d581f7727fe27280f457dae1e`，封裝 GHCR immutable image source `0b0a42b608143d62f5241d47c2d25e855949f36b`。[完整 Release #39559241673](https://github.com/tommylin15/janus-omniforge/actions/runs/39559241673) Python、Flutter、四映像／registry readback PASS。
+- **既有 dev 受控發布**：[0% API candidate #39559998708](https://github.com/tommylin15/janus-omniforge/actions/runs/39559998708) PASS；[OAuth／Owner／MCP／Admin 未登入負向驗收 #39560189398](https://github.com/tommylin15/janus-omniforge/actions/runs/39560189398) PASS；[API-only 正式流量、回滾演練及版本讀回 #39560369519](https://github.com/tommylin15/janus-omniforge/actions/runs/39560369519) **PASS**，新固定 digest revision 唯一 100% dev API，演練新→舊→新、兩 health 200、build-id source SHA 正確、private 未登入401、部署 lease 釋放。發布流程沒有重跑 Stage 清理、沒有修改 Scheduler／四支 Jobs／IAM／GCS 物件。
+- **尚待使用者正向 Admin 實機讀回**：此前登入截圖的 `PARTIAL_NOT_TOTAL` 與 Stage／Cloud Build `BLOCKED` 是舊版觀測，不得用 CI 身分的六桶全 `OBSERVED` 假充正式 API 的六桶成功。請到正式 dev App Admin → 資料品質 → 儲存維護再按一次盤點，取得六桶全 `OBSERVED` 與總容量；若仍 BLOCKED，以新版安全的 HTTP status／failure_step 定向查原因。STAGE-48H 目前 **PARTIAL**，不可標 CLOSED。
+
 ### 2026-10-21｜Admin 六桶真人正向操作：功能 PASS／盤點 PARTIAL
 
 - 使用者本人 2026-10-21 手機已登入 Janus Admin「資料品質 → 儲存維護」，按「一鍵盤點 GCS 六桶容量」後取得盤點時間 `2026-10-21T01:02:17Z`。正向登入與操作 **USER_CONFIRMED_POSITIVE_PASS**；畫面顯示 `PARTIAL_NOT_TOTAL`、`Stage BLOCKED`、`Cloud Build BLOCKED`，其它桶是否全部成功未由截圖逐桶證明；系統未虛構合計，`totals=null` 行為正確。六桶完整數值 **PARTIAL**，STAGE-48H 整包不冒充全 PASS。
