@@ -37,7 +37,7 @@ class _ShellApi implements AdminApi {
       return <String, dynamic>{
         'status': 'KNOWN_BUCKETS_COMPLETE',
         'observed_at_utc': '2026-10-20T00:00:00Z',
-        'totals': <String, dynamic>{'current_bytes': 250, 'current_objects': 2},
+        'totals': <String, dynamic>{'current_bytes': 250, 'current_objects': 2, 'noncurrent_bytes': 0, 'soft_deleted_bytes': 0},
         'buckets': <Map<String, dynamic>>[
           {'role': 'stage', 'status': 'OBSERVED', 'current_bytes': 100,
            'current_objects': 1, 'noncurrent_bytes': 0, 'soft_deleted_bytes': 0,
@@ -139,8 +139,8 @@ void main() {
     await tester.tap(button);
     await tester.pumpAndSettle();
     expect(find.textContaining('KNOWN_BUCKETS_COMPLETE'), findsOneWidget);
-    expect(find.textContaining('六桶 current：250 bytes'), findsOneWidget);
-    expect(find.textContaining('MD5 疑似重複 0 bytes（不可直接刪除）'), findsOneWidget);
+    expect(find.textContaining('六桶合計：0.00 MB'), findsOneWidget);
+    expect(find.textContaining('MD5 疑似重複 0.00 MB（不可直接刪除）'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -170,4 +170,19 @@ void main() {
             .destinations,
         hasLength(4));
   });
+  test('Admin GCS MB presentation groups amounts without fabricating nulls', () {
+    expect(formatAdminStorageMb(785411117), '785.41 MB');
+    expect(formatAdminStorageMb(1234567890), '1,234.57 MB');
+    expect(formatAdminStorageMb(0), '0.00 MB');
+    expect(formatAdminStorageMb(null), '未知');
+    expect(formatAdminStorageCount(1234567), '1,234,567');
+    expect(formatAdminStorageCount(null), '未知');
+    expect(adminStorageTotalBytes({
+      'current_bytes': 782661499, 'noncurrent_bytes': 2749618, 'soft_deleted_bytes': 0
+    }), 785411117);
+    expect(adminStorageTotalBytes({
+      'current_bytes': 10, 'noncurrent_bytes': null, 'soft_deleted_bytes': 0
+    }), isNull);
+  });
+
 }

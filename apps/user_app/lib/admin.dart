@@ -6,6 +6,32 @@ import 'admin_analysis.dart';
 import 'usage.dart';
 import 'admin_usage.dart';
 
+/// Admin-only decimal MB formatting. Missing byte counts stay unknown.
+String formatAdminStorageMb(Object? bytes) {
+  if (bytes is! num || !bytes.isFinite || bytes < 0) return '未知';
+  final parts = (bytes / 1000000).toStringAsFixed(2).split(".");
+  return '${_groupAdminDigits(parts[0])}.${parts[1]} MB';
+}
+
+String formatAdminStorageCount(Object? count) => count is int && count >= 0
+    ? _groupAdminDigits(count.toString()) : '未知';
+
+String _groupAdminDigits(String digits) {
+  final out = StringBuffer();
+  for (var i = 0; i < digits.length; ++i) {
+    if (i > 0 && (digits.length - i) % 3 == 0) out.write(',');
+    out.write(digits[i]);
+  }
+  return out.toString();
+}
+
+int? adminStorageTotalBytes(Object? totals) {
+  if (totals is! Map) return null;
+  final values = [totals['current_bytes'], totals['noncurrent_bytes'], totals['soft_deleted_bytes']];
+  if (values.any((v) => v is! int || v < 0)) return null;
+  return values.cast<int>().reduce((a, b) => a + b);
+}
+
 abstract class AdminApi {
   Future<dynamic> get(String path);
   Future<dynamic> post(String path, Map<String, dynamic> body);
@@ -1549,8 +1575,9 @@ class _AdminGovernancePageState extends State<AdminGovernancePage> {
                           Text('狀態：${gcsScan!['status']} · 盤點時間：${gcsScan!['observed_at_utc'] ?? '未知'}'),
                           Text(gcsScan!['totals'] == null
                               ? '結果不完整，不計算六桶總量'
-                              : '六桶 current：${(gcsScan!['totals'] as Map)['current_bytes']} bytes'
-                                ' · 物件：${(gcsScan!['totals'] as Map)['current_objects']}'),
+                              : '六桶合計：${formatAdminStorageMb(adminStorageTotalBytes(gcsScan!['totals']))}'
+                                ' · current：${formatAdminStorageMb((gcsScan!['totals'] as Map)['current_bytes'])}'
+                                ' · 物件：${formatAdminStorageCount((gcsScan!['totals'] as Map)['current_objects'])} 件'),
                           for (final item in (gcsScan!['buckets'] as List<dynamic>? ?? const []))
                             ListTile(
                               dense: true,
@@ -1558,11 +1585,11 @@ class _AdminGovernancePageState extends State<AdminGovernancePage> {
                                   '${item['http_status'] is int ? ' · HTTP ${item['http_status']}' : ''}'
                                   '${item['failure_step'] is String ? ' · ${item['failure_step']}' : ''}'),
                               subtitle: Text(
-                                  'current ${item['current_bytes'] ?? '未知'} bytes'
-                                  ' ／ ${item['current_objects'] ?? '未知'} 件\n'
-                                  '歷史版本 ${item['noncurrent_bytes'] ?? '未知'} bytes'
-                                  ' · soft-deleted ${item['soft_deleted_bytes'] ?? '未知'} bytes'
-                                  '${item['role'] == 'stage' ? ' · MD5 疑似重複 ${item['possible_same_md5_extra_bytes'] ?? '未知'} bytes（不可直接刪除）' : ''}'),
+                                  'current ${formatAdminStorageMb(item['current_bytes'])}'
+                                  ' ／ ${formatAdminStorageCount(item['current_objects'])} 件\n'
+                                  '歷史版本 ${formatAdminStorageMb(item['noncurrent_bytes'])}'
+                                  ' · soft-deleted ${formatAdminStorageMb(item['soft_deleted_bytes'])}'
+                                  '${item['role'] == 'stage' ? ' · MD5 疑似重複 ${formatAdminStorageMb(item['possible_same_md5_extra_bytes'])}（不可直接刪除）' : ''}'),
                             ),
                         ],
                       ],

@@ -136,7 +136,7 @@ Admin 後續至少管理：
 
 ### GCS 六桶一鍵唯讀盤點（STAGE-48H）
 
-- 在既有四頁 Admin 的「資料品質 → 儲存維護」以單一按鈕呼叫 `POST /api/v1/admin/gcs-storage/inspect`；後端每次驗證 Admin token，使用既有服務身分讀 GCS metadata（no payload GET，不觸發清理）。前端顯示六個固定 Bucket 的 current objects／bytes、noncurrent bytes、soft-deleted bytes、Stage MD5 疑似重複量、查詢時間與部分成功原因。
+- 在既有四頁 Admin 的「資料品質 → 儲存維護」以單一按鈕呼叫 `POST /api/v1/admin/gcs-storage/inspect`；後端每次驗證 Admin token，使用既有服務身分讀 GCS metadata（no payload GET，不觸發清理）。前端顯示六個固定 Bucket 的 current objects／bytes、noncurrent bytes、soft-deleted bytes、Stage MD5 疑似重複量、查詢時間與部分成功原因。容量以十進位 MB（1 MB＝1,000,000 bytes）呈現、保留兩位小數、加千分位；物件數也加千分位，缺值不補零。六桶合計包含 current／noncurrent／soft-deleted，僅六桶全部完成時呈現。
 - **固定 allowlist 六桶**（Stage、Core、Mart、Private、Research、Cloud Build），後端限制 GCS metadata 頁數與同一 instance 同時掃描數，HTTP 有 timeout；未授權/缺 IAM 會明確返回 blocked／partial，不隱瞞失敗也不補零。Bucket 清單不開放由前端指定，私人資料名稱、hash、payload、Owner 關係皆不得返回。
 - 若六桶未全數掃描成功，`totals=null`；成功狀態僅 `KNOWN_BUCKETS_COMPLETE`，不視為整個 project 的費用帳單／所有 Bucket 完整。Admin 僅為**查詢**，沒有「一鍵刪除」。正式啟用需 API 與 Flutter 同 SHA release、Admin OAuth 負向驗證及至少一次有授權 GCS live readback。
 - 不新增 API key、付費資源或 GCS 控制平面。缺少 Storage metadata 最小唯讀權限時標 BLOCKED，不自行擴張其他 IAM。
