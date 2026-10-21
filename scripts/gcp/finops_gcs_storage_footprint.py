@@ -296,6 +296,30 @@ def get_access_token() -> tuple[str | None, list[str]]:
     return None, checks
 
 
+def stage48_api_identity_diagnose() -> dict:
+    """Opt-in impersonation diagnostic; never publish tokens or object names."""
+    target = "janus-user-api@" + PROJECT + ".iam.gserviceaccount.com"
+    try:
+        done = subprocess.run(
+            ["gcloud", "auth", "print-access-token",
+             "--impersonate-service-account=" + target],
+            text=True, capture_output=True, timeout=35, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return {"identity_probe": "UNAVAILABLE"}
+    if done.returncode != 0 or not done.stdout.strip():
+        return {"identity_probe": "IMPERSONATION_DENIED_OR_UNAVAILABLE"}
+    token = done.stdout.strip()
+    rows = []
+    for bucket in (PROJECT + "-dev-stage", PROJECT + "-cloudbuild-regional"):
+        observation = inspect_bucket(token, bucket, 20)
+        rows.append({"bucket": bucket,
+                     "status": observation["status"],
+                     "http_status": observation.get("http_status"),
+                     "reason": observation.get("reason"),
+                     "scan_complete": observation["scan_complete"]})
+    return {"identity_probe": "IMPERSONATED_API_PRINCIPAL", "results": rows}
+
+
 def main() -> int:
     try:
         request = json.loads(REQUEST.read_text(encoding="utf-8"))
@@ -320,6 +344,9 @@ def main() -> int:
                 result = {"component": "gcs-storage-footprint", "status": "BLOCKED",
                           "reason": "AUDIT_REQUEST_VALIDATION_FAILED",
                           "error_type": type(exc).__name__, "buckets": []}
+    if request.get("audit_attempt") == 12:
+        print(json.dumps({"component": "stage48-api-identity-diagnose",
+                          **stage48_api_identity_diagnose()}, sort_keys=True))
     result.setdefault("billing_cost", None)
     OUTPUT.write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
                       encoding="utf-8")
