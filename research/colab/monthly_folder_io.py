@@ -16,7 +16,7 @@ MIN_RESEARCH_COVERAGE = {"twse": 0.90, "tpex": 0.70}
 
 
 def assess_monthly_ordinary_stock_coverage(quality: dict, universe: pd.DataFrame,
-                                           bars: pd.DataFrame) -> dict:
+                                           bars: pd.DataFrame, manifest: dict | None = None) -> dict:
     """Check separately by market without inventing missing stocks or prices.
 
     Denominator: current ordinary-stock roster snapshot. Numerator: distinct
@@ -39,9 +39,23 @@ def assess_monthly_ordinary_stock_coverage(quality: dict, universe: pd.DataFrame
                 or saved.get('symbols_with_bars') != observed
                 or abs(float(saved.get('observed_ratio', -1)) - fraction) > 1e-9):
             raise ValueError(f'{market} published coverage evidence disagrees with OHLCV/roster')
+        stock_day_ratio = None
+        if manifest is not None:
+            statuses = manifest.get('source_daily_sha256', [])
+            if not statuses or len(statuses) % 2:
+                raise ValueError('month market-session provenance invalid')
+            half = len(statuses) // 2
+            part = statuses[:half] if market == 'twse' else statuses[half:]
+            sessions = sum(row.get('status') == 'COLLECTED' for row in part)
+            if sessions <= 0:
+                raise ValueError(f'{market} trading sessions not evidenced')
+            actual_bars = int(bars['market'].eq(market).sum())
+            stock_day_ratio = actual_bars / (sessions * denominator)
         report[market] = {'observed_symbols': observed, 'snapshot_symbols': denominator,
                           'observed_ratio': fraction, 'minimum': minimum,
-                          'passes': fraction >= minimum}
+                          'stock_day_ratio': stock_day_ratio,
+                          'passes': fraction >= minimum
+                          and (stock_day_ratio is None or stock_day_ratio >= minimum)}
     if not all(x['passes'] for x in report.values()):
         raise ValueError('ordinary-stock research coverage below 90% TWSE / 70% TPEx')
     return {'status': 'RESEARCH_COVERAGE_ACCEPTED_NOT_PIT_CERTIFIED',
@@ -92,7 +106,7 @@ def load_monthly_folders(folders: Iterable[str | Path]) -> tuple[pd.DataFrame, l
             match = df.merge(universe[['symbol', 'market']], on=['symbol', 'market'], how='left', indicator=True)
             if not (match['_merge'] == 'both').all():
                 raise ValueError('research row outside official company roster')
-        coverage = assess_monthly_ordinary_stock_coverage(quality, universe, df)
+        coverage = assess_monthly_ordinary_stock_coverage(quality, universe, df, manifest)
         df['source_month'] = month
         df['source_archive_sha256'] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
         frames.append(df)
