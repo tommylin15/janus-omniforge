@@ -185,6 +185,29 @@ def test_2025_new_year_closure_does_not_fetch_or_consume_budget(tmp_path):
     assert session.calls == 1
 
 
+def test_2026_typhoon_closure_resumes_without_fetch_or_budget(tmp_path):
+    """Both exchanges were closed 2026-07-10 due to Typhoon Bavi."""
+    shutdown = date(2026, 7, 10)
+    assert is_scheduled_closure(shutdown)
+    assert not is_scheduled_closure(date(2026, 7, 13))
+    for market in ('twse', 'tpex'):
+        session = FakeSession({'tables': [{'data': []}]})
+        path = tmp_path / f'{market}-typhoon.json.gz'
+        budget = [0]
+        assert collect_chunk(session, market, [shutdown], {'6488': {}},
+                             'typhoon-evidence', path, min_interval=0, request_budget=budget)
+        saved = read_chunk(path, 'typhoon-evidence')
+        assert saved['rows'] == []
+        assert saved['days'][0]['status'] == 'SCHEDULED_CLOSURE'
+        assert '2026-07-09_typhoon_Bavi' in saved['days'][0]['calendar_source']
+        assert 'cna.com.tw/news/afe/202607090360.aspx' in saved['days'][0]['calendar_source']
+        assert session.calls == 0 and budget == [0]
+        # Re-running a saved day is idempotent; it never fetches or rewrites data.
+        assert collect_chunk(session, market, [shutdown], {'6488': {}},
+                             'typhoon-evidence', path, min_interval=0, request_budget=budget)
+        assert session.calls == 0
+
+
 def test_holiday_only_chunk_with_no_budget_still_checkpoints(tmp_path):
     session = FakeSession({'unexpected': True})
     path = tmp_path/'new-year-2026.json.gz'
