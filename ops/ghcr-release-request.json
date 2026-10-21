@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "8d3e8a4958b9584e3c4e043975decf1e0756a268",
-  "purpose": "STAGE-48H final Admin GCS six-bucket diagnostics: sanitized HTTP status/failure step, no object payload or private paths. Full Python/Flutter + immutable GHCR prerequisite, no GCP mutations from release.",
+  "sha": "01936c64d2a4e6d76ab92337b4144a9406c134ae",
+  "purpose": "Re-run full Python/Flutter/GHCR Stage48 Admin error diagnostics after stabilizing TPEx snapshot-only historical fixture clock (prior full run #39553482781 1538 passed, 1 date-dependent fixture failure). No runtime or IAM mutation in release.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
