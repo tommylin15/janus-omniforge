@@ -83,7 +83,7 @@ def test_gcs_inventory_keeps_only_sanitized_error_codes_for_admin():
                        http_status=403, failure_step="object_versions",
                        reason="hidden path owner-secret")
         return row
-    with patch.object(inventory.GcsObjectStore, "_token", return_value="test-access-token"), \\
+    with patch.object(inventory.GcsObjectStore, "_token", return_value="test-access-token"), \
          patch.object(inventory, "inspect_bucket", side_effect=inspect):
         result = inventory.scan_allowlisted_buckets()
     stage = result["buckets"][0]

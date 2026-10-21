@@ -45,7 +45,6 @@ def scan_allowlisted_buckets(pages: int = 20) -> dict:
                     row["failure_step"] = evidence["failure_step"]
                 if evidence.get("reason") == "BUCKET_READ_UNAVAILABLE":
                     row["reason"] = evidence["reason"]
-            })
             if role == "stage":
                 row["possible_same_md5_extra_bytes"] = current.get("possible_same_hash_extra_bytes")
                 row["duplicate_status"] = "POTENTIAL_ONLY"
