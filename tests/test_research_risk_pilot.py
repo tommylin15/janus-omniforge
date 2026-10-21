@@ -76,3 +76,53 @@ def test_verified_zip_read_and_tampering(tmp_path):
         z.writestr('ohlcv.csv','corrupt')
     with pytest.raises(ValueError, match='duplicate ZIP'):
         load_monthly_zips([path])
+
+
+def test_missing_stock_sessions_never_bridge_feature_or_future_label():
+    """A stock suspension is not a market holiday and must not be forward-filled."""
+    data = make_prices(180)
+    sessions = list(pd.bdate_range('2024-01-02', periods=180))
+    gap_day = sessions[90]
+    data = data[~((data.symbol == '2330') & (data.trade_date == gap_day))]
+    panel = make_risk_panel(data, market_sessions={'twse': sessions, 'tpex': sessions})
+    stock = panel[panel.symbol == '2330'].set_index('trade_date')
+    assert pd.isna(stock.loc[gap_day, 'close'])
+    assert pd.isna(stock.loc[sessions[120], 'vol60'])
+    assert pd.isna(stock.loc[sessions[75], 'target_fwd_vol20'])
+    assert pd.notna(stock.loc[sessions[155], 'vol60'])
+    other = panel[panel.symbol == '6488'].set_index('trade_date')
+    assert pd.notna(other.loc[sessions[120], 'vol60'])
+
+
+def test_official_market_session_missing_for_all_symbols_is_not_skipped():
+    """The manifest calendar, not data presence, defines elapsed sessions."""
+    data = make_prices(180)
+    sessions = list(pd.bdate_range('2024-01-02', periods=180))
+    whole_day = sessions[90]
+    without = data[data.trade_date != whole_day]
+    panel = make_risk_panel(without, market_sessions={'twse': sessions, 'tpex': sessions})
+    assert panel[panel.trade_date == whole_day]['close'].isna().all()
+    row = panel[(panel.symbol == '2330') & (panel.trade_date == sessions[75])]
+    assert row['target_fwd_vol20'].isna().all()
+    with pytest.raises(ValueError, match='outside evidenced trading sessions'):
+        make_risk_panel(data, market_sessions={'twse': sessions[:-1], 'tpex': sessions[:-1]})
+
+
+def test_oos_month_market_and_research_only_shock_sensitivity():
+    data = make_prices(480)
+    # Inject a deliberately unadjusted event; test the screen contract, not
+    # a factual claim that this event is a real stock split.
+    day = data[data.symbol == '2330'].trade_date.iloc[290]
+    data.loc[(data.symbol == '2330') & (data.trade_date >= day), 'close'] *= 2
+    panel = make_risk_panel(data)
+    result = evaluate_risk_pilot(panel, '2025-02-03')
+    screened = evaluate_risk_pilot(panel, '2025-02-03', exclude_unverified_shocks=True)
+    assert result['publication_allowed'] is False
+    assert result['oos_unique_dates'] > 20
+    assert result['train_latest_label_maturity'] <= '2025-02-03'
+    assert set(result['oos_by_market']) == {'twse', 'tpex'}
+    assert result['oos_by_month']
+    assert screened['oos_rows'] < result['oos_rows']
+    assert screened['sensitivity_exclude_unverified_gt35pct_shocks']
+    for month in result['oos_by_month']:
+        assert result['oos_by_month'][month]['metrics']['ridge_challenger']['mae'] >= 0
