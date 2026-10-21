@@ -150,7 +150,8 @@ def make_risk_panel(prices: pd.DataFrame, horizon: int = HORIZON,
 
 def evaluate_risk_pilot(panel: pd.DataFrame, cutoff: str | pd.Timestamp,
                         *, min_train: int = 100, min_test: int = 20,
-                        exclude_unverified_shocks: bool = False) -> dict:
+                        exclude_unverified_shocks: bool = False,
+                        oos_end: str | pd.Timestamp | None = None) -> dict:
     """Predeclared time-cut Ridge vs rolling20; all train labels mature by cutoff.
 
     Single fixed-cutoff research OOS, not multi-fold walk-forward or a
@@ -167,6 +168,8 @@ def evaluate_risk_pilot(panel: pd.DataFrame, cutoff: str | pd.Timestamp,
         eligible = eligible.loc[(eligible[required[0]] == 0) & (eligible[required[1]] == 0)]
     train = eligible[(eligible["trade_date"] <= cutoff) & (eligible["label_matures_on"] <= cutoff)]
     test = eligible[(eligible["trade_date"] > cutoff) & (eligible["label_matures_on"] <= as_of)]
+    if oos_end is not None:
+        test = test.loc[test["trade_date"] <= pd.Timestamp(oos_end)]
     if len(train) < min_train or len(test) < min_test:
         raise ValueError(f"insufficient matured samples: train={len(train)}, test={len(test)}")
     estimator = make_pipeline(StandardScaler(), Ridge(alpha=10.0))
@@ -203,6 +206,7 @@ def evaluate_risk_pilot(panel: pd.DataFrame, cutoff: str | pd.Timestamp,
         "corporate_action_adjustment": "UNVERIFIED",
         "historical_pit": "NOT_VERIFIED",
         "cutoff": cutoff.date().isoformat(),
+        "oos_end": (pd.Timestamp(oos_end).date().isoformat() if oos_end is not None else None),
         "as_of": as_of.date().isoformat(),
         "train_rows": len(train),
         "oos_rows": len(test),
