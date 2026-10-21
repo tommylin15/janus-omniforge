@@ -1554,7 +1554,9 @@ class _AdminGovernancePageState extends State<AdminGovernancePage> {
                           for (final item in (gcsScan!['buckets'] as List<dynamic>? ?? const []))
                             ListTile(
                               dense: true,
-                              title: Text('${(item as Map)['role']} · ${item['status']}'),
+                              title: Text('${(item as Map)['role']} · ${item['status']}'
+                                  '${item['http_status'] is int ? ' · HTTP ${item['http_status']}' : ''}'
+                                  '${item['failure_step'] is String ? ' · ${item['failure_step']}' : ''}'),
                               subtitle: Text(
                                   'current ${item['current_bytes'] ?? '未知'} bytes'
                                   ' ／ ${item['current_objects'] ?? '未知'} 件\n'

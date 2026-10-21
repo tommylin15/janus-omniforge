@@ -73,3 +73,23 @@ def test_invalid_page_budget_has_no_requests():
         else:
             raise AssertionError("unbounded page budget accepted")
         credentials.assert_not_called()
+
+
+def test_gcs_inventory_keeps_only_sanitized_error_codes_for_admin():
+    def inspect(token, bucket, pages):
+        row = _bucket_summary(token, bucket, pages)
+        if "stage" in bucket:
+            row.update(status="BLOCKED", scan_complete=False,
+                       http_status=403, failure_step="object_versions",
+                       reason="hidden path owner-secret")
+        return row
+    with patch.object(inventory.GcsObjectStore, "_token", return_value="test-access-token"), \\
+         patch.object(inventory, "inspect_bucket", side_effect=inspect):
+        result = inventory.scan_allowlisted_buckets()
+    stage = result["buckets"][0]
+    assert stage["status"] == "BLOCKED"
+    assert stage["http_status"] == 403
+    assert stage["failure_step"] == "object_versions"
+    assert "reason" not in stage
+    assert "hidden path owner-secret" not in str(result)
+    assert result["totals"] is None

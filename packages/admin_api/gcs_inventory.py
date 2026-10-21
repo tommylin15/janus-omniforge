@@ -38,6 +38,14 @@ def scan_allowlisted_buckets(pages: int = 20) -> dict:
                 "noncurrent_bytes": noncurrent.get("bytes"), "soft_deleted_bytes": soft.get("bytes"),
                 "scan_complete": evidence.get("scan_complete", False),
             }
+            if row["status"] not in ("OBSERVED", "TRUNCATED"):
+                if isinstance(evidence.get("http_status"), int):
+                    row["http_status"] = evidence["http_status"]
+                if evidence.get("failure_step") in ("bucket_metadata", "object_versions", "soft_deleted_objects"):
+                    row["failure_step"] = evidence["failure_step"]
+                if evidence.get("reason") == "BUCKET_READ_UNAVAILABLE":
+                    row["reason"] = evidence["reason"]
+            })
             if role == "stage":
                 row["possible_same_md5_extra_bytes"] = current.get("possible_same_hash_extra_bytes")
                 row["duplicate_status"] = "POTENTIAL_ONLY"
