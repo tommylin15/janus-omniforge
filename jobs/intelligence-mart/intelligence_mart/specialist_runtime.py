@@ -131,7 +131,7 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
         refs = [saved["target_snapshot"], *saved["specialists"],
                 *([saved["evaluation"]] if "evaluation" in saved else []),
                 *([saved["reconciliation"]] if "reconciliation" in saved else [])]
-        refs.extend(saved[key] for key in ("screening", "market_membership") if saved.get(key))
+        refs.extend(saved[key] for key in ("screening", "market_membership", "change_facts") if saved.get(key))
         for ref in refs:
             name = ref["artifact_uri"].split(f"gs://{bucket}/", 1)[1]
             from hashlib import sha256
@@ -241,6 +241,33 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                                "source_core_snapshot_id": artifact["core_snapshot_id"], **reference})
             computed_specialists += 1
     references.sort(key=lambda item: (item["symbol"], item["role"]))
+    from datetime import datetime, timezone, time, timedelta
+    from zoneinfo import ZoneInfo
+    from packages.change_analysis import fact_snapshot
+    from .facts import analysis_cutoff
+    from datetime import date
+    cutoff_at = min(datetime.now(timezone.utc), analysis_cutoff(date.fromisoformat(as_of))).isoformat()
+    local = datetime.fromisoformat(cutoff_at).astimezone(ZoneInfo('Asia/Taipei'))
+    cutoffs = {'premarket': min(local, datetime.combine(local.date(), time(9), local.tzinfo)),
+               'postmarket': local if local.time() >= time(13, 30) else
+                   datetime.combine(local.date(), time.min, local.tzinfo) - timedelta(microseconds=1)}
+    change_name = f'executions/{execution.execution_id}/change-facts.json'
+    try:
+        prior_facts = json.loads(store.read(change_name))
+    except (FileNotFoundError, HTTPError) as error:
+        if isinstance(error, HTTPError) and error.code != 404:
+            raise
+    else:
+        # A retry after artifact write must keep the original cutoff and bytes.
+        cutoffs = {session: datetime.fromisoformat(view['cutoff_at'])
+                   for session, view in prior_facts['views'].items()}
+        if set(cutoffs) != {'premarket', 'postmarket'}:
+            raise ValueError('invalid change session artifact')
+    change_facts = {'views': {session: {'cutoff_at': cutoff.isoformat(), 'symbols': {
+        symbol: fact_snapshot(datasets, symbol, as_of, execution.core_snapshot_id, cutoff.isoformat(),
+                              session=session)
+        for symbol in target['symbols']}} for session, cutoff in cutoffs.items()}}
+    change_ref = _write_immutable_json(store, bucket, change_name, change_facts)
     manifest = {"artifact_kind": "mart_specialist_execution_v1", "schema_version": "1.0.0",
                 "execution_id": execution.execution_id, "analysis_as_of": as_of,
                 "core_snapshot_id": execution.core_snapshot_id, "engine_version": VERSION,
@@ -253,7 +280,7 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 "screening_output_hash": screen_ref["artifact_hash"] if screen_ref else None,
                 "screening_quality": screening_quality(screen) if screen else None,
                 "specialist_status": "partial" if any(r["status"] != "ready" for r in references) else "ready",
-                "specialists": references, "llm_api_tokens": 0, "ceo_triggered": False,
+                "specialists": references, "change_facts": change_ref, "llm_api_tokens": 0, "ceo_triggered": False,
                 "publication_authority": False}
     manifest["output_hash"] = digest(manifest)
     ref = _write_immutable_json(store, bucket, manifest_name, manifest)

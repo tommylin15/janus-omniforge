@@ -77,6 +77,12 @@ def clean_specialist_artifacts(store, *, apply, now, active_executions=frozenset
     candidates.update(ml_candidates)
     for item in objects:
         name = item["name"]
+        if name.startswith('executions/') and name.endswith('/change-facts.json'):
+            if (name.split('/')[1] in active_executions or
+                    datetime.fromisoformat(item['updated'].replace('Z', '+00:00')) >= now - timedelta(days=365)):
+                live.add(name)
+            else:
+                candidates.add(name)
         if name.startswith("executions/") and name.endswith("/screening-manifest.json") \
                 and (name.split("/")[1] in active_executions or
                      datetime.fromisoformat(item["updated"].replace("Z", "+00:00")) >= now - timedelta(days=90)):

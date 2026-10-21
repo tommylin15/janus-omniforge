@@ -786,6 +786,16 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return jsonable_encoder({"items": analysis_service.history(current.user_id, symbol, limit),
                                  "capability": analysis_service.capability(current.user_id)})
 
+    @private.get('/analysis/{symbol}/changes')
+    def stock_changes(symbol: str, session: str = Query('postmarket', pattern='^(premarket|postmarket)$'),
+                      current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder(analysis_service.changes(public.require_enabled_symbol(symbol), session))
+
+    @private.get('/today-changes')
+    def today_changes(session: str = Query('postmarket', pattern='^(premarket|postmarket)$'),
+                      current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder(analysis_service.today_changes(current.user_id, session))
+
     @private.post("/analysis/{symbol}/ceo", status_code=202)
     def ceo_request(symbol: str, value: CEORequestIn,
                     current: AuthenticatedUser = Depends(user),

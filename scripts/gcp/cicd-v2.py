@@ -26,8 +26,8 @@ def test_suites() -> dict[str, list[str]]:
         suites[group] = sorted(set(re.findall(r"tests/[a-zA-Z0-9_/]+\.py", block)))
     suites["controller"] = ["tests/test_cicd_v2.py", "tests/test_container_build_contract.py",
                             "tests/test_serving_schema_migration.py", "tests/test_portfolio_deploy_contract.py"]
-    suites['mart'] += ['tests/test_analysis_product.py']
-    suites['api'] += ['tests/test_analysis_api.py', 'tests/test_analysis_postgres.py']
+    suites['mart'] += ['tests/test_analysis_product.py', 'tests/test_change_analysis.py']
+    suites['api'] += ['tests/test_analysis_api.py', 'tests/test_analysis_postgres.py', 'tests/test_change_analysis_api.py']
     return suites
 
 

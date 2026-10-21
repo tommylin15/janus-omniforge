@@ -4,12 +4,12 @@
 
 ## 1. 現行優先順序
 
-方案A已核准；本輪僅文件/清理完成，未啟動工程。後續產品順序 A-CHANGE → D07-PRE → D07 → D08；D07-PRE現有採集可獨立續作，STAGE-48H仍由原對話收尾，不阻擋方案A文件或研究。
+方案A已核准；2026-10-21 使用者啟動 A1～A4 整包實作、一次集中驗收，目前工程進行中，尚未結案。後續產品順序 A-CHANGE → D07-PRE → D07 → D08；D07-PRE現有採集可獨立續作，STAGE-48H仍由原對話收尾，不阻擋方案A或研究。
 
 | 優先 | 工作包 | 已完成 | 尚需完成 |
 |---|---|---|---|
 | **P0** | **STAGE-48H** | 48h Stage 清理與自然排程 PASS；**新版 Admin MB／千分位已在正式 dev API 100% 發布**，且回滾演練 PASS | **僅餘新版登入 Admin 六桶全數 `OBSERVED` 與合計容量實機驗收** |
-| **P1** | **A-CHANGE｜事實解讀與站內盤前盤後** | 方案、X/Y/時間契約與AI卡已定版（DOC_UPDATED） | **A1事實解讀、A2變化狀態、A3盤前盤後、A4 UI集中驗收；工程未啟動** |
+| **P1** | **A-CHANGE｜事實解讀與站內盤前盤後** | 方案、X/Y/時間契約與AI卡已定版；A1～A4 已啟動整合實作 | **集中 targeted/CI、既有 dev 發布與真實 API/UI 驗收；完成前維持 IN_PROGRESS** |
 | **P1** | **D07-PRE｜Colab／Drive 資料源** | 官方歷史整市場 Colab 採集器、普通股白名單、每月資料夾/續跑/雜湊及 Risk 資料讀取已實作並有本地 targeted tests；舊 GAS/GCP/BQ 研究路線退出 | **Colab 官方 API 實抓 → 每月資料夾品質／SHA 讀回 → 補歷史已下市股票母體證據／正式 70% 分母** |
 | **P2** | **D07｜五分析師建模** | 五角色規格、OOS／registry 責任界線已定案 | **Colab 模型訓練與 OOS；Janus Mart 受控模型匯入、推論與 Admin 品質呈現** |
 | **P3** | **D08｜CEO／Admin／Owner 報告** | 原 Gateway 技術驗證可重用 | **有效 Fact Pack → CEO 手動請求 → Gateway／validator → immutable 報告與 Owner UI／Admin 管理驗收** |

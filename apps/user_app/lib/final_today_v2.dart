@@ -22,6 +22,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   late Future<dynamic> market = _readCoreMarket();
   late Future<dynamic> brief = _read('/api/v1/public/daily-brief');
   late Future<dynamic> personal = _read('/api/v1/me/today-relevant');
+  late Future<dynamic> changes = _read('/api/v1/me/today-changes?session=postmarket');
+  late Future<dynamic> assets = _read('/api/v1/me/portfolio/snapshot');
+  String changeSession = 'postmarket';
   Timer? marketTimer;
   bool foreground = true;
   int historyDays = 20;
@@ -83,6 +86,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       market = _readCoreMarket();
       brief = _read('/api/v1/public/daily-brief');
       personal = _read('/api/v1/me/today-relevant');
+      changes = _read('/api/v1/me/today-changes?session=$changeSession');
+      assets = _read('/api/v1/me/portfolio/snapshot');
     }
     if (oldWidget.active != widget.active) {
       if (widget.active) {
@@ -415,6 +420,75 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     },
   );
 
+  Widget _assets() => FutureBuilder<dynamic>(
+      future: assets,
+      builder: (context, snapshot) {
+        final value = fvMap(snapshot.data);
+        final cash = fvNumber(fvMap(value['cash'])['cash_balance']);
+        final total = fvNumber(value['reference_total_asset_value']);
+        return fvPanel(
+            child: Row(children: [
+          Expanded(
+              child: Text(
+                  '現金\n${cash == null ? '尚未設定' : '${legacy.accountingNumber(cash / 10000, decimals: 1)} 萬元'}')),
+          Expanded(
+              child: Text(
+                  '參考總資產\n${total == null ? '資料尚未完整' : '${legacy.accountingNumber(total / 10000, decimals: 1)} 萬元'}')),
+        ]));
+      });
+
+  Widget _changes() => FutureBuilder<dynamic>(
+      future: changes,
+      builder: (context, snapshot) {
+        final value = fvMap(snapshot.data);
+        final items = fvRows(value['items']);
+        return fvPanel(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('今天值得看',
+              style: TextStyle(
+                  color: fvInk, fontSize: 20, fontWeight: FontWeight.w800)),
+          Wrap(spacing: 8, children: [
+            for (final session
+                in const {'premarket': '盤前', 'postmarket': '盤後'}.entries)
+              ChoiceChip(
+                  label: Text(session.value),
+                  selected: changeSession == session.key,
+                  onSelected: (_) => setState(() {
+                        changeSession = session.key;
+                        changes = _read(
+                            '/api/v1/me/today-changes?session=$changeSession');
+                      })),
+          ]),
+          if (items.isEmpty)
+            Text(snapshot.connectionState != ConnectionState.done
+                ? '異動資料載入中'
+                : value['status'] == 'available'
+                    ? '目前沒有新的重要變化'
+                    : '異動資料暫未更新'),
+          if (snapshot.connectionState == ConnectionState.done &&
+              value['status'] != 'available')
+            TextButton(
+                onPressed: () => setState(() => changes =
+                    _read('/api/v1/me/today-changes?session=$changeSession')),
+                child: const Text('重試')),
+          for (final raw in items.take(3))
+            Builder(builder: (context) {
+              final row = fvMap(raw);
+              return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                      '${fvText(row['symbol'])} · ${fvText(row['state_label'])}｜${fvText(row['headline'])}'),
+                  subtitle: Text(
+                      '資料期 ${fvText(row['period'])} · 截止 ${fvText(row['cutoff_at'])}\n下一觀察：${fvText(row['next_check'])}'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => widget.onOpenStock?.call(fvText(row['symbol'])));
+            }),
+          Text(fvText(value['basis_note'], missing: '依已保存資料，缺值不代表沒有變化。'),
+              style: const TextStyle(color: fvMuted, fontSize: 12)),
+        ]));
+      });
+
   Widget _market() => FutureBuilder<dynamic>(
     future: market,
     builder: (context, snapshot) {
@@ -574,7 +648,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         key: const Key('final-today-scroll'),
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
         children: [
-          fvPageTitle(context, '今日', subtitle: '先看市場走勢，再看與你相關的追蹤'),
+          fvPageTitle(context, '今日', subtitle: '先看與你相關的變化，再看市場位置'),
+          _assets(),
+          _changes(),
           _market(),
           _personal(),
           _brief(),

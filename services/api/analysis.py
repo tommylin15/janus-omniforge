@@ -49,6 +49,61 @@ class AnalysisService:
         self.repository = repository
         self.trigger = trigger
 
+    def changes(self, symbol, session='postmarket'):
+        return self._changes([symbol], session).get(symbol, {'symbol': symbol,
+            'session': session, 'status': 'waiting', 'observations': []})
+
+    def _changes(self, symbols, session):
+        from datetime import datetime, time, timedelta
+        from zoneinfo import ZoneInfo
+        from packages.change_analysis import session_view
+        now = datetime.now(ZoneInfo('Asia/Taipei'))
+        if session == 'premarket':
+            cutoff = min(now, datetime.combine(now.date(), time(9), now.tzinfo))
+        elif session == 'postmarket':
+            cutoff = (datetime.combine(now.date(), time.min, now.tzinfo) - timedelta(microseconds=1)
+                      if now.hour < 13 or (now.hour == 13 and now.minute < 30) else now)
+        else:
+            raise HTTPException(422, '不支援的盤前／盤後類型')
+        with self.repository._connection() as connection:
+            rows = connection.execute('''SELECT DISTINCT ON(symbol) symbol,payload_json
+                FROM private.specialist_product WHERE symbol=ANY(%s)
+                AND (payload_json->'change_analysis'->%s->>'cutoff_at')::timestamptz<=%s
+                ORDER BY symbol,analysis_as_of DESC,created_at DESC''', (symbols, session, cutoff)).fetchall()
+        result = {}
+        for row in rows:
+            value = row['payload_json']
+            if value['content_hash'] != content_hash({k: v for k, v in value.items() if k != 'content_hash'}):
+                raise HTTPException(503, '事實來源驗證失敗')
+            result[row['symbol']] = session_view(value, session, cutoff_at=cutoff.isoformat())
+        return result
+
+    def today_changes(self, user_id, session='postmarket'):
+        # Membership is private; the selected immutable public product is shared.
+        with self.repository._connection() as connection:
+            rows = connection.execute('''SELECT symbol,min(priority) AS priority FROM (
+                SELECT symbol,0 AS priority FROM private.current_positions WHERE user_id=%s AND shares>0
+                UNION ALL SELECT symbol,1 AS priority FROM private.watchlist WHERE user_id=%s AND active
+                ) membership GROUP BY symbol ORDER BY priority,symbol''', (user_id, user_id)).fetchall()
+        views = self._changes([r['symbol'] for r in rows], session) if rows else {}
+        items = []
+        from packages.change_analysis import instant
+        kind_order = {'event': 0, 'operation': 1, 'price': 2, 'valuation': 3}
+        for row in rows:
+            view = views.get(row['symbol'], {})
+            candidates = [i for i in view.get('observations', []) if i['state'] != 'expired'
+                          and (i['state'] != 'ongoing' or i.get('changed'))]
+            candidates.sort(key=lambda i: (kind_order[i['kind']], -instant(i['source_available_at']).timestamp(), i['identity']))
+            if candidates:
+                items.append({**candidates[0], 'session': session, 'cutoff_at': view['cutoff_at'],
+                              'price_date': view['price_date'], 'membership_priority': row['priority']})
+        items.sort(key=lambda i: (i['membership_priority'], kind_order[i['kind']],
+                                  -instant(i['source_available_at']).timestamp(), i['symbol']))
+        return {'session': session, 'items': [{k: v for k, v in i.items() if k != 'membership_priority'}
+                                            for i in items[:3]], 'status':
+                'available' if len(views) == len(rows) and all(v['status'] == 'available' for v in views.values())
+                else 'partial', 'basis_note': '依已保存收盤與截止前公告；資料晚到時保留原日期。'}
+
     def baseline(self, symbol, execution_id=None):
         with self.repository._connection() as connection:
             row = connection.execute("""SELECT payload_json FROM private.specialist_product

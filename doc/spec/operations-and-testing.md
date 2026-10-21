@@ -1,5 +1,10 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-21｜A-CHANGE A1～A4 整包實作／集中驗收進行中
+
+- 使用者啟動整包工程；沿既有 specialist batch、immutable product、PG serving 與 authenticated API，加入有來源／期別／可得時間的事實、前後狀態、盤前／盤後 cutoff 及首頁／個股整合。GET 不做計算、外網讀取、ML 或 LLM；不新增服務、排程、供應商或權限。
+- 本機 targeted Python **88 PASS**（facts／狀態／API／product／retention／CI路由）、Flutter **43 PASS**（手機／桌面大字、首頁順序／切盤前盤後／個股單主圖、既有受影響回歸）；既有完整 specialist 模型回歸因本機缺 riskfolio／lightgbm／statsmodels 等依賴不能通過，交由既有完整 Release CI 驗證，不冒稱本機全測 PASS。正式 Release／dev／真實 API/UI 證據尚待收齊；A-CHANGE 維持 **IN_PROGRESS**，四個子項不分批結案。
+
 ### 2026-10-21｜STAGE-48H Admin MB 版本正式 dev API 切流 PASS
 
 - **原始碼與完整測試**：最新 UI 容量全以十進位 MB／兩位小數／千分位呈現、物件數千分位，NULL 保留未知；Stage、Core、Mart、Private、Research、Cloud Build 六桶、Stage MD5 容量以及儲存維護下方 retention 卡片皆一致。來源 commit `01ea9a62880b394d581f7727fe27280f457dae1e`，封裝 GHCR immutable image source `0b0a42b608143d62f5241d47c2d25e855949f36b`。[完整 Release #39559241673](https://github.com/tommylin15/janus-omniforge/actions/runs/39559241673) Python、Flutter、四映像／registry readback PASS。

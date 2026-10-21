@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'final_changes.dart';
 
 import 'package:flutter/material.dart';
 
@@ -234,6 +235,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
     final stopwatch = Stopwatch()..start();
     if (mounted) setState(() => loading = true);
     // All secondary requests are independent of the initial price/holdings view.
+    unawaited(safe('changes', '/api/v1/me/analysis/${Uri.encodeComponent(widget.symbol)}/changes'));
     unawaited(safe('baseline',
         '/api/v1/me/analysis/${Uri.encodeComponent(widget.symbol)}'));
     unawaited(Future.wait([
@@ -434,12 +436,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
     final events = _eventTimelineRows(fvRows(values['events']));
     final position =
         positions.isEmpty ? <String, dynamic>{} : fvMap(positions.first);
-    final usableRoles = baselineRoles.map(fvMap).where((r) => r['baseline_status'] == 'available');
-    final summary = baselineRoles.isEmpty
-        ? health['plain_language_summary'] ?? health['summary']
-        : usableRoles.isEmpty
-            ? '五分析師基準仍有資料缺口；目前不提供方向性結論。可於進階資料查看各角色來源與缺值。'
-            : fvText(usableRoles.first['plain_language']);
+    final summary = fvRows(fvMap(values['changes'])['observations']).map(fvMap)
+        .where((r) => r['status'] == 'available').map((r) => fvText(r['headline'])).join('；');
     final supports = fvRows(
       health['supports'] ?? health['why'] ?? health['reasons'],
     );
@@ -529,12 +527,10 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                 ],
               ),
             ),
-            fvSectionTitle(context, '我的持股'),
+            if (position.isNotEmpty) fvSectionTitle(context, '我的持股'),
             if (fvMap(values['quotes'])['positions'] is! List && values['positions'] is! List)
               fvBoundedState(loading ? '持股資料載入中' : '持股資料尚未取得')
-            else if (position.isEmpty)
-              fvBoundedState('目前無持股')
-            else
+            else if (position.isNotEmpty)
               fvPanel(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -568,6 +564,33 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                   ],
                 ),
               ),
+            FinalChangeCard(fvMap(values['changes'])),
+            if (errors.contains('changes'))
+              TextButton(onPressed: () => safe('changes', '/api/v1/me/analysis/${Uri.encodeComponent(widget.symbol)}/changes'),
+                child: const Text('異動資料暫未更新，重試')),
+            fvSectionTitle(context, '圖表總覽'),
+            fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('選擇想看的趨勢', style: TextStyle(fontWeight: FontWeight.w800, color: fvInk)),
+              const SizedBox(height: 9),
+              Wrap(spacing: 7, runSpacing: 7, children: [
+                ChoiceChip(label: const Text('價格'), selected: selectedVisual == null,
+                  onSelected: (_) => setState(() => selectedVisual = null)),
+                for (final entry in const {'pe': '本益比', 'pb': '股價淨值比',
+                    'yield': '殖利率', 'revenue': '月營收',
+                    'eps': 'EPS', 'foreign': '外資', 'investment_trust': '投信',
+                    'dealer': '自營商', 'events': '事件'}.entries)
+                  ChoiceChip(
+                    key: Key('visual-tab-${entry.key}'),
+                    label: Text(entry.value),
+                    selected: selectedVisual == entry.key,
+                    onSelected: (_) => openVisual(entry.key),
+                  ),
+              ]),
+              const SizedBox(height: 7),
+              const Text('僅呈現已發布資料。缺少可比較歷史時明確標示。',
+                  style: TextStyle(color: fvMuted, fontSize: 11)),
+            ])),
+            if (selectedVisual == null) ...[
             fvSectionTitle(context, '價格與量能'),
             Row(
               children: [
@@ -619,113 +642,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                 const Text('行情更新失敗，保留上次有效圖表',
                     style: TextStyle(color: fvMuted, fontSize: 11)),
             ],
-            fvSectionTitle(context, '筆記與待追蹤'),
-            if (errors.contains('notes'))
-              fvBoundedState('筆記資料尚未取得')
-            else if (notes.isEmpty)
-              fvBoundedState('目前沒有這檔股票的筆記')
-            else
-              fvPanel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final item in notes.take(3))
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 9),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              fvMap(item)['needs_follow_up'] == true
-                                  ? Icons.flag_outlined
-                                  : Icons.notes_outlined,
-                              color: fvTeal,
-                              size: 19,
-                            ),
-                            const SizedBox(width: 9),
-                            Expanded(
-                              child: Text(
-                                fvText(
-                                  fvMap(item)['body'] ??
-                                      fvMap(item)['text'] ??
-                                      fvMap(item)['content'],
-                                  missing: '筆記內容不可用',
-                                ),
-                                style: const TextStyle(
-                                  color: fvInk,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            if (report['model_validation_status'] == 'validated') ...[
-            fvSectionTitle(context, '五面向健康度'),
-            if (dimensions.isEmpty && health['mart_health_score'] == null)
-              fvBoundedState('五面向健康度尚未就緒')
-            else
-              FvHealthBars(
-                dimensions: dimensions,
-                overall: health['mart_health_score'],
-              ),
-            fvSectionTitle(context, '白話摘要'),
-            if (baselineRoles.isNotEmpty)
-              Text('基準分析日 ${fvText(baseline['analysis_as_of'])} · ${baseline['freshness'] == 'stale' ? '資料過期' : '已保存'}；完整五角色見進階資料',
-                  style: const TextStyle(color: fvMuted, fontSize: 12)),
-            summary == null
-                ? fvBoundedState('白話摘要尚未就緒；不會在開頁時自動呼叫 LLM')
-                : fvPanel(
-                    child: Text(
-                      '$summary',
-                      style: const TextStyle(color: fvInk, height: 1.55),
-                    ),
-                  ),
-            fvSectionTitle(context, '為什麼／要注意什麼'),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: reasonColumn(
-                    '支持',
-                    supports,
-                    Icons.check_circle_outline,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: reasonColumn(
-                    '風險',
-                    risks,
-                    Icons.warning_amber_outlined,
-                  ),
-                ),
-              ],
-            ),
             ],
-            fvSectionTitle(context, '圖表總覽'),
-            fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('選擇想看的趨勢', style: TextStyle(fontWeight: FontWeight.w800, color: fvInk)),
-              const SizedBox(height: 9),
-              Wrap(spacing: 7, runSpacing: 7, children: [
-                for (final entry in const {'pe': '本益比', 'pb': '股價淨值比',
-                    'yield': '殖利率', 'revenue': '月營收',
-                    'eps': 'EPS', 'foreign': '外資', 'investment_trust': '投信',
-                    'dealer': '自營商', 'events': '事件'}.entries)
-                  ChoiceChip(
-                    key: Key('visual-tab-${entry.key}'),
-                    label: Text(entry.value),
-                    selected: selectedVisual == entry.key,
-                    onSelected: (_) => openVisual(entry.key),
-                  ),
-              ]),
-              const SizedBox(height: 7),
-              const Text('僅呈現已發布資料。缺少可比較歷史時明確標示。',
-                  style: TextStyle(color: fvMuted, fontSize: 11)),
-            ])),
             if (selectedVisual != null) ...[
               if (const {'pe', 'pb', 'yield', 'foreign', 'investment_trust', 'dealer', 'revenue', 'eps'}.contains(selectedVisual)) ...[
                 if (loadingVisual.contains('visual-$selectedVisual'))
@@ -825,6 +742,93 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                 fvBoundedState(selectedVisual == 'events'
                   ? '公司事件請參考下方官方事件時間軸。'
                   : '尚無通過期別、來源和可比性驗證的歷史序列。'),
+            ],
+            fvSectionTitle(context, '筆記與待追蹤'),
+            if (errors.contains('notes'))
+              fvBoundedState('筆記資料尚未取得')
+            else if (notes.isEmpty)
+              fvBoundedState('目前沒有這檔股票的筆記')
+            else
+              fvPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final item in notes.take(3))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 9),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              fvMap(item)['needs_follow_up'] == true
+                                  ? Icons.flag_outlined
+                                  : Icons.notes_outlined,
+                              color: fvTeal,
+                              size: 19,
+                            ),
+                            const SizedBox(width: 9),
+                            Expanded(
+                              child: Text(
+                                fvText(
+                                  fvMap(item)['body'] ??
+                                      fvMap(item)['text'] ??
+                                      fvMap(item)['content'],
+                                  missing: '筆記內容不可用',
+                                ),
+                                style: const TextStyle(
+                                  color: fvInk,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            if (report['model_validation_status'] == 'validated') ...[
+            fvSectionTitle(context, '五面向健康度'),
+            if (dimensions.isEmpty && health['mart_health_score'] == null)
+              fvBoundedState('五面向健康度尚未就緒')
+            else
+              FvHealthBars(
+                dimensions: dimensions,
+                overall: health['mart_health_score'],
+              ),
+            fvSectionTitle(context, '白話摘要'),
+            if (baselineRoles.isNotEmpty)
+              Text('基準分析日 ${fvText(baseline['analysis_as_of'])} · ${baseline['freshness'] == 'stale' ? '資料過期' : '已保存'}；完整五角色見進階資料',
+                  style: const TextStyle(color: fvMuted, fontSize: 12)),
+            summary.isEmpty
+                ? fvBoundedState('白話摘要尚未就緒；不會在開頁時自動呼叫 LLM')
+                : fvPanel(
+                    child: Text(
+                      '$summary',
+                      style: const TextStyle(color: fvInk, height: 1.55),
+                    ),
+                  ),
+            fvSectionTitle(context, '為什麼／要注意什麼'),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: reasonColumn(
+                    '支持',
+                    supports,
+                    Icons.check_circle_outline,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: reasonColumn(
+                    '風險',
+                    risks,
+                    Icons.warning_amber_outlined,
+                  ),
+                ),
+              ],
+            ),
             ],
             fvSectionTitle(context, '籌碼與定位'),
             chips == null

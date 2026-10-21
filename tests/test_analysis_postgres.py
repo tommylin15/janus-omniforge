@@ -17,6 +17,54 @@ from packages.analysis_product import content_hash
 from services.api.analysis import AnalysisService, CEOCapabilityIn, CEOProfileIn
 
 
+def test_change_projection_replay_and_previous_state_are_persisted_atomically(database):
+    from hashlib import sha256
+    from tests.test_analysis_product import product_inputs
+    from tests.test_change_analysis import fact
+    from intelligence_mart.product_runtime import persist_products
+    from intelligence_mart.specialists import digest
+    manifest, artifacts = product_inputs()
+    manifest['analysis_as_of'] = '2026-08-02'
+    manifest['execution_id'] = str(uuid4())
+    objects = {}
+    for reference, artifact in zip(manifest['specialists'], artifacts):
+        raw = json.dumps(artifact).encode()
+        name = 'specialists/' + artifact['role'] + '.json'
+        objects[name] = raw
+        reference.update(artifact_uri='gs://mart/' + name, artifact_hash='sha256:' + sha256(raw).hexdigest())
+    class Store:
+        def read(self, name):
+            return objects[name]
+    def prepare():
+        name = f'executions/{manifest["execution_id"]}/change-facts.json'
+        objects[name] = json.dumps({'views': {session: {'cutoff_at': '2026-08-02T00:00:00Z',
+            'symbols': {'2330': [fact()]}} for session in ('premarket', 'postmarket')}}).encode()
+        manifest['change_facts'] = {'artifact_uri': 'gs://mart/' + name,
+                                  'artifact_hash': 'sha256:' + sha256(objects[name]).hexdigest()}
+        manifest['output_hash'] = digest({k: v for k, v in manifest.items() if k != 'output_hash'})
+    prepare()
+    with psycopg.connect(database) as connection:
+        connection.execute('SET ROLE janus_mart_publication')
+        persist_products(connection, manifest, Store(), 'mart')
+        first = connection.execute('SELECT payload_json FROM private.specialist_product WHERE execution_id=%s',
+                                    (manifest['execution_id'],)).fetchone()[0]
+        persist_products(connection, manifest, Store(), 'mart')
+        replay = connection.execute('SELECT payload_json FROM private.specialist_product WHERE execution_id=%s',
+                                    (manifest['execution_id'],)).fetchone()[0]
+        assert replay == first
+        manifest['execution_id'] = str(uuid4())
+        prepare()
+        persist_products(connection, manifest, Store(), 'mart')
+        second = connection.execute('SELECT payload_json FROM private.specialist_product WHERE execution_id=%s',
+                                    (manifest['execution_id'],)).fetchone()[0]
+        a = first['change_analysis']['premarket']['observations'][0]
+        b = second['change_analysis']['premarket']['observations'][0]
+        assert a['state'] == 'new' and b['state'] == 'ongoing'
+        assert a['observation_id'] == b['observation_id']
+        assert second['model_quality'] == 'NOT_VERIFIED'
+        assert second['content_hash'] == content_hash({k: v for k, v in second.items() if k != 'content_hash'})
+
+
 @pytest.fixture(scope='module')
 def database():
     dsn = os.getenv('ANALYSIS_TEST_DSN')

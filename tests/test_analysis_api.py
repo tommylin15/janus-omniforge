@@ -43,6 +43,12 @@ class Service:
         self.calls.append(('baseline', symbol, execution_id))
         return {'symbol': symbol, 'data_status': 'waiting', 'specialists': []}
     def capability(self, owner): return {'can_request': False}
+    def changes(self, symbol, session):
+        self.calls.append(('changes', symbol, session))
+        return {'symbol': symbol, 'observations': []}
+    def today_changes(self, owner, session):
+        self.calls.append(('today_changes', owner, session))
+        return {'items': []}
     def history(self, owner, symbol, limit):
         self.calls.append(('history', owner, symbol, limit))
         return []
@@ -119,3 +125,14 @@ def test_admin_capability_mutation_is_separate_from_user_auth():
     assert service.calls == []
     assert api.put('/api/v1/admin/analysis/capability', headers=auth('admin'), json=payload).status_code == 200
     assert service.calls[-1][-1] == 'admin@example.com'
+
+
+def test_change_reads_bind_owner_and_validate_session_without_dispatch():
+    api, service = client()
+    assert api.get('/api/v1/me/today-changes').status_code == 401
+    assert api.get('/api/v1/me/analysis/2330/changes').status_code == 401
+    assert api.get('/api/v1/me/today-changes?owner_id=b&session=premarket', headers=auth()).status_code == 200
+    assert service.calls[-1] == ('today_changes', OWNER_A, 'premarket')
+    assert api.get('/api/v1/me/analysis/2330/changes', headers=auth()).status_code == 200
+    assert service.calls[-1] == ('changes', '2330', 'postmarket')
+    assert api.get('/api/v1/me/today-changes?session=intraday', headers=auth()).status_code == 422

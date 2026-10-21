@@ -38,6 +38,17 @@ def persist_screening(connection, artifact):
 
 def persist_products(connection, manifest, store, bucket):
     from hashlib import sha256
+    from packages.change_analysis import observations, RULE_VERSION
+    change_facts = None
+    if manifest.get('change_facts'):
+        ref = manifest['change_facts']
+        prefix = f'gs://{bucket}/executions/{manifest["execution_id"]}/'
+        if not ref['artifact_uri'].startswith(prefix):
+            raise ValueError('change facts outside execution prefix')
+        raw = store.read(ref['artifact_uri'][len(f'gs://{bucket}/'):])
+        if 'sha256:' + sha256(raw).hexdigest() != ref['artifact_hash']:
+            raise ValueError('change facts byte hash mismatch')
+        change_facts = json.loads(raw)
     for symbol in sorted({r["symbol"] for r in manifest["specialists"]}):
         artifacts = []
         for ref in manifest["specialists"]:
@@ -52,6 +63,34 @@ def persist_products(connection, manifest, store, bucket):
             artifacts.append(json.loads(raw))
         payload = baseline_projection(manifest, artifacts)
         with connection.transaction(), connection.cursor() as cursor:
+            cursor.execute('''SELECT payload_json FROM private.specialist_product
+                WHERE execution_id=%s AND symbol=%s''', (manifest['execution_id'], symbol))
+            existing = cursor.fetchone()
+            if existing:
+                saved = existing[0]
+                if (saved['source_manifest_hash'] != manifest['output_hash'] or
+                        saved['content_hash'] != content_hash({k: v for k, v in saved.items() if k != 'content_hash'})):
+                    raise ValueError('immutable product projection conflict')
+                continue
+            if change_facts is not None:
+                payload['change_analysis'] = {}
+                for session, view in change_facts['views'].items():
+                    cursor.execute('''SELECT payload_json FROM private.specialist_product
+                        WHERE symbol=%s AND analysis_as_of<=%s
+                        AND (payload_json->'change_analysis'->%s->>'cutoff_at')::timestamptz<=%s
+                        ORDER BY analysis_as_of DESC,created_at DESC LIMIT 1''',
+                        (symbol, manifest['analysis_as_of'], session, view['cutoff_at']))
+                    prior = cursor.fetchone()
+                    previous = prior[0] if prior else {}
+                    if previous and previous['content_hash'] != content_hash(
+                            {k: v for k, v in previous.items() if k != 'content_hash'}):
+                        raise ValueError('previous observation hash mismatch')
+                    payload['change_analysis'][session] = {'rule_version': RULE_VERSION,
+                        'cutoff_at': view['cutoff_at'],
+                        'observations': observations(view['symbols'][symbol],
+                            previous.get('change_analysis', {}).get(session, {}).get('observations', []),
+                            symbol=symbol, cutoff_at=view['cutoff_at'])}
+                payload['content_hash'] = content_hash({k: v for k, v in payload.items() if k != 'content_hash'})
             cursor.execute("""INSERT INTO private.specialist_product
                 (execution_id,symbol,analysis_as_of,content_hash,payload_json)
                 VALUES (%s,%s,%s,%s,%s::jsonb) ON CONFLICT DO NOTHING""",

@@ -413,6 +413,7 @@ def test_three_generations_per_symbol_and_latest_oos_survive_repeated_cleanup():
                 ref = put(f"specialists/{symbol}-{role}-{i}.json", {"symbol": symbol, "role": role, "generation": i})
                 refs.append({"symbol": symbol, "role": role, **ref})
         evaluation = put(f"executions/ex{i}/oos-evaluation.json", {"generation": i})
+        put(f'executions/ex{i}/change-facts.json', {'views': {}})
         put(f"executions/ex{i}/specialist-manifest.json", {"artifact_kind": "mart_specialist_execution_v1", "execution_id": f"ex{i}",
             "analysis_as_of": f"2026-09-0{i+1}", "core_snapshot_id": f"core{i}", "specialists": refs, "evaluation": evaluation})
     store = SimpleNamespace(bucket="dev", read=lambda name: data[name],
@@ -435,6 +436,7 @@ def test_three_generations_per_symbol_and_latest_oos_survive_repeated_cleanup():
     assert [name for name in data if name.endswith("/oos-evaluation.json")] == ["executions/ex4/oos-evaluation.json"]
     assert "executions/ex0/specialist-manifest.json" not in data
     assert "executions/ex0/specialist-retired.json" in data
+    assert all(f'executions/ex{i}/change-facts.json' in data for i in range(5))
     again = clean_specialist_artifacts(store, apply=True, now=now)
     assert again["deleted_objects"] == 0
 
