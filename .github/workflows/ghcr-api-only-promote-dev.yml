@@ -1,0 +1,46 @@
+name: Janus bounded API-only dev promotion
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/ghcr-api-only-promote-request.json'
+
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+
+jobs:
+  promote-api-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Validate isolated API traffic contracts
+        run: python -m pytest -q tests/test_ghcr_api_only_promote.py tests/test_ghcr_api_promote.py tests/test_ghcr_release_lease.py
+      - name: Install immutable registry inspector
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: Verify full release, candidate and OAuth gates then promote API only
+        run: python scripts/gcp/ghcr_api_only_promote.py --receipt /tmp/ghcr-api-only-promote.json
+      - name: Preserve bounded acceptance and rollback receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-api-only-promotion-receipt
+          path: /tmp/ghcr-api-only-promote.json
+          if-no-files-found: ignore
+          retention-days: 14
