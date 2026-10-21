@@ -1,11 +1,11 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "01ea9a62880b394d581f7727fe27280f457dae1e",
+  "sha": "0b0a42b608143d62f5241d47c2d25e855949f36b",
   "digest": "",
   "release_run": "39559241673",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "STAGE-48H existing dev Admin six-bucket MB + grouped format release #39559241673 PASS. Immutable public GHCR API only to existing zero-traffic revision, preserve current API 100%; no Jobs, IAM or storage mutation."
+  "purpose": "Exact full release source SHA 0b0a42b608143d62f5241d47c2d25e855949f36b (GHCR #39559241673 PASS) contains latest Admin 2-decimal MB/thousands-separator UI. First candidate run used ancestor SHA and safely failed before GCP writes; retry immutable source-only 0% candidate."
 }
