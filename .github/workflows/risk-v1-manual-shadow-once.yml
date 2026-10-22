@@ -157,12 +157,18 @@ jobs:
           from pathlib import Path
           urls=json.loads(Path('/tmp/risk-shadow-uris.json').read_text())
           as_of=json.loads(Path('/tmp/risk-core-asof.json').read_text())['analysis_as_of']
+          event=json.loads(Path('/tmp/risk-core-event.json').read_text())
           matching=[]
           for u in urls:
               p=subprocess.run(['gcloud','storage','cat',u,'--project=gen-lang-client-0593591102'],
                                capture_output=True,check=True)
               data=json.loads(p.stdout)
-              if data.get('analysis_as_of')==as_of and data.get('model_sha256')=='36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044':
+              # Historical same-date failed artifacts are out of scope; only
+              # the exact pinned immutable manifest may pass this receipt.
+              if (data.get('analysis_as_of')==as_of
+                  and data.get('model_sha256')=='36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044'
+                  and data.get('core_snapshot_id')==event['coreSnapshotId']
+                  and data.get('source_manifest_hash')==event['coreSnapshotHash']):
                   if data.get('publication_allowed') is not False or data.get('status')!='SHADOW_UNVALIDATED':
                       raise SystemExit('risk_shadow_publication_boundary_failed')
                   if not isinstance(data.get('rows'),list) or len(data['rows'])<1:
