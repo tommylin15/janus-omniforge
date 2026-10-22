@@ -787,14 +787,20 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
             if persisted_execution:
                 industry_setting = control.get_admin_setting("mart_industry_scopes")
                 industries = industry_setting[0] if industry_setting and isinstance(industry_setting[0], list) else []
+                pit_market_symbols = ()
+                if active_500 and hasattr(control, "market_symbols_as_of"):
+                    pit_market_symbols = control.market_symbols_as_of(dates[-1])
+                # Snapshot scopes must come from the roster known at this
+                # trading cutoff, not the fresh roster read on collection day.
                 summary["ready_event"] = _core_ready_event(
                     core_bucket=core_bucket, execution_id=execution_id, config_id=config_id,
-                    analysis_as_of=(local_now.date() if options.get("start_date") or os.environ.get("BACKFILL_START_DATE")
-                                    else dates[-1]).isoformat(),
+                    analysis_as_of=dates[-1].isoformat(),
                     iceberg_tables=_current_core_fences(core) if core_committed else {},
-                    symbols=tuple(market_symbols) if active_500 else tuple(symbols),
+                    symbols=(pit_market_symbols if pit_market_symbols else tuple(market_symbols))
+                    if active_500 else tuple(symbols),
                     market='market' if active_500 else config.market, industries=industries,
-                    scope_as_of=local_now.date().isoformat() if active_500 else None,
+                    scope_as_of=(dates[-1].isoformat() if pit_market_symbols else
+                                 local_now.date().isoformat()) if active_500 else None,
                     ohlcv_eod_ready=_full_market_eod_ready(coverage_items, dates[-1].isoformat())
                     if active_500 else False,
                 )
