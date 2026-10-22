@@ -7,6 +7,6 @@
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Create reversible existing-dev 0%-traffic API candidate at exact successfully full-tested Risk source 5385cb78, preflight for controlled four-Job rollout. No API traffic promotion; no new scheduler.",
-  "request_attempt": 4
+  "purpose": "Retry exact-source 0%-traffic dev API candidate after previous run #39743935310 safely BLOCKED on concurrent main document commit; no cloud write occurred, new run must own current main lease.",
+  "request_attempt": 5
 }
