@@ -27,6 +27,14 @@
 - **驗收門檻**：以最新 `reports/monthly_quarterly_coverage.csv` 與新 Parquet `CURRENT.json` 讀回，TPEx 各個原缺月獨立達上櫃研究門檻 ≥70% 且沒有錯日/重複鍵；逐批保存真實來源。個別股票缺值或不適用可保留原因，不為追求100%造值。資料研究准入不是歷史 PIT／模型正式 promotion。
 - **實際執行狀態**：已完成本地 v3.4 HTML adapter 7/7、跨年度回歸 7/7、7 模組/16 Notebook cells 編譯與 SHA 檢查、Drive 同檔 ID 更新與內容 SHA 讀回；**尚未在 Colab 執行新版官方 22 月補收，故實收結果保持 PARTIAL**。不將固定格式的單元測試冒稱 TPEx live API 驗收。
 
+## 2026-10-22 v3.5：安裝格與 TPEx 空日期真實回應修復（覆蓋 v3.4）
+
+- Colab 官方總檢查 264 批的最新執行報告顯示只餘 7 個未達研究門檻且官方未存成功的 TPEx valuation 月份：**2024-10、2025-01、2025-02、2025-03、2025-04、2025-05、2026-02**；原先 22 個缺月中的其他月份已有研究覆蓋率改善。僅針對 7 月補缺，不重抓已通過月檔。
+- **交付缺陷**：原 Drive v3.4 Notebook 第一個 code cell 被截為單行 `import sys, subprocess, os, json, hashlib, importlib`，導致 `pip`、`drive.mount`、`ROOT` 消失。v3.5 從已查驗的 v3.2 完整 10 行配置復原，驗證 16 cells／7 內嵌模組／模組 SHA，**更新原 Drive ID 不換連結**。
+- **真實來源證據**：本輪兩個 `TPEx_HTML_SCHEMA_UNRECOGNISED` 對應的 Google Drive raw 2025-05-30、2026-02-27，實際包含正確 `資料日期`、空 `<tbody>`、`共0筆`；非欄位格式錯誤。新版 **在日期一致、tbody 空、共0筆三者同時成立**時才當日空資料，保存 raw/checkpoint 並有界向前找有資料的交易日；日期不符、空標記矛盾、未知 HTML 格式仍拒絕。正式 401/403/429 封鎖不可透過備援繞過。
+- **實測界線**：原始官方 HTML 3 檔＋日期/流程/安裝格 targeted 8/8，跨年度與動態缺口回歸 7/7 PASS；Drive 覆寫後重新下載與本地 Notebook SHA256 一致。**v3.5 新版未在 Colab 實際重跑七個月**，故 `COLLECT-GAP` 保持 PARTIAL，2026/10/22 `CURRENT.json` 仍為 `release-b21384aebef3cd70`，不得冒稱最新 7 月已進 Parquet。
+- 下次驗收：在 Drive 開啟 [唯一正式 Notebook](https://drive.google.com/file/d/1403NtnW0sQ5VuATycDiFvEsHztOvlMvH/view) v3.5，確認第一個 code cell 為 10 行，執行所有儲存格；讀回七個月各自 TPEx valuation ≥70% 的 `monthly_quarterly_coverage.csv`、成功 raw/正式 Parquet manifest 與 `CURRENT.json`，否則保留未完成。
+
 ## 舊 r1 原始月檔與效能（保留為上游格式）
 ```text
 janusChatGPT/資料源/
