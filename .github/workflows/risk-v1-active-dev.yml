@@ -47,9 +47,13 @@ jobs:
           for key in release_run jobs_run api_run; do
             run="$(jq -r ".$key" ops/risk-v1-active-request.json)"
             gh run view "$run" --json headSha,status,conclusion,workflowName,jobs > "/tmp/risk-$key.json"
-            jq -e --arg source "$source" '
-               .headSha==$source and .status=="completed" and .conclusion=="success"' "/tmp/risk-$key.json" >/dev/null
+            jq -e '.status=="completed" and .conclusion=="success"' "/tmp/risk-$key.json" >/dev/null
           done
+          # The release is the image source. Jobs/API promotion are later
+          # ops-only commits, so their workflow HEADs cannot equal that SHA.
+          jq -e --arg source "$source" '.headSha==$source' /tmp/risk-release_run.json >/dev/null
+          jq -e --arg source "$source" '.sha==$source' ops/ghcr-jobs-rollout-request.json >/dev/null
+          jq -e --arg source "$source" '.source_sha==$source' ops/ghcr-api-promote-request.json >/dev/null
           jq -e '[.jobs[]|select(.name=="release-verify" and .conclusion=="success")]|length==1' /tmp/risk-release_run.json >/dev/null
           jq -e '[.jobs[]|select(.name=="jobs-rollout" and .conclusion=="success")]|length==1' /tmp/risk-jobs_run.json >/dev/null
           jq -e '[.jobs[]|select(.name=="promote" and .conclusion=="success")]|length==1' /tmp/risk-api_run.json >/dev/null
