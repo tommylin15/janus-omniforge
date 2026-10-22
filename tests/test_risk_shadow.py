@@ -55,8 +55,18 @@ def test_core_source_refuses_future_critical_or_duplicate_rows():
     broken = dict(rows[-1], trade_date="2026-12-31")
     with pytest.raises(ValueError, match="future session"):
         predict_core_shadow([*rows, broken], as_of, Model(), core_snapshot_id="core-fixed")
-    with pytest.raises(ValueError, match="duplicate admitted"):
-        predict_core_shadow([*rows, dict(rows[-1])], as_of, Model(), core_snapshot_id="core-fixed")
+    # Exact copies can be deterministically collapsed without altering
+    # model features; an affected stock with conflicting revisions must be
+    # quarantined while the unrelated stock continues shadow inference.
+    identical = predict_core_shadow([*rows, dict(rows[-1])], as_of, Model(), core_snapshot_id="core-fixed")
+    assert {x["symbol"] for x in identical["predictions"]} == {"2330", "6488"}
+    assert identical["identical_core_duplicates_collapsed"] == 1
+    assert identical["ambiguous_core_symbols"] == 0
+    dispute = dict(rows[-1], close=rows[-1]["close"] + 2)
+    conflicting = predict_core_shadow([*rows, dispute], as_of, Model(), core_snapshot_id="core-fixed")
+    assert {x["symbol"] for x in conflicting["predictions"]} == {"2330"}
+    assert conflicting["ambiguous_core_symbols"] == 1
+    assert conflicting["publication_allowed"] is False
     blocked = [dict(r, quality_flag="critical") if r["symbol"] == "6488" else r for r in rows]
     result = predict_core_shadow(blocked, as_of, Model(), core_snapshot_id="core-fixed")
     assert not any(p["symbol"] == "6488" for p in result["predictions"])
@@ -82,3 +92,27 @@ def test_gcs_model_pin_blocks_tampering_before_deserialization():
             return b"forged-xgb"
     with pytest.raises(ValueError, match="sha256 mismatch"):
         load_model_from_pinned_store(Store())
+
+
+def test_core_mixed_sources_contradictory_historical_revision_quarantines_stock():
+    rows = bars()
+    as_of = max(r["trade_date"] for r in rows)
+    older = next(r for r in rows if r["symbol"] == "2330" and r["trade_date"] < as_of)
+    contradictory = dict(older, provenance_id="revised", volume_shares=older["volume_shares"]+500)
+    result = predict_core_shadow([*rows, contradictory], as_of, Model(),
+                                 core_snapshot_id="core-fixed")
+    assert {item["symbol"] for item in result["predictions"]} == {"6488"}
+    assert result["ambiguous_core_symbols"] == 1
+    assert result["publication_allowed"] is False
+
+
+def test_duplicate_with_different_source_but_same_prices_is_safe_only_in_shadow():
+    rows = bars()
+    as_of = max(r["trade_date"] for r in rows)
+    alternate = dict(rows[-1], source_id="alternate-approved", provenance_id="different")
+    result = predict_core_shadow([*rows, alternate], as_of, Model(),
+                                 core_snapshot_id="core-fixed")
+    assert result["status"] == "SHADOW_ONLY"
+    assert result["identical_core_duplicates_collapsed"] == 1
+    assert len(result["predictions"]) == 2
+    assert all(p["publication_allowed"] is False for p in result["predictions"])
