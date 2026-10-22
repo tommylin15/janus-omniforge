@@ -2702,3 +2702,7 @@ zstandard==0.25.0 \
     --hash=sha256:fd7a5004eb1980d3cefe26b2685bcb0b17989901a70a1040d1ac86f1d898c551 \
     --hash=sha256:ffef5a74088f1e09947aecf91011136665152e0b4b359c42be3373897fb39b01
     # via pyiceberg
+
+xgboost-cpu==3.1.3 \
+    --hash=sha256:a7079aeca33e27b8b6d9967f84201b33942ed565178eda8db83ad0b59f17c033
+    # via -r jobs/intelligence-mart/requirements.in
