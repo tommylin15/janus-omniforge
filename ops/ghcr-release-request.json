@@ -1,19 +1,12 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "e6ff0c578ca351a7d5fc2b6f13b6302d87158be5",
-  "purpose": "D07 Risk v1 Cloud Run zkcgj VALUEERROR market membership changed within one stock history; quarantine only inconsistent symbol, keep other shadow predictions, no publication. Tests cover historic and same-date market conflicts.",
+  "sha": "1fc29ea3634d519eb731f11e8ccddd67140be4f5",
+  "purpose": "User-requested Life Assistant-style pastel stock cards for Janus Flutter Today, Watchlist, Ledger, and Stock Detail. Presentation-only: canonical market data, PnL, owner boundaries, and existing Jobs unchanged.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
-    "ingestion-core",
-    "intelligence-mart",
-    "private-pipeline",
     "api"
   ],
   "no_new_resources": true,
-  "keep_weekly_iceberg": true,
-  "stage_ttl_hours": 48,
-  "original_failure_run": "39738317081",
-  "failure_diagnosis_run": "39741132254",
-  "risk_model_version": "risk-xgboost8-2025h2-v1",
-  "risk_shadow_only": true
+  "api_only_promotion": true,
+  "keep_existing_jobs": true
 }
