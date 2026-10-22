@@ -1,12 +1,14 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "1fc29ea3634d519eb731f11e8ccddd67140be4f5",
-  "purpose": "User-requested Life Assistant-style pastel stock cards for Janus Flutter Today, Watchlist, Ledger, and Stock Detail. Presentation-only: canonical market data, PnL, owner boundaries, and existing Jobs unchanged.",
+  "sha": "28a04247b47782d308aabed2fdfb7e7b184199e2",
+  "purpose": "Fix false Core EOD date inflation: use same-session accepted TWSE/TPEx OHLCV and historical PIT market roster, preserve morning prior-session collection; Risk XGBoost remains SHADOW_ONLY pending observed EOD and OOS gates.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
-    "api"
+    "ingestion-core",
+    "intelligence-mart"
   ],
   "no_new_resources": true,
-  "api_only_promotion": true,
-  "keep_existing_jobs": true
+  "api_only_promotion": false,
+  "keep_existing_jobs": false,
+  "no_api_traffic_changes": true
 }
