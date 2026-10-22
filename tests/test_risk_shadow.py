@@ -171,3 +171,39 @@ def test_excluded_targets_get_aggregate_reasons_not_private_membership():
     assert out["excluded_target_symbols_count"] == 1
     assert out["excluded_target_reasons"]["NO_ACCEPTED_CORE_HISTORY_OR_ACTION_OR_SOURCE"] == 1
     assert "held" not in str(out) and "watchlisted" not in str(out)
+
+def test_fixed_eight_factor_vector_prediction_parity_research_vs_core_serving():
+    # Fixed synthetic raw bars, same actual shared feature engine as research.
+    # This guards feature order/units/float32/no-scaler and prediction mapping.
+    from research.colab.risk_pilot import make_risk_panel
+    from research.colab.risk_v1 import V1_FEATURES, add_v1_features
+    from intelligence_mart.risk_shadow import _eligible_price_rows
+    import pandas as pd
+
+    rows = bars()
+    as_of = max(r["trade_date"] for r in rows)
+    mapped, excluded = _eligible_price_rows(rows, as_of)
+    assert excluded == []
+    grid = sorted(mapped.trade_date.unique())
+    panel = add_v1_features(make_risk_panel(
+        mapped, market_sessions={"twse": grid, "tpex": grid}))
+    current = panel.loc[panel.trade_date.eq(pd.Timestamp(as_of))]
+    current = current.dropna(subset=list(V1_FEATURES))
+    current = current.loc[current["unverified_shock_feature"].eq(0)]
+    expected_x = current[list(V1_FEATURES)].to_numpy(dtype=np.float32)
+    weights = np.arange(1, 9, dtype=np.float32) / 1000
+
+    class DeterministicEightFactorModel:
+        def predict(self, actual_x):
+            np.testing.assert_array_equal(actual_x, expected_x)
+            assert actual_x.shape[1] == 8
+            return np.sum(actual_x * weights, axis=1)
+
+    out = predict_core_shadow(rows, as_of, DeterministicEightFactorModel(),
+                              core_snapshot_id="same-fixed-core")
+    assert out["eligible_symbols"] == len(expected_x) == 2
+    np.testing.assert_allclose(
+        [r["future_20d_volatility_annualized"] for r in out["predictions"]],
+        np.sum(expected_x * weights, axis=1), rtol=0, atol=1e-7)
+    assert out["excluded_target_symbols_count"] == 0
+    assert out["publication_allowed"] is False
