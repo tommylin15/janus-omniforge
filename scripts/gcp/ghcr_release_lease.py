@@ -14,6 +14,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -161,7 +162,18 @@ def acquire(api: Callable, owner: Owner) -> str:
             {"ref": f"refs/tags/{TAG}", "sha": tagsha})
     except ApiError as exc:
         raise LeaseBlocked(f"atomic_lease_claim_rejected_or_unavailable:ref_http_{exc.status or 'unknown'}_{exc.kind}") from exc
-    verified = _validated_lease(api, owner)
+    # GitHub may briefly return 404 for a ref just created by its own API.
+    # Retry *only* the read, never either POST. A missing ref after this bound
+    # leaves the lease fenced for explicit read-only recovery; ambiguous owner
+    # or permission errors must fail immediately.
+    for attempt in range(5):
+        try:
+            verified = _validated_lease(api, owner)
+            break
+        except LeaseBlocked as exc:
+            if str(exc) != "lease_missing" or attempt == 4:
+                raise
+            time.sleep(0.5)
     if verified != tagsha:
         raise LeaseBlocked("lease_readback_mismatch")
     return tagsha
