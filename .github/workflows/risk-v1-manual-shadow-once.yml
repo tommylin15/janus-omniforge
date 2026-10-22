@@ -102,7 +102,7 @@ jobs:
           # Janus run_daily independently re-reads the latest Core and refuses mismatch.
           test -n "$SCREENING_DATE"
           gcloud run jobs execute "$JOB" --project "$PROJECT" --region "$REGION" \
-            --update-env-vars='MART_OPERATION=market-screening,MART_RISK_SHADOW_ENABLED=true,MART_AI_ENABLED=false,MART_OOS_EVALUATION=false,MART_PRODUCT_PROJECTION=false,SCREENING_DATE=${SCREENING_DATE}' \
+            --update-env-vars="MART_OPERATION=market-screening,MART_RISK_SHADOW_ENABLED=true,MART_AI_ENABLED=false,MART_OOS_EVALUATION=false,MART_PRODUCT_PROJECTION=false,SCREENING_DATE=${SCREENING_DATE}" \
             --wait --format=json > /tmp/execute-result.json
           echo "One bounded Risk shadow EOD Mart Job completed; no persistent config or API traffic changed" >> "$GITHUB_STEP_SUMMARY"
       - name: Verify actual new execution and immutable shadow report
