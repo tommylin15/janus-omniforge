@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "01ea9a62880b394d581f7727fe27280f457dae1e",
-  "purpose": "Deploy existing Janus dev six-bucket Admin storage UI with decimal MB/two decimals/thousands separators on all storage cards. Full Python, Flutter, four immutable GHCR images, followed by guarded API-only candidate and 100% dev promotion; no Stage/Jobs trigger, no new paid resources or IAM mutation.",
+  "sha": "cd9466a653b1eb89f879132600c7c4f27f46885a",
+  "purpose": "D07 Risk XGBoost8 v1: keep deterministic user risk, release hash-pinned CPU model shadow inference in existing Mart 16:30 batch; Flutter analyst risk signal/status card. GCS candidate SHA readback #39701774716 PASS. No model promotion before PIT, corporate actions, and future OOS.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
