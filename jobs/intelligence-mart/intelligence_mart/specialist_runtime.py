@@ -131,7 +131,7 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
         refs = [saved["target_snapshot"], *saved["specialists"],
                 *([saved["evaluation"]] if "evaluation" in saved else []),
                 *([saved["reconciliation"]] if "reconciliation" in saved else [])]
-        refs.extend(saved[key] for key in ("screening", "market_membership", "change_facts") if saved.get(key))
+        refs.extend(saved[key] for key in ("screening", "market_membership", "change_facts", "risk_active") if saved.get(key))
         for ref in refs:
             name = ref["artifact_uri"].split(f"gs://{bucket}/", 1)[1]
             from hashlib import sha256
@@ -200,6 +200,20 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
         screen = screening(datasets, market_symbols, as_of, execution.core_snapshot_id)
         screen_ref = _write_immutable_json(
             store, bucket, f"executions/{execution.execution_id}/screening.json", screen)
+
+    # The pinned GCS registry is the only model activation gate in the Mart.
+    from .risk_active import load_active_pointer, materialize_active_predictions
+    risk_pointer = load_active_pointer(store, bucket=bucket)
+    risk_active_ref = None
+    if risk_pointer is not None:
+        ordinary = set(market_symbols) if not deep_coverage else set(
+            load_market_membership(publication_connection, as_of)["symbols"])
+        risk_active_ref = materialize_active_predictions(
+            store, bucket=bucket, rows=datasets.get("ohlcv", []),
+            targets=target["symbols"], ordinary_symbols=ordinary,
+            as_of=as_of, core_snapshot_id=execution.core_snapshot_id,
+            core_manifest_hash=execution.request_options["core_snapshot_hash"],
+            active_pointer=risk_pointer)
 
     references = []
     computed_specialists = 0
@@ -280,7 +294,10 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 "screening_output_hash": screen_ref["artifact_hash"] if screen_ref else None,
                 "screening_quality": screening_quality(screen) if screen else None,
                 "specialist_status": "partial" if any(r["status"] != "ready" for r in references) else "ready",
-                "specialists": references, "change_facts": change_ref, "llm_api_tokens": 0, "ceo_triggered": False,
+                "specialists": references, "change_facts": change_ref,
+                "risk_active": risk_active_ref,
+                "source_core_manifest_hash": execution.request_options["core_snapshot_hash"],
+                "llm_api_tokens": 0, "ceo_triggered": False,
                 "publication_authority": False}
     manifest["output_hash"] = digest(manifest)
     ref = _write_immutable_json(store, bucket, manifest_name, manifest)
