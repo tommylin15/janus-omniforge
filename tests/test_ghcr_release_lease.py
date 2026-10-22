@@ -28,6 +28,7 @@ class FakeApi:
         self.next_tag_sha = TAG_SHA_A
         self.fail_get = False
         self.get_readbacks = 0
+        self.invisible_ref_reads = 0
         self.trace = []
         self.main_sha = SHA_A
 
@@ -40,6 +41,9 @@ class FakeApi:
             if self.fail_get:
                 raise lease.ApiError(403)
             if self.ref is None:
+                raise lease.ApiError(404)
+            if self.invisible_ref_reads:
+                self.invisible_ref_reads -= 1
                 raise lease.ApiError(404)
             return {"object": {"type": "tag", "sha": self.ref}}
         if method == "GET" and "/git/tags/" in path:
@@ -215,3 +219,27 @@ def test_github_api_lease_http_error_classification_never_leaks_output(monkeypat
     assert error.value.status == 403
     assert error.value.kind == "integration_permission"
     assert secret not in str(error.value)
+
+
+def test_tag_ref_eventual_consistency_retries_reads_only(monkeypatch):
+    api = FakeApi()
+    api.invisible_ref_reads = 2
+    monkeypatch.setattr(lease.time, "sleep", lambda _: None)
+    assert lease.acquire(api, O1) == TAG_SHA_A
+    assert api.ref == TAG_SHA_A
+    assert sum(method == "POST" and path.endswith("/git/refs") for method,path in api.trace) == 1
+    assert sum(method == "POST" and path.endswith("/git/tags") for method,path in api.trace) == 1
+    assert api.invisible_ref_reads == 0
+    lease.release(api, O1)
+    assert api.ref is None
+
+
+def test_eventual_consistency_timeout_keeps_unknown_owner_fenced(monkeypatch):
+    api = FakeApi()
+    api.invisible_ref_reads = 100
+    monkeypatch.setattr(lease.time, "sleep", lambda _: None)
+    with pytest.raises(lease.LeaseBlocked, match="lease_missing"):
+        lease.acquire(api, O1)
+    assert api.ref == TAG_SHA_A
+    assert sum(method == "POST" and path.endswith("/git/refs") for method,path in api.trace) == 1
+    assert sum(method == "POST" and path.endswith("/git/tags") for method,path in api.trace) == 1
