@@ -1,0 +1,75 @@
+name: Risk v1 failed execution bounded diagnostic
+on:
+  push:
+    branches: [main]
+    paths: ['ops/risk-v1-failed-execution-diagnostic.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  diagnose:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate read-only fixed execution
+        run: |
+          jq -e '.intent=="risk-v1-failed-execution-readonly" and .execution=="janus-intelligence-mart-rnj4v" and .failed_run=="39717807039" and .no_gcp_mutation==true and .no_job_execution==true and .no_owner_payload==true' ops/risk-v1-failed-execution-diagnostic.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read Cloud Run task termination and sanitized Python error codes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          p=gen-lang-client-0593591102
+          r=us-central1
+          x=janus-intelligence-mart-rnj4v
+          gcloud run jobs executions describe "$x" --project "$p" --region "$r" --format=json > /tmp/execution.json
+          gcloud logging read 'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="janus-intelligence-mart-rnj4v"' --project "$p" --limit=120 --format=json > /tmp/logs.json
+          python3 - <<'PY'
+          import json,re
+          from pathlib import Path
+          execution=json.loads(Path('/tmp/execution.json').read_text())
+          logs=json.loads(Path('/tmp/logs.json').read_text())
+          s=execution.get('status') or {}
+          result={'execution':'janus-intelligence-mart-rnj4v','status':{
+             'failedCount':s.get('failedCount'),'succeededCount':s.get('succeededCount'),
+             'completionTime':s.get('completionTime'),
+             'conditions':[{'type':c.get('type'),'status':c.get('status'),'reason':str(c.get('reason') or '')[:90]} for c in s.get('conditions',[]) if c.get('type') in ('Completed','ResourcesAvailable','Started')]},
+             'log_entries':len(logs),'recognized':[],'no_gcp_mutation':True}
+          for entry in logs:
+            payload=entry.get('jsonPayload') or {}
+            txt=entry.get('textPayload') or ''
+            if isinstance(payload,dict):
+              code=payload.get('error_code')
+              locs=payload.get('locations')
+              if isinstance(code,str) and re.fullmatch('[A-Z][A-Z0-9_]{2,65}',code):
+                row={'error_code':code,'timestamp':entry.get('timestamp')}
+                if isinstance(locs,list):
+                  row['locations']=[{'function':str(loc.get('function'))[:50],'file':str(loc.get('file'))[:80],'line':loc.get('line')} for loc in locs[:5] if isinstance(loc,dict)]
+                result['recognized'].append(row)
+            for pattern in [
+              r'\b(?:ValueError|RuntimeError|KeyError|TypeError|ImportError|ModuleNotFoundError|PermissionError|FileNotFoundError|MemoryError|AttributeError|AssertionError):',
+              r'\b(?:ERROR|FAILURE|UNAVAILABLE|FAILED_PRECONDITION)\b'
+            ]:
+              if re.search(pattern,txt):
+                # Error class only; do not leak source text or secrets.
+                matches=re.findall(r'(ValueError|RuntimeError|KeyError|TypeError|ImportError|ModuleNotFoundError|PermissionError|FileNotFoundError|MemoryError|AttributeError|AssertionError):',txt)
+                if matches:result['recognized'].append({'exception_type':matches[0],'timestamp':entry.get('timestamp')})
+          result['recognized']=result['recognized'][:25]
+          Path('/tmp/risk-failure-diagnostic.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          print(json.dumps(result,ensure_ascii=False))
+          PY
+      - name: Upload sanitized diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risk-v1-failure-diagnostic
+          path: /tmp/risk-failure-diagnostic.json
+          if-no-files-found: ignore
+          retention-days: 14
