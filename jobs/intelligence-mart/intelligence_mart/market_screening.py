@@ -95,6 +95,7 @@ def read_market_chunks(reader, inputs, symbols, as_of, snapshot, *, risk_model=N
                        risk_target_symbols=()):
     rows = []
     risk_shadow = []
+    risk_exclusion_reasons = {}
     # All-market screening remains cheap; deep Risk inference is explicit and
     # bounded to the de-identified held/watchlisted symbol union.
     targets = frozenset(risk_target_symbols)
@@ -116,12 +117,22 @@ def read_market_chunks(reader, inputs, symbols, as_of, snapshot, *, risk_model=N
                                        risk_model, core_snapshot_id=snapshot,
                                        target_symbols=selected)
             risk_shadow.extend(risk["predictions"])
+            for reason, count in risk.get("excluded_target_reasons", {}).items():
+                risk_exclusion_reasons[reason] = risk_exclusion_reasons.get(reason, 0) + count
     telemetry = {"source": backend, "rows_by_dataset": totals,
                  "total_rows": sum(totals.values()), "chunks": (len(symbols) + 249) // 250}
     if risk_model is not None:
         telemetry["risk_shadow"] = risk_shadow
         telemetry["risk_target_count"] = len(targets)
         telemetry["risk_prediction_count"] = len(risk_shadow)
+        telemetry["risk_nonordinary_target_count"] = len(targets - set(symbols))
+        telemetry["risk_excluded_target_count"] = len(targets) - len(risk_shadow)
+        telemetry["risk_exclusion_reasons"] = {
+            **risk_exclusion_reasons,
+            "NOT_IN_ORDINARY_STOCK_UNIVERSE_INCLUDING_ETF": len(targets - set(symbols)),
+        }
+        if sum(telemetry["risk_exclusion_reasons"].values()) != telemetry["risk_excluded_target_count"]:
+            raise ValueError("risk target accounting mismatch")
     return rank_features(rows, as_of), telemetry
 
 
@@ -150,8 +161,9 @@ def screening_processor(execution, connection, *, store_factory=None, reader_fac
         # De-identified PIT target union. Current stock ownership/weights and
         # other owner fields never become model features or public artifacts.
         target_rows = load_target_rows(connection, as_of)
-        risk_targets = tuple(sorted({row["symbol"] for row in target_rows}
-                                    .intersection(symbols)))
+        risk_targets = tuple(sorted({row["symbol"] for row in target_rows}))
+        # Keep full de-identified union for aggregate ETF/nonordinary exclusion;
+        # selected ordinary shares alone are passed into the model.
     identity = {"analysis_as_of": as_of, "core_snapshot_id": execution.core_snapshot_id,
                 "core_manifest_hash": execution.request_options["core_snapshot_hash"],
                 "tables": inputs.get("iceberg_tables", {}), "membership": membership,
