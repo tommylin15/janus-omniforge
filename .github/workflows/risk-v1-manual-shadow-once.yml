@@ -20,9 +20,9 @@ jobs:
       PROJECT: gen-lang-client-0593591102
       REGION: us-central1
       JOB: janus-intelligence-mart
-      ROLLOUT_RUN: '39736336587'
-      RELEASE_RUN: '39734125861'
-      SOURCE_SHA: c4799bc9da3d86e2efde9395d10c58e31e7204c3
+      ROLLOUT_RUN: '39744703081'
+      RELEASE_RUN: '39741571886'
+      SOURCE_SHA: 5385cb7806c9986bbd720d204a1de763db520257
       MODEL_SHA: 36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -42,7 +42,7 @@ jobs:
             (.request_id|type=="string" and test("^[A-Za-z0-9._-]{1,80}$"))
           ' ops/risk-v1-manual-shadow-request.json >/dev/null
           gh run view "$ROLLOUT_RUN" --json status,conclusion,headSha,jobs > /tmp/rollout.json
-          jq -e --arg source "5a2107ec4946d65d8fe515b7693c028e51e08329" '
+          jq -e --arg source "4605cd167e5a6d6aa5da05b8f13b7f9b9e567481" '
             .status=="completed" and .conclusion=="success" and .headSha==$source and
             (.jobs|any(.name=="jobs-rollout" and .conclusion=="success"))
           ' /tmp/rollout.json >/dev/null
