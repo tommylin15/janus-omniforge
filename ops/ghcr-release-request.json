@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "28a04247b47782d308aabed2fdfb7e7b184199e2",
-  "purpose": "Fix false Core EOD date inflation: use same-session accepted TWSE/TPEx OHLCV and historical PIT market roster, preserve morning prior-session collection; Risk XGBoost remains SHADOW_ONLY pending observed EOD and OOS gates.",
+  "sha": "875982006eb86d9029e98cb374ad5e2c50950f1b",
+  "purpose": "Retry full GHCR release after correcting obsolete full-market scope test: no OHLCV day inflation from newer PIT roster; 1600 prior Python tests passed, one outdated expectation updated. Keep Risk XGBoost SHADOW_ONLY.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
