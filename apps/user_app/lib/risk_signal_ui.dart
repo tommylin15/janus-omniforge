@@ -24,7 +24,7 @@ class RiskSignalCard extends StatelessWidget {
         predicted != null && recent != null && recent > 0 &&
         (specialist['model_version'] ?? '').toString().startsWith('risk-xgboost');
     final stale = freshness == 'stale';
-    final double? ratio = validated ? predicted! / recent! : null;
+    final double? ratio = validated ? predicted / recent : null;
     final increasing = ratio != null && ratio >= 1.20;
     final easing = ratio != null && ratio <= 0.80;
     final state = stale ? '資料已過期' : !validated ? '模型尚待驗證'
@@ -62,7 +62,7 @@ class RiskSignalCard extends StatelessWidget {
                   : '預期未來 20 個交易日波動與近期相近，仍需留意市場突然變化。'),
             if (validated) ...[
               const SizedBox(height: 6),
-              Text('近期年化波動 ${(recent! * 100).toStringAsFixed(1)}% → 預測 ${(predicted! * 100).toStringAsFixed(1)}%',
+              Text('近期年化波動 ${(recent * 100).toStringAsFixed(1)}% → 預測 ${(predicted * 100).toStringAsFixed(1)}%',
                 style: TextStyle(color: color, fontWeight: FontWeight.w600)),
             ],
             const SizedBox(height: 8),
