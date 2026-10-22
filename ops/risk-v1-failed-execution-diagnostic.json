@@ -1,11 +1,11 @@
 {
   "intent": "risk-v1-failed-execution-readonly",
-  "execution": "janus-intelligence-mart-zkcgj",
-  "failed_run": "39738317081",
+  "execution": "janus-intelligence-mart-lxdc8",
+  "failed_run": "39751073583",
   "no_gcp_mutation": true,
   "no_job_execution": true,
   "no_owner_payload": true,
   "requested_on": "2026-10-22",
-  "attempt": 3,
-  "purpose": "Bounded non-secret readback of Cloud Run Mart execution zkcgj; no retry, data mutation or model publication."
+  "attempt": 4,
+  "purpose": "Read Cloud Run execution lxdc8 bounded source frames and error codes only. No rerun, GCP mutation, owner data or model promotion."
 }
