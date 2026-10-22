@@ -21,8 +21,24 @@ class DummyModel:
 
 
 def sample():
-    from test_risk_shadow import bars
-    return bars()
+    from datetime import date, timedelta
+    rows = []
+    start = date(2026, 2, 1)
+    for market, symbol in (("TWSE", "2330"), ("TPEX", "6488")):
+        for i in range(137):
+            day = start + timedelta(days=i)
+            if day.weekday() >= 5:
+                continue
+            close = 100. + i * .13 + (i % 7) * .04
+            rows.append({
+                "symbol": symbol, "market": market,
+                "trade_date": day.isoformat(), "open": close * .999,
+                "high": close * 1.015, "low": close * .985, "close": close,
+                "volume_shares": 1000 + i, "turnover_twd": (1000 + i) * close,
+                "source_id": market.lower(), "provenance_id": f"{symbol}-{i}",
+                "quality_flag": "pass", "source_authorization": "approved",
+            })
+    return rows
 
 
 def test_registry_absent_is_deterministic_and_pinned_sha_required():
