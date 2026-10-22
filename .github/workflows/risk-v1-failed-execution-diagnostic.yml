@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate read-only fixed execution
         run: |
-          jq -e '.intent=="risk-v1-failed-execution-readonly" and .execution=="janus-intelligence-mart-zkcgj" and .failed_run=="39738317081" and .no_gcp_mutation==true and .no_job_execution==true and .no_owner_payload==true' ops/risk-v1-failed-execution-diagnostic.json >/dev/null
+          jq -e '.intent=="risk-v1-failed-execution-readonly" and .execution=="janus-intelligence-mart-lxdc8" and .failed_run=="39751073583" and .no_gcp_mutation==true and .no_job_execution==true and .no_owner_payload==true' ops/risk-v1-failed-execution-diagnostic.json >/dev/null
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
@@ -28,16 +28,16 @@ jobs:
           set -Eeuo pipefail
           p=gen-lang-client-0593591102
           r=us-central1
-          x=janus-intelligence-mart-zkcgj
+          x=janus-intelligence-mart-lxdc8
           gcloud run jobs executions describe "$x" --project "$p" --region "$r" --format=json > /tmp/execution.json
-          gcloud logging read 'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="janus-intelligence-mart-zkcgj"' --project "$p" --limit=120 --format=json > /tmp/logs.json
+          gcloud logging read 'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="janus-intelligence-mart-lxdc8"' --project "$p" --limit=120 --format=json > /tmp/logs.json
           python3 - <<'PY'
           import json,re
           from pathlib import Path
           execution=json.loads(Path('/tmp/execution.json').read_text())
           logs=json.loads(Path('/tmp/logs.json').read_text())
           s=execution.get('status') or {}
-          result={'execution':'janus-intelligence-mart-zkcgj','status':{
+          result={'execution':'janus-intelligence-mart-lxdc8','status':{
              'failedCount':s.get('failedCount'),'succeededCount':s.get('succeededCount'),
              'completionTime':s.get('completionTime'),
              'conditions':[{'type':c.get('type'),'status':c.get('status'),'reason':str(c.get('reason') or '')[:90]} for c in s.get('conditions',[]) if c.get('type') in ('Completed','ResourcesAvailable','Started')]},
