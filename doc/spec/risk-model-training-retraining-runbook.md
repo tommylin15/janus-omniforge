@@ -36,10 +36,10 @@ MLP和XGB差異不足以證明MLP長期較好；XGBoost選為**正式候選**，
 - `03_models/`：XGB原生UBJ、Ridge JSON、MLP安全模型格式、測試向量及SHA；不得使用任意pickle。
 - `04_reports/`：train/OOS、按月/上市/上櫃、交易日block不確定區間、公司行動/歷史PIT/來源可用性、drift與rollback readback。
 - `05_readme/`：本次變更、受限用途、可重跑指令和狀態。
-正式GCS model candidate只有在source rights、特徵相容／PIT、OOS與可重現性等promotion gate通過後才寫入現有dev Mart bucket；**Drive cycle不等於GCS model registry**。
+正式GCS model candidate 是已凍結原生 UBJ 的待驗證存放區；首次 promotion 另依第6節的**有界安全／一致性驗收**判定，現有候選讀回並不表示 ACTIVE；**Drive cycle不等於GCS model registry**。
 
 ## 5. 統一批次與更新頻率
-- **交易日盤後**：官方Core當日OHLCV確實入庫 → 既有Cloud Scheduler/Controller在同一批次派給Mart，對全市場普通股union按symbol分塊特徵/模型預測，保存每symbol的 analysis_as_of/source_hash/model_version/feature_version/output_hash、預測年化波動、近期對照、缺值與產生時間。**GCS只是儲存，不負責運算**；既有Controller和Mart不能新建相同cron重複跑。
+- **交易日盤後**：官方Core當日OHLCV確實入庫 → 既有Cloud Scheduler/Controller在同一批次派給Mart，全市場普通股只執行 screening；Risk XGBoost 對 control.mart_ai_target_symbols(as_of) 去識別持股／觀察股聯集按 symbol 分塊特徵／模型預測（ETF 排除），保存每symbol的 analysis_as_of/source_hash/model_version/feature_version/output_hash、預測年化波動、近期對照、缺值與產生時間。**GCS只是儲存，不負責運算**；既有Controller和Mart不能新建相同cron重複跑。
 - **每日 UI**：持久化 Risk 語意訊號，非MAE排行。當預測波動/近期波動≥1.20顯示「波動風險升高」警示色；≤0.80顯示「相對緩和」青綠色；其他中性色。「緩和」不是看漲／買進；缺值、過期、ML未驗證全部中性色與原因。這是第一版*呈現門檻*，不冒充已校準的獲利機率。
 - **小字**：顯示真正 `analysis_as_of`、實際完成時間（若有）、`更新頻率：交易日盤後`、`model_version`、資料新鮮度。禁止以目前系統時鐘假造最後更新時間；時間缺失就只顯示資料日／未取得。
 - **每週**：資料缺漏與成熟預測誤差聚合、上市/上櫃及極端事件分組、漏跑/partial狀態；不重訓。
@@ -47,11 +47,18 @@ MLP和XGB差異不足以證明MLP長期較好；XGBoost選為**正式候選**，
 - **每季**：先評估重新訓練是否具有足夠新資料與顯著改善；若批准新cycle則新模型/新manifest，原版不覆寫，必經shadow/promotion。
 - **缺測及rollback**：model artifact/來源/特徵不一致→shadow/正式ML fail-closed、保留原確定性基準及最後合格版本，時間過期明示；不得以research模型數值偽裝正式validated。
 
-## 6. Promotion的不可省略驗收
-1. 來源訓練權利與 retention、歷史下市股／survivorship／PIT、有據公司行動調整基準。
-2. 新增未觸碰前瞻 cohort，先記預測再等20市場交易日標籤成熟；跨月/市場、尾部及成本/流動性劣化檢查。
-3. GCS candidate UBJ bytes+hash讀回，model loader只接受已核XGBoost原生格式／白名單schema，附feature-order/units與安全 test vector；不可在UI/LLM publish gate外直通。
-4. 現行Mart Core資料列提供 open/high/low/close/volume/turnover與市場交易日證據，按與訓練同一程式算出八因子；固定測試向量和dev日批次 shadow parity PASS。
-5. 原子registry compare-and-swap切版、可回退到舊版/確定性基準、部署CI PASS、真實Cron/Controller/Mart/job和API/UI讀回；有一項未滿足不得自稱ACTIVE。
+## 6. 首次 promotion：接受限制與不可免除的安全門檻（2026-10-22 最新決策）
+
+本節覆蓋舊版「先等新增20交易日成熟OOS、補全歷史PIT/全部公司行動」的等待要求；**不可把放寬門檻稱作嚴格驗證 PASS**。沿用 `risk-xgboost8-2025h2-v1`，未改訓練資料/基準時保留既有 SHA。
+
+1. **歷史 OOS**：訓練 2025-07 起，僅用 2026-06-30 前成熟的 train Y；測試 2026-07 至 2026-08 的 43 獨立訊號日／74,487 同樣本 rows，XGB MAE 0.129701/RMSE 0.172598；Rolling20 0.154224/0.210698。分市場、逐月原研究報告須有證據，不能由總分臆測。這是已檢視的歷史診斷，不是新的 untouched holdout。
+2. **正式上線後 OOS 回收**：先寫入不可覆寫的當日預測（model/feature SHA、core snapshot、source、as-of），等**同市場第20個交易日**與合格 EOD 到齊才生成不可覆寫的 label/result；未成熟 `PENDING` 不計 MAE/RMSE/勝負；每月按市場、月、獨立訊號日對 Rolling20 比較並保存 receipts。訓練與 serving 不能使用未成熟 label，歷史修訂不得覆蓋原始預測。
+3. **PIT 有界安全**：八因子僅源自 cutoff 前市場已發生且可用的 OHLCV；禁止未來 bars、未來公開的改版或當日 EOD 未完成即作盤前已知。當天抓取歷史檔的 fetched_at 不可偽稱當時 first published_at；無完整歷史名冊/修訂時誠實註明 `CURRENT_MASTER_ONLY` 與 non-strict PIT，不要求全面追溯才進首次 promotion；確證 leakage 則必修。
+4. **公司行動**：針對實際 train/test/serving 特徵與 Y 價格窗口核對；有合格調整因子則整窗同口徑；無可驗證口徑則排除已知污染樣本／股票推論，留理由和恢復條件。不可將超過閾值的真實市場暴跌自動視為公司行動而修平／刪除。任何變更訓練基準/樣本重新評估，必要時重訓並產新模型 hash。
+5. **來源條款**：以原始來源 URL 與實際來源 dataset 逐一核對取得、ML訓練、研究留存、GCS 部署和 UI 顯示；來源條款未釐清不得假冒通用開放授權。資料集明示使用許可與交易所一般網站不同。已知禁止的來源停用／替換。
+6. **必要技術證據**：同一正式樣本研究／serving 八因子公式、順序、單位、缺值和 float32 XGB 直接輸入（無 scaler）固定向量與 prediction parity；僅對持股+觀察股票的去識別 symbol union 推論，ETF N/A；安全 UBJ loader + GCS SHA 讀回、immutable manifest、原子 registry CAS（expected-previous）及可回退到 deterministic/前版；targeted CI PASS。真實 shadow/GCS 10/21 已 PASS，不重跑本項。
+7. **切 ACTIVE 之後才完成**：正式 API/UI 可見性、Owner 隔離與自然日批連續性實機讀回；此為發布後 acceptance，不把尚未切換當成本次「可進 promotion」先決等待門檻。若必要防護或 CAS 入口尚不存在，須明確 BLOCKED，不可手動改 JSON publication flag。
+
+正式發布入口必須從現有 repository workflow/CLI 實際確認；**本指令不授權切 ACTIVE**。不新增付費資源，不恢復退役研究管線，不重抓已有合格資料。
 沒有新付費資源、不恢復Cloud Run訓練器、不重抓既有21個月資料。
 
