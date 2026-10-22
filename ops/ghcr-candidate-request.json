@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "253d9d37132f4ce6d77bb1e84d6d7dac4d905d01",
+  "sha": "a80ac6ecdd1ce8f7f07295a8158ae6d540dea2e1",
   "digest": "",
-  "release_run": "39757237689",
+  "release_run": "39773463340",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Life Assistant-style pastel stock UI on Janus existing Flutter app: create fixed digest 0% API candidate for full Release #39757237689. Preserve old 100% serving revision; no Jobs, Scheduler, IAM or data changes.",
-  "request_attempt": 1
+  "purpose": "Risk EOD/PIT fix exact-source release #39773463340, no-traffic API candidate required for existing four-Job rollout admission; no API traffic change or model promotion.",
+  "request_attempt": 2
 }
