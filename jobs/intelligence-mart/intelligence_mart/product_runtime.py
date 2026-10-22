@@ -49,6 +49,18 @@ def persist_products(connection, manifest, store, bucket):
         if 'sha256:' + sha256(raw).hexdigest() != ref['artifact_hash']:
             raise ValueError('change facts byte hash mismatch')
         change_facts = json.loads(raw)
+    risk_rows = {}
+    if manifest.get("risk_active"):
+        from .risk_active import validate_risk_active_artifact
+        ref = manifest["risk_active"]
+        prefix = f"gs://{bucket}/risk-active/"
+        if not ref["artifact_uri"].startswith(prefix):
+            raise ValueError("Risk ACTIVE artifact outside immutable prefix")
+        raw = store.read(ref["artifact_uri"][len(f"gs://{bucket}/"):])
+        if "sha256:" + sha256(raw).hexdigest() != ref["artifact_hash"]:
+            raise ValueError("Risk ACTIVE prediction byte hash mismatch")
+        risk_rows = validate_risk_active_artifact(json.loads(raw), manifest)
+
     for symbol in sorted({r["symbol"] for r in manifest["specialists"]}):
         artifacts = []
         for ref in manifest["specialists"]:
@@ -62,6 +74,14 @@ def persist_products(connection, manifest, store, bucket):
                 raise ValueError("product artifact byte hash mismatch")
             artifacts.append(json.loads(raw))
         payload = baseline_projection(manifest, artifacts)
+        if symbol in risk_rows:
+            # Persist original deterministic baseline and the candidate
+            # separately. The API dynamically gates exposure against the
+            # current append-only PG activation state, so rollback is instant
+            # and never requires rewriting immutable prior analysis.
+            payload["risk_first_release_candidate"] = risk_rows[symbol]
+            payload["content_hash"] = content_hash(
+                {k: v for k, v in payload.items() if k != "content_hash"})
         with connection.transaction(), connection.cursor() as cursor:
             cursor.execute('''SELECT payload_json FROM private.specialist_product
                 WHERE execution_id=%s AND symbol=%s''', (manifest['execution_id'], symbol))
