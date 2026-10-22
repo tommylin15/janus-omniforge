@@ -91,9 +91,13 @@ def rank_features(output, as_of):
     return [dict(r, candidate_rank=ranks.get(r["symbol"])) for r in output]
 
 
-def read_market_chunks(reader, inputs, symbols, as_of, snapshot, *, risk_model=None):
+def read_market_chunks(reader, inputs, symbols, as_of, snapshot, *, risk_model=None,
+                       risk_target_symbols=()):
     rows = []
     risk_shadow = []
+    # All-market screening remains cheap; deep Risk inference is explicit and
+    # bounded to the de-identified held/watchlisted symbol union.
+    targets = frozenset(risk_target_symbols)
     totals = {}
     backend = None
     for offset in range(0, len(symbols), 250):
@@ -105,15 +109,19 @@ def read_market_chunks(reader, inputs, symbols, as_of, snapshot, *, risk_model=N
         for dataset, count in result.telemetry.get("rows_by_dataset", {}).items():
             totals[dataset] = totals.get(dataset, 0) + count
         rows.extend(market_features(result.datasets, chunk, as_of, snapshot, rank=False))
-        if risk_model is not None:
+        selected = targets.intersection(chunk)
+        if risk_model is not None and selected:
             from .risk_shadow import predict_core_shadow
             risk = predict_core_shadow(result.datasets.get("ohlcv", []), as_of,
-                                       risk_model, core_snapshot_id=snapshot)
+                                       risk_model, core_snapshot_id=snapshot,
+                                       target_symbols=selected)
             risk_shadow.extend(risk["predictions"])
     telemetry = {"source": backend, "rows_by_dataset": totals,
                  "total_rows": sum(totals.values()), "chunks": (len(symbols) + 249) // 250}
     if risk_model is not None:
         telemetry["risk_shadow"] = risk_shadow
+        telemetry["risk_target_count"] = len(targets)
+        telemetry["risk_prediction_count"] = len(risk_shadow)
     return rank_features(rows, as_of), telemetry
 
 
@@ -135,14 +143,24 @@ def screening_processor(execution, connection, *, store_factory=None, reader_fac
     symbols = tuple(membership["symbols"])
     inputs, bounds = read_plan(core, as_of)
     shadow_enabled = os.environ.get("MART_RISK_SHADOW_ENABLED", "false").lower() == "true"
+    risk_targets = ()
     if shadow_enabled:
         from .risk_shadow import MODEL_SHA256, FEATURE_VERSION
+        from .coverage import load_target_rows, _hash
+        # De-identified PIT target union. Current stock ownership/weights and
+        # other owner fields never become model features or public artifacts.
+        target_rows = load_target_rows(connection, as_of)
+        risk_targets = tuple(sorted({row["symbol"] for row in target_rows}
+                                    .intersection(symbols)))
     identity = {"analysis_as_of": as_of, "core_snapshot_id": execution.core_snapshot_id,
                 "core_manifest_hash": execution.request_options["core_snapshot_hash"],
                 "tables": inputs.get("iceberg_tables", {}), "membership": membership,
                 "feature_version": VERSION, "date_bounds": bounds}
     if shadow_enabled:
         identity["risk_shadow"] = {"model_sha256": MODEL_SHA256, "feature_version": FEATURE_VERSION,
+                                    "target_membership_hash": _hash(risk_targets),
+                                    "target_count": len(risk_targets),
+                                    "scope": "HELD_AND_WATCHLISTED_ORDINARY_SHARES",
                                     "publication_allowed": False}
     identity_hash = digest(identity)
     name = f"screening/{identity_hash[7:]}.json"
@@ -166,7 +184,8 @@ def screening_processor(execution, connection, *, store_factory=None, reader_fac
                 from .risk_shadow import load_model_from_pinned_store
                 risk_model = risk_model_factory() if risk_model_factory else load_model_from_pinned_store(store)
             rows, input_telemetry = read_market_chunks(
-                reader, inputs, symbols, as_of, execution.core_snapshot_id, risk_model=risk_model)
+                reader, inputs, symbols, as_of, execution.core_snapshot_id,
+                risk_model=risk_model, risk_target_symbols=risk_targets)
         finally:
             reader.close()
         shadow_rows = input_telemetry.pop("risk_shadow", None)
@@ -181,6 +200,9 @@ def screening_processor(execution, connection, *, store_factory=None, reader_fac
                              "model_sha256": MODEL_SHA256, "feature_version": FEATURE_VERSION,
                              "source_manifest_hash": execution.request_options["core_snapshot_hash"],
                              "rows": sorted(shadow_rows, key=lambda row: row["symbol"]),
+                             "scope": "HELD_AND_WATCHLISTED_ORDINARY_SHARES",
+                             "target_membership_hash": _hash(risk_targets),
+                             "target_count": len(risk_targets),
                              "publication_allowed": False,
                              "status": "SHADOW_UNVALIDATED"}
             risk_artifact["output_hash"] = digest(risk_artifact)
