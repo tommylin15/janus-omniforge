@@ -1,11 +1,11 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "566522998769b515d27139382ea4ca36f35e0b93",
+  "sha": "a3a3b30648e7b05f2b9cb5363eca4594d52a2b20",
   "digest": "",
-  "release_run": "39707256315",
+  "release_run": "39710294843",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "User-authorized Janus holdings wan UI, full latest-position daily PnL and TPEx ETF/OTC MIS quote repair. Schema migration 067 PASS #39707179417; exact full GHCR release #39707256315 all gates PASS. Create pinned-digest API 0%-traffic candidate only, preserve existing Jobs and 100% serving traffic until separate gates."
+  "purpose": "TPEx Bond ETF 00719B/00697B intraday QuoteRouter._due fix and mobile holdings YTD same-row; full source #39710294843 Python+Flutter and four GHCR digest PASS. Pin 0%-traffic dev API candidate only; keep serving 100% and Jobs/Scheduler untouched."
 }
