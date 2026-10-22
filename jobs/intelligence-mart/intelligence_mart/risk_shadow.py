@@ -95,8 +95,13 @@ def predict_core_shadow(rows: list[dict], as_of: str, model, *, core_snapshot_id
     if prices.empty:
         return {"status": "INSUFFICIENT_OHLCV", "predictions": [],
                 "excluded_input_rows": len(excluded), "publication_allowed": False}
-    grids = {market: sorted(prices.loc[prices.market.eq(market), "trade_date"].unique())
-             for market in sorted(prices.market.unique())}
+    # Core does not expose a certified per-market trading-session calendar
+    # here. Use the union of all accepted cohort dates for BOTH markets:
+    # conservative across asymmetric closure and missing-market days, so
+    # a day seen in either market cannot silently bridge a missing stock day.
+    # This stays shadow until a verified per-market calendar is available.
+    evidenced_days = sorted(prices["trade_date"].unique())
+    grids = {market: evidenced_days for market in sorted(prices.market.unique())}
     panel = add_v1_features(make_risk_panel(prices, market_sessions=grids))
     latest = panel.loc[panel.trade_date.eq(pd.Timestamp(as_of))].copy()
     valid = latest.dropna(subset=list(V1_FEATURES))
@@ -125,7 +130,7 @@ def predict_core_shadow(rows: list[dict], as_of: str, model, *, core_snapshot_id
             "input_symbols": int(prices.symbol.nunique()),
             "eligible_symbols": int(len(predictions)),
             "excluded_input_rows": len(excluded),
-            "calendar_evidence": "PINNED_CORE_OBSERVED_MARKET_DATES_NOT_OFFICIAL_CERTIFIED",
+            "calendar_evidence": "PINNED_CORE_COHORT_UNION_SESSIONS_NOT_OFFICIAL_CERTIFIED",
             "source_status": RISK_MODEL_SOURCE_STATUS,
             "publication_allowed": False,
             "model_version": MODEL_VERSION, "model_sha256": MODEL_SHA256}
