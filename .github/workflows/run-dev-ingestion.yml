@@ -93,7 +93,7 @@ jobs:
 
           dataset="$(jq -r '.dataset // ""' "${file}")"
           case "${dataset}" in
-            full-market-500|twse-ohlcv|twse-market-volume|taiex|twse-valuation|twse-institutional|mops|finmind|twse-events|twse-market-activity|twse-financing|twse-securities-lending-short) ;;
+            full-market-500|official-eod-ohlcv|twse-ohlcv|twse-market-volume|taiex|twse-valuation|twse-institutional|mops|finmind|twse-events|twse-market-activity|twse-financing|twse-securities-lending-short) ;;
             *) echo "Unsupported ingestion dataset: ${dataset}" >&2; exit 2 ;;
           esac
 
@@ -209,6 +209,9 @@ jobs:
           if [[ "${DATASET}" == 'full-market-500' ]]; then
             # An empty setting selects the ingestion runtime's approved default source list.
             dataset_selection=""
+          elif [[ "${DATASET}" == 'official-eod-ohlcv' ]]; then
+            # One bounded full-market EOD only: the two approved official batch feeds.
+            dataset_selection="twse-market-volume,tpex-market-volume"
           fi
           overrides=(
             "JANUS_CONTROL_MIGRATION="
@@ -224,7 +227,8 @@ jobs:
           if [[ "${DISABLE_MART}" == 'true' ]]; then
             overrides+=("MART_JOB=")
           fi
-          env_csv="$(IFS=,; echo "${overrides[*]}")"
+          # Gcloud's default comma delimiter would split the paired source list.
+          env_csv="^@^$(IFS=@; echo "${overrides[*]}")"
           echo "Executing ${REQUEST_ID} against janus-ingestion-core (${DATASET})."
           gcloud run jobs execute janus-ingestion-core \
             --project="${GCP_PROJECT_ID}" \
