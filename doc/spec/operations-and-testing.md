@@ -1,5 +1,13 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-22｜持股 UI、ETF／上櫃盤中行情與當日損益正式 dev API-only 發版 PASS
+
+- 交付：TWD 持股摘要以萬元／一位小數顯示；當日損益依目前實際持股股數合計並優先採合格官方前收盤價，來源不足時僅採當日相符 MIS y；上櫃 MIS 必須驗 exact exchange／symbol；非普通股個股頁不顯示不適用的普通股分析入口。
+- DB migration 067：[實機 #39707179417](https://github.com/tommylin15/janus-omniforge/actions/runs/39707179417) PASS，Cloud Run execution janus-ingestion-core-8zqjb，schema 與 grants 驗證成功；此次無 API 切流或 Jobs 映像更新。
+- 完整映像來源 SHA 566522998769b515d27139382ea4ca36f35e0b93：[GHCR Release #39707256315](https://github.com/tommylin15/janus-omniforge/actions/runs/39707256315) Python、Flutter、四映像匿名 digest PASS；[0% API candidate #39707770848](https://github.com/tommylin15/janus-omniforge/actions/runs/39707770848) PASS；[OAuth／private／MCP 負向邊界 #39707953984](https://github.com/tommylin15/janus-omniforge/actions/runs/39707953984) PASS。
+- [API-only 100% 切流 #39708070913](https://github.com/tommylin15/janus-omniforge/actions/runs/39708070913) SUCCESS：既有 GHCR 版本 b3ecba5ea87bff8b7cdec0730ee857a611a71951 作為可回滾基準，正式流程已驗證新→舊→新流量健康／build-id；成功收據 artifact 12395722908。此輪不動四 Jobs、Scheduler、IAM 或 GCS。
+- 邊界：正式 dev API／Web 資產已發布與受控回滾；未另外取得已登入 Owner 逐檔 ETF／TPEx 盤中行情與持股正向畫面，不宣稱該項實機個別驗證已完成。
+
 ### 2026-10-21｜A-CHANGE A1～A4 整包實作／集中驗收進行中
 
 - 使用者啟動整包工程；沿既有 specialist batch、immutable product、PG serving 與 authenticated API，加入有來源／期別／可得時間的事實、前後狀態、盤前／盤後 cutoff 及首頁／個股整合。GET 不做計算、外網讀取、ML 或 LLM；不新增服務、排程、供應商或權限。
