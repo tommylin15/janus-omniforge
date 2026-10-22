@@ -1346,7 +1346,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                   ? (coreLoading ? '載入中' : '資料不足')
                   : aggregate['day_change_status'] == 'available' && dayAmount != null
                       ? summaryMoney(currency, dayAmount) : '待行情';
-              final dayPriced = fvInt(aggregate['day_priced_symbol_count']) ?? 0;
+              final dayPriced = fvInt(aggregate['day_priced_symbol_count']);
               final dayMissing = fvRows(aggregate['day_unpriced_symbols']).length;
               final dailyNote = dayAmount != null && aggregate['day_change_status'] == 'available'
                   ? '行情日 ${fvText(aggregate['day_change_date'])}'
