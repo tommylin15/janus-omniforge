@@ -387,8 +387,11 @@ class PostgresWorkspaceRepository:
         if not requested: return {}
         with self._connection() as connection:
             rows=connection.execute(
-                """SELECT symbol,name,market,enabled FROM control.stock_master
-                   WHERE symbol = ANY(%s) ORDER BY symbol""",
+                """SELECT sm.symbol,sm.name,sm.market,sm.enabled,ip.instrument_kind
+                   FROM control.stock_master sm
+                   LEFT JOIN control.official_instrument_identity_provenance ip
+                     ON ip.symbol=sm.symbol
+                   WHERE sm.symbol = ANY(%s) ORDER BY sm.symbol""",
                 (requested,),
             ).fetchall()
         return {str(row["symbol"]):dict(row) for row in rows}
@@ -629,14 +632,23 @@ class PostgresWorkspaceRepository:
         symbols = sorted(price_dates)
         with self._connection() as connection:
             rows = connection.execute(
-                """SELECT target.symbol, prior.payload_json->>'close' AS previous_close,
-                          prior.payload_json->>'trade_date' AS previous_close_date
+                """SELECT target.symbol, prior.previous_close, prior.previous_close_date
                    FROM unnest(%s::text[], %s::date[]) AS target(symbol, quote_date)
                    LEFT JOIN LATERAL (
-                       SELECT payload_json FROM publication.stock_serving_recent
-                       WHERE dataset_id='ohlcv' AND symbol=target.symbol
-                         AND payload_json->>'trade_date' < to_char(target.quote_date, 'YYYY-MM-DD')
-                       ORDER BY sort_at DESC LIMIT 1
+                       SELECT candidate.previous_close, candidate.previous_close_date
+                       FROM (
+                         SELECT payload_json->>'close' AS previous_close,
+                                payload_json->>'trade_date' AS previous_close_date
+                         FROM publication.stock_serving_recent
+                         WHERE dataset_id='ohlcv' AND symbol=target.symbol
+                           AND payload_json->>'trade_date' < to_char(target.quote_date, 'YYYY-MM-DD')
+                         UNION ALL
+                         SELECT price::text, trade_date::text
+                         FROM control.official_tpex_eod_history
+                         WHERE symbol=target.symbol AND trade_date<target.quote_date
+                       ) candidate
+                       WHERE candidate.previous_close IS NOT NULL
+                       ORDER BY candidate.previous_close_date DESC LIMIT 1
                    ) prior ON TRUE""",
                 (symbols, [price_dates[symbol] for symbol in symbols]),
             ).fetchall()
@@ -720,7 +732,8 @@ class PostgresWorkspaceRepository:
         items = [
             (
                 symbol, row['price'], row['quote_at'], row['received_at'],
-                row['session'], row['source'], row['route_version']
+                row['session'], row['source'], row['route_version'],
+                row.get('previous_close') if row['source'] == 'twse_mis' else None
             )
             for symbol, row in sorted(quotes.items())
         ]
@@ -728,11 +741,12 @@ class PostgresWorkspaceRepository:
             for offset in range(0, len(items), chunk_size):
                 chunk = items[offset:offset + chunk_size]
                 connection.cursor().executemany("""INSERT INTO control.operational_last_quotes
-                    (symbol,price,quote_at,received_at,session,source,route_version)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s)
+                    (symbol,price,quote_at,received_at,session,source,route_version,previous_close)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
                     ON CONFLICT(symbol) DO UPDATE SET price=EXCLUDED.price,
                     quote_at=EXCLUDED.quote_at,received_at=EXCLUDED.received_at,
-                    session=EXCLUDED.session,source=EXCLUDED.source,route_version=EXCLUDED.route_version
+                    session=EXCLUDED.session,source=EXCLUDED.source,route_version=EXCLUDED.route_version,
+                    previous_close=EXCLUDED.previous_close
                     WHERE EXCLUDED.quote_at >= operational_last_quotes.quote_at""",
                     chunk)
         return len(items)

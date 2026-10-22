@@ -356,18 +356,18 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     def resolve_prices(identities: dict[str, dict[str, Any]], *, force: bool = False):
         # Read *all* actual owner holdings, even outside the research 500
-        # and including unconfirmed TPEx ETFs. Only TWSE-verified identities
-        # may issue TWSE MIS calls; the other symbols stay DB-first.
-        twse = {
+        # and including TPEx ETFs; exact exchange-symbol echo is checked
+        # by MIS before accepting candidate or verified OTC observations.
+        mis = {
             symbol: identity for symbol, identity in identities.items()
             if identity.get("enabled", True) is not False
-            and str(identity.get("market", "")).upper() in {"TWSE", "TWSE_INDEX"}
+            and str(identity.get("market", "")).upper() in {"TWSE", "TWSE_INDEX", "TPEX", "OTC", "TPEX_UNVERIFIED"}
         }
         current, phase = quote_session()
         authorized = os.getenv("JANUS_MIS_QUOTES_ENABLED", "false").lower() == "true"
         prices, refresh = quote_router.resolve(
             identities,
-            refresh=bool(twse) and authorized and phase == "regular",
+            refresh=bool(mis) and authorized and phase == "regular",
             force=force, now=current,
         )
         # Official TPEx OpenAPI provides *EOD only*, never an intraday
@@ -651,6 +651,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         identity = repository.stock_identities({symbol}).get(symbol)
         name, identity_status, _ = stock_identity(identity)
         result = {"symbol": symbol, "stock_name": name, "identity_status": identity_status,
+                  "instrument_kind": identity.get("instrument_kind") if identity else None,
                   "close": None, "trade_date": None, "price_status": "missing",
                   "previous_close": None, "change": None, "change_percent": None}
         persisted_rows = []

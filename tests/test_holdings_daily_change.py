@@ -126,3 +126,34 @@ def test_malformed_quote_only_affects_its_symbol_and_never_publishes_nan():
         assert result["positions"][1]["price_status"] == "missing"
         assert result["items"][0]["market_value"] is None
         assert result["items"][0]["missing_price_count"] == 1
+
+
+def test_etf_exchange_mis_y_supplies_current_day_pnl_without_guessed_date():
+    quote = {"price":"31.68", "previous_close":"31.63", "price_date":"2026-10-08",
+             "state":"intraday", "source":"twse_mis", "quote_at":"2026-10-08T09:59:00+08:00"}
+    row = {"symbol":"00719B","currency":"TWD","shares":"30000","average_cost":"31.18"}
+    result = value_holdings([row], {"00719B":quote}, NOW)
+    assert result["positions"][0]["previous_close_source"] == "mis_previous_close"
+    assert result["positions"][0]["previous_close_date"] is None
+    assert Decimal(result["positions"][0]["day_change_amount"]) == Decimal("1500")
+    assert Decimal(result["items"][0]["day_change_amount"]) == Decimal("1500")
+
+
+def test_daily_total_uses_latest_shares_and_withholds_missing_instrument():
+    etf = {"price":"31.68","previous_close":"31.63","price_date":"2026-10-08",
+           "state":"intraday","source":"twse_mis","quote_at":"2026-10-08T09:59:00+08:00"}
+    rows = [{**POSITION,"shares":"2000"},
+            {"symbol":"00719B","currency":"TWD","shares":"30000","average_cost":"31.18"}]
+    quotes = {"2382":{**QUOTE,"previous_close":"320"},"00719B":etf}
+    result = value_holdings(rows, quotes, NOW)
+    assert Decimal(result["items"][0]["day_change_amount"]) == Decimal("10500")
+    quotes["00719B"] = {**etf,"previous_close":None}
+    result = value_holdings(rows, quotes, NOW)
+    assert result["items"][0]["day_change_amount"] is None
+    assert result["items"][0]["day_priced_symbol_count"] == 1
+
+
+def test_previous_close_includes_tpex_official_eod():
+    source = (Path(__file__).parents[1] / "services/api/repository.py").read_text()
+    assert "control.official_tpex_eod_history" in source
+    assert "trade_date<target.quote_date" in source

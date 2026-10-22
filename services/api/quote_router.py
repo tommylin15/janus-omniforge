@@ -138,7 +138,7 @@ class QuoteRouter:
         due = {}
         for symbol, identity in identities.items():
             market = str(identity.get("market", "")).upper()
-            if identity.get("enabled") is False or market not in {"TWSE", "TWSE_INDEX"}:
+            if identity.get("enabled") is False or market not in {"TWSE", "TWSE_INDEX", "TPEX", "OTC", "TPEX_UNVERIFIED"}:
                 continue
             row = current.get(symbol)
             received = _timestamp(row.get("received_at")) if row else None
@@ -174,8 +174,15 @@ class QuoteRouter:
                         continue
                 except (KeyError, ValueError, TypeError, InvalidOperation):
                     continue
+                try:
+                    prior = Decimal(str(row.get("previous_close"))) if row.get("previous_close") is not None else None
+                    if prior is not None and (not prior.is_finite() or prior <= 0):
+                        prior = None
+                except (ValueError, TypeError, InvalidOperation):
+                    prior = None
                 successful[symbol] = {
                     **row,
+                    "previous_close": str(prior) if prior is not None else None,
                     "received_at": source_received.isoformat(),
                     "session": "regular" if market_phase(at) == "regular" else "off_session",
                     "source": "twse_mis",

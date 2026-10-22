@@ -1,8 +1,9 @@
-"""TWSE-only bounded MIS read-through source; never writes canonical EOD data."""
+"""Exchange MIS bounded read-through source; never writes canonical EOD data."""
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 import json
 import os
+import re
 from threading import Lock
 from time import monotonic
 from urllib.parse import urlencode
@@ -44,6 +45,10 @@ class MisQuotes:
             return "tse_t00.tw"
         if market == "TWSE":
             return f"tse_{symbol}.tw"
+        # Unverified owner TPEx holdings are only candidates: the returned
+        # MIS row must echo the exact otc channel and symbol.
+        if market in {"TPEX", "OTC", "TPEX_UNVERIFIED"} and re.fullmatch(r"[0-9A-Z]{4,10}", symbol):
+            return f"otc_{symbol}.tw"
         return None
 
     def prices(self, identities):
@@ -100,8 +105,15 @@ class MisQuotes:
                             continue
                     except (InvalidOperation, ValueError, TypeError):
                         continue
+                    try:
+                        previous = Decimal(str(row.get("y")))
+                        if not previous.is_finite() or previous <= 0:
+                            previous = None
+                    except (InvalidOperation, ValueError, TypeError):
+                        previous = None
                     self.cache[symbol] = {
                         "price": str(price),
+                        "previous_close": str(previous) if previous is not None else None,
                         "quote_at": at.isoformat(),
                         "received_at": received_at,
                     }
@@ -177,6 +189,20 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
         # older price movement under the current-day holdings column.
         if phase == "regular" and str(price_date or "")[:10] != now.astimezone(TAIPEI).date().isoformat():
             reference = None
+        reference_source = "official_previous_close" if reference is not None else None
+        # Prefer a dated prior close from official serving / TPEx EOD. When
+        # absent, only today's valid MIS tick may supply its own y close.
+        # MIS y has no verified calendar date; never invent one.
+        if (reference is None and not prior and source == "twse_mis"
+                and reference_eligible and observed_day == now.astimezone(TAIPEI).date()
+                and at is not None and at.astimezone(TAIPEI).date() == observed_day):
+            try:
+                candidate = Decimal(str(quote.get("previous_close")))
+                if candidate.is_finite() and candidate > 0:
+                    reference = candidate
+                    reference_source = "mis_previous_close"
+            except (InvalidOperation, ValueError, TypeError):
+                pass
         change = price - reference if reference is not None and price is not None else None
         row.update(
             market_price=str(price) if price is not None else None,
@@ -197,7 +223,8 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
             is_final=bool(quote.get("is_final")),
             valuation_kind="eod" if source in {"core_ohlcv", "tpex_openapi_eod"} else "intraday",
             previous_close=str(reference) if reference is not None else None,
-            previous_close_date=prior.get("previous_close_date") if reference is not None else None,
+            previous_close_date=prior.get("previous_close_date") if reference_source == "official_previous_close" else None,
+            previous_close_source=reference_source,
             change=str(change) if change is not None else None,
             change_percent=str(change / reference) if change is not None else None,
             day_change_amount=str(change * shares) if change is not None else None,
@@ -221,9 +248,19 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
                 "reference_priced_symbol_count": 0,
                 "reference_price_dates": set(),
                 "reference_unpriced_symbols": [],
+                "day_change_amount": Decimal(0),
+                "day_priced_symbol_count": 0,
+                "day_unpriced_symbols": [],
+                "day_price_dates": set(),
             },
         )
         total["cost_basis"] += cost
+        if change is None or not reference_eligible:
+            total["day_unpriced_symbols"].append(row["symbol"])
+        else:
+            total["day_change_amount"] += change * shares
+            total["day_priced_symbol_count"] += 1
+            total["day_price_dates"].add(observed_day.isoformat())
         if reference_eligible:
             total["reference_priced_market_value"] += value
             total["reference_priced_cost_basis"] += cost
@@ -249,6 +286,8 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
         price_dates = sorted(total["price_dates"])
         reference_dates = sorted(total["reference_price_dates"])
         reference_incomplete = bool(total["reference_unpriced_symbols"])
+        day_dates = sorted(total["day_price_dates"])
+        day_incomplete = bool(total["day_unpriced_symbols"]) or len(day_dates) != 1
         mixed = len(price_dates) > 1
         incomplete = bool(affected) or mixed
         reason = ("mixed_price_dates" if mixed else
@@ -259,8 +298,16 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
                 **{k: v for k, v in total.items() if k not in {
                     "price_dates", "priced_market_value", "priced_cost_basis",
                     "reference_priced_market_value", "reference_priced_cost_basis",
-                    "reference_price_dates"}},
+                    "reference_price_dates", "day_price_dates", "day_change_amount"}},
                 "cost_basis": str(cost),
+                # Latest owner shares after any same-day trade; incomplete
+                # coverage never silently becomes a complete portfolio sum.
+                "day_change_amount": None if day_incomplete else str(total["day_change_amount"]),
+                "priced_day_change_amount": str(total["day_change_amount"])
+                    if total["day_priced_symbol_count"] else None,
+                "day_change_status": "incomplete" if day_incomplete else "available",
+                "day_change_date": day_dates[0] if not day_incomplete else None,
+                "day_price_dates": day_dates,
                 "priced_market_value": str(total["priced_market_value"]),
                 "priced_cost_basis": str(total["priced_cost_basis"]),
                 "reference_priced_market_value": str(total["reference_priced_market_value"]),
