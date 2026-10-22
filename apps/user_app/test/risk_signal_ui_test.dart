@@ -49,6 +49,13 @@ void main() {
     expect(find.textContaining('低波動不代表股價將上漲'), findsOneWidget);
   });
 
+  testWidgets('first-release approved XGB shows real risk forecast and OOS caveat', (tester) async {
+    await mount(tester, specialist(modelStatus: 'first_release_approved'));
+    expect(find.text('波動風險升高'), findsOneWidget);
+    expect(find.textContaining('預測 36.0%'), findsOneWidget);
+    expect(find.textContaining('前瞻 20 交易日樣本持續回收'), findsOneWidget);
+  });
+
   testWidgets('expired forecast is neutral despite model numbers', (tester) async {
     await mount(tester, specialist(), freshness: 'stale');
     expect(find.text('資料已過期'), findsOneWidget);
