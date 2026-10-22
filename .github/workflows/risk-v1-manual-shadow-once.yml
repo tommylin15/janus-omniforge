@@ -66,9 +66,18 @@ jobs:
           skopeo inspect --no-creds "docker://ghcr.io/tommylin15/janus-intelligence-mart:sha-${SOURCE_SHA}" > /tmp/expected-mart.json
           digest="$(jq -r '.Digest' /tmp/expected-mart.json)"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
-          gcloud run jobs describe "$JOB" --region "$REGION" --project "$PROJECT" --format=json > /tmp/live-job.json
-          live="$(jq -r '(.template.template.containers[0].image // .spec.template.spec.template.spec.containers[0].image // .template.containers[0].image // empty)' /tmp/live-job.json)"
-          test "$live" = "ghcr.io/tommylin15/janus-intelligence-mart@${digest}"
+          # gcloud CLI job describe uses a different schema than the Cloud Run
+          # v2 API. Reuse the exact reconciled v2 resolver already proven by
+          # reversible four-Jobs rollout; preserve the immutable SHA gate.
+          EXPECTED_DIGEST="$digest" python3 - <<'PY'
+          import os,sys
+          sys.path.insert(0, 'scripts/gcp')
+          from ghcr_jobs_rollout import image,job
+          expected='ghcr.io/tommylin15/janus-intelligence-mart@'+os.environ['EXPECTED_DIGEST']
+          if image(job('janus-intelligence-mart'))!=expected:
+              raise SystemExit('mart_exact_image_mismatch')
+          print('Mart Cloud Run v2 exact GHCR digest PASS')
+          PY
           gcloud run jobs executions list --job="$JOB" --region="$REGION" --project="$PROJECT" --limit=30 --format=json > /tmp/executions-before.json
           jq -e '[.[] | select((.status.completionTime // "") == "")] | length == 0' /tmp/executions-before.json >/dev/null
           echo "Mart exact-image identity and no running executions PASS" >> "$GITHUB_STEP_SUMMARY"
