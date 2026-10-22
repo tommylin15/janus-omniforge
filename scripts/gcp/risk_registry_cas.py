@@ -54,10 +54,8 @@ def validate_pointer(pointer: dict | None) -> None:
         if any(pointer.get(k) is not None for k in
                ("model_version", "model_sha256", "feature_version", "model_gcs_uri")):
             raise ValueError("deterministic fallback must not name an active model")
-    if not SHA.fullmatch(str(pointer.get("source_commit_sha256", ""))):
-        # Runtime source is a Git commit SHA1, not a model hash. The field name
-        # intentionally encodes the digest kind; don't accept shortened SHA.
-        raise ValueError("invalid source commit identity")
+    if not re.fullmatch(r"[0-9a-f]{40}", str(pointer.get("source_git_sha", ""))):
+        raise ValueError("invalid full source Git SHA")
 
 
 def _candidate_pointer(*, model_active: bool, source_sha: str) -> dict:
@@ -70,7 +68,7 @@ def _candidate_pointer(*, model_active: bool, source_sha: str) -> dict:
         "model_sha256": MODEL_SHA256 if model_active else None,
         "model_gcs_uri": f"gs://{BUCKET}/{MODEL_OBJECT}" if model_active else None,
         "feature_version": FEATURE_VERSION if model_active else None,
-        "source_commit_sha256": sha256(source_sha.encode("ascii")).hexdigest(),
+        "source_git_sha": source_sha,
     }
 
 
