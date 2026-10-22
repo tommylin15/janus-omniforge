@@ -50,12 +50,17 @@ def _core_ready_event(*, core_bucket: str, execution_id: str, config_id: str,
                       analysis_as_of: str, iceberg_tables: dict[str, dict[str, object]],
                       symbols: tuple[str, ...], market: str,
                       industries: list[dict[str, object]] | None = None,
-                      scope_as_of: str | None = None) -> dict[str, object] | None:
+                      scope_as_of: str | None = None,
+                      ohlcv_eod_ready: bool = False) -> dict[str, object] | None:
     if not iceberg_tables:
         return None
     if scope_as_of:
-        # Today's official roster must never be labelled as yesterday's known universe.
-        analysis_as_of = max(date.fromisoformat(analysis_as_of), date.fromisoformat(scope_as_of)).isoformat()
+        # A later roster cannot certify an earlier market date. Never move
+        # analysis_as_of forward just because market membership is newer.
+        if date.fromisoformat(analysis_as_of) != date.fromisoformat(scope_as_of):
+            return None
+        if not ohlcv_eod_ready:
+            return None
     tables_payload = json.dumps(iceberg_tables, sort_keys=True, separators=(",", ":")).encode()
     snapshot_id = f"sha256:{sha256(tables_payload).hexdigest()}"
     manifest = {
@@ -257,8 +262,9 @@ def _fetch_source(adapter: object, request: CollectionRequest) -> SourceResponse
     return adapter.fetch(request)
 
 
-def _requested_dates(*, today: date, holidays: set[date], single: str = "", start: str = "", end: str = "") -> tuple[date, ...]:
-    """Resolve bounded single-day or interval replay input for a job run."""
+def _requested_dates(*, today: date, holidays: set[date], single: str = "", start: str = "", end: str = "",
+                     after_eod: bool = False) -> tuple[date, ...]:
+    """Resolve prior session before EOD and current session only after EOD."""
     if single.strip() and (start.strip() or end.strip()):
         raise ValueError("INGESTION_DATE cannot be combined with BACKFILL_START_DATE or BACKFILL_END_DATE")
     if bool(start.strip()) != bool(end.strip()):
@@ -273,7 +279,20 @@ def _requested_dates(*, today: date, holidays: set[date], single: str = "", star
         if (last - first).days > 366:
             raise ValueError("backfill range cannot exceed 367 calendar days")
         return tuple(effective_trading_day(day, holidays=holidays) for day in (first + timedelta(days=offset) for offset in range((last - first).days + 1)))
-    return (effective_trading_day(today - timedelta(days=1), holidays=holidays),)
+    target = today if after_eod else today - timedelta(days=1)
+    return (effective_trading_day(target, holidays=holidays),)
+
+
+def _full_market_eod_ready(items: list[dict[str, object]], as_of: str) -> bool:
+    """Both market price batches must prove accepted Core OHLCV for as_of."""
+    matched = [item for item in items
+               if item.get("dataset") == "ohlcv" and item.get("date") == as_of
+               and item.get("market") in {"TWSE", "TPEX"}]
+    if len(matched) != 2 or {item["market"] for item in matched} != {"TWSE", "TPEX"}:
+        return False
+    return all(item.get("coverage_accepted") is True and item.get("snapshot_id") is not None
+               and isinstance(item.get("received_count"), int) and item["received_count"] > 0
+               for item in matched)
 
 
 def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] | None = None,
@@ -297,9 +316,8 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
     if unknown:
         raise ValueError(f"unsupported INGESTION_DATASETS: {','.join(unknown)}")
 
-    # This job runs before market open, so the current calendar date cannot be
-    # a completed observation day. Exchange holidays can be injected without
-    # rebuilding the image.
+    # Before 16:30 Taiwan time use prior completed session; at/after 16:30
+    # request current session, but certify EOD only with both market price proofs.
     owned_control = control is None
     control = control or _control_plane()
     config_id = config_id or os.environ.get("CONTROL_COLLECTION_CONFIG", "first-batch")
@@ -341,7 +359,8 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
         today=local_now.date(), holidays=holidays,
         single=str(options.get("date", os.environ.get("INGESTION_DATE", ""))),
         start=str(options.get("start_date", os.environ.get("BACKFILL_START_DATE", ""))),
-        end=str(options.get("end_date", os.environ.get("BACKFILL_END_DATE", ""))))))
+        end=str(options.get("end_date", os.environ.get("BACKFILL_END_DATE", ""))),
+        after_eod=(local_now.hour, local_now.minute) >= (16, 30))))
     persisted_execution = execution_id is not None
     execution_id = execution_id or str(uuid4())
     trace_id = trace_id or str(uuid4())
@@ -528,7 +547,9 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                                            for row in response.rows)
                         # Coverage uses the fixed official roster, never the returned prices.
                         expected = members_by_market.get(market, set()) if active_500 else set()
-                        received_prices = {row["symbol"] for row in price_rows if row.get("close") is not None}
+                        received_prices = {row["symbol"] for row in price_rows
+                                           if row.get("close") is not None
+                                           and str(row.get("trade_date", ""))[:10] == as_of.isoformat()}
                         coverage_items.append({"date": as_of.isoformat(), "dataset": "ohlcv",
                                                "source": adapter.source_id, "market": market,
                                                "expected": sorted(expected),
@@ -540,7 +561,8 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                         price_coverage = coverage_items[-1]
                         if price_rows:
                             checked = validate_ohlcv(price_rows, analysis_as_of=as_of)
-                            received_prices = {row["symbol"] for row in checked.accepted}
+                            received_prices = {row["symbol"] for row in checked.accepted
+                                               if str(row.get("trade_date", ""))[:10] == as_of.isoformat()}
                             holding_prices_by_date.setdefault(as_of.isoformat(), set()).update(received_prices)
                             price_coverage.update(received=sorted(expected & received_prices),
                                 missing=sorted(expected - received_prices),
@@ -773,6 +795,8 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     symbols=tuple(market_symbols) if active_500 else tuple(symbols),
                     market='market' if active_500 else config.market, industries=industries,
                     scope_as_of=local_now.date().isoformat() if active_500 else None,
+                    ohlcv_eod_ready=_full_market_eod_ready(coverage_items, dates[-1].isoformat())
+                    if active_500 else False,
                 )
             retention_setting = control.get_admin_setting("retention")
             retention = retention_setting[0] if retention_setting and isinstance(retention_setting[0], dict) else {}
