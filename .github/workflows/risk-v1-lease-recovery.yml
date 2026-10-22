@@ -62,7 +62,9 @@ jobs:
             ([.status.traffic[]?|select(.tag=="ghcr-c4799bc9da3d")]|length)==0
           ' /tmp/api.json >/dev/null
           python - <<'PY'
-          import json, subprocess
+          import sys
+          sys.path.insert(0, 'scripts/gcp')
+          from ghcr_jobs_rollout import image, job
           old={
             'janus-batch-controller':'ghcr.io/tommylin15/janus-ingestion-core@sha256:8e50fe46cc01c7b7b9f48da58d1b141f23489ea9f3ca7eeae238ad787ca3bfc2',
             'janus-ingestion-core':'ghcr.io/tommylin15/janus-ingestion-core@sha256:8e50fe46cc01c7b7b9f48da58d1b141f23489ea9f3ca7eeae238ad787ca3bfc2',
@@ -70,20 +72,7 @@ jobs:
             'janus-private-pipeline':'ghcr.io/tommylin15/janus-private-pipeline@sha256:0300e04ea73f3215252c61336a79b958f6b64471247e369a2ffefd533323f137',
           }
           for name, expected in old.items():
-            p=subprocess.run(['gcloud','run','jobs','describe',name,
-              '--project=gen-lang-client-0593591102','--region=us-central1','--format=json'],
-              check=True,capture_output=True,text=True)
-            body=json.loads(p.stdout)
-            images=[]
-            def walk(v):
-              if isinstance(v,dict):
-                if isinstance(v.get('image'),str):images.append(v['image'])
-                for k,x in v.items():
-                  if k not in ('env','args','command','secretKeyRef'): walk(x)
-              elif isinstance(v,list):
-                for x in v:walk(x)
-            walk(body.get('template',{}))
-            if images != [expected]:
+            if image(job(name)) != expected:
               raise SystemExit('job_immutable_image_drift_'+name)
           print('Four existing dev Jobs exact digest unchanged: PASS')
           PY
