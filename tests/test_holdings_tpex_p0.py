@@ -356,11 +356,25 @@ def test_historical_refresh_calls_dated_source_when_rolling_returns_today_only()
     assert db.historical[("00697B","2026-10-14")]["price"]=="33.20"
     assert db.saved["00697B"]["price_date"]=="2026-10-15"
 
+
+def _freeze_exact_official_test_clock(monkeypatch, module):
+    """Keep 2026-10-14 historical fixture inside the bounded quote freshness window.
+
+    This mocks only the test clock; production source eligibility remains strict.
+    """
+    from datetime import datetime as ActualDateTime
+    class FixedDateTime(ActualDateTime):
+        @classmethod
+        def now(cls, tz=None):
+            return ActualDateTime(2026, 10, 15, 17, 0, tzinfo=tz)
+    monkeypatch.setattr(module, "datetime", FixedDateTime)
+
 def test_exact_official_tpex_transport_retries_only_before_db_mutation(monkeypatch):
     """A truncated HTTP chunk cannot be treated as an official price."""
     import json
     from http.client import IncompleteRead
     from scripts.gcp import p0_tpex_asof_owner_acceptance as module
+    _freeze_exact_official_test_clock(monkeypatch, module)
 
     class Response:
         status = 200
