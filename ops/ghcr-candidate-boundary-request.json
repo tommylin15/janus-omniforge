@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "5385cb7806c9986bbd720d204a1de763db520257",
+  "sha": "253d9d37132f4ce6d77bb1e84d6d7dac4d905d01",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "D07 Risk shadow isolated conflicting-market Core symbol fix; verify exact-source OAuth metadata and private/unauthenticated boundary for full release #39741571886 and 0%-traffic candidate #39744169150 PASS. Read-only, no API traffic change.",
-  "request_attempt": 3
+  "purpose": "Verify OAuth metadata and negative owner/Admin/MCP authorization for Life-style pastel stock UI, full Release #39757237689 and 0% dev API candidate #39760791053. Do not change traffic, Jobs, IAM or storage.",
+  "request_attempt": 1
 }
