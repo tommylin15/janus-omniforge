@@ -43,7 +43,12 @@ def run_risk_activation():
     from packages.postgres_bundle import load_postgres_bundle
     from .runtime import _settings
     import psycopg
-    req = json.loads(os.environ["RISK_ACTIVATION_REQUEST"])
+    request_uri = os.environ["RISK_ACTIVATION_REQUEST_URI"]
+    prefix = f"gs://{BUCKET}/risk-models/activation-requests/"
+    if not request_uri.startswith(prefix) or not request_uri.endswith(".json"):
+        raise ValueError("Risk activation request URI outside private allowlist")
+    store = GcsObjectStore(BUCKET)
+    req = json.loads(store.read(request_uri[len(f"gs://{BUCKET}/"):]))
     if (req.get("intent") != "user-approved-risk-first-release"
             or req.get("environment") != "dev"
             or req.get("approved") is not True
@@ -54,7 +59,6 @@ def run_risk_activation():
     if (os.environ.get("GCP_PROJECT_ID") != "gen-lang-client-0593591102"
             or os.environ.get("MART_BUCKET") != BUCKET):
         raise ValueError("Risk activation outside dev allowlist")
-    store = GcsObjectStore(BUCKET)
     found = [obj for obj in store.objects(ACTIVE_OBJECT) if obj["name"] == ACTIVE_OBJECT]
     if len(found) != 1:
         raise ValueError("Risk registry object absent or ambiguous")
@@ -72,6 +76,14 @@ def run_risk_activation():
                         FROM private.risk_model_activation ORDER BY activation_id DESC LIMIT 1""")
             prior = cur.fetchone()
             last = dict(zip(("mode", "model_sha256", "gcs_registry_generation"), prior)) if prior else None
+            if req["mode"] == "ACTIVE":
+                cur.execute("""SELECT count(*) FROM private.specialist_product
+                    WHERE analysis_as_of >= current_date - INTERVAL '7 days'
+                    AND payload_json ? 'risk_first_release_candidate'
+                    AND payload_json->'risk_first_release_candidate'->>'model_sha256'=%s""",
+                    (MODEL_SHA256,))
+                if cur.fetchone()[0] < 1:
+                    raise ValueError("Risk live target-specific API projection not observed")
             change = activation_plan(last=last, requested_mode=req["mode"],
                 expected_mode=req["expected_mode"], generation=generation,
                 expected_generation=req["generation"], pointer=pointer)
