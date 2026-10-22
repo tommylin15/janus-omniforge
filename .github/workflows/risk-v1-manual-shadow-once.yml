@@ -28,12 +28,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Verify exact single-run approval and successful prior Jobs rollout
+        id: guard
         shell: bash
         run: |
           set -Eeuo pipefail
           jq -e --arg rollout "$ROLLOUT_RUN" --arg release "$RELEASE_RUN" --arg source "$SOURCE_SHA" --arg model "$MODEL_SHA" '
             .enabled==true and .intent=="one-shot-risk-shadow-eod" and
-            .environment=="dev" and .run_once==true and
+            .environment=="dev" and
+            (.run_once==true or (.run_once==false and
+              .readback_execution=="janus-intelligence-mart-5rv6r" and
+              .readback_event_uri=="gs://gen-lang-client-0593591102-dev-mart/acceptance/specialists/risk-shadow-once-2026-10-21-a65b43111a821f43.json")) and
             .publication_allowed==false and .no_job_config_changes==true and
             .no_api_traffic_changes==true and .no_new_scheduler==true and
             .rollout_run==$rollout and .release_run==$release and
@@ -51,7 +55,12 @@ jobs:
             .status=="completed" and .conclusion=="success" and .headSha==$sha and
             (.jobs|any(.name=="release-verify" and .conclusion=="success"))
           ' /tmp/release.json >/dev/null
-          echo "Rollout+Release gate PASS; one-shot shadow only" >> "$GITHUB_STEP_SUMMARY"
+          if test "$(jq -r .run_once ops/risk-v1-manual-shadow-request.json)" = true; then
+            echo "mode=execute" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=readback" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Rollout+Release gate PASS; shadow execution or exact readback only" >> "$GITHUB_STEP_SUMMARY"
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
@@ -91,7 +100,40 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          python scripts/gcp/risk_shadow_asof.py --github-env "$GITHUB_ENV" --receipt /tmp/risk-core-asof.json --event /tmp/risk-core-event.json
+          if test "${{ steps.guard.outputs.mode }}" = readback; then
+            # Read the exact acceptance event recorded in the completed execution;
+            # no latest-selector drift and no second prediction dispatch.
+            event_uri="$(jq -r .readback_event_uri ops/risk-v1-manual-shadow-request.json)"
+            gcloud storage cat "$event_uri" --project "$PROJECT" > /tmp/risk-core-event.json
+            EXACT_EVENT_URI="$event_uri" python - <<'PY'
+          import json,hashlib,subprocess
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          from pathlib import Path
+          event=json.loads(Path('/tmp/risk-core-event.json').read_text())
+          assert event['analysisAsOf']=='2026-10-21'
+          assert event['coreSnapshotUri'].startswith('gs://gen-lang-client-0593591102-dev-core/executions/')
+          assert event['coreSnapshotUri'].endswith('/core-snapshot.json')
+          source=subprocess.check_output(['gcloud','storage','cat',event['coreSnapshotUri'],
+              '--project','gen-lang-client-0593591102'],timeout=60)
+          assert 'sha256:'+hashlib.sha256(source).hexdigest()==event['coreSnapshotHash']
+          core=json.loads(source)
+          assert core['snapshot_id']==event['coreSnapshotId']
+          assert core['analysis_as_of']==event['analysisAsOf']
+          age=(datetime.now(ZoneInfo('Asia/Taipei')).date()-
+              datetime.strptime(event['analysisAsOf'],'%Y-%m-%d').date()).days
+          assert 0<=age<=7
+          Path('/tmp/risk-core-asof.json').write_text(json.dumps({
+              'analysis_as_of':event['analysisAsOf'],'age_days':age,
+              'core_snapshot_hash':event['coreSnapshotHash'][7:]},sort_keys=True))
+          with open(__import__('os').environ['GITHUB_ENV'],'a') as f:
+              f.write('SCREENING_DATE='+event['analysisAsOf']+'\n')
+              f.write('MART_ACCEPTANCE_INPUT_URI='+__import__('os').environ['EXACT_EVENT_URI']+'\n')
+          print('Pinned previous Risk EOD Core identity+hash verified; no GCP writes')
+          PY
+          else
+            python scripts/gcp/risk_shadow_asof.py --github-env "$GITHUB_ENV" --receipt /tmp/risk-core-asof.json --event /tmp/risk-core-event.json
+          fi
           python - <<'PY'
           import json
           from datetime import datetime
@@ -105,6 +147,7 @@ jobs:
           PY
           echo "Resolved actual prior Core date (not a hardcoded business date)" >> "$GITHUB_STEP_SUMMARY"
       - name: Pin reviewed prior-day Core event in existing Mart acceptance prefix
+        if: steps.guard.outputs.mode == 'execute'
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -119,6 +162,7 @@ jobs:
           echo "MART_ACCEPTANCE_INPUT_URI=$target" >> "$GITHUB_ENV"
           echo "Pinned prior EOD Core manifest hash verified in existing Mart acceptance GCS prefix" >> "$GITHUB_STEP_SUMMARY"
       - name: Execute one pinned-prior-EOD Risk shadow only
+        if: steps.guard.outputs.mode == 'execute'
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -134,8 +178,26 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          gcloud run jobs executions list --job="$JOB" --region="$REGION" --project="$PROJECT" --limit=35 --format=json > /tmp/executions-after.json
-          python - <<'PY'
+          if test "${{ steps.guard.outputs.mode }}" = readback; then
+            # Exact completed execution reference, obtained from the original
+            # successful Cloud Run call. Do not infer from two bounded list
+            # windows (whose truncation can introduce false identities).
+            python - <<'PY'
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0,'scripts/gcp')
+          from ghcr_jobs_rollout import cloud,ROOT,terminal
+          name='janus-intelligence-mart-5rv6r'
+          data=cloud(f'{ROOT}/jobs/janus-intelligence-mart/executions/{name}')
+          assert data.get('name')==f'{ROOT}/jobs/janus-intelligence-mart/executions/{name}'
+          assert terminal(data) and int(data.get('succeededCount',0))>=1
+          assert int(data.get('failedCount',0))==0 and data.get('completionTime')
+          Path('/tmp/manual-execution-name').write_text(name)
+          print('Exact historical Risk Mart execution completed successfully:',name)
+          PY
+          else
+            gcloud run jobs executions list --job="$JOB" --region="$REGION" --project="$PROJECT" --limit=35 --format=json > /tmp/executions-after.json
+            python - <<'PY'
           import json
           from pathlib import Path
           before=json.loads(Path('/tmp/executions-before.json').read_text())
@@ -150,7 +212,8 @@ jobs:
               raise SystemExit('manual_shadow_execution_not_successful')
           Path('/tmp/manual-execution-name').write_text(str(x.get('metadata',{}).get('name') or x.get('name')))
           print('Manual Risk shadow execution verified: completed=true; succeeded_count='+str(status['succeededCount']))
-          PY
+            PY
+          fi
           # Untrusted/owner payloads do not go to Actions logs. Print aggregate only.
           gcloud storage ls --recursive "gs://gen-lang-client-0593591102-dev-mart/risk-shadow/" --project "$PROJECT" > /tmp/shadow-uris.txt
           python - <<'PY'
