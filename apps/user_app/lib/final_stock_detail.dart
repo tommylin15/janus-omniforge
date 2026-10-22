@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'final_charts.dart';
 import 'final_perf.dart';
 import 'final_analysis.dart';
+import 'risk_signal_ui.dart';
 import 'final_visual_common.dart';
 import 'final_visual_series.dart';
 import 'main.dart' as legacy;
@@ -787,6 +788,13 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                   ],
                 ),
               ),
+            if (baselineRoles.any((item) => fvMap(item)['role'] == 'risk')) ...[
+              RiskSignalCard(
+                specialist: fvMap(baselineRoles.firstWhere(
+                  (item) => fvMap(item)['role'] == 'risk')),
+                freshness: fvText(baseline['freshness'], missing: 'unavailable'),
+              ),
+            ],
             if (report['model_validation_status'] == 'validated') ...[
             fvSectionTitle(context, '五面向健康度'),
             if (dimensions.isEmpty && health['mart_health_score'] == null)
