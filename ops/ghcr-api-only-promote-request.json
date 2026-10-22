@@ -2,15 +2,15 @@
   "intent": "promote-existing-dev-api-only-fixed-ghcr",
   "approved": true,
   "scope": "existing-dev-janus-api-only",
-  "source_sha": "a3a3b30648e7b05f2b9cb5363eca4594d52a2b20",
-  "release_run": "39710294843",
-  "candidate_run": "39710808920",
-  "auth_boundary_run": "39711001211",
-  "prior_serving_sha": "566522998769b515d27139382ea4ca36f35e0b93",
+  "source_sha": "253d9d37132f4ce6d77bb1e84d6d7dac4d905d01",
+  "release_run": "39757237689",
+  "candidate_run": "39760791053",
+  "auth_boundary_run": "39761510405",
+  "prior_serving_sha": "a3a3b30648e7b05f2b9cb5363eca4594d52a2b20",
   "rollback_mode": "reversible_ghcr",
   "no_jobs_mutation": true,
   "no_scheduler_mutation": true,
   "no_storage_mutation": true,
   "no_iam_mutation": true,
-  "purpose": "User-approved 2026-10-22 holdings card annual realized PnL beside market value and fix TPEx bond ETF 00719B/00697B intraday MIS routing. Exact full release, candidate and negative auth PASS; revalidate live source and GHCR immutable digests. Rehearse new→old→new API 100% and preserve old revision. No Jobs/Scheduler/IAM/storage mutation."
+  "purpose": "User-requested Janus User App Life Assistant style stock UI pastel card refresh. Full release #39757237689, exact-source 0% API candidate #39760791053 and auth boundary #39761510405 all PASS. Prior latest successful API-only promotion #39711125553 served a3a3b306; validate actual current /app/build-id and previous public GHCR rollback digest under lease before reversible candidate→prior→candidate 100% traffic switch. No Jobs, Scheduler, data, IAM or new resources."
 }
