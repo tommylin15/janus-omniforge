@@ -30,6 +30,7 @@ on:
       - 'ops/ghcr-preview-request.json'
       - 'ops/ghcr-api-promote-request.json'
       - 'ops/ghcr-jobs-rollout-request.json'
+      - 'ops/ghcr-jobs-baseline-request.json'
       - 'ops/ghcr-candidate-boundary-request.json'
 
 permissions:
@@ -76,6 +77,7 @@ jobs:
                 echo "release-run=$(jq -r '.release_run // empty' ops/ghcr-api-promote-request.json)" >> "$GITHUB_OUTPUT"
                 echo "jobs-run=$(jq -r '.jobs_run // empty' ops/ghcr-api-promote-request.json)" >> "$GITHUB_OUTPUT"
                 ;;
+              *jobs-baseline-request*) echo "operation=jobs-baseline" >> "$GITHUB_OUTPUT" ;;
               *jobs-rollout*) 
                 echo "operation=jobs-rollout" >> "$GITHUB_OUTPUT"
                 echo "release-run=$(jq -r '.release_run // empty' ops/ghcr-jobs-rollout-request.json)" >> "$GITHUB_OUTPUT"
