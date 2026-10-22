@@ -4,6 +4,9 @@
 
 ## 已完成／結案
 
+- **Life 風格股市 UI 漸層色卡：USER_ACCEPTED／CLOSED（2026-10-22）**。Flutter 顯示改版 `1fc29ea` 涵蓋首頁大盤、關注、持股摘要與緊湊列、個股標頭，保留台股紅漲綠跌、實際行情及缺值語意。完整 [GHCR Release #39757237689](https://github.com/tommylin15/janus-omniforge/actions/runs/39757237689)、[0% candidate #39760791053](https://github.com/tommylin15/janus-omniforge/actions/runs/39760791053)、[OAuth／Owner 負向邊界 #39761510405](https://github.com/tommylin15/janus-omniforge/actions/runs/39761510405)、[dev API-only 100% 切流／回滾 #39763193647](https://github.com/tommylin15/janus-omniforge/actions/runs/39763193647) 均 `completed/success`；使用者於本對話明確回覆「驗收完畢」。此項僅 UI presentation，不代表 A-CHANGE 其他工作包或 D07 Risk 模型 gate 結案。
+
+
 - **當日損益／ETF 盤中刷新與 YTD 同行 UI 修正：USER_ACCEPTED／CLOSED（2026-10-22）**。本人於本次對話明確回覆「驗收完成」，確認此次手機介面與 ETF／上櫃盤中損益修正的既定驗收範圍。正式 dev API-only 100% source `a3a3b30648e7`、full GHCR、OAuth 負向驗證、0% candidate、實際新→舊→新回滾與 lease 釋放均 PASS，詳見 [Operations](spec/operations-and-testing.md)。真人接受是使用者回報，不取代未提供的逐檔原始報價、金額或自動量測收據；不額外重開已通過的發版 gate。
 
 

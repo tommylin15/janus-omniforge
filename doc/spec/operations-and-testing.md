@@ -1,5 +1,12 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-22｜Life 風格股市色卡：dev UI 真人驗收 PASS／CLOSED
+
+- **實作**：`1fc29ea3634d519eb731f11e8ccddd67140be4f5`；`final_visual_common.dart` 共用薄荷／霧藍／奶杏／淡紫色卡，已用於 Today、Watchlist、Ledger 持股摘要與緊湊列、Stock Detail 標頭。前端不變更 canonical 數字、PIT、Owner authorization、缺值或 Risk promotion 語意。
+- **測試與部署**：[Flutter UI #39756981931](https://github.com/tommylin15/janus-omniforge/actions/runs/39756981931) PASS；固定完整 Release source `253d9d37132f4ce6d77bb1e84d6d7dac4d905d01`，[full GHCR #39757237689](https://github.com/tommylin15/janus-omniforge/actions/runs/39757237689) PASS；[0% API candidate #39760791053](https://github.com/tommylin15/janus-omniforge/actions/runs/39760791053) PASS；[OAuth／private／Admin／MCP 未登入邊界 #39761510405](https://github.com/tommylin15/janus-omniforge/actions/runs/39761510405) PASS；[API-only #39763193647](https://github.com/tommylin15/janus-omniforge/actions/runs/39763193647) `completed/success`，含正式 100% 切流與新→舊→新回滾驗證，產生 `ghcr-api-only-promotion-receipt` artifact。沒有變更四 Jobs、Scheduler、Storage、IAM。
+- **真人驗收**：使用者 2026-10-22 明確回報「驗收完畢」，以本次股市 UI 色卡改版範圍 `USER_ACCEPTED／CLOSED`。未據此擴大認定 D07 Risk 模型／A-CHANGE 分析功能完成；無需對本輪已 PASS UI 重複部署。
+
+
 ### 2026-10-22｜TPEx 債券 ETF 盤中刷新與持股 YTD 同行：dev 100% 發布 PASS
 
 - **2026-10-22 真人正向驗收補充：USER_CONFIRMED_PASS／CLOSED。** 本次對話使用者於正式 dev 發布後明確回覆「驗收完成」，依其接受的工作範圍結案（持股卡「市值＋本年已實現損益」同行，以及 `00719B`／`00697B` 所屬 ETF／上櫃盤中報價刷新後的顯示）。證據為使用者直接確認，非新產生的獨立行情原始 payload、逐檔損益數字、操作截圖或 source authorization 擴張。原發布與測試 CI 收據保留；無需追加重複部署或無界驗收。
