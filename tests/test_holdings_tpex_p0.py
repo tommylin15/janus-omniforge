@@ -421,6 +421,7 @@ def test_exact_official_tpex_never_accepts_repeated_truncated_payload(monkeypatc
 def test_exact_official_two_bond_etfs_one_source_day(monkeypatch):
     import json
     from scripts.gcp import p0_tpex_asof_owner_acceptance as module
+    _freeze_exact_official_test_clock(monkeypatch, module)
 
     class Response:
         status=200
