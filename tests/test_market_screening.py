@@ -271,6 +271,16 @@ def test_market_screening_stays_full_universe_risk_model_only_selected_targets()
     _, none = read_market_chunks(Reader(), {}, ("2330", "2317", "6488"),
         as_of, "core-fixed", risk_model=Model(), risk_target_symbols=())
     assert none["risk_shadow"] == [] and none["risk_target_count"] == 0
+    # ETF/other nonordinary symbols remain in the private-safe target union,
+    # but never enter pooled ordinary-share model inference.
+    _, with_etf = read_market_chunks(Reader(), {}, ("2330", "2317", "6488"),
+        as_of, "core-fixed", risk_model=Model(),
+        risk_target_symbols=("2330", "6488", "00679B"))
+    assert with_etf["risk_target_count"] == 3
+    assert with_etf["risk_prediction_count"] == 2
+    assert with_etf["risk_nonordinary_target_count"] == 1
+    assert with_etf["risk_excluded_target_count"] == 1
+    assert with_etf["risk_exclusion_reasons"]["NOT_IN_ORDINARY_STOCK_UNIVERSE_INCLUDING_ETF"] == 1
     _, with_etf = read_market_chunks(Reader(), {}, ("2330", "2317", "6488"),
         as_of, "core-fixed", risk_model=Model(),
         risk_target_symbols=("2330", "6488", "0050"))
