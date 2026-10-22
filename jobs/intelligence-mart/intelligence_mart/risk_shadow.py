@@ -60,6 +60,20 @@ def _eligible_price_rows(rows, as_of: str) -> tuple[pd.DataFrame, list[str]]:
         if str(row.get("source_authorization", "")).lower() in ("blocked", "denied", "unauthorized"):
             excluded.append(sym)
             continue
+        # Do not treat fetched_at as historical first publication.
+        # Explicit later-published revisions are unavailable at cutoff.
+        for time_field in ("published_at", "availability_at"):
+            stamp = row.get(time_field)
+            if stamp is not None and str(stamp).strip():
+                stamp_day = str(stamp)[:10]
+                try:
+                    from datetime import date
+                    known_day = date.fromisoformat(stamp_day)
+                except ValueError as exc:
+                    raise ValueError("risk invalid publication metadata") from exc
+                if known_day.isoformat() > as_of:
+                    raise ValueError("risk future-available source revision")
+
         if row.get("quality_flag") == "critical":
             excluded.append(sym)
             continue
@@ -151,6 +165,15 @@ def predict_core_shadow(rows: list[dict], as_of: str, model, *, core_snapshot_id
     latest = panel.loc[panel.trade_date.eq(pd.Timestamp(as_of))].copy()
     valid = latest.dropna(subset=list(V1_FEATURES))
     valid = valid.loc[valid["unverified_shock_feature"].eq(0)]
+    target_pool = set(target_symbols) if target_symbols is not None else set(prices.symbol)
+    with_usable_bars = set(prices.symbol)
+    with_complete_features = set(latest.dropna(subset=list(V1_FEATURES)).symbol)
+    valid_set = set(valid.symbol)
+    exclusion_reasons = {
+        "NO_ACCEPTED_CORE_HISTORY_OR_ACTION_OR_SOURCE": len(target_pool - with_usable_bars),
+        "MISSING_REQUIRED_8_FEATURE_WINDOW": len((target_pool & with_usable_bars) - with_complete_features),
+        "UNVERIFIED_EXTREME_RETURN_WINDOW": len(with_complete_features - valid_set),
+    }
     predictions = []
     if not valid.empty:
         x = valid[list(V1_FEATURES)].to_numpy(dtype=np.float32)
@@ -177,6 +200,9 @@ def predict_core_shadow(rows: list[dict], as_of: str, model, *, core_snapshot_id
             "identical_core_duplicates_collapsed": collapsed,
             "eligible_symbols": int(len(predictions)),
             "excluded_input_rows": len(excluded),
+            "target_symbols_count": len(target_pool),
+            "excluded_target_symbols_count": len(target_pool - valid_set),
+            "excluded_target_reasons": exclusion_reasons,
             "calendar_evidence": "PINNED_CORE_COHORT_UNION_SESSIONS_NOT_OFFICIAL_CERTIFIED",
             "source_status": RISK_MODEL_SOURCE_STATUS,
             "publication_allowed": False,
