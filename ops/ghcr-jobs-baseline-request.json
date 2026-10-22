@@ -3,7 +3,7 @@
   "environment": "dev",
   "risk_candidate_sha256": "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044",
   "no_gcp_writes": true,
-  "source": "D07 Risk v1 safe duplicate/contradictory Core revisions, exact-SHA dev Mart shadow deployment",
-  "purpose": "Retry cancelled readonly four-Job rollback inventory #39734433191 after exact GHCR full release #39734125861 SUCCESS; no cloud writes.",
-  "request_attempt": 3
+  "source": "D07 Risk shadow market-membership-conflict quarantine fix; preparing reversible rollout of GHCR release #39741571886",
+  "purpose": "Read-only exact currently-serving four Cloud Run Job GHCR image digests/config fingerprints as rollback baseline before new Risk v1 fix rollout; no GCP writes.",
+  "request_attempt": 4
 }
