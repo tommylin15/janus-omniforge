@@ -63,9 +63,9 @@
 ## 6. as-of join 與防止未來資料
 - τ前已可取得的最新合法版本才可進X。只有財報期末日而沒有可證明公開時間，不能假設當天市場已知。
 - 每日沿用最近已公布季報屬狀態延續，不是每一天一個獨立季報訓練樣本；附age_days。禁止從未來公告向過去backfill。
-- 今日下載的歷史檔 fetched_at 是今日，不冒充歷史published_at；有可驗證歷史首次版可用原published時間，否則保留non-strict研究，不能通過嚴格promotion。
+- 今日下載的歷史檔 fetched_at 是今日，不冒充歷史 published_at；可驗證歷史首次版用原 published_at，否則記 `NON_STRICT_HISTORICAL_PIT`。**2026-10-22 首次 Risk XGBoost 發布不等待全市場 strict PIT 重建**；但只要已確認某 X 欄位使用未來行情／修訂，必須修復，不能當作已接受限制。
 - 修訂保留版本：實際曾產生的歷史預測與input_hash不變；新版本只影響新cutoff或另標restated研究。
-- 公司行動調整版本固定；不能把事後已知行動/最新產業與存活名冊無聲灌回所有歷史日期。
+- 公司行動調整版本固定；不能把事後已知行動/最新產業與存活名冊無聲灌回所有歷史日期。首次 Risk 只核實訓練／測試／目標推論所需窗口：無可靠調整口徑時排除已知污染股票／樣本，保存原因與恢復條件；不是把未知價格隨意修平，也不是刪除真正市場暴跌。
 - 暫不設定全模型共通「所有資料必須齊兩年」門檻；每個feature有自己window/min_points，每個role有自己必要欄位。
 
 ## 7. 資料保存、增量與訓練/推論一致
@@ -78,11 +78,11 @@
 ## 8. 訓練窗口與OOS切分
 初始建議：取得約24月資料後，可用前12月作首輪train、後3月validation，往前滾動3月，多fold評估；最後3月作完全未調參holdout。這是規劃示例，必須扣掉最長warmup與未成熟label，不保證剩下足量樣本。
 - 以「唯一交易日期」切train/validation/test，同日所有股票同一fold；逐股票隨機切列或把同日股票分散到不同fold均不可。
-- 每fold只用mature_at≤train_cutoff的Y；清除label interval與下一fold重疊的train列。20日Y需依實際交易日/成熟時點purge，不以20筆股票列的gap代替。
+- 每fold只用mature_at≤train_cutoff的Y；清除label interval與下一fold重疊的train列。20日Y需依實際交易日/成熟時點purge，不以20筆股票列的gap代替。首次 Risk 既有7–8月已觀察 OOS 只可作回溯診斷；新 prospective cohort 的20日成熟只在啟用後固定預測、後續回收與月評估，不作發布等待 gate。
 - scaling/imputation/winsorization/feature selection/超參數/校準只在相應train或validation fit；test僅一次最終評估。
 - 同期跨股票及重疊H日label高度相關，報告unique dates/months/events與block uncertainty；大量股票列不等足夠時間證據。
 - 日頻Quant/Risk可先研究；兩年每股僅約8季，Fundamental季模型與估值長期效用不因股票多就自動通過。必要時保留規則，不能為五模型湊齊而發布。
-- 每次新訓練版本記錄實際起訖、cutoff、label maturity、母體、source/feature hash、dependency版本、seed及驗證結果。
+- 每次新訓練版本記錄實際起訖、cutoff、label maturity、母體、source/feature hash、dependency版本、seed及驗證結果。Risk XGBoost pooled 模型的市場全股票訓練母體／screening 不等於正式每日推論母體；每日 ML 僅 `control.mart_ai_target_symbols(as_of)` 去識別持股／觀察股聯集，ETF 不適用。
 
 
 ## 9. 資料量與結果回收路由
