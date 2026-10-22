@@ -6,6 +6,6 @@
   "no_job_execution": true,
   "no_owner_payload": true,
   "requested_on": "2026-10-22",
-  "attempt": 5,
-  "purpose": "Read only existing lxdc8 failed execution and aggregate, anonymized 2026-10-21 Risk shadow GCS object proof; no rerun, GCP mutation or owner payload."
+  "attempt": 6,
+  "purpose": "Retry read-only lxdc8 GCS risk-shadow aggregate proof after correcting URI allowlist regular expression; no GCP writes or owner details."
 }
