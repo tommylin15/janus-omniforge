@@ -80,7 +80,7 @@ jobs:
           result={'target_date':'2026-10-21','objects_total':len(uris),'matches':[],
                   'no_gcp_mutation':True,'no_owner_payload':True}
           for uri in uris:
-              if not re.fullmatch(r'gs://gen-lang-client-0593591102-dev-mart/risk-shadow/[a-zA-Z0-9._/-]+\\.json',uri):
+              if not (uri.startswith('gs://gen-lang-client-0593591102-dev-mart/risk-shadow/') and re.fullmatch(r'[a-zA-Z0-9._/-]+',uri.split('/risk-shadow/',1)[-1]) and uri.endswith('.json') and '..' not in uri):
                   raise SystemExit('unexpected_shadow_object_uri')
               raw=subprocess.check_output(['gcloud','storage','cat',uri,'--project=gen-lang-client-0593591102'],timeout=60)
               data=json.loads(raw)
