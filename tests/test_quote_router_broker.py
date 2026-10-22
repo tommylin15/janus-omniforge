@@ -125,16 +125,56 @@ def test_resolver_prefers_same_day_eod_and_uses_persistent_sixty_second_ttl():
     assert final['2330']['is_final'] is True
 
 
-def test_router_never_requests_tpex_symbols():
+def test_tpex_and_bond_etf_quotes_reach_exact_exchange_mis_dispatch():
     repository = QuoteRepository()
+    now = datetime(2026, 10, 6, 10, 0, tzinfo=TAIPEI)
+    calls = []
     class Source:
         def prices(self, identities):
-            raise AssertionError('TPEx must never reach MIS')
+            calls.append(set(identities))
+            return {
+                s: {"price": p, "previous_close": y,
+                    "quote_at": now.isoformat(), "received_at": now.isoformat()}
+                for s, p, y in [
+                    ("00719B", "31.68", "31.63"),
+                    ("00697B", "34.95", "34.90"),
+                    ("6488", "200", "198"),
+                ] if s in identities
+            }
+    identities = {
+        "00719B": {"market": "TPEX", "enabled": True, "instrument_kind": "BOND_ETF"},
+        "00697B": {"market": "TPEX", "enabled": True, "instrument_kind": "BOND_ETF"},
+        "6488": {"market": "TPEX", "enabled": True},
+        "7777": {"market": "UNKNOWN", "enabled": True},
+        "00888B": {"market": "TPEX_UNVERIFIED", "enabled": False},
+    }
+    router = QuoteRouter(repository, Source())
+    quote, refresh = router.resolve(identities, refresh=True, now=now)
+    assert refresh == {"status": "updated", "requested": 3, "updated": 3}
+    assert calls == [{"00719B", "00697B", "6488"}]
+    for s in ("00719B", "00697B"):
+        assert quote[s]["source"] == "twse_mis"
+        assert quote[s]["state"] == "intraday"
+        assert quote[s]["previous_close"] in ("31.63", "34.90")
+    assert "7777" not in quote
+    assert router.resolve(identities, refresh=True, now=now + timedelta(seconds=30))[1]["requested"] == 0
+
+
+def test_unverified_b_suffix_candidate_is_attempted_but_unknown_skipped():
+    repository = QuoteRepository()
+    now = datetime(2026, 10, 6, 10, 0, tzinfo=TAIPEI)
+    requested = []
+    class Source:
+        def prices(self, identities):
+            requested.append(set(identities))
+            return {}
     result = QuoteRouter(repository, Source()).refresh(
-        {'6488': {'market':'TPEX', 'enabled':True}},
-        now=datetime(2026, 10, 6, 10, 0, tzinfo=TAIPEI),
+        {"00719B": {"market": "TPEX_UNVERIFIED", "enabled": True},
+         "00697B": {"market": "UNKNOWN", "enabled": True}},
+        now=now,
     )
-    assert result == {'status':'fresh', 'requested':0, 'updated':0}
+    assert requested == [{"00719B"}]
+    assert result == {"status": "unavailable", "requested": 1, "updated": 0}
 
 
 def test_profile_validation_forbids_owner_override_and_incomplete_cash():

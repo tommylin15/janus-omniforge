@@ -282,3 +282,8 @@ Janus User App 不提供 Chat／Ask Janus／provider／runtime／MCP／Skills／
 - 「當日損益」依後端最新實際持股股數 × 當前報價相對前一交易日收盤的變化直接加總，當日有買賣以最新持股為準，不是當日已實現交易損益。缺部分報價時不得將小計包裝為全部；顯示覆蓋率與行情日。
 - TWSE MIS 對應上市 `tse_`／上櫃 `otc_`，依回傳 exchange＋symbol 核實；TPEx ETF 亦支援盤中行情。前收盤先查官方價歷史，缺少時只容許同交易日 MIS 原始 `y`，不推造前一日期。官方 TPEx OpenAPI 仍僅盤後 EOD。
 - 個股頁依正式 `instrument_kind` 判定非普通股，隱藏公司財報、法人、公司事件及專屬模型卡入口；對未升級 API 的典型 0 開頭 ETF 股票代碼採保守備援。價格、本人持股與筆記保留。
+
+## 2026-10-22｜持股卡同行 YTD 與 TPEx 日內修正
+
+- 本年已實現損益應在持股參考市值的數值同行（右側次要欄）；次列僅當日損益與未實現損益。保留萬元／小數一位與狀態語意。
+- 對正式核實的 00719B、00697B 等 TPEx 債券 ETF，QuoteRouter._due 不可再限制 TWSE-only，須允許 TPEX／OTC／TPEX_UNVERIFIED 候選交由 MIS 嚴格核實回應之 exact `otc_` exchange+symbol；unknown／disabled 不可嘗試。當日無成交價或有效前收盤仍維持待行情，不造假。

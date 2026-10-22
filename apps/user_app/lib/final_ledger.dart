@@ -647,11 +647,34 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
           aggregate['valuation_status'] ?? aggregate['aggregate_status'] ?? 'partial'),
       ]),
       const SizedBox(height: 8),
-      Text(marketValue,
-        key: const Key('ledger-market-value-hero'),
-        maxLines: 2, overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: withheld && !usingReference && !usingPartial ? fvMuted : fvInk,
-          fontSize: 30, fontWeight: FontWeight.w900, height: 1.17)),
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(flex: 11, child: Text(marketValue,
+          key: const Key('ledger-market-value-hero'),
+          maxLines: 2, overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: withheld && !usingReference && !usingPartial
+              ? fvMuted : fvInk, fontSize: 25,
+              fontWeight: FontWeight.w900, height: 1.17))),
+        const SizedBox(width: 12),
+        Expanded(flex: 9, child: Column(
+          key: const Key('ledger-ytd-same-row'),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('本年已實現損益',
+                style: TextStyle(color: fvMuted, fontSize: 12)),
+            const SizedBox(height: 3),
+            Text(ytd, maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: fvSignedColor(ytdAmount),
+                    fontSize: 17, fontWeight: FontWeight.w800)),
+            Text(ytd == '待更新／尚未確認' ? '等候損益批次'
+                : ytd == '資料不足' ? '年度損益未確認'
+                : ytd == '0.0 萬元' ? '本年度確認無交易'
+                : '已實現損益',
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: fvSignedColor(ytdAmount),
+                    fontSize: 11, fontWeight: FontWeight.w600)),
+          ],
+        )),
+      ]),
       const SizedBox(height: 8),
       // Only one Hero. Secondary totals stay visually subordinate and share
       // the same panel rather than occupying two large empty white cards.
@@ -665,11 +688,6 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               note: '報酬 $unrealizedReturn',
               color: withheld && !usingReference && !usingPartial
                   ? fvMuted : fvSignedColor(unrealizedAmount)),
-          _compactMetric('本年已實現損益', ytd,
-              note: ytd == '待更新／尚未確認' ? '等候損益批次'
-                  : ytd == '資料不足' ? '年度損益目前無法確認'
-                  : ytd == '0.0 萬元' ? '本年度確認無交易'
-                  : '已實現損益', color: fvSignedColor(ytdAmount)),
         ];
         if (constraints.maxWidth < 420) {
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -677,9 +695,6 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               Expanded(child: fields[0]), const SizedBox(width: 10),
               Expanded(child: fields[1]),
             ]),
-            const SizedBox(height: 10),
-            const Divider(height: 10),
-            fields[2],
           ]);
         }
         return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

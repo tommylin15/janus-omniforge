@@ -1,4 +1,4 @@
-"""Persistent DB-first latest-price resolver for TWSE stocks and TAIEX."""
+"""Persistent DB-first latest-price resolver for TWSE/TPEx cash instruments."""
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 import logging
@@ -138,7 +138,7 @@ class QuoteRouter:
         due = {}
         for symbol, identity in identities.items():
             market = str(identity.get("market", "")).upper()
-            if identity.get("enabled") is False or market not in {"TWSE", "TWSE_INDEX"}:
+            if identity.get("enabled") is False or market not in {"TWSE", "TWSE_INDEX", "TPEX", "OTC", "TPEX_UNVERIFIED"}:
                 continue
             row = current.get(symbol)
             received = _timestamp(row.get("received_at")) if row else None

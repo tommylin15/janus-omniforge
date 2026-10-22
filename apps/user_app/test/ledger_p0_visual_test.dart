@@ -90,6 +90,11 @@ void main() {
       now: () => DateTime.utc(2026,10,12,7))));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('ledger-market-value-hero')), findsOneWidget);
+    expect(find.byKey(const Key('ledger-ytd-same-row')), findsOneWidget);
+    final hero = tester.getTopLeft(find.byKey(const Key('ledger-market-value-hero')));
+    final annual = tester.getTopLeft(find.byKey(const Key('ledger-ytd-same-row')));
+    expect((hero.dy - annual.dy).abs(), lessThan(12));
+    expect(annual.dx, greaterThan(hero.dx));
     expect(find.text('持股市值'), findsOneWidget);
     final pnl = find.byKey(const Key('holding-pnl-00719B'));
     final daily = find.byKey(const Key('holding-day-amount-00719B'));
