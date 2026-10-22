@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "2cc47de65139abc9a4ddc2e64a0eadf5c82d7456",
-  "purpose": "Follow-up Owner UI: move YTD realized PnL to right of holdings reference market value and enable TPEx/OTC bond ETF intraday MIS in QuoteRouter._due. Exact MIS exchange/symbol validation retained; no new storage schema or Jobs/Scheduler changes. Release full Python+Flutter gates and GHCR images for existing dev API-only promotion.",
+  "sha": "3fe506a1c218cfd12c16ecc037d80b92f00797a5",
+  "purpose": "Exact accepted holdings card YTD same-row plus live TPEx/OTC bond ETF 00719B / 00697B intraday MIS routing, with fixed Flutter narrow-view regression. Full Python+Flutter tests, publish four GHCR immutable images for existing dev API-only rollout; no new paid resources/schema or Jobs/Scheduler changes.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
