@@ -1,8 +1,11 @@
 # Janus｜目前實作與驗收狀態
 
-更新：2026-10-21（Asia/Taipei）。**此頁是現況摘要，不是第二份 TODO。** 現行工作順序與未完成驗收以 [唯一 Active TODO](todo.md) 為準；完整收據集中 [Operations](spec/operations-and-testing.md)，既往狀態見 [archive](archive/status-before-consolidation-2026-10-19.md)。
+更新：2026-10-22（Asia/Taipei）。**此頁是現況摘要，不是第二份 TODO。** 現行工作順序與未完成驗收以 [唯一 Active TODO](todo.md) 為準；完整收據集中 [Operations](spec/operations-and-testing.md)，既往狀態見 [archive](archive/status-before-consolidation-2026-10-19.md)。
 
 ## 已完成／結案
+
+- **持股摘要（萬元）、最新持股當日損益、ETF／TPEx MIS 與非普通股資訊入口：2026-10-22 dev API-only 100% 發布 PASS。** 正式 GHCR source `566522998769`，schema migration 067、Python／Flutter 完整 Release、0% candidate、OAuth／private 負向驗證、API 新→舊→新流量回滾均有 [Operations 統一收據](spec/operations-and-testing.md#2026-10-22持股-uietf上櫃盤中行情與當日損益正式-dev-api-only-發版-pass)；未另外冒稱已登入逐檔盤中正向畫面驗收。
+
 
 - **D01～D05、DRL-01、FINOPS-AB（含 D06）、背景持股／關注股補收與 Admin v2**：按各自已核准的實際驗收範圍 `CLOSED／PASS` 或 `USER_ACCEPTED`，不重開已接受的歷史 gate。
 - **D07 舊 GCP／BQ 研究路線退役：CLOSED。** Controller 舊 `specialist-retrain` 與 Mart 研究 fit 入口已移除；[完整 GHCR Release #39355867356](https://github.com/tommylin15/janus-omniforge/actions/runs/39355867356)、[四 Jobs rollout #39356643823](https://github.com/tommylin15/janus-omniforge/actions/runs/39356643823)、[四 Jobs/Scheduler readback #39358461946](https://github.com/tommylin15/janus-omniforge/actions/runs/39358461946) PASS。
