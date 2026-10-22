@@ -101,11 +101,195 @@ jobs:
           Path('/tmp/risk-shadow-aggregate-readback.json').write_text(json.dumps(result,sort_keys=True))
           print(json.dumps(result,sort_keys=True))
           PY
+      - name: Targeted pinned Core PIT and Risk8 read-only census
+        shell: bash
+        timeout-minutes: 20
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json,sys,time,subprocess
+          from pathlib import Path
+          sys.path.insert(0,'scripts/gcp')
+          from ghcr_jobs_rollout import cloud, job, terminal, ROOT
+          CODE=r"""
+          import os,sys,json,hashlib
+          from datetime import date,timedelta
+          from collections import Counter,defaultdict
+          from urllib.parse import urlparse
+          import pandas as pd
+          import psycopg
+          from packages.postgres_bundle import load_postgres_bundle
+          from ingestion_core.stage import GcsObjectStore
+          from intelligence_mart.storage import sql_catalog_from_environment
+          from intelligence_mart.analytics_reader import IcebergSnapshotReader
+          from intelligence_mart.market_screening import FIELDS
+          from intelligence_mart.specialists import validated_inputs
+          from intelligence_mart.risk_shadow import _eligible_price_rows
+          from research.colab.risk_pilot import make_risk_panel
+          from research.colab.risk_v1 import add_v1_features,V1_FEATURES
+          TARGET='2026-10-21'
+          EVENT_NAME='acceptance/specialists/risk-shadow-once-2026-10-21-c4d11fc74995f2ea.json'
+          EXPECTED_HASH='sha256:2509a966214d228c973fe750b4fe7b8be33bbfe59f7b9d12c46bddf24357589a'
+          load_postgres_bundle('JANUS_MART_POSTGRES_BUNDLE',{
+            'CATALOG_DB_PASSWORD':('mart_catalog_password','catalog_password'),
+            'PUBLICATION_DB_PASSWORD':('mart_publication_password','publication_password')})
+          report={'component':'risk_core_pit_eight_census','target_date':TARGET,
+            'read_only':True,'publication_allowed':False,'status':'BLOCKED',
+            'window_calendar_days':141,'by_market':{},'pit_reject_reasons':{},
+            'features':list(V1_FEATURES),'pinned_snapshot_used':False}
+          reader=None
+          try:
+            mart=GcsObjectStore('gen-lang-client-0593591102-dev-mart')
+            event=json.loads(mart.read(EVENT_NAME))
+            if (event.get('analysisAsOf')!=TARGET
+                or event.get('coreSnapshotHash')!=EXPECTED_HASH
+                or event.get('coreSnapshotUri','').split('/')[2]!='gen-lang-client-0593591102-dev-core'):
+                raise ValueError('wrong_pinned_core_event')
+            uri=urlparse(event['coreSnapshotUri'])
+            if uri.scheme!='gs' or not uri.path.startswith('/executions/') or not uri.path.endswith('/core-snapshot.json'):
+                raise ValueError('invalid_core_manifest_path')
+            raw=GcsObjectStore(uri.netloc).read(uri.path.lstrip('/'))
+            if 'sha256:'+hashlib.sha256(raw).hexdigest()!=EXPECTED_HASH:
+                raise ValueError('core_manifest_hash_drift')
+            core=json.loads(raw)
+            if (core.get('analysis_as_of')!=TARGET or core.get('snapshot_id')!=event['coreSnapshotId']
+                or 'core.ohlcv_v1' not in core.get('iceberg_tables',{})):
+                raise ValueError('core_snapshot_identity_drift')
+            report['pinned_snapshot_used']=True
+            report['core_manifest_hash']=EXPECTED_HASH
+            report['core_snapshot_id_hash']=hashlib.sha256(str(core['snapshot_id']).encode()).hexdigest()
+            table_id='core.ohlcv_v1'
+            inputs={'snapshot_id':core['snapshot_id'],'iceberg_tables':{table_id:core['iceberg_tables'][table_id]}}
+            start=(date.fromisoformat(TARGET)-timedelta(days=141)).isoformat()
+            bounds={table_id:('trade_date',start,TARGET)}
+            reader=IcebergSnapshotReader(sql_catalog_from_environment(),
+                date_bounds=bounds,selected_fields={table_id:FIELDS[table_id]})
+            settings={k:os.environ[k] for k in ('PUBLICATION_DB_HOST','PUBLICATION_DB_NAME','PUBLICATION_DB_USER','PUBLICATION_DB_PASSWORD')}
+            with psycopg.connect(host=settings['PUBLICATION_DB_HOST'],dbname=settings['PUBLICATION_DB_NAME'],
+                user=settings['PUBLICATION_DB_USER'],password=settings['PUBLICATION_DB_PASSWORD'],
+                sslmode=os.environ.get('PUBLICATION_DB_SSLMODE','require'),connect_timeout=5) as conn:
+                from intelligence_mart.specialist_runtime import load_market_membership
+                membership=load_market_membership(conn,TARGET)
+            symbols=membership['symbols']
+            report['cohort_size']=len(symbols)
+            report['membership_version_hash']=hashlib.sha256(membership['membership_version'].encode()).hexdigest()
+            raw_dates=Counter()
+            pit_dates=Counter()
+            rejections=Counter()
+            raw_eod_by_market=Counter()
+            pit_eod_by_market=Counter()
+            factor_by_market=defaultdict(Counter)
+            errors=Counter()
+            input_rows=0
+            for offset in range(0,len(symbols),250):
+                result=reader.read(inputs,tuple(symbols[offset:offset+250]),core_snapshot_id=core['snapshot_id'],row_limit=110000)
+                records=result.datasets.get('ohlcv',[])
+                input_rows+=len(records)
+                per_stock=defaultdict(list)
+                for row in records:
+                    sym=str(row.get('symbol') or '')
+                    if sym in symbols[offset:offset+250]:
+                        per_stock[sym].append(row)
+                    day=str(row.get('trade_date') or '')[:10]
+                    if day and day<=TARGET:
+                        raw_dates[day]+=1
+                        if day==TARGET:raw_eod_by_market[str(row.get('market') or '').upper()]+=1
+                for sym,rows in per_stock.items():
+                    valid,_,rejected=validated_inputs({'ohlcv':rows},sym,TARGET,core['snapshot_id'])
+                    for item in rejected:rejections[str(item.get('reason') or 'unknown')]+=1
+                    for row in valid['ohlcv']:
+                        day=str(row.get('trade_date') or '')[:10]
+                        pit_dates[day]+=1
+                        if day==TARGET:pit_eod_by_market[str(row.get('market') or '').upper()]+=1
+                # Risk shadow uses separately guarded raw bars. Preserve that distinction.
+                prices,excluded=_eligible_price_rows(records,TARGET)
+                if prices.empty:
+                    errors['empty_eligible_input_chunk']+=1
+                    continue
+                try:
+                    days=sorted(prices.trade_date.unique())
+                    panel=add_v1_features(make_risk_panel(prices,
+                        market_sessions={market:days for market in prices.market.unique()}))
+                    current=panel.loc[panel.trade_date.eq(pd.Timestamp(TARGET))]
+                    for market,g in current.groupby('market'):
+                        c=factor_by_market[str(market).upper()]
+                        c['input_symbols']+=len(g)
+                        for name in V1_FEATURES:
+                            c[name]+=int(g[name].notna().sum())
+                        c['all_eight']+=int(g[list(V1_FEATURES)].notna().all(axis=1).sum())
+                        c['all_eight_and_shock_ok']+=int((g[list(V1_FEATURES)].notna().all(axis=1)
+                            &g.unverified_shock_feature.eq(0)).sum())
+                except Exception as exc:
+                    errors['feature_builder_'+type(exc).__name__]+=1
+            report.update(raw_rows=input_rows,raw_latest_date=max(raw_dates,default=None),
+                pit_latest_date=max(pit_dates,default=None),
+                raw_eod_rows=sum(raw_eod_by_market.values()),
+                pit_eod_rows=sum(pit_eod_by_market.values()),
+                pit_reject_reasons=dict(rejections),feature_chunk_errors=dict(errors),
+                by_market={k:{'raw_eod_rows':raw_eod_by_market.get(k,0),
+                    'pit_eod_rows':pit_eod_by_market.get(k,0),**dict(factor_by_market[k])}
+                    for k in ('TWSE','TPEX')})
+            report['status']='OBSERVED' if not any(k.startswith('feature_builder_') for k in errors) else 'PARTIAL_FEATURE_ERROR'
+          except Exception as exc:
+            report['status']='BLOCKED_'+type(exc).__name__.upper()
+            report['error_code']=type(exc).__name__.upper()
+          finally:
+            if reader is not None:reader.close()
+            print(json.dumps(report,ensure_ascii=False,sort_keys=True),flush=True)
+          """
+          compile(CODE,'risk_core_pit_census','exec')
+          j=job('janus-intelligence-mart')
+          c=j['template']['template']['containers']
+          if len(c)!=1 or c[0].get('command') not in (None,[],['python']):
+              raise ValueError('unexpected_mart_entrypoint')
+          override={'args':(['python'] if not c[0].get('command') else [])+['-c',CODE],
+                    'env':[{'name':'MART_PRODUCT_PROJECTION','value':'false'},
+                           {'name':'MART_AI_ENABLED','value':'false'},
+                           {'name':'MART_OOS_EVALUATION','value':'false'},
+                           {'name':'MART_RISK_SHADOW_ENABLED','value':'false'}]}
+          if c[0].get('name'):override['name']=c[0]['name']
+          op=cloud(ROOT+'/jobs/janus-intelligence-mart:run',
+            {'etag':j['etag'],'overrides':{'taskCount':1,'timeout':'600s','containerOverrides':[override]}},'POST')
+          name=op.get('name','')
+          if not name.startswith(ROOT+'/operations/'):raise RuntimeError('risk_census_operation_missing')
+          until=time.monotonic()+670
+          while not op.get('done') and time.monotonic()<until:
+              time.sleep(8)
+              op=cloud(name)
+          if not op.get('done') or op.get('error'):raise RuntimeError('risk_census_operation_failed')
+          execution=op.get('response',{})
+          if not terminal(execution) or execution.get('succeededCount')!=1 or execution.get('failedCount',0):
+              raise RuntimeError('risk_census_execution_failed')
+          ident=execution.get('name','').rsplit('/',1)[-1]
+          if not ident.startswith('janus-intelligence-mart-'):raise RuntimeError('risk_census_execution_name_invalid')
+          query='resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="'+ident+'"'
+          data=None
+          for _ in range(6):
+              p=subprocess.run(['gcloud','logging','read',query,'--project=gen-lang-client-0593591102',
+                  '--limit=120','--format=json'],capture_output=True,text=True,timeout=45)
+              if p.returncode==0:
+                  for row in json.loads(p.stdout):
+                      record=row.get('jsonPayload')
+                      if not isinstance(record,dict):
+                          try:record=json.loads(row.get('textPayload',''))
+                          except (TypeError,ValueError):continue
+                      if isinstance(record,dict) and record.get('component')=='risk_core_pit_eight_census':
+                          data=record
+                          break
+              if data:break
+              time.sleep(6)
+          if data is None:raise RuntimeError('risk_census_log_receipt_missing')
+          Path('/tmp/risk-core-pit-eight-census.json').write_text(json.dumps({'execution':ident,'result':data},ensure_ascii=False,sort_keys=True,indent=2))
+          print(json.dumps({'execution':ident,'result':data},ensure_ascii=False,sort_keys=True))
+          if data.get('status')!='OBSERVED':raise RuntimeError('risk_census_not_fully_observed')
+          PY
       - name: Upload sanitized diagnostic
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: risk-v1-failure-diagnostic
-          path: /tmp/risk-failure-diagnostic.json
+          path: |
+            /tmp/risk-failure-diagnostic.json
+            /tmp/risk-core-pit-eight-census.json
           if-no-files-found: ignore
           retention-days: 14
