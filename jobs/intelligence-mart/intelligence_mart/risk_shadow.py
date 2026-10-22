@@ -77,10 +77,37 @@ def _eligible_price_rows(rows, as_of: str) -> tuple[pd.DataFrame, list[str]]:
     result = pd.DataFrame(accepted)
     if result.empty:
         return result, excluded
-    if result.duplicated(["symbol", "trade_date"]).any():
-        raise ValueError("duplicate admitted Core bar; fail closed")
+    # Core's pinned Iceberg snapshot can include revisions with the same
+    # (symbol, market, trade_date). Revisions are NOT interchangeable merely
+    # because their timestamps differ. Collapse only numerically identical
+    # eligible OHLCV/turnover rows; conflicting evidence quarantines the
+    # *entire affected stock*, not the other stocks in this market chunk.
+    # No as-of-max revision selection, price averaging, or forward fill.
+    bars = ("open", "high", "low", "close", "volume", "turnover")
+    result = result.sort_values(["symbol", "trade_date", "market"], kind="stable")
+    ambiguous = set()
+    duplicate_rows = 0
+    for (sym, day), group in result.groupby(["symbol", "trade_date"], sort=False):
+        if len(group) < 2:
+            continue
+        comparable = group[list(bars)].apply(pd.to_numeric, errors="coerce")
+        if (comparable.isna().any().any()
+                or not np.isfinite(comparable.to_numpy(dtype=float)).all()
+                or group["market"].nunique() != 1
+                or any(comparable[c].nunique(dropna=False) != 1 for c in bars)):
+            ambiguous.add(sym)
+        else:
+            duplicate_rows += len(group) - 1
+    if ambiguous:
+        # Do not allow the feature engine to bridge a disputed historic day.
+        excluded.extend(sorted(ambiguous))
+        result = result.loc[~result["symbol"].isin(ambiguous)]
+    result = result.drop_duplicates(["symbol", "trade_date"], keep="first")
     if result.groupby("symbol")["market"].nunique().gt(1).any():
         raise ValueError("symbol changed market inside inference window")
+    # Counts are carried with the DataFrame for the non-public shadow receipt.
+    result.attrs["ambiguous_core_symbols"] = len(ambiguous)
+    result.attrs["identical_core_duplicates_collapsed"] = duplicate_rows
     return result, excluded
 
 
@@ -92,9 +119,14 @@ def predict_core_shadow(rows: list[dict], as_of: str, model, *, core_snapshot_id
     official sessions: output must remain shadow and publication_allowed=false.
     """
     prices, excluded = _eligible_price_rows(rows, as_of)
+    quarantined = prices.attrs.get("ambiguous_core_symbols", 0)
+    collapsed = prices.attrs.get("identical_core_duplicates_collapsed", 0)
     if prices.empty:
         return {"status": "INSUFFICIENT_OHLCV", "predictions": [],
-                "excluded_input_rows": len(excluded), "publication_allowed": False}
+                "excluded_input_rows": len(excluded),
+                "ambiguous_core_symbols": quarantined,
+                "identical_core_duplicates_collapsed": collapsed,
+                "publication_allowed": False}
     # Core does not expose a certified per-market trading-session calendar
     # here. Use the union of all accepted cohort dates for BOTH markets:
     # conservative across asymmetric closure and missing-market days, so
@@ -128,6 +160,8 @@ def predict_core_shadow(rows: list[dict], as_of: str, model, *, core_snapshot_id
             })
     return {"status": "SHADOW_ONLY", "predictions": predictions,
             "input_symbols": int(prices.symbol.nunique()),
+            "ambiguous_core_symbols": quarantined,
+            "identical_core_duplicates_collapsed": collapsed,
             "eligible_symbols": int(len(predictions)),
             "excluded_input_rows": len(excluded),
             "calendar_evidence": "PINNED_CORE_COHORT_UNION_SESSIONS_NOT_OFFICIAL_CERTIFIED",
