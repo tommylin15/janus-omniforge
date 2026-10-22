@@ -1,7 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "a3a3b30648e7b05f2b9cb5363eca4594d52a2b20",
+  "sha": "c4799bc9da3d86e2efde9395d10c58e31e7204c3",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Bounded read-only OAuth resource metadata and negative Owner/Admin/MCP gate for TPEx bond ETF intraday + same-row YTD new 0% candidate source a3a3b306; full GHCR #39710294843, candidate #39710808920 SUCCESS. No GCP mutation."
+  "purpose": "D07 Risk v1 dedup-safe Mart shadow exact-source OAuth/private-boundary read-only gate; full GHCR #39734125861 and 0% candidate #39735939853 SUCCESS; no GCP mutations.",
+  "request_attempt": 2
 }
