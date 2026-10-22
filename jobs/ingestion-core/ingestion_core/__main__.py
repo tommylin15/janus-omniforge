@@ -798,7 +798,8 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     iceberg_tables=_current_core_fences(core) if core_committed else {},
                     symbols=(pit_market_symbols if pit_market_symbols else tuple(market_symbols))
                     if active_500 else tuple(symbols),
-                    market='market' if active_500 else config.market, industries=industries,
+                    market='market' if active_500 else config.market,
+                    industries=industries if dates[-1] == local_now.date() else [],
                     scope_as_of=(dates[-1].isoformat() if pit_market_symbols else
                                  local_now.date().isoformat()) if active_500 else None,
                     ohlcv_eod_ready=_full_market_eod_ready(coverage_items, dates[-1].isoformat())
