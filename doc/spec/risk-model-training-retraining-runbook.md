@@ -64,3 +64,26 @@ MLP和XGB差異不足以證明MLP長期較好；XGBoost選為**正式候選**，
 正式發布入口必須從現有 repository workflow/CLI 實際確認；**本指令不授權切 ACTIVE**。不新增付費資源，不恢復退役研究管線，不重抓已有合格資料。
 沒有新付費資源、不恢復Cloud Run訓練器、不重抓既有21個月資料。
 
+
+
+## 7. 實際來源用途核對（2026-10-22；僅 Risk 現有21月與 target 推論）
+
+本次使用者允許**合法開放資料，不限官方**，亦不要求先窮盡官方；以**原資料集的授權與實際使用管道**為單位，而非網站品牌／欄位相似即自動當作有權。本節為截至 2026-10-22 的授權查核證據，非法律意見。
+
+| 資料集／途徑 | 授權來源、核對 URL | 取得 | ML訓練 | 保留衍生品/模型 | 部署／展示 | 對既有候選影響 |
+|---|---|---|---|---|---|---|
+| TWSE 個股日成交開放資料（CSV，`exchangeReport/STOCK_DAY_ALL?response=open_data`） | [data.gov.tw/dataset/11549](https://data.gov.tw/dataset/11549)，授權 OGDL 1.0；原開放資料 [授權全文](https://data.gov.tw/license) | 在條款和下載方式內允許 | OGDL 授與不限目的衍生利用，包括模型訓練；需正確標示來源 | 同授權、留存及來源標示須遵守 | 同授權，UI出處須明確 | **授權路徑成立，不代表21月原件來自該CSV** |
+| TPEx 上櫃股票行情開放資料（CSV，`DAILY_CLOSE_quotes/stk_quote_result.php?l=zh-tw&o=data`） | [data.gov.tw/dataset/11370](https://data.gov.tw/dataset/11370)，OGDL 1.0 | 同上 | 同上 | 同上 | 同上 | **須與現有 `OTC_DAILY` 原始來源對帳** |
+| 實際研究 r1 TWSE `MI_INDEX` `https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX` | [TWSE 網站條款 §6/§8](https://www.twse.com.tw/zh/terms/use.html)：非同意方式之自動化下載受限；未經同意重製/改作有限制，政府開放資料平台授權之**特定**資料除外 | **尚無實際 r1 來源條款/授權映射證據** | **UNKNOWN** | **UNKNOWN** | **UNKNOWN** | 本模型訓練來源，不能僅因同類 open-data CSV 欄位相同自動認證 |
+| 實際研究 r1 TPEx `OTC_DAILY` `https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430_result.php` | 同一網站另有上櫃行情開放 CSV；本端點與 CSV 路徑不同；資料商品訂購條款不能無證據套用於此免費端點 | 實際用法需明確來源授權 | **UNKNOWN** | **UNKNOWN** | **UNKNOWN** | 本模型訓練來源，待對帳或有權替代 |
+
+依 OGDL 1.0，可在授權適用的資料集上進行多種衍生利用（包括 ML、儲存、部署模型與展示），但**顯名聲明**是取得授權的條件；不可拿一般網站爬得的資料自動擴大範圍。若供應者明示不許或資料不屬該 OGDL 資料集，必須排除/替換；若尚未對帳，只列受影響用途 `TRAINING_SOURCE_RIGHTS_UNKNOWN`，不可假稱 PASS。
+
+**有界恢復條件**：只針對本候選 r1 的兩個實際 OHLCV 月資料源，核對封存 manifest URL／raw SHA／資料欄位及上述開放資料集涵蓋關係或另有可查許可。可依法保留的原件不重抓；如發現資料確實不能作 ML，使用**合格開放替代**重新建立受影響的 train/test snapshots，重評必要時重訓並變更 UBJ hash。不可原封不動把未獲授權的模型當成已認證，也不擴大到其它五模型／整個站點。
+
+## 8. 本輪有界工程證據（非 ACTIVE）
+
+- `#39790661297` / commit `5f2576cde9bd8c747f96befcf6e7aa2c5510ee1f`：read-only `completed/success`，preflight 4/4 tests、GCS candidate hash及2026-10-21的1,720筆 shadow讀回 PASS； `BLOCKED_NOT_ACTIVE`，前瞻 OOS `PENDING`。此 Run 不執行八因子固定向量或 CAS。
+- `research/colab/risk_matured_outcomes.py`：提供20市場交易日、不可變原預測／label 回收與 Rolling20 同樣本評分的離線純函式，不等於已接上自然月批。 `tests/test_risk_feature_parity.py`：同樣本研究／serving 八因子 float32 對照，仍須 CI 與真正固定 UBJ 的 live prediction parity 收據。
+- `risk_shadow.py` 明確拒絕 trade_date/已知 published_at/availability_at 在 cutoff 之後的資料；從未聲稱 fetched_at 等於歷史 published_at。 `market_screening.py` 對全市場僅 screening，Risk 只對 `control.mart_ai_target_symbols(as_of)` 去識別持股＋觀察股普通股；現行十月已寫的舊 shadow 的 1,720 **不是聯集總數**，未經讀回不得虛構 ETF 排除筆數。
+- 現有 `.github/workflows/risk-v1-dev-readback.yml` 是唯讀 preflight，`.github/workflows/risk-v1-candidate-dev.yml` 只傳候選，`.github/workflows/risk-v1-manual-shadow-once.yml` 只做一次 shadow。**目前這三者均不是 ACTIVE promotion/Registry expected-previous CAS 入口**。未完成真正可回滾切換入口前，維持 `BLOCKED_NOT_ACTIVE`、`publication_allowed=false`。
