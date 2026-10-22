@@ -18,7 +18,7 @@ Rolling20 MAE 0.154224 RMSE0.210698；Ridge5 0.140003／0.183075；Ridge8 0.1353
 2026-10-22：臨時Python環境驗證週期bundle_manifest 99個檔案 SHA/bytes均符合；XGBoost UBJ原生load_model成功，對封存74,487筆test重新預測，MAE **0.12970133625455632**、RMSE **0.17259792399697213**，與收據完全符合。**不是** Colab console/GCS/Mart/CI/runtime acceptance。
 
 ## 6. 風險與禁止發布狀態
-- `publication_allowed=false` 表示候選仍未切 ACTIVE；本次首次發布不再等待新前瞻20日 mature OOS、全市場歷史 PIT 名冊、全公司行動紀錄。不可據此宣稱那些嚴格驗證已完成。仍必須確認來源允許 ML／留存／部署用途、實際窗口公司行動污染處理、cutoff 無 future leakage、八因子及 GCS/serving parity、Registry CAS／rollback，才可判定能 promotion。
+- `publication_allowed=false` 表示候選仍未切 ACTIVE；本次首次發布不再等待新前瞻20日 mature OOS、全市場歷史 PIT 名冊、全公司行動紀錄。不可據此宣稱那些嚴格驗證已完成。來源 gate 以已有適用 OGDL 開放資料即 PASS（TWSE 11549／TPEx 11370）；不再逐月查核舊 r1 採集 API 授權映射，此來源映射屬接受限制、不得冒稱原模型由該開放 dataset 訓練。仍需實際窗口公司行動污染處理、cutoff 無 future leakage、八因子及 GCS/serving parity、Registry CAS／rollback，才可判定能 promotion。
 - 2026年現行名冊導致歷史 survivorship bias，是**已接受的首次發布研究限制**，不得標成歷史 strict PIT。原始 OHLCV 未全數調整，實際 train/test/serving 窗口發現不可比的公司行動必須排除或有據調整；來源自動存取與 ML／保存／部署權利必須逐來源核對。
 - 此模型預測方向是volatility高低，沒有估未來報酬機率；請勿用回測 MAE 當成買賣策略收益。
 - 欠行情/特徵/來源、model SHA不符、超過更新期都fail-closed回 deterministic Risk 基準，不顯「低風險」等樂觀資訊。
