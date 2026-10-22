@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "c4799bc9da3d86e2efde9395d10c58e31e7204c3",
-  "release_run": "39734125861",
+  "sha": "5385cb7806c9986bbd720d204a1de763db520257",
+  "release_run": "39741571886",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "a3a3b30648e7b05f2b9cb5363eca4594d52a2b20",
+  "baseline_source_sha": "c4799bc9da3d86e2efde9395d10c58e31e7204c3",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:8e50fe46cc01c7b7b9f48da58d1b141f23489ea9f3ca7eeae238ad787ca3bfc2",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:8e50fe46cc01c7b7b9f48da58d1b141f23489ea9f3ca7eeae238ad787ca3bfc2",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:647755b317101d33f7a420c7335a611850e11795fdbd36c99b46b2526f21091a",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:0300e04ea73f3215252c61336a79b958f6b64471247e369a2ffefd533323f137"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:8a5f33d0eaf09d6767969b4e49264e461e73ab01560536db4aa4d72a570c9b10",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:8a5f33d0eaf09d6767969b4e49264e461e73ab01560536db4aa4d72a570c9b10",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:34b7d329105a1d2de27fe03abd7e51ba42ad8cb4c3a56e1ee11a3ffa9d561d80",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:38dffad3fa40383dfc15edc587f4eda9111792caae1c68d8987996398fe8585d"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
@@ -19,8 +19,8 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "auth_boundary_run": "39736188577",
-  "request_attempt": 48,
-  "safety": "D07 Risk v1 exact current source c4799bc9, full GHCR #39734125861 PASS, no-traffic candidate #39735939853 PASS, source-bound auth #39736188577 PASS, 4-Job readonly old source a3a3b306 baseline #39734816957 PASS. Existing dev reversible four-Job rollout with strict fence/canaries/rollback, no API traffic promotion, no new Scheduler, no model publication.",
-  "authorization": "User requested continue to complete XGBoost Risk v1 manual EOD dev shadow deployment and real GCS readback. Dev versioned Jobs rollout/rollback authorized."
+  "auth_boundary_run": "39744514483",
+  "request_attempt": 49,
+  "safety": "D07 exact-source release #39741571886 PASS, 0%-traffic candidate #39744169150 PASS, automated boundary #39744514483 PASS, live four-Job readonly baseline #39743875486 PASS source c4799bc9. Update only existing dev four Cloud Run Jobs with exact SHA and verified public rollback pins/canaries/fence; no API traffic/model promotion/new Scheduler.",
+  "authorization": "User explicitly requested continue deploying corrected Risk XGBoost dev shadow until real Core/GCS acceptance, with existing versioned dev Jobs rollout/rollback authorized."
 }
