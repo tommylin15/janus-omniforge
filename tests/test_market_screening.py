@@ -213,6 +213,8 @@ def test_daily_screening_writes_immutable_research_shadow_without_upgrading_user
     monkeypatch.setenv("MART_RISK_SHADOW_ENABLED", "true")
     monkeypatch.setattr("intelligence_mart.specialist_runtime.load_market_membership",
                         lambda *args: {"symbols": ["2330"], "membership_version": "1", "analysis_as_of": "2026-05-01"})
+    monkeypatch.setattr("intelligence_mart.coverage.load_target_rows",
+                        lambda *args: [{"symbol": "2330", "watchlisted": True, "held": False}])
     reader = SimpleNamespace(read=lambda *a, **kw: AnalyticsSnapshot("core", sets, {"source": "embedded"}), close=Mock())
     class Model:
         def predict(self, matrix):
@@ -233,3 +235,40 @@ def test_daily_screening_writes_immutable_research_shadow_without_upgrading_user
                                  store_factory=Store, reader_factory=lambda *args: reader,
                                  risk_model_factory=Model)
     assert second["reused"] and second["risk_shadow"] == risk_ref
+
+def test_market_screening_stays_full_universe_risk_model_only_selected_targets():
+    from intelligence_mart.market_screening import read_market_chunks
+    from intelligence_mart.analytics_reader import AnalyticsSnapshot
+    import numpy as np
+    start = date(2026, 5, 1)
+    rows = []
+    for sym in ("2330", "2317", "6488"):
+        for i in range(125):
+            day = start + timedelta(days=i)
+            if day.weekday() >= 5:
+                continue
+            close = 100. + i * .13 + i % 3 * .01
+            rows.append({"symbol": sym, "market": "TWSE", "trade_date": day.isoformat(),
+                "observed_at": day.isoformat(), "open": close * .99,
+                "high": close * 1.02, "low": close * .98, "close": close,
+                "volume_shares": 100000, "turnover_twd": 100000 * close,
+                "source_id": "twse", "provenance_id": f"{sym}-{i}", "quality_flag": "pass"})
+    class Reader:
+        def read(self, _inputs, chunk, *, core_snapshot_id, row_limit):
+            return AnalyticsSnapshot(core_snapshot_id,
+                {"ohlcv": [r for r in rows if r["symbol"] in chunk]}, {"source": "core"})
+    class Model:
+        def predict(self, x):
+            return np.full(len(x), .3)
+    as_of = max(r["trade_date"] for r in rows)
+    screened, telemetry = read_market_chunks(Reader(), {}, ("2330", "2317", "6488"),
+        as_of, "core-fixed", risk_model=Model(), risk_target_symbols=("2330", "6488"))
+    assert {x["symbol"] for x in screened} == {"2330", "2317", "6488"}
+    assert {x["symbol"] for x in telemetry["risk_shadow"]} == {"2330", "6488"}
+    assert telemetry["risk_target_count"] == 2
+    assert telemetry["risk_prediction_count"] == 2
+    assert all(x["publication_allowed"] is False for x in telemetry["risk_shadow"])
+    _, none = read_market_chunks(Reader(), {}, ("2330", "2317", "6488"),
+        as_of, "core-fixed", risk_model=Model(), risk_target_symbols=())
+    assert none["risk_shadow"] == [] and none["risk_target_count"] == 0
+
