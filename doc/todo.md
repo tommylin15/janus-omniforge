@@ -10,7 +10,7 @@
 |---|---|---|---|
 | **P0** | **STAGE-48H** | 48h Stage 清理與自然排程 PASS；**新版 Admin MB／千分位已在正式 dev API 100% 發布**，且回滾演練 PASS | **僅餘新版登入 Admin 六桶全數 `OBSERVED` 與合計容量實機驗收** |
 | **P1** | **A-CHANGE｜事實解讀與站內盤前盤後** | 方案、X/Y/時間契約與AI卡已定版；A1～A4 已啟動整合實作 | **集中 targeted/CI、既有 dev 發布與真實 API/UI 驗收；完成前維持 IN_PROGRESS** |
-| **P1** | **D07-PRE｜Colab／Drive 資料源** | 官方歷史整市場 Colab 採集器、普通股白名單、每月資料夾/續跑/雜湊及 Risk 資料讀取已實作並有本地 targeted tests；舊 GAS/GCP/BQ 研究路線退出 | **21 個月 Drive r1 完整 SHA／上市90%上櫃70%研究准入、Risk 真實 single-cutoff OOS 及四段 walk-forward 診斷已有收據；Risk 不可 promotion，正式歷史 PIT／公司行動／來源授權／模型發布仍屬 D07 gate** |
+| **P1** | **D07-PRE｜Colab／Drive 資料源** | 21 個月 r1 原始行情研究准入 PASS；Drive v3.1 `CURRENT.json` + 153 個 Parquet 月分區讀回、**格式整併 CLOSED**；v3.2 繁中驗收與定向補收 Notebook 上傳並本地 4/4 targeted PASS；舊研究 GAS/GCP/BQ 退役 | **官方／第三方補收 PARTIAL：上櫃估值 22 個月、近期季財報缺口需 Colab 實際補跑與新版報告讀回**；Risk 可試訓不等於模型 promotion，歷史 PIT／公司行動與授權／模型發布仍屬 D07 gate |
 | **P2** | **D07｜五分析師建模** | **已選 XGBoost8 為 Risk 正式候選**；本地封存模型及99檔SHA/74,487行OOS重新載入一致；GitHub/Drive重訓手冊及模型卡已建立；個股 Risk 訊號 UI 程式已接入 | **dev GCS candidate 已完成上傳、雙SHA與manifest讀回（#39701774716）；現有16:30 Controller→Mart Risk shadow接線、XGB CPU依賴及個股UI已提交／targeted CI PASS**；完整GHCR Release曾因非Risk測試／Flutter警告失敗，目前修復再驗收；**Cloud Run四Jobs新版尚未發布、未取得真實日批Risk列數**。ML正式仍受合法來源/PIT/公司行動/新前瞻OOS gate限制，現役 Risk deterministic，絕不把shadow包裝成user已上線 |
 | **P3** | **D08｜CEO／Admin／Owner 報告** | 原 Gateway 技術驗證可重用 | **有效 Fact Pack → CEO 手動請求 → Gateway／validator → immutable 報告與 Owner UI／Admin 管理驗收** |
 
@@ -30,7 +30,13 @@
 
 責任WBS-5/6；[唯一SPEC](spec/change-analysis.md)、[AI卡](execution-cards/a-change-analysis.md)。不含推播/日常LLM/新服務，不重開D03；工程須後續明確啟動。
 
-## 3. D07-PRE｜Colab 官方歷史資料採集與每月資料夾
+## 3. D07-PRE｜Colab 單一 Parquet 研究資料與缺口補收
+
+**2026-10-22 最新狀態**：Drive `JanusDataset_v3_202610/canonical/CURRENT.json` 指向 v3.1.0 research-only Parquet release，已核對 153 個分區檔及 manifest；**Parquet 格式整併 CLOSED**。**官方／第三方補收仍 PARTIAL**：官方估值 50/72（TPEx 缺 22 個月份）、income 24/32、balance/cashflow 各 22/32；2026Q3 的財報尚在公告預留期，不能稱失敗。新版 [`00_資料收集.ipynb` v3.2](https://drive.google.com/file/d/14qqdkRehe89JGtlzks1AmP3054LB9uk0/view) 已上傳，內含只補缺、`BUDGET_PAUSED` 斷點及動態繁中研究准入表，16 cells／7 modules 解析與本地 targeted 4/4 PASS。**未執行新版 Colab 實機補收，故不可關閉補收**。
+- [x] `PARQUET-MERGE`：模型資料唯一 Parquet 入口、版次 manifest 與現況 Drive 檔案讀回（只關閉格式整併）。
+- [ ] `COLLECT-GAP`：用新版 Notebook 定向完成／按研究門檻逐期評估 TPEx 估值 22 個缺月、最近已屆期財報（2025Q3～2026Q2），必要時 FinMind 歷史 PER/PBR 或 Yahoo／FinMind 季報補缺；核對 `reports/驗收總表.csv`、`模型試訓準入.csv`、`逐期缺口與原因.csv`。BUDGET_STOP 不視為來源失敗，尚待 Colab 實機補跑。
+
+**舊 r1 月資料格式與原證據（保留參考）**：
 
 **新架構（2026-10-20）**：GAS 方案已退役，不保留 GAS 安裝、OAuth、Loader 或人工 GAS 實跑待辦。程式：`research/colab/collect_tw_equities.py`、`monthly_folder_io.py`、`run_risk_folder_pilot.py`；Drive 結構：`janusChatGPT/資料源/YYYY-MM/{ohlcv-r1.csv.gz,universe-r1.csv,quality-r1.json,manifest-r1.json}`。官方 TWSE/TPEx 逐日整市場取數，最新公司名冊白名單先排除 ETF 等；來源請求限速，10 平日 checkpoint，完整月封存後驗 hash 並清掉中繼碎檔。資料研究用途 `PROBE`、現行名冊歷史涵蓋限制明確保留。此前 GAS 程式僅存 Git 歷史及舊 Drive 備份，無現役引用。
 
