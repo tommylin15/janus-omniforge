@@ -1,5 +1,13 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-22｜TPEx 債券 ETF 盤中刷新與持股 YTD 同行：dev 100% 發布 PASS
+
+- **實際缺陷**：前版雖在 MIS adapter 支援 `otc_<symbol>.tw`，但 `services/api/quote_router.py::_due` 仍只允許 TWSE/TWSE_INDEX，故持股 `00719B` 與 `00697B` 未進入盤中刷新集合，顯示「待行情」；已將已核實 TPEX/OTC 及待 exact-exchange-echo 的 TPEX_UNVERIFIED 納入，UNKNOWN／disabled 仍排除。新加完整路由回歸及 Flutter 390px UI 測試。沒有 MIS 合格成交或前收盤時仍如實待行情。
+- **UI**：持股參考市值左側主數字與本年已實現損益右側數字同行；下列當日／參考未實現損益雙欄；保留 TWD 萬元一位小數及部份可用語意。
+- **CI/Full Release**：最新產品固定映像 SHA `a3a3b30648e7b05f2b9cb5363eca4594d52a2b20`，Flutter [#39710118988](https://github.com/tommylin15/janus-omniforge/actions/runs/39710118988)、後端 [#39710118971](https://github.com/tommylin15/janus-omniforge/actions/runs/39710118971) PASS；全 Python／Flutter 與 GHCR 四映像匿名 digest readback [#39710294843](https://github.com/tommylin15/janus-omniforge/actions/runs/39710294843) PASS。
+- **dev 部署**：[0% fixed digest candidate #39710808920](https://github.com/tommylin15/janus-omniforge/actions/runs/39710808920) PASS；[OAuth/private/MCP/Admin 負向邊界 #39711001211](https://github.com/tommylin15/janus-omniforge/actions/runs/39711001211) PASS；[API-only #39711125553](https://github.com/tommylin15/janus-omniforge/actions/runs/39711125553) `PASS_API_ONLY_100_PERCENT`，新 revision `janus-api-00583-kos`，新 API digest `sha256:aedf61db4c726988e9f15e93da4152efcf393cb1873a0a4691043d77b5dbae9f`，前版 `janus-api-00579-wet` 可回滾演練 PASS、lease_released=true。未更改四 Jobs、Scheduler、IAM、Storage。
+- **證據界線**：正式 dev 網頁與 API 已部署；新路由有測試和來源防誤配保護。沒有個人 OAuth 已登入的新畫面逐檔盤中成交正向截圖，因此不聲稱 `00719B/00697B` 已有當日實際成交數值；若現場無交易、MIS 無資料或暫時故障應保留「待行情」，不代填價格。
+
 ### 2026-10-22｜持股 UI、ETF／上櫃盤中行情與當日損益正式 dev API-only 發版 PASS
 
 - 交付：TWD 持股摘要以萬元／一位小數顯示；當日損益依目前實際持股股數合計並優先採合格官方前收盤價，來源不足時僅採當日相符 MIS y；上櫃 MIS 必須驗 exact exchange／symbol；非普通股個股頁不顯示不適用的普通股分析入口。
