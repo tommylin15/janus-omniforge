@@ -1,7 +1,7 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "566522998769b515d27139382ea4ca36f35e0b93",
+  "sha": "a3a3b30648e7b05f2b9cb5363eca4594d52a2b20",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Read-only OAuth metadata, private Owner/Admin/MCP negative security gate for held-stock daily-PnL and ETF OTC API candidate source 566522998769 after exact release #39707256315 and zero-traffic candidate #39707770848. No GCP mutation or traffic change."
+  "purpose": "Bounded read-only OAuth resource metadata and negative Owner/Admin/MCP gate for TPEx bond ETF intraday + same-row YTD new 0% candidate source a3a3b306; full GHCR #39710294843, candidate #39710808920 SUCCESS. No GCP mutation."
 }
