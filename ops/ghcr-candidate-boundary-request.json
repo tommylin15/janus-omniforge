@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "c4799bc9da3d86e2efde9395d10c58e31e7204c3",
+  "sha": "5385cb7806c9986bbd720d204a1de763db520257",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "D07 Risk v1 dedup-safe Mart shadow exact-source OAuth/private-boundary read-only gate; full GHCR #39734125861 and 0% candidate #39735939853 SUCCESS; no GCP mutations.",
-  "request_attempt": 2
+  "purpose": "D07 Risk shadow isolated conflicting-market Core symbol fix; verify exact-source OAuth metadata and private/unauthenticated boundary for full release #39741571886 and 0%-traffic candidate #39744169150 PASS. Read-only, no API traffic change.",
+  "request_attempt": 3
 }
