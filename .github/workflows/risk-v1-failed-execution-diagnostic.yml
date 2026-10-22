@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate read-only fixed execution
         run: |
-          jq -e '.intent=="risk-v1-failed-execution-readonly" and .execution=="janus-intelligence-mart-lxdc8" and .failed_run=="39751073583" and .no_gcp_mutation==true and .no_job_execution==true and .no_owner_payload==true' ops/risk-v1-failed-execution-diagnostic.json >/dev/null
+          jq -e '.intent=="risk-v1-failed-execution-readonly" and .execution=="janus-intelligence-mart-lxdc8" and .failed_run=="39751073583" and .no_persistent_gcp_mutation==true and .read_only_job_execution==true and .no_owner_payload==true' ops/risk-v1-failed-execution-diagnostic.json >/dev/null
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
