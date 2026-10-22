@@ -1,0 +1,7 @@
+{
+  "intent": "read-existing-four-job-rollback-baseline",
+  "environment": "dev",
+  "risk_candidate_sha256": "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044",
+  "no_gcp_writes": true,
+  "source": "D07 Risk XGB8 existing Job rollout preparation"
+}
