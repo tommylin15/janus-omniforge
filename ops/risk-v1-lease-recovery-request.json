@@ -8,5 +8,6 @@
   "no_traffic_change": true,
   "no_jobs_change": true,
   "scope": "existing-dev-exact-owner-safe-GitHub-tag-recovery",
-  "reason": "The candidate acquired an annotated GitHub tag but immediate owner readback returned lease_missing, no Cloud Run deploy step was attempted. Verify run/owner/live single 100% API/old four Jobs before releasing only the owner tag."
+  "reason": "Retry exact-owner lease release after replacing a generic nested GCP Job image walker with Janus production image(job()) parser; candidate never reached Cloud Run deployment, and four immutable job digests are still pinned to prior successful rollout.",
+  "attempt": 2
 }
