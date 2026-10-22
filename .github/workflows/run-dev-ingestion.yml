@@ -156,13 +156,19 @@ jobs:
           skopeo inspect --no-creds "docker://ghcr.io/tommylin15/janus-ingestion-core:sha-${sha}" > /tmp/eod-expected.json
           digest="$(jq -r .Digest /tmp/eod-expected.json)"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
-          gcloud run jobs describe janus-ingestion-core --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > /tmp/eod-job.json
-          image="$(jq -r '(.template.template.containers[0].image // empty)' /tmp/eod-job.json)"
-          # Cloud Run v2 may report the verified GHCR digest behind its cache
-          # proxy. Compare the normalized immutable digest, as the signed
-          # four-Jobs rollout's image(data) helper does.
-          image="${image#cache.us-docker.pkg.dev/}"
-          test "$image" = "ghcr.io/tommylin15/janus-ingestion-core@${digest}"
+          # The gcloud v1 Job describe response has an incompatible schema
+          # with Cloud Run v2; use the SAME v2 exact-image resolver as the
+          # successful reversible rollout. No Job writes in this check.
+          EXPECTED_DIGEST="$digest" python3 - <<'PY'
+          import os,sys
+          sys.path.insert(0, 'scripts/gcp')
+          from ghcr_jobs_rollout import image,job
+          actual=image(job('janus-ingestion-core'))
+          expected='ghcr.io/tommylin15/janus-ingestion-core@'+os.environ['EXPECTED_DIGEST']
+          if actual!=expected:
+              raise SystemExit('ingestion_exact_image_mismatch')
+          print('Live v2 ingestion exact GHCR digest readback PASS')
+          PY
           echo "Official EOD source and serving ingestion image verified; no stale image execution" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Execute bounded ingestion request
