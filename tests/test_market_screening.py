@@ -96,6 +96,8 @@ def test_eod_batch_dependency_and_date_override():
     assert row[3] == ["ingestion/2026-10-07/14", "data-supplement/2026-10-07/08"]
     env = dict(occurrence_env(row[1], row[2]))
     assert env["SCREENING_DATE"] == "2026-10-07" and env["MART_OOS_EVALUATION"] == "false"
+    assert env["MART_RISK_SHADOW_ENABLED"] == "true"
+    assert env["MART_AI_ENABLED"] == "false"
     assert not any(r[1].name == "market-screening" for r in due_batches(now.replace(day=10)))
 
 
