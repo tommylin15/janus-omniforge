@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "cd9466a653b1eb89f879132600c7c4f27f46885a",
-  "purpose": "D07 Risk XGBoost8 v1: keep deterministic user risk, release hash-pinned CPU model shadow inference in existing Mart 16:30 batch; Flutter analyst risk signal/status card. GCS candidate SHA readback #39701774716 PASS. No model promotion before PIT, corporate actions, and future OOS.",
+  "sha": "8aa841299e756c1bdac2d9687bab858c575c47e5",
+  "purpose": "D07 Risk XGBoost8 dev SHADOW (not user publication). Private Drive→dev GCS model/hash verified #39701774716; existing Mart & batch-controller plus UI, preserve deterministic risk. Release includes fixed-date TPEx test fixtures (production freshness unchanged) and adequately sized Risk OOS fixtures. No new resources or training jobs.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
