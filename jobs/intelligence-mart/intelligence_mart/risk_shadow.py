@@ -87,9 +87,8 @@ def _eligible_price_rows(rows, as_of: str) -> tuple[pd.DataFrame, list[str]]:
     result = result.sort_values(["symbol", "trade_date", "market"], kind="stable")
     ambiguous = set()
     duplicate_rows = 0
-    for (sym, day), group in result.groupby(["symbol", "trade_date"], sort=False):
-        if len(group) < 2:
-            continue
+    duplicates = result.loc[result.duplicated(["symbol", "trade_date"], keep=False)]
+    for (sym, day), group in duplicates.groupby(["symbol", "trade_date"], sort=False):
         comparable = group[list(bars)].apply(pd.to_numeric, errors="coerce")
         if (comparable.isna().any().any()
                 or not np.isfinite(comparable.to_numpy(dtype=float)).all()
