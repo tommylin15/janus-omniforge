@@ -55,9 +55,11 @@ MLP和XGB差異不足以證明MLP長期較好；XGBoost選為**正式候選**，
 2. **正式上線後 OOS 回收**：先寫入不可覆寫的當日預測（model/feature SHA、core snapshot、source、as-of），等**同市場第20個交易日**與合格 EOD 到齊才生成不可覆寫的 label/result；未成熟 `PENDING` 不計 MAE/RMSE/勝負；每月按市場、月、獨立訊號日對 Rolling20 比較並保存 receipts。訓練與 serving 不能使用未成熟 label，歷史修訂不得覆蓋原始預測。
 3. **PIT 有界安全**：八因子僅源自 cutoff 前市場已發生且可用的 OHLCV；禁止未來 bars、未來公開的改版或當日 EOD 未完成即作盤前已知。當天抓取歷史檔的 fetched_at 不可偽稱當時 first published_at；無完整歷史名冊/修訂時誠實註明 `CURRENT_MASTER_ONLY` 與 non-strict PIT，不要求全面追溯才進首次 promotion；確證 leakage 則必修。
 4. **公司行動**：針對實際 train/test/serving 特徵與 Y 價格窗口核對；有合格調整因子則整窗同口徑；無可驗證口徑則排除已知污染樣本／股票推論，留理由和恢復條件。不可將超過閾值的真實市場暴跌自動視為公司行動而修平／刪除。任何變更訓練基準/樣本重新評估，必要時重訓並產新模型 hash。
-5. **來源條款**：以原始來源 URL 與實際來源 dataset 逐一核對取得、ML訓練、研究留存、GCS 部署和 UI 顯示；來源條款未釐清不得假冒通用開放授權。資料集明示使用許可與交易所一般網站不同。已知禁止的來源停用／替換。
+5. **來源條款**：**可用非官方的合法開放資料**，不必先完成官方資料搜集。以原始來源 URL 與實際來源 dataset 逐一核對取得、ML訓練、研究留存、GCS 部署和 UI 顯示；來源條款未釐清不得假冒通用開放授權。資料集明示使用許可與交易所一般網站不同。已知禁止的來源停用／替換。
 6. **必要技術證據**：同一正式樣本研究／serving 八因子公式、順序、單位、缺值和 float32 XGB 直接輸入（無 scaler）固定向量與 prediction parity；僅對持股+觀察股票的去識別 symbol union 推論，ETF N/A；安全 UBJ loader + GCS SHA 讀回、immutable manifest、原子 registry CAS（expected-previous）及可回退到 deterministic/前版；targeted CI PASS。真實 shadow/GCS 10/21 已 PASS，不重跑本項。
 7. **切 ACTIVE 之後才完成**：正式 API/UI 可見性、Owner 隔離與自然日批連續性實機讀回；此為發布後 acceptance，不把尚未切換當成本次「可進 promotion」先決等待門檻。若必要防護或 CAS 入口尚不存在，須明確 BLOCKED，不可手動改 JSON publication flag。
+
+**授權核對資料（2026-10-22）**：OGDL-Taiwan 1.0 條款 https://data.gov.tw/license 明列不限目的的重製、改作、公開傳輸及衍生產品/服務，並有來源標示義務；若**實際同一資料集**適用此條款，ML 特徵／訓練與合法模型成果部署原則上可依其廣泛利用授權辦理，展示來源出處必須可追溯。證據範例：TWSE 個股日成交資訊 https://data.gov.tw/dataset/11549 與 TPEx 上櫃股票行情 https://data.gov.tw/dataset/11370 均標示 OGDL-1.0，但**目前 r1 採集路由**是 `www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX`、`www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430_result.php`，不能僅憑欄位相同把政府平台特定 dataset 授權套用至不同 endpoint；須透過該路由自身條款/資料集映射或合法等價開放資料證實後，才能標示本候選 `ML_SOURCE_RIGHTS_VERIFIED`。以上為有界授權證據，不等於本 candidate 原始21月資料已過授權核對。記錄查閱日 2026-10-22，不會擴查不相關資料集。
 
 正式發布入口必須從現有 repository workflow/CLI 實際確認；**本指令不授權切 ACTIVE**。不新增付費資源，不恢復退役研究管線，不重抓已有合格資料。
 沒有新付費資源、不恢復Cloud Run訓練器、不重抓既有21個月資料。
