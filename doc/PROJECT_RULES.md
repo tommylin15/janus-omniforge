@@ -90,6 +90,12 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 ### 1.10 方案 A（2026-10-21）
 使用者選擇先交付有證據的事實解讀、站內盤前/盤後與變化追蹤，再接經驗證模型。契約見 [變化判讀](spec/change-analysis.md)、[五分析師](spec/specialist-engines.md)、[因子時間](spec/model-feature-time-contract.md)。事實模板不依賴五模型validated；未驗證ML不得顯示機率或買賣分數。公開個股判斷不以Owner現金/成本作X，私人曝險另隔離。本輪授權文件整理，不因列入TODO而自動開發/部署；後續依使用者指定工作包執行。舊結案不重開，無新推播/付費/日常LLM。
 
+### 1.11.1 Risk 來源准入簡化（2026-10-22 最新決策；覆蓋 §1.11 與舊 Runbook 相反要求）
+
+- **只要有能提供 Risk 所需 OHLCV 的明確授權開放資料來源，首次發布的「來源可用性 gate」即 PASS。** 本次已找到 TWSE 開放資料集 11549、TPEx 開放資料集 11370，均為政府資料開放授權條款第1版（OGDL 1.0）；不再要求逐月溯源既有21月 r1 原始 API、重抓原檔或完成舊 endpoint→開放資料集授權映射才允許進下一 gate。
+- 此項 **PASS 表示可用開放資料替代管道存在，並非原 r1 每筆已依法從該開放資料集取得或原 API 自動獲得同一授權。** 保留原始 provenance、目前不可確認的 r1 授權映射，禁止冒稱已換源、已補收、已重新訓練或全部授權通過；明確實際禁止的取用／展示仍須停止受影響使用。採用 OGDL 資料要遵守來源顯名規則。
+- 本次來源 gate 從「逐來源全面授權認證」改成「開放來源存在與用途可涵蓋」；**只變更來源准入標準**，不解除已確認 future leakage 修正、受污染價格防護、模型特徵/serving parity、hash 與 CAS/rollback 的技術條件，不授權切 ACTIVE。
+
 ### 1.11 D07 Risk XGBoost 首次發布決策（2026-10-22，覆蓋舊等待閘門）
 
 - 沿用單一 `risk-xgboost8-2025h2-v1` 候選，不分 v1/v2 試用路線，不因單純驗證工作重建研究管線；本節並非授權直接切 ACTIVE。
