@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "f2fad7408f90fd9608032ce9ff4e1a9e0cc48fc5",
-  "purpose": "D07 Risk XGBoost v1 dev SHADOW, model GCS candidate SHA verified #39701774716. Live Janus Mart/Controller hash-pinned loader and 16:30 EOD workflow, Flutter risk analyst signal. Full GHCR release with latest concurrent Flutter repairs, no model promotion, no new resources.",
+  "sha": "301c5610e51908709a56dc8667895b16b43e496a",
+  "purpose": "Janus holdings UI / owner current-shares daily PnL / verified OTC ETF MIS previous-close fix, with dev migration 067, plus latest main D07 risk shadow changes. Run full Python+Flutter gates and four public GHCR digests; no model promotion or new resources.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
