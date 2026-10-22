@@ -7,7 +7,7 @@ from research.colab.run_risk_time_split_xgb import fixed_split, run_four_models
 from research.colab.risk_v1 import V1_FEATURES
 
 
-def fixture_panel(stocks=110):
+def fixture_panel(stocks=240):
     dates = pd.bdate_range("2025-01-01", "2026-09-30")
     base = np.arange(len(dates), dtype=float)
     rows = []
