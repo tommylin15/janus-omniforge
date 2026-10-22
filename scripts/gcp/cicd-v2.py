@@ -29,7 +29,7 @@ def test_suites() -> dict[str, list[str]]:
                             "tests/test_risk_promotion_preflight.py",
                             "tests/test_risk_registry_cas.py"]
     suites['mart'] += ['tests/test_analysis_product.py', 'tests/test_change_analysis.py',
-                       'tests/test_risk_shadow.py', 'tests/test_risk_feature_parity.py',
+                       'tests/test_risk_shadow.py', 'tests/test_risk_active.py', 'tests/test_risk_feature_parity.py',
                        'tests/test_market_screening.py']
     suites['api'] += ['tests/test_analysis_api.py', 'tests/test_analysis_postgres.py', 'tests/test_change_analysis_api.py']
     suites["research"] = ["tests/test_collect_tw_equities.py",
