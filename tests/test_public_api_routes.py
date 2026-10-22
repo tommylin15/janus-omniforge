@@ -114,7 +114,8 @@ def test_stock_header_uses_current_identity_and_bounded_price_without_report():
     assert response.status_code == 200
     assert response.json() == {"symbol": "2330", "stock_name": "台積電", "identity_status": "available",
                                "close": "2575", "trade_date": "2026-10-05", "price_status": "persisted",
-                               "previous_close": "2500", "change": "75", "change_percent": "0.03"}
+                               "previous_close": "2500", "change": "75", "change_percent": "0.03",
+                               "instrument_kind": None}
     assert public.calls == []
     assert api.get("/api/v1/public/stock-header/9999").status_code == 404
 
