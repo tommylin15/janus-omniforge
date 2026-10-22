@@ -138,7 +138,7 @@ class QuoteRouter:
         due = {}
         for symbol, identity in identities.items():
             market = str(identity.get("market", "")).upper()
-            if identity.get("enabled") is False or market not in {"TWSE", "TWSE_INDEX", "TPEX", "OTC", "TPEX_UNVERIFIED"}:
+            if identity.get("enabled") is False or market not in {"TWSE", "TWSE_INDEX"}:
                 continue
             row = current.get(symbol)
             received = _timestamp(row.get("received_at")) if row else None
