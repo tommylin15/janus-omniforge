@@ -19,7 +19,15 @@
 - **驗收報告**：新版 Notebook 最後核對 manifest 檔案 SHA、`CURRENT.json`、實際 Parquet 覆蓋，顯示繁體中文資料類型、角色試訓期間與 PASS／PARTIAL／BLOCKED、分市場逐期缺口原因及補收建議；落地 `reports/驗收總表.csv`、`模型試訓準入.csv`、`逐期缺口與原因.csv` 等。v3.3 尚未 Colab 實跑，不將本地測試視為新月份已補齊。
 - 第三方值保留來源與期別，但不因可做研究試訓就宣稱歷史公告時間、PIT 與模型 promotion 已驗證。
 
-\n**跨年度原則（v3.3）**：2027/03 執行截止為 2027-02；新月使用新版普通股名冊 revision，歷史已封存 r1 不重新採集，未完成 checkpoint 續跑；舊資料保留原始版次與研究用途。原始 `YYYY-MM` 封存檔在 `data/`，模型透過 `canonical/CURRENT.json` 讀 Parquet；舊版採集器作為歷史說明，不得覆蓋此正式入口。第三方 API 改版及新上市標的歷史 PIT 仍需定向維護。\n\n## 舊 r1 原始月檔與效能（保留為上游格式）
+\n**跨年度原則（v3.3）**：2027/03 執行截止為 2027-02；新月使用新版普通股名冊 revision，歷史已封存 r1 不重新採集，未完成 checkpoint 續跑；舊資料保留原始版次與研究用途。原始 `YYYY-MM` 封存檔在 `data/`，模型透過 `canonical/CURRENT.json` 讀 Parquet；舊版採集器作為歷史說明，不得覆蓋此正式入口。第三方 API 改版及新上市標的歷史 PIT 仍需定向維護。\n\n## 2026-10-22 TPEx 月末估值定向修復（v3.4）
+
+- Drive 唯一正式採集程式仍為 [`00_資料收集.ipynb`](https://drive.google.com/file/d/1403NtnW0sQ5VuATycDiFvEsHztOvlMvH/view)。本輪前使用者 Colab 收據顯示官方 264 批、尚缺 22 個 TPEx valuation 月批；兩筆 `VALUATION_UNRECOGNISED_EMPTY`（2024-10、2025-01）讓舊程式因同來源連續失敗而略過其餘月份，**不能推定所有 22 月官方無資料**。
+- 修正順序：**先用 TPEx 官方 `pera_result.php` 的歷史指定日期 HTML 整市場匯出（`o=htm`）**；核對回應「資料日期」與請求日期完全一致後，按現有普通股名冊保留可用 PE/PB/殖利率，使用原 `official-valuation-tpex.json.gz` 格式、原 raw hash/checkpoint/上限，僅補未達覆蓋率月份。確實無資料的日期才有限倒查；未辨識 HTML、回應時間錯置或權限阻擋不假作有效值。
+- 若官方 parser 經實際請求證實無法辨識，可用免費 `FinMind TaiwanStockPER` 依股票×缺月期間合併請求，有限速、上限、checkpoint 續跑。新版 schema failure guard 允許略過的上櫃月份進備援清單；遇官方來源 401/403/429、Forbidden/CAPTCHA 等拒絕則停止，不繞過來源存取限制。Yahoo 當前估值不可倒填過去月份。
+- **驗收門檻**：以最新 `reports/monthly_quarterly_coverage.csv` 與新 Parquet `CURRENT.json` 讀回，TPEx 各個原缺月獨立達上櫃研究門檻 ≥70% 且沒有錯日/重複鍵；逐批保存真實來源。個別股票缺值或不適用可保留原因，不為追求100%造值。資料研究准入不是歷史 PIT／模型正式 promotion。
+- **實際執行狀態**：已完成本地 v3.4 HTML adapter 7/7、跨年度回歸 7/7、7 模組/16 Notebook cells 編譯與 SHA 檢查、Drive 同檔 ID 更新與內容 SHA 讀回；**尚未在 Colab 執行新版官方 22 月補收，故實收結果保持 PARTIAL**。不將固定格式的單元測試冒稱 TPEx live API 驗收。
+
+## 舊 r1 原始月檔與效能（保留為上游格式）
 ```text
 janusChatGPT/資料源/
   _control/universe-r1.json
