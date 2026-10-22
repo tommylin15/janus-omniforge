@@ -4,8 +4,8 @@
   "checked_scope": "dev",
   "request_date": "2026-10-22",
   "intent": "risk-v1-formal-promotion-preflight",
-  "purpose": "User-requested formal ACTIVE promotion preflight; verify pinned candidate SHA, real immutable 2026-10-21 Risk shadow/GCS artifact, mandatory PIT/company-action/rights/new 20-session OOS evidence and runtime registry CAS boundary. Read-only only, no ACTIVE switching when gates absent.",
-  "request_id": "risk-v1-formal-promotion-preflight-20261022",
+  "purpose": "Repeat immutable read-only ACTIVE promotion readiness audit after adding targeted Python fail-closed tests and D07 evidence closure. No model active pointer or serving mutations.",
+  "request_id": "risk-v1-formal-promotion-preflight-20261022-r2",
   "publication_allowed": false,
   "no_gcp_mutation": true,
   "prior_shadow_run": "39781316641"
