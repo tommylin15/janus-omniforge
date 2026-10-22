@@ -2,16 +2,18 @@
 
 2026-10-20：新研究路徑為 **官方 TWSE／TPEx → Colab Python → 私有 Drive 每月資料夾 → Colab 五分析師**。GAS／GAS Loader 已退役，不需要 GAS MCP、Apps Script API 或 GCP Job。Colab MCP 可用時可作選配操控介面，**不是**採集或訓練前置條件；目前 ChatGPT 無已連線的 Colab MCP，尚無 Colab 真實執行收據。
 
-## 現行正式 Colab／Drive v3.4 長期增量＋TPEx 歷史估值修復（2026-10-22）
+## 現行正式 Colab／Drive v3.5 長期增量＋完整安裝格＋TPEx 空日修復（2026-10-22）
 
 **單一 Notebook**：[Drive `00_資料收集.ipynb`](https://drive.google.com/file/d/1403NtnW0sQ5VuATycDiFvEsHztOvlMvH/view)；掛載根目錄 `/content/drive/MyDrive/給ai專用/janusChatGPT/資料源/JanusDataset_v3_202610`。模型不再讀下方舊版 `資料源/YYYY-MM` 路徑，應只讀 `canonical/CURRENT.json` 指定不可變 Parquet release；原始來源位於 `data/YYYY-MM`，成功 checkpoint 與原始來源保留。
 
 - **已實際讀回**：21 個月 r1 OHLCV、153 個 v3.1 Parquet 月分區、`CURRENT.json`；資料格式整併 CLOSED。
-- **仍待 Colab 實機補收**：TPEx 估值 22 個缺月及近期季財報。v3.4 自動納入新月份的 OHLCV、兩市場估值與營收、財報等未達研究門檻且已到期缺口，依有限請求數／分鐘續跑；`BUDGET_STOP` 轉成 `BUDGET_PAUSED` 狀態，不代表來源故障。FinMind 的 `TaiwanStockPER` 可用於上櫃歷史估值補缺，Yahoo 可嘗試近期季財報，但不可倒填歷史估值。
+- **仍待 Colab 實機補收**：TPEx 估值最新剩 7 個未達標月份；季財報依新品質報告各別核對。v3.5 自動納入新月份的 OHLCV、兩市場估值與營收、財報等未達研究門檻且已到期缺口，依有限請求數／分鐘續跑；`BUDGET_STOP` 轉成 `BUDGET_PAUSED` 狀態，不代表來源故障。FinMind 的 `TaiwanStockPER` 可用於上櫃歷史估值補缺，Yahoo 可嘗試近期季財報，但不可倒填歷史估值。
 - **最後一格自動驗收**：`reports/驗收總表.csv`、`資料收集完成度.csv`、`模型試訓準入.csv`、`逐期缺口與原因.csv`、`定向補收建議.csv`；各角色研究試訓准入 PASS／PARTIAL／BLOCKED，不等於模型 OOS／PIT 與正式 promotion PASS。
-- **驗收實情**：v3.4 Notebook 16 個 cells、7 個內嵌模組，本地跨年度 7/7 ＋ TPEx 日期/HTML/持久化 7/7 targeted tests PASS，內嵌模組 SHA 全部檢查通過；尚無 v3.4 Colab 實機補齊 22 個上櫃估值月檔與重出驗收總表證據。對應規格：[研究資料契約](../../doc/spec/research-collection-gas-drive-colab.md)。
+- **驗收實情**：v3.5 Notebook 16 個 cells、7 個內嵌模組，**Drive 第1個 code cell 已恢復完整10行安裝與掛載**；真實官方 raw HTML/日期/續查測試 8/8 ＋ 2027/03 跨年度回歸 7/7 PASS，原 Drive 檔案 SHA256 下載一致；**尚無 v3.5 Colab 實際補齊剩餘 7 個月**。對應規格：[研究資料契約](../../doc/spec/research-collection-gas-drive-colab.md)。
 
 **22 個上櫃估值缺月處理（v3.4）**：2026-10-22 前次官方回報總 264 批／待補 22 個 TPEx 估值月批（2024-10、2025-01 的 `VALUATION_UNRECOGNISED_EMPTY` 可重現來源結構問題）。新版 TPEx 優先查官方歷史日期 `pera_result.php?o=htm&d=民國年/月/日` 的整市場 HTML 匯出，必須核對「資料日期」才存月末快照；僅明確無資料時倒查前十個曆日。這是來源 adapter 修正，**不是**用 FinMind 大量逐股重新收集。若官方 HTML 版型改變、已確認 parser 錯誤，允許對所有因此略過的 22 個月份執行有界 `TaiwanStockPER` 歷史補缺；來源 401/403/429、CAPTCHA/Forbidden 則停止，不以備援規避來源限制。官方成功結果和 FinMind checkpoint 都可續跑。**新的 Colab 執行結果尚未取得，22 個月不可提前標已完成。**
+
+**v3.5 最新補收進度（2026-10-22）**：前版 v3.4 在 Colab 真實執行官方 264 批後，研究門檻尚缺 TPEx valuation **2024-10、2025-01～05、2026-02（7 個月）**。Drive raw 經讀回發現 **2025-05-30 和 2026-02-27 的官方 HTML 含正確日期，但 tbody 空、共0筆**；這應是當日空行情並允許向前找前一交易日，**不是** `TPEx_HTML_SCHEMA_UNRECOGNISED`。另 v3.4 安裝儲存格只剩單行 import，是程式交付缺陷；v3.5 已恢復 10 行完整 setup。重新開啟原 [正式 Notebook](https://drive.google.com/file/d/1403NtnW0sQ5VuATycDiFvEsHztOvlMvH/view) 驗證第一格有 `pip install`、`drive.mount`、`ROOT`，再執行全部；不要使用 Colab 已開啟的 v3.4 分頁。**7 個月尚待 v3.5 實際補跑，補收狀態維持 PARTIAL**。已成功月份不重抓。
 
 **長期操作要點**：`END_MONTH_OVERRIDE=None` 時，以台灣時間「上個完整月份」為截止；如 2027/03 開啟則自動查至 2027-02，2027-03 需等4月完整封存。OHLCV 仍從 2025-01 起、官方月營收 2022-10／估值 2023-10／季報 2022Q4 起持續增量，不因滾動 36/48 月刪掉舊期別；已完成行情月檔不因年度 revision 更新而重抓。原始年份封存檔留在 `data/YYYY-MM`，只有 Parquet `CURRENT.json` 是研究模型入口；請求上限與時間上限需重跑同一份 Notebook 續收。詳細指令保留在 [Drive v3.3 README](https://drive.google.com/file/d/169hlWe8qNn60mH71-LKNXE2RNKiPKNct/view)。**目前僅程式交付／本地測試 PASS，未取得 v3.4 Colab 實際補收驗收。**\n\n以下保留**歷史 r1 採集器操作方式**，不再作為 v3 模型讀取入口：
 
