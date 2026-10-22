@@ -25,10 +25,16 @@ def test_suites() -> dict[str, list[str]]:
         block = re.split(r"\n  [a-z][a-z-]+:\n", block, maxsplit=1)[0]
         suites[group] = sorted(set(re.findall(r"tests/[a-zA-Z0-9_/]+\.py", block)))
     suites["controller"] = ["tests/test_cicd_v2.py", "tests/test_container_build_contract.py",
-                            "tests/test_serving_schema_migration.py", "tests/test_portfolio_deploy_contract.py"]
+                            "tests/test_serving_schema_migration.py", "tests/test_portfolio_deploy_contract.py",
+                            "tests/test_risk_promotion_preflight.py"]
     suites['mart'] += ['tests/test_analysis_product.py', 'tests/test_change_analysis.py',
-                       'tests/test_risk_shadow.py']
+                       'tests/test_risk_shadow.py', 'tests/test_risk_feature_parity.py',
+                       'tests/test_market_screening.py']
     suites['api'] += ['tests/test_analysis_api.py', 'tests/test_analysis_postgres.py', 'tests/test_change_analysis_api.py']
+    suites["research"] = ["tests/test_collect_tw_equities.py",
+                          "tests/test_research_risk_pilot.py", "tests/test_risk_v1.py",
+                          "tests/test_risk_time_split_xgb.py",
+                          "tests/test_risk_matured_outcomes.py"]
     return suites
 
 
@@ -42,10 +48,8 @@ def ci_matrix(paths: list[str]) -> dict:
     component_group = {"ingestion-core": "ingestion", "intelligence-mart": "mart",
                        "private-pipeline": "api", "api": "api"}
     for path in paths:
-        if (path.startswith('research/colab/') or path == 'requirements-research-ci.txt'
-                or path in {'tests/test_collect_tw_equities.py', 'tests/test_research_risk_pilot.py'}):
-            groups.setdefault('research', set()).update(
-                ['tests/test_collect_tw_equities.py', 'tests/test_research_risk_pilot.py'])
+        if (path.startswith('research/colab/') or path == 'requirements-research-ci.txt'):
+            groups.setdefault('research', set()).update(suites["research"])
             continue
         if path.endswith('.md') or path.startswith('doc/'):
             continue
