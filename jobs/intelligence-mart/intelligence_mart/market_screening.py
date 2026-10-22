@@ -18,7 +18,8 @@ TABLES = ("core.ohlcv_v1", "core.benchmark_v1", "core.valuation_v1")
 # Keep every field used by source/PIT validation; omit heavy payloads and unrelated features.
 COMMON = ("symbol", "source_id", "provenance_id", "observed_at", "trade_date", "quality_flag",
           "source_authorization", "published_at", "availability_at", "record_at", "effective_date", "observed_date")
-FIELDS = {TABLES[0]: COMMON + ("market", "close", "volume_shares", "turnover_twd"),
+FIELDS = {TABLES[0]: COMMON + ("market", "open", "high", "low", "close", "volume_shares", "turnover_twd",
+                               "is_corporate_action"),
           TABLES[1]: COMMON + ("benchmark_id", "index_kind", "close"),
           TABLES[2]: COMMON + ("pe_ratio", "pb_ratio", "dividend_yield_percent")}
 
@@ -90,8 +91,9 @@ def rank_features(output, as_of):
     return [dict(r, candidate_rank=ranks.get(r["symbol"])) for r in output]
 
 
-def read_market_chunks(reader, inputs, symbols, as_of, snapshot):
+def read_market_chunks(reader, inputs, symbols, as_of, snapshot, *, risk_model=None):
     rows = []
+    risk_shadow = []
     totals = {}
     backend = None
     for offset in range(0, len(symbols), 250):
@@ -103,11 +105,20 @@ def read_market_chunks(reader, inputs, symbols, as_of, snapshot):
         for dataset, count in result.telemetry.get("rows_by_dataset", {}).items():
             totals[dataset] = totals.get(dataset, 0) + count
         rows.extend(market_features(result.datasets, chunk, as_of, snapshot, rank=False))
-    return rank_features(rows, as_of), {"source": backend, "rows_by_dataset": totals,
-                                      "total_rows": sum(totals.values()), "chunks": (len(symbols) + 249) // 250}
+        if risk_model is not None:
+            from .risk_shadow import predict_core_shadow
+            risk = predict_core_shadow(result.datasets.get("ohlcv", []), as_of,
+                                       risk_model, core_snapshot_id=snapshot)
+            risk_shadow.extend(risk["predictions"])
+    telemetry = {"source": backend, "rows_by_dataset": totals,
+                 "total_rows": sum(totals.values()), "chunks": (len(symbols) + 249) // 250}
+    if risk_model is not None:
+        telemetry["risk_shadow"] = risk_shadow
+    return rank_features(rows, as_of), telemetry
 
 
-def screening_processor(execution, connection, *, store_factory=None, reader_factory=None, candidate_factory=None):
+def screening_processor(execution, connection, *, store_factory=None, reader_factory=None,
+                        candidate_factory=None, risk_model_factory=None):
     from .specialist_runtime import load_market_membership
     from .storage import sql_catalog_from_environment
     from .analytics_reader import IcebergSnapshotReader
@@ -123,10 +134,16 @@ def screening_processor(execution, connection, *, store_factory=None, reader_fac
     membership = load_market_membership(connection, as_of)
     symbols = tuple(membership["symbols"])
     inputs, bounds = read_plan(core, as_of)
+    shadow_enabled = os.environ.get("MART_RISK_SHADOW_ENABLED", "false").lower() == "true"
+    if shadow_enabled:
+        from .risk_shadow import MODEL_SHA256, FEATURE_VERSION
     identity = {"analysis_as_of": as_of, "core_snapshot_id": execution.core_snapshot_id,
                 "core_manifest_hash": execution.request_options["core_snapshot_hash"],
                 "tables": inputs.get("iceberg_tables", {}), "membership": membership,
                 "feature_version": VERSION, "date_bounds": bounds}
+    if shadow_enabled:
+        identity["risk_shadow"] = {"model_sha256": MODEL_SHA256, "feature_version": FEATURE_VERSION,
+                                    "publication_allowed": False}
     identity_hash = digest(identity)
     name = f"screening/{identity_hash[7:]}.json"
     try:
@@ -144,9 +161,33 @@ def screening_processor(execution, connection, *, store_factory=None, reader_fac
     else:
         reader = reader_factory(inputs, bounds) if reader_factory else IcebergSnapshotReader(sql_catalog_from_environment(), date_bounds=bounds, selected_fields=FIELDS)
         try:
-            rows, input_telemetry = read_market_chunks(reader, inputs, symbols, as_of, execution.core_snapshot_id)
+            risk_model = None
+            if shadow_enabled:
+                from .risk_shadow import load_model_from_pinned_store
+                risk_model = risk_model_factory() if risk_model_factory else load_model_from_pinned_store(store)
+            rows, input_telemetry = read_market_chunks(
+                reader, inputs, symbols, as_of, execution.core_snapshot_id, risk_model=risk_model)
         finally:
             reader.close()
+        shadow_rows = input_telemetry.pop("risk_shadow", None)
+        shadow_reference = None
+        if shadow_rows is not None:
+            from .risk_shadow import MODEL_VERSION, MODEL_SHA256, FEATURE_VERSION
+            if any(row.get("publication_allowed") is not False for row in shadow_rows):
+                raise ValueError("Risk shadow attempted publication")
+            risk_artifact = {"artifact_kind": "mart_risk_shadow_v1", "schema_version": "1.0.0",
+                             "core_snapshot_id": execution.core_snapshot_id,
+                             "analysis_as_of": as_of, "model_version": MODEL_VERSION,
+                             "model_sha256": MODEL_SHA256, "feature_version": FEATURE_VERSION,
+                             "source_manifest_hash": execution.request_options["core_snapshot_hash"],
+                             "rows": sorted(shadow_rows, key=lambda row: row["symbol"]),
+                             "publication_allowed": False,
+                             "status": "SHADOW_UNVALIDATED"}
+            risk_artifact["output_hash"] = digest(risk_artifact)
+            risk_name = f"risk-shadow/{digest(identity)[7:]}.json"
+            shadow_reference = _write_immutable_json(store, bucket, risk_name, risk_artifact)
+            if json.loads(store.read(risk_name)) != risk_artifact:
+                raise RuntimeError("Risk shadow artifact readback mismatch")
         audit = {"backend": input_telemetry.get("source"), "candidate": "not_requested", "default": "pyiceberg"}
         if candidate_factory:
             candidate = None
@@ -164,6 +205,7 @@ def screening_processor(execution, connection, *, store_factory=None, reader_fac
                     "identity_hash": identity_hash, "rows": rows, "quality": screening_quality(rows),
                     "input_telemetry": input_telemetry, "canary": audit,
                     "specialist_count": 0, "llm_api_tokens": 0, "ceo_triggered": False,
+                    "risk_shadow": shadow_reference,
                     "publication_authority": False}
         if artifact["quality"]["latest_market_date"] != as_of:
             raise ValueError("EOD canonical input not ready for screening date")
@@ -177,7 +219,8 @@ def screening_processor(execution, connection, *, store_factory=None, reader_fac
     receipt = {"execution_id": execution.execution_id, "identity_hash": identity_hash, "reused": reused,
                "artifact_growth_bytes": 0 if reused else len(canonical_json(artifact)), "retention_days": 90,
                "screening": ref, "screening_count": len(artifact["rows"]), "quality": artifact["quality"],
-               "canary": artifact["canary"], "specialist_count": 0, "llm_api_tokens": 0, "ceo_triggered": False}
+               "canary": artifact["canary"], "risk_shadow": artifact.get("risk_shadow"),
+               "specialist_count": 0, "llm_api_tokens": 0, "ceo_triggered": False}
     receipt["output_hash"] = digest(receipt)
     receipt_name = f"executions/{execution.execution_id}/screening-manifest.json"
     try:
