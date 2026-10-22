@@ -1,0 +1,12 @@
+{
+  "intent": "recover-uncertain-ghcr-lease-after-failed-candidate",
+  "approved": true,
+  "failed_run": "39734968869",
+  "failed_sha": "a359367cc8391a1c18d226232251d25571507f96",
+  "baseline_source_sha": "a3a3b30648e7b05f2b9cb5363eca4594d52a2b20",
+  "no_gcp_mutation": true,
+  "no_traffic_change": true,
+  "no_jobs_change": true,
+  "scope": "existing-dev-exact-owner-safe-GitHub-tag-recovery",
+  "reason": "The candidate acquired an annotated GitHub tag but immediate owner readback returned lease_missing, no Cloud Run deploy step was attempted. Verify run/owner/live single 100% API/old four Jobs before releasing only the owner tag."
+}
