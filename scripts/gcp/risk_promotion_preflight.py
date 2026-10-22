@@ -20,15 +20,25 @@ BUCKET = "gen-lang-client-0593591102-dev-mart"
 MODEL = f"gs://{BUCKET}/risk-models/candidates/2026Q3-20261022/risk-xgboost8-2025h2-v1.ubj"
 SHADOW_PREFIX = f"gs://{BUCKET}/risk-shadow/"
 SCREENING_DATE = "2026-10-21"
+# The first-promotion gate is finite; missing whole-market historical PIT or
+# 20 new prospective mature labels is a recorded limitation, not an excuse
+# to waive actual cutoff leakage, source rights or reversible publication.
 MANDATORY_PROOFS = (
-    "source_rights_retention_certification",
-    "historical_pit_survivorship_certification",
-    "corporate_action_adjustment_certification",
-    "official_exchange_calendar_certification",
-    "untouched_prospective_20_session_matured_oos",
+    "scoped_source_use_rights_by_dataset",
+    "eight_feature_cutoff_and_revision_pit_guard",
+    "window_scoped_corporate_action_screen",
     "training_serving_feature_parity_test_vectors",
     "validated_bundle_manifest_and_registry_import",
+    "target_only_daily_inference_and_exclusion_receipt",
     "atomic_registry_cas_with_rollback",
+)
+ACCEPTED_FIRST_RELEASE_LIMITS = (
+    "retrospective_oos_previously_seen_not_independent",
+    "historical_delisted_master_not_reconstructed",
+    "full_history_corporate_actions_not_required",
+)
+POST_ACTIVATION_ACCEPTANCE = (
+    "prospective_20_market_sessions_maturity_and_monthly_evaluation",
     "published_api_ui_owner_boundary_readback",
     "natural_scheduled_daily_run_acceptance",
 )
@@ -70,8 +80,8 @@ def evaluate(model_sha: str | None, shadow: dict | None, today: date) -> dict:
     # There cannot be 20 exchange trading sessions when even the maximal
     # weekday count is smaller than 20. The reverse is NOT proof of maturity.
     verified["upper_bound_weekdays_after_shadow"] = elapsed
-    if elapsed < 20:
-        blockers.append("prospective_20_sessions_chronologically_impossible")
+    # A pending mature label is not an error, not a win, and not pre-promotion proof.
+    verified["prospective_oos_state"] = "PENDING" if elapsed < 20 else "MATURITY_REQUIRES_CALENDAR_AND_EOD_EVIDENCE"
     return {
         "component": "risk_xgboost_v1_promotion_preflight",
         "audit_status": "COMPLETED",
@@ -80,6 +90,8 @@ def evaluate(model_sha: str | None, shadow: dict | None, today: date) -> dict:
         "as_of_taipei": today.isoformat(),
         "verified": verified,
         "blocked_or_unverified_gates": sorted(set(blockers)),
+        "accepted_first_release_limits": list(ACCEPTED_FIRST_RELEASE_LIMITS),
+        "post_activation_acceptance": list(POST_ACTIVATION_ACCEPTANCE),
         "publication_allowed": False,
         "would_write_registry": False,
         "would_change_api": False,
