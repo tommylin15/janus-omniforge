@@ -1,7 +1,7 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "b3ecba5ea87bff8b7cdec0730ee857a611a71951",
+  "sha": "566522998769b515d27139382ea4ca36f35e0b93",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "A-CHANGE read-only OAuth metadata and unauthenticated Owner/private/MCP/Admin boundary gate for exact source b3ecba5ea87bff8b7cdec0730ee857a611a71951, full release #39561334687 and accepted 0%-traffic candidate #39562231524. Include the new today-changes and stock changes GET routes. Do not mutate GCP, traffic, Jobs, Scheduler, IAM or storage."
+  "purpose": "Read-only OAuth metadata, private Owner/Admin/MCP negative security gate for held-stock daily-PnL and ETF OTC API candidate source 566522998769 after exact release #39707256315 and zero-traffic candidate #39707770848. No GCP mutation or traffic change."
 }
