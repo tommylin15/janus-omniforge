@@ -1,6 +1,6 @@
 # Janus UI — 原則、視覺、Responsive 與 Shell
 
-更新：2026-10-03
+更新：2026-10-22
 
 ## 1. UI 原則
 
@@ -18,6 +18,7 @@
 ## 2. 視覺系統
 
 - User App 使用 Flutter Material 3、`ColorScheme.fromSeed`、圓角 Card、清楚字階與充足留白；沒有明確需要時不引入第三方 UI kit。
+- 2026-10-22：股票 User App 卡片採 Life Assistant 風格的薄荷／霧藍／奶杏／淡紫低飽和雙色漸層、圓角與細邊框；共用 `fvPastelDecoration`，優先作用於市場摘要、關注列、持股摘要／緊湊持股列及個股標頭。漸層只負責視覺分區，不表示漲跌、模型信號或買賣建議。原始數值／資料日期／缺值及台股紅漲綠跌獨立保留；390px 手機不得把 1～2 行持股列變成大卡。
 - 支援 light／dark／system theme。
 - Admin 以可讀、低複雜度營運介面為主；不為視覺效果增加不必要 dashboard／graph。
 - 台股價格漲跌：上漲 red、下跌 green；治理／健康語意另以文字＋icon 輔助，不能只靠顏色。

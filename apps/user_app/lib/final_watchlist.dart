@@ -238,8 +238,15 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 0,
       color: Colors.white,
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: InkWell(
+      child: Ink(
+        decoration: fvPastelDecoration(
+          tone: offUniverse ? FvCardTone.peach
+              : pending > 0 ? FvCardTone.lavender
+              : row['held'] == true ? FvCardTone.mint : FvCardTone.sky,
+        ),
+        child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: () => widget.onOpenStock?.call(symbol),
         child: Padding(
@@ -350,6 +357,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
               ),
             ],
           ),
+        ),
         ),
       ),
     );

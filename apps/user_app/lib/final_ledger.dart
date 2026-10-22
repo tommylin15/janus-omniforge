@@ -570,7 +570,10 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       color: Colors.white,
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 0,
-      child: Padding(
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        decoration: fvPastelDecoration(tone: FvCardTone.peach),
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('總資產', style: TextStyle(color: fvInk,
@@ -630,12 +633,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
     child: Container(
       padding: const EdgeInsets.all(18),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-          colors: [Color(0xFFFFFFFF), Color(0xFFEAF9FB)],
-        ),
-      ),
+      decoration: fvPastelDecoration(tone: FvCardTone.mint, radius: 22),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         const Icon(Icons.account_balance_wallet_outlined, color: fvTeal, size: 22),
@@ -826,7 +824,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         header('總損益', 26, align: TextAlign.end),
       ]),
       const Divider(height: 14),
-      for (final row in sorted) ...[
+      for (final (index, row) in sorted.indexed) ...[
         Builder(builder: (context) {
           final symbol = fvText(row['symbol']);
           final name = fvText(row['stock_name'], missing: symbol);
@@ -839,11 +837,18 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               row['missing_reason']);
           final hasPnl = (row['price_status'] == 'available' || reference) &&
               row['unrealized_pnl'] != null;
-          return InkWell(
+          return Ink(
+            decoration: fvPastelDecoration(
+              tone: !hasPnl ? FvCardTone.peach
+                  : index.isEven ? FvCardTone.mint : FvCardTone.sky,
+              radius: 14,
+            ),
+            child: InkWell(
+            borderRadius: BorderRadius.circular(14),
             key: Key('holding-row-$symbol'),
             onTap: () => widget.onOpenStock?.call(symbol),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               child: Row(crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                 Expanded(flex: 30, child: Column(
@@ -927,9 +932,10 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                 )),
               ]),
             ),
+            ),
           );
         }),
-        const Divider(height: 1),
+        const SizedBox(height: 6),
       ],
       const SizedBox(height: 6),
       const Text('當日損益為持股價格變動估計，非當日實際交易損益。點擊個股查看來源、缺值原因及明細。',

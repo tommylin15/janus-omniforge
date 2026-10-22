@@ -93,10 +93,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> {
       child: SizedBox(
         height: 132,
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-          ),
+          decoration: fvPastelDecoration(tone: FvCardTone.sky),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -162,6 +159,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> {
     final section = fvMap(raw);
     final freshness = _freshness(section);
     return fvPanel(
+      tone: title == '市場活動' ? FvCardTone.mint : FvCardTone.peach,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -202,6 +200,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> {
           final rows = fvRows(fvMap(snapshot.data)['items']);
           if (rows.isEmpty) return const SizedBox.shrink();
           return fvPanel(
+            tone: FvCardTone.lavender,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Row(children: [
                 Icon(Icons.auto_awesome_outlined, size: 22, color: fvTeal),

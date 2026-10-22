@@ -480,6 +480,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
           padding: const EdgeInsets.fromLTRB(18, 8, 18, 40),
           children: [
             fvPanel(
+              tone: FvCardTone.mint,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

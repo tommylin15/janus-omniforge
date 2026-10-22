@@ -10,6 +10,31 @@ const fvSoft = Color(0xFFE6F1F3);
 const fvGain = Color(0xFFC62828);
 const fvLoss = Color(0xFF16814F);
 
+// Life-inspired pastel surfaces are presentation-only: never encode an
+// investment recommendation, price direction or model confidence as a tint.
+enum FvCardTone { mint, sky, peach, lavender }
+
+BoxDecoration fvPastelDecoration({
+  FvCardTone tone = FvCardTone.mint,
+  double radius = 20,
+}) {
+  final colors = switch (tone) {
+    FvCardTone.mint => const [Color(0xFFDDF2EF), Color(0xFFF7FCFB)],
+    FvCardTone.sky => const [Color(0xFFE4F2F8), Color(0xFFFBFDFE)],
+    FvCardTone.peach => const [Color(0xFFFFEEE1), Color(0xFFFFFBF7)],
+    FvCardTone.lavender => const [Color(0xFFF1EAF8), Color(0xFFFCFAFE)],
+  };
+  return BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: colors,
+    ),
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: const Color(0xFFE0E9E9)),
+  );
+}
+
 double? fvNumber(Object? value) => double.tryParse('${value ?? ''}');
 
 Color fvSignedColor(Object? value) =>
@@ -124,14 +149,18 @@ Widget fvSectionTitle(BuildContext context, String title, {String? trailing}) =>
     );
 
 Widget fvPanel({required Widget child, EdgeInsetsGeometry? padding,
-    Color color = Colors.white}) => Card(
+    Color color = Colors.white, FvCardTone? tone}) => Card(
       margin: const EdgeInsets.only(bottom: 10),
       color: color,
       elevation: 0,
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: padding ?? const EdgeInsets.all(16),
-        child: child,
+      child: Ink(
+        decoration: tone == null ? null : fvPastelDecoration(tone: tone),
+        child: Padding(
+          padding: padding ?? const EdgeInsets.all(16),
+          child: child,
+        ),
       ),
     );
 
