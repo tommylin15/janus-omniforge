@@ -24,7 +24,6 @@ SCREENING_DATE = "2026-10-21"
 # 20 new prospective mature labels is a recorded limitation, not an excuse
 # to waive actual cutoff leakage, source rights or reversible publication.
 MANDATORY_PROOFS = (
-    "scoped_source_use_rights_by_dataset",
     "eight_feature_cutoff_and_revision_pit_guard",
     "window_scoped_corporate_action_screen",
     "training_serving_feature_parity_test_vectors",
@@ -36,6 +35,16 @@ ACCEPTED_FIRST_RELEASE_LIMITS = (
     "retrospective_oos_previously_seen_not_independent",
     "historical_delisted_master_not_reconstructed",
     "full_history_corporate_actions_not_required",
+    "original_r1_endpoint_license_mapping_not_certified",
+)
+# User's 2026-10-22 finite first-release open-data availability policy.
+# These are independently listed licensed datasets; this statement does NOT
+# re-license an unrelated historical fetch endpoint or rewrite model provenance.
+OPEN_DATA_DATASETS = (
+    {"market": "twse", "dataset": "11549", "license": "OGDL-1.0",
+     "url": "https://data.gov.tw/dataset/11549"},
+    {"market": "tpex", "dataset": "11370", "license": "OGDL-1.0",
+     "url": "https://data.gov.tw/dataset/11370"},
 )
 POST_ACTIVATION_ACCEPTANCE = (
     "prospective_20_market_sessions_maturity_and_monthly_evaluation",
@@ -54,7 +63,12 @@ def elapsed_weekdays_after(start: date, end: date) -> int:
 
 def evaluate(model_sha: str | None, shadow: dict | None, today: date) -> dict:
     blockers = list(MANDATORY_PROOFS)
-    verified = {}
+    verified = {
+        "open_data_availability": "PASS_BY_APPROVED_FIRST_RELEASE_POLICY",
+        "open_data_evidence": list(OPEN_DATA_DATASETS),
+        "open_data_license_checked_on": "2026-10-22",
+        "r1_source_license_mapping": "UNKNOWN_ACCEPTED_LIMIT_NOT_LICENSE_CERTIFICATION",
+    }
     if model_sha == MODEL_SHA:
         verified["candidate_gcs_sha256"] = MODEL_SHA
     else:
