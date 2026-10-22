@@ -4,6 +4,7 @@
 
 ## 已完成／退役範圍
 
+- **2026-10-22｜持股摘要 YTD 同行、ETF／TPEx 盤中路由修復**：dev 固定 GHCR source `a3a3b30648e7`、Release [#39710294843](https://github.com/tommylin15/janus-omniforge/actions/runs/39710294843)、API-only 100% 可回滾切流 [#39711125553](https://github.com/tommylin15/janus-omniforge/actions/runs/39711125553) PASS；使用者於本次對話直接確認「驗收完成」，**USER_ACCEPTED／CLOSED**。依實際接受範圍結案，不另外要求逐筆數值收據。詳見 [Operations](../spec/operations-and-testing.md)。
 - `042_stock_serving_projection`：2026-10-04 完成 dev migration、`78,079 / 78,079` real-data backfill、API projection-first live hot-path telemetry、publication owner credential repair 與 temporary IAP revoke verification；見 [完成證據](../archive/stock-serving-projection-042-completed-2026-10-04.md)。這是 serving infrastructure completion，不新增 active WBS queue item。
 - `WBS-3-DATA-SUPPLEMENT-V1`：2026-10-03 依資料優先驗收結案，資料前置已滿足；見 [結案證據](../archive/wbs-3-data-supplement-v1-completed-2026-10-03.md)，維運見 [runbook](../runbook-data-supplement.md)。
 

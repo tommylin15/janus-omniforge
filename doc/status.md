@@ -4,7 +4,7 @@
 
 ## 已完成／結案
 
-- **當日損益／ETF 盤中刷新與 YTD 同行 UI 修正**：2026-10-22 已在既有 dev 完成 API-only 100% 正式發布，source `a3a3b30648e7`，full GHCR、OAuth negative gate、0% candidate、實際新→舊→新回滾及 lease 釋放均 PASS，見 [Operations](spec/operations-and-testing.md)。本人登入的 ETF 逐檔盤中數值尚無實機正向讀回，仍須依交易日與來源 availability 表示缺值。
+- **當日損益／ETF 盤中刷新與 YTD 同行 UI 修正：USER_ACCEPTED／CLOSED（2026-10-22）**。本人於本次對話明確回覆「驗收完成」，確認此次手機介面與 ETF／上櫃盤中損益修正的既定驗收範圍。正式 dev API-only 100% source `a3a3b30648e7`、full GHCR、OAuth 負向驗證、0% candidate、實際新→舊→新回滾與 lease 釋放均 PASS，詳見 [Operations](spec/operations-and-testing.md)。真人接受是使用者回報，不取代未提供的逐檔原始報價、金額或自動量測收據；不額外重開已通過的發版 gate。
 
 
 - **持股摘要（萬元）、最新持股當日損益、ETF／TPEx MIS 與非普通股資訊入口：2026-10-22 dev API-only 100% 發布 PASS。** 正式 GHCR source `566522998769`，schema migration 067、Python／Flutter 完整 Release、0% candidate、OAuth／private 負向驗證、API 新→舊→新流量回滾均有 [Operations 統一收據](spec/operations-and-testing.md#2026-10-22持股-uietf上櫃盤中行情與當日損益正式-dev-api-only-發版-pass)；未另外冒稱已登入逐檔盤中正向畫面驗收。

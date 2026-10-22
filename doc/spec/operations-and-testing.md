@@ -2,6 +2,7 @@
 
 ### 2026-10-22｜TPEx 債券 ETF 盤中刷新與持股 YTD 同行：dev 100% 發布 PASS
 
+- **2026-10-22 真人正向驗收補充：USER_CONFIRMED_PASS／CLOSED。** 本次對話使用者於正式 dev 發布後明確回覆「驗收完成」，依其接受的工作範圍結案（持股卡「市值＋本年已實現損益」同行，以及 `00719B`／`00697B` 所屬 ETF／上櫃盤中報價刷新後的顯示）。證據為使用者直接確認，非新產生的獨立行情原始 payload、逐檔損益數字、操作截圖或 source authorization 擴張。原發布與測試 CI 收據保留；無需追加重複部署或無界驗收。
 - **實際缺陷**：前版雖在 MIS adapter 支援 `otc_<symbol>.tw`，但 `services/api/quote_router.py::_due` 仍只允許 TWSE/TWSE_INDEX，故持股 `00719B` 與 `00697B` 未進入盤中刷新集合，顯示「待行情」；已將已核實 TPEX/OTC 及待 exact-exchange-echo 的 TPEX_UNVERIFIED 納入，UNKNOWN／disabled 仍排除。新加完整路由回歸及 Flutter 390px UI 測試。沒有 MIS 合格成交或前收盤時仍如實待行情。
 - **UI**：持股參考市值左側主數字與本年已實現損益右側數字同行；下列當日／參考未實現損益雙欄；保留 TWD 萬元一位小數及部份可用語意。
 - **CI/Full Release**：最新產品固定映像 SHA `a3a3b30648e7b05f2b9cb5363eca4594d52a2b20`，Flutter [#39710118988](https://github.com/tommylin15/janus-omniforge/actions/runs/39710118988)、後端 [#39710118971](https://github.com/tommylin15/janus-omniforge/actions/runs/39710118971) PASS；全 Python／Flutter 與 GHCR 四映像匿名 digest readback [#39710294843](https://github.com/tommylin15/janus-omniforge/actions/runs/39710294843) PASS。
