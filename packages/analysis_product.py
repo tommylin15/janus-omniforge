@@ -59,6 +59,48 @@ def baseline_projection(manifest, artifacts):
     return result
 
 
+
+def approved_first_release_risk_projection(baseline, prediction):
+    """Overlay a pinned immutable Risk result on a private baseline projection.
+
+    Unlike the original research shadow, this evidence is explicitly approved
+    for first release by the separate, version-fenced Mart registry. This does
+    not mean a pristine prospective OOS cohort has already matured.
+    """
+    from math import isfinite
+    from intelligence_mart.risk_shadow import MODEL_SHA256, MODEL_VERSION
+    if (prediction.get("symbol") != baseline["symbol"]
+            or prediction.get("analysis_as_of") != baseline["analysis_as_of"]
+            or prediction.get("core_snapshot_id") != baseline["core_snapshot_id"]
+            or prediction.get("model_sha256") != MODEL_SHA256):
+        raise ValueError("Risk first-release snapshot/model identity mismatch")
+    forecast = prediction.get("future_20d_volatility_annualized")
+    recent = prediction.get("recent_20d_volatility_annualized")
+    if (any(isinstance(v, bool) or not isinstance(v, (int, float))
+            or not isfinite(v) or v < 0 for v in (forecast, recent)) or recent == 0):
+        raise ValueError("nonfinite or invalid Risk serving prediction")
+    value = dict(baseline)
+    specialists = []
+    for item in baseline["specialists"]:
+        if item["role"] != "risk":
+            specialists.append(item)
+            continue
+        metrics = dict(item["metrics"])
+        metrics["future_20d_volatility_annualized"] = float(forecast)
+        metrics["recent_20d_volatility_annualized"] = float(recent)
+        specialists.append({**item, "metrics": metrics,
+            "model_version": MODEL_VERSION, "model_status": "first_release_approved",
+            "status": "ready", "baseline_status": "available",
+            "risk_first_release_limit": "prospective_20_session_oos_pending",
+            "risk_prediction_model_sha256": MODEL_SHA256})
+    value["specialists"] = specialists
+    if sum(i["role"] == "risk" for i in specialists) != 1:
+        raise ValueError("exact Risk specialist required")
+    value["risk_serving_status"] = "FIRST_RELEASE_APPROVED"
+    value["model_quality"] = "RESEARCH_OOS_FIRST_RELEASE_PROSPECTIVE_PENDING"
+    value["content_hash"] = content_hash({k: v for k, v in value.items() if k != "content_hash"})
+    return value
+
 def numeric_facts(baseline):
     facts = {f'{a["role"]}.{key}': value for a in baseline['specialists']
              for key, value in a['metrics'].items()
