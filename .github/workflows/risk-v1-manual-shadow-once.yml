@@ -38,7 +38,7 @@ jobs:
             .no_api_traffic_changes==true and .no_new_scheduler==true and
             .rollout_run==$rollout and .release_run==$release and
             .source_sha==$source and .model_sha256==$model and
-            .screening_date=="LATEST_VALIDATED_CORE" and
+            .screening_date=="PRIOR_COMPLETED_CORE_PINNED" and
             (.request_id|type=="string" and test("^[A-Za-z0-9._-]{1,80}$"))
           ' ops/risk-v1-manual-shadow-request.json >/dev/null
           gh run view "$ROLLOUT_RUN" --json status,conclusion,headSha,jobs > /tmp/rollout.json
@@ -82,7 +82,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          python scripts/gcp/risk_shadow_asof.py --github-env "$GITHUB_ENV" --receipt /tmp/risk-core-asof.json
+          python scripts/gcp/risk_shadow_asof.py --github-env "$GITHUB_ENV" --receipt /tmp/risk-core-asof.json --event /tmp/risk-core-event.json
           python - <<'PY'
           import json
           from datetime import datetime
@@ -95,16 +95,32 @@ jobs:
           print('Prior completed Core business day confirmed: '+as_of)
           PY
           echo "Resolved actual prior Core date (not a hardcoded business date)" >> "$GITHUB_STEP_SUMMARY"
-      - name: Execute one latest-Core Risk shadow only
+      - name: Pin reviewed prior-day Core event in existing Mart acceptance prefix
         shell: bash
         run: |
           set -Eeuo pipefail
-          # Janus run_daily independently re-reads the latest Core and refuses mismatch.
+          # Single existing dev Mart bucket; no job config/Scheduler changes.
+          hash="$(sha256sum /tmp/risk-core-event.json | cut -c1-16)"
+          target="gs://gen-lang-client-0593591102-dev-mart/acceptance/specialists/risk-shadow-once-${SCREENING_DATE}-${hash}.json"
+          if ! gcloud storage ls "$target" --project "$PROJECT" >/dev/null 2>&1; then
+            gcloud storage cp --no-clobber /tmp/risk-core-event.json "$target" --project "$PROJECT" >/dev/null
+          fi
+          gcloud storage cat "$target" --project "$PROJECT" > /tmp/risk-core-event-readback.json
+          cmp /tmp/risk-core-event.json /tmp/risk-core-event-readback.json
+          echo "MART_ACCEPTANCE_INPUT_URI=$target" >> "$GITHUB_ENV"
+          echo "Pinned prior EOD Core manifest hash verified in existing Mart acceptance GCS prefix" >> "$GITHUB_STEP_SUMMARY"
+      - name: Execute one pinned-prior-EOD Risk shadow only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # market-screening-acceptance independently validates the Core URI/hash,
+          # required market date and immutable snapshot. Never run latest intraday Core.
           test -n "$SCREENING_DATE"
+          test -n "$MART_ACCEPTANCE_INPUT_URI"
           gcloud run jobs execute "$JOB" --project "$PROJECT" --region "$REGION" \
-            --update-env-vars="MART_OPERATION=market-screening,MART_RISK_SHADOW_ENABLED=true,MART_AI_ENABLED=false,MART_OOS_EVALUATION=false,MART_PRODUCT_PROJECTION=false,SCREENING_DATE=${SCREENING_DATE}" \
+            --update-env-vars="MART_OPERATION=market-screening-acceptance,MART_RISK_SHADOW_ENABLED=true,MART_AI_ENABLED=false,MART_OOS_EVALUATION=false,MART_PRODUCT_PROJECTION=false,MART_ACCEPTANCE_INPUT_URI=${MART_ACCEPTANCE_INPUT_URI},SCREENING_DATE=${SCREENING_DATE}" \
             --wait --format=json > /tmp/execute-result.json
-          echo "One bounded Risk shadow EOD Mart Job completed; no persistent config or API traffic changed" >> "$GITHUB_STEP_SUMMARY"
+          echo "One pinned-prior Core Risk shadow acceptance completed; no persistent Job config or traffic changes" >> "$GITHUB_STEP_SUMMARY"
       - name: Verify actual new execution and immutable shadow report
         shell: bash
         run: |
