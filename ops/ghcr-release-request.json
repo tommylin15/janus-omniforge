@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
   "sha": "3fe506a1c218cfd12c16ecc037d80b92f00797a5",
-  "purpose": "Exact accepted holdings card YTD same-row plus live TPEx/OTC bond ETF 00719B / 00697B intraday MIS routing, with fixed Flutter narrow-view regression. Full Python+Flutter tests, publish four GHCR immutable images for existing dev API-only rollout; no new paid resources/schema or Jobs/Scheduler changes.",
+  "purpose": "D07 Risk v1 Core identical-revision dedup and contradictory per-symbol quarantine after actual hc6kw VALUEERROR. Exact current main Python+Flutter gates and new GHCR immutable images for existing dev reversible Jobs rollout; Risk only shadow, model publication false, no new jobs/scheduler/API traffic changes.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -11,5 +11,9 @@
   ],
   "no_new_resources": true,
   "keep_weekly_iceberg": true,
-  "stage_ttl_hours": 48
+  "stage_ttl_hours": 48,
+  "original_failure_run": "39720298156",
+  "failure_diagnosis_run": "39733625497",
+  "risk_model_version": "risk-xgboost8-2025h2-v1",
+  "risk_shadow_only": true
 }
