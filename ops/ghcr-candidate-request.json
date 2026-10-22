@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "a80ac6ecdd1ce8f7f07295a8158ae6d540dea2e1",
+  "sha": "3e5f3c0ef569513c81e52c67794af9ba40d5cade",
   "digest": "",
-  "release_run": "39773463340",
+  "release_run": "39874777208",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Risk EOD/PIT fix exact-source release #39773463340, no-traffic API candidate required for existing four-Job rollout admission; no API traffic change or model promotion.",
-  "request_attempt": 2
+  "purpose": "Risk XGBoost first ACTIVE full release success #39874777208; existing janus-api new digest at zero traffic only. No model Registry activation until Mart and API serving canary pass.",
+  "request_attempt": 3
 }
