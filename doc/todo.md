@@ -46,6 +46,7 @@
 - [ ] **模型與研究評估**：Risk v0／v1 的原始普通股同樣本 OOS 已完成；八因子 v1 MAE 0.127537、對五因子 v0 0.133647 改善4.57%，但2026-08 v1 小幅退步，且四段皆為已檢視歷史非新 holdout；收據見 [Risk v1](archive/d07-risk-v1-ohlcv-oos-2026-10-22.md)。**剩餘** Colab 本人重跑/targeted/CI、可比較公司行動與PIT/授權、未使用期間驗證及 Quant／其餘角色各自 OOS；未達 gate 不上線。
 - [ ] **Colab整體交付與資料量**：共用notebook與五角色設定，採集/清洗/as-of/X/Y/成熟標籤/OOS；列實收原生期數與建議量差距，延伸歷史前補年度日曆/來源支援；不以不足樣本硬訓練。
 - [ ] **XGBoost8 受控部署／每日 Risk 推論（使用者 2026-10-22 要求）**：已凍結研究 cycle `2026Q3-20261022`，本地 XGB UBJ SHA `36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044`，99檔 hash 全 PASS，重新載入 MAE 0.129701336 一致；**尚缺** GCS candidate 上傳+SHA讀回、合法來源／PIT／公司行動與獨立驗證、正式Core OHLCV欄位及市場日曆feature parity、Mart safe loader及每日Controller接線、CI/dev真實定時job輸出、API/UI readback與rollback。**正式 runtime 現在仍是 deterministic-unpromoted-v1，不能報 ACTIVE。** 無法滿足promotion gate時先做shadow，確定性基準不切換。
+- [ ] **Risk v2 討論（延後，僅待辦占位，不在 v1 範圍）**：v1 八因子僅個股OHLCV，**未納入官方大盤／Beta、產業指數或產業共振、拆股/減資/除權息正式價格調整**。公司行動缺口是 v1 promotion 的資料安全驗收，不得用 v2 延後決議替代 v1 必要的資料守門。依使用者指示：**先完成本輪 XGBoost v1 安全部署、日批與真實 UI 讀回後，才討論 v2 因子/資料架構**；不預先增加資料採集、重訓或付費服務。
 - [ ] **Risk訊號及週期閉環**：已依使用者決定為「每交易日盤後推論、每週缺值健康、每月成熟label相對Rolling20評估、每季檢討重訓」，個股頁 `RiskSignalCard` 已寫入顯示高波動警示橘、緩和青綠、未驗證/過期灰與行情資料日+小字更新頻率；未經validated不可顯示XGB預測數值。待Flutter CI、API接真實成熟預測、夜批自然運行、留存/retention與真實UI讀回；深度股票union分批、同Controller接線，不另建cron。A-CHANGE負責使用者事實報告，D07負責模型評估。詳見[Risk手冊](spec/risk-model-training-retraining-runbook.md)、[模型卡](spec/risk-model-card.md)。
 
 完整開發/發布/回收契約見[模型生命週期](spec/model-lifecycle.md)及[AI卡](execution-cards/d07-model-lifecycle.md)。本輪為DOC_UPDATED，未上傳模型或啟用新排程。
