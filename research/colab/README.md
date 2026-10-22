@@ -2,6 +2,17 @@
 
 2026-10-20：新研究路徑為 **官方 TWSE／TPEx → Colab Python → 私有 Drive 每月資料夾 → Colab 五分析師**。GAS／GAS Loader 已退役，不需要 GAS MCP、Apps Script API 或 GCP Job。Colab MCP 可用時可作選配操控介面，**不是**採集或訓練前置條件；目前 ChatGPT 無已連線的 Colab MCP，尚無 Colab 真實執行收據。
 
+## 現行正式 Colab／Drive v3.2 入口（2026-10-22）
+
+**單一 Notebook**：[Drive `00_資料收集.ipynb`](https://drive.google.com/file/d/14qqdkRehe89JGtlzks1AmP3054LB9uk0/view)；掛載根目錄 `/content/drive/MyDrive/給ai專用/janusChatGPT/資料源/JanusDataset_v3_202610`。模型不再讀下方舊版 `資料源/YYYY-MM` 路徑，應只讀 `canonical/CURRENT.json` 指定不可變 Parquet release；原始來源位於 `data/YYYY-MM`，成功 checkpoint 與原始來源保留。
+
+- **已實際讀回**：21 個月 r1 OHLCV、153 個 v3.1 Parquet 月分區、`CURRENT.json`；資料格式整併 CLOSED。
+- **仍待 Colab 實機補收**：TPEx 估值 22 個缺月及近期季財報。v3.2 只排真正未達門檻的已到期缺口，依有限請求數／分鐘續跑；`BUDGET_STOP` 轉成 `BUDGET_PAUSED` 狀態，不代表來源故障。FinMind 的 `TaiwanStockPER` 可用於上櫃歷史估值補缺，Yahoo 可嘗試近期季財報，但不可倒填歷史估值。
+- **最後一格自動驗收**：`reports/驗收總表.csv`、`資料收集完成度.csv`、`模型試訓準入.csv`、`逐期缺口與原因.csv`、`定向補收建議.csv`；各角色研究試訓准入 PASS／PARTIAL／BLOCKED，不等於模型 OOS／PIT 與正式 promotion PASS。
+- **驗收實情**：v3.2 Notebook 16 個 cells、7 個內嵌模組，本地語法檢查與 targeted tests 4/4 PASS；尚無新版 Colab 實際補收／重出驗收總表證據。對應規格：[研究資料契約](../../doc/spec/research-collection-gas-drive-colab.md)。
+
+以下保留**歷史 r1 採集器操作方式**，不再作為 v3 模型讀取入口：
+
 ## 1. Google Colab 一次設定
 
 本專案使用者的單一 Drive 根目錄在 `MyDrive/給ai專用/janusChatGPT`；Colab `--drive-root` 固定指向 `/content/drive/MyDrive/給ai專用/janusChatGPT/資料源`，不得改回 MyDrive 直下的舊範例。若 Google Drive 資料夾再次移動，先實際確認掛載後路徑，再調整執行命令；既有 `r1`、已封存月份與 checkpoint 不因路徑修正重抓。
