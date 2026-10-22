@@ -1,5 +1,5 @@
 {
-  "request_id": "risk-core-eod-20261021-verified-retry2",
+  "request_id": "risk-core-eod-20261021-verified-retry3",
   "enabled": true,
   "operation": "ingestion",
   "dataset": "official-eod-ohlcv",
@@ -8,5 +8,5 @@
   "disable_mart_trigger": true,
   "scope": "approved_twse_tpex_market_volume_only",
   "intent": "one-shot corrected date-consistent Core EOD manifest from official exchange OHLCV, no full-market unrelated datasets; pinned Risk shadow runs separately after readback",
-  "retry_reason": "Normalize Cloud Run cache.us-docker.pkg.dev GHCR mirror before exact image digest fence; previous 39777415709 failed before EOD writes."
+  "retry_reason": "Resolve Cloud Run Jobs v2 exact-image identity via proven ghcr_jobs_rollout.image(job(...)) instead of gcloud v1 schema; earlier two requests fail before data mutation."
 }
