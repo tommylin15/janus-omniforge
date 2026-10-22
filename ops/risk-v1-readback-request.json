@@ -4,8 +4,8 @@
   "checked_scope": "dev",
   "request_date": "2026-10-22",
   "intent": "risk-v1-formal-promotion-preflight",
-  "purpose": "Repeat immutable read-only ACTIVE promotion readiness audit after adding targeted Python fail-closed tests and D07 evidence closure. No model active pointer or serving mutations.",
-  "request_id": "risk-v1-formal-promotion-preflight-20261022-r2",
+  "purpose": "Read-only bounded first-promotion audit under Oct 22 decision: prospective OOS PENDING, historic PIT/company actions accepted only as declared limits; check GCS candidate SHA and shadow evidence, report concrete source/use, parity, CAS gates. No ACTIVE pointer, model publication, API/Jobs/Scheduler mutation.",
+  "request_id": "risk-xgboost-bounded-prepromotion-readback-20261022-r1",
   "publication_allowed": false,
   "no_gcp_mutation": true,
   "prior_shadow_run": "39781316641"
