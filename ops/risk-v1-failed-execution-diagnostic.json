@@ -5,5 +5,7 @@
   "no_gcp_mutation": true,
   "no_job_execution": true,
   "no_owner_payload": true,
-  "requested_on": "2026-10-22"
+  "requested_on": "2026-10-22",
+  "attempt": 2,
+  "purpose": "Full bounded non-secret traceback frame readback, failed execution hc6kw; no retry or GCP writes."
 }
