@@ -2,10 +2,10 @@
   "intent": "risk-v1-failed-execution-readonly",
   "execution": "janus-intelligence-mart-lxdc8",
   "failed_run": "39751073583",
-  "no_gcp_mutation": true,
-  "no_job_execution": true,
   "no_owner_payload": true,
   "requested_on": "2026-10-22",
-  "attempt": 6,
-  "purpose": "Retry read-only lxdc8 GCS risk-shadow aggregate proof after correcting URI allowlist regular expression; no GCP writes or owner details."
+  "attempt": 7,
+  "purpose": "Pinned 2026-10-21 immutable Core OHLCV PIT and Risk XGBoost8 feature census via one ephemeral read-only Mart execution; count-only results, no data publication or permanent configuration changes.",
+  "no_persistent_gcp_mutation": true,
+  "read_only_job_execution": true
 }
