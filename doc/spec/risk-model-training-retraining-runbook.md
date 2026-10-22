@@ -55,7 +55,7 @@ MLP和XGB差異不足以證明MLP長期較好；XGBoost選為**正式候選**，
 2. **正式上線後 OOS 回收**：先寫入不可覆寫的當日預測（model/feature SHA、core snapshot、source、as-of），等**同市場第20個交易日**與合格 EOD 到齊才生成不可覆寫的 label/result；未成熟 `PENDING` 不計 MAE/RMSE/勝負；每月按市場、月、獨立訊號日對 Rolling20 比較並保存 receipts。訓練與 serving 不能使用未成熟 label，歷史修訂不得覆蓋原始預測。
 3. **PIT 有界安全**：八因子僅源自 cutoff 前市場已發生且可用的 OHLCV；禁止未來 bars、未來公開的改版或當日 EOD 未完成即作盤前已知。當天抓取歷史檔的 fetched_at 不可偽稱當時 first published_at；無完整歷史名冊/修訂時誠實註明 `CURRENT_MASTER_ONLY` 與 non-strict PIT，不要求全面追溯才進首次 promotion；確證 leakage 則必修。
 4. **公司行動**：針對實際 train/test/serving 特徵與 Y 價格窗口核對；有合格調整因子則整窗同口徑；無可驗證口徑則排除已知污染樣本／股票推論，留理由和恢復條件。不可將超過閾值的真實市場暴跌自動視為公司行動而修平／刪除。任何變更訓練基準/樣本重新評估，必要時重訓並產新模型 hash。
-5. **來源條款**：**可用非官方的合法開放資料**，不必先完成官方資料搜集。以原始來源 URL 與實際來源 dataset 逐一核對取得、ML訓練、研究留存、GCS 部署和 UI 顯示；來源條款未釐清不得假冒通用開放授權。資料集明示使用許可與交易所一般網站不同。已知禁止的來源停用／替換。
+5. **來源准入（最新）**：只要 TWSE／TPEx 有支援八因子 OHLCV 的明確授權開放資料存在，首次 promotion 的來源可用性 gate 就視為 **PASS**；已證實 data.gov.tw/dataset/11549、/11370（OGDL 1.0），不用逐月逐 API 反查 r1 授權或重抓合格原件。僅此 gate 放寬；原 r1 採集來源保留 UNKNOWN（不是該 open-data 端點授權的證明），實際禁止者不得當作已獲許可。使用 OGDL 資料須顯名，其他技術驗收照舊。
 6. **必要技術證據**：同一正式樣本研究／serving 八因子公式、順序、單位、缺值和 float32 XGB 直接輸入（無 scaler）固定向量與 prediction parity；僅對持股+觀察股票的去識別 symbol union 推論，ETF N/A；安全 UBJ loader + GCS SHA 讀回、immutable manifest、原子 registry CAS（expected-previous）及可回退到 deterministic/前版；targeted CI PASS。真實 shadow/GCS 10/21 已 PASS，不重跑本項。
 7. **切 ACTIVE 之後才完成**：正式 API/UI 可見性、Owner 隔離與自然日批連續性實機讀回；此為發布後 acceptance，不把尚未切換當成本次「可進 promotion」先決等待門檻。若必要防護或 CAS 入口尚不存在，須明確 BLOCKED，不可手動改 JSON publication flag。
 
@@ -79,7 +79,7 @@ MLP和XGB差異不足以證明MLP長期較好；XGBoost選為**正式候選**，
 
 依 OGDL 1.0，可在授權適用的資料集上進行多種衍生利用（包括 ML、儲存、部署模型與展示），但**顯名聲明**是取得授權的條件；不可拿一般網站爬得的資料自動擴大範圍。若供應者明示不許或資料不屬該 OGDL 資料集，必須排除/替換；若尚未對帳，只列受影響用途 `TRAINING_SOURCE_RIGHTS_UNKNOWN`，不可假稱 PASS。
 
-**有界恢復條件**：只針對本候選 r1 的兩個實際 OHLCV 月資料源，核對封存 manifest URL／raw SHA／資料欄位及上述開放資料集涵蓋關係或另有可查許可。可依法保留的原件不重抓；如發現資料確實不能作 ML，使用**合格開放替代**重新建立受影響的 train/test snapshots，重評必要時重訓並變更 UBJ hash。不可原封不動把未獲授權的模型當成已認證，也不擴大到其它五模型／整個站點。
+**最新有限判定**：開放來源存在即算本輪來源可用性 PASS（2026-10-22 使用者覆蓋舊逐月來源 gate）；不再把 21 月 r1 endpoint 授權映射列為 promotion 等待工作。既有 r1 的實際 API 與政府開放資料集不同，此事只記 provenance 與授權未確證限制；不聲稱原 r1 已獲 OGDL 授權。只有取得確定禁止的實際來源證據時，才需停用受影響用途、採合法開放替代並評估是否須重訓；沒有具體異常不新增假設性待辦。
 
 ## 8. 本輪有界工程證據（非 ACTIVE）
 
@@ -87,3 +87,9 @@ MLP和XGB差異不足以證明MLP長期較好；XGBoost選為**正式候選**，
 - `research/colab/risk_matured_outcomes.py`：提供20市場交易日、不可變原預測／label 回收與 Rolling20 同樣本評分的離線純函式，不等於已接上自然月批。 `tests/test_risk_feature_parity.py`：同樣本研究／serving 八因子 float32 對照，仍須 CI 與真正固定 UBJ 的 live prediction parity 收據。
 - `risk_shadow.py` 明確拒絕 trade_date/已知 published_at/availability_at 在 cutoff 之後的資料；從未聲稱 fetched_at 等於歷史 published_at。 `market_screening.py` 對全市場僅 screening，Risk 只對 `control.mart_ai_target_symbols(as_of)` 去識別持股＋觀察股普通股；現行十月已寫的舊 shadow 的 1,720 **不是聯集總數**，未經讀回不得虛構 ETF 排除筆數。
 - 現有 `.github/workflows/risk-v1-dev-readback.yml` 是唯讀 preflight，`.github/workflows/risk-v1-candidate-dev.yml` 只傳候選，`.github/workflows/risk-v1-manual-shadow-once.yml` 只做一次 shadow。**目前這三者均不是 ACTIVE promotion/Registry expected-previous CAS 入口**。未完成真正可回滾切換入口前，維持 `BLOCKED_NOT_ACTIVE`、`publication_allowed=false`。
+
+### 8.1 來源 gate 最新結論（2026-10-22，覆蓋 §6／§7 較嚴舊語句）
+
+狀態：`OPEN_DATA_AVAILABILITY_PASS_BY_APPROVED_POLICY`。TWSE 開放資料集 [11549](https://data.gov.tw/dataset/11549)、TPEx 開放資料集 [11370](https://data.gov.tw/dataset/11370) 均為 OGDL 1.0，已證明合法開放的 OHLCV 類資料可用；包含可作衍生研究與模型的開放授權條款，使用者採用時須遵守來源標示。**不再將 r1 歷史採集 endpoint 是否與上述 dataset 完全相同作為首次 promotion 卡關原因。**
+
+此 PASS 是「開放替代來源存在」的專案准入政策，**不是**既有訓練檔逐筆授權／來源替換或新的 GCS 模型訓練收據，保留 `r1_source_license_mapping=UNKNOWN_ACCEPTED_LIMIT`。其他有界 PIT 無洩漏、公司行動污染處置、特徵一致性、CAS/rollback 仍須實證；不可把改來源標準當成模型已 ACTIVE。
