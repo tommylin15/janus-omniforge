@@ -37,6 +37,7 @@ CREATE TRIGGER risk_activation_immutable BEFORE UPDATE OR DELETE
 ON private.risk_model_activation FOR EACH ROW
 EXECUTE FUNCTION control.risk_activation_immutable();
 
+-- PHASE: acceptance
 SELECT
     has_table_privilege('janus_private_api','private.risk_model_activation','SELECT'),
     NOT has_table_privilege('janus_private_api','private.risk_model_activation','INSERT'),
