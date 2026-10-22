@@ -90,6 +90,16 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 ### 1.10 方案 A（2026-10-21）
 使用者選擇先交付有證據的事實解讀、站內盤前/盤後與變化追蹤，再接經驗證模型。契約見 [變化判讀](spec/change-analysis.md)、[五分析師](spec/specialist-engines.md)、[因子時間](spec/model-feature-time-contract.md)。事實模板不依賴五模型validated；未驗證ML不得顯示機率或買賣分數。公開個股判斷不以Owner現金/成本作X，私人曝險另隔離。本輪授權文件整理，不因列入TODO而自動開發/部署；後續依使用者指定工作包執行。舊結案不重開，無新推播/付費/日常LLM。
 
+### 1.11 D07 Risk XGBoost 首次發布決策（2026-10-22，覆蓋舊等待閘門）
+
+- 沿用單一 `risk-xgboost8-2025h2-v1` 候選，不分 v1/v2 試用路線，不因單純驗證工作重建研究管線；本節並非授權直接切 ACTIVE。
+- **不把新增的前瞻20交易日完整成熟 OOS、全市場歷史退市名冊 PIT、全市場所有歷史公司行動補齊，列為首次發布的前置等待門檻。** 已檢視的2026年7–8月比較只能稱歷史診斷。正式預測須固定不可覆寫的 as-of／model SHA／X版本／來源參照；20市場交易日後才回收標籤，未成熟為 `PENDING`，每月按實際已成熟預測評估，不能視為成功或失敗。
+- 八項特徵的每個訊號截止日不得使用未來 OHLCV、公開/可用時間或修訂；`fetched_at` 不等於歷史首次 `published_at`。已知 future leakage 必須修正。現行名冊 survivorship／歷史修訂的有限性需如實標明，但不默認要求全市場歷史重建。
+- 公司行動只在實際訓練、評估、當前推論涉及的價格窗口處置。缺乏可證實同一調整基準時，排除受污染股票／樣本且留存理由與恢復條件；不得擅自調平價格或把真實暴跌當錯誤記錄刪除。如變更訓練樣本或基準，應重新評分並視需要重訓及變更 hash。
+- 授權必須逐實際來源核對取得、ML訓練、保存、部署、展示與條款網址／日期。交易所一般網站與有明示政府開放授權之特定 dataset **不得混認**。明確禁止即排除，未能核對者標示實際受影響窗口與用途，不假稱已授權。
+- 研究全市場普通股 pooled training／screening 保留；**日常 XGBoost inference 只能對 `control.mart_ai_target_symbols(as_of)` 去識別持股與觀察股聯集**，ETF 出具不適用原因，不向一般產物輸出 Owner 明細。
+- 不准單純刪 gate 或把 `publication_allowed` 調為 true。首次 promotion 仍須實證八因子與訓練/serving parity、候選 GCS hash／安全 loader、來源用途、必要窗口污染防護及原子 Registry CAS／回滾。API/UI 及自然日批屬正式啟用後的驗收，未執行不可標 PASS。完結本次有界驗收且無異常即結案，不新增假設性待辦。
+
 ## 2. Dev 平行上線環境政策
 
 - 目前 `dev` 是 Janus 個人使用階段的主要真實運行環境（parallel-live environment），不是只供假資料、mock、demo 或 pre-production 演練的 staging。
