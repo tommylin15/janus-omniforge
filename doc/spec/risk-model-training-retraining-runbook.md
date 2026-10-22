@@ -93,3 +93,14 @@ MLP和XGB差異不足以證明MLP長期較好；XGBoost選為**正式候選**，
 狀態：`OPEN_DATA_AVAILABILITY_PASS_BY_APPROVED_POLICY`。TWSE 開放資料集 [11549](https://data.gov.tw/dataset/11549)、TPEx 開放資料集 [11370](https://data.gov.tw/dataset/11370) 均為 OGDL 1.0，已證明合法開放的 OHLCV 類資料可用；包含可作衍生研究與模型的開放授權條款，使用者採用時須遵守來源標示。**不再將 r1 歷史採集 endpoint 是否與上述 dataset 完全相同作為首次 promotion 卡關原因。**
 
 此 PASS 是「開放替代來源存在」的專案准入政策，**不是**既有訓練檔逐筆授權／來源替換或新的 GCS 模型訓練收據，保留 `r1_source_license_mapping=UNKNOWN_ACCEPTED_LIMIT`。其他有界 PIT 無洩漏、公司行動污染處置、特徵一致性、CAS/rollback 仍須實證；不可把改來源標準當成模型已 ACTIVE。
+
+
+### 8.2 2026-10-23 真實測試與發布入口狀態
+
+- [Risk preflight #39790661297](https://github.com/tommylin15/janus-omniforge/actions/runs/39790661297)：唯讀完成、4/4 tests PASS、GCS 模型 SHA／1,720 筆 shadow 讀回 PASS；當時 ACTIVE 仍 BLOCKED。
+- [Research CI #39792614846](https://github.com/tommylin15/janus-omniforge/actions/runs/39792614846)：42 tests PASS（含成熟市場交易日標籤回收）。這不是自然排程成熟 label 的執行收據。
+- [Mart CI #39793027046](https://github.com/tommylin15/janus-omniforge/actions/runs/39793027046)：240 tests PASS（含研究與 serving 八因子 float32 synthetic vector、target-only 單元驗收）；不等於正式 GCS UBJ 真實 output vector parity。
+- [Selective CI #39794123966](https://github.com/tommylin15/janus-omniforge/actions/runs/39794123966)：plan SUCCESS、tests SKIPPED，因純文件更新，非全測試結果。
+- scripts/gcp/risk_registry_cas.py 與 tests/test_risk_registry_cas.py：已有 dry-run generation CAS、expected-previous、顯式同 SHA 回退 deterministic 規劃、來源 Git SHA 與 hash/讀回拒絕契約；**程式未連接 GCS ACTIVE pointer 寫入與真實 PG/API/UI 服務**，不能以單元測試當成實機 rollback。
+- 開放資料來源 gate 按 2026-10-22 新決策 PASS；前瞻20交易日成熟 OOS 上線後追蹤。此輪結案標準不再額外擴大歷史資料，但因目前 Mart XGBoost 只產出 SHADOW_UNVALIDATED，正式 specialist_product 的 Risk 仍為 deterministic，UI 只會接受 model_status=oos_validated，故缺失是**實際 serving/Registry promotion 工程**，不是要延後觀察20日才發布。
+- 模型維持 risk-xgboost8-2025h2-v1／原 SHA，無證據要求重訓；僅查到本輪窗口確實需變更訓練資料口徑時重新評估。未直接切 ACTIVE。
