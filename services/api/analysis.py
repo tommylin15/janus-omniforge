@@ -115,6 +115,23 @@ class AnalysisService:
         value = row["payload_json"]
         if value["content_hash"] != content_hash({k: v for k, v in value.items() if k != "content_hash"}):
             raise HTTPException(503, "分析來源驗證失敗")
+        # This is the live rollback boundary, independent of immutable prior
+        # product rows. Missing/rolled-back state always uses deterministic.
+        if "risk_first_release_candidate" in value:
+            with self.repository._connection() as connection:
+                gate = connection.execute("""SELECT mode,model_sha256 FROM private.risk_model_activation
+                    ORDER BY activation_id DESC LIMIT 1""").fetchone()
+            if (gate and gate["mode"] == "ACTIVE"
+                    and gate["model_sha256"] ==
+                    "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044"):
+                from packages.analysis_product import approved_first_release_risk_projection
+                value = approved_first_release_risk_projection(
+                    value, value["risk_first_release_candidate"])
+            else:
+                value = dict(value)
+                value.pop("risk_first_release_candidate")
+                value["content_hash"] = content_hash(
+                    {k: v for k, v in value.items() if k != "content_hash"})
         with self.repository._connection() as connection:
             market = connection.execute('''SELECT payload_json,content_hash FROM private.market_screening_product
                 WHERE symbol=%s AND analysis_as_of=%s AND core_snapshot_id=%s''',
