@@ -7,6 +7,6 @@
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Retry cancelled 0%-traffic exact-source dev API candidate after GHCR release #39734125861 PASS and readonly four-Job baseline #39734816957 PASS; for D07 Risk shadow updated Mart canary. No API traffic or Job update in this candidate step.",
-  "request_attempt": 2
+  "purpose": "Retry after exact-owner lease recovery #39735578726 SUCCESS and bounded Github ref-read retry fix; release #39734125861 and rollback baseline #39734816957 PASS. 0%-traffic API candidate only, no promotion; prerequisite for XGBoost Risk revised Mart Jobs rollout.",
+  "request_attempt": 3
 }
