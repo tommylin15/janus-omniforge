@@ -158,7 +158,7 @@ def main():
         json.dump({k: v for k, v in result.items() if k != "event"}, f, sort_keys=True)
     with open(args.event, "w", encoding="utf-8") as f:
         json.dump(result["event"], f, sort_keys=True, separators=(",", ":"))
-        f.write("\\n")
+        f.write("\n")
     print(json.dumps({"resolved_date": result["analysis_as_of"],
                       "source_age_days": result["age_days"],
                       "core_hash_sha256_prefix": result["core_snapshot_hash"][:12]}))
