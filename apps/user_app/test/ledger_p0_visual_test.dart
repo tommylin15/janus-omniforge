@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:janus_user_app/final_visual_pages.dart';
 import 'package:janus_user_app/final_visual_common.dart';
+import 'package:janus_user_app/final_stock_detail.dart';
 import 'package:janus_user_app/main.dart' as legacy;
 
 class HoldingsP0Api extends legacy.Api {
@@ -61,6 +62,11 @@ Map<String,dynamic> _snapshot({bool missing = false}) => {
       'unrealized_pnl': missing ? null : '-1200',
       'unrealized_return': missing ? null : '-0.001283697',
       'aggregate_status': missing ? 'withheld' : 'available',
+      'day_change_amount': missing ? null : '3000',
+      'day_change_status': missing ? 'incomplete' : 'available',
+      'day_priced_symbol_count': missing ? 0 : 1,
+      'day_unpriced_symbols': missing ? ['00719B'] : [],
+      'day_change_date': missing ? null : '2026-10-12',
       'valuation_status': missing ? 'partial' : 'available',
       'valuation_date': '2026-10-12',
       'affected_symbols': missing ? ['00719B'] : [],
@@ -90,7 +96,8 @@ void main() {
     await tester.scrollUntilVisible(daily, 180, scrollable: find.byType(Scrollable).first);
     expect(pnl, findsOneWidget);
     expect(find.text('總損益'), findsOneWidget);
-    expect(find.text('當日損益'), findsOneWidget);
+    expect(find.text('當日損益'), findsWidgets);
+    expect(find.text('0.3 萬元'), findsOneWidget);
     expect(tester.getTopLeft(pnl).dx, greaterThan(tester.getTopLeft(daily).dx));
     expect(find.text('00719B · 30,000 股'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -179,7 +186,7 @@ void main() {
     expect(find.text('持股參考市值'), findsOneWidget);
     expect(find.text('現金＋參考市值'), findsOneWidget);
     expect(find.text('324.5 萬元'), findsOneWidget);
-    expect(find.text('TWD 1,433,600'), findsOneWidget);
+    expect(find.text('143.4 萬元'), findsOneWidget);
     expect(find.textContaining('非正式收盤總額'), findsOneWidget);
     expect(find.text('總額暫不發布'), findsNothing);
     await tester.scrollUntilVisible(find.byKey(const Key('holding-pnl-5876')),
@@ -224,7 +231,7 @@ void main() {
       now: () => DateTime.utc(2026, 10, 16, 5, 12)))));
     await tester.pumpAndSettle();
     expect(find.text('持股已計價小計'), findsOneWidget);
-    expect(find.text('TWD 933,600'), findsOneWidget);
+    expect(find.text('93.4 萬元'), findsOneWidget);
     expect(find.text('現金＋已計價部分'), findsOneWidget);
     expect(find.text('274.5 萬元'), findsOneWidget);
     expect(find.textContaining('已計價 1/2 檔'), findsOneWidget);
@@ -323,4 +330,20 @@ void main() {
     expect(find.text('待估值'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('bond ETF stock detail hides equity-only financial and institutional chips',
+      (tester) async {
+    _phone(tester);
+    final api = HoldingsP0Api(_snapshot());
+    await tester.pumpWidget(MaterialApp(home: FinalStockDetailPage(
+      api: api, symbol: '00719B')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('圖表總覽'), 180,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('價格'), findsWidgets);
+    expect(find.byKey(const Key('visual-tab-pe')), findsNothing);
+    expect(find.byKey(const Key('visual-tab-foreign')), findsNothing);
+    expect(find.byKey(const Key('visual-tab-events')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
 }
