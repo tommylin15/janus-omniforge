@@ -157,3 +157,15 @@ def test_previous_close_includes_tpex_official_eod():
     source = (Path(__file__).parents[1] / "services/api/repository.py").read_text()
     assert "control.official_tpex_eod_history" in source
     assert "trade_date<target.quote_date" in source
+
+
+def test_official_prior_session_close_takes_precedence_over_mis_hint():
+    quote = {**QUOTE, "previous_close": "10"}
+    row = value_holdings([POSITION], {"2382": quote}, NOW,
+                         previous_closes={"2382": {
+                             "previous_close": "335",
+                             "previous_close_date": "2026-10-07",
+                         }})["positions"][0]
+    assert row["previous_close_source"] == "official_previous_close"
+    assert row["previous_close_date"] == "2026-10-07"
+    assert Decimal(row["day_change_amount"]) == Decimal("-52500")

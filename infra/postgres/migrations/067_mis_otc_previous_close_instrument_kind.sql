@@ -10,7 +10,7 @@ ALTER TABLE control.operational_last_quotes
 
 -- Verified public instrument classes, not owner data. Read-only roles.
 GRANT SELECT ON control.official_instrument_identity_provenance
-    TO janus_private_api, janus_public_api;
+    TO janus_private_api, janus_private_pipeline, janus_public_api;
 
 -- PHASE: acceptance
 SELECT
