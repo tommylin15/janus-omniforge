@@ -134,3 +134,32 @@ def test_analysis_migration_is_allowlisted_and_protects_terminal_reports():
     assert 'ceo_one_active_owner_idx' in sql
     assert 'GRANT USAGE ON SCHEMA control TO janus_private_api' not in sql
     assert 'GRANT SELECT ON private.ledger_events' not in sql
+
+
+def test_approved_risk_forecast_keeps_original_baseline_immutable_and_validated():
+    from packages.analysis_product import approved_first_release_risk_projection
+    baseline = baseline_projection(*product_inputs())
+    original = deepcopy(baseline)
+    prediction = {
+        'symbol': baseline['symbol'], 'analysis_as_of': baseline['analysis_as_of'],
+        'core_snapshot_id': baseline['core_snapshot_id'],
+        'model_sha256': '36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044',
+        'future_20d_volatility_annualized': .32,
+        'recent_20d_volatility_annualized': .21,
+    }
+    candidate = dict(baseline, risk_first_release_candidate=prediction)
+    candidate['content_hash'] = content_hash({k: v for k, v in candidate.items() if k != 'content_hash'})
+    active = approved_first_release_risk_projection(candidate, prediction)
+    assert active['content_hash'] == content_hash({k: v for k, v in active.items() if k != 'content_hash'})
+    assert 'risk_first_release_candidate' not in active
+    risk = next(s for s in active['specialists'] if s['role'] == 'risk')
+    assert risk['model_status'] == 'first_release_approved'
+    assert risk['metrics']['future_20d_volatility_annualized'] == .32
+    assert risk['risk_first_release_limit'] == 'prospective_20_session_oos_pending'
+    assert baseline == original
+    assert next(s for s in baseline['specialists'] if s['role'] == 'risk')['model_status'] != 'first_release_approved'
+    for change in ({'symbol': '2454'}, {'model_sha256': '0'*64},
+                   {'future_20d_volatility_annualized': float('nan')},
+                   {'core_snapshot_id': 'future'}):
+        with pytest.raises(ValueError):
+            approved_first_release_risk_projection(candidate, dict(prediction, **change))
