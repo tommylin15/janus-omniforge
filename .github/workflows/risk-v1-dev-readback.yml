@@ -19,6 +19,12 @@ jobs:
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
+      - name: Test formal promotion preflight fail-closed rules
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m pip install --disable-pip-version-check -q pytest==8.4.2
+          python3 -m pytest -q tests/test_risk_promotion_preflight.py
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
