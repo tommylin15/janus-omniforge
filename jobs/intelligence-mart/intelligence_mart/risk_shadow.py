@@ -115,8 +115,9 @@ def _eligible_price_rows(rows, as_of: str) -> tuple[pd.DataFrame, list[str]]:
     return result, excluded
 
 
-def predict_core_shadow(rows: list[dict], as_of: str, model, *, core_snapshot_id: str) -> dict:
-    """Full-market chunk, eight-factor deterministic input and XGB prediction.
+def predict_core_shadow(rows: list[dict], as_of: str, model, *, core_snapshot_id: str,
+                        target_symbols: set[str] | frozenset[str] | None = None) -> dict:
+    """Selected ordinary shares, eight-factor deterministic XGB risk prediction.
 
     Trading calendar comes from accepted market bars IN THE SAME pinned Core
     snapshot. This is only a provisional observation calendar, not certified
@@ -138,6 +139,14 @@ def predict_core_shadow(rows: list[dict], as_of: str, model, *, core_snapshot_id
     # This stays shadow until a verified per-market calendar is available.
     evidenced_days = sorted(prices["trade_date"].unique())
     grids = {market: evidenced_days for market in sorted(prices.market.unique())}
+    # Preserve the observed session calendar from the whole accepted chunk,
+    # but compute expensive features and predictions for watchlist/held shares
+    # only. Never infer owner holdings from prices or the public universe.
+    if target_symbols is not None:
+        prices = prices.loc[prices.symbol.isin(target_symbols)].copy()
+        if prices.empty:
+            return {"status": "NO_ELIGIBLE_TARGETS", "predictions": [],
+                    "eligible_symbols": 0, "publication_allowed": False}
     panel = add_v1_features(make_risk_panel(prices, market_sessions=grids))
     latest = panel.loc[panel.trade_date.eq(pd.Timestamp(as_of))].copy()
     valid = latest.dropna(subset=list(V1_FEATURES))
