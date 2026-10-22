@@ -542,6 +542,13 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     return '${(amount / 10000).toStringAsFixed(1)} 萬元';
   }
 
+  String summaryMoney(String currency, Object? value) {
+    if (value == null) return '資料不足';
+    return currency == 'TWD'
+        ? assetWan(value)
+        : '$currency ${legacy.accountingNumber(value)}';
+  }
+
   Widget assetOverview(Map<String, dynamic> assets) {
     final cash = fvMap(assets['cash']);
     final cashText = cash['cash_status'] == 'available'
@@ -603,6 +610,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
 
   Widget metricGrid({
     required String marketValue,
+    required String daily,
+    required String dailyNote,
+    required Object? dailyAmount,
     required String unrealized,
     required String unrealizedReturn,
     required String ytd,
@@ -647,27 +657,36 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       // the same panel rather than occupying two large empty white cards.
       const Divider(height: 14),
       LayoutBuilder(builder: (context, constraints) {
-        final narrow = constraints.maxWidth < 420;
         final fields = <Widget>[
+          _compactMetric('當日損益', daily,
+              note: dailyNote, color: fvSignedColor(dailyAmount)),
           _compactMetric(usingPartial ? '已計價損益小計'
               : usingReference ? '參考未實現損益' : '未實現損益', unrealized,
-            note: '報酬 $unrealizedReturn',
-            color: withheld && !usingReference && !usingPartial ? fvMuted : fvSignedColor(unrealizedAmount)),
+              note: '報酬 $unrealizedReturn',
+              color: withheld && !usingReference && !usingPartial
+                  ? fvMuted : fvSignedColor(unrealizedAmount)),
           _compactMetric('本年已實現損益', ytd,
-            note: ytd == '待更新／尚未確認' ? '等候損益批次'
-                : ytd == '資料不足' ? '年度損益目前無法確認'
-                : ytd == '0' ? '本年度確認無交易'
-                : '已實現損益', color: fvSignedColor(ytdAmount)),
+              note: ytd == '待更新／尚未確認' ? '等候損益批次'
+                  : ytd == '資料不足' ? '年度損益目前無法確認'
+                  : '已實現損益', color: fvSignedColor(ytdAmount)),
         ];
-        return narrow
-          ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (constraints.maxWidth < 420) {
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(child: fields[0]), const SizedBox(width: 10),
               Expanded(child: fields[1]),
-            ])
-          : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(child: fields[0]), const SizedBox(width: 24),
-              Expanded(child: fields[1]),
-            ]);
+            ]),
+            const SizedBox(height: 10),
+            const Divider(height: 10),
+            fields[2],
+          ]);
+        }
+        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          for (var i = 0; i < fields.length; i++) ...[
+            if (i > 0) const SizedBox(width: 20),
+            Expanded(child: fields[i]),
+          ],
+        ]);
       }),
       const SizedBox(height: 10),
       Row(children: [
@@ -701,7 +720,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       Text(title, style: const TextStyle(color: fvMuted, fontSize: 12)),
       const SizedBox(height: 5),
       Text(value, maxLines: 2, overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w800)),
+        style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w800)),
       Text(note, maxLines: 1, overflow: TextOverflow.ellipsis,
         style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
     ]);
@@ -1309,27 +1328,30 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                   aggregate['reference_priced_market_value'] != null;
               final currency = fvText(aggregate['currency'], missing: 'TWD');
               final marketValue = usingReference
-                  ? '$currency ${legacy.accountingNumber(aggregate['reference_market_value'])}'
+                  ? summaryMoney(currency, aggregate['reference_market_value'])
                   : usingPartial
-                      ? '$currency ${legacy.accountingNumber(aggregate['reference_priced_market_value'])}'
-                  : withheld
-                      ? '總額暫不發布'
-                  : aggregate.isEmpty
-                      ? coreLoading
-                          ? '載入中'
-                          : '資料不足'
-                      : '$currency ${legacy.accountingNumber(aggregate['market_value'], missing: '資料不足')}';
+                      ? summaryMoney(currency, aggregate['reference_priced_market_value'])
+                  : withheld ? '總額暫不發布'
+                  : aggregate.isEmpty ? (coreLoading ? '載入中' : '資料不足')
+                  : summaryMoney(currency, aggregate['market_value']);
               final unrealized = usingReference
-                  ? '$currency ${legacy.accountingNumber(aggregate['reference_unrealized_pnl'])}'
+                  ? summaryMoney(currency, aggregate['reference_unrealized_pnl'])
                   : usingPartial
-                      ? '$currency ${legacy.accountingNumber(aggregate['reference_priced_unrealized_pnl'])}'
-                  : withheld
-                      ? '總額暫不發布'
-                  : aggregate.isEmpty
-                      ? coreLoading
-                          ? '載入中'
-                          : '資料不足'
-                      : '$currency ${legacy.accountingNumber(aggregate['unrealized_pnl'], missing: '資料不足')}';
+                      ? summaryMoney(currency, aggregate['reference_priced_unrealized_pnl'])
+                  : withheld ? '總額暫不發布'
+                  : aggregate.isEmpty ? (coreLoading ? '載入中' : '資料不足')
+                  : summaryMoney(currency, aggregate['unrealized_pnl']);
+              final dayAmount = aggregate['day_change_amount'];
+              final dayTotal = aggregate.isEmpty
+                  ? (coreLoading ? '載入中' : '資料不足')
+                  : aggregate['day_change_status'] == 'available' && dayAmount != null
+                      ? summaryMoney(currency, dayAmount) : '待行情';
+              final dayPriced = fvInt(aggregate['day_priced_symbol_count']) ?? 0;
+              final dayMissing = fvRows(aggregate['day_unpriced_symbols']).length;
+              final dailyNote = dayAmount != null && aggregate['day_change_status'] == 'available'
+                  ? '行情日 ${fvText(aggregate['day_change_date'])}'
+                  : dayPriced > 0 ? '已計算 $dayPriced/${dayPriced + dayMissing} 檔'
+                  : '前收盤價或當日報價不足';
               final unrealizedReturn = usingReference
                   ? legacy.portfolioReturnLabel(aggregate['reference_unrealized_return'])
                   : usingPartial
@@ -1351,11 +1373,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       ? '資料不足'
                       : currentPnl.isNotEmpty
                           ? currentPnl.length == 1
-                              ? '${fvText(fvMap(currentPnl.first)['currency'], missing: 'TWD')} ${legacy.accountingNumber(fvMap(currentPnl.first)['realized_pnl'])}'
+                              ? summaryMoney(fvText(fvMap(currentPnl.first)['currency'], missing: 'TWD'), fvMap(currentPnl.first)['realized_pnl'])
                               : '多幣別'
                           : currentHistory.isNotEmpty
                               ? '待更新／尚未確認'
-                              : '0';
+                              : '0.0 萬元';
               final ytdAmount = currentPnl.length == 1
                   ? fvMap(currentPnl.first)['realized_pnl']
                   : null;
@@ -1386,6 +1408,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                   if (section == 0) assetOverview(assets),
                   if (section == 0) metricGrid(
                     marketValue: marketValue,
+                    daily: dayTotal,
+                    dailyNote: dailyNote,
+                    dailyAmount: dayAmount,
                     unrealized: unrealized,
                     unrealizedReturn: unrealizedReturn,
                     ytd: ytd,
