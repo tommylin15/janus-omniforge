@@ -1123,7 +1123,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     required String ytd,
   }) {
     final emptyPnlMessage = switch (ytd) {
-      '0' => '本年度確認無交易；已實現損益 0',
+      '0.0 萬元' => '本年度確認無交易；已實現損益 0',
       '待更新／尚未確認' => '本年已實現損益仍待 Private Mart 更新',
       _ => '本年已實現損益目前無法確認',
     };
