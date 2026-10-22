@@ -433,7 +433,10 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
     // fallbacks until the instrument kind is available from an upgraded API.
     final nonEquity = kind.isNotEmpty
         ? !const {'COMMON_STOCK', 'STOCK', 'EQUITY'}.contains(kind)
-        : RegExp(r'^0\d{3,5}[A-Z]? ?? health['stock_name'] ?? health['name'],
+        : widget.symbol.startsWith('0') && widget.symbol.length >= 5
+            && widget.symbol.length <= 7;
+    final name = fvText(
+      header['stock_name'] ?? health['stock_name'] ?? health['name'],
       missing: widget.symbol,
     );
     final notes = fvNewestRows(fvRows(values['notes']),
