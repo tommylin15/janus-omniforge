@@ -51,7 +51,7 @@ jobs:
               if isinstance(code,str) and re.fullmatch('[A-Z][A-Z0-9_]{2,65}',code):
                 row={'error_code':code,'timestamp':entry.get('timestamp')}
                 if isinstance(locs,list):
-                  row['locations']=[{'function':str(loc.get('function'))[:50],'file':str(loc.get('file'))[:80],'line':loc.get('line')} for loc in locs[:5] if isinstance(loc,dict)]
+                  row['locations']=[{'function':str(loc.get('function'))[:50],'file':str(loc.get('file'))[:80],'line':loc.get('line')} for loc in locs[:16] if isinstance(loc,dict)]
                 result['recognized'].append(row)
             for pattern in [
               r'\b(?:ValueError|RuntimeError|KeyError|TypeError|ImportError|ModuleNotFoundError|PermissionError|FileNotFoundError|MemoryError|AttributeError|AssertionError):',
