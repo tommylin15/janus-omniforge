@@ -531,7 +531,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api, now: () => DateTime.utc(2026, 10, 1, 6))));
     await tester.pumpAndSettle();
 
-    expect(find.text('年度損益目前無法確認'), findsOneWidget);
+    expect(find.text('年度損益未確認'), findsOneWidget);
     expect(find.text('本年度確認無交易'), findsNothing);
 
     await tester.tap(find.text('報表'));
@@ -908,6 +908,9 @@ void main() {
     await tester.scrollUntilVisible(find.text('更新持股股價'), 180,
         scrollable: find.byType(Scrollable).first);
     expect(find.text('更新持股股價'), findsOneWidget);
+    // The status caption is lazy-built below the button on narrow screens.
+    await tester.scrollUntilVisible(find.textContaining('正式／休市'), 80,
+        scrollable: find.byType(Scrollable).first);
     expect(find.textContaining('正式／休市'), findsOneWidget);
     expect(
       api.reads.where((path) => path == '/api/v1/me/portfolio/quotes').length,
