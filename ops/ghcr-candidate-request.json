@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "c4799bc9da3d86e2efde9395d10c58e31e7204c3",
+  "sha": "5385cb7806c9986bbd720d204a1de763db520257",
   "digest": "",
-  "release_run": "39734125861",
+  "release_run": "39741571886",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Retry after exact-owner lease recovery #39735578726 SUCCESS and bounded Github ref-read retry fix; release #39734125861 and rollback baseline #39734816957 PASS. 0%-traffic API candidate only, no promotion; prerequisite for XGBoost Risk revised Mart Jobs rollout.",
-  "request_attempt": 3
+  "purpose": "Create reversible existing-dev 0%-traffic API candidate at exact successfully full-tested Risk source 5385cb78, preflight for controlled four-Job rollout. No API traffic promotion; no new scheduler.",
+  "request_attempt": 4
 }
