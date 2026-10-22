@@ -6,6 +6,6 @@
   "no_job_execution": true,
   "no_owner_payload": true,
   "requested_on": "2026-10-22",
-  "attempt": 4,
-  "purpose": "Read Cloud Run execution lxdc8 bounded source frames and error codes only. No rerun, GCP mutation, owner data or model promotion."
+  "attempt": 5,
+  "purpose": "Read only existing lxdc8 failed execution and aggregate, anonymized 2026-10-21 Risk shadow GCS object proof; no rerun, GCP mutation or owner payload."
 }
