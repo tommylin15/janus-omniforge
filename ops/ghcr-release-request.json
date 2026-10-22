@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "301c5610e51908709a56dc8667895b16b43e496a",
-  "purpose": "Janus holdings UI / owner current-shares daily PnL / verified OTC ETF MIS previous-close fix, with dev migration 067, plus latest main D07 risk shadow changes. Run full Python+Flutter gates and four public GHCR digests; no model promotion or new resources.",
+  "sha": "2cc47de65139abc9a4ddc2e64a0eadf5c82d7456",
+  "purpose": "Follow-up Owner UI: move YTD realized PnL to right of holdings reference market value and enable TPEx/OTC bond ETF intraday MIS in QuoteRouter._due. Exact MIS exchange/symbol validation retained; no new storage schema or Jobs/Scheduler changes. Release full Python+Flutter gates and GHCR images for existing dev API-only promotion.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
