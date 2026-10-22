@@ -1,14 +1,16 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "875982006eb86d9029e98cb374ad5e2c50950f1b",
-  "purpose": "Retry full GHCR release after correcting obsolete full-market scope test: no OHLCV day inflation from newer PIT roster; 1600 prior Python tests passed, one outdated expectation updated. Keep Risk XGBoost SHADOW_ONLY.",
+  "sha": "d4159790caff6548b47fc56d21e861500b091cd4",
+  "purpose": "User authorized Risk XGBoost8 first ACTIVE: full Python/Flutter tests and exact-source GHCR dev images; newly implemented target-scoped serving, GCS registry CAS, PG instant rollback. Deploy only after successful test readback.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
-    "intelligence-mart"
+    "intelligence-mart",
+    "private-pipeline",
+    "api"
   ],
   "no_new_resources": true,
   "api_only_promotion": false,
-  "keep_existing_jobs": false,
+  "keep_existing_jobs": true,
   "no_api_traffic_changes": true
 }
