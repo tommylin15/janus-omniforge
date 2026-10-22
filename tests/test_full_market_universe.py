@@ -90,13 +90,21 @@ def test_full_market_ready_scope_is_readable_by_public_report_api(monkeypatch):
         def create(self, *args): return True
     monkeypatch.setattr(entry, 'GcsObjectStore', Store)
     symbols = tuple(str(i) for i in range(1000, 2010))
+    # An Oct 13 OHLCV snapshot cannot be relabelled as Oct 14 merely
+    # because the stock roster was refreshed the next morning.
+    stale = entry._core_ready_event(core_bucket='test', execution_id='test', config_id='test',
+        analysis_as_of='2026-10-13', iceberg_tables={'ohlcv': {'rows': 1010}},
+        symbols=symbols, market='market', scope_as_of='2026-10-14',
+        ohlcv_eod_ready=True)
+    assert stale is None
     event = entry._core_ready_event(core_bucket='test', execution_id='test', config_id='test',
         analysis_as_of='2026-10-13', iceberg_tables={'ohlcv': {'rows': 1010}},
-        symbols=symbols, market='market', scope_as_of='2026-10-14')
+        symbols=symbols, market='market', scope_as_of='2026-10-13',
+        ohlcv_eod_ready=True)
     scope = event['scopes'][0]
     assert re.fullmatch(r'[\w.:-]{1,80}', scope['id'])
     assert scope['symbols'] == list(symbols)
-    assert event['analysisAsOf'] == '2026-10-14'
+    assert event['analysisAsOf'] == '2026-10-13'
 
 
 def test_collection_reports_missing_financials_against_each_fixed_market_roster(monkeypatch):
