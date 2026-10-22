@@ -14,12 +14,12 @@
 
 - **唯一模型讀取契約**：Drive `JanusDataset_v3_202610/canonical/CURRENT.json` → `release-b21384aebef3cd70`，分別存 `ohlcv/`、`revenue/`、`valuation/`、`financials/`、`corporate_actions/` 的 Parquet。現場已讀回 153 個 Parquet 分區；manifest 研究資料版本 `3.1.0`、`status=RESEARCH_DATA_ONLY`。格式整併範圍依實際 Drive 檔案與 manifest **CLOSED**，不包含歷史 PIT／正式模型認證。
 - **尚未完成**：官方月營收 96/96 批、估值 50/72 批、損益表 24/32 批、資產負債表 22/32 批、現金流量表 22/32 批；上櫃估值 22 個月缺批，2025Q3 起財報有缺口，2026Q3 仍在預留公告期，勿標成已正式失敗。
-- **新版操作入口**：[Drive 00_資料收集.ipynb v3.2](https://drive.google.com/file/d/14qqdkRehe89JGtlzks1AmP3054LB9uk0/view)（單一正式 Colab Notebook）。已本地確認 Notebook 16 個 cells／7 個內嵌模組可編譯、補缺與驗收 targeted tests 4/4 PASS，**尚未在 Colab 執行新版實際補收與重新產出驗收總表**。舊版移入 Drive `CoLab程式/_archive`。
-- **限定補收**：只排尚未完成的 TPEx 估值月批及已過公告預留期的 2025Q3～2026Q2 季財報；已達研究市場門檻者跳過。先試官方單批，必要時採 FinMind `TaiwanStockPER` 歷史估值或 FinMind／Yahoo 季報，成功 checkpoint 不重抓。FinMind 以股票×資料類型整合缺月窗口；達時間／請求上限記 `BUDGET_PAUSED`，不是資料損壞。
-- **驗收報告**：新版 Notebook 最後核對 manifest 檔案 SHA、`CURRENT.json`、實際 Parquet 覆蓋，顯示繁體中文資料類型、角色試訓期間與 PASS／PARTIAL／BLOCKED、分市場逐期缺口原因及補收建議；落地 `reports/驗收總表.csv`、`模型試訓準入.csv`、`逐期缺口與原因.csv` 等。新版實跑前不可將其視為已發布報告。
+- **新版操作入口**：[Drive 00_資料收集.ipynb v3.3 長期版](https://drive.google.com/file/d/1403NtnW0sQ5VuATycDiFvEsHztOvlMvH/view)（單一正式 Colab Notebook）。已本地確認 Notebook 16 個 cells／7 個內嵌模組可編譯、跨年度補缺與驗收本地測試 6/6 PASS，**尚未在 Colab 執行新版實際補收與重新產出驗收總表**。舊版移入 Drive `CoLab程式/_archive`。
+- **長期自動補收**：以 Asia/Taipei 上個完整月份為截止，涵蓋新增 OHLCV 月檔、兩市場月營收/估值、各市場三類季報；已有成功月檔/批次不重抓、舊資料不因滾動窗口前移而消失。月營收期末15天、財報季末50天為公告預留期；未到期不算逾期缺檔。已達研究市場門檻者跳過。先試官方單批，必要時採 FinMind `TaiwanStockPER` 歷史估值或 FinMind／Yahoo 季報，成功 checkpoint 不重抓。FinMind 以股票×資料類型整合缺月窗口；達時間／請求上限記 `BUDGET_PAUSED`，不是資料損壞。
+- **驗收報告**：新版 Notebook 最後核對 manifest 檔案 SHA、`CURRENT.json`、實際 Parquet 覆蓋，顯示繁體中文資料類型、角色試訓期間與 PASS／PARTIAL／BLOCKED、分市場逐期缺口原因及補收建議；落地 `reports/驗收總表.csv`、`模型試訓準入.csv`、`逐期缺口與原因.csv` 等。v3.3 尚未 Colab 實跑，不將本地測試視為新月份已補齊。
 - 第三方值保留來源與期別，但不因可做研究試訓就宣稱歷史公告時間、PIT 與模型 promotion 已驗證。
 
-## 舊 r1 原始月檔與效能（保留為上游格式）
+\n**跨年度原則（v3.3）**：2027/03 執行截止為 2027-02；新月使用新版普通股名冊 revision，歷史已封存 r1 不重新採集，未完成 checkpoint 續跑；舊資料保留原始版次與研究用途。原始 `YYYY-MM` 封存檔在 `data/`，模型透過 `canonical/CURRENT.json` 讀 Parquet；舊版採集器作為歷史說明，不得覆蓋此正式入口。第三方 API 改版及新上市標的歷史 PIT 仍需定向維護。\n\n## 舊 r1 原始月檔與效能（保留為上游格式）
 ```text
 janusChatGPT/資料源/
   _control/universe-r1.json
