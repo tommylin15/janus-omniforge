@@ -30,14 +30,15 @@ def test_registry_absent_is_deterministic_and_pinned_sha_required():
         def read(self, name):
             raise FileNotFoundError
     assert load_active_pointer(Missing(), bucket=BUCKET) is None
-    with pytest.raises(ValueError, match="bucket"):
-        load_active_pointer(Missing(), bucket="wrong")
+    assert load_active_pointer(Missing(), bucket="wrong") is None
     class Actual:
         def read(self, name):
             import json
             return json.dumps(_candidate_pointer(
                 model_active=True, source_sha="a"*40)).encode()
     assert load_active_pointer(Actual(), bucket=BUCKET)["model_sha256"] == MODEL_SHA256
+    with pytest.raises(ValueError, match="bucket"):
+        load_active_pointer(Actual(), bucket="wrong")
 
 
 def test_active_only_ordinary_targets_and_pit_manifest_identity():
