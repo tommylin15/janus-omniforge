@@ -1,11 +1,11 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "b3ecba5ea87bff8b7cdec0730ee857a611a71951",
+  "sha": "566522998769b515d27139382ea4ca36f35e0b93",
   "digest": "",
-  "release_run": "39561334687",
+  "release_run": "39707256315",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "A-CHANGE A1-A4 existing-dev acceptance: exact source b3ecba5ea87bff8b7cdec0730ee857a611a71951 passed full Python/PostgreSQL, Flutter, four GHCR images and anonymous digest readback in release #39561334687. Create only a fixed-digest API 0% traffic candidate; retain active API traffic, Jobs, Scheduler, storage and IAM. OAuth boundary, Jobs rollout and positive API/UI acceptance remain separate gates."
+  "purpose": "User-authorized Janus holdings wan UI, full latest-position daily PnL and TPEx ETF/OTC MIS quote repair. Schema migration 067 PASS #39707179417; exact full GHCR release #39707256315 all gates PASS. Create pinned-digest API 0%-traffic candidate only, preserve existing Jobs and 100% serving traffic until separate gates."
 }
