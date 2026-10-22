@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "b3ecba5ea87bff8b7cdec0730ee857a611a71951",
-  "release_run": "39561334687",
+  "sha": "a3a3b30648e7b05f2b9cb5363eca4594d52a2b20",
+  "release_run": "39710294843",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "caca7d383c236425417b582167d26fafbcba3e27",
+  "baseline_source_sha": "b3ecba5ea87bff8b7cdec0730ee857a611a71951",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:508a05b2fdb465caad4d589b041e420aff22ce048faae21d5bb0d4c66eba2165",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:508a05b2fdb465caad4d589b041e420aff22ce048faae21d5bb0d4c66eba2165",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:364cb1b15f473693b4344de854c82280311557ad7ac614b6234e3319d629fcd9",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:9104255b5f9ebcdcef7a88bb04e6b638a2f7a55607e3c1538a24f8cbcb2b77d2"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:32c50462876f57dbc15d822352d6a54d9d3bd9f2741dfbc5ce980adfb1b00b31",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:32c50462876f57dbc15d822352d6a54d9d3bd9f2741dfbc5ce980adfb1b00b31",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:67366d049d6c16db77b2d9b121cad0f191ebb4b2b14503924928dd1b98e4d0d1",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:3be570fcd702cd990eff503177550531ae07b09b935a3562848964ad92583f42"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
@@ -19,8 +19,8 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "auth_boundary_run": "39564026541",
-  "request_attempt": 46,
-  "safety": "A-CHANGE full release #39561334687, zero-traffic candidate #39562231524 and OAuth boundary #39564026541 PASS. Four live immutable rollback images and configuration hashes read by #39564867084; revalidate under lease before writes. Keep Scheduler fence, full config snapshots, isolated canaries and reversible rollback.",
-  "authorization": "User explicitly authorized necessary commits/pushes and completion of A-CHANGE A1-A4 existing dev deployment and centralized acceptance. Existing four Jobs only; no new resources, IAM expansion or API traffic promotion."
+  "auth_boundary_run": "39711001211",
+  "request_attempt": 47,
+  "safety": "D07 Risk v1 approved existing-dev Jobs-only reversible rollout. Exactly source a3a3b306, full GHCR PASS #39710294843, API candidate PASS #39710808920, OAuth boundary PASS #39711001211, four-Job readonly baseline PASS #39702260947; runner must fail-closed on live image/config drift, Scheduler fence, lease or canary failures. No new jobs, no model promotion, no API traffic update.",
+  "authorization": "User 2026-10-22 explicitly instructed concentrate on (1) dev Mart rollout, (2) existing 16:30 risk shadow, (3) live Job/GCS readback. Existing dev deployment and reversible Job canary authorized."
 }
