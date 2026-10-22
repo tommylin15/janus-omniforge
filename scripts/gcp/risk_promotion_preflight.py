@@ -69,6 +69,14 @@ def evaluate(model_sha: str | None, shadow: dict | None, today: date) -> dict:
                 and isinstance(shadow.get("core_snapshot_id"), str)
                 and shadow.get("source_manifest_hash", "").startswith("sha256:")):
             verified["shadow_prediction_count"] = len(shadow["rows"])
+            # Historical shadow receipt counts only ordinary-stock targets;
+            # it cannot reconstruct ETFs absent from the old target selector.
+            # Never expose owner details or fabricate exclusion reasons.
+            total = shadow.get("target_count")
+            if isinstance(total, int) and not isinstance(total, bool) and total >= len(shadow["rows"]):
+                verified["historical_ordinary_target_count"] = total
+                verified["historical_unclassified_excluded_count"] = total - len(shadow["rows"])
+                verified["historical_etf_exclusions_observed"] = False
             verified["shadow_analysis_as_of"] = SCREENING_DATE
             verified["shadow_core_snapshot_id"] = shadow["core_snapshot_id"]
         else:
