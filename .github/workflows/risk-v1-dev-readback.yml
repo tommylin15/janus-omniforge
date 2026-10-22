@@ -52,3 +52,36 @@ jobs:
             echo 'scheduler_read=failed' | tee -a "$GITHUB_STEP_SUMMARY"
           fi
           echo 'Readback only. No XGBoost publication or model upload occurred.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Risk formal promotion preflight (no state mutations)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(jq -r .operation ops/risk-v1-readback-request.json)" = readonly
+          test "$(jq -r .intent ops/risk-v1-readback-request.json)" = risk-v1-formal-promotion-preflight
+          python3 scripts/gcp/risk_promotion_preflight.py \
+            --receipt /tmp/risk-promotion-preflight.json
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          result=json.loads(Path('/tmp/risk-promotion-preflight.json').read_text())
+          assert result['audit_status']=='COMPLETED'
+          assert result['promotion_status']=='BLOCKED_NOT_ACTIVE'
+          assert result['publication_allowed'] is False
+          assert not any(result[x] for x in ('would_write_registry','would_change_api','would_execute_model'))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('### Risk formal promotion readiness (read-only)\n')
+              f.write('Audit executed: COMPLETED. **Promotion: BLOCKED_NOT_ACTIVE**\n')
+              f.write('Observed candidate hash: '+('PASS' if 'candidate_gcs_sha256' in result['verified'] else 'NOT_VERIFIED')+'\n')
+              f.write('Observed shadow count: '+str(result['verified'].get('shadow_prediction_count','NOT_VERIFIED'))+'\n')
+              f.write('Missing mandatory gates:\n')
+              for reason in result['blocked_or_unverified_gates']:
+                  f.write('- '+reason+'\n')
+              f.write('No active registry/model/API/job/scheduler change occurred.\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: risk-formal-promotion-preflight
+          path: /tmp/risk-promotion-preflight.json
+          if-no-files-found: ignore
+          retention-days: 14
