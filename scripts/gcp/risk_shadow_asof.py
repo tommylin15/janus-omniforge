@@ -51,6 +51,62 @@ def select_latest(items, read_bytes, today: date) -> dict:
     }
 
 
+def select_prior_completed(items, read_bytes, today: date) -> dict:
+    """Select a prior completed business-date Core manifest, never today's pre-EOD snapshot.
+
+    A same-day early Core must not suppress a legitimate immutable prior-day
+    snapshot for an explicit manual acceptance. This function never changes the
+    natural latest-Core selector used by daily production screening.
+    """
+    candidates = [item for item in items if NAME.fullmatch(str(item.get("name", "")))]
+    if not candidates:
+        raise ValueError("no_core_snapshot")
+    # Bounded examination of newest 100 Core manifests; do not traverse
+    # unlimited historical archive or substitute an arbitrary research file.
+    for item in sorted(candidates, key=lambda x: (str(x.get("updated") or ""),
+                                                   str(x["name"])), reverse=True)[:100]:
+        raw = read_bytes(item["name"])
+        core = json.loads(raw)
+        if not isinstance(core, dict):
+            raise ValueError("prior_core_snapshot_invalid")
+        try:
+            as_of = date.fromisoformat(str(core["analysis_as_of"]))
+        except (KeyError, ValueError, TypeError) as error:
+            raise ValueError("prior_core_date_invalid") from error
+        if as_of >= today:
+            # Newest premarket/intraday Core must not be used as EOD.
+            continue
+        matcher = NAME.fullmatch(item["name"])
+        if (core.get("execution_id") != matcher.group(1)
+            or not isinstance(core.get("snapshot_id"), str)
+            or not core["snapshot_id"]
+            or not isinstance(core.get("iceberg_tables"), dict)
+            or not core["iceberg_tables"]):
+            raise ValueError("prior_core_snapshot_invalid")
+        age = (today - as_of).days
+        if age > 7:
+            raise ValueError("prior_core_snapshot_out_of_age_bounds")
+        return {
+            "analysis_as_of": as_of.isoformat(),
+            "age_days": age,
+            "core_snapshot_hash": sha256(raw).hexdigest(),
+            "core_snapshot_id_sha256": sha256(core["snapshot_id"].encode()).hexdigest(),
+            "event": {
+                "executionId": core["execution_id"],
+                "analysisAsOf": as_of.isoformat(),
+                "coreSnapshotId": core["snapshot_id"],
+                "coreSnapshotUri": f"gs://{BUCKET}/{item['name']}",
+                "coreSnapshotHash": "sha256:" + sha256(raw).hexdigest(),
+                "martSchemaVersion": "1",
+                "featureVersion": "2",
+                "modelVersion": "deterministic-v1",
+                "governanceSnapshotVersion": "gov-1",
+                "scopes": [],
+            },
+        }
+    raise ValueError("no_prior_completed_core_snapshot")
+
+
 def gcs_latest() -> dict:
     access_token = subprocess.check_output(
         ["gcloud", "auth", "print-access-token"], text=True, timeout=30).strip()
@@ -85,7 +141,7 @@ def gcs_latest() -> dict:
             return stream.read(4_000_001)
 
     today = datetime.now(ZoneInfo("Asia/Taipei")).date()
-    result = select_latest(objects, load, today)
+    result = select_prior_completed(objects, load, today)
     return result
 
 
@@ -93,12 +149,16 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--github-env", required=True)
     p.add_argument("--receipt", required=True)
+    p.add_argument("--event", required=True)
     args = p.parse_args()
     result = gcs_latest()
     with open(args.github_env, "a", encoding="utf-8") as env:
         env.write(f"SCREENING_DATE={result['analysis_as_of']}\n")
     with open(args.receipt, "w", encoding="utf-8") as f:
-        json.dump(result, f, sort_keys=True)
+        json.dump({k: v for k, v in result.items() if k != "event"}, f, sort_keys=True)
+    with open(args.event, "w", encoding="utf-8") as f:
+        json.dump(result["event"], f, sort_keys=True, separators=(",", ":"))
+        f.write("\\n")
     print(json.dumps({"resolved_date": result["analysis_as_of"],
                       "source_age_days": result["age_days"],
                       "core_hash_sha256_prefix": result["core_snapshot_hash"][:12]}))
