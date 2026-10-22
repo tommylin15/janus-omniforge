@@ -181,3 +181,53 @@ def test_b3_acceptance_result_is_persisted_to_bounded_prefix(monkeypatch):
         assert run_acceptance() == result
     assert json.loads(objects[("mart", "acceptance/b3-live/run-1.json")]) == result
 
+
+
+def test_daily_screening_writes_immutable_research_shadow_without_upgrading_user_signal(monkeypatch):
+    from unittest.mock import Mock
+    from intelligence_mart.risk_shadow import MODEL_SHA256
+    stores = {"core": {}, "mart": {}}
+    class Store:
+        def __init__(self, bucket): self.rows = stores[bucket]
+        def read(self, name):
+            if name not in self.rows: raise FileNotFoundError(name)
+            return self.rows[name]
+        def create(self, name, raw, kind):
+            if name in self.rows: return False
+            self.rows[name] = raw
+            return True
+    sets = data()
+    for r in sets["ohlcv"]:
+        r.update(market="TWSE", open=r["close"]*.999, high=r["close"]*1.015,
+                 low=r["close"]*.985, quality_flag="pass")
+    core = {"execution_id": "core-ex", "analysis_as_of": "2026-05-01",
+            "snapshot_id": "core", "datasets": sets}
+    raw = json.dumps(core).encode()
+    stores["core"]["snapshot.json"] = raw
+    options = {"analysis_as_of": "2026-05-01", "core_execution_id": "core-ex",
+               "core_snapshot_id": "core", "core_snapshot_uri": "gs://core/snapshot.json",
+               "core_snapshot_hash": "sha256:" + sha256(raw).hexdigest()}
+    monkeypatch.setenv("MART_BUCKET", "mart")
+    monkeypatch.setenv("MART_RISK_SHADOW_ENABLED", "true")
+    monkeypatch.setattr("intelligence_mart.specialist_runtime.load_market_membership",
+                        lambda *args: {"symbols": ["2330"], "membership_version": "1", "analysis_as_of": "2026-05-01"})
+    reader = SimpleNamespace(read=lambda *a, **kw: AnalyticsSnapshot("core", sets, {"source": "embedded"}), close=Mock())
+    class Model:
+        def predict(self, matrix):
+            import numpy as np
+            return np.full(len(matrix), .32)
+    result = screening_processor(AnalysisExecution("risk-ex", "screen", (), 0, options), None,
+                                 store_factory=Store, reader_factory=lambda *args: reader,
+                                 risk_model_factory=Model)
+    risk_ref = result["risk_shadow"]
+    assert risk_ref["artifact_uri"].startswith("gs://mart/risk-shadow/")
+    archived = json.loads(stores["mart"][risk_ref["artifact_uri"][len("gs://mart/"):]])
+    assert archived["publication_allowed"] is False
+    assert archived["model_sha256"] == MODEL_SHA256
+    assert archived["status"] == "SHADOW_UNVALIDATED"
+    assert archived["rows"][0]["future_20d_volatility_annualized"] == .32
+    assert archived["rows"][0]["publication_allowed"] is False
+    second = screening_processor(AnalysisExecution("risk-retry", "screen", (), 0, options), None,
+                                 store_factory=Store, reader_factory=lambda *args: reader,
+                                 risk_model_factory=Model)
+    assert second["reused"] and second["risk_shadow"] == risk_ref
