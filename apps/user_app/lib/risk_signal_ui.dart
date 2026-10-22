@@ -18,7 +18,8 @@ class RiskSignalCard extends StatelessWidget {
     final data = metrics is Map ? metrics : const <String, dynamic>{};
     final predicted = _fraction(data['future_20d_volatility_annualized']);
     final recent = _fraction(data['recent_20d_volatility_annualized']);
-    final validated = specialist['model_status'] == 'oos_validated' &&
+    final approvedFirstRelease = specialist['model_status'] == 'first_release_approved';
+    final validated = (approvedFirstRelease || specialist['model_status'] == 'oos_validated') &&
         specialist['baseline_status'] == 'available' &&
         freshness == 'current' &&
         predicted != null && recent != null && recent > 0 &&
@@ -70,6 +71,9 @@ class RiskSignalCard extends StatelessWidget {
               style: const TextStyle(color: Colors.blueGrey, fontSize: 11)),
             Text('模型 $model · 模型評估：每月，重訓檢討：每季',
               style: const TextStyle(color: Colors.blueGrey, fontSize: 11)),
+            if (validated && approvedFirstRelease)
+              const Text('歷史研究驗證已完成，前瞻 20 交易日樣本持續回收；非保證預測。',
+                style: TextStyle(color: Colors.blueGrey, fontSize: 11)),
             const Text('波動是風險幅度，不是漲跌方向或買賣建議。',
               style: TextStyle(color: Colors.blueGrey, fontSize: 11)),
           ]),
