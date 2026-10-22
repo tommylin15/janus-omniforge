@@ -110,6 +110,19 @@ class PostgreSQLControlPlane:
         return {"status": "available", "scope": "all_listed_otc_equities", "version": version[0],
                 "effective_from": version[1].isoformat(), "source_snapshot": version[2], "items": items}
 
+    def market_symbols_as_of(self, as_of: date) -> tuple[str, ...]:
+        """Use the existing DB PIT membership fence, never today's fresh roster."""
+        with self.connection.cursor() as cur:
+            cur.execute(
+                "SELECT symbol,membership_version FROM control.specialist_market_symbols(%s::date)",
+                (as_of,),
+            )
+            rows = cur.fetchall()
+        if (not rows or len({row[0] for row in rows}) != len(rows)
+                or len({row[1] for row in rows}) != 1):
+            raise ValueError("missing or invalid PIT market membership")
+        return tuple(sorted(str(symbol) for symbol, _ in rows))
+
     def publish_full_market(self, profiles, *, source_snapshot) -> int:
         from .full_market import official_members
         rows, identity = official_members(profiles)
