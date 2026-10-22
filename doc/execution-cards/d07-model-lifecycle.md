@@ -22,15 +22,17 @@ drive.mount('/content/drive')
 這是已有研究試點命令，不是五角色新pipeline已存在；資料夾須有合格manifest且選定同版，實際月份不足時改明確清單。2025以前歷史採集先補程式交易日曆/來源支援再延伸，不僅改start。
 新clean/label/train/export指令與notebook由本工項建立，完成後將真實路徑和測試命令回寫README；不能寫不存在的CLI讓使用者直接貼。
 
-## 3. 五角色開發指令
-每段均沿共用C0–C9；不是新增五份獨立排程。
-| 角色 | 可直接交給AI的指令 |
-|---|---|
-| Risk | 沿用risk_pilot.py五因子/Ridge與vol20 baseline，先補市場交易日缺口/company action/feature parity與成熟20日label；3–5年是擴充目標，已有短史可PROBE。完成時間分組OOS/MAE/RMSE、可信線性模型序列化、影子推論、日更及20交易日回收；分位/回撤後續獨立評估，不混入原Y。 |
-| Quant | 共用價量/benchmark X，按5與20交易日、up/outperform/return分target；先Logistic/Ridge對規則，再淺LightGBM。建fold內校準/成本後效用/不可成交與日期purge，鎖定test。用同bundle/registry批次推論，不拿同日收盤成交假設掩蓋前視。 |
-| Fundamental | 先月營收，補可追溯公告版次與13/15月warmup；36月可簡單試點、60–84月為目標。建立下一月YoY及季報獨立sample/label，ElasticNet對季節性基準；季資料不足rules。只有新公告/修訂dirty重算，下一公告成熟後評分。 |
-| Valuation | 先兩年自身PE/PB與合法cohort；擴3–5年估值/財報/產業。以月末樣本做Ridge/Huber估同業倍數，排除Y代數等價X、金融/非金融分開；輸出相對定價及限制，另追60/120日效用，不稱內在合理價。 |
-| Event | 先公告parser/日期/修訂/去重rules；交付人審label指南/抽樣複標/時間及家族切分。取得足量真標籤再TF-IDF+Logistic，不用股價漲跌替語意標籤；人審結果及5/20日市場反應各回收，缺類別仍rules。 |
+## 3. 四角色獨立 XGBoost Notebook 與完整 AI 指令
+2026-10-22 使用者要求本輪先交四份開發文件，各文件內已包含可直接貼給AI的完整指令、Colab儲存格、資料/X/Y、baseline、切分、驗收與輸出。這是文件交付，不等於Notebook已開發或模型已訓練。
+
+| 角色 | 獨立開發文件／AI指令 | Notebook交付名稱 |
+|---|---|---|
+| Quant | [趨勢建模](../colab-models/01-quant-xgboost.md) | `01_Quant趨勢_XGBoost.ipynb` |
+| Risk | [波動建模](../colab-models/02-risk-xgboost.md) | `02_Risk風險_XGBoost.ipynb` |
+| Fundamental | [營運建模](../colab-models/03-fundamental-xgboost.md) | `03_Fundamental營運_XGBoost.ipynb` |
+| Valuation | [估值建模](../colab-models/04-valuation-xgboost.md) | `04_Valuation估值_XGBoost.ipynb` |
+
+四份皆只讀 `JanusDataset_v3_202610/canonical/CURRENT.json` 指定的Parquet release，共用Python模組但可各自Run all；不要求先執行另一模型。新版訓練不得使用上節舊r1 CLI作主要入口，舊命令只供歷史試點重現。Risk沿用既有XGBoost8／八因子，不接手現行部署工項；其他角色以XGBoost為challenger且保留baseline。Event／新聞與人工標註另討論；不在本輪建立第五份Notebook。
 
 ## 4. 候選上傳範例（exporter完成及既有權限確認後才可用）
 只示範Google Storage client機制；本次沒有上傳或授權變更。runtime須另實作importer/registry。

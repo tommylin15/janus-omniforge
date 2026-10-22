@@ -76,3 +76,12 @@ Operations只保存當前適用摘要／歷史連結，不無限追加。原2296
 
 模型週期補充：[資料量→Colab→GCS→日週分析→每月有效性](spec/model-lifecycle.md)，[完整AI指令](execution-cards/d07-model-lifecycle.md)。這是D07同一工作包的交付，不新增獨立模型訓練服務。
 
+
+## 四角色獨立 Colab 建模文件與 AI 指令
+
+- [Quant 趨勢｜XGBoost 操作與開發指令](colab-models/01-quant-xgboost.md)
+- [Risk 風險｜XGBoost 操作與開發指令](colab-models/02-risk-xgboost.md)
+- [Fundamental 營運｜XGBoost 操作與開發指令](colab-models/03-fundamental-xgboost.md)
+- [Valuation 估值｜XGBoost 操作與開發指令](colab-models/04-valuation-xgboost.md)
+
+四份訓練 Notebook 各自可執行，共用程式模組；輸入固定為新版 Parquet CURRENT release。文件完成不等於模型已訓練，Event另議。

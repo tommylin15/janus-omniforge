@@ -1,5 +1,7 @@
 # D07｜五分析師模型、X/Y 與預期輸出
-更新：2026-10-21。方案 A 先交付事實解讀；模型設計已整理，不代表訓練/驗證/上線。狀態只看 [TODO](../todo.md)，資料窗口與前處理唯一契約見 [因子與時間](model-feature-time-contract.md)，研究來源見 [Colab/Drive](research-collection-gas-drive-colab.md)。
+更新：2026-10-22。方案 A 先交付事實解讀；模型設計已整理，不代表訓練/驗證/上線。狀態只看 [TODO](../todo.md)，資料窗口與前處理唯一契約見 [因子與時間](model-feature-time-contract.md)，研究來源見 [Colab/Drive](research-collection-gas-drive-colab.md)。
+
+**2026-10-22 使用者指定：前四角色各一份獨立 XGBoost Colab Notebook，baseline 保留；Event 另議。** 詳細操作與可直接交給 AI 的開發指令：[Quant 趨勢](../colab-models/01-quant-xgboost.md)、[Risk 風險](../colab-models/02-risk-xgboost.md)、[Fundamental 營運](../colab-models/03-fundamental-xgboost.md)、[Valuation 估值](../colab-models/04-valuation-xgboost.md)。本次完成文件，不代表四份 Notebook 或模型已訓練。
 
 ## 1. 目前程式與建議
 查證 main d7083890738a8660786110d0c73d58d8fe183c15：
@@ -13,10 +15,10 @@
 表內 challenger 是建議研究候選，需贏過 baseline 才採用，不承諾準確率。
 | 角色 | 首版 baseline → challenger | X：可用時才啟用的特徵 | Y：預測目標／訓練單位 | 對小白的輸出 |
 |---|---|---|---|---|
-| Quant 價格趨勢 | 既有動能/相對強弱規則；Logistic/Ridge → 淺層 LightGBM binary/regression | 5/20/60/120日報酬、20/60日相對市場報酬、MA20/60距離、量比、20日波動/成交金額；法人5/20日買賣超除以同窗成交股數；可用產業相對強度 | 股票×交易日；5/20日未來報酬、超額報酬；分開建 p_up 與 p_outperform，定義見時間契約 | 現況轉強/轉弱；通過校準才顯「未來5/20交易日上漲／勝過市場機率」，附適用期間、反證及不確定性 |
-| Risk 風險 | 保留現有 vol20→Ridge 五因子試點；後續才比較 log-RV Ridge/LightGBM quantile | 現有 vol20/vol60/drawdown60/abs_return5/volume_ratio20；擴充 ATR14/price、120日回撤、Beta/市場波動、流動性/跳空（OHLC齊備） | 股票×交易日；先未來20日 realized volatility；後續20日累積報酬 q05/q50/q95、最大回撤分開建模 | 「未來波動可能較近期大」；校準後的風險區間。歷史CVaR不是最大損失預測，分位區間不是保證 |
-| Fundamental 營運 | YoY/三月趨勢/財務品質規則、同月去年/上一期成長延續 baseline → ElasticNet；足夠獨立期數後才 LightGBM | 月營收YoY、3月合計YoY/加速度；可比EPS、毛利/營益率、ROE、負債權益、CFO/淨利；缺欄位/資料年齡 | 股票×公告期；主目標下一個月營收YoY（百分點誤差）；次目標下一季可比EPS水準/差額，不用每日重複財報膨脹樣本 | 「營運改善/放緩」「成長是否延續」；下次公告待確認項。無足夠期數保留規則，不能硬訓練 |
-| Valuation 估值 | 自身兩年PE/PB分位/同業中位數情境 → Ridge/Huber 解釋同業 log(PE) 或 log(PB) | 當時可得成長/ROE/負債/獲利率、規模、產業、利率若有；同業因子及有效樣本 | 股票×估值日（研究抽月末減重複）；Y為當期可比市場倍數，排除目標倍數及其代數等價欄位進X；未來60/120日超額報酬僅作獨立效用評估 | 「較自身歷史/可比同業偏高或偏低」與情境區間；這是相對定價，不是內在價值或明日股價預測 |
+| Quant 價格趨勢 | 既有動能/相對強弱規則；Logistic/Ridge → 淺層 XGBoost；首版20日p_up，其他target/horizon獨立 | 5/20/60/120日報酬、20/60日相對市場報酬、MA20/60距離、量比、20日波動/成交金額；法人5/20日買賣超除以同窗成交股數；可用產業相對強度 | 股票×交易日；5/20日未來報酬、超額報酬；分開建 p_up 與 p_outperform，定義見時間契約 | 現況轉強/轉弱；通過校準才顯「未來5/20交易日上漲／勝過市場機率」，附適用期間、反證及不確定性 |
+| Risk 風險 | Rolling20／Ridge5／Ridge8 → 既有 XGBoost8；分位另案 | 現有 vol20/vol60/drawdown60/abs_return5/volume_ratio20；擴充 ATR14/price、120日回撤、Beta/市場波動、流動性/跳空（OHLC齊備） | 股票×交易日；先未來20日 realized volatility；後續20日累積報酬 q05/q50/q95、最大回撤分開建模 | 「未來波動可能較近期大」；校準後的風險區間。歷史CVaR不是最大損失預測，分位區間不是保證 |
+| Fundamental 營運 | 同月去年／上一期成長延續／ElasticNet → 淺層 XGBoost；先月營收 | 月營收YoY、3月合計YoY/加速度；可比EPS、毛利/營益率、ROE、負債權益、CFO/淨利；缺欄位/資料年齡 | 股票×公告期；主目標下一個月營收YoY（百分點誤差）；次目標下一季可比EPS水準/差額，不用每日重複財報膨脹樣本 | 「營運改善/放緩」「成長是否延續」；下次公告待確認項。無足夠期數保留規則，不能硬訓練 |
+| Valuation 估值 | 自身歷史／train-only同業中位數／Ridge/Huber → XGBoost 解釋 log(PE) 或 log(PB) | 當時可得成長/ROE/負債/獲利率、規模、產業、利率若有；同業因子及有效樣本 | 股票×估值日（研究抽月末減重複）；Y為當期可比市場倍數，排除目標倍數及其代數等價欄位進X；未來60/120日超額報酬僅作獨立效用評估 | 「較自身歷史/可比同業偏高或偏低」與情境區間；這是相對定價，不是內在價值或明日股價預測 |
 | Event 事件 | 公告 parser/類型/日期/修訂去重 rules → 有人審標籤才 TF-IDF+Logistic | 截止前公告文字、類型、來源、修訂、已確認事件日期；文字處理在training fold fit | 股票×事件；人審事件類別/重要性。公告後5/20日異常報酬僅獨立市場反應研究，不替代語意標籤 | 「發生什麼、何時、影響已確認或待確認、下個驗證點」；不把公告分類機率當上漲機率 |
 
 ## 3. 各角色必要限制

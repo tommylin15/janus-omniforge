@@ -1,9 +1,11 @@
 # D07｜五分析師完整模型生命週期
-更新：2026-10-21。使用者要求補齊建議資料量、Colab到GCS發布、日/週推論及每月有效性回收。
+更新：2026-10-22。使用者要求補齊建議資料量、Colab到GCS發布、日/週推論及每月有效性回收。
 **本文件是開發/營運目標，非已部署能力或已實收資料。** 模型/X/Y見[Specialist](specialist-engines.md)，精確時間/公式見[Feature契約](model-feature-time-contract.md)；不複製另一套公式。狀態唯一見[TODO](../todo.md)，操作與AI指令見[完整開發卡](../execution-cards/d07-model-lifecycle.md)。
 
+**本輪交付決策（2026-10-22）**：前四角色各自獨立 XGBoost Notebook；共用 Python 模組，不共用一份必須依序執行的訓練 Notebook。操作／AI 指令：[Quant 趨勢](../colab-models/01-quant-xgboost.md)、[Risk 風險](../colab-models/02-risk-xgboost.md)、[Fundamental 營運](../colab-models/03-fundamental-xgboost.md)、[Valuation 估值](../colab-models/04-valuation-xgboost.md)。Event 暫另議。本次僅文件完成，訓練與發布狀態仍依 TODO／實際收據。
+
 ## 1. 現況、架構與責任
-查證基準 main 530a93030f478a91b33256ce98be6e55115a779c：
+以下早期基線保留作背景；新訓練輸入以 `JanusDataset_v3_202610/canonical/CURRENT.json` 指定 Parquet release 為準，Risk 既有 XGBoost8 參照專用模型卡／重訓手冊。早期查證基準 main 530a93030f478a91b33256ce98be6e55115a779c：
 - 現有Colab採集README只示範2025-01～2026-09，共21個月，不是已收齊兩年，更不是五年。真實收量須讀manifest，不能由命令範圍推定。
 - 已有OHLCV採集/月資料夾/續跑、Risk Ridge試點；五模型完整notebook、訓練/推論共用前處理、候選匯入、shadow、月評估需依D07實作。
 - Controller程式已有平日mart 09:00 due、market-screening 16:30 due，總控以每小時:30喚醒。09:00 due實際可能09:30才執行，**不能拿現有mart時段宣稱盤前報告已成立**。
@@ -32,19 +34,19 @@
 | C2清洗 | 去重、單位、日期/交易日、普通股歷史母體、公司行動、財報單季/累季/股數口徑 | cleaned資料及rejected理由；缺值不補0；歷史raw引用可重現 |
 | C3時間整合/X | 依Feature契約as-of join與lookback，多股panel；所有low-frequency以available_at對齊 | feature schema、實際起訖/缺值/age、source refs/input hash；不帶Owner私有資料 |
 | C4貼標/Y | 在未來資料成熟後計算Quant/Risk；財報等下一公告；Event人審；估值當期倍數另標目標 | labels、mature_at、label version；訓練只用cutoff前成熟標籤，無Y的最新列留推論 |
-| C5訓練 | 每角色先baseline，再單一必要challenger；日期分組/去重事件切分；preprocessor只fit train | model/preprocessor/依賴/設定與train manifest，未做test調參 |
+| C5訓練 | 前四角色各自baseline，再單一XGBoost challenger；日期分組/去重事件切分；preprocessor只fit train | model/preprocessor/依賴/設定與train manifest，未做test調參 |
 | C6OOS | walk-forward、purge、validation選型/機率校準，locked test最後使用；跨市場/產業/流動性 | evaluation含baseline、樣本數/獨立期數/coverage/不確定性；候選不佳保留舊版 |
 | C7封裝 | 依角色feature/label schema與runtime版本打包；固定sample X及預期predict作相容驗證 | immutable bundle及逐檔SHA256；模型卡/來源授權/品質限制 |
 | C8上傳與候選 | 人工授權短期身分→GCS候選prefix，最後上傳manifest；正式worker驗證 | CANDIDATE_UPLOADED不等ACTIVE；候選hash/權限/readback/registry收據 |
-資料分區建議沿現有janusChatGPT/資料源/YYYY-MM；衍生特徵/標籤/模型結果放該根下獨立_derived/<run_id>與_models/<role>/<version>，**擬定新子目錄，非聲稱已存在**。資料缺口與建議量存run manifest，不另複製多份TODO。
+新訓練只讀 `janusChatGPT/資料源/JanusDataset_v3_202610/canonical/CURRENT.json` 的固定 Parquet release；衍生特徵/標籤/模型結果寫 `janusChatGPT/模型研究/<role>/<run_id>/`。既有 Risk 封存週期不搬移、不覆蓋；新輸出目錄是交付規格，非聲稱已存在。資料缺口與建議量存run manifest，不另複製多份TODO。
 
 ## 4. 五角色各自訓練／發布差異
 | 角色 | Colab特別工作 | 發布內容/正式重算條件 |
 |---|---|---|
-| Risk | vol20/60等現有X→未來20日RV；現有Ridge對rolling20；擴充分位須另驗coverage | Ridge係數/scaler或經核准格式＋特徵版本；每個新EOD重算 |
+| Risk | vol20/60等現有X→未來20日RV；Rolling20／Ridge5／Ridge8對XGBoost8；擴充分位須另驗coverage | XGBoost8 UBJ＋八因子特徵版本；baseline另存安全JSON；每個新EOD重算 |
 | Quant | 價量/市場/法人X；5/20日return/up/outperform各目標分開；交易成本效用另算 | 各horizon/target的模型與校準器，不能混成一個概率；每日新EOD |
-| Fundamental | 月/季公告原生樣本、成長與品質X；下一月/季首次公告Y；ElasticNet對季節性baseline | 月模型/季模型分開；有新營收/財報/修訂才重算，同一財報不每日重訓 |
-| Valuation | 正同業PE/PB、財務as-of，排除目標代數等價X；Ridge/Huber對cohort中位數 | 同業/產業schema、倍數模型；價格/估值日更新可重估，財務特徵快取；不以定價擬合證明可獲利 |
+| Fundamental | 月/季公告原生樣本、成長與品質X；下一月/季首次公告Y；季節性／ElasticNet baseline對XGBoost月模型 | 月模型/季模型分開；有新營收/財報/修訂才重算，同一財報不每日重訓 |
+| Valuation | 正同業PE/PB、財務as-of，排除目標代數等價X；cohort中位數／Ridge／Huber對XGBoost log倍數模型 | 同業/產業schema、倍數模型；價格/估值日更新可重估，財務特徵快取；不以定價擬合證明可獲利 |
 | Event | 人審指南、抽樣複標、一致性/類別分布；TF-IDF及分類器只fit train，事件家族不跨fold | 先版本化rules；classifier有合格資料才發布；新公告/修訂才重算，日期到期做狀態轉移 |
 每個角色可以是rules而不是ML，版本同樣可追蹤。五角色不用同時成功；壞模型不得阻止其他有效事實/角色服務。
 
@@ -54,7 +56,7 @@ gs://gen-lang-client-0593591102-dev-mart/models/candidates/<role>/<model_version
 此prefix是新設計，現有Runtime未必支援。不得套用舊分析只留三代/90天的清理規則直接刪候選或有效評估證據。
 
 必要bundle：
-- model：可信來源、允許格式；線性模型可用JSON係數/scaler/feature order，LightGBM可用native model；TF-IDF需完整vocabulary/idf/normalization。禁止載入任意pickle/joblib或從模型包執行Python。
+- model：可信來源、允許格式；線性模型可用JSON係數/scaler/feature order，XGBoost使用原生UBJ/JSON；TF-IDF需完整vocabulary/idf/normalization。禁止載入任意pickle/joblib或從模型包執行Python。
 - feature_schema.json、preprocessing.json、label_schema.json、training_manifest.json、evaluation.json、model_card.json、test_vectors.json、dependencies/format version。
 - bundle_manifest.json：檔名/size/hash、role/version/source Git SHA/runtime compatibility、來源授權、OOS狀態、資料窗口、prediction horizons。不含token/Owner/私人資料。
 - manifest最後create-only寫入；同版本不得覆蓋。中斷只有不完整candidate，不進registry；重跑已存在同hash可重用，不同hash拒絕。
@@ -128,6 +130,6 @@ horizon用市場交易日，非湊滿20筆有價觀測；停牌/退市導致終�
 8. 每月Admin只列每角色版本、有效樣本與成熟期、相對baseline、狀態/理由、建議動作；一般User只看可理解研究結果。
 
 ## 11. 交付與引用
-需交付：一份共用Colab入口＋五角色設定/訓練入口、資料/label builders、bundle exporter/uploader、Mart candidate importer/registry/shadow、批次推論、outcome/monthly evaluator及最小Admin呈現。這些是待實作交付物，不是現有可執行指令。
+需交付：沿用 `00_資料收集.ipynb`，另交四份各自可從新runtime獨立執行的 Quant／Risk／Fundamental／Valuation XGBoost Notebook及共用Python模組；Event入口另議。其餘包含資料/label builders、bundle exporter/uploader、Mart candidate importer/registry/shadow、批次推論、outcome/monthly evaluator及最小Admin呈現。這些是待實作交付物，不是現有可執行指令。
 官方參考（2026-10-21查閱）：[Cloud Storage上傳與generation precondition](https://docs.cloud.google.com/storage/docs/samples/storage-upload-file)、[Cloud Run Jobs排程](https://docs.cloud.google.com/run/docs/execute/jobs-on-schedule)。Google提供機制不等於本專案已配置，驗收依runtime readback。
 

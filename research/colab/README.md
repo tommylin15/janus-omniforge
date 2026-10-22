@@ -2,6 +2,12 @@
 
 2026-10-20：新研究路徑為 **官方 TWSE／TPEx → Colab Python → 私有 Drive 每月資料夾 → Colab 五分析師**。GAS／GAS Loader 已退役，不需要 GAS MCP、Apps Script API 或 GCP Job。Colab MCP 可用時可作選配操控介面，**不是**採集或訓練前置條件；目前 ChatGPT 無已連線的 Colab MCP，尚無 Colab 真實執行收據。
 
+## 四角色獨立訓練 Notebook 開發文件
+
+2026-10-22 使用者指定前四角色各自一份XGBoost Notebook。完整Colab步驟與AI程式開發指令：[Quant 趨勢](../../doc/colab-models/01-quant-xgboost.md)、[Risk 風險](../../doc/colab-models/02-risk-xgboost.md)、[Fundamental 營運](../../doc/colab-models/03-fundamental-xgboost.md)、[Valuation 估值](../../doc/colab-models/04-valuation-xgboost.md)。四份文件已交付；Notebook實作與實際訓練仍按D07驗收。Event另議，不在本輪建立第五份。
+
+新模型只讀下述Parquet CURRENT release，產物按角色/run_id寫入 `janusChatGPT/模型研究`；下方舊r1命令僅供歷史試點重現。Risk沿用既有XGBoost8，不重做已完成模型選型或另接手部署。
+
 ## 現行正式 Colab／Drive v3.5 長期增量＋完整安裝格＋TPEx 空日修復（2026-10-22）
 
 **單一 Notebook**：[Drive `00_資料收集.ipynb`](https://drive.google.com/file/d/1403NtnW0sQ5VuATycDiFvEsHztOvlMvH/view)；掛載根目錄 `/content/drive/MyDrive/給ai專用/janusChatGPT/資料源/JanusDataset_v3_202610`。模型不再讀下方舊版 `資料源/YYYY-MM` 路徑，應只讀 `canonical/CURRENT.json` 指定不可變 Parquet release；原始來源位於 `data/YYYY-MM`，成功 checkpoint 與原始來源保留。
