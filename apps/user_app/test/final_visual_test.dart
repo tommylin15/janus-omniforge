@@ -549,9 +549,9 @@ void main() {
         'items': [
           {
             'currency': 'TWD',
-            'market_value': '950',
-            'cost_basis': '1000',
-            'unrealized_pnl': '-50',
+            'market_value': '9500000',
+            'cost_basis': '10000000',
+            'unrealized_pnl': '-500000',
             'unrealized_return': '-0.05',
             'aggregate_status': 'available',
             'valuation_status': 'available',
@@ -563,7 +563,7 @@ void main() {
       '/api/v1/me/journal/pnl?year=$year': [
         {
           'currency': 'TWD',
-          'realized_pnl': '-20',
+          'realized_pnl': '-200000',
           'valuation_date': '2026-10-06',
           'ledger_version': 2,
         }
@@ -585,8 +585,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(legacy.accountingNumber('-1234'), '-1,234');
-    final unrealized = tester.widget<Text>(find.text('TWD -50'));
-    final realized = tester.widget<Text>(find.text('TWD -20'));
+    final unrealized = tester.widget<Text>(find.text('-50.0 萬元'));
+    final realized = tester.widget<Text>(find.text('-20.0 萬元'));
     final unrealizedReturn = tester.widget<Text>(find.text('報酬 -5%'));
     expect(unrealized.style?.color, fvLoss);
     expect(realized.style?.color, fvLoss);
@@ -904,8 +904,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('更新持股股價'), findsOneWidget);
     expect(find.text('ledger v164'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('更新持股股價'), 180,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('更新持股股價'), findsOneWidget);
     expect(find.textContaining('正式／休市'), findsOneWidget);
     expect(
       api.reads.where((path) => path == '/api/v1/me/portfolio/quotes').length,
