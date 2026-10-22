@@ -158,6 +158,10 @@ jobs:
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           gcloud run jobs describe janus-ingestion-core --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > /tmp/eod-job.json
           image="$(jq -r '(.template.template.containers[0].image // empty)' /tmp/eod-job.json)"
+          # Cloud Run v2 may report the verified GHCR digest behind its cache
+          # proxy. Compare the normalized immutable digest, as the signed
+          # four-Jobs rollout's image(data) helper does.
+          image="${image#cache.us-docker.pkg.dev/}"
           test "$image" = "ghcr.io/tommylin15/janus-ingestion-core@${digest}"
           echo "Official EOD source and serving ingestion image verified; no stale image execution" >> "$GITHUB_STEP_SUMMARY"
 
