@@ -65,6 +65,42 @@ jobs:
           Path('/tmp/risk-failure-diagnostic.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
           print(json.dumps(result,ensure_ascii=False))
           PY
+      - name: Read only immutable Risk shadow date and aggregate counts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # No owner payload printed. The Risk writer already ran before
+          # market-screening's EOD quality check; inspect only its proof.
+          gcloud storage ls "gs://gen-lang-client-0593591102-dev-mart/risk-shadow/*.json" --project gen-lang-client-0593591102 > /tmp/risk-shadow-uri-list.txt
+          python3 - <<'PY'
+          import hashlib,json,re,subprocess
+          from pathlib import Path
+          uris=[u.strip() for u in Path('/tmp/risk-shadow-uri-list.txt').read_text().splitlines() if u.strip().endswith('.json')]
+          if len(uris)>100: raise SystemExit('shadow_artifact_inventory_over_bound')
+          result={'target_date':'2026-10-21','objects_total':len(uris),'matches':[],
+                  'no_gcp_mutation':True,'no_owner_payload':True}
+          for uri in uris:
+              if not re.fullmatch(r'gs://gen-lang-client-0593591102-dev-mart/risk-shadow/[a-zA-Z0-9._/-]+\\.json',uri):
+                  raise SystemExit('unexpected_shadow_object_uri')
+              raw=subprocess.check_output(['gcloud','storage','cat',uri,'--project=gen-lang-client-0593591102'],timeout=60)
+              data=json.loads(raw)
+              if data.get('analysis_as_of')!='2026-10-21':
+                  continue
+              rows=data.get('rows')
+              result['matches'].append({
+                  'artifact_sha256':hashlib.sha256(raw).hexdigest(),
+                  'model_sha256':data.get('model_sha256'),
+                  'source_manifest_hash':data.get('source_manifest_hash'),
+                  'core_snapshot_id_sha256':hashlib.sha256(str(data.get('core_snapshot_id','')).encode()).hexdigest(),
+                  'count':len(rows) if isinstance(rows,list) else None,
+                  'row_dates_match':isinstance(rows,list) and all(r.get('analysis_as_of')=='2026-10-21' for r in rows),
+                  'publication_allowed':data.get('publication_allowed'),
+                  'status':data.get('status'),
+                  'output_hash_present':isinstance(data.get('output_hash'),str)
+              })
+          Path('/tmp/risk-shadow-aggregate-readback.json').write_text(json.dumps(result,sort_keys=True))
+          print(json.dumps(result,sort_keys=True))
+          PY
       - name: Upload sanitized diagnostic
         if: always()
         uses: actions/upload-artifact@v4
