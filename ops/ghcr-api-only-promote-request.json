@@ -2,15 +2,15 @@
   "intent": "promote-existing-dev-api-only-fixed-ghcr",
   "approved": true,
   "scope": "existing-dev-janus-api-only",
-  "source_sha": "0b0a42b608143d62f5241d47c2d25e855949f36b",
-  "release_run": "39559241673",
-  "candidate_run": "39559998708",
-  "auth_boundary_run": "39560189398",
-  "prior_serving_sha": "a7e1e7c276e735f629f90525f7f7cf6e7411b07b",
+  "source_sha": "566522998769b515d27139382ea4ca36f35e0b93",
+  "release_run": "39707256315",
+  "candidate_run": "39707770848",
+  "auth_boundary_run": "39707953984",
+  "prior_serving_sha": "b3ecba5ea87bff8b7cdec0730ee857a611a71951",
   "rollback_mode": "reversible_ghcr",
   "no_jobs_mutation": true,
   "no_scheduler_mutation": true,
   "no_storage_mutation": true,
   "no_iam_mutation": true,
-  "purpose": "User-authorized existing dev API 100% only for Admin GCS MB display and bounded failure-code diagnosis. Exact immutable public GHCR image, 0%-candidate and OAuth negative/Owner boundary gates passed. Runtime old GHCR source/digest required; rehearse traffic rollback. Never mutate Jobs, GCS or IAM."
+  "purpose": "User-authorized existing dev Janus API 100% release of holdings wan UI, latest-held-shares daily PnL and ETF/OTC intraday quote source. Migration 067 PASS #39707179417. Same-SHA full Release #39707256315, candidate #39707770848, OAuth/private negative boundary #39707953984 PASS. Live GHCR previous SHA/digest and immutable candidate must be verified again under lease. Rehearse new-old-new rollback, do not mutate Jobs/Scheduler/IAM/storage."
 }
