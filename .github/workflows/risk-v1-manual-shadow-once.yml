@@ -38,7 +38,7 @@ jobs:
             .no_api_traffic_changes==true and .no_new_scheduler==true and
             .rollout_run==$rollout and .release_run==$release and
             .source_sha==$source and .model_sha256==$model and
-            .screening_date=="2026-10-21" and
+            .screening_date=="LATEST_VALIDATED_CORE" and
             (.request_id|type=="string" and test("^[A-Za-z0-9._-]{1,80}$"))
           ' ops/risk-v1-manual-shadow-request.json >/dev/null
           gh run view "$ROLLOUT_RUN" --json status,conclusion,headSha,jobs > /tmp/rollout.json
@@ -72,14 +72,37 @@ jobs:
           gcloud run jobs executions list --job="$JOB" --region="$REGION" --project="$PROJECT" --limit=30 --format=json > /tmp/executions-before.json
           jq -e '[.[] | select((.status.completionTime // "") == "")] | length == 0' /tmp/executions-before.json >/dev/null
           echo "Mart exact-image identity and no running executions PASS" >> "$GITHUB_STEP_SUMMARY"
-      - name: Execute one previous-session Risk shadow only
+      - name: Validate Core date resolver without live mutation
         shell: bash
         run: |
           set -Eeuo pipefail
-          # Validates newest actual Core snapshot against requested date in Janus run_daily.
-          # If Core has not certified 2026-10-21 as latest, fail closed.
+          python -m pip install -q pytest==8.4.2
+          python -m pytest -q tests/test_risk_shadow_asof.py
+      - name: Resolve latest eligible real Core EOD date
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/risk_shadow_asof.py --github-env "$GITHUB_ENV" --receipt /tmp/risk-core-asof.json
+          python - <<'PY'
+          import json
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          from pathlib import Path
+          as_of=json.loads(Path('/tmp/risk-core-asof.json').read_text())['analysis_as_of']
+          today=datetime.now(ZoneInfo('Asia/Taipei')).date()
+          if as_of >= today.isoformat():
+              raise SystemExit('latest_core_not_prior_completed_trading_day')
+          print('Prior completed Core business day confirmed: '+as_of)
+          PY
+          echo "Resolved actual prior Core date (not a hardcoded business date)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Execute one latest-Core Risk shadow only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Janus run_daily independently re-reads the latest Core and refuses mismatch.
+          test -n "$SCREENING_DATE"
           gcloud run jobs execute "$JOB" --project "$PROJECT" --region "$REGION" \
-            --update-env-vars='MART_OPERATION=market-screening,MART_RISK_SHADOW_ENABLED=true,MART_AI_ENABLED=false,MART_OOS_EVALUATION=false,MART_PRODUCT_PROJECTION=false,SCREENING_DATE=2026-10-21' \
+            --update-env-vars='MART_OPERATION=market-screening,MART_RISK_SHADOW_ENABLED=true,MART_AI_ENABLED=false,MART_OOS_EVALUATION=false,MART_PRODUCT_PROJECTION=false,SCREENING_DATE=${SCREENING_DATE}' \
             --wait --format=json > /tmp/execute-result.json
           echo "One bounded Risk shadow EOD Mart Job completed; no persistent config or API traffic changed" >> "$GITHUB_STEP_SUMMARY"
       - name: Verify actual new execution and immutable shadow report
@@ -117,12 +140,13 @@ jobs:
           import json,subprocess
           from pathlib import Path
           urls=json.loads(Path('/tmp/risk-shadow-uris.json').read_text())
+          as_of=json.loads(Path('/tmp/risk-core-asof.json').read_text())['analysis_as_of']
           matching=[]
           for u in urls:
               p=subprocess.run(['gcloud','storage','cat',u,'--project=gen-lang-client-0593591102'],
                                capture_output=True,check=True)
               data=json.loads(p.stdout)
-              if data.get('analysis_as_of')=='2026-10-21' and data.get('model_sha256')=='36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044':
+              if data.get('analysis_as_of')==as_of and data.get('model_sha256')=='36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044':
                   if data.get('publication_allowed') is not False or data.get('status')!='SHADOW_UNVALIDATED':
                       raise SystemExit('risk_shadow_publication_boundary_failed')
                   if not isinstance(data.get('rows'),list) or len(data['rows'])<1:
@@ -132,9 +156,9 @@ jobs:
               raise SystemExit('risk_shadow_date_model_artifact_not_unique')
           uri,n,snapshot=matching[0]
           with open('/tmp/risk-shadow-sanitized.json','w') as out:
-              json.dump({'status':'PASS','analysis_as_of':'2026-10-21','model_sha256':'36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044',
+              json.dump({'status':'PASS','analysis_as_of':as_of,'model_sha256':'36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044',
                          'eligible_symbols':n,'publication_allowed':False,'artifact_uri':uri,'snapshot_id':snapshot},out)
-          print('Risk shadow real Core batch: date=2026-10-21; eligible_symbols='+str(n)+'; publication_allowed=false')
+          print('Risk shadow real Core batch: date='+as_of+'; eligible_symbols='+str(n)+'; publication_allowed=false')
           PY
           cat /tmp/risk-shadow-sanitized.json >> "$GITHUB_STEP_SUMMARY"
       - name: Retain sanitized manual-run receipt
