@@ -2,8 +2,8 @@
   "enabled": true,
   "intent": "one-shot-risk-shadow-eod",
   "environment": "dev",
-  "request_id": "risk-shadow-eod-20261021-after-repair-20261022-r06",
-  "run_once": true,
+  "request_id": "risk-shadow-20261021-exact-gcs-readback-r07",
+  "run_once": false,
   "rollout_run": "39775830718",
   "release_run": "39773463340",
   "source_sha": "a80ac6ecdd1ce8f7f07295a8158ae6d540dea2e1",
@@ -13,8 +13,10 @@
   "no_job_config_changes": true,
   "no_api_traffic_changes": true,
   "no_new_scheduler": true,
-  "guard": "Pin the latest eligible prior-day immutable Core manifest after successful official 2026-10-21 EOD ingestion #39778699918; verify model SHA, nonzero shadow predictions, snapshot identity, GCS readback; never authorize publication.",
+  "guard": "Read-only exact previous successful Cloud Run execution janus-intelligence-mart-5rv6r, verify event/Core manifest immutable hash, matching Risk shadow nonzero GCS prediction artifact, pinned model SHA, publication_allowed=false. No new inference, GCP writes or config changes.",
   "authorization": "User requested continue through formal XGBoost activation; this step is bounded corrected v1 shadow EOD and GCS readback only; no publication waiver.",
-  "previous_failed_run": "39751073583",
-  "diagnosis_run": "39764764095"
+  "previous_failed_run": "39779986652",
+  "diagnosis_run": "39764764095",
+  "readback_execution": "janus-intelligence-mart-5rv6r",
+  "readback_event_uri": "gs://gen-lang-client-0593591102-dev-mart/acceptance/specialists/risk-shadow-once-2026-10-21-a65b43111a821f43.json"
 }
