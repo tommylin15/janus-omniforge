@@ -23,7 +23,10 @@ def main():
     os.environ.setdefault('MART_PRODUCT_PROJECTION', 'true')
     try:
         name = os.environ.get("MART_OPERATION", "").strip().lower()
-        if name == "ceo-request":
+        if name == "risk-activation":
+            from .risk_activation_runtime import run_risk_activation
+            operation = run_risk_activation
+        elif name == "ceo-request":
             from .product_runtime import run_ceo_request
             operation = run_ceo_request
         elif name == "retention":
