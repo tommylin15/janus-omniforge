@@ -79,6 +79,10 @@ jobs:
               f.write('Audit executed: COMPLETED. **Promotion: BLOCKED_NOT_ACTIVE**\n')
               f.write('Observed candidate hash: '+('PASS' if 'candidate_gcs_sha256' in result['verified'] else 'NOT_VERIFIED')+'\n')
               f.write('Observed shadow count: '+str(result['verified'].get('shadow_prediction_count','NOT_VERIFIED'))+'\n')
+              f.write('Accepted first-release limits (not strict verification):\n')
+              for name in result['accepted_first_release_limits']:
+                  f.write('- '+name+'\n')
+              f.write('Prospective OOS state: '+str(result['verified']['prospective_oos_state'])+'\n')
               f.write('Missing mandatory gates:\n')
               for reason in result['blocked_or_unverified_gates']:
                   f.write('- '+reason+'\n')
