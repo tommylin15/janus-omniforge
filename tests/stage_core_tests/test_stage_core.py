@@ -18,7 +18,8 @@ from ingestion_core.dq import merge_without_null_overwrite, semantic_zero, valid
 from ingestion_core.stage import LocalObjectStore, StageWriter
 from ingestion_core.iceberg_maintenance import _keep_snapshots, _protected_metadata
 from packages.provenance import Provenance, content_hash
-from ingestion_core.__main__ import (_coverage_status, _empty_is_nonfatal, _fetch_source, _limit_response,
+from ingestion_core.__main__ import (_coverage_status, _core_ready_event, _full_market_eod_ready,
+                                     _empty_is_nonfatal, _fetch_source, _limit_response,
                                      _requested_dates, _should_collect, _skip_symbol_adapter_for_500,
                                      consume_queued_collection, run_scheduled_collection)
 from ingestion_core import CollectionConfig, ExecutionStatus, SQLiteControlPlane, Stock
@@ -221,6 +222,57 @@ class StageWriterTests(unittest.TestCase):
         self.assertEqual(_requested_dates(today=date(2026, 8, 26), holidays=set(), start="2026-08-24", end="2026-08-25"), (date(2026, 8, 24), date(2026, 8, 25)))
         with self.assertRaises(ValueError):
             _requested_dates(today=date(2026, 8, 26), holidays=set(), start="2026-08-25")
+
+    def test_market_eod_date_resolution_before_and_after_cutoff(self):
+        self.assertEqual(_requested_dates(today=date(2026, 10, 22), holidays=set()),
+                         (date(2026, 10, 21),))
+        self.assertEqual(_requested_dates(today=date(2026, 10, 22), holidays=set(), after_eod=True),
+                         (date(2026, 10, 22),))
+        # On a weekend / holiday the last real session remains the reference.
+        self.assertEqual(_requested_dates(today=date(2026, 10, 24), holidays=set(), after_eod=True),
+                         (date(2026, 10, 23),))
+        self.assertEqual(_requested_dates(today=date(2026, 10, 22), holidays=set(),
+                                          single="2026-10-20", after_eod=True),
+                         (date(2026, 10, 20),))
+
+    def test_full_market_eod_ready_requires_both_markets_same_session(self):
+        rows = [
+            {"date": "2026-10-21", "dataset": "ohlcv", "market": market,
+             "received_count": count, "coverage_accepted": True,
+             "snapshot_id": 123, "status": "complete"}
+            for market, count in (("TWSE", 900), ("TPEX", 700))]
+        self.assertTrue(_full_market_eod_ready(rows, "2026-10-21"))
+        self.assertFalse(_full_market_eod_ready(rows, "2026-10-22"))
+        self.assertFalse(_full_market_eod_ready(rows[:1], "2026-10-21"))
+        self.assertFalse(_full_market_eod_ready(rows + [rows[0]], "2026-10-21"))
+        self.assertFalse(_full_market_eod_ready([{**rows[0], "received_count": 0}, rows[1]], "2026-10-21"))
+        self.assertFalse(_full_market_eod_ready([rows[0], {**rows[1], "coverage_accepted": False}], "2026-10-21"))
+        self.assertFalse(_full_market_eod_ready([rows[0], {**rows[1], "snapshot_id": None}], "2026-10-21"))
+
+    def test_core_manifest_never_promotes_newer_roster_date_to_missing_eod(self):
+        with patch("ingestion_core.__main__.GcsObjectStore") as store:
+            common = dict(core_bucket="core", execution_id="run-001", config_id="batch",
+                          analysis_as_of="2026-10-21",
+                          iceberg_tables={"core.ohlcv_v1": {"rows": 10, "snapshot_id": 123}},
+                          symbols=("2330",), market="market", scope_as_of="2026-10-22")
+            self.assertIsNone(_core_ready_event(**common, ohlcv_eod_ready=True))
+            self.assertIsNone(_core_ready_event(**{**common, "scope_as_of": "2026-10-21"},
+                                                 ohlcv_eod_ready=False))
+            store.assert_not_called()
+
+    def test_verified_same_day_core_manifest_preserves_eod_date(self):
+        with patch("ingestion_core.__main__.GcsObjectStore") as store:
+            store.return_value.create.return_value = True
+            event = _core_ready_event(core_bucket="core", execution_id="run-001",
+                config_id="batch", analysis_as_of="2026-10-22",
+                iceberg_tables={"core.ohlcv_v1": {"rows": 10, "snapshot_id": 123}},
+                symbols=("2330",), market="market", scope_as_of="2026-10-22",
+                ohlcv_eod_ready=True)
+            self.assertEqual(event["analysisAsOf"], "2026-10-22")
+            self.assertEqual(event["scopes"][0]["symbols"], ["2330"])
+            store.return_value.create.assert_called_once()
+            written = json.loads(store.return_value.create.call_args.args[1])
+            self.assertEqual(written["analysis_as_of"], "2026-10-22")
 
     def test_selected_symbol_filter_is_applied_before_stage(self):
         response = SourceResponse(
