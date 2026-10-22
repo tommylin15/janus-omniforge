@@ -3,5 +3,10 @@
   "candidate_sha256": "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044",
   "checked_scope": "dev",
   "request_date": "2026-10-22",
-  "intent": "Verify existing Mart candidate model, controller schedule, and no production mutations"
+  "intent": "risk-v1-formal-promotion-preflight",
+  "purpose": "User-requested formal ACTIVE promotion preflight; verify pinned candidate SHA, real immutable 2026-10-21 Risk shadow/GCS artifact, mandatory PIT/company-action/rights/new 20-session OOS evidence and runtime registry CAS boundary. Read-only only, no ACTIVE switching when gates absent.",
+  "request_id": "risk-v1-formal-promotion-preflight-20261022",
+  "publication_allowed": false,
+  "no_gcp_mutation": true,
+  "prior_shadow_run": "39781316641"
 }
