@@ -2,10 +2,10 @@
   "operation": "readonly",
   "candidate_sha256": "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044",
   "checked_scope": "dev",
-  "request_date": "2026-10-22",
+  "request_date": "2026-10-23",
   "intent": "risk-v1-formal-promotion-preflight",
-  "purpose": "Read-only bounded first-promotion audit under Oct 22 decision: prospective OOS PENDING, historic PIT/company actions accepted only as declared limits; check GCS candidate SHA and shadow evidence, report concrete source/use, parity, CAS gates. No ACTIVE pointer, model publication, API/Jobs/Scheduler mutation.",
-  "request_id": "risk-xgboost-bounded-prepromotion-readback-20261022-r1",
+  "purpose": "Read-only user-approved open data PASS and generation CAS/rollback regression tests. Verify existing pinned candidate/shadow receipts. No ACTIVE, no job, API or scheduler mutation.",
+  "request_id": "risk-v1-readonly-20261023-open-data-cas",
   "publication_allowed": false,
   "no_gcp_mutation": true,
   "prior_shadow_run": "39781316641"
