@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "253d9d37132f4ce6d77bb1e84d6d7dac4d905d01",
+  "sha": "a80ac6ecdd1ce8f7f07295a8158ae6d540dea2e1",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Verify OAuth metadata and negative owner/Admin/MCP authorization for Life-style pastel stock UI, full Release #39757237689 and 0% dev API candidate #39760791053. Do not change traffic, Jobs, IAM or storage.",
-  "request_attempt": 1
+  "purpose": "Read-only source-bound OAuth/admin/MCP boundary gate for Risk Core EOD/PIT fix candidate #39775217993, prior to reversible four-Jobs rollout; no model publication or traffic changes.",
+  "request_attempt": 2
 }
