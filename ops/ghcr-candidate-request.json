@@ -1,11 +1,11 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "a3a3b30648e7b05f2b9cb5363eca4594d52a2b20",
+  "sha": "c4799bc9da3d86e2efde9395d10c58e31e7204c3",
   "digest": "",
-  "release_run": "39710294843",
+  "release_run": "39734125861",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "TPEx Bond ETF 00719B/00697B intraday QuoteRouter._due fix and mobile holdings YTD same-row; full source #39710294843 Python+Flutter and four GHCR digest PASS. Pin 0%-traffic dev API candidate only; keep serving 100% and Jobs/Scheduler untouched."
+  "purpose": "D07 Risk v1 safe Core duplicate revisions: new exact-source 0%-traffic dev API candidate required only to validate guarded existing four Job rollout. No API traffic promotion, no new resources, no publication; prior #39716949831 remains rollback until new release passes."
 }
