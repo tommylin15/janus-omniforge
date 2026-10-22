@@ -116,3 +116,32 @@ def test_duplicate_with_different_source_but_same_prices_is_safe_only_in_shadow(
     assert result["identical_core_duplicates_collapsed"] == 1
     assert len(result["predictions"]) == 2
     assert all(p["publication_allowed"] is False for p in result["predictions"])
+
+def test_historical_market_conflict_quarantines_only_affected_symbol():
+    rows = bars()
+    as_of = max(r["trade_date"] for r in rows)
+    # Core may contain a historical TWSE/TPEx discrepancy for one stock.
+    # Such a symbol must not be reclassified by guessing, and must not stop
+    # unrelated stocks from receiving safe shadow-only predictions.
+    revised = [
+        dict(r, market="TPEx") if r["symbol"] == "2330" and r["trade_date"] < as_of else r
+        for r in rows
+    ]
+    out = predict_core_shadow(revised, as_of, Model(), core_snapshot_id="core-fixed")
+    assert out["status"] == "SHADOW_ONLY"
+    assert out["publication_allowed"] is False
+    assert out["ambiguous_core_symbols"] == 1
+    assert {r["symbol"] for r in out["predictions"]} == {"6488"}
+    assert all(r["quality"] == "SHADOW_UNVALIDATED" for r in out["predictions"])
+
+
+def test_same_day_cross_market_revision_quarantines_only_affected_symbol():
+    rows = bars()
+    as_of = max(r["trade_date"] for r in rows)
+    revised = dict(next(r for r in rows if r["symbol"] == "2330"),
+                   market="tpex", source_id="tpex", provenance_id="revision")
+    out = predict_core_shadow([*rows, revised], as_of, Model(),
+                              core_snapshot_id="core-fixed")
+    assert out["ambiguous_core_symbols"] == 1
+    assert {r["symbol"] for r in out["predictions"]} == {"6488"}
+    assert out["publication_allowed"] is False
