@@ -212,7 +212,7 @@ jobs:
               raise SystemExit('manual_shadow_execution_not_successful')
           Path('/tmp/manual-execution-name').write_text(str(x.get('metadata',{}).get('name') or x.get('name')))
           print('Manual Risk shadow execution verified: completed=true; succeeded_count='+str(status['succeededCount']))
-            PY
+          PY
           fi
           # Untrusted/owner payloads do not go to Actions logs. Print aggregate only.
           gcloud storage ls --recursive "gs://gen-lang-client-0593591102-dev-mart/risk-shadow/" --project "$PROJECT" > /tmp/shadow-uris.txt
