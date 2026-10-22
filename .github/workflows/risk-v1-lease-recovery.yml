@@ -1,0 +1,101 @@
+name: Risk v1 exact-owner GHCR lease recovery
+on:
+  push:
+    branches: [main]
+    paths: ['ops/risk-v1-lease-recovery-request.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FAILED_RUN: '39734968869'
+      FAILED_SHA: a359367cc8391a1c18d226232251d25571507f96
+      BASE_SHA: a3a3b30648e7b05f2b9cb5363eca4594d52a2b20
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require explicit exact-owner no-deployment recovery only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e --arg run "$FAILED_RUN" --arg sha "$FAILED_SHA" --arg baseline "$BASE_SHA" '
+            .intent=="recover-uncertain-ghcr-lease-after-failed-candidate" and
+            .approved==true and .failed_run==$run and
+            .failed_sha==$sha and .baseline_source_sha==$baseline and
+            .no_gcp_mutation==true and .no_traffic_change==true and
+            .no_jobs_change==true
+          ' ops/risk-v1-lease-recovery-request.json >/dev/null
+          gh run view "$FAILED_RUN" --json status,conclusion,headSha,jobs >/tmp/failed.json
+          jq -e --arg sha "$FAILED_SHA" '
+            .status=="completed" and .conclusion=="failure" and .headSha==$sha and
+            ([.jobs[]|select(.name=="candidate")|.steps[]|select(.name=="Acquire atomic global deployment lease")|.conclusion] == ["failure"]) and
+            ([.jobs[]|select(.name=="candidate")|.steps[]|
+              select(.name=="Create fixed-digest candidate without switching traffic")|
+              .conclusion] | all(.!="success"))
+          ' /tmp/failed.json >/dev/null
+          echo "Failed candidate step identity and no attempted candidate mutation PASS" >> "$GITHUB_STEP_SUMMARY"
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Reconcile unchanged live API and exact old four-Job images
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud run services describe janus-api --project "$PROJECT" --region "$REGION" --format=json >/tmp/api.json
+          jq -e '
+            .metadata.name=="janus-api" and
+            ([.status.traffic[]?|select((.percent//0)>0)]|length)==1 and
+            ([.status.traffic[]?|select((.percent//0)>0)][0].percent)==100 and
+            (.status.conditions|any(.type=="Ready" and .status=="True")) and
+            ([.status.traffic[]?|select(.tag=="ghcr-c4799bc9da3d")]|length)==0
+          ' /tmp/api.json >/dev/null
+          python - <<'PY'
+          import json, subprocess
+          old={
+            'janus-batch-controller':'ghcr.io/tommylin15/janus-ingestion-core@sha256:8e50fe46cc01c7b7b9f48da58d1b141f23489ea9f3ca7eeae238ad787ca3bfc2',
+            'janus-ingestion-core':'ghcr.io/tommylin15/janus-ingestion-core@sha256:8e50fe46cc01c7b7b9f48da58d1b141f23489ea9f3ca7eeae238ad787ca3bfc2',
+            'janus-intelligence-mart':'ghcr.io/tommylin15/janus-intelligence-mart@sha256:647755b317101d33f7a420c7335a611850e11795fdbd36c99b46b2526f21091a',
+            'janus-private-pipeline':'ghcr.io/tommylin15/janus-private-pipeline@sha256:0300e04ea73f3215252c61336a79b958f6b64471247e369a2ffefd533323f137',
+          }
+          for name, expected in old.items():
+            p=subprocess.run(['gcloud','run','jobs','describe',name,
+              '--project=gen-lang-client-0593591102','--region=us-central1','--format=json'],
+              check=True,capture_output=True,text=True)
+            body=json.loads(p.stdout)
+            images=[]
+            def walk(v):
+              if isinstance(v,dict):
+                if isinstance(v.get('image'),str):images.append(v['image'])
+                for k,x in v.items():
+                  if k not in ('env','args','command','secretKeyRef'): walk(x)
+              elif isinstance(v,list):
+                for x in v:walk(x)
+            walk(body.get('template',{}))
+            if images != [expected]:
+              raise SystemExit('job_immutable_image_drift_'+name)
+          print('Four existing dev Jobs exact digest unchanged: PASS')
+          PY
+          gcloud scheduler jobs describe janus-ingestion-daily --project "$PROJECT" --location "$REGION" --format=json >/tmp/sched.json
+          jq -e '.state=="ENABLED"' /tmp/sched.json >/dev/null
+          echo "Live API 100%, candidate absent, old Job digest and Scheduler state PASS" >> "$GITHUB_STEP_SUMMARY"
+      - name: Release exact failed owner lease only after complete reconciliation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py assert --repo "$GITHUB_REPOSITORY" --run-id "$FAILED_RUN" --run-attempt 1 --sha "$FAILED_SHA"
+          python scripts/gcp/ghcr_release_lease.py release --repo "$GITHUB_REPOSITORY" --run-id "$FAILED_RUN" --run-attempt 1 --sha "$FAILED_SHA" --safe-to-release
+          state="$(python scripts/gcp/ghcr_release_lease.py inspect --repo "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --sha "$GITHUB_SHA" | jq -r .status)"
+          test "$state" = ABSENT
+          echo "Exact-owner lease safely released; GCP writes=0" >> "$GITHUB_STEP_SUMMARY"
