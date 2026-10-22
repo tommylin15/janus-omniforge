@@ -283,6 +283,53 @@ jobs:
           print(json.dumps({'execution':ident,'result':data},ensure_ascii=False,sort_keys=True))
           if data.get('status')!='OBSERVED':raise RuntimeError('risk_census_not_fully_observed')
           PY
+      - name: Inspect newest Core manifest versus dated coverage receipts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json,re,subprocess
+          from urllib.request import urlopen,Request
+          from urllib.parse import urlencode,quote
+          B='gen-lang-client-0593591102-dev-core'
+          token=subprocess.check_output(['gcloud','auth','print-access-token'],text=True).strip()
+          headers={'Authorization':'Bearer '+token}
+          names=[]
+          cursor=None
+          for _ in range(100):
+              p={'prefix':'executions/','maxResults':1000,'fields':'items(name,updated),nextPageToken'}
+              if cursor:p['pageToken']=cursor
+              with urlopen(Request('https://storage.googleapis.com/storage/v1/b/'+B+'/o?'+urlencode(p),headers=headers),timeout=35) as f: data=json.load(f)
+              names.extend(x for x in data.get('items',[]) if re.fullmatch(r'executions/[A-Za-z0-9_-]+/core-snapshot\.json',str(x.get('name',''))))
+              cursor=data.get('nextPageToken')
+              if not cursor:break
+          else:raise RuntimeError('manifest_inventory_bound')
+          latest=sorted(names,key=lambda o:(o.get('updated',''),o['name']),reverse=True)[:3]
+          out=[]
+          for record in latest:
+              name=record['name']
+              with urlopen(Request('https://storage.googleapis.com/storage/v1/b/'+B+'/o/'+quote(name,safe='')+'?alt=media',headers=headers),timeout=35) as f: raw=f.read(4000001)
+              manifest=json.loads(raw)
+              execution=manifest.get('execution_id')
+              if name!=f'executions/{execution}/core-snapshot.json':raise RuntimeError('manifest_path_mismatch')
+              item={'manifest_date':manifest.get('analysis_as_of'),'updated':record.get('updated'),'eod_markets':{},'snapshot_table_present':'core.ohlcv_v1' in manifest.get('iceberg_tables',{}),'coverage_receipt':'MISSING'}
+              coverage_name=f'executions/{execution}/coverage-inventory.json'
+              try:
+                  with urlopen(Request('https://storage.googleapis.com/storage/v1/b/'+B+'/o/'+quote(coverage_name,safe='')+'?alt=media',headers=headers),timeout=35) as f: coverage=json.loads(f.read(4000001))
+                  item['coverage_receipt']=coverage.get('coverage_status')
+                  markets={}
+                  for row in coverage.get('items',[]):
+                      if row.get('dataset')=='ohlcv' and row.get('market') in ('TWSE','TPEX'):
+                          key=str(row.get('date'))+'/'+row['market']
+                          markets[key]={'received':row.get('received_count'),'expected':row.get('expected_count'),
+                              'coverage_accepted':row.get('coverage_accepted'),'status':row.get('status')}
+                  item['eod_markets']=markets
+              except Exception as err:
+                  item['coverage_receipt']='READ_ERROR_'+type(err).__name__
+              out.append(item)
+          result={'component':'risk_core_manifest_coverage_census','status':'OBSERVED','manifests_checked':len(out),'latest':out,'read_only':True}
+          print(json.dumps(result,sort_keys=True))
+          PY
       - name: Upload sanitized diagnostic
         if: always()
         uses: actions/upload-artifact@v4
