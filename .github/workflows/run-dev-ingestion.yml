@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   id-token: write
 
 concurrency:
@@ -136,6 +137,29 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
         if: steps.request.outputs.enabled == 'true'
+
+      - name: Fence official EOD repair on successful exact-source Jobs rollout
+        if: steps.request.outputs.enabled == 'true' && steps.request.outputs.dataset == 'official-eod-ohlcv'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh run view 39775830718 --json status,conclusion,headSha,jobs > /tmp/eod-rollout.json
+          jq -e --arg source 'f8b06abd0322c89413fa2ec80b51fcc0587685c1' '
+            .status=="completed" and .conclusion=="success" and .headSha==$source and
+            (.jobs | any(.name=="jobs-rollout" and .conclusion=="success"))
+          ' /tmp/eod-rollout.json >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo
+          sha='a80ac6ecdd1ce8f7f07295a8158ae6d540dea2e1'
+          skopeo inspect --no-creds "docker://ghcr.io/tommylin15/janus-ingestion-core:sha-${sha}" > /tmp/eod-expected.json
+          digest="$(jq -r .Digest /tmp/eod-expected.json)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          gcloud run jobs describe janus-ingestion-core --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format=json > /tmp/eod-job.json
+          image="$(jq -r '(.template.template.containers[0].image // empty)' /tmp/eod-job.json)"
+          test "$image" = "ghcr.io/tommylin15/janus-ingestion-core@${digest}"
+          echo "Official EOD source and serving ingestion image verified; no stale image execution" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Execute bounded ingestion request
         if: steps.request.outputs.enabled == 'true'
