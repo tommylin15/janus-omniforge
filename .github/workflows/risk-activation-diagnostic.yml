@@ -53,6 +53,10 @@ jobs:
                 files=re.findall(r'/app/[A-Za-z0-9_./-]+\.py',line)
                 safe.append({'timestamp':entry.get('timestamp'),
                   'error_class':classes[0] if classes else None,
-                  'file':files[0] if files else None})
+                  'file':files[0] if files else None,
+                  'python_frame':line.strip()[:110] if line.strip().startswith('File ') else None,
+                  'safe_error':line.strip()[:140] if line.strip().startswith('ValueError:') and
+                    len(line.strip())<140 and not re.search(r'(token|password|secret|bearer|access.key)',line,re.I)
+                    else None})
           print(json.dumps({'examined_logs':len(logs),'bounded_diagnostics':safe[-32:]},sort_keys=True))
           PY
