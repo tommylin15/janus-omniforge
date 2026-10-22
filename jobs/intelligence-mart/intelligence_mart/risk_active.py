@@ -18,8 +18,6 @@ from .specialists import digest
 
 
 def load_active_pointer(store, *, bucket: str):
-    if bucket != BUCKET:
-        raise ValueError("Risk ACTIVE dev bucket identity mismatch")
     try:
         raw = store.read(ACTIVE_OBJECT)
     except (FileNotFoundError, HTTPError) as error:
@@ -27,6 +25,8 @@ def load_active_pointer(store, *, bucket: str):
             raise
         return None
     pointer = json.loads(raw)
+    if bucket != BUCKET:
+        raise ValueError("Risk ACTIVE dev bucket identity mismatch")
     validate_pointer(pointer)
     return pointer if pointer["mode"] == "ACTIVE" else None
 
