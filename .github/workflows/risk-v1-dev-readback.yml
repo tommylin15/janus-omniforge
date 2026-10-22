@@ -1,0 +1,54 @@
+name: Risk v1 dev candidate and EOD readback
+on:
+  push:
+    branches: [main]
+    paths:
+      - ops/risk-v1-readback-request.json
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-risk-readonly-inspection
+  cancel-in-progress: false
+jobs:
+  readback:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read restricted dev resources without mutation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(jq -r .operation ops/risk-v1-readback-request.json)" = 'readonly'
+          test "$(jq -r .candidate_sha256 ops/risk-v1-readback-request.json)" = '36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044'
+          PROJECT='gen-lang-client-0593591102'
+          REGION='us-central1'
+          PREFIX="gs://gen-lang-client-0593591102-dev-mart/risk-models/candidates/2026Q3-20261022/"
+          echo '### Risk candidate storage evidence' >> "$GITHUB_STEP_SUMMARY"
+          if gcloud storage ls "${PREFIX}risk-xgboost8-2025h2-v1.ubj" --project "$PROJECT" >/tmp/risk-gcs-object.txt 2>/tmp/risk-gcs-error.txt; then
+            echo 'candidate_object=present; hash_readback=not_run' | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'candidate_object=not_readable_or_absent; model_deploy=NOT_VERIFIED' | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          echo '### Mart job execution image/status' >> "$GITHUB_STEP_SUMMARY"
+          if gcloud run jobs describe janus-intelligence-mart --region "$REGION" --project "$PROJECT" --format=json > /tmp/risk-mart.json 2>/tmp/risk-mart-err.txt; then
+            jq -r '"job=" + .metadata.name, "revision=" + ((.status.latestCreatedExecution.name // .status.latestReadyExecution.name // "not_reported")|tostring)' /tmp/risk-mart.json | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'mart_job_read=failed' | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          echo '### Existing batch controller scheduler (read-only)' >> "$GITHUB_STEP_SUMMARY"
+          if gcloud scheduler jobs list --location "$REGION" --project "$PROJECT" --format=json >/tmp/risk-schedulers.json 2>/tmp/risk-schedulers-err.txt; then
+            jq -r '.[] | select((.name // "")|contains("janus")) | [.name,.state,.schedule] | @tsv' /tmp/risk-schedulers.json | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'scheduler_read=failed' | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          echo 'Readback only. No XGBoost publication or model upload occurred.' >> "$GITHUB_STEP_SUMMARY"
