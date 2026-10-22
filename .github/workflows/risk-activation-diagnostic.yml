@@ -1,0 +1,58 @@
+name: Risk activation migration 068 read-only diagnostic
+on:
+  push:
+    branches: [main]
+    paths: ['ops/risk-activation-diagnostic.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bounded 068 failure query
+        run: |
+          jq -e '.intent=="inspect-risk-activation-migration-068" and
+            .failed_workflow=="39873369601" and .read_only==true' ops/risk-activation-diagnostic.json
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read only failing ingestion Cloud Run execution
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud run jobs executions list --job=janus-ingestion-core \
+            --region=us-central1 --project=gen-lang-client-0593591102 --limit=12 --format=json > /tmp/risk-ingestion-execs.json
+          jq -c '[.[]|{name:.metadata.name,creationTime:.metadata.creationTimestamp,
+            completionTime:.status.completionTime,failedCount:.status.failedCount,
+            succeededCount:.status.succeededCount,conditions:.status.conditions}]|.[0:8]' \
+            /tmp/risk-ingestion-execs.json
+          gcloud logging read \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ingestion-core"' \
+            --project=gen-lang-client-0593591102 --freshness=3h --limit=220 --format=json > /tmp/risk-ingestion-logs.json
+          python3 - <<'PY'
+          import json,re
+          from pathlib import Path
+          logs=json.loads(Path('/tmp/risk-ingestion-logs.json').read_text())
+          safe=[]
+          for entry in logs:
+            payload=entry.get('jsonPayload') or {}
+            text=entry.get('textPayload') or ''
+            if isinstance(payload,dict):
+              val={k:payload[k] for k in ('component','operation','migration','status','error_code','sqlstate') if k in payload and isinstance(payload[k],(str,int,bool))}
+              if val: safe.append({'timestamp':entry.get('timestamp'),**val})
+            for line in text.splitlines():
+              if re.search(r'(psycopg\.errors\.[A-Za-z]+:|(?:TypeError|ValueError|RuntimeError|KeyError):|Traceback \(most recent|^ *File "/app)',line):
+                # Error class + named file/line only, not SQL, credentials, or owner values.
+                classes=re.findall(r'(?:psycopg\.errors\.[A-Za-z]+|TypeError|ValueError|RuntimeError|KeyError)',line)
+                files=re.findall(r'/app/[A-Za-z0-9_./-]+\.py',line)
+                safe.append({'timestamp':entry.get('timestamp'),
+                  'error_class':classes[0] if classes else None,
+                  'file':files[0] if files else None})
+          print(json.dumps({'examined_logs':len(logs),'bounded_diagnostics':safe[-32:]},sort_keys=True))
+          PY
