@@ -122,7 +122,11 @@ def test_full_500_collection_uses_batched_default_sources_in_dev():
     assert "full-market-500|" in INGESTION_WORKFLOW
     assert 'dataset_selection=""' in INGESTION_WORKFLOW
     assert "twse-market-volume|taiex" in INGESTION_WORKFLOW
-    assert "tpex-market-volume" not in INGESTION_WORKFLOW
+    # TPEx market volume is paired with TWSE only in the explicit one-shot
+    # official-EOD recovery mode; it is not a standalone UI dataset choice.
+    assert "full-market-500|official-eod-ohlcv|twse-ohlcv" in INGESTION_WORKFLOW
+    assert 'dataset_selection="twse-market-volume,tpex-market-volume"' in INGESTION_WORKFLOW
+    assert "tpex-market-volume|" not in INGESTION_WORKFLOW
     assert "tpex-benchmark" not in INGESTION_WORKFLOW
     assert "trap cleanup_job_env EXIT" in INGESTION_WORKFLOW
     assert 'MART_JOB=janus-intelligence-mart,GCP_REGION=${GCP_REGION},MART_OPERATION=queue' in INGESTION_WORKFLOW
