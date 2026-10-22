@@ -4,8 +4,8 @@
   "failed_run": "39751073583",
   "no_owner_payload": true,
   "requested_on": "2026-10-22",
-  "attempt": 7,
-  "purpose": "Pinned 2026-10-21 immutable Core OHLCV PIT and Risk XGBoost8 feature census via one ephemeral read-only Mart execution; count-only results, no data publication or permanent configuration changes.",
+  "attempt": 8,
+  "purpose": "Read-only comparison of the latest 3 Core manifests with their dated TWSE/TPEX OHLCV coverage receipts, diagnosing manifest day vs actual price session. Also rerun existing bounded fixed-snapshot census; no persistent mutation.",
   "no_persistent_gcp_mutation": true,
   "read_only_job_execution": true
 }
