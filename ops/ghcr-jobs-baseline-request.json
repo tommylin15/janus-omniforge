@@ -3,7 +3,7 @@
   "environment": "dev",
   "risk_candidate_sha256": "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044",
   "no_gcp_writes": true,
-  "source": "Risk shadow EOD same-session/PIT fix, full Release #39773463340 (source a80ac6ecdd1ce8f7f07295a8158ae6d540dea2e1)",
-  "purpose": "Read exact serving four-Jobs GHCR digests and config hashes for reversible rollout to corrected Risk EOD build. Read-only; no service or data writes.",
-  "request_attempt": 5
+  "source": "Risk first-release ACTIVE pre-rollout readback, model pinned, latest GHCR full release #39874777208",
+  "purpose": "Read exact current four existing dev Jobs GHCR digests and immutable config fingerprints for reversible Risk ACTIVE release; no GCP writes",
+  "request_attempt": 6
 }
