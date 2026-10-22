@@ -145,3 +145,29 @@ def test_same_day_cross_market_revision_quarantines_only_affected_symbol():
     assert out["ambiguous_core_symbols"] == 1
     assert {r["symbol"] for r in out["predictions"]} == {"6488"}
     assert out["publication_allowed"] is False
+
+def test_future_published_revision_is_rejected_without_using_fetched_at_as_pit():
+    rows = bars()
+    as_of = max(r["trade_date"] for r in rows)
+    future = dict(rows[-1], published_at="2026-12-01T15:00:00+08:00")
+    with pytest.raises(ValueError, match="future-available source revision"):
+        predict_core_shadow([*rows[:-1], future], as_of, Model(), core_snapshot_id="core-fixed")
+    malformed = dict(rows[-1], availability_at="not-a-time")
+    with pytest.raises(ValueError, match="invalid publication metadata"):
+        predict_core_shadow([*rows[:-1], malformed], as_of, Model(), core_snapshot_id="core-fixed")
+    fetched_later = [dict(x, fetched_at="2026-10-22T12:00:00+08:00") for x in rows]
+    result = predict_core_shadow(fetched_later, as_of, Model(), core_snapshot_id="core-fixed")
+    assert result["eligible_symbols"] == 2
+    assert result["excluded_target_symbols_count"] == 0
+
+
+def test_excluded_targets_get_aggregate_reasons_not_private_membership():
+    rows = bars()
+    as_of = max(r["trade_date"] for r in rows)
+    out = predict_core_shadow(rows, as_of, Model(), core_snapshot_id="core-fixed",
+                              target_symbols={"2330", "6488", "9999"})
+    assert out["target_symbols_count"] == 3
+    assert out["eligible_symbols"] == 2
+    assert out["excluded_target_symbols_count"] == 1
+    assert out["excluded_target_reasons"]["NO_ACCEPTED_CORE_HISTORY_OR_ACTION_OR_SOURCE"] == 1
+    assert "held" not in str(out) and "watchlisted" not in str(out)
