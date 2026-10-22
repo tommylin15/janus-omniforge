@@ -1,0 +1,84 @@
+name: Risk XGBoost v1 dev candidate (private Drive to GCS)
+on:
+  push:
+    branches: [main]
+    paths:
+      - ops/risk-v1-deploy-request.json
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  candidate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate exact private handoff and immutable model
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.enabled==true and .intent=="dev-shadow-candidate-only" and .drive_file_id=="10y_SkHaJK-VvV3Bjb2z5dnUUh8tzNSE2" and .gzip_sha256=="024a4c9238a5622d53371a4a71603c709767e59908df5708d907e3e8a77e945b" and .raw_sha256=="36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044"' ops/risk-v1-deploy-request.json >/dev/null
+          test "$(jq -r .environment ops/risk-v1-deploy-request.json)" = dev
+          test "$(jq -r .publication_allowed ops/risk-v1-deploy-request.json)" = false
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/drive.readonly
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Transfer only reviewed private model bytes (no dataset/public Git)
+        shell: bash
+        env:
+          DRIVE_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$DRIVE_TOKEN"
+          umask 077
+          mkdir -p /tmp/janus-risk-candidate
+          trap 'rm -f /tmp/janus-risk-candidate/*' EXIT
+          curl --fail --location --silent --show-error \
+            --retry 2 -H "Authorization: Bearer $DRIVE_TOKEN" \
+            'https://www.googleapis.com/drive/v3/files/10y_SkHaJK-VvV3Bjb2z5dnUUh8tzNSE2?alt=media' \
+            -o /tmp/janus-risk-candidate/model.ubj.gz
+          echo '024a4c9238a5622d53371a4a71603c709767e59908df5708d907e3e8a77e945b  /tmp/janus-risk-candidate/model.ubj.gz' | sha256sum -c -
+          gzip -dc /tmp/janus-risk-candidate/model.ubj.gz > /tmp/janus-risk-candidate/model.ubj
+          echo '36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044  /tmp/janus-risk-candidate/model.ubj' | sha256sum -c -
+          TARGET='gs://gen-lang-client-0593591102-dev-mart/risk-models/candidates/2026Q3-20261022/risk-xgboost8-2025h2-v1.ubj'
+          if gcloud storage ls "$TARGET" --project=gen-lang-client-0593591102 >/dev/null 2>&1; then
+            echo 'Existing GCS candidate; must exactly match pinned SHA.'
+          else
+            gcloud storage cp --no-clobber /tmp/janus-risk-candidate/model.ubj "$TARGET" --project=gen-lang-client-0593591102
+          fi
+          gcloud storage cp "$TARGET" /tmp/janus-risk-candidate/readback.ubj --project=gen-lang-client-0593591102
+          echo '36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044  /tmp/janus-risk-candidate/readback.ubj' | sha256sum -c -
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          out = {
+            'artifact_kind':'janus_risk_model_candidate_v1',
+            'status':'GCS_CANDIDATE_SHADOW_ONLY',
+            'model_version':'risk-xgboost8-2025h2-v1',
+            'model_sha256':'36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044',
+            'model_gcs_uri':'gs://gen-lang-client-0593591102-dev-mart/risk-models/candidates/2026Q3-20261022/risk-xgboost8-2025h2-v1.ubj',
+            'source_drive_file_id':'10y_SkHaJK-VvV3Bjb2z5dnUUh8tzNSE2',
+            'source_provenance':'RESEARCH_CURRENT_MASTER_ONLY_UNADJUSTED',
+            'publication_allowed':False,
+            'training_runtime':'external_chatgpt_python',
+            'promoted':False,
+          }
+          Path('/tmp/janus-risk-candidate/candidate-manifest.json').write_text(json.dumps(out,sort_keys=True,separators=(',',':'))+'\n')
+          PY
+          MANIFEST='gs://gen-lang-client-0593591102-dev-mart/risk-models/candidates/2026Q3-20261022/candidate-manifest.json'
+          gcloud storage cp --no-clobber /tmp/janus-risk-candidate/candidate-manifest.json "$MANIFEST" --project=gen-lang-client-0593591102
+          gcloud storage cp "$MANIFEST" /tmp/janus-risk-candidate/readback-manifest.json --project=gen-lang-client-0593591102
+          cmp -s /tmp/janus-risk-candidate/candidate-manifest.json /tmp/janus-risk-candidate/readback-manifest.json
+          echo '### XGBoost v1 GCS candidate hash/readback PASS (no model promotion)' >> "$GITHUB_STEP_SUMMARY"
+          echo 'model_sha256=36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044' >> "$GITHUB_STEP_SUMMARY"
+          echo 'status=GCS_CANDIDATE_SHADOW_ONLY; publication_allowed=false' >> "$GITHUB_STEP_SUMMARY"
