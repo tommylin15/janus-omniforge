@@ -141,10 +141,13 @@ def predict_core_shadow(rows: list[dict], as_of: str, model, *, core_snapshot_id
     quarantined = prices.attrs.get("ambiguous_core_symbols", 0)
     collapsed = prices.attrs.get("identical_core_duplicates_collapsed", 0)
     if prices.empty:
+        count = len(target_symbols) if target_symbols is not None else len(set(excluded))
         return {"status": "INSUFFICIENT_OHLCV", "predictions": [],
                 "excluded_input_rows": len(excluded),
                 "ambiguous_core_symbols": quarantined,
                 "identical_core_duplicates_collapsed": collapsed,
+                "target_symbols_count": count, "excluded_target_symbols_count": count,
+                "excluded_target_reasons": {"NO_ACCEPTED_CORE_HISTORY_OR_ACTION_OR_SOURCE": count},
                 "publication_allowed": False}
     # Core does not expose a certified per-market trading-session calendar
     # here. Use the union of all accepted cohort dates for BOTH markets:
@@ -160,7 +163,12 @@ def predict_core_shadow(rows: list[dict], as_of: str, model, *, core_snapshot_id
         prices = prices.loc[prices.symbol.isin(target_symbols)].copy()
         if prices.empty:
             return {"status": "NO_ELIGIBLE_TARGETS", "predictions": [],
-                    "eligible_symbols": 0, "publication_allowed": False}
+                    "eligible_symbols": 0,
+                    "target_symbols_count": len(target_symbols),
+                    "excluded_target_symbols_count": len(target_symbols),
+                    "excluded_target_reasons": {
+                        "NO_ACCEPTED_CORE_HISTORY_OR_ACTION_OR_SOURCE": len(target_symbols)},
+                    "publication_allowed": False}
     panel = add_v1_features(make_risk_panel(prices, market_sessions=grids))
     latest = panel.loc[panel.trade_date.eq(pd.Timestamp(as_of))].copy()
     valid = latest.dropna(subset=list(V1_FEATURES))
