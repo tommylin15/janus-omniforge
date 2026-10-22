@@ -102,8 +102,13 @@ def _eligible_price_rows(rows, as_of: str) -> tuple[pd.DataFrame, list[str]]:
         excluded.extend(sorted(ambiguous))
         result = result.loc[~result["symbol"].isin(ambiguous)]
     result = result.drop_duplicates(["symbol", "trade_date"], keep="first")
-    if result.groupby("symbol")["market"].nunique().gt(1).any():
-        raise ValueError("symbol changed market inside inference window")
+    # Conflicting historical TWSE/TPEx membership is not an inferred transfer.
+    # Quarantine the affected symbol, not the unrelated 250-symbol batch.
+    mixed_market = set(result.groupby("symbol")["market"].nunique().loc[lambda n: n > 1].index)
+    if mixed_market:
+        ambiguous.update(mixed_market)
+        excluded.extend(sorted(mixed_market))
+        result = result.loc[~result["symbol"].isin(mixed_market)].copy()
     # Counts are carried with the DataFrame for the non-public shadow receipt.
     result.attrs["ambiguous_core_symbols"] = len(ambiguous)
     result.attrs["identical_core_duplicates_collapsed"] = duplicate_rows
