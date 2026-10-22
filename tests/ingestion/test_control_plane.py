@@ -79,6 +79,43 @@ class ControlPlaneTests(unittest.TestCase):
     def tearDown(self):
         self.control.close()
 
+    def test_market_symbols_as_of_requires_one_pit_roster_version(self):
+        class Ctx:
+            def __init__(self, rows):
+                self.rows = rows
+                self.sql = ""
+                self.params = None
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return None
+
+            def execute(self, sql, params):
+                self.sql, self.params = sql, params
+
+            def fetchall(self):
+                return self.rows
+
+        class Conn:
+            def __init__(self, rows):
+                self.cur = Ctx(rows)
+
+            def cursor(self):
+                return self.cur
+
+        plane = object.__new__(PostgreSQLControlPlane)
+        plane.connection = Conn([("2330", "pit-20261021"), ("2317", "pit-20261021")])
+        self.assertEqual(plane.market_symbols_as_of(date(2026, 10, 21)), ("2317", "2330"))
+        self.assertIn("control.specialist_market_symbols", plane.connection.cur.sql)
+        self.assertEqual(plane.connection.cur.params, (date(2026, 10, 21),))
+        for rows in ([], [("2330", "a"), ("2330", "a")],
+                     [("2330", "a"), ("2317", "b")]):
+            plane.connection = Conn(rows)
+            with self.assertRaisesRegex(ValueError, "PIT market membership"):
+                plane.market_symbols_as_of(date(2026, 10, 21))
+
     @staticmethod
     def ready(execution):
         return {"eventType":"core.dataset.ready.v1","executionId":execution.execution_id,"configId":execution.config_id,
