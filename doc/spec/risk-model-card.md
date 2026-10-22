@@ -1,6 +1,6 @@
 # Janus Risk 模型卡｜候選 XGBoost8（2026Q3）
 
-更新：2026-10-22；**模型選型：XGBoost8 研究候選**。部署狀態：**RESEARCH_ONLY_NOT_PROMOTABLE**，不等於DEV ACTIVE。詳細流程：[完整重訓/日批操作手冊](risk-model-training-retraining-runbook.md)。
+更新：2026-10-22；**模型選型：XGBoost8 研究候選**。部署狀態：**CANDIDATE_PENDING_BOUNDED_PROMOTION_ACCEPTANCE**，不等於DEV ACTIVE。詳細流程：[完整重訓/日批操作手冊](risk-model-training-retraining-runbook.md)。
 
 ## 1. 用途與不適用事項
 輸入某股票訊號日及之前八個OHLCV歷史因子，輸出未來20個市場交易日的**年化價格波動率**，作「波動升高／相近／緩和」警示，輔助操作風控。非上漲/下跌機率、非未來20日價格幅度、非最高可能虧損、非合理價、非持股金額建議。公開模型不接受Owner現金/成本/張數。僅適合來源受控的TWSE/TPEx普通股，ETF及當時無可用窗口者不能套用。
@@ -18,14 +18,14 @@ Rolling20 MAE 0.154224 RMSE0.210698；Ridge5 0.140003／0.183075；Ridge8 0.1353
 2026-10-22：臨時Python環境驗證週期bundle_manifest 99個檔案 SHA/bytes均符合；XGBoost UBJ原生load_model成功，對封存74,487筆test重新預測，MAE **0.12970133625455632**、RMSE **0.17259792399697213**，與收據完全符合。**不是** Colab console/GCS/Mart/CI/runtime acceptance。
 
 ## 6. 風險與禁止發布狀態
-- `publication_allowed=false`，直到授權/公司行動/PIT、新未觸碰holdout、真實Mart source feature parity、GCS hash readback、CI/dev shadow驗收及原子rollback全過。
-- 市場分布受現行普通股名冊survivorship bias；原價格未核分割／減資／除權息；來源自動存取與ML使用權需核。
+- `publication_allowed=false` 表示候選仍未切 ACTIVE；本次首次發布不再等待新前瞻20日 mature OOS、全市場歷史 PIT 名冊、全公司行動紀錄。不可據此宣稱那些嚴格驗證已完成。仍必須確認來源允許 ML／留存／部署用途、實際窗口公司行動污染處理、cutoff 無 future leakage、八因子及 GCS/serving parity、Registry CAS／rollback，才可判定能 promotion。
+- 2026年現行名冊導致歷史 survivorship bias，是**已接受的首次發布研究限制**，不得標成歷史 strict PIT。原始 OHLCV 未全數調整，實際 train/test/serving 窗口發現不可比的公司行動必須排除或有據調整；來源自動存取與 ML／保存／部署權利必須逐來源核對。
 - 此模型預測方向是volatility高低，沒有估未來報酬機率；請勿用回測 MAE 當成買賣策略收益。
 - 欠行情/特徵/來源、model SHA不符、超過更新期都fail-closed回 deterministic Risk 基準，不顯「低風險」等樂觀資訊。
 - XGB未調過以新holdout為準的閾值；Risk高風險/緩和的20%比值只是使用者訊號UI第一版顯示規則，獨立評估後才可正式開啟。
 
 ## 7. UI/更新節奏
-展示「Risk分析師｜波動風險升高／相近／緩和」、可讀理由、分析日及模型版本和資料新鮮度；警示深橘、相對緩和青綠、未知/過期中性。**不顯示MAE與模型分數當作股票訊號**；不把青綠當買進。每交易日盤後更新固定模型推論，每週資料檢查、每月成熟標籤OOS評估、每季重訓檢討；訓練不在Cloud Run執行，正式批次重用Scheduler→Controller→Mart。
+展示「Risk分析師｜波動風險升高／相近／緩和」、可讀理由、分析日及模型版本和資料新鮮度；警示深橘、相對緩和青綠、未知/過期中性。**不顯示MAE與模型分數當作股票訊號**；不把青綠當買進。每交易日盤後只對去識別持股與觀察股 symbol union 更新固定模型推論（普通股；ETF N/A），全市場仍可作 screening，每週資料檢查、每月成熟標籤OOS評估、每季重訓檢討；訓練不在Cloud Run執行，正式批次重用Scheduler→Controller→Mart。
 
 ## 8. 紀錄維護
-每次月度評估只新增不可覆寫evaluation receipt；每次重訓新建cycle_id與對應manifest、資料快照/來源索引、訓練程式 Git commit SHA、bundle/registry收據。禁止更新或覆蓋此版已封存模型卡數字及受限狀態，變更另立新版模型卡。
+啟用後每日 immutable prediction 到第20市場交易日及 EOD 完成才回收 mature label，未成熟為 PENDING；每次月度評估只新增不可覆寫evaluation receipt；每次重訓新建cycle_id與對應manifest、資料快照/來源索引、訓練程式 Git commit SHA、bundle/registry收據。禁止更新或覆蓋此版已封存模型卡數字及受限狀態，變更另立新版模型卡。
