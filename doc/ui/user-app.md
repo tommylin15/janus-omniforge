@@ -53,6 +53,14 @@ Primary content 依 [四頁正式UI規格的「個股」節](visual-first-four-p
 
 短價量圖與圖表總覽入口屬 primary，不得僅在 Advanced 展開後才看得到。完整 K 線、Fact Pack、五 specialist 完整 artifacts、CEO report、參數及 provenance 可按需留 Advanced；未成熟 series 顯示具體資料缺口。
 
+### 5.3.0 Risk 分析師的可理解訊號與更新小字（2026-10-22）
+
+- 正式個股頁優先提供**「波動風險升高／相對緩和／接近近期／尚待驗證／資料過期」**等使用者能採取風控注意的訊號，不得以MAE/RMSE/回測排名替代個股訊號；XGBoost輸出是未來20個交易日**年化波動**，不是漲跌方向/報酬機率或買賣建議。
+- 必須從持久化、同一模型版本且經 OOS promotion 的artifact讀出預測及最近年化波動。只有 `model_status=oos_validated`、`model_version=risk-xgboost...`、`baseline_status=available`、`freshness=current` 且兩個數值均有效時，才給橘色警示（pred/recent≥1.20）、青綠色相對緩和（≤0.80）、其他中性色；這是第一版呈現差異門檻，非校準買賣策略。未驗證/缺值/過期一律灰色不顯ML數值，不將未驗證研究資料偷偷帶進User。
+- 目前 Flutter `risk_signal_ui.dart` + `final_stock_detail.dart` 已做以上**顯示契約**；後端當前仍是 `deterministic-unpromoted-v1`，故必須看到中性「模型尚待驗證」，直到正式模型promotion和真實API讀回完成。
+- 小字至少包含真正 `analysis_as_of` 行情資料日、`更新頻率：交易日盤後`、模型版本與「每月模型評估／每季重訓檢討」。若真正完成時間可追溯則增加 completed_at，**不能以App開啟時鐘假造**。市場休市不顯示當日已更新；資料過期明示。
+- 正式批次使用既有 Scheduler→Controller→Mart，每個交易日 EOD入庫後推論；不每天fit、週健康/月OOS/季重訓按 [Risk生命週期](../spec/risk-model-training-retraining-runbook.md)。投資盈虧紅綠不等於風險顏色，低波動不等於買進。
+
 ### 5.3.1 五 specialist
 
 五 specialist 是 persisted Python／SQL／ML production outputs：
