@@ -24,7 +24,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           python3 -m pip install --disable-pip-version-check -q pytest==8.4.2
-          python3 -m pytest -q tests/test_risk_promotion_preflight.py
+          python3 -m pytest -q tests/test_risk_promotion_preflight.py tests/test_risk_registry_cas.py
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
@@ -73,12 +73,16 @@ jobs:
           assert result['audit_status']=='COMPLETED'
           assert result['promotion_status']=='BLOCKED_NOT_ACTIVE'
           assert result['publication_allowed'] is False
+          assert result['verified']['open_data_availability']=='PASS_BY_APPROVED_FIRST_RELEASE_POLICY'
+          assert 'scoped_source_use_rights_by_dataset' not in result['blocked_or_unverified_gates']
           assert not any(result[x] for x in ('would_write_registry','would_change_api','would_execute_model'))
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
               f.write('### Risk formal promotion readiness (read-only)\n')
               f.write('Audit executed: COMPLETED. **Promotion: BLOCKED_NOT_ACTIVE**\n')
               f.write('Observed candidate hash: '+('PASS' if 'candidate_gcs_sha256' in result['verified'] else 'NOT_VERIFIED')+'\n')
               f.write('Observed shadow count: '+str(result['verified'].get('shadow_prediction_count','NOT_VERIFIED'))+'\n')
+              f.write('Open-data availability source gate: '+result['verified']['open_data_availability']+'\n')
+              f.write('Historical ordinary target count (not total union): '+str(result['verified'].get('historical_ordinary_target_count','NOT_RECORDED'))+'\n')
               f.write('Accepted first-release limits (not strict verification):\n')
               for name in result['accepted_first_release_limits']:
                   f.write('- '+name+'\n')
