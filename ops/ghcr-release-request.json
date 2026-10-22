@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "8aa841299e756c1bdac2d9687bab858c575c47e5",
-  "purpose": "D07 Risk XGBoost8 dev SHADOW (not user publication). Private Drive→dev GCS model/hash verified #39701774716; existing Mart & batch-controller plus UI, preserve deterministic risk. Release includes fixed-date TPEx test fixtures (production freshness unchanged) and adequately sized Risk OOS fixtures. No new resources or training jobs.",
+  "sha": "fbe32b71b24e4c9ba5aafb76fea70087de455424",
+  "purpose": "D07 Risk XGBoost v1 SHADOW in existing dev 16:30 batch, with Flutter risk signal and GCS candidate SHA verified. Retry full GHCR Python/Flutter release after fixing last historical TPEx fixture clock; no unverified model publication.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
