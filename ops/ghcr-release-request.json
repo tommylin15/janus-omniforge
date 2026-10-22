@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "fbe32b71b24e4c9ba5aafb76fea70087de455424",
-  "purpose": "D07 Risk XGBoost v1 SHADOW in existing dev 16:30 batch, with Flutter risk signal and GCS candidate SHA verified. Retry full GHCR Python/Flutter release after fixing last historical TPEx fixture clock; no unverified model publication.",
+  "sha": "38d5fd831ef15e99f88c1bcf62f212293fbe967e",
+  "purpose": "D07 Risk XGBoost v1 SHA-pinned research SHADOW using existing dev Mart/Controller + Flutter user-facing warning. Full GHCR rerun after repairing TPEx-to-TWSE MIS isolation and optional instrument_kind API test contract. Retain deterministic published risk, no model promotion.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
