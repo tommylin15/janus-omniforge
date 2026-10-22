@@ -29,6 +29,11 @@ def test_actual_shadow_is_good_runtime_evidence_but_not_promotion_evidence():
     assert result["verified"]["prospective_oos_state"] == "PENDING"
     assert "untouched_prospective_20_session_matured_oos" not in result["blocked_or_unverified_gates"]
     assert "historical_delisted_master_not_reconstructed" in result["accepted_first_release_limits"]
+    assert result["verified"]["open_data_availability"] == "PASS_BY_APPROVED_FIRST_RELEASE_POLICY"
+    assert {x["dataset"] for x in result["verified"]["open_data_evidence"]} == {"11549", "11370"}
+    assert "scoped_source_use_rights_by_dataset" not in result["blocked_or_unverified_gates"]
+    assert "original_r1_endpoint_license_mapping_not_certified" in result["accepted_first_release_limits"]
+    assert result["verified"]["r1_source_license_mapping"] == "UNKNOWN_ACCEPTED_LIMIT_NOT_LICENSE_CERTIFICATION"
     assert "eight_feature_cutoff_and_revision_pit_guard" in result["blocked_or_unverified_gates"]
     assert "atomic_registry_cas_with_rollback" in result["blocked_or_unverified_gates"]
     assert result["publication_allowed"] is False
