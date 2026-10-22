@@ -68,7 +68,8 @@ def approved_first_release_risk_projection(baseline, prediction):
     not mean a pristine prospective OOS cohort has already matured.
     """
     from math import isfinite
-    from intelligence_mart.risk_shadow import MODEL_SHA256, MODEL_VERSION
+    MODEL_SHA256 = "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044"
+    MODEL_VERSION = "risk-xgboost8-2025h2-v1"
     if (prediction.get("symbol") != baseline["symbol"]
             or prediction.get("analysis_as_of") != baseline["analysis_as_of"]
             or prediction.get("core_snapshot_id") != baseline["core_snapshot_id"]
@@ -80,6 +81,7 @@ def approved_first_release_risk_projection(baseline, prediction):
             or not isfinite(v) or v < 0 for v in (forecast, recent)) or recent == 0):
         raise ValueError("nonfinite or invalid Risk serving prediction")
     value = dict(baseline)
+    value.pop("risk_first_release_candidate", None)
     specialists = []
     for item in baseline["specialists"]:
         if item["role"] != "risk":
