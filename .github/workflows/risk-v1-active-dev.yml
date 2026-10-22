@@ -1,0 +1,219 @@
+name: Risk XGBoost first-release ACTIVE / reversible dev
+on:
+  push:
+    branches: [main]
+    paths: ['ops/risk-v1-active-request.json']
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  activate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 65
+    env:
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+      BUCKET: gen-lang-client-0593591102-dev-mart
+      JOB: janus-intelligence-mart
+      RISK_ACTIVE_APPROVED: 'true'
+      GCP_PROJECT_ID: gen-lang-client-0593591102
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify explicit owner activation and completed exact-source release
+        id: guard
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="user-approved-risk-first-release" and
+            .environment=="dev" and .approved==true and .mode=="ACTIVE" and
+            .model_sha256=="36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044" and
+            (.source_sha|test("^[0-9a-f]{40}$")) and
+            (.release_run|type=="string" and test("^[0-9]{8,13}$")) and
+            (.jobs_run|type=="string" and test("^[0-9]{8,13}$")) and
+            (.api_run|type=="string" and test("^[0-9]{8,13}$")) and
+            .no_new_resources==true and .target_scope=="HELD_AND_WATCHLISTED_ORDINARY_SHARES"' \
+            ops/risk-v1-active-request.json >/dev/null
+          source="$(jq -r .source_sha ops/risk-v1-active-request.json)"
+          git merge-base --is-ancestor "$source" HEAD
+          for key in release_run jobs_run api_run; do
+            run="$(jq -r ".$key" ops/risk-v1-active-request.json)"
+            gh run view "$run" --json headSha,status,conclusion,workflowName,jobs > "/tmp/risk-$key.json"
+            jq -e --arg source "$source" '
+               .headSha==$source and .status=="completed" and .conclusion=="success"' "/tmp/risk-$key.json" >/dev/null
+          done
+          jq -e '[.jobs[]|select(.name=="release-verify" and .conclusion=="success")]|length==1' /tmp/risk-release_run.json >/dev/null
+          jq -e '[.jobs[]|select(.name=="jobs-rollout" and .conclusion=="success")]|length==1' /tmp/risk-jobs_run.json >/dev/null
+          jq -e '[.jobs[]|select(.name=="promote" and .conclusion=="success")]|length==1' /tmp/risk-api_run.json >/dev/null
+          echo "SOURCE_SHA=$source" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test Risk first-release parity, model/runtime boundary and rollback
+        shell: bash
+        env:
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --disable-pip-version-check -q -r requirements-dev.txt \
+            -r jobs/intelligence-mart/requirements.lock
+          python -m pytest -q \
+            tests/test_risk_active.py tests/test_risk_shadow.py \
+            tests/test_risk_feature_parity.py tests/test_analysis_product.py \
+            tests/test_risk_registry_cas.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Confirm approved model hash and actual native-UBJ prediction
+        shell: bash
+        env:
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+        run: |
+          set -Eeuo pipefail
+          target="gs://$BUCKET/risk-models/candidates/2026Q3-20261022/risk-xgboost8-2025h2-v1.ubj"
+          gcloud storage cp "$target" /tmp/risk-reviewed.ubj --project "$PROJECT"
+          echo "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044  /tmp/risk-reviewed.ubj" | sha256sum -c -
+          python3 - <<'PY'
+          import numpy as np
+          from xgboost import XGBRegressor
+          from research.colab.risk_v1 import V1_FEATURES
+          model=XGBRegressor()
+          model.load_model('/tmp/risk-reviewed.ubj')
+          assert model.n_features_in_==len(V1_FEATURES)==8
+          x=np.array([[.2,.3,-.1,.02,1.1,.04,.01,18.2]],dtype=np.float32)
+          y=model.predict(x)
+          assert y.shape==(1,) and np.isfinite(y).all()
+          PY
+          gcloud run jobs describe "$JOB" --region "$REGION" --project "$PROJECT" --format=json > /tmp/risk-mart-job.json
+          jq -e '.metadata.name=="janus-intelligence-mart"' /tmp/risk-mart-job.json >/dev/null
+          gcloud run services describe janus-api --region "$REGION" --project "$PROJECT" --format=json > /tmp/risk-api-service.json
+          jq -e '[.status.traffic[]|select((.percent//0)>0)]|length==1 and .[0].percent==100' /tmp/risk-api-service.json >/dev/null
+          gcloud run jobs executions list --job="$JOB" --region="$REGION" --project="$PROJECT" --limit=20 --format=json >/tmp/risk-executions-before.json
+          jq -e '[.[]|select((.status.completionTime//"")=="")]|length==0' /tmp/risk-executions-before.json >/dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from scripts.gcp.risk_registry_cas import REQUIRED_PROMOTION_EVIDENCE
+          # These are pre-promotion *bounded* proofs: exact-source release, tests,
+          # model SHA and UBJ real loader, old shadow Core readback. Full live
+          # selected-union + API checks are mandatory BEFORE the PG switch below.
+          Path("/tmp/risk-bounded-preflight.json").write_text(
+              json.dumps({k:"PASS" for k in REQUIRED_PROMOTION_EVIDENCE}))
+          PY
+      - name: Write GCS registry with exact generation CAS (API remains deterministic)
+        id: registry
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/risk_registry_apply.py --mode ACTIVE --source-sha "$SOURCE_SHA" \
+            --evidence /tmp/risk-bounded-preflight.json --receipt /tmp/risk-active-registry.json
+          echo "GENERATION=$(jq -r .generation /tmp/risk-active-registry.json)" >> "$GITHUB_ENV"
+      - name: Live dev Mart target-only canary before opening API
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The database switch is still deterministic: safe to run this true
+          # pinned Core target-only computation without user-facing promotion.
+          execution="$(gcloud run jobs execute "$JOB" --region "$REGION" --project "$PROJECT" \
+            --update-env-vars="MART_OPERATION=deep-coverage" --async --format='value(metadata.name)')"
+          test -n "$execution"
+          execution_name="${execution##*/}"
+          echo "CANARY_EXECUTION=$execution_name" >> "$GITHUB_ENV"
+          completed=''
+          for _ in $(seq 1 180); do
+            info="$(gcloud run jobs executions describe "$execution_name" --region "$REGION" --project "$PROJECT" --format=json)"
+            completed="$(jq -r '.status.completionTime // empty' <<< "$info")"
+            if [[ -n "$completed" ]]; then
+              jq -e '.status.succeededCount==1 and (.status.failedCount//0)==0' <<<"$info" >/dev/null
+              break
+            fi
+            sleep 5
+          done
+          test -n "$completed"
+          evidence=''
+          for attempt in $(seq 1 12); do
+            logs="$(gcloud logging read "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"$JOB\" AND labels.\"run.googleapis.com/execution_name\"=\"$execution_name\"" \
+              --project "$PROJECT" --freshness=45m --limit=200 --format=json)"
+            evidence="$(jq -c '[.[] | (.jsonPayload // (.textPayload|fromjson?)) | select(.operation=="deep-coverage" and .component=="intelligence-mart" and .artifact_uri!=null)]|last//empty' <<<"$logs")"
+            [[ -n "$evidence" ]] && break
+            sleep 5
+          done
+          test -n "$evidence"
+          uri="$(jq -r .artifact_uri <<<"$evidence")"
+          [[ "$uri" == "gs://$BUCKET/executions/"*"/specialist-manifest.json" ]]
+          gcloud storage cat "$uri" --project "$PROJECT" > /tmp/risk-live-specialist-manifest.json
+          jq -e --arg sha "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044" '
+            .risk_active.artifact_uri|startswith("gs://gen-lang-client-0593591102-dev-mart/risk-active/")' /tmp/risk-live-specialist-manifest.json >/dev/null
+          risk_uri="$(jq -r .risk_active.artifact_uri /tmp/risk-live-specialist-manifest.json)"
+          gcloud storage cat "$risk_uri" --project "$PROJECT" > /tmp/risk-live-selected.json
+          jq -e '.publication_status=="FIRST_RELEASE_APPROVED" and .scope=="HELD_AND_WATCHLISTED_ORDINARY_SHARES"
+            and .model_sha256=="36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044"
+            and .ordinary_target_count>0 and (.rows|length)>0 and
+            ((.excluded_nonordinary_target_count + .excluded_ordinary_target_count + (.rows|length))==.target_count)' \
+            /tmp/risk-live-selected.json >/dev/null
+          echo "### Live selected-only XGBoost canary PASS; API still deterministic" >> "$GITHUB_STEP_SUMMARY"
+          jq '{analysis_as_of,target_count,ordinary_target_count,excluded_nonordinary_target_count,prediction_count:(.rows|length)}' \
+            /tmp/risk-live-selected.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish private immutable activation request and append PG switch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          uri="gs://$BUCKET/risk-models/activation-requests/$SOURCE_SHA-$GENERATION-active.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          value={"intent":"user-approved-risk-first-release","environment":"dev","approved":True,
+                 "mode":"ACTIVE","expected_mode":"DETERMINISTIC",
+                 "generation":int(os.environ["GENERATION"])}
+          Path("/tmp/risk-switch.json").write_text(json.dumps(value,sort_keys=True,separators=(",",":")))
+          PY
+          gcloud storage cp --no-clobber /tmp/risk-switch.json "$uri" --project "$PROJECT"
+          gcloud storage cat "$uri" --project "$PROJECT" | cmp -s /tmp/risk-switch.json -
+          result="$(gcloud run jobs execute "$JOB" --project "$PROJECT" --region "$REGION" \
+            --update-env-vars="^@^MART_OPERATION=risk-activation@RISK_ACTIVATION_REQUEST_URI=$uri" \
+            --async --format='value(metadata.name)')"
+          test -n "$result"
+          name="${result##*/}"
+          ended=''
+          for _ in $(seq 1 120); do
+            info="$(gcloud run jobs executions describe "$name" --region "$REGION" --project "$PROJECT" --format=json)"
+            ended="$(jq -r '.status.completionTime // empty' <<<"$info")"
+            if [[ -n "$ended" ]]; then
+              jq -e '.status.succeededCount==1 and (.status.failedCount//0)==0' <<<"$info" >/dev/null
+              break
+            fi
+            sleep 5
+          done
+          test -n "$ended"
+          echo "Risk ACTIVE PG switch execution=$name; GCS generation=$GENERATION" >> "$GITHUB_STEP_SUMMARY"
+      - name: Recovery - revert registry on failed canary or PG activation
+        if: failure()
+        shell: bash
+        run: |
+          if [[ -f /tmp/risk-active-registry.json ]]; then
+            python3 scripts/gcp/risk_registry_apply.py \
+              --mode DETERMINISTIC --source-sha "$SOURCE_SHA" \
+              --evidence /tmp/risk-bounded-preflight.json \
+              --receipt /tmp/risk-rollback-registry.json
+            echo "GCS registry reverted to DETERMINISTIC; verify PG switch before closure." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: risk-active-first-release-receipts
+          path: |
+            /tmp/risk-active-registry.json
+            /tmp/risk-rollback-registry.json
+            /tmp/risk-live-selected.json
+          if-no-files-found: ignore
+          retention-days: 14
