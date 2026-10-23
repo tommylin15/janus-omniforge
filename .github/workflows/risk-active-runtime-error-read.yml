@@ -46,3 +46,19 @@ jobs:
                 {operation,artifact_uri,analysis_as_of,reports,model_training,specialist_status}]'
           gcloud storage ls 'gs://gen-lang-client-0593591102-dev-mart/risk-active/*.json' \
             --project=gen-lang-client-0593591102 | wc -l
+
+      - name: Read immutable Risk target counts only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          manifest='gs://gen-lang-client-0593591102-dev-mart/executions/89bf04cd-5c08-4981-ac8d-f003427f050b/specialist-manifest.json'
+          gcloud storage cat "$manifest" --project gen-lang-client-0593591102 \
+            | jq '{analysis_as_of,core_snapshot_id,source_core_manifest_hash,
+              risk_ref_present:(.risk_active!=null),risk_artifact_uri:.risk_active.artifact_uri}'
+          risk_uri="$(gcloud storage cat "$manifest" --project gen-lang-client-0593591102 | jq -r '.risk_active.artifact_uri // empty')"
+          [[ "$risk_uri" == gs://gen-lang-client-0593591102-dev-mart/risk-active/*.json ]]
+          gcloud storage cat "$risk_uri" --project gen-lang-client-0593591102 \
+            | jq '{publication_status,analysis_as_of,model_sha256,scope,
+              target_count,ordinary_target_count,excluded_nonordinary_target_count,
+              excluded_ordinary_target_count,excluded_reasons,
+              prediction_count:(.rows|length),output_hash}'
