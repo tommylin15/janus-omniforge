@@ -470,3 +470,34 @@
 - **退役安全結論：** \`C1-A READER_REFERENCE_BOUNDED_PASS\`，但 \`C1-A RETIREMENT_GATES=PARTIAL\`；**C1-B 可直接實刪 Table/Column/Object 仍 0**。未改變任何資料/Writer/Scheduler/IAM 或部署；此輪只新增版本化固定唯讀彙總 SQL、安全測試和治理文件。
 
 **證據級別小結：** 已經由真實 PG 聚合證明 \`publication.mart_report_index\` 對 scoped_analysis 的依賴；尚未以 PG 掃描數確定哪個 API/owner 曾讀，亦未以「單一 publication index 中無其他 Mart 名稱」推論其他十張全系統無讀者。
+
+---
+
+## 20. C1-A 優先核對：41 queued／16 running 的 Live lease（2026-10-23，補驗進行中）
+
+**新實機收據：** [#39955412095](https://github.com/tommylin15/janus-omniforge/actions/runs/39955412095)（`source_git_sha=d79dbcd2c4f0fcd9f24ed005ea8937a9bccf3e66`；PG/Core + Mart metadata 均已實際讀回；工作流整體 FAILED 因 Cloud Run Controller 30 日頁數上限，只能標 **PG_LEASE_PASS / JOB_RECONCILE_PARTIAL**），第二次 [#39955834228](https://github.com/tommylin15/janus-omniforge/actions/runs/39955834228) 同樣受舊版 500 筆上限影響；目前擴大但仍有界的修正版 [#39956176106](https://github.com/tommylin15/janus-omniforge/actions/runs/39956176106) 為後續獨立驗收入口，終態應以該 Run 真實讀回為準，不預先記 PASS。
+
+### 20.1 PostgreSQL `control.executions` 非終態租約
+
+`2026-10-23T12:46:22+00:00` 附近唯讀收據：本輪固定最近 30 日 `requested_at` 且 `status IN ('queued','running','retrying')` 的 57 筆全部是 **`claimed_until IS NULL` = `NO_LEASE`**，`VALID_LEASE=0`、`EXPIRED_LEASE=0`（後者指有租約但已過期；**不能將沒有租約的 57 筆誤記為 EXPIRED_LEASE**）。本查詢只輸出依 trigger/status/age/lease 交叉分群，未輸出個別 execution UUID、symbol 或 Owner 資料。
+
+| 群組 | 筆數 | PG requested_at 年齡分群 | lease | Controller occurrence 連結 |
+|---|---:|---|---|---|
+| analysis queued，<48h | 5 | 2026-10-21 至 10-23 UTC | NO_LEASE | 0 |
+| analysis queued，2–7d | 23 | 2026-10-16 至 10-21 UTC | NO_LEASE | 0 |
+| analysis queued，7–30d | 13 | 2026-10-07 至 10-16 UTC | NO_LEASE | 0 |
+| collection running，7–30d | 16 | 2026-09-23 至 09-28 UTC | NO_LEASE | 0 |
+| **合計** | **57** | | **有效租約 0** | **0/57** |
+
+**正確語意：** 這 57 筆不能因 `status` 值取得「仍有活躍 lease」的 Stage 48 小時到期引用保護。這是一次 Live 快照，並非保證之後不會取得新租約；執行任何 Stage apply 前仍須依現役 `jobs/ingestion-core/ingestion_core/retention.py` 的 `_stage_live_execution_ids` 有效租約及 apply 前重讀邏輯重新判斷。**本輪未進行 Stage object / GCS generation 交集，也未執行清理。**
+
+### 20.2 Controller／Cloud Run 分層對照
+
+本輪另有 **6 筆** `control.batch_occurrences` 近 30 日狀態為 `running`，其 `job=janus-batch-controller`，但沒有 `state.execution` 可作直接 Cloud Run Execution GET；**不可和前述 57 筆相加或用其推論有有效 lease**。後續新版收據另讀 `state.batch` 分辨批次種類。第一輪 30 日 Cloud Run GET 彙總中 ingestion-core 431、intelligence-mart 302、private-pipeline 184 筆、research 0 筆（都是獨立 Cloud Run execution，非 PG `control.executions` 筆數）。batch-controller 掃描到 500 筆後碰到設計上限，明確 `pagination_complete=false`，**不得視為已完成 30 日全量核對**；修正版上限為最多 12 頁 × 100 筆且仍 fail closed。
+
+### 20.3 發現的另一項保護判斷差異
+
+- **Stage-only cleanup：已符合有效 lease 規則。** `jobs/ingestion-core/ingestion_core/retention.py` 的 `_stage_live_execution_ids` 使用 `status IN (...) AND claimed_until > now`，apply 前重讀 active 集合；不得因此誤報 Stage 正在按 status 永久保護。
+- **Mart specialist artifact retention：需獨立處理。** `jobs/intelligence-mart/intelligence_mart/retention.py` 目前取 `status IN ('queued','running','retrying')` 的 execution_id 當 `active_executions`，沒有在此處使用 `claimed_until`，並傳給 `clean_specialist_artifacts`；可能造成 artifact retention 過度保護。這是**靜態可確認的邏輯落差**，但尚未查證受影響物件的實際數量／容量；不授權本輪直接改刪除行為。與 Stage 48h 策略、Core manifest guard 應分開治理。
+
+本輪有界的 P0 **PG_LEASE 分群已取得實機證據**；Cloud Run 30 日完整分頁、6 Controller occurrence 的 batch 身分、其餘十張 Mart 實際讀者/部署修訂版與有界證據須採 [#39956176106](https://github.com/tommylin15/janus-omniforge/actions/runs/39956176106) 讀回後再判定。未清除任何 PG 狀態、GCS 物件、Iceberg 表；**C1-B 仍 NOT_READY，准刪實體 0**。
