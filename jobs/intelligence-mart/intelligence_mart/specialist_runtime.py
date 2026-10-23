@@ -131,7 +131,7 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
         refs = [saved["target_snapshot"], *saved["specialists"],
                 *([saved["evaluation"]] if "evaluation" in saved else []),
                 *([saved["reconciliation"]] if "reconciliation" in saved else [])]
-        refs.extend(saved[key] for key in ("screening", "market_membership", "change_facts", "risk_active") if saved.get(key))
+        refs.extend(saved[key] for key in ("screening", "market_membership", "change_facts", "risk_active", "risk_quality") if saved.get(key))
         for ref in refs:
             name = ref["artifact_uri"].split(f"gs://{bucket}/", 1)[1]
             from hashlib import sha256
@@ -205,15 +205,34 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
     from .risk_active import load_active_pointer, materialize_active_predictions
     risk_pointer = load_active_pointer(store, bucket=bucket)
     risk_active_ref = None
+    risk_quality_ref = None
     if risk_pointer is not None:
+        from .risk_inputs import read_risk_ohlcv, risk_quality_report
         ordinary = set(market_symbols) if not deep_coverage else set(
             load_market_membership(publication_connection, as_of)["symbols"])
-        risk_active_ref = materialize_active_predictions(
-            store, bucket=bucket, rows=datasets.get("ohlcv", []),
-            targets=target["symbols"], ordinary_symbols=ordinary,
-            as_of=as_of, core_snapshot_id=execution.core_snapshot_id,
-            core_manifest_hash=execution.request_options["core_snapshot_hash"],
-            active_pointer=risk_pointer)
+        scoped = tuple(sorted(set(target["symbols"]) & ordinary))
+        if scoped:
+            if catalog_factory is None:
+                from .storage import sql_catalog_from_environment
+                risk_catalog_factory = sql_catalog_from_environment
+            else:
+                risk_catalog_factory = catalog_factory
+            risk_rows, scan_receipt = read_risk_ohlcv(
+                core, as_of, scoped, execution.core_snapshot_id,
+                catalog_factory=risk_catalog_factory)
+            quality = risk_quality_report(risk_rows, as_of, scoped,
+                                          execution.core_snapshot_id)
+            quality["scan_receipt"] = scan_receipt
+            quality["core_manifest_hash"] = execution.request_options["core_snapshot_hash"]
+            quality["output_hash"] = digest(quality)
+            risk_quality_ref = _write_immutable_json(
+                store, bucket, f"risk-quality/{quality['output_hash'][7:]}.json", quality)
+            risk_active_ref = materialize_active_predictions(
+                store, bucket=bucket, rows=risk_rows,
+                targets=target["symbols"], ordinary_symbols=ordinary,
+                as_of=as_of, core_snapshot_id=execution.core_snapshot_id,
+                core_manifest_hash=execution.request_options["core_snapshot_hash"],
+                active_pointer=risk_pointer)
 
     references = []
     computed_specialists = 0
@@ -296,6 +315,7 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 "specialist_status": "partial" if any(r["status"] != "ready" for r in references) else "ready",
                 "specialists": references, "change_facts": change_ref,
                 "risk_active": risk_active_ref,
+                "risk_quality": risk_quality_ref,
                 "source_core_manifest_hash": execution.request_options["core_snapshot_hash"],
                 "llm_api_tokens": 0, "ceo_triggered": False,
                 "publication_authority": False}
