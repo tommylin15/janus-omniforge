@@ -245,7 +245,7 @@ else:
                   FROM classified GROUP BY 1,2,3,4 ORDER BY 1,2,3,4 LIMIT 81
             """, 80)
             # Only already-known managed Cloud Run jobs/execution names;
-            # never output occurrence_id, requested_symbols, owner data or UUID.
+            # never output occurrence IDs or owner-linked data.
             sql_section(c, "control_active_batch_occurrences_30d", """
                 SELECT state->>'job',state->>'status',state->>'execution',
                        scheduled_at::text
