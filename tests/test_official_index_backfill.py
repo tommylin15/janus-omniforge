@@ -99,6 +99,12 @@ def test_urls_and_rate_guards():
     assert parse_qs(urlparse(c.url_for('twse_market','2025-01')).query)['date']==['20250101']
     assert parse_qs(urlparse(c.url_for('twse_sector','2025-01-02')).query)['date']==['20250102']
     assert parse_qs(urlparse(c.url_for('tpex_sector','2025-01')).query)['date']==['114/01/01']
+    for source in ('tpex_market','tpex_sector'):
+        parsed=urlparse(c.url_for(source,'2025-01'))
+        assert parsed.netloc=='www.tpex.org.tw'
+        assert parsed.path.startswith('/www/zh-tw/')
+        assert not parsed.path.endswith('.html')
+        assert parse_qs(parsed.query)['response']==['json']
     with pytest.raises(ValueError,match='AT_LEAST_2'):
         c.RunOptions(interval_seconds=0).validate()
     now=datetime.now(ZoneInfo('Asia/Taipei')).strftime('%Y-%m')
