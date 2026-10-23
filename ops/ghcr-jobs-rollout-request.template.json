@@ -6,12 +6,12 @@
   "release_run": "38153154441",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "b3ecba5ea87bff8b7cdec0730ee857a611a71951",
+  "baseline_source_sha": "a80ac6ecdd1ce8f7f07295a8158ae6d540dea2e1",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:32c50462876f57dbc15d822352d6a54d9d3bd9f2741dfbc5ce980adfb1b00b31",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:32c50462876f57dbc15d822352d6a54d9d3bd9f2741dfbc5ce980adfb1b00b31",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:67366d049d6c16db77b2d9b121cad0f191ebb4b2b14503924928dd1b98e4d0d1",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:3be570fcd702cd990eff503177550531ae07b09b935a3562848964ad92583f42"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:d0d5868355070023d92e28fca50f72415bfa8d07c00f7b5055d250c012dcda69",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:d0d5868355070023d92e28fca50f72415bfa8d07c00f7b5055d250c012dcda69",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:e29274672aa3645384d2362d67c68de5fcbdaa1a680b0eb87d9db895ff02dd78",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:5e9b671506ac0744f91e339ea16fbb6f9c7e00283e334e39c19ca16a0c8fef4f"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
@@ -20,7 +20,7 @@
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
   "request_attempt": 0,
-  "safety": "INERT approved=false. Rollback maps match the versioned active baseline; every future explicit request must revalidate live images/config under the shared lease. This template never dispatches.",
+  "safety": "INERT approved=false. Mirrors verified previous Jobs rollback baseline; live sources/config are always re-read at use time.",
   "auth_boundary_run": "",
   "automated_oauth_requirement": "For a new release, require its own same-source authenticated candidate boundary run. Manual user OAuth consent is not an ordinary release gate."
 }
