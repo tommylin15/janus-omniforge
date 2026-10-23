@@ -149,5 +149,5 @@ def test_latest_active_and_inactive_remain_reversible():
 
 def test_wrong_symbol_does_not_mix_forecast():
     prior = product(today() - timedelta(days=1), candidate=True, symbol="2330")
-    with pytest.raises(ValueError, match="identity mismatch"):
+    with pytest.raises(ValueError, match="Risk roll-forward symbol/date/status mismatch"):
         AnalysisService(FakeRepository(product(today()), prior)).baseline("2327")
