@@ -10,6 +10,6 @@
   "api_run": "39885037268",
   "no_new_resources": true,
   "target_scope": "HELD_AND_WATCHLISTED_ORDINARY_SHARES",
-  "purpose": "Authorized Risk ACTIVE retry after #39885304415 halted before mutation on pip hash-mode conflict. Hash-pinned Mart requirements installed in separate pip phase, same source model and reversible GCS/PG switch; execute bounded selected-target canary.",
-  "request_attempt": 2
+  "purpose": "User-authorized Risk XGB ACTIVE retry: exact original model GCS hash, live 8 target union (6 ordinary 2 ETF/nonordinary), prior 2026-10-23 pre-EOD canary produced 0 due missing 8 feature as-of window. Reuse known valid completed 2026-10-21 Core acceptance EOD from historical real shadow proof; require >0 target predictions and PG active only afterwards.",
+  "request_attempt": 3
 }
