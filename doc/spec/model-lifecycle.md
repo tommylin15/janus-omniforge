@@ -4,6 +4,12 @@
 
 **本輪交付決策（2026-10-22）**：前四角色各自獨立 XGBoost Notebook；共用 Python 模組，不共用一份必須依序執行的訓練 Notebook。操作／AI 指令：[Quant 趨勢](../colab-models/01-quant-xgboost.md)、[Risk 風險](../colab-models/02-risk-xgboost.md)、[Fundamental 營運](../colab-models/03-fundamental-xgboost.md)、[Valuation 估值](../colab-models/04-valuation-xgboost.md)。Event 暫另議。本次僅文件完成，訓練與發布狀態仍依 TODO／實際收據。
 
+### 2026-10-23｜Quant Q1–Q3 因子／切片研究結果（僅研究狀態）
+
+- **已完成 `RESEARCH_EVALUATED`，未 promotion**：以 Stage 05.1／06 固定 Quant X/Y（807,948 原始列、473,378 筆合格模型樣本；X SHA `1b5c2cdd6f7b48427f81351ece2a855f4b97d44d89606ecd0f3fe29f5f8403ae`、Y SHA `e00b92ee1eb0d651b4baa5c28c2fa81dc9de6679b7e3e1b37a9a6ce1d1f44d5e`），執行 Q1 缺值與因子相關性、Q2 訓練期卡方／互資訊／每日 Spearman IC／Permutation、Q3 Logistic 固定參數的兩折成熟標籤 Purge 時間切片。這是與另份 Quant v3.6 真資料 OOS 收據**不同的研究 release/cohort**，不得混算績效。
+- **候選不是決策**：同 15 因子共同樣本 95,751 驗證列／56 交易日期群，F1 15 因子 Brier 0.251413；F14 排除 `ret60`、`ret120`、`ret20_market_rank` 後 12 因子 Brier 0.250311，但兩折平均 AUC 0.5333 低於 F1 0.5359。F14 native cohort Brier 0.255715，劣於同 cohort 盛行率基準 0.251595；20 日 moving-block bootstrap 95% CI 跨 0，僅為候選研究訊號。保持 F1 基準與 F14 Challenger，**不永久刪正式因子、不換模型、不寫 Registry/ACTIVE**。
+- **明確限制**：`ret20_market_rank` 橫截歷史母體 PIT、survivorship 與金融／非金融歷史有效會員資料未經驗證；Chi-square p-value 不代表獨立 OOS；2026-07/08 歷史測試曾檢視，不作本輪因子選組依據。Q4 前先診斷擴大早期 cohort 導致的績效退化；Q4 超參數／多模型調校仍未執行，且不因本研究自動納入 active TODO。
+- **證據入口**：[GitHub Quant Q1–Q3 研究收據](../../research/experiments/quant-q123-20261023.md)；[Drive 研究報告](https://drive.google.com/file/d/1jZJwnTrQQ8gwgIzvdYDo0Rpgx2uSxODy/view)；[Drive 成果包（程式、CSV、manifest）](https://drive.google.com/file/d/1p6ZvCU_kXgWvLmHXaM3jGIc0bAz1yp4f/view)。來源訓練發佈權、獨立 forward OOS、校準、train/serving parity 及 dev promotion 均未經本次驗收，保持 `publication_allowed=false`。
 ### 2026-10-23｜三模型 ChatGPT 試做與四模型跨 Job 快取決策
 
 **最新決策，覆蓋本文件較早的 Colab-only 步驟**：Drive `janusChatGPT/CoLab程式` 已有 `01_Quant趨勢_XGBoost.ipynb`、`03_Fundamental營運_XGBoost.ipynb`、`04_Valuation估值_XGBoost.ipynb`。三模型優先在 ChatGPT 可用 Python／研究執行環境試做，**不必使用 Colab**；Colab 保留選配。Notebook 存在與資料 `training_ready=True` 只表示可以試訓，不代表真實訓練、OOS、部署或 ACTIVE 已通過。Risk v1 的原模型/hash、現役發布與回滾狀態不因新試訓而改變。
@@ -142,6 +148,6 @@ horizon用市場交易日，非湊滿20筆有價觀測；停牌/退市導致終�
 8. 每月Admin只列每角色版本、有效樣本與成熟期、相對baseline、狀態/理由、建議動作；一般User只看可理解研究結果。
 
 ## 11. 交付與引用
-交付狀態：沿用 `00_資料收集.ipynb`；Drive 已有 Quant/Fundamental/Valuation 三份獨立 Notebook（尚未驗證 ChatGPT 真實 OOS/可部署），Risk v1 沿用既有模型與專用發布管線；共用 Python 模組/資料標籤 builders、bundle exporter/uploader、Mart 匯入/registry/shadow、批次推論、outcome/monthly evaluator及必要 Admin 呈現各按實際版本/測試與 dev 驗收判定。Event 另議；本節是交付契約，不冒充未驗證的 runtime 能力。
+交付狀態：沿用 `00_資料收集.ipynb`；Drive 已有 Quant/Fundamental/Valuation 三份獨立歷史 Notebook；Quant v3.6 回溯研究 OOS 與 Stage 05.1/06 Q1–Q3 研究比較均有獨立收據，但未完成正式獨立 OOS／可部署驗證，Fundamental/Valuation 仍依實際證據判定；Risk v1 沿用既有模型與專用發布管線；共用 Python 模組/資料標籤 builders、bundle exporter/uploader、Mart 匯入/registry/shadow、批次推論、outcome/monthly evaluator及必要 Admin 呈現各按實際版本/測試與 dev 驗收判定。Event 另議；本節是交付契約，不冒充未驗證的 runtime 能力。
 官方參考（2026-10-21查閱）：[Cloud Storage上傳與generation precondition](https://docs.cloud.google.com/storage/docs/samples/storage-upload-file)、[Cloud Run Jobs排程](https://docs.cloud.google.com/run/docs/execute/jobs-on-schedule)。Google提供機制不等於本專案已配置，驗收依runtime readback。
 
