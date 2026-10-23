@@ -1,5 +1,11 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-23｜ADMIN-SIMPLIFY 本地驗證，尚未發布
+
+- 4頁10功能、實用首頁、白話／詳情分層、日週月與手動批次、7日最新紀錄、啟停／暫停與個股修復入口集中。Controller 沿用既有互斥鎖／Job／依賴，手動佇列只領取指定 execution，不重做 Stage 清理。
+- Python Admin／Controller／dashboard **73 PASS、1 deselected**；既有 control／Mart queue **30 PASS**；Flutter 五份相關測試 **36 PASS**。Windows ASGI 路由測試因本地事件迴圈阻塞未取得結果，仍保留完整 Linux CI。靜態分析僅資訊級提示，依現有 CI 使用 `--no-fatal-infos`。
+- 未據此宣稱 live PASS：尚待完整 GHCR Release、同來源候選／auth／Jobs／API發布及登入操作驗收。API 喚醒 Controller 與 Controller 精確停止 execution 的兩項 IAM 前置尚未套用，範圍見 [Admin UI](../ui/admin.md)。
+
 ### 2026-10-23｜STAGE-48H Admin 六桶驗收 PASS／CLOSED
 
 - **根因與授權修復**：正式 dev API revision `janus-api-00589-bux`（100% traffic，GHCR source `253d9d37132f4ce6d77bb1e84d6d7dac4d905d01`）使用 `janus-user-api@gen-lang-client-0593591102.iam.gserviceaccount.com`。修復前真人觸發盤點 `2026-10-23T00:39:59.706489+00:00` 六桶皆為 HTTP 403／`bucket_metadata`。使用者明確授權後，僅在既有 Stage、Core、Mart、Private、Research、Cloud Build 六桶新增該身分的 `roles/storage.legacyBucketReader`，六桶 IAM policy 逐桶讀回 PASS；保留原 binding／conditions，不新增 object payload 下載、寫入或刪除權限。

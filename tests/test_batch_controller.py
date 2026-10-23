@@ -179,7 +179,7 @@ def test_live_tick_dispatches_nightly_private_when_afternoon_upstream_failed(mon
     record = Mock()
     monkeypatch.setattr(controller, "record", record)
     result = controller.run(now=datetime(2026, 10, 15, 13, 30, tzinfo=timezone.utc),
-                            control=SimpleNamespace(connection=db), session=session)
+                            control=SimpleNamespace(connection=db, get_admin_setting=lambda key: None), session=session)
     assert result["status"] == "tick_completed"
     assert session.post.call_count == 1
     assert session.post.call_args.args[0].endswith("/jobs/janus-private-pipeline:run")
@@ -258,7 +258,7 @@ def test_busy_controller_never_polls_or_dispatches(monkeypatch):
     monkeypatch.setenv("GCP_PROJECT_ID", PROJECT)
     connection = Mock()
     connection.execute.return_value.fetchone.return_value = (False,)
-    control = SimpleNamespace(connection=connection)
+    control = SimpleNamespace(connection=connection, get_admin_setting=lambda key: None)
     session = Mock()
     assert run(control=control, session=session)["status"] == "controller_busy"
     session.get.assert_not_called()
@@ -308,7 +308,7 @@ def test_idle_active_tick_is_recorded_without_dispatch(monkeypatch):
     monkeypatch.setattr(controller, "record", record)
     session = Mock()
     result = controller.run(now=datetime(2026, 10, 15, 15, 30, tzinfo=timezone.utc),
-                            control=SimpleNamespace(connection=connection), session=session)
+                            control=SimpleNamespace(connection=connection, get_admin_setting=lambda key: None), session=session)
     assert result["exported_events"] == 0
     assert result["iceberg_audit_disabled"] is True
     assert record.call_args.args[3]["execution"] == "idle-execution"
@@ -382,7 +382,7 @@ def test_old_pending_core_cleanup_waits_for_new_mart_dependency(monkeypatch):
     monkeypatch.setattr(controller, "record", record)
     session = Mock()
     controller.run(now=datetime(2026, 10, 2, 16, tzinfo=timezone.utc),
-                   control=SimpleNamespace(connection=connection), session=session)
+                   control=SimpleNamespace(connection=connection, get_admin_setting=lambda key: None), session=session)
     updates = [call.args for call in record.call_args_list if call.args[2] == key]
     assert [args[4] for args in updates] == ["dependency_policy_updated", "waiting_dependency"]
     assert updates[0][3]["dependencies"] == ["mart-cleanup/2026-10-02/23"]

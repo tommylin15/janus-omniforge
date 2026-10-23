@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 import sqlite3
 from typing import Any, Iterable
-from uuid import NAMESPACE_URL, uuid4, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 
 class ExecutionStatus(StrEnum):
@@ -779,7 +779,8 @@ class SQLiteControlPlane:
                 "publication_status": target, "reason": reason.strip(), "actor": actor.strip(), "updated_at": now}
 
     def claim_execution(self, worker_id: str, *, trigger_type: TriggerType | None = None,
-                        lease: timedelta = timedelta(minutes=5), now: datetime | None = None) -> Execution | None:
+                        lease: timedelta = timedelta(minutes=5), now: datetime | None = None,
+                        execution_id: str | None = None) -> Execution | None:
         if not worker_id.strip() or lease <= timedelta(0):
             raise ValueError("worker_id and a positive lease are required")
         point = now or utc_now()
@@ -790,6 +791,9 @@ class SQLiteControlPlane:
         if trigger_type is not None:
             clauses.append("trigger_type=?")
             values.append(trigger_type.value)
+        if execution_id is not None:
+            clauses.append("execution_id=?")
+            values.append(str(UUID(execution_id)))
         row = self.connection.execute(
             f"SELECT execution_id FROM executions WHERE {' AND '.join(clauses)} ORDER BY requested_at LIMIT 1",
             values,

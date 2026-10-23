@@ -1472,8 +1472,9 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         ))
 
     @admin.get("/source-health")
-    def admin_source_health(limit: int = Query(200, ge=1, le=200), cursor: str | None = Query(None)):
-        items = admin_service.source_health(limit=limit + 1, cursor=cursor)
+    def admin_source_health(limit: int = Query(200, ge=1, le=200), cursor: str | None = Query(None),
+                            active_only: bool = False):
+        items = admin_service.source_health(limit=limit + 1, cursor=cursor, **({"active_only": True} if active_only else {}))
         page = items[:limit]
         next_cursor = f'{page[-1]["source_id"]},{page[-1]["dataset_id"]}' if len(items) > limit else None
         return jsonable_encoder({"items": page, "limit": limit, "next_cursor": next_cursor})
@@ -1485,6 +1486,18 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @admin.get("/market-universe")
     def admin_market_universe():
         return jsonable_encoder(admin_service.full_market_snapshot())
+
+    @admin.get("/batch-dashboard")
+    def admin_batch_dashboard():
+        return jsonable_encoder(admin_service.batch_dashboard())
+
+    @admin.post("/batches/{name}/actions")
+    def admin_batch_action(name: str, payload: dict[str, Any] = Body(...),
+                           actor: str = Depends(admin_actor)):
+        if set(payload) - {"action", "expected_version", "occurrence_id"}:
+            raise AdminValidationError("unexpected batch action fields")
+        return jsonable_encoder(admin_service.batch_action(name, payload.get("action"),
+            payload.get("expected_version"), actor=actor, occurrence_id=payload.get("occurrence_id")))
 
     @admin.get("/batches")
     def admin_batches(days: int = Query(3, ge=1, le=31),

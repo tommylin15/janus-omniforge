@@ -31,6 +31,7 @@ class Batch:
     catch_up: bool = True
     # Explicit per-slot waiver, not a global bypass of data-readiness guards.
     independent_hours: tuple[int, ...] = ()
+    manual_only: bool = False
 
 
 BATCHES = (
@@ -73,6 +74,13 @@ BATCHES = (
     Batch("mart-cleanup", "janus-intelligence-mart", (23,), dependencies=("iceberg-compaction",),
           env=(("MART_OPERATION", "retention"), ("MART_RETENTION_MODE", "apply"), ("MART_AI_ENABLED", "false")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
+    Batch("collection-queue", "janus-ingestion-core", (0,), manual_only=True,
+          env=(("QUEUE_CONSUMER", "true"), ("MART_JOB", ""),
+               ("JANUS_DATA_SUPPLEMENT_MODE", ""), ("ICEBERG_MAINTENANCE_MODE", "")),
+          exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
+    Batch("analysis-queue", "janus-intelligence-mart", (0,), manual_only=True,
+          env=(("MART_OPERATION", "queue"), ("MART_AI_ENABLED", "false")),
+          exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
 )
 
 
@@ -158,6 +166,8 @@ def due_batches(now: datetime, batches=None):
         raise ValueError("duplicate batch names")
     result = []
     for batch in batches:
+        if batch.manual_only:
+            continue
         if not batch.hours or any(hour not in range(24) for hour in batch.hours) or len(set(batch.hours)) != len(batch.hours):
             raise ValueError("invalid batch hours")
         if any(day not in range(7) for day in batch.weekdays):
@@ -251,6 +261,10 @@ def poll_job(session, state):
     else:
         operation = _read(session, _identity(state["operation"], "operation"))
         if not operation.get("done"):
+            metadata = operation.get("metadata") or {}
+            if metadata.get("name"):
+                state = {**state, "execution": _identity(metadata["name"], "execution", state["job"]),
+                         **({"start_time": metadata["startTime"]} if metadata.get("startTime") else {})}
             return {**state, "status": "running"}
         if operation.get("error"):
             return {**state, "status": "failed", "reason": "cloud_run_operation_failed"}
@@ -271,7 +285,8 @@ def poll_job(session, state):
     failed_condition = any(condition.get("type") == "Completed" and condition.get("state") == "CONDITION_FAILED"
                            for condition in execution.get("conditions", []))
     succeeded = execution.get("succeededCount") == 1 and not execution.get("failedCount") and not execution.get("cancelledCount") and not failed_condition
-    return {**state, "status": "succeeded" if succeeded else "failed", "completion_time": execution.get("completionTime")}
+    return {**state, "status": "succeeded" if succeeded else "failed", "completion_time": execution.get("completionTime"),
+            **({"reason": "admin_stopped"} if execution.get("cancelledCount") and state.get("admin_stop_requested") else {})}
 
 
 def job_active(session, job):
@@ -397,10 +412,20 @@ def run(*, now=None, session=None, control=None):
                     updated = poll_backup(connection, state)
                 else:
                     updated = poll_job(session, state)
+                if updated.get("reason") == "admin_stopped" and updated.get("queued_execution_id"):
+                    with connection.transaction(), connection.cursor() as cursor:
+                        cursor.execute("""UPDATE control.executions SET status='failed',error_code='ADMIN_STOPPED',
+                            finished_at=now(),claimed_by=NULL,claimed_until=NULL WHERE execution_id=%s
+                            AND status IN ('running','retrying')""", (updated["queued_execution_id"],))
                 record(connection, tick, key, updated, "reconcile")
             except Exception:
                 # A read failure must never release the running-job fence.
                 record(connection, tick, key, state, "cloud_status_unavailable", update=False)
+        from .admin_batches import consume_requests, publish_runtime, enqueue_manual_queues
+        definitions = effective_batches()
+        paused = consume_requests(control, definitions, now, not_before, due_batches, occurrence_env, record, tick,
+                                  session, _identity, API)
+        enqueue_manual_queues(connection, definitions, paused, now, occurrence_env)
         mobile_pending: bool | None = False
         try:
             mobile_pending = bool(probe_mobile_ledger_queue(write=False)["pending"])
@@ -408,7 +433,7 @@ def run(*, now=None, session=None, control=None):
             mobile_pending = None
             record(connection, tick, "mobile-ledger", {"status": "unavailable"}, "mobile_queue_unavailable", update=False)
         for key, batch, slot, dependencies in scheduled_batches(now, mobile_pending is True):
-            if slot < not_before:
+            if slot < not_before or batch.name in paused:
                 continue
             state = {"job": batch.job, "batch": batch.name, "status": "pending", "dependencies": dependencies,
                      "scheduled_at": slot.isoformat(), "env": list(occurrence_env(batch, slot))}
@@ -428,6 +453,9 @@ def run(*, now=None, session=None, control=None):
                 record(connection, tick, key, {**state, "status": "skipped", "reason": "schedule_superseded"}, "schedule_superseded")
                 continue
             batch = batches[state["batch"]]
+            if batch.name in paused and state.get("origin") != "admin":
+                record(connection, tick, key, state, "admin_paused", update=False)
+                continue
             if batch.name == "market-screening":
                 setting = control.get_admin_setting("schedule")
                 if not setting or not isinstance(setting[0], dict):
@@ -447,13 +475,18 @@ def run(*, now=None, session=None, control=None):
                     continue
             dependencies = state["dependencies"]
             # Reconcile scheduled pending slots created before a dependency-policy change.
-            due_row = next((row for row in due_batches(datetime.fromisoformat(state["scheduled_at"])) if row[0] == key), None)
+            policy_time = state.get("source_slot") if state.get("origin") == "admin" else state["scheduled_at"]
+            policy_key = state.get("policy_key") if state.get("origin") == "admin" else key
+            due_row = ((key, batch, datetime.fromisoformat(policy_time), []) if batch.manual_only else
+                       next((row for row in due_batches(datetime.fromisoformat(policy_time)) if row[0] == policy_key), None))
             if due_row is None:
                 record(connection, tick, key, {**state, "status": "skipped", "reason": "schedule_superseded"},
                        "schedule_superseded")
                 continue
             dependencies = due_row[3]
             expected_env = list(occurrence_env(batch, due_row[2]))
+            if batch.manual_only and state.get("queued_execution_id"):
+                expected_env.append(("QUEUE_EXECUTION_ID", state["queued_execution_id"]))
             if dependencies != state["dependencies"] or state.get("env") != expected_env:
                 state = {**state, "dependencies": dependencies, "env": expected_env}
                 record(connection, tick, key, state, "dependency_policy_updated")
@@ -505,11 +538,17 @@ def run(*, now=None, session=None, control=None):
                     ])
                 operation = dispatch_job(session, batch, dispatch_env)
                 state = {**state, "status": "running", "operation": operation}
+                try:
+                    state = poll_job(session, state)
+                except Exception:
+                    # Retain the durable operation fence when immediate metadata is unavailable.
+                    pass
             except Exception:
                 state = {**state, "status": "ambiguous", "reason": "inspect_cloud_execution_before_manual_recovery"}
             record(connection, tick, key, state, "dispatch_result")
         record(connection, tick, "controller", {"status": "tick_completed", "model_calls": 0,
                "execution": os.environ.get("CLOUD_RUN_EXECUTION", "")}, "tick", update=False)
+        publish_runtime(connection, now, mode, not_before, definitions)
         return {"status": "tick_completed", "tick": tick, "exported_events": 0,
                 "iceberg_audit_disabled": True, "model_calls": 0}
     finally:

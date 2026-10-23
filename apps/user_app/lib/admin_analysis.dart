@@ -79,8 +79,12 @@ class _AdminAnalysisPageState extends State<AdminAnalysisPage> {
                             if (email.text.trim().isEmpty ||
                                 reason.text.trim().isEmpty ||
                                 v == null ||
-                                q == null || q < 0 || q > 50 ||
-                                c == null || c < 60 || c > 86400) return;
+                                q == null ||
+                                q < 0 ||
+                                q > 50 ||
+                                c == null ||
+                                c < 60 ||
+                                c > 86400) return;
                             Navigator.pop(context, {
                               'email': email.text.trim(),
                               'enabled': enabled,
@@ -258,20 +262,20 @@ class _AdminAnalysisPageState extends State<AdminAnalysisPage> {
         return ListView(padding: const EdgeInsets.all(16), children: [
           Row(children: [
             const Expanded(
-                child: Text('分析管理',
+                child: Text('模型與報告管理',
                     style:
                         TextStyle(fontSize: 22, fontWeight: FontWeight.bold))),
             IconButton(onPressed: reload, icon: const Icon(Icons.refresh))
           ]),
-          const Text('基準可用與模型品質分開呈現；尚未驗證的模型不能升級。'),
-          const Text('Provider auth／health 未取得即時證據時維持 NOT VERIFIED；未知成本不顯示 0。'),
+          const Text('檢視已保存的模型與報告；執行工作請到「批次」。'),
+          const Text('登入、品質或費用證據不足時會註明，不視為已通過。'),
           for (final item in fvRows(value['profiles']))
             Card(
                 child: ListTile(
                     title: Text(
                         '${fvMap(item)['profile_id']} · v${fvMap(item)['version']} · ${fvMap(item)['approved'] == true ? '已核准' : '未核准'}'),
                     subtitle: Text(
-                        '${fvMap(item)['route_json']}\n${fvMap(item)['reason']}'),
+                        '產生方式：${fvRows(fvMap(fvMap(item)['route_json'])['providers']).join(' → ')}\n${fvMap(item)['reason']}'),
                     trailing: TextButton(
                         onPressed: busy
                             ? null
@@ -309,7 +313,7 @@ class _AdminAnalysisPageState extends State<AdminAnalysisPage> {
                 subtitle: Text(
                     '${fvMap(item)['enabled'] == true ? '啟用' : '停用'} · 每日 ${fvMap(item)['daily_quota']} · 冷卻 ${fvMap(item)['cooldown_seconds']} 秒')),
           const Divider(),
-          const Text('Specialist persisted 基準／版本'),
+          const Text('已保存的模型與分析版本'),
           TextField(
               controller: testSymbol,
               decoration:
@@ -338,7 +342,7 @@ class _AdminAnalysisPageState extends State<AdminAnalysisPage> {
             ExpansionTile(
                 title: Text(
                     '${fvMap(item)['symbol']} · ${fvMap(item)['analysis_as_of']}'),
-                subtitle: const Text('模型品質 NOT VERIFIED；無自動 promotion'),
+                subtitle: const Text('展開查看各模型的已保存版本與狀態'),
                 children: [
                   for (final role in fvRows(
                       fvMap(fvMap(item)['payload_json'])['specialists']))
@@ -349,7 +353,7 @@ class _AdminAnalysisPageState extends State<AdminAnalysisPage> {
                             '${fvMap(role)['plain_language']}\n${fvMap(role)['engine_version']} / ${fvMap(role)['model_version']}')),
                 ]),
           const Divider(),
-          const Text('CEO 執行／usage／cost audit（不含私人交易內容）'),
+          const Text('報告執行與用量紀錄（不含私人交易內容）'),
           for (final item in fvRows(value['executions']))
             ExpansionTile(
                 title: Text(

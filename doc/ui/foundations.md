@@ -57,12 +57,10 @@
 
 - 總覽
 - 批次
-- 個股
-- 市場資訊
-- AI 分析
-- 資料治理
+- 資料品質
+- 系統設定
 
-原 `進階管理` placeholder 的目標名稱為 `資料治理`；程式尚未完成 rename 時視為 implementation gap，不改變 contract。
+四頁十功能及子項位置依 [Admin 最新契約](admin.md)。個股查修、來源與儲存歸資料品質；執行／補資料／重算歸批次；模型與低頻設定歸系統設定。
 
 - Desktop 可用 `NavigationRail`；窄螢幕用 `NavigationDrawer`／等價單選 navigation。
 - 右側一次只顯示目前功能面板，不把所有管理功能堆成單頁。

@@ -8,10 +8,21 @@
 
 | 優先 | 工作包 | 已完成 | 尚需完成 |
 |---|---|---|---|
+| **P0** | **ADMIN-SIMPLIFY｜操作與批次整包** | 2026-10-23 使用者授權全功能盤點、必要重構及整批修改／集中驗收；契約見 [Admin UI](ui/admin.md) 最新章節 | **IN_PROGRESS**：4頁10功能、首頁實用儀表板、白話與詳情分層、日週月／未啟用批次、最新7日紀錄與安全log、時間／耗時／逾期、統一啟停／重算入口；完成實作、targeted／完整CI、同來源dev發布與登入驗收才結案 |
 | **P1** | **A-CHANGE｜事實解讀與站內盤前盤後** | 方案、X/Y/時間契約與AI卡已定版；A1～A4 已啟動整合實作 | **集中 targeted/CI、既有 dev 發布與真實 API/UI 驗收；完成前維持 IN_PROGRESS** |
 | **P1** | **D07-PRE｜Colab／Drive 資料源** | 21 個月 r1 原始行情研究准入 PASS；Drive v3.1 `CURRENT.json` + 153 個 Parquet 月分區讀回、**格式整併 CLOSED**；v3.5 長期增量／TPEx 空日解析／完整安裝格已上傳原 Drive Notebook ID，原始官方回應＋跨年度本地 15/15 PASS，讀回 SHA256 一致；舊研究 GAS/GCP/BQ 退役 | **官方／第三方補收 PARTIAL：2026-10-22 Colab 官方 264 批最新報告僅剩 TPEx 估值 7 個未達標月（2024-10、2025-01～05、2026-02），v3.5 尚待 Colab 重新執行與品質報告／Parquet 讀回**；Risk 可試訓不等於模型 promotion，歷史 PIT／公司行動與授權／模型發布仍屬 D07 gate |
 | **P2** | **D07｜五分析師建模** | Risk XGBoost8 已完成 dev 模型候選上傳／SHA驗證、Core EOD/PIT日期修復、四 Jobs 可回滾部署與 **2026-10-21 真實 shadow 日批 1,720 檔 GCS 讀回 PASS**（[#39781316641](https://github.com/tommylin15/janus-omniforge/actions/runs/39781316641)）；Quant／Fundamental／Valuation 另行建模 | **Risk shadow 本項 CLOSED，不等於正式模型 ACTIVE**；有界公司行動／PIT 防洩漏、實際來源用途與訓練／serving parity、Registry CAS 及後續 API/UI ACTIVE 驗收仍在 D07；**新增前瞻20日成熟與全市場歷史PIT/公司行動完整度已依10/22決策移出首次等待 gate** |
 | **P3** | **D08｜CEO／Admin／Owner 報告** | 原 Gateway 技術驗證可重用 | **有效 Fact Pack → CEO 手動請求 → Gateway／validator → immutable 報告與 Owner UI／Admin 管理驗收** |
+
+## 2. ADMIN-SIMPLIFY｜整批修改後集中驗收
+
+2026-10-23：UI、API／Controller 與佇列限定執行已實作；本地 Python 73 項、既有佇列相容性30項及 Flutter 36項 PASS。Windows ASGI 路由測試因事件迴圈阻塞未取得結果，保留於 Linux 完整 CI 執行。尚待完整 Release、同來源部署及正向驗收；即時喚醒／停止所需兩項最小 IAM 變更見 [Admin UI](ui/admin.md)，尚未授權套用。
+
+- [ ] 依 [Admin UI 最新契約](ui/admin.md) 完成全功能盤點、保留／移除／合併，更新四頁十功能與白話操作。
+- [ ] 首頁以可操作的工作／資料健康／損益更新取代 Core／Mart 數量與 AI placeholder。
+- [ ] 批次按日／週／月／手動／未啟用階層呈現，最近7天每工作最新執行與安全log、時間、耗時及可信逾期判斷。
+- [ ] 統一手動收集／補資料／分析／重算／備份／清理入口，實作 allowlist／依賴／冪等／隔離／稽核的啟動、停止本次與暫停後續；不安全或未實作項目明示原因。
+- [ ] 完成相關回歸、手機／桌面、完整CI／同來源dev發布／回滾及登入Admin正向集中驗收，保留失敗與真實blocker，不因文件或build成功宣稱完成。
 
 ## 2A. A-CHANGE｜方案 A
 

@@ -832,7 +832,9 @@ def consume_queued_collection() -> dict[str, object]:
     worker_id = os.environ.get("QUEUE_WORKER_ID", os.environ.get("K_REVISION", "ingestion-core")).strip()
     max_retries = int(os.environ.get("QUEUE_MAX_RETRIES", "1"))
     with _control_plane() as control:
-        execution = control.claim_execution(worker_id, trigger_type=TriggerType.COLLECTION)
+        target = os.environ.get("QUEUE_EXECUTION_ID", "").strip()
+        execution = control.claim_execution(worker_id, trigger_type=TriggerType.COLLECTION,
+                                           **({"execution_id": target} if target else {}))
         if execution is None:
             return {"component": "ingestion-core", "status": "idle", "claimed": False}
         try:
@@ -842,7 +844,8 @@ def consume_queued_collection() -> dict[str, object]:
             completed, analysis = _finish_collection(control, execution.execution_id, summary)
             return {**summary, "status": completed.status.value, "claimed": True,
                     "analysis_execution_id": analysis.execution_id if analysis else None,
-                    "mart_trigger": _trigger_mart(analysis.execution_id if analysis else None)}
+                    "mart_trigger": ({"status": "queued_for_controller"} if target else
+                                     _trigger_mart(analysis.execution_id if analysis else None))}
         except Exception:
             retry_count = execution.retry_count + 1
             status = ExecutionStatus.RETRYING if retry_count <= max_retries else ExecutionStatus.FAILED

@@ -492,5 +492,16 @@ def build_admin_service():
             sslmode=os.environ.get("CONTROL_DB_SSLMODE", "require"), connect_timeout=5,
         )
 
+    def wake_batch_controller():
+        import google.auth
+        from google.auth.transport.requests import AuthorizedSession
+        credentials, _ = google.auth.default(scopes=("https://www.googleapis.com/auth/cloud-platform",))
+        response = AuthorizedSession(credentials).post(
+            "https://run.googleapis.com/v2/projects/gen-lang-client-0593591102/locations/us-central1/jobs/janus-batch-controller:run",
+            json={}, timeout=10)
+        if not 200 <= response.status_code < 300:
+            raise RuntimeError("batch controller wakeup unavailable")
+
     return AdminService(PostgreSQLControlPlane(connect), core=build_core_service(),
+                        batch_wake=wake_batch_controller,
                         maintenance_reader=lambda: _maintenance_evidence(int(datetime.now(timezone.utc).timestamp()) // 60))

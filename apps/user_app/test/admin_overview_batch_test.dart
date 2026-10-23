@@ -9,6 +9,8 @@ class _OperationsApi implements AdminApi {
 
   @override
   Future<dynamic> get(String path) async {
+    if (path == '/api/v1/admin/settings/data_readiness_ledger')
+      return <String, dynamic>{};
     if (path.startsWith('/api/v1/admin/batches'))
       return {'items': [], 'definitions': []};
     if (path == '/api/v1/admin/settings/data_supplement_quality')
@@ -61,7 +63,7 @@ class _OperationsApi implements AdminApi {
             'worker_task_index': 1,
             'attempt_count': 1,
             'safe_message': null,
-            'requested_at': '2026-10-07T00:00:00Z',
+            'requested_at': DateTime.now().toUtc().toIso8601String(),
             'started_at': '2026-10-07T00:00:01Z',
           }
         ],
@@ -84,7 +86,7 @@ class _OperationsApi implements AdminApi {
             'config_id': 'ohlcv',
             'trigger_type': 'collection',
             'status': 'partial',
-            'requested_at': '2026-09-29T10:00:00+00:00',
+            'requested_at': DateTime.now().toUtc().toIso8601String(),
           },
           {
             'execution_id': 'success-1',
@@ -92,12 +94,12 @@ class _OperationsApi implements AdminApi {
             'config_id': 'valuation',
             'trigger_type': 'collection',
             'status': 'succeeded',
-            'requested_at': '2026-09-29T09:00:00+00:00',
+            'requested_at': DateTime.now().toUtc().toIso8601String(),
           },
         ],
       };
     }
-    if (path == '/api/v1/admin/source-health?limit=200') {
+    if (path == '/api/v1/admin/source-health?limit=200&active_only=true') {
       return {
         'items': [
           {
@@ -161,12 +163,12 @@ class _OperationsApi implements AdminApi {
             {
               'execution_id': 'failed-1',
               'status': 'partial',
-              'requested_at': '2026-09-29T10:00:00+00:00',
+              'requested_at': DateTime.now().toUtc().toIso8601String(),
             },
             {
               'execution_id': 'retry-1',
               'status': 'queued',
-              'requested_at': '2026-09-29T10:05:00+00:00',
+              'requested_at': DateTime.now().toUtc().toIso8601String(),
             },
           ],
         },
@@ -236,11 +238,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('優先處理'), findsOneWidget);
-    expect(find.textContaining('ohlcv · 部分完成'), findsOneWidget);
-    expect(find.textContaining('twse · ohlcv'), findsOneWidget);
+    expect(find.textContaining('每日股價與成交量 · 部分完成'), findsOneWidget);
+    expect(find.textContaining('證交所 · 每日股價與成交量'), findsOneWidget);
     expect(find.textContaining('2330 · 已阻擋'), findsOneWidget);
     expect(find.textContaining('valuation ·'), findsNothing);
-    expect(find.text('正常 execution 不會佔用此區塊'), findsOneWidget);
+    expect(find.textContaining('以下是最近50筆執行'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -286,10 +288,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Private Pipeline · 成功'), findsOneWidget);
-    expect(find.textContaining('checkpoint 120 · 最新 change 123 · 待處理 3'), findsOneWidget);
-    expect(find.textContaining('最新 ledger version 9 · 估值日 2026-10-05 · lag 1 天'), findsOneWidget);
-    expect(find.textContaining('不顯示交易、持股或 user-to-symbol 關係'), findsOneWidget);
+    expect(find.text('損益更新 · 成功'), findsOneWidget);
+    await tester.tap(find.text('損益更新 · 成功'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('checkpoint 120 · 最新 change 123 · 待處理 3'),
+        findsOneWidget);
+    expect(
+        find.textContaining('最新 ledger version 9 · 估值日 2026-10-05 · lag 1 天'),
+        findsOneWidget);
+    expect(find.textContaining('不顯示交易或持股內容'), findsOneWidget);
     expect(find.text('執行中 1 · 排隊 0'), findsOneWidget);
     expect(find.textContaining('owner 00000000 · 執行中'), findsOneWidget);
     expect(find.textContaining('worker 1'), findsOneWidget);
@@ -297,7 +304,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('private-recalc-workers')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('4 workers').last);
+    await tester.tap(find.text('同時 4 筆').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('套用並行數'));
     await tester.pumpAndSettle();

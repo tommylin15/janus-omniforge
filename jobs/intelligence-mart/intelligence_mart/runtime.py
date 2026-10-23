@@ -10,6 +10,7 @@ import json
 import os
 from typing import Any, Callable
 from urllib.parse import urlparse
+from uuid import UUID
 
 
 _DATABASES = {
@@ -45,18 +46,33 @@ class AnalysisExecution:
 class PostgreSQLAnalysisQueue:
     """Lease one persisted analysis execution without broad control-plane access."""
 
-    def __init__(self, connection: Any) -> None:
+    def __init__(self, connection: Any, *, execution_id: str | None = None) -> None:
         self.connection = connection
+        self.execution_id = str(UUID(execution_id)) if execution_id else None
 
     def claim(self, worker_id: str, *, lease_seconds: int = 300) -> AnalysisExecution | None:
         if not worker_id.strip() or lease_seconds <= 0:
             raise ValueError("worker_id and a positive lease are required")
         with self.connection.transaction(), self.connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT * FROM control.claim_mart_analysis(%s,%s)",
-                (worker_id.strip(), lease_seconds),
-            )
-            row = cursor.fetchone()
+            if self.execution_id:
+                cursor.execute("""SELECT execution_id::text,config_id,requested_symbols,retry_count,request_options,status
+                    FROM control.executions WHERE execution_id=%s::uuid AND trigger_type='analysis'
+                    AND status IN ('queued','retrying','running')
+                    AND (claimed_until IS NULL OR claimed_until < now()) FOR UPDATE SKIP LOCKED""", (self.execution_id,))
+                selected = cursor.fetchone()
+                if not selected:
+                    return None
+                first_start = ",started_at=now()" if selected[5] == "queued" else ""
+                cursor.execute("UPDATE control.executions SET status='running',claimed_by=%s,"
+                    "claimed_until=now()+(%s * interval '1 second')" + first_start + " WHERE execution_id=%s::uuid",
+                    (worker_id.strip(), lease_seconds, self.execution_id))
+                row = selected[:5]
+            else:
+                cursor.execute(
+                    "SELECT * FROM control.claim_mart_analysis(%s,%s)",
+                    (worker_id.strip(), lease_seconds),
+                )
+                row = cursor.fetchone()
         return AnalysisExecution(row[0], row[1], tuple(row[2]), row[3], row[4]) if row else None
 
     def transition(self, execution_id: str, worker_id: str, status: str, *,
@@ -218,7 +234,7 @@ def run_queued_analysis() -> dict[str, object]:
         options="-c statement_timeout=15000 -c idle_in_transaction_session_timeout=15000",
     ) as connection:
         return consume_queued_analysis(
-            PostgreSQLAnalysisQueue(connection), lambda execution: mart_processor(execution, connection),
+            PostgreSQLAnalysisQueue(connection, execution_id=os.environ.get("QUEUE_EXECUTION_ID") or None), lambda execution: mart_processor(execution, connection),
             worker_id=os.environ.get("QUEUE_WORKER_ID", "intelligence-mart").strip(),
             max_retries=int(os.environ.get("QUEUE_MAX_RETRIES", "1")),
         )

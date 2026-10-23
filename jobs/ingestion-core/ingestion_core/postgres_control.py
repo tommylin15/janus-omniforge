@@ -494,11 +494,14 @@ class PostgreSQLControlPlane:
                 "updated_at": row[1]}
 
     def claim_execution(self, worker_id: str, *, trigger_type: TriggerType | None = None,
-                        lease: timedelta = timedelta(minutes=5)) -> Execution | None:
+                        lease: timedelta = timedelta(minutes=5), execution_id: str | None = None) -> Execution | None:
         if not worker_id.strip() or lease <= timedelta(0):
             raise ValueError("worker_id and a positive lease are required")
         trigger_clause = " AND trigger_type=%s" if trigger_type is not None else ""
-        parameters: tuple[Any, ...] = ((trigger_type.value,) if trigger_type is not None else ()) + (worker_id.strip(), f"{int(lease.total_seconds())} seconds")
+        if execution_id is not None:
+            execution_id = str(UUID(execution_id))
+        trigger_clause += " AND execution_id=%s::uuid" if execution_id else ""
+        parameters: tuple[Any, ...] = ((trigger_type.value,) if trigger_type is not None else ()) + ((execution_id,) if execution_id else ()) + (worker_id.strip(), f"{int(lease.total_seconds())} seconds")
         with self._tx() as cur:
             cur.execute(f"""WITH candidate AS (SELECT execution_id FROM control.executions WHERE status IN ('queued','retrying','running') AND (claimed_until IS NULL OR claimed_until < now()){trigger_clause} ORDER BY requested_at FOR UPDATE SKIP LOCKED LIMIT 1)
                 UPDATE control.executions e SET status='running',claimed_by=%s,claimed_until=now()+%s::interval,started_at=COALESCE(started_at,now()) FROM candidate WHERE e.execution_id=candidate.execution_id RETURNING e.execution_id""", parameters)
@@ -631,6 +634,17 @@ class PostgreSQLControlPlane:
                              OR (scheduled_at = %s AND occurrence_id < %s))
                            ORDER BY scheduled_at DESC,occurrence_id DESC LIMIT %s""",
                         (since, until, until, before_id, limit))
+            return [dict(zip(("occurrence_id", "scheduled_at", "updated_at", "state"), row))
+                    for row in cur.fetchall()]
+
+    def latest_admin_batches(self, since: datetime, until: datetime) -> list[dict[str, Any]]:
+        with self.connection.cursor() as cur:
+            cur.execute("""SELECT DISTINCT ON (state->>'batch')
+                               occurrence_id,scheduled_at,updated_at,state
+                           FROM control.batch_occurrences
+                           WHERE scheduled_at >= %s AND scheduled_at <= %s
+                           ORDER BY state->>'batch',scheduled_at DESC,occurrence_id DESC""",
+                        (since, until))
             return [dict(zip(("occurrence_id", "scheduled_at", "updated_at", "state"), row))
                     for row in cur.fetchall()]
 

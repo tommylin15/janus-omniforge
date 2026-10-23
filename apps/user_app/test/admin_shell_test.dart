@@ -11,7 +11,7 @@ class _ShellApi implements AdminApi {
     if (path == '/api/v1/admin/executions?limit=50') {
       return {'items': <dynamic>[]};
     }
-    if (path == '/api/v1/admin/source-health?limit=200') {
+    if (path == '/api/v1/admin/source-health?limit=200&active_only=true') {
       return {
         'items': [
           {
@@ -37,13 +37,30 @@ class _ShellApi implements AdminApi {
       return <String, dynamic>{
         'status': 'KNOWN_BUCKETS_COMPLETE',
         'observed_at_utc': '2026-10-20T00:00:00Z',
-        'totals': <String, dynamic>{'current_bytes': 250, 'current_objects': 2, 'noncurrent_bytes': 0, 'soft_deleted_bytes': 0},
+        'totals': <String, dynamic>{
+          'current_bytes': 250,
+          'current_objects': 2,
+          'noncurrent_bytes': 0,
+          'soft_deleted_bytes': 0
+        },
         'buckets': <Map<String, dynamic>>[
-          {'role': 'stage', 'status': 'OBSERVED', 'current_bytes': 100,
-           'current_objects': 1, 'noncurrent_bytes': 0, 'soft_deleted_bytes': 0,
-           'possible_same_md5_extra_bytes': 0},
-          {'role': 'core', 'status': 'OBSERVED', 'current_bytes': 150,
-           'current_objects': 1, 'noncurrent_bytes': 0, 'soft_deleted_bytes': 0},
+          {
+            'role': 'stage',
+            'status': 'OBSERVED',
+            'current_bytes': 100,
+            'current_objects': 1,
+            'noncurrent_bytes': 0,
+            'soft_deleted_bytes': 0,
+            'possible_same_md5_extra_bytes': 0
+          },
+          {
+            'role': 'core',
+            'status': 'OBSERVED',
+            'current_bytes': 150,
+            'current_objects': 1,
+            'noncurrent_bytes': 0,
+            'soft_deleted_bytes': 0
+          },
         ],
       };
     }
@@ -127,18 +144,20 @@ void main() {
     expect(find.text('系統設定'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('Admin Storage has one-click readonly GCS inventory and labels MD5 as potential only',
+  testWidgets(
+      'Admin Storage has one-click readonly GCS inventory and labels MD5 as potential only',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     await tester.pumpWidget(MaterialApp(
-        home: Scaffold(body: AdminGovernancePage(_ShellApi(), section: 'storage'))));
+        home: Scaffold(
+            body: AdminGovernancePage(_ShellApi(), section: 'storage'))));
     await tester.pumpAndSettle();
     final button = find.byKey(const ValueKey('admin-gcs-inventory-button'));
     expect(button, findsOneWidget);
     await tester.tap(button);
     await tester.pumpAndSettle();
-    expect(find.textContaining('KNOWN_BUCKETS_COMPLETE'), findsOneWidget);
+    expect(find.textContaining('六桶盤點完成'), findsOneWidget);
     expect(find.textContaining('六桶合計：0.00 MB'), findsOneWidget);
     expect(find.textContaining('MD5 疑似重複 0.00 MB（不可直接刪除）'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -170,19 +189,27 @@ void main() {
             .destinations,
         hasLength(4));
   });
-  test('Admin GCS MB presentation groups amounts without fabricating nulls', () {
+  test('Admin GCS MB presentation groups amounts without fabricating nulls',
+      () {
     expect(formatAdminStorageMb(785411117), '785.41 MB');
     expect(formatAdminStorageMb(1234567890), '1,234.57 MB');
     expect(formatAdminStorageMb(0), '0.00 MB');
     expect(formatAdminStorageMb(null), '未知');
     expect(formatAdminStorageCount(1234567), '1,234,567');
     expect(formatAdminStorageCount(null), '未知');
-    expect(adminStorageTotalBytes({
-      'current_bytes': 782661499, 'noncurrent_bytes': 2749618, 'soft_deleted_bytes': 0
-    }), 785411117);
-    expect(adminStorageTotalBytes({
-      'current_bytes': 10, 'noncurrent_bytes': null, 'soft_deleted_bytes': 0
-    }), isNull);
+    expect(
+        adminStorageTotalBytes({
+          'current_bytes': 782661499,
+          'noncurrent_bytes': 2749618,
+          'soft_deleted_bytes': 0
+        }),
+        785411117);
+    expect(
+        adminStorageTotalBytes({
+          'current_bytes': 10,
+          'noncurrent_bytes': null,
+          'soft_deleted_bytes': 0
+        }),
+        isNull);
   });
-
 }

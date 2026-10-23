@@ -58,7 +58,8 @@ class _WorkbenchApi implements AdminApi {
         ],
       };
     }
-    if (path == '/api/v1/admin/mart-reports?scope_type=symbol&scope_id=2330&limit=50') {
+    if (path ==
+        '/api/v1/admin/mart-reports?scope_type=symbol&scope_id=2330&limit=50') {
       return {
         'items': [
           {
@@ -127,7 +128,8 @@ void main() {
     expect(find.textContaining('2330 台積電'), findsOneWidget);
   });
 
-  testWidgets('stock workbench exposes bounded gap repair and read-only lineage',
+  testWidgets(
+      'stock workbench exposes bounded gap repair and read-only lineage',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(1280, 1000));
@@ -143,21 +145,10 @@ void main() {
     expect(find.text('資料健康'), findsOneWidget);
     expect(find.textContaining('覆蓋 0/1 · 缺口 1'), findsOneWidget);
     expect(find.text('重新分析'), findsNothing);
-    expect(find.text('Specialist／CEO 分析尚未啟用'), findsOneWidget);
+    expect(find.text('Specialist／CEO 分析尚未啟用'), findsNothing);
 
-    final repair = find.widgetWithText(FilledButton, '修復');
-    expect(repair, findsOneWidget);
-    await tester.tap(repair);
-    await tester.pumpAndSettle();
-
-    expect(api.writes, hasLength(1));
-    expect(api.writes.single['path'], '/api/v1/admin/executions/collection');
-    expect(api.writes.single['config_id'], 'valuation');
-    expect(api.writes.single['symbols'], ['2330']);
-    expect(
-      api.writes.any((write) => write['config_id'] == 'valuation-blocked'),
-      isFalse,
-    );
+    expect(find.widgetWithText(FilledButton, '到批次補資料'), findsOneWidget);
+    expect(api.writes, isEmpty);
 
     await tester.scrollUntilVisible(
       find.text('技術追蹤（唯讀）'),

@@ -36,11 +36,12 @@ class AdminService:
     RETRYABLE_ERRORS = frozenset({"timeout", "rate_limited", "transient", "unavailable"})
 
     def __init__(self, control: Any, *, core: Any | None = None, schedule_sync: Any | None = None,
-                 maintenance_reader: Any | None = None) -> None:
+                 maintenance_reader: Any | None = None, batch_wake: Any | None = None) -> None:
         self.control = control
         self.core = core
         self.schedule_sync = schedule_sync
         self.maintenance_reader = maintenance_reader
+        self.batch_wake = batch_wake
 
     def stocks(self, query: str = "", *, enabled: bool | None = None, limit: int = 50,
                cursor: str | None = None) -> tuple[dict[str, Any], ...]:
@@ -146,18 +147,32 @@ class AdminService:
         retried = self.control.enqueue_collection(
             execution.config_id, symbols, trace_id=execution.trace_id, request_options=options,
         )
+        self._notify_batch_controller()
         return {"execution": self._execution(retried), "retried_item_key": item.item_key,
                 "previous_execution_id": execution.execution_id}
 
     def enqueue_collection(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None,
                            request_options: dict[str, Any] | None = None) -> dict[str, Any]:
         options = self._collection_options(request_options or {})
-        return self._execution(self.control.enqueue_collection(
+        result = self._execution(self.control.enqueue_collection(
             config_id, symbols, trace_id=trace_id, request_options=options,
         ))
+        result["dispatch_status"] = self._notify_batch_controller()
+        return result
 
     def enqueue_analysis(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None) -> dict[str, Any]:
-        return self._execution(self.control.enqueue_analysis(config_id, symbols, trace_id=trace_id))
+        result = self._execution(self.control.enqueue_analysis(config_id, symbols, trace_id=trace_id))
+        result["dispatch_status"] = self._notify_batch_controller()
+        return result
+
+    def _notify_batch_controller(self) -> str:
+        if self.batch_wake is None:
+            return "not_configured"
+        try:
+            self.batch_wake()
+            return "requested"
+        except Exception:
+            return "unconfirmed"
 
     def mart_reports(self, *, analysis_as_of: str = "", scope_type: str = "", scope_id: str = "",
                      role: str = "", prompt_version: str = "", analysis_outcome: str = "",
@@ -203,7 +218,8 @@ class AdminService:
             raise AdminValidationError("actor is required")
         return self.control.review_mart_report(execution_id, scope_type, scope_id, action, reason, actor)
 
-    def source_health(self, *, limit: int = 200, cursor: str | None = None) -> tuple[dict[str, Any], ...]:
+    def source_health(self, *, limit: int = 200, cursor: str | None = None,
+                      active_only: bool = False) -> tuple[dict[str, Any], ...]:
         """Return persisted telemetry only; this method never calls an upstream source."""
         if not 1 <= limit <= 201:
             raise AdminValidationError("limit must be between 1 and 201")
@@ -215,7 +231,16 @@ class AdminService:
                     raise ValueError
             except (AttributeError, ValueError) as error:
                 raise AdminValidationError("source health cursor is invalid") from error
-        return tuple(self.control.source_health_summary(limit=limit, after=after))
+        rows = self.control.source_health_summary(limit=limit, after=after)
+        if active_only:
+            configs = self.control.list_collection_configs(limit=201)
+            if len(configs) > 200:
+                raise AdminValidationError("active source catalog exceeds bounded inventory")
+            active = {(source, config.dataset_id) for config in configs
+                      if config.enabled and config.collection_enabled
+                      for source in config.source_ids}
+            rows = [row for row in rows if (row["source_id"], row["dataset_id"]) in active]
+        return tuple(rows)
 
     def collection_configs(self, *, limit: int = 200, cursor: str | None = None) -> tuple[dict[str, Any], ...]:
         if not 1 <= limit <= 201:
@@ -370,6 +395,8 @@ class AdminService:
         return changes
 
     def save_setting(self, key: str, value: Any, *, actor: str, expected_version: int | None = None) -> dict[str, Any]:
+        if key == "batch_controller_runtime" or key.startswith("batch_control:"):
+            raise AdminValidationError("batch runtime and controls require the batch API")
         if not isinstance(actor, str) or not actor.strip():
             raise AdminValidationError("actor is required")
         if key.startswith("source_review:"):
@@ -475,6 +502,73 @@ class AdminService:
                 "truncated": len(rows) > limit,
                 "next_before_id": rows[limit - 1]["occurrence_id"] if len(rows) > limit else None,
                 "next_until": rows[limit - 1]["scheduled_at"] if len(rows) > limit else None}
+
+    def batch_dashboard(self) -> dict[str, Any]:
+        from .batch_dashboard import TASKS, dashboard
+        from ingestion_core.batch_controller import BATCHES
+        jobs = {batch.name: batch.job for batch in BATCHES}
+        now = datetime.now(timezone.utc)
+        runtime = self.control.get_admin_setting("batch_controller_runtime")
+        reader = getattr(self.control, "latest_admin_batches", None)
+        # Retain last month's completion proof for cadence checks; UI logs still stop at seven days.
+        rows = reader(now - timedelta(days=32), now) if reader else []
+        latest = {}
+        for row in rows:
+            state = row["state"]
+            name = state.get("batch")
+            if name not in TASKS:
+                continue
+            latest[name] = {key: row.get(key) for key in ("occurrence_id", "scheduled_at", "updated_at")}
+            latest[name].update({key: state.get(key) for key in (
+                "status", "start_time", "completion_time", "duration_seconds", "reason")})
+            latest[name]["can_cancel_execution"] = bool(state.get("execution") and
+                state.get("job") == jobs.get(name)
+                and name != "ledger-backup")
+        settings = {name: self.control.get_admin_setting("batch_control:" + name) or ({}, 0) for name in TASKS}
+        return dashboard(runtime[0] if runtime else {}, latest, settings, now)
+
+    def batch_action(self, name: str, action: str, version: int, *, actor: str,
+                     occurrence_id: str | None = None) -> dict[str, Any]:
+        from .batch_dashboard import TASKS
+        if name not in TASKS or not isinstance(action, str) or action not in {"start", "stop", "pause", "resume"}:
+            raise AdminValidationError("unsupported batch action")
+        if isinstance(version, bool) or not isinstance(version, int) or version < 0:
+            raise AdminValidationError("invalid control version")
+        if not actor or not actor.strip():
+            raise AdminValidationError("actor is required")
+        row = next(item for item in self.batch_dashboard()["items"] if item["name"] == name)
+        if version != row["control_version"]:
+            raise AdminConflictError("batch control changed; reload")
+        if action == "start" and not row["can_start"]:
+            raise AdminValidationError("controller schedule is not verified")
+        if action == "stop" and (not row["can_stop"] or
+                                 occurrence_id != row["latest"]["occurrence_id"]):
+            raise AdminConflictError("only the selected safely identified occurrence can be stopped")
+        current = self.control.get_admin_setting("batch_control:" + name)
+        value = dict(current[0]) if current else {"paused": False}
+        if value.get("action") in {"start", "stop"} and value.get("processed_version") != version:
+            raise AdminConflictError("previous batch request is awaiting the controller")
+        if occurrence_id is not None and (not isinstance(occurrence_id, str) or len(occurrence_id) > 200):
+            raise AdminValidationError("invalid occurrence identity")
+        value.update(action=action, requested_at=datetime.now(timezone.utc).isoformat(),
+                     occurrence_id=occurrence_id)
+        if action in {"pause", "resume"}:
+            value["paused"] = action == "pause"
+        saved = self.control.put_admin_setting("batch_control:" + name, value,
+                    actor=actor, expected_version=version, audit_resource="batch_control",
+                    audit_detail={"action": action, "occurrence_id": occurrence_id})
+        wake_status = "not_configured"
+        if self.batch_wake is not None:
+            try:
+                self.batch_wake()
+                wake_status = "requested"
+            except Exception:
+                # An uncertain wakeup never replays the saved batch request.
+                wake_status = "unconfirmed"
+        return {"status": "requested", "version": saved,
+                "wake_status": wake_status,
+                "message": ("請求已保存，已通知總控；請重新整理查看實際結果。" if wake_status == "requested" else
+                    "請求已保存，但即時通知總控尚未確認；會由下次總控掃描處理，尚未代表工作已執行。")}
 
     def data_governance(self) -> dict[str, Any]:
         from ingestion_core.retention import POLICY

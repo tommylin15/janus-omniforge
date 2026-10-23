@@ -15,7 +15,13 @@ class FakeApi extends Api {
     if (path.startsWith('/api/v1/admin/batches'))
       return {'items': [], 'definitions': []};
     reads.add(path);
-    if (path == '/api/v1/admin/operational-summary' || path.contains('/visual-series?')) return values[path] ?? <String,dynamic>{};
+    if (path == '/api/v1/admin/batch-dashboard')
+      return {'items': [], 'controller_fresh': false};
+    if (path == '/api/v1/admin/settings/data_readiness_ledger')
+      return values[path] ?? <String, dynamic>{};
+    if (path == '/api/v1/admin/operational-summary' ||
+        path.contains('/visual-series?'))
+      return values[path] ?? <String, dynamic>{};
     if (pendingReads.containsKey(path)) return pendingReads[path]!;
     if (path == '/api/v1/me/portfolio/quotes') {
       return {
@@ -112,51 +118,13 @@ void main() {
         isTrue);
   });
 
-  testWidgets('admin previews the scheduled market list separately',
-      (tester) async {
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.binding.setSurfaceSize(const Size(1280, 1200));
-    final api = FakeApi({
-      '/api/v1/admin/market-universe': {
-        'current': {'status': 'missing', 'version': 0, 'items': []},
-        'upcoming': {
-          'status': 'available',
-          'version': 1,
-          'week_start': '2026-09-21',
-          'effective_from': '2026-09-29T00:00:00+08:00',
-          'entered': ['2330'],
-          'exited': [],
-          'items': [
-            {
-              'rank': 1,
-              'symbol': '2330',
-              'name': '台積電',
-              'market': 'TWSE',
-              'volume_shares': 10
-            }
-          ],
-        },
-      },
-    });
-    await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: AdminMarketUniversePage(api))));
-    await tester.pumpAndSettle();
-    expect(find.text('即將生效名單'), findsOneWidget);
-    expect(find.textContaining('即將生效 · 第 1 版'), findsOneWidget);
-    expect(find.textContaining('台積電 2330'), findsOneWidget);
-    await tester.tap(find.text('目前有效名單'));
-    await tester.pumpAndSettle();
-    expect(find.text('目前尚無有效名單'), findsOneWidget);
-    expect(find.text('手動換股'), findsNothing);
-  });
-
   testWidgets('admin shell shows actionable overview and desktop navigation',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(1280, 800));
     final api = FakeApi({
       '/api/v1/admin/executions?limit=50': {'items': []},
-      '/api/v1/admin/source-health?limit=200': {
+      '/api/v1/admin/source-health?limit=200&active_only=true': {
         'items': [
           {'source_id': 'twse', 'dataset_id': 'ohlcv', 'last_state': 'success'}
         ]
@@ -171,7 +139,7 @@ void main() {
     for (final label in ['總覽', '批次', '資料品質', '系統設定']) {
       expect(find.text(label), findsWidgets);
     }
-    expect(find.text('今日沒有需要處理的事項'), findsOneWidget);
+    expect(find.text('目前查詢範圍內沒有異常'), findsOneWidget);
     expect(find.byType(NavigationRail), findsOneWidget);
     await tester.binding.setSurfaceSize(const Size(360, 800));
     await tester.pumpAndSettle();
@@ -179,7 +147,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('stock workbench reads persisted health and analysis',
+  testWidgets('stock workbench reads health without duplicate analysis history',
       (tester) async {
     final api = FakeApi({
       '/api/v1/admin/stocks?q=&limit=10': {
@@ -215,14 +183,10 @@ void main() {
     await tester.tap(find.textContaining('2330 台積電'));
     await tester.pumpAndSettle();
     expect(find.text('資料健康'), findsOneWidget);
-    expect(find.text('ohlcv'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('歷史分析'),
-      200,
-      scrollable: find.byType(Scrollable).last,
-    );
-    expect(find.text('歷史分析'), findsOneWidget);
-    expect(find.textContaining('2026-09-20'), findsOneWidget);
+    expect(find.text('每日股價與成交量'), findsOneWidget);
+    expect(find.text('歷史分析'), findsNothing);
+    expect(
+        api.reads.where((path) => path.contains('scope_type=symbol')), isEmpty);
   });
 
   testWidgets('batch retries only an explicitly retryable failed item',
@@ -235,7 +199,7 @@ void main() {
             'config_id': 'ohlcv',
             'trigger_type': 'collection',
             'status': 'partial',
-            'requested_at': '2026-09-20'
+            'requested_at': DateTime.now().toUtc().toIso8601String()
           }
         ]
       },
@@ -325,20 +289,27 @@ void main() {
     expect(result!.containsKey('tax'), isFalse);
   });
 
-  testWidgets('transaction search starts with one character and rejects unselected text',
+  testWidgets(
+      'transaction search starts with one character and rejects unselected text',
       (tester) async {
     Map<String, dynamic>? result;
     final api = FakeApi({
       '/api/v1/me/journal/instruments?q=%E5%85%83': {
-        'items': [{'symbol': '00719B', 'stock_name': '元大美債1-3'}]
+        'items': [
+          {'symbol': '00719B', 'stock_name': '元大美債1-3'}
+        ]
       },
     });
-    await tester.pumpWidget(MaterialApp(home: Builder(builder: (context) =>
-      FilledButton(onPressed: () async {
-        result = await transactionDialog(context, api: api, initial: {
-          'shares': '1', 'price': '100',
-        });
-      }, child: const Text('開啟')))));
+    await tester.pumpWidget(MaterialApp(
+        home: Builder(
+            builder: (context) => FilledButton(
+                onPressed: () async {
+                  result = await transactionDialog(context, api: api, initial: {
+                    'shares': '1',
+                    'price': '100',
+                  });
+                },
+                child: const Text('開啟')))));
     await tester.tap(find.text('開啟'));
     await tester.pumpAndSettle();
     final field = find.widgetWithText(TextFormField, '股票代號或名稱');
@@ -348,12 +319,17 @@ void main() {
     await tester.tap(find.text('元大美債1-3（00719B）'));
     await tester.pumpAndSettle();
     final olderSearch = Completer<dynamic>();
-    api.pendingReads['/api/v1/me/journal/instruments?q=%E5%8F%B0'] = olderSearch.future;
+    api.pendingReads['/api/v1/me/journal/instruments?q=%E5%8F%B0'] =
+        olderSearch.future;
     await tester.enterText(field, '台');
     await tester.pump();
     await tester.enterText(field, '錯誤名稱');
     await tester.pumpAndSettle();
-    olderSearch.complete({'items': [{'symbol': '2330', 'stock_name': '台積電'}]});
+    olderSearch.complete({
+      'items': [
+        {'symbol': '2330', 'stock_name': '台積電'}
+      ]
+    });
     await tester.pumpAndSettle();
     expect(find.text('台積電（2330）'), findsNothing);
     await tester.tap(find.text('儲存'));
