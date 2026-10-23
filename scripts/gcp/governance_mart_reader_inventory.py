@@ -46,6 +46,9 @@ def code_references():
             if not path.is_file() or path.suffix not in SUFFIXES:
                 continue
             rel = path.relative_to(ROOT)
+            # The inventory's own table-name allowlist is NOT a business reader.
+            if path.resolve() == Path(__file__).resolve():
+                continue
             if any(segment.lower() in SKIP_DIRS for segment in rel.parts):
                 continue
             if path.stat().st_size > MAX_FILE_BYTES:
@@ -64,7 +67,7 @@ def code_references():
                     if sum(len(x) for x in refs.values()) >= MAX_MATCHES:
                         raise ValueError("reader_scan_reference_limit_exceeded")
                     refs[table].append({"path": relative, "line": line_number,
-                                        "reference_kind": "LITERAL_OR_HANDLE_ONLY"})
+                                        "reference_kind": ("DECLARATION_ONLY" if relative == "jobs/intelligence-mart/intelligence_mart/storage.py" else "LITERAL_OR_HANDLE_ONLY")})
     return len(files), refs
 
 def deployed_context():
