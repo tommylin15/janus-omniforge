@@ -1,9 +1,9 @@
 {
   "runner": {
     "title": "Janus dev batch runner",
-    "description": "Execute and inspect the three existing dev batch jobs; no cancel or delete.",
+    "description": "Execute, inspect, and cancel a specifically selected execution in the three existing dev batch jobs; no delete.",
     "stage": "GA",
-    "includedPermissions": ["run.jobs.get", "run.jobs.run", "run.jobs.runWithOverrides", "run.executions.get", "run.executions.list"]
+    "includedPermissions": ["run.jobs.get", "run.jobs.run", "run.jobs.runWithOverrides", "run.executions.get", "run.executions.list", "run.executions.cancel"]
   },
   "operations": {
     "title": "Janus dev batch operation reader",

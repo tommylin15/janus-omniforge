@@ -45,7 +45,7 @@
 
 ### 執行前權限
 
-即時喚醒需要 API 身分 `janus-user-api` 僅對既有 `janus-batch-controller` Job 具 `roles/run.invoker`；停止執行需要 Controller 身分目前綁在三個 worker Jobs 的 `janusDevBatchRunner` 增加 `run.executions.cancel`。這兩項新增權限尚未套用，需另行明確授權；沒有權限時保留請求及真實失敗結果，不宣稱已立即啟動或已停止。備份及無法確認 execution 身分的工作不提供強制停止。
+即時喚醒由 API 身分 `janus-user-api` 對既有 `janus-batch-controller` Job 的 `roles/run.invoker` 提供；停止執行由 Controller 身分既有 `janusDevBatchRunner` 上的 `run.executions.cancel` 提供。兩項最小 IAM 綁定已於 2026-10-23 套用並讀回：API 身分只綁 Controller Job；自訂角色只綁既有 ingestion-core、intelligence-mart、private-pipeline 三個 worker Jobs。停止仍只指定且可確認身分的單次 execution；備份及身分不明的工作不能強制停止。
 
 ### 整批驗收
 

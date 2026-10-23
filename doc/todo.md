@@ -16,7 +16,7 @@
 
 ## 2. ADMIN-SIMPLIFY｜整批修改後集中驗收
 
-2026-10-23：UI、API／Controller 與佇列限定執行已實作；本地 Python 73 項、既有佇列相容性30項及 Flutter 36項 PASS。Windows ASGI 路由測試因事件迴圈阻塞未取得結果，保留於 Linux 完整 CI 執行。尚待完整 Release、同來源部署及正向驗收；即時喚醒／停止所需兩項最小 IAM 變更見 [Admin UI](ui/admin.md)，尚未授權套用。
+2026-10-23：UI、API／Controller 與佇列限定執行已實作；本地 Python 103 項、Flutter 36 項 PASS。Windows ASGI 路由測試因事件迴圈阻塞未取得結果，保留於 Linux 完整 CI 執行。即時喚醒與指定執行停止的兩項最小 IAM 權限已套用並讀回；尚待完整 Release、同來源部署及正向驗收。
 
 - [ ] 依 [Admin UI 最新契約](ui/admin.md) 完成全功能盤點、保留／移除／合併，更新四頁十功能與白話操作。
 - [ ] 首頁以可操作的工作／資料健康／損益更新取代 Core／Mart 數量與 AI placeholder。

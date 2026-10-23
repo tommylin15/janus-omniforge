@@ -1,5 +1,11 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-23｜ADMIN-SIMPLIFY 最小 IAM 權限套用與讀回
+
+- Controller Job `janus-batch-controller` 僅新增 `roles/run.invoker` 給 `janus-user-api@gen-lang-client-0593591102.iam.gserviceaccount.com`；原 Scheduler binding 保留。
+- 專案自訂角色 `janusDevBatchRunner` 僅新增 `run.executions.cancel`；讀回確認角色仍綁於既有 `janus-ingestion-core`、`janus-intelligence-mart`、`janus-private-pipeline` 三個 Jobs。未新增 delete、任意 Job 呼叫或專案層級 invoker 權限。
+- GCP IAM mutation 與四個目標 Job policy readback PASS。程式與 Release workflow 尚需在本次來源 SHA 完成 CI／發布驗收；IAM PASS 不代表 Admin API 已部署。
+
 ### 2026-10-23｜ADMIN-SIMPLIFY 本地驗證，尚未發布
 
 - 4頁10功能、實用首頁、白話／詳情分層、日週月與手動批次、7日最新紀錄、啟停／暫停與個股修復入口集中。Controller 沿用既有互斥鎖／Job／依賴，手動佇列只領取指定 execution，不重做 Stage 清理。
