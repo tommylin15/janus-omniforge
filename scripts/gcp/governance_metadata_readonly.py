@@ -244,6 +244,262 @@ else:
                 SELECT trigger_type,status,lease_bucket,link_bucket,count(*)::bigint
                   FROM classified GROUP BY 1,2,3,4 ORDER BY 1,2,3,4 LIMIT 81
             """, 80)
+            # Per-row *pseudonymous* receipts. Do not output execution UUIDs,
+            # symbols, owner payload, claim tokens or arbitrary request options.
+            # NO_LEASE/EXPIRED_LEASE are not proof of an orphaned Cloud Run job.
+            sql_section(c, "control_nonterminal_rows_30d", """
+                SELECT md5(e.execution_id::text) AS execution_ref,
+                       e.trigger_type,e.status,e.requested_at::text,
+                       e.started_at::text,e.finished_at::text,
+                       e.claimed_until::text,(e.claimed_by IS NOT NULL) AS has_claimer,
+                       e.retry_count,
+                       CASE WHEN e.claimed_until > clock_timestamp() THEN 'ACTIVE_LEASE'
+                            WHEN e.claimed_until IS NULL THEN 'NO_LEASE_TERMINAL_UNKNOWN'
+                            ELSE 'EXPIRED_LEASE_TERMINAL_UNKNOWN' END AS lease_class,
+                       EXISTS (SELECT 1 FROM control.batch_occurrences b
+                                WHERE b.scheduled_at >= now()-interval '30 days'
+                                  AND b.state->>'queued_execution_id'=e.execution_id::text)
+                                  AS has_controller_occurrence,
+                       (SELECT count(*)::integer FROM control.execution_items i
+                         WHERE i.execution_id=e.execution_id) AS item_count
+                  FROM control.executions e
+                 WHERE e.status IN ('queued','running','retrying')
+                   AND e.requested_at >= now()-interval '30 days'
+                 ORDER BY e.requested_at,e.execution_id LIMIT 301
+            """, 300)
+            # Backup Controller occurrences are VM executor requests, NOT Cloud
+            # Run jobs. Join by backup_date using the dedicated control table.
+            sql_section(c, "control_ledger_backup_reconcile_30d", """
+                SELECT b.scheduled_at::text, b.state->>'status',
+                       b.state->>'batch', b.state->>'backup_date',
+                       l.status AS backup_status,l.started_at::text,
+                       l.completed_at::text,
+                       (l.size_bytes >= 1024 AND l.sha256 ~ '^[a-f0-9]{64}            # never output occurrence IDs or owner-linked data.
+            sql_section(c, "control_active_batch_occurrences_30d", """
+                SELECT state->>'job',state->>'status',state->>'batch',
+                       state->>'execution',scheduled_at::text
+                  FROM control.batch_occurrences
+                 WHERE scheduled_at>=now()-interval '30 days'
+                   AND state->>'status' IN ('dispatching','running','ambiguous')
+                 ORDER BY scheduled_at DESC LIMIT 101
+            """, 100)
+    except Exception as e:
+        OUT["errors"]["control_connection"] = error_code(e)
+        emit("control_connection", [error_code(e)], "BLOCKED")
+
+    # PyIceberg load_table reads metadata JSON only: no table.scan / to_arrow /
+    # data-file record reads, and no catalog create_namespace operation.
+    try:
+        from ingestion_core.__main__ import _iceberg_core
+        core = _iceberg_core(os.environ["CORE_BUCKET"], read_only=True)
+        try:
+            records = OUT["tables"].get("iceberg_catalog")
+            if records is None:
+                emit("iceberg_snapshots", [{"error_class": "CATALOG_UNAVAILABLE"}], "BLOCKED")
+            else:
+                metadata = []
+                for record in records:
+                    _, namespace, table_name, location, _ = record
+                    item = {"name": namespace + "." + table_name}
+                    try:
+                        table = core.catalog.load_table(item["name"])
+                        snap = table.current_snapshot()
+                        item.update(status="READABLE", schema=[
+                            [f.name, str(f.field_type), f.required] for f in table.schema().fields],
+                            partition_spec=[[f.name, str(f.transform)] for f in table.spec().fields],
+                            snapshot_id=str(snap.snapshot_id) if snap else None,
+                            row_count=int(snap.summary["total-records"])
+                                if snap and snap.summary and "total-records" in snap.summary else None,
+                            metadata_location=table.metadata_location)
+                    except Exception as e:
+                        item.update(status="UNKNOWN", error=error_code(e))
+                    metadata.append(item)
+                OUT["tables"]["iceberg_snapshots"] = metadata
+                emit("iceberg_snapshots", metadata,
+                     "PARTIAL" if any(x["status"] != "READABLE" for x in metadata) else "PASS")
+        finally:
+            core.close()
+    except Exception as e:
+        OUT["errors"]["iceberg_metadata"] = error_code(e)
+        emit("iceberg_metadata", [error_code(e)], "BLOCKED")
+
+# A successful job may still be PARTIAL; never silently convert missing sections
+# to empty arrays or claim catalog table count zero after a failed query.
+required = {"pg_relations","pg_columns","pg_constraints","pg_indexes",
+            "information_schema_tables","information_schema_columns",
+            "iceberg_catalog","schema_migrations","iceberg_snapshots"}
+missing = sorted(required - set(OUT["tables"]))
+status = "PASS" if not OUT["errors"] and not missing and all(
+    x.get("status") == "READABLE" for x in OUT["tables"]["iceberg_snapshots"]
+) else "PARTIAL"
+emit("summary", [{"status": status, "missing": missing,
+                  "errors": OUT["errors"], "roles": OUT["roles"],
+                  "counts": {k: len(v) for k,v in OUT["tables"].items()},
+                  "data_mutations": 0}], status)
+'''
+
+def override(job: dict, source_sha: str) -> dict:
+    containers = job["template"]["template"]["containers"]
+    if len(containers) != 1:
+        raise ValueError("single_container_required")
+    container = containers[0]
+    command = container.get("command") or []
+    if command not in ([], ["python"]):
+        raise ValueError("readonly_entrypoint_drift")
+    result = {
+        "args": (["-c", PROBE] if command else ["python", "-c", PROBE]),
+        "env": [{"name": "QUEUE_CONSUMER", "value": "false"},
+                {"name": "JANUS_GOVERNANCE_SOURCE_SHA", "value": source_sha}],
+    }
+    if container.get("name"):
+        result["name"] = container["name"]
+    return result
+
+def validate_request(req: dict) -> None:
+    if req.get("intent") != "c0-live-readonly-governance-metadata" or (
+        req.get("scope") != "existing-dev" or req.get("read_only") is not True
+        or req.get("no_data_mutation") is not True
+        or req.get("no_template_mutation") is not True
+        or req.get("no_private_row_data") is not True
+        or req.get("job") != JOB
+    ):
+        raise ValueError("readonly_governance_request_scope_invalid")
+
+def main() -> None:
+    req = json.loads(REQUEST.read_text(encoding="utf-8"))
+    validate_request(req)
+    source_sha = os.environ.get("GITHUB_SHA", "")
+    if not re.fullmatch(r"[0-9a-f]{40}", source_sha):
+        raise ValueError("github_sha_missing")
+    job = gcp.job(JOB)
+    before = gcp.fingerprint(job)
+    operation = gcp.cloud(gcp.ROOT + "/jobs/" + JOB + ":run", {
+        "etag": job["etag"],
+        "overrides": {"taskCount": 1, "timeout": "300s",
+                      "containerOverrides": [override(job, source_sha)]}
+    }, "POST")
+    name = operation.get("name", "")
+    if not name.startswith(gcp.ROOT + "/operations/"):
+        raise RuntimeError("readonly_operation_identity_missing")
+    deadline = time.monotonic() + 415
+    while not operation.get("done") and time.monotonic() < deadline:
+        time.sleep(7)
+        operation = gcp.cloud(name)
+    if not operation.get("done") or operation.get("error"):
+        raise RuntimeError("readonly_operation_failed")
+    execution = operation.get("response") or {}
+    full_name = str(execution.get("name", ""))
+    if not full_name.startswith(gcp.ROOT + "/jobs/" + JOB + "/executions/"):
+        raise RuntimeError("readonly_execution_identity_missing")
+    execution = gcp.cloud(full_name)
+    if not gcp.terminal(execution) or execution.get("succeededCount") != 1 or execution.get("failedCount", 0):
+        raise RuntimeError("readonly_execution_terminal_failed")
+    execution_id = full_name.rsplit("/", 1)[-1]
+
+    # Collect bounded log lines only for this execution. Credentials and SQL
+    # errors are deliberately never extracted from raw runtime logs.
+    selector = ('resource.type="cloud_run_job" AND '
+                'labels."run.googleapis.com/execution_name"="' + execution_id + '"')
+    records = []
+    for attempt in range(7):
+        raw = gcp.command(["gcloud", "logging", "read", selector,
+                           "--project=" + gcp.PROJECT,
+                           "--limit=300", "--format=json"])
+        events = json.loads(raw)
+        records = []
+        for event in events:
+            text = event.get("textPayload") or ""
+            if PREFIX not in text:
+                continue
+            try:
+                item = json.loads(text.split(PREFIX, 1)[1])
+            except (ValueError, IndexError):
+                continue
+            if item.get("component") == "janus_governance_metadata_readonly_v1" and item.get("git_sha") == source_sha:
+                records.append(item)
+        if any(i.get("section") == "summary" for i in records):
+            break
+        time.sleep(5)
+    if not any(i.get("section") == "summary" for i in records):
+        raise RuntimeError("bounded_receipt_summary_unavailable")
+    # Fail closed on lost/truncated chunks. No invented zero counts.
+    sections = {}
+    for item in records:
+        sec = item["section"]
+        sections.setdefault(sec, []).append(item)
+    for section, chunks in sections.items():
+        n = chunks[0]["chunks"]
+        if len(chunks) != n or {c["chunk"] for c in chunks} != set(range(1, n + 1)):
+            raise RuntimeError("bounded_receipt_chunks_missing_" + section)
+    after = gcp.fingerprint(gcp.job(JOB))
+    if before != after:
+        raise RuntimeError("existing_job_configuration_drift")
+    result = {
+        "component": "janus_governance_metadata_readonly_v1",
+        "source_git_sha": source_sha, "execution": execution_id,
+        "job_configuration_unchanged": True, "data_mutations": 0,
+        "sections": {k: {
+            "status": chunks[0]["status"],
+            "items": sum((c["items"] for c in sorted(chunks, key=lambda c: c["chunk"])), []),
+        } for k, chunks in sections.items()}
+    }
+    OUTPUT.write_text(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2), encoding="utf-8")
+    for section, entry in result["sections"].items():
+        # Summaries are intentionally compact. Full bounded metadata is in artifact.
+        print(json.dumps({"section": section, "status": entry["status"],
+                          "items": len(entry["items"]), "execution": execution_id},
+                         sort_keys=True))
+    # Print bounded metadata in provider logs as independent small chunks so the
+    # GitHub plugin can retrieve individual tables/fields without artifact download.
+    for item in sorted(records, key=lambda x: (x["section"], x["chunk"])):
+        print(PREFIX + json.dumps(item, ensure_ascii=False, sort_keys=True))
+    summary = result["sections"]["summary"]["items"][0]
+    if summary.get("status") != "PASS":
+        # Existing ingestion-core identity cannot read Mart GCS metadata. Accept
+        # ONLY this known, scoped partial result when the companion Mart Job
+        # probes the same registered namespace in the next workflow step.
+        # Any other blocked section remains a hard failure.
+        snapshots = result["sections"].get("iceberg_snapshots", {}).get("items", [])
+        catalogue = result["sections"].get("iceberg_catalog", {}).get("items", [])
+        expected_sections = {
+            "pg_relations", "pg_columns", "pg_constraints", "pg_indexes",
+            "information_schema_tables", "information_schema_columns",
+            "iceberg_catalog", "schema_migrations"
+        }
+        section_ok = all(
+            result["sections"].get(s, {}).get("status") == "PASS"
+            for s in expected_sections
+        )
+        core = [x for x in snapshots if x.get("name", "").startswith("core.")]
+        mart = [x for x in snapshots if x.get("name", "").startswith("mart.")]
+        actual_catalog = sorted(str(row[1]) + "." + str(row[2]) for row in catalogue)
+        actual_metadata = sorted(x.get("name", "") for x in snapshots)
+        permitted_handoff = (
+            summary.get("status") == "PARTIAL"
+            and summary.get("missing") == [] and summary.get("errors") == {}
+            and section_ok and len(core) == 9 and len(mart) == 11
+            and len(catalogue) == 20 and actual_catalog == actual_metadata
+            and all(x.get("status") == "READABLE" for x in core)
+            and all(x.get("status") == "UNKNOWN"
+                    and x.get("error", {}).get("error_class") == "PermissionError"
+                    for x in mart)
+        )
+        if not permitted_handoff:
+            raise RuntimeError("readonly_governance_metadata_partial")
+        print("CORE_PG_PASS_MART_PERMISSION_HANDOFF_REQUIRED")
+
+if __name__ == "__main__":
+    main()
+
+                        AND l.completed_at IS NOT NULL) AS has_valid_receipt
+                  FROM control.batch_occurrences b
+                  LEFT JOIN control.ledger_backup_requests l
+                    ON b.state->>'backup_date'=l.backup_date::text
+                 WHERE b.scheduled_at >= now()-interval '30 days'
+                   AND b.state->>'batch'='ledger-backup'
+                   AND b.state->>'status' IN ('dispatching','running','ambiguous')
+                 ORDER BY b.scheduled_at DESC LIMIT 101
+            """, 100)
             # Only already-known managed Cloud Run jobs/execution names;
             # never output occurrence IDs or owner-linked data.
             sql_section(c, "control_active_batch_occurrences_30d", """
