@@ -442,7 +442,23 @@ def main():
         return 0
     except Exception as error:
         reason = str(error) if re.fullmatch(r"[a-z][a-z0-9_]{3,100}", str(error)) else "control_failure"
-        print(json.dumps({"result": "BLOCKED_OR_FAILED", "reason": reason}))
+        safe_stages = {
+            "bounded_request", "automated_oauth_boundary", "run_provenance",
+            "jobs_receipt", "previous_release_ancestry", "lease_acquire",
+            "service_preflight", "service_baseline_readback",
+            "current_jobs_scheduler_fence", "candidate_tag_lookup",
+            "previous_service_build_id", "verified_public_previous_ghcr_rollback",
+            "candidate_revision_image", "candidate_probe",
+            "switch_candidate_first", "switch_back_to_previous",
+            "promote_candidate_final"}
+        try:
+            receipt_state = json.loads(args.receipt.read_text())
+            stage = receipt_state.get("stage")
+        except (OSError, ValueError, TypeError):
+            stage = None
+        print(json.dumps({"result": "BLOCKED_OR_FAILED", "reason": reason,
+                          "error_type": type(error).__name__,
+                          "stage": stage if stage in safe_stages else "UNKNOWN"}))
         return 78
 
 
