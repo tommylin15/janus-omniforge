@@ -1,6 +1,6 @@
 # Janus 最新驗收證據索引
 
-### 2026-10-23｜ADMIN-SIMPLIFY 四 Jobs 8/8 Canary 與 API 單次切流 PASS；Admin 登入操作待驗
+### 2026-10-23｜ADMIN-SIMPLIFY 正式 dev 發布與使用者可用性驗收 CLOSED／PASS
 
 - **固定 full Release**：[ #39907341839](https://github.com/tommylin15/janus-omniforge/actions/runs/39907341839) `completed/success`；source SHA `0ad738b1f7c3432bf6fac59ecb7d5063dce63447`，API Image Digest `sha256:9e6bbccab1a77c126f7b8d771e2434d53b86285b42715991f4db7db1e78f8a7f`。
 - **0% Candidate／Auth Boundary**：[ #39908830013](https://github.com/tommylin15/janus-omniforge/actions/runs/39908830013)、[ #39909168202](https://github.com/tommylin15/janus-omniforge/actions/runs/39909168202) 均 `completed/success`；對同一固定 SHA 的 Cloud Run 0% candidate、健康、build identity、未登入 User/Admin/MCP 拒絕及 OAuth discovery metadata PASS，未包含登入後的正向驗收。
@@ -11,8 +11,8 @@
 - **API Promotion 第二次失敗、未切流**：[ #39912707667](https://github.com/tommylin15/janus-omniforge/actions/runs/39912707667) `completed/failure`；本次契約測試 **107 passed**，已載入 Jobs proof，但在 `lease_acquire` 階段回報 `bounded_command_failed`，未開始切換 API traffic。原本 0% Candidate 與舊版 100% 基準需在下次流程重新核對。GitHub lease ref 讀回 404，不擅自推論部署成功。
 - **使用者決策 2026-10-23**：dev 以能正常使用為優先，**不需要新版→舊版→新版往返流量回滾演練**。已為 `scripts/gcp/ghcr_api_promote.py` 新增明確的 `traffic_validation_mode=direct`：只對已驗證 fixed SHA Candidate 執行單次切流到 100%，核對 health、Ready、build id、未登入拒絕；真正執行出錯才恢復上個 revision。仍保留授權、回滾影像、共用 lease、四 Jobs receipt、安全檢查；不會把 `rollback_rehearsal=NOT_REQUESTED` 說成 PASS。對應 `doc/PROJECT_RULES.md`／`doc/runbook-dev-deploy.md` 已同步。**此段為使用者決策與程式實作紀錄；後續已實際切流成功，證據見下段。**
 - **API 單次正式切流 PASS**：[GHCR Actions #39913542437](https://github.com/tommylin15/janus-omniforge/actions/runs/39913542437) `completed/success`，`promote` job PASS、107 項契約測試 PASS；正式 artifact `ghcr-api-promotion-receipt` ID `12483373402` 已下載並讀回 JSON：`phase=PASS`、`traffic_validation_mode=direct`、`rollback_rehearsal=NOT_REQUESTED`；新 serving revision **`janus-api-00599-cil`**，映像 **`ghcr.io/tommylin15/janus-api@sha256:9e6bbccab1a77c126f7b8d771e2434d53b86285b42715991f4db7db1e78f8a7f`**，source SHA **`0ad738b1f7c3432bf6fac59ecb7d5063dce63447`**。既有 `switch()` 程式於鎖內核對單一 100%、Ready、observedGeneration、非 traffic config／tag 不變，後續 `health()` 檢查 `/health`、`/api/v1/public/health`、`/app/build-id.txt` 與未登入 `/api/v1/me/profile` 401；全部完成才寫 `phase=PASS`。舊版 `janus-api-00594-did`／`3e5f3c0e...` 與 GHCR digest 留供必要時恢復。**沒有執行刻意的舊新版回滾演練；不應寫成 rollback PASS**。此驗證是 GitHub Actions 從 live service 讀回；本對話外部 Web 工具無法直接連到 Cloud Run 網址，不冒稱第二組獨立 HTTP 驗證。
-- **Admin 實際試用入口**：[Flutter Admin `/app/admin`](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/admin)（`services/api/app.py` 與 Admin build manifest 有此路由），應使用 Admin Google OAuth audience；四個主頁「總覽／批次／資料品質／系統設定」的登入後畫面、讀取與啟停／去重等操作尚待使用者或有效登入環境實測，不因 API promotion PASS 自動勾選。
-- **後續／狀態**：API 單次切流已 PASS；已登入 Admin 四頁十功能正向驗收仍未取得真人證據，`ADMIN-SIMPLIFY=IN_PROGRESS`。無未證明的 MFA／人工作業冒充 PASS。
+- **Admin 使用者驗收（2026-10-23）**：使用者在 [Flutter Admin `/app/admin`](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/admin) 正式上線後，依當輪商定的**實際可用性範圍**（登入後確認四個主頁「總覽／批次／資料品質／系統設定」能開啟、資料能顯示）回報「驗收完成」。這是**使用者明確確認的手動正向驗收**，不是 GitHub Actions 自動產生的逐頁或 10 項功能操作收據；不宣稱每一項高風險手動啟停、並行／取消、手機與桌面情境都有獨立逐項觀察。使用者明確決定 dev 不要求刻意新→舊→新流量演練，既有固定映像、權限、回復機制與非敏感日誌仍保留。
+- **本輪結案判定**：完整 Release、0% Candidate、Auth Boundary、四 Jobs 8/8 Canary、API 100% 單次切流與使用者確認的 Admin 基本可用性驗收皆有各自證據；依 2026-10-23 使用者最新縮減的 dev 實用驗收範圍，`ADMIN-SIMPLIFY=CLOSED／PASS`。不擴張為所有細項已逐一實測，也不把未要求的回滾演練寫為已完成。後續只有出現具體使用異常再獨立修復，不在 active TODO 保留無界驗收。
 
 
 ### 2026-10-23｜ADMIN-SIMPLIFY／Risk API 完整 Release gate PASS（部署／登入驗收未執行）
