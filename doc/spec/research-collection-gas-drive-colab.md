@@ -1,6 +1,18 @@
 # D07-PRE｜Colab → Drive v3 單一 Parquet 研究資料契約
 更新：2026-10-22。狀態：21 個月 r1 行情已驗收；Drive v3.1 Parquet `CURRENT.json` 與 153 個分區檔已實際讀回，**資料格式整併 CLOSED**；官方／第三方缺口補收 **PARTIAL／未結案**，Risk OOS、歷史 PIT、模型正式發布另依 D07 gate。檔案路徑因既有 GitHub 連結保留，**內容正式覆蓋舊 GAS→ZIP 方案**。
 
+## 2026-10-23｜資料採集後的四模型共用研究因子工廠
+
+**最新決策覆蓋舊的逐模型各自處理衍生因子方式。** 沿用單一 `00_資料收集.ipynb`；原 Drive v3.6 尚未覆寫，已於 `CoLab程式/_archive` 備份；[v3.8 候選 Notebook、內嵌模組及測試 ZIP](https://drive.google.com/file/d/1QfCs0zeReUlp3hJzgVqsZv75xab40G2Z/view) 已放在同一 Drive `CoLab程式` 供 Colab 使用。這是本地可編譯候選，**未做 Colab 真人 OAuth／全量實跑，不能聲稱新來源已採到**。
+
+最後一步 pipeline：已完成的 raw / 不可變 `canonical/CURRENT.json` Parquet → SHA/rows/schema/來源與日期核對 → 缺值／單位／市場交易日／公告時間治理 → **預先派生寬型研究候選 X**（即使目前四模型還沒採用）→ **分檔產生研究候選 Y** → `derived/four_model_features/<factory_version>-<input_digest>/` + factor_catalog、PIT/source 狀態、SHA receipt。**不得覆寫 canonical 或使用 future label 當 X；每次來源 release 變更才建立新 output**。重新執行同樣 digest 須核對完整 SHA 後跳過；未完成/失敗如實保留，不宣稱成功。
+
+已實作之預計算類型：價量 5/10/20/60/120 日收益、均線偏離、成交股數與金額加總／平均／比率、VWAP、RSI/ATR/MACD/Bollinger、實現波動、下方波動、回撤、跳空、非流動性；同期市場寬度與橫截分位（標明非 PIT 名冊）；月營收 1/3/6/12 月的和、均、同比/加速度；季財報已知原始科目與原始比率（未驗單位/期間不誤當季度值）；PE/PB 歷史觀測與位階；公司行動事件 flags（不憑事件自造還原係數）。可用**有歷史有效期和 first_observed_at** 的產業分類時，再產出產業群報酬/波動與廣度；有來源/日期驗證的獨立大盤資料時建立 index context；法人流、股數、市值、利率、產業歷史與公司行動正式還原目前均為來源或 PIT 待補，缺者維持 PENDING，不能填0。混在 corporate_actions 內的含息指數事件不是已驗證的大盤價格指數。
+
+預算候選 Y：5/20 交易日前瞻報酬與 up、未來 20 日波動、下一月營收 YoY、當期 log(PE)/log(PB)，各存在 **獨立 outcome 檔**，需成熟時點、真實公告權證；**四個模型效果評估後**才各自定版必要的因子清單、正式貼標、train-only scaling/encoding、feature_schema_version、preprocessor/label_version、正式 PIT + serving parity。研究用 labels 不等於 publication-ready labels。
+
+**驗收界線**：v3.8 Notebook 22 cells 均可編譯、本地 14/14 targeted tests、2025-07~09 三月 121,326 筆真 OHLCV 特徵 smoke PASS（88 欄初版檢查）；**完整 21 月分區全程 Colab 及 derived file SHA 讀回尚未 PASS**。此因子工程不變更 Risk v1 模型、Registry、PG、正式模型快取或 API。
+
 ## 唯一資料路線
 **官方 TWSE／TPEx 與經允許的 Yahoo、FinMind → Google Colab 手動採集、定向補收、斷點與品質處理 → Drive `janusChatGPT/資料源/JanusDataset_v3_202610/data/YYYY-MM/` 原始來源檔 → `canonical/CURRENT.json` 指向不可變 Parquet release → Colab 因子／標籤／模型 OOS → Janus Mart 受控匯入。** 無需 GAS、GAS Loader、GCP 重訓 Jobs、BQ ML/OOS；Colab MCP 若將來可用只作操作介面，不列前置必要條件。目前 ChatGPT 尚未連上 Colab MCP。禁止把程式已提交冒稱 Colab 現場已執行。
 
