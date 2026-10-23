@@ -155,7 +155,7 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 "model_training": "external_colab_only"}
     target, target_ref = load_or_create_target_snapshot(publication_connection, execution.execution_id,
                                                        as_of, store, bucket)
-    deep_coverage = execution.config_id == "deep-coverage"
+    deep_coverage = execution.config_id in {"deep-coverage", "risk-target-acceptance"}
     if deep_coverage:
         membership = None
         market_symbols = set()
