@@ -168,11 +168,11 @@ def test_deep_coverage_reuses_clean_roles_and_skips_market_screening(monkeypatch
         def close(self):
             self.closed = True
 
-    def run(execution_id, core, uri, payload):
+    def run(execution_id, core, uri, payload, config_id="deep-coverage"):
         return specialist_processor(
             AnalysisExecution(
                 execution_id,
-                "deep-coverage",
+                config_id,
                 (),
                 0,
                 options(core, uri, payload),
@@ -189,6 +189,17 @@ def test_deep_coverage_reuses_clean_roles_and_skips_market_screening(monkeypatch
     assert first["specialist_reused_count"] == 0
     assert len(first["dirty_specialists"]) == 5
     assert readers[-1].closed
+
+    scoped = run("risk-target-acceptance", first_core, "gs://core/core-1.json",
+                 first_payload, config_id="risk-target-acceptance")
+    assert scoped["screening_count"] == 0
+    assert scoped["specialist_count"] == 5
+    assert readers[-1].closed
+    # Model pointer absent: deterministic specialist behavior stays intact.
+    receipt = json.loads(stores["mart"].read(
+        "executions/risk-target-acceptance/specialist-manifest.json"))
+    assert receipt["risk_active"] is None
+    assert receipt["risk_quality"] is None
 
     first_manifest = json.loads(stores["mart"].read("executions/b4-first/specialist-manifest.json"))
     assert first_manifest["screening"] is None
