@@ -88,6 +88,29 @@ jobs:
                    'postgres_indexes':len(c['sections']['pg_indexes']['items']),
                    'applied_migrations':len(c['sections']['schema_migrations']['items']),
                    'data_mutations':0,'iam_changes':0,'new_resources':0}
+          # C1-A reader/reference scope is a distinct, bounded gate.
+          # Absence of recent published rows does NOT imply no active reader.
+          for key in ('control_execution_30d','mart_table_identifier_constraint',
+                      'publication_pg_scan_cumulative'):
+              assert c['sections'][key]['status']=='PASS', key
+          for key in ('publication_index_all','publication_index_30d'):
+              assert m['sections'][key]['status']=='PASS', key
+          constraints=c['sections']['mart_table_identifier_constraint']['items']
+          assert len(constraints)==1
+          assert constraints[0][0]=='mart_report_index_table_identifier_check'
+          assert 'mart.mart_scoped_analysis_v1' in constraints[0][1]
+          assert len(c['sections']['publication_pg_scan_cumulative']['items'])==2
+          summary.update(reader_reference_status='PASS',
+                         control_occurrence_30d_groups=len(
+                             c['sections']['control_execution_30d']['items']),
+                         publication_index_all_groups=len(
+                             m['sections']['publication_index_all']['items']),
+                         publication_index_30d_groups=len(
+                             m['sections']['publication_index_30d']['items']),
+                         publication_index_total_refs=sum(int(r[3]) for r in
+                             m['sections']['publication_index_all']['items']),
+                         publication_index_30d_refs=sum(int(r[3]) for r in
+                             m['sections']['publication_index_30d']['items']))
           Path('governance-metadata-joined-summary.json').write_text(
              json.dumps(summary,ensure_ascii=False,sort_keys=True,indent=2))
           print(json.dumps(summary,ensure_ascii=False,sort_keys=True))
