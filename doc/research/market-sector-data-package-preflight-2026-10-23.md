@@ -48,7 +48,7 @@
 
 ## 2026-10-23 補充：可重跑 Preflight CLI 與 CI
 
-**完整執行操作手冊（供使用者／另一個 AI）**：[逐月小批次 Preflight SOP](market-sector-preflight-operation-runbook.md)。SOP 為文件交付，不代表正式全量驗證已執行；各批結果以獨立 checkpoint 與 final manifest 讀回判定。
+**現行操作手冊**：[四模型 Drive-first 一次全量 Preflight](four-model-research-package-preflight-runbook.md)（主入口）、[大盤／產業一次全期子流程](market-sector-preflight-operation-runbook.md)。使用者已取消每月停下的舊執行節奏；此文件保留歷史 inventory／抽樣證據，不代表正式 full run 已執行。
 
 
 - **實作**：[market_sector_package_preflight.py](../../research/chatgpt/market_sector_package_preflight.py) 已提交 `main`。唯讀掃描全部分區 receipt、原始／標準化 SHA256、schema、rows、OHLC、唯一鍵、月份範圍、來源 URL 及跨資料集交易日集合；輸出 `preflight_summary.json`、`preflight_issues.csv`，不更動原始收檔與模型。
