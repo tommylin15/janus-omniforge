@@ -10,5 +10,6 @@
   "api_run": "39885037268",
   "no_new_resources": true,
   "target_scope": "HELD_AND_WATCHLISTED_ORDINARY_SHARES",
-  "purpose": "User approved formal Risk XGBoost8 first release ACTIVE. Exact published GHCR source with full 1626 Python tests, Flutter PASS, dev serving migration 068 PASS, four Jobs rollout, reversible 100% API #39885037268. Shadow/prospective monthly OOS remains separate; require real GCS selected-stock predictions and PG API switch only after runtime canary."
+  "purpose": "Authorized Risk ACTIVE retry after #39885304415 halted before mutation on pip hash-mode conflict. Hash-pinned Mart requirements installed in separate pip phase, same source model and reversible GCS/PG switch; execute bounded selected-target canary.",
+  "request_attempt": 2
 }
