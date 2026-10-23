@@ -211,6 +211,45 @@ jobs:
               --receipt /tmp/risk-rollback-registry.json
             echo "GCS registry reverted to DETERMINISTIC; verify PG switch before closure." >> "$GITHUB_STEP_SUMMARY"
           fi
+      - name: Recovery - reverse PG API gate if it might have become ACTIVE
+        if: failure()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ ! -f /tmp/risk-rollback-registry.json ]]; then
+            echo 'Registry rollback was not confirmed; do not assert PG recovery.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          generation="$(jq -r .generation /tmp/risk-rollback-registry.json)"
+          uri="gs://$BUCKET/risk-models/activation-requests/$SOURCE_SHA-$generation-rollback.json"
+          python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          payload={'intent':'user-approved-risk-first-release','environment':'dev',
+            'approved':True,'mode':'DETERMINISTIC','expected_mode':'ACTIVE',
+            'generation':int(os.environ['GENERATION'])+1}
+          Path('/tmp/risk-pg-recovery.json').write_text(
+            json.dumps(payload,sort_keys=True,separators=(',',':')))
+          PY
+          # Use the observed registry generation (not assumed generation + 1).
+          jq --argjson generation "$generation" '.generation=$generation'             /tmp/risk-pg-recovery.json > /tmp/risk-pg-recovery-exact.json
+          gcloud storage cp --no-clobber /tmp/risk-pg-recovery-exact.json "$uri" --project "$PROJECT"
+          gcloud storage cat "$uri" --project "$PROJECT" | cmp -s - /tmp/risk-pg-recovery-exact.json
+          execution="$(gcloud run jobs execute "$JOB" --region "$REGION" --project "$PROJECT"             --update-env-vars="^@^MART_OPERATION=risk-activation@RISK_ACTIVATION_REQUEST_URI=$uri"             --async --format='value(metadata.name)')"
+          test -n "$execution"
+          name="${execution##*/}"
+          done=''
+          for _ in $(seq 1 120); do
+            info="$(gcloud run jobs executions describe "$name" --region "$REGION"               --project "$PROJECT" --format=json)"
+            done="$(jq -r '.status.completionTime // empty' <<< "$info")"
+            if [[ -n "$done" ]]; then
+              jq -e '.status.succeededCount==1 and (.status.failedCount//0)==0'                 <<<"$info" >/dev/null
+              break
+            fi
+            sleep 5
+          done
+          test -n "$done"
+          echo 'PG risk-mode rollback=DETERMINISTIC verified' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
