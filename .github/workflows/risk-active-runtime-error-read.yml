@@ -1,0 +1,35 @@
+name: Risk ACTIVE failed canary error-code read
+on:
+  push:
+    branches: [main]
+    paths: ['ops/risk-active-runtime-error-read.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Allow only prior Risk failed run
+        run: jq -e '.run=="39885407349" and .read_only==true' ops/risk-active-runtime-error-read.json
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read latest Mart execution terminal statuses
+        run: |
+          gcloud run jobs executions list --job=janus-intelligence-mart \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --limit=8 --format=json | jq '[.[]|{name:.metadata.name,completion:.status.completionTime,
+                failed:.status.failedCount,succeeded:.status.succeededCount}]'
+      - name: Read sanitized Mart error codes only
+        run: |
+          gcloud logging read \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="janus-intelligence-mart"' \
+            --project=gen-lang-client-0593591102 --freshness=2h --limit=100 --format=json \
+            | jq '[.[] | .jsonPayload? | select(.component=="intelligence-mart" and .error_code!=null) |
+                {operation,error_code,locations:[.locations[]?|{file,function,line}]}]'
