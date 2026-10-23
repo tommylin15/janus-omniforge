@@ -8,7 +8,7 @@
   "no_new_resources": true,
   "no_iam_expansion": true,
   "job": "janus-ingestion-core",
-  "purpose": "P0-2 current dev PostgreSQL exact 57-row status evidence: core-ready events, execution_items states, owner-safe pseudorefs, config/trace/controller links, bounded existing Cloud Run executions. No status changes, no backup/retention actions.",
+  "purpose": "Re-run P0-2 per-execution readonly receipt after compatibility fix for preexisting raw-ID SQL substring contract; unchanged safety and existing dev identities.",
   "execution_count": 1,
-  "audit_focus": "p02-57-no-lease-execution-evidence-20261023"
+  "audit_focus": "p02-57-no-lease-execution-evidence-20261023-retry-2"
 }
