@@ -1,4 +1,4 @@
-"""Janus v3.8.1 research contracts. No network, CURRENT write or publication."""
+"""Janus v3.8.2 research contracts. No network, CURRENT write or publication."""
 from __future__ import annotations
 import ast, hashlib, json, re, sys
 from pathlib import Path
