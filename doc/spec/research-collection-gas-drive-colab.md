@@ -3,6 +3,13 @@
 # D07-PRE｜Colab → Drive v3 單一 Parquet 研究資料契約
 更新：2026-10-22。狀態：21 個月 r1 行情已驗收；Drive v3.1 Parquet `CURRENT.json` 與 153 個分區檔已實際讀回，**資料格式整併 CLOSED**；官方／第三方缺口補收 **PARTIAL／未結案**，Risk OOS、歷史 PIT、模型正式發布另依 D07 gate。檔案路徑因既有 GitHub 連結保留，**內容正式覆蓋舊 GAS→ZIP 方案**。
 
+## 2026-10-23｜現行執行邊界與個股產業 PIT 對照（覆蓋本文舊 Colab X/Y 字句）
+
+- **採集與貼標分離**：Colab v3.8.2 僅採集／來源清理與不可變研究資料；v3.8.3 `research/colab/00_資料收集_v3.8.3_大盤產業歷史補收.ipynb` 定向取得 TWSE／TPEx 大盤和產業**指數時間序列**，離線 15 passed／1 skipped，真實 Colab HTTP／TPEx schema／月日覆蓋仍待使用者執行及報告。因子 X 與未來候選 Y 由 ChatGPT `research/chatgpt/label_four_models.py`／`janus_precision.py` 計算，不在 Colab 做貼標、模型訓練或 OOS。
+- **產業歸屬不是產業指數**：研究輸入另需 `derived/factor_inputs/industry_membership/industry_membership.parquet`＋`manifest.json`，每筆保存 `market,symbol,classification_system,industry_id,membership_type,valid_from,valid_to,published_at,source_id,source_url,source_sha256,evidence_status`，並核對來源授權與 PIT。主要產業每市場／股票／時點唯一，次產業、主題與供應鏈可多重重疊；公告／觀察時間與有效期均不得將現在資料倒填過去。另需有證據之 `industry_id→index_id` crosswalk，名稱相近不代表可直接 join。
+- **正式程式守門**：`label_four_models.py` 每次 `--verify-only` 和實際貼標均先跑 `industry_membership.check_industry_membership`。缺少或不可信時 `MISSING/BLOCKED/PARTIAL_COVERAGE`，產業 X 不加入模型，但不阻擋其他獨立合格因子；`--require-industry` 則須完全 `VERIFIED` 才能繼續。輸出 `industry_membership_precheck.json`、`readiness.json`，研究 `publication_allowed=false`。
+- **實作與驗收區分**：preflight GitHub/Drive 已同步、本地 41 passed／6 skipped（本地無 pyarrow），屬 **程式交付完成**；歷史個股名冊、跨市場歷史覆蓋、index crosswalk、全量 Colab／ChatGPT 真資料驗收仍 **PENDING**，現役 Risk／Registry／canonical CURRENT 不變。工作狀態唯一見 [Active TODO](../todo.md)，工程說明見 [四模型分工](../research/four-model-collection-label-split-v382.md)。
+
 ## 2026-10-23｜資料採集後的四模型共用研究因子工廠
 
 **最新決策覆蓋舊的逐模型各自處理衍生因子方式。** 沿用單一 `00_資料收集.ipynb`；原 Drive v3.6 尚未覆寫，已於 `CoLab程式/_archive` 備份；[v3.8 候選 Notebook、內嵌模組及測試 ZIP](https://drive.google.com/file/d/1QfCs0zeReUlp3hJzgVqsZv75xab40G2Z/view) 已放在同一 Drive `CoLab程式` 供 Colab 使用。這是本地可編譯候選，**未做 Colab 真人 OAuth／全量實跑，不能聲稱新來源已採到**。
@@ -16,7 +23,7 @@
 **驗收界線**：v3.8 Notebook 22 cells 均可編譯、本地 14/14 targeted tests、2025-07~09 三月 121,326 筆真 OHLCV 特徵 smoke PASS（88 欄初版檢查）；**完整 21 月分區全程 Colab 及 derived file SHA 讀回尚未 PASS**。此因子工程不變更 Risk v1 模型、Registry、PG、正式模型快取或 API。
 
 ## 唯一資料路線
-**官方 TWSE／TPEx 與經允許的 Yahoo、FinMind → Google Colab 手動採集、定向補收、斷點與品質處理 → Drive `janusChatGPT/資料源/JanusDataset_v3_202610/data/YYYY-MM/` 原始來源檔 → `canonical/CURRENT.json` 指向不可變 Parquet release → Colab 因子／標籤／模型 OOS → Janus Mart 受控匯入。** 無需 GAS、GAS Loader、GCP 重訓 Jobs、BQ ML/OOS；Colab MCP 若將來可用只作操作介面，不列前置必要條件。目前 ChatGPT 尚未連上 Colab MCP。禁止把程式已提交冒稱 Colab 現場已執行。
+**官方 TWSE／TPEx 與經允許的 Yahoo、FinMind → Google Colab 手動採集、定向補收、斷點與品質處理 → Drive `janusChatGPT/資料源/JanusDataset_v3_202610/data/YYYY-MM/` 原始來源檔 → `canonical/CURRENT.json` 指向不可變 Parquet release → ChatGPT 研究因子／貼標／四模型 OOS → 依各模型正式 gate 受控匯入 Janus Mart。** 無需 GAS、GAS Loader、GCP 重訓 Jobs、BQ ML/OOS；Colab MCP 若將來可用只作操作介面，不列前置必要條件。目前 ChatGPT 尚未連上 Colab MCP。禁止把程式已提交冒稱 Colab 現場已執行。
 
 ## 普通股母體及歷史限制
 - 僅 TWSE／TPEx 上市上櫃**普通股**；以官方公司基本資料（TWSE `opendata/t187ap03_L`、TPEx `mopsfin_t187ap03_O`，必要時官方 CSV）建立白名單，ETF、ETN、基金、權證、債券及非普通股在**下載後入庫前**過濾。優先用官方名冊，而非單靠四碼。
@@ -72,7 +79,7 @@ Quant/Risk 先建立 baseline＋challenger；Valuation/Fundamental 視實際資�
 **實作與操作**：[Colab 唯一 README](../../research/colab/README.md)；**唯一進度**：[Active TODO](../todo.md)。
 
 ## 日常窗口與衍生因子（2026-10-21）
-月資料夾只作研究保存分區，不限制每日模型窗口。讀取跨月最長lookback與warmup後，在Colab做共用清洗/時點整合/X/Y；正式每日推論沿既有Core/Mart增量，不等待當月研究檔封存，不每天重抓整月。
+月資料夾只作研究保存分區，不限制每日模型窗口。讀取跨月最長lookback與warmup後，在ChatGPT研究端做共用清洗/時點整合/X/Y；正式每日推論沿既有Core/Mart增量，不等待當月研究檔封存，不每天重抓整月。
 唯一前處理、窗口、label及train-serving一致性見[因子時間契約](model-feature-time-contract.md)；各模型選型/X/Y見[五分析師](specialist-engines.md)。新因子需求先核既有正式及研究欄位，缺資料保留缺口，不因本節自動新增來源/付費/擴大歷史回補。
 
 
