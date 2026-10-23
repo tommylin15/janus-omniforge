@@ -6,13 +6,14 @@ on:
     paths:
       - '.github/workflows/private-ledger-backup-retention.yml'
       - 'ops/private-ledger-backup-retention-request.json'
+      - 'ops/private-ledger-backup-retention-apply-request.json'
   workflow_dispatch:
-  # Activate only after real GCS dry-run evidence and approved seven-daily/six-monthly policy.
-  # schedule:
-  #   - cron: '30 5 * * *'   # 13:30 Asia/Taipei, safely after the 02:30 backup due slot.
+  schedule:
+    - cron: '30 5 * * *'   # 13:30 Asia/Taipei; independent of Controller backup requests.
 
 permissions:
   contents: read
+  actions: read
   id-token: write
 
 concurrency:
@@ -26,6 +27,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -38,18 +41,41 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Existing Private backup GCS metadata inventory
+      - name: Verify pinned real dry-run and isolated restore for one-time apply
+        id: gate
         env:
-          # Scheduled apply remains disabled until the real dry-run is accepted.
-          JANUS_BACKUP_RETENTION_SCHEDULED_APPLY: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            python scripts/gcp/private_ledger_backup_retention.py --mode apply
-          else
-            python scripts/gcp/private_ledger_backup_retention.py --mode dry-run
+          mode=dry-run
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            mode=apply
+          elif [[ "${{ github.event_name }}" == "push" ]] &&
+               git diff --name-only HEAD~1 HEAD | grep -Fxq 'ops/private-ledger-backup-retention-apply-request.json'; then
+            jq -e '.intent=="private-ledger-retention-one-time-apply" and .approved==true
+              and .scope=="existing-dev-private-backup-prefixes" and .dry_run_run==39974251644
+              and .restore_run==38991644822 and .max_daily_deletes==3
+              and .max_monthly_deletes==1 and .no_new_backup==true
+              and .no_pg_mutation==true and .no_iam_expansion==true' \
+              ops/private-ledger-backup-retention-apply-request.json >/dev/null
+            gh run view 39974251644 --json headSha,status,conclusion,workflowName | \
+              jq -e '.headSha=="c064cff362f0b7fc488403f622d3cb3c955b078d"
+                and .status=="completed" and .conclusion=="success"
+                and .workflowName=="Janus independent Private ledger backup retention"' >/dev/null
+            gh run view 38991644822 --json status,conclusion,workflowName | \
+              jq -e '.status=="completed" and .conclusion=="success"
+                and .workflowName=="Janus controller backup executor and guarded handoff"' >/dev/null
+            mode=apply
           fi
+          echo "mode=$mode" >>"$GITHUB_OUTPUT"
+      - name: Existing Private backup GCS metadata inventory and bounded retention
+        env:
+          JANUS_BACKUP_RETENTION_SCHEDULED_APPLY: ${{ steps.gate.outputs.mode == 'apply' && 'true' || 'false' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/private_ledger_backup_retention.py --mode "${{ steps.gate.outputs.mode }}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
