@@ -21,7 +21,7 @@ import ghcr_jobs_rollout as gcp
 
 PG_RECEIPT = Path("governance-metadata-readonly-receipt.json")
 OUTPUT = Path("governance-job-reconcile-readonly-receipt.json")
-MAX_PAGES_PER_JOB = 5
+MAX_PAGES_PER_JOB = 12
 PAGE_SIZE = 100
 MAX_ACTIVE_REFS = 100
 ALLOWED_JOBS = tuple(sorted(gcp.REQUIRED_JOBS))
