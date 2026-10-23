@@ -307,7 +307,11 @@ def test_regular_api_promotion_requires_bound_approved_request_and_auto_auth_bou
     }
     with patch.object(promote.Path,"read_text",return_value=json.dumps(approved)):
         promote.approved_regular_promotion("41","42",sha,baseline)
+    direct = {**approved, "traffic_validation_mode": "direct"}
+    with patch.object(promote.Path,"read_text",return_value=json.dumps(direct)):
+        assert promote.approved_regular_promotion("41","42",sha,baseline)["traffic_validation_mode"] == "direct"
     for changed in (
+        {"traffic_validation_mode":"invalid"},
         {"approved":False},
         {"source_sha":"c"*40},
         {"auth_boundary_run":""},
