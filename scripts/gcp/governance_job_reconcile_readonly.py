@@ -73,10 +73,58 @@ def exact_controller_refs(rows):
         result.append(record)
     return result
 
+def scheduler_snapshot():
+    """GET-only fixed Scheduler job metadata; permission errors are UNKNOWN."""
+    result = {"name": gcp.SCHEDULER, "status": "UNKNOWN"}
+    try:
+        from ghcr_job_cutover_guard import SCHEDULER_TARGET
+        data = json.loads(gcp.command([
+            "gcloud", "scheduler", "jobs", "describe", gcp.SCHEDULER,
+            "--location", gcp.REGION, "--project", gcp.PROJECT, "--format=json"]))
+        expected = ("projects/" + gcp.PROJECT + "/locations/" + gcp.REGION +
+                    "/jobs/" + gcp.SCHEDULER)
+        if data.get("name") != expected:
+            raise ValueError("scheduler_job_identity_mismatch")
+        result.update(status="READABLE", state=data.get("state"),
+                      schedule=data.get("schedule"),
+                      time_zone=data.get("timeZone"),
+                      target_matches_contract=data.get("httpTarget",{}).get("uri")==SCHEDULER_TARGET,
+                      last_attempt_time=data.get("lastAttemptTime"),
+                      status_code=(data.get("status") or {}).get("code"))
+    except Exception as exc:
+        result["error_class"] = type(exc).__name__[:64]
+    return result
+
+
+def execution_mode(item, job):
+    """Only allowlisted operational env values; no secret/config output."""
+    containers = (item.get("template") or {}).get("containers") or []
+    if len(containers) != 1:
+        return "UNKNOWN_TEMPLATE"
+    names = {"janus-intelligence-mart": ("MART_OPERATION", "MART_RETENTION_MODE"),
+             "janus-ingestion-core": ("ICEBERG_MAINTENANCE_MODE",)}
+    desired = names.get(job, ())
+    if not desired:
+        return "NOT_APPLICABLE"
+    envs = {x.get("name"): x.get("value") for x in containers[0].get("env",[])
+            if isinstance(x,dict) and x.get("name") in desired}
+    safe = {"queue", "retention", "market-screening", "dry-run", "apply",
+            "stage-only-apply", "retention-dry-run", "retention-apply",
+            "compact-nightly", ""}
+    entries = []
+    for name in desired:
+        value = envs.get(name)
+        if value is not None:
+            if value not in safe:
+                return "UNKNOWN_UNRECOGNIZED_MODE"
+            entries.append(name + "=" + (value or "EMPTY"))
+    return ",".join(entries) if entries else "UNKNOWN_MODE_OVERRIDE"
+
 def list_existing_job_executions(job, cutoff):
     if job not in ALLOWED_JOBS:
         raise ValueError("job_outside_allowlist")
     counts = Counter()
+    modes = Counter()
     max_create, page_token, complete = None, "", False
     scanned = 0
     for _ in range(MAX_PAGES_PER_JOB):
@@ -98,6 +146,7 @@ def list_existing_job_executions(job, cutoff):
                 complete = True
                 break
             counts[cloud_state(item)] += 1
+            modes[execution_mode(item, job)] += 1
             scanned += 1
             if max_create is None or when > max_create:
                 max_create = when
@@ -107,7 +156,8 @@ def list_existing_job_executions(job, cutoff):
         if not page_token:
             complete = True
             break
-    return {"job": job, "last_30d_by_cloud_state": dict(counts), "scanned": scanned,
+    return {"job": job, "last_30d_by_cloud_state": dict(counts),
+            "last_30d_by_observable_mode": dict(modes), "scanned": scanned,
             "most_recent_cloud_create_utc": max_create.isoformat() if max_create else None,
             "pagination_complete": complete}
 
@@ -143,6 +193,7 @@ def main():
            "controller_active_refs": controller,
            "controller_cloud_state_counts": dict(statuses),
            "cloud_run_job_last_30d": jobs,
+           "scheduler": scheduler_snapshot(),
            "control_pg_lease_groups":
                r["sections"]["control_nonterminal_lease_30d"]["items"],
            "control_pg_occurrence_link_groups":
