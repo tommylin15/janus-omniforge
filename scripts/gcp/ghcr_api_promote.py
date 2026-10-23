@@ -320,7 +320,7 @@ def promote(release_run, jobs_run, receipt, forward_recovery=False):
         metadata = json.loads(command(["gh", "run", "view", run, "--json", "headSha,conclusion,status,workflowName"]))
         if not jobs.successful_operation(metadata, run, expected, 'release' if run == release_run else 'jobs-rollout'):
             raise ValueError("release_or_jobs_gate_incomplete")
-        if run == release_run and jobs.full_release_image_source(metadata, run) != sha:
+        if run == release_run and metadata.get("headSha") != sha:
             raise ValueError("release_sha_mismatch")
     checkpoint("jobs_receipt")
     jobs_receipt = json.loads(Path("/tmp/ghcr-jobs-proof/ghcr-jobs-rollout.json").read_text())
