@@ -390,9 +390,20 @@ def promote(release_run, jobs_run, receipt, forward_recovery=False):
         journal["stage"] = "candidate_probe"
         receipt.write_text(json.dumps(journal))
         probe("https://" + candidate_tag + "---" + BASE.removeprefix("https://"), sha)
+        mode = ("three_phase" if forward_recovery else
+                promotion_request.get("traffic_validation_mode", "three_phase"))
+        journal["traffic_validation_mode"] = mode
         if previous_revision == candidate:
             health(sha)
             journal["phase"] = "PASS_IDEMPOTENT"
+        elif mode == "direct":
+            journal["stage"] = "promote_candidate_final"
+            receipt.write_text(json.dumps(journal))
+            mutated = True
+            switch(candidate, baseline)
+            health(sha)
+            journal["rollback_rehearsal"] = "NOT_REQUESTED"
+            journal["phase"] = "PASS"
         else:
             journal["stage"] = "switch_candidate_first"
             receipt.write_text(json.dumps(journal))
