@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "a80ac6ecdd1ce8f7f07295a8158ae6d540dea2e1",
+  "sha": "3e5f3c0ef569513c81e52c67794af9ba40d5cade",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Read-only source-bound OAuth/admin/MCP boundary gate for Risk Core EOD/PIT fix candidate #39775217993, prior to reversible four-Jobs rollout; no model publication or traffic changes.",
-  "request_attempt": 2
+  "purpose": "Risk XGBoost first ACTIVE 0% API candidate #39875342927 read-only OAuth/Owner/MCP boundary acceptance before reversible four-Jobs rollout.",
+  "request_attempt": 3
 }
