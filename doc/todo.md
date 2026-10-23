@@ -1,6 +1,6 @@
 # Janus — 唯一 Active TODO
 
-更新：2026-10-21。**只列尚未完成的工作與原定驗收，不收納歷史失敗、已結案工程、無具體異常的推測性追查。** 狀態以 GitHub `main`／真實 CI、deployment 與 runtime 為準；結案遵循 [PROJECT_RULES §1.1.1](PROJECT_RULES.md)。
+更新：2026-10-23。**只列尚未完成的工作與原定驗收，不收納歷史失敗、已結案工程、無具體異常的推測性追查。** 狀態以 GitHub `main`／真實 CI、deployment 與 runtime 為準；結案遵循 [PROJECT_RULES §1.1.1](PROJECT_RULES.md)。
 
 ## 1. 現行優先順序
 
@@ -51,6 +51,9 @@
 完整開發/發布/回收契約見[模型生命週期](spec/model-lifecycle.md)及[AI卡](execution-cards/d07-model-lifecycle.md)。本輪為DOC_UPDATED，未上傳模型或啟用新排程。
 
 模型選型/X/Y/產出唯一見[五分析師](spec/specialist-engines.md)；[D07 唯一任務卡](execution-cards/d07-specialist-b9-oos.md)。Risk沿用既有XGBoost8候選及Rolling20/Ridge比較，其他三角色採XGBoost challenger並按資料與獨立期數判定，不為湊齊五模型而發布。
+
+- [ ] **D07-THREE-XGB-CHATGPT-PILOT（Quant／Fundamental／Valuation）**：Drive 已有三份 `.ipynb`，改在 ChatGPT 可用研究/Python 環境逐角色真實試訓（Colab 非必需），固定 CURRENT Parquet release/manifest/hash、不重抓資料；按角色完成成熟 Y、PIT/來源/公司行動、OOS/baseline、UBJ與train/serving parity、GCS candidate/readback、shadow/CI/受控發布相容證據。Notebook 存在或 training_ready 不等於已訓練/可部署，失敗按實際標示；**不重訓、不提前改 Risk v1**。
+- [ ] **D07-CROSS-JOB-MODEL-CACHE（四模型統一效能整合）**：**必須等上述三模型全都達 DEPLOYABLE**，再一次與 Risk v1 整合共用 loader/版本快取；GCS immutable model 為權威，既有 Cloud Run Mart Job 內每角色載入一次。跨 Job execution 不共享 RAM，先實測 GCS+每次單次載入 vs 版本固定 image layer 等零新服務方案；驗 hash/cache invalidation/效能/GCS IO/回滾/Owner與真實 dev 日批，無明顯效益維持原案；不得加新付費常駐服務。唯一規格 [模型生命週期](spec/model-lifecycle.md)／[D07 AI 卡](execution-cards/d07-model-lifecycle.md)。
 
 ## 5. D08｜CEO／Admin／Owner 報告
 
