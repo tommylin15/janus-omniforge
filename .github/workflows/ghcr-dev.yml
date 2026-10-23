@@ -252,15 +252,14 @@ jobs:
           import json, os, re, sys
           from pathlib import Path
           sys.path.insert(0, 'scripts/gcp')
-          from ghcr_jobs_rollout import command, successful_operation
+          from ghcr_jobs_rollout import command, full_release_image_source
           requested = json.loads(Path('ops/ghcr-candidate-request.json').read_text())
           release_run = str(requested.get('release_run') or os.environ.get('RELEASE_RUN') or '')
           if not re.fullmatch(r'[0-9]+', release_run):
               raise SystemExit('candidate_full_release_run_required')
           metadata = json.loads(command(['gh','run','view',release_run,'--json',
                                          'headSha,status,conclusion,workflowName']))
-          if (metadata.get('headSha') != requested.get('sha') or not successful_operation(
-                  metadata, release_run, 'Janus GHCR full-test image publication', 'release')):
+          if full_release_image_source(metadata, release_run) != requested.get('sha'):
               raise SystemExit('candidate_full_release_not_verified')
           PY
       - uses: actions/setup-python@v5
