@@ -103,6 +103,39 @@ def approved_first_release_risk_projection(baseline, prediction):
     value["content_hash"] = content_hash({k: v for k, v in value.items() if k != "content_hash"})
     return value
 
+def roll_forward_approved_risk(latest, approved):
+    """Expose one prior Risk observation without downgrading other fresh roles.
+
+    Both input products must be immutable, independently hash-verified by the
+    caller. Risk keeps its own historical as-of/core snapshot and evidence;
+    no feature or model prediction is recomputed or assigned a newer date.
+    """
+    if (approved.get("risk_serving_status") != "FIRST_RELEASE_APPROVED"
+            or latest["symbol"] != approved["symbol"]
+            or date.fromisoformat(approved["analysis_as_of"]) >
+                date.fromisoformat(latest["analysis_as_of"])):
+        raise ValueError("Risk roll-forward symbol/date/status mismatch")
+    old_risk = [s for s in approved["specialists"] if s["role"] == "risk"]
+    new_risk = [s for s in latest["specialists"] if s["role"] == "risk"]
+    if len(old_risk) != 1 or len(new_risk) != 1:
+        raise ValueError("Risk roll-forward requires exactly one role per source")
+    if (old_risk[0]["model_status"] != "first_release_approved"
+            or old_risk[0]["analysis_as_of"] != approved["analysis_as_of"]
+            or old_risk[0]["core_snapshot_id"] != approved["core_snapshot_id"]):
+        raise ValueError("Risk roll-forward identity mismatch")
+    value = {**latest,
+        "specialists": [old_risk[0] if s["role"] == "risk" else s
+                        for s in latest["specialists"]],
+        "risk_serving_status": "FIRST_RELEASE_APPROVED",
+        "risk_serving_as_of": approved["analysis_as_of"],
+        "risk_serving_core_snapshot_id": approved["core_snapshot_id"],
+        "risk_serving_source_hash": approved["content_hash"],
+        "model_quality": "RESEARCH_OOS_FIRST_RELEASE_PROSPECTIVE_PENDING"}
+    value["content_hash"] = content_hash({k: v for k, v in value.items()
+                                           if k != "content_hash"})
+    return value
+
+
 def numeric_facts(baseline):
     facts = {f'{a["role"]}.{key}': value for a in baseline['specialists']
              for key, value in a['metrics'].items()

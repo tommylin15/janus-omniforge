@@ -115,19 +115,44 @@ class AnalysisService:
         value = row["payload_json"]
         if value["content_hash"] != content_hash({k: v for k, v in value.items() if k != "content_hash"}):
             raise HTTPException(503, "分析來源驗證失敗")
-        # This is the live rollback boundary, independent of immutable prior
-        # product rows. Missing/rolled-back state always uses deterministic.
-        if "risk_first_release_candidate" in value:
+        # Read-only ACTIVE overlay: a later deterministic Mart row must not
+        # conceal the last immutable, still-current XGBoost Risk observation.
+        # Never replace newer non-Risk specialists or rewrite persisted rows.
+        risk_source = value if "risk_first_release_candidate" in value else None
+        if risk_source is None and execution_id is None:
             with self.repository._connection() as connection:
-                gate = connection.execute("""SELECT mode,model_sha256 FROM private.risk_model_activation
-                    ORDER BY activation_id DESC LIMIT 1""").fetchone()
-            if (gate and gate["mode"] == "ACTIVE"
-                    and gate["model_sha256"] ==
-                    "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044"):
-                from packages.analysis_product import approved_first_release_risk_projection
-                value = approved_first_release_risk_projection(
-                    value, value["risk_first_release_candidate"])
-            else:
+                candidate = connection.execute("""SELECT payload_json FROM private.specialist_product
+                    WHERE symbol=%s AND analysis_as_of<=%s
+                      AND payload_json ? 'risk_first_release_candidate'
+                    ORDER BY analysis_as_of DESC,created_at DESC LIMIT 1""",
+                    (symbol, value["analysis_as_of"])).fetchone()
+            if candidate:
+                risk_source = candidate["payload_json"]
+        if risk_source is not None:
+            if (risk_source["content_hash"] != content_hash(
+                    {k: v for k, v in risk_source.items() if k != "content_hash"})):
+                raise HTTPException(503, "風險預測來源驗證失敗")
+            # A previous valid model is reusable for at most the existing
+            # seven-calendar-day freshness contract, never future-dated.
+            from datetime import datetime
+            from zoneinfo import ZoneInfo
+            today = datetime.now(ZoneInfo("Asia/Taipei")).date()
+            if freshness(risk_source, today) == "current":
+                with self.repository._connection() as connection:
+                    gate = connection.execute("""SELECT mode,model_sha256 FROM private.risk_model_activation
+                        ORDER BY activation_id DESC LIMIT 1""").fetchone()
+                if (gate and gate["mode"] == "ACTIVE"
+                        and gate["model_sha256"] ==
+                        "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044"):
+                    from packages.analysis_product import (
+                        approved_first_release_risk_projection, roll_forward_approved_risk)
+                    approved = approved_first_release_risk_projection(
+                        risk_source, risk_source["risk_first_release_candidate"])
+                    value = (approved if risk_source is value
+                             else roll_forward_approved_risk(value, approved))
+            # API output is always a projection; never expose unpublished
+            # first-release candidate bytes when inactive or expired.
+            if "risk_first_release_candidate" in value:
                 value = dict(value)
                 value.pop("risk_first_release_candidate")
                 value["content_hash"] = content_hash(
