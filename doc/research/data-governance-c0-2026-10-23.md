@@ -245,3 +245,18 @@
 - 寫回 GitHub 此節是現有允許的**治理文件修改**；Drive 的同名原始 `.md` 若 connector 不支援 raw bytes 寫回，須將已提交證據 URL 記在該檔同一評論串並讀回，並明示「評論同步、原始內文未變」。
 - 後續只有在既有 dev 已授權且具安全 read-only SQL/GCS/Scheduler 查詢的執行環境可用時，按 L01-Q01 → L02-Q02 → L03-Q03 → L04-Q04 → L05-Q05 一次完成有界盤點；回寫每項時間、Git SHA、使用角色、SQL digest、缺值/失敗與不可刪原因，完成後停止在 C0，不自動進 C1。
 
+
+---
+
+## 13. C1-A 並行準備交接（2026-10-23）
+
+在不修改任何程式、GCP / PostgreSQL / Iceberg / GCS / Scheduler/Job、資料或模型的前提下，正式建立 [**C1-A 安全清掃準備與 C0-Live 補驗並行計畫**](data-governance-c1a-2026-10-23.md)。本輪 C1-A 為 **PREPARED (DOCUMENT_ONLY)**、C0-Live 仍 **PARTIAL/BLOCKED**、C1-B **NOT_READY**。
+
+本輪重點補充：
+- \`ingestion_core.__main__\` 的 \`market-volume → ohlcv\` 是**全量官方批次先寫**和**通過 OHLCV DQ 後另寫**的兩種責任；不應視作完全相同數值的無效副本。詳見 C1A-01 同鍵/欄位/品質/來源/讀者比對 gate。
+- [\`jobs/intelligence-mart/intelligence_mart/retention.py\`](../../jobs/intelligence-mart/intelligence_mart/retention.py) 會巡查這 11 個歷史 Mart identifier 是否存在，存在時可能執行過期列維護；\`MART_TABLES\` 沒有 legacy writer 不等於無操作依賴。
+- [\`infra/postgres/migrations/018_mart_publication.sql\`](../../infra/postgres/migrations/018_mart_publication.sql) 定義 \`publication.mart_report_index.table_identifier = 'mart.mart_scoped_analysis_v1'\` 的 CHECK（**靜態 migration 定義，Live applied 尚未知**）；此 Mart identifier 特別標 \`KEEP_DEPENDENCY_PENDING\`，先驗 PG 實際約束和發布/舊 reader，再談退役。
+- 已有 [\`.github/workflows/finops-dev.yml\`](../../.github/workflows/finops-dev.yml) 的 \`gcs-storage-footprint/core-reference-audit/runtime-references/iceberg-readback\` **唯讀診斷選項**，但不同 script 的操作界線各異；本輪沒有 dispatch 或 rerun 任何工作，不能因此冒稱取得今日 catalog/GCS 或 Scheduler 清冊。
+- \`janus_precision.py\` 研究契約 \`VERSION=3.8.2\` 的 **34 ordered X slots／27 distinct names**，不是 7 個可刪重複欄；factory 中 \`dollar_liquidity=turnover\`、\`mean_reversion5=-ret5\`、\`revenue_yoy=revenue_growth_12m\` 僅**同研究 panel 的公式關係**，不能直接移植成跨 Core/PG/模型的 Drop 權。RAW/Y/QUALITY/CONTEXT/PIT/PROVENANCE 同樣保護。
+
+**本輪沒有新的 current-live 直接 SQL/GCS/Scheduler 回傳。** 已知歷史 GCS / Risk receipt 見 §12；原 Excel Sheet 11–14 仍未逐格取得。C1 的 11 Mart、Core 雙寫、Alias 等現在仍只是候選；**經批准可實刪實體 = 0 項**。若缺少 PG catalog/constraint、Iceberg snapshot、GCS current generation、最近30日 reader/Job 與獨立回復證據，**不可執行 C1-B**。
