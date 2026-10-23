@@ -6,6 +6,10 @@
 - **獨立唯讀驗收**：[ #39898282552](https://github.com/tommylin15/janus-omniforge/actions/runs/39898282552) completed/success，直接由現役 GCS 讀回 Registry ACTIVE（核准模型 SHA 36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044）；2026-10-21 EOD union 8 檔、6 普通股八因子 READY／有效預測 6 筆、非普通股排除 2、普通股排除 0，Risk OHLCV 掃描 900 列。GCS immutable bytes hash／來源 Core manifest 關聯、PG 啟用執行與成功日誌、API 現役 100% 流量／health／未登入拒絕全部 PASS。驗收只輸出統計，不公開 Owner 持股清單。
 - **有界剩餘**：Owner 登入後最新個股 API row 實際回傳 first_release_approved／前台 RiskSignalCard 正向呈現、確定較新 deterministic row 不會蓋掉 10/21 真預測、實際 GCS+PG deterministic 回退與復原、自然盤後日批／每月成熟 outcome 均沒有本次獨立正向證據，維持 NOT_VERIFIED。不能把 ACTIVE data-plane PASS 外推成 full UI/自然週期 CLOSED。沒有重訓或新增資源。
 
+- **2026-10-23 Owner 手機畫面回報（正向 UI 未通過）**：使用者提供當日約 12:26（台灣時間）的已登入普通股個股頁截圖，確實可見 `Risk 分析師｜個股風險` 卡，但狀態仍為灰色 `模型尚待驗證`，未顯示 `近期年化波動 → 預測年化波動` 數值或 first-release 風險方向。因此 **Owner UI=OBSERVED_NOT_DISPLAYING_XGB／NOT_VERIFIED**；這不是模型重新退回 DETERMINISTIC 的證據，也不推翻 #39898282552 的資料面 ACTIVE PASS。截圖未入版控，避免保存 Owner 私人持倉/成本影像。
+- **待驗的具體 API 選列風險（程式碼觀察，非已證實根因）**：`services/api/analysis.py` 的 `baseline()` 以 `private.specialist_product` 之 `analysis_as_of DESC, created_at DESC LIMIT 1` 選最新 row；只有被選 row 含 `risk_first_release_candidate` 才核對 `private.risk_model_activation` 並套用 `approved_first_release_risk_projection()`。若較新 deterministic row 沒有候選，可能蓋掉 2026-10-21 ACTIVE XGB row；也須排除實際 API 版本未更新、客戶端舊版/快取、symbol target/freshness 或候選快照 mismatch。先用既有 Owner session 在授權路徑讀回該個股 API（僅保存去識別 status/as-of/model 與 gate 證據），再定位與修正；驗收須同時滿足 `first_release_approved`、有效雙波動數值、手機 `RiskSignalCard` 正向呈現，最後受控 GCS/PG rollback/restore。未讀回前不得宣稱已修復。
+
+
 
 ### 2026-10-23｜ADMIN-SIMPLIFY 最小 IAM 權限套用與讀回
 
