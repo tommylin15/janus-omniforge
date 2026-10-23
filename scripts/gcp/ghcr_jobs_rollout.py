@@ -92,6 +92,28 @@ def successful_operation(metadata, run, legacy_name, operation):
                for name in required)
 
 
+
+def full_release_image_source(metadata, run):
+    """Source SHA comes from the immutable request at the successful run HEAD.
+
+    Ops-triggered workflows run on the request commit; the image build itself
+    intentionally targets the pinned earlier commit. Never conflate them.
+    """
+    if not successful_operation(metadata, run, "Janus GHCR full-test image publication", "release"):
+        raise ValueError("full_release_not_successful")
+    head = str(metadata.get("headSha", ""))
+    if not re.fullmatch(r"[0-9a-f]{40}", head):
+        raise ValueError("full_release_head_invalid")
+    if metadata.get("workflowName") == "Janus GHCR operations":
+        original = json.loads(command(["git", "show", f"{head}:ops/ghcr-release-request.json"]))
+        if (original.get("intent") != "dev-ghcr-full-release"
+                or original.get("scope") != "full-python-flutter-ghcr"
+                or not re.fullmatch(r"[0-9a-f]{40}", str(original.get("sha", "")))):
+            raise ValueError("full_release_original_request_invalid")
+        command(["git", "merge-base", "--is-ancestor", original["sha"], head])
+        return original["sha"]
+    return head
+
 def cloud(path, body=None, method=None):
     # Tokens stay in memory and headers, never argv, receipt or exception text.
     token = command(["gcloud", "auth", "print-access-token"]).strip()
@@ -460,8 +482,7 @@ def run(release_run, receipt):
     rollback_mode = release_rollback_mode(request, sha)
     automated_oauth_acceptance(sha, request.get("auth_boundary_run"))
     release = json.loads(command(["gh", "run", "view", release_run, "--json", "headSha,status,conclusion,workflowName"]))
-    if (release.get("headSha") != sha or not successful_operation(
-            release, release_run, "Janus GHCR full-test image publication", 'release')):
+    if full_release_image_source(release, release_run) != sha:
         raise ValueError("full_release_not_successful")
     targets = {}
     for name, component in JOB_COMPONENT:
