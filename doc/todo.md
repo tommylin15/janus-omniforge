@@ -49,6 +49,8 @@
 
 [唯一研究資料 SPEC](spec/research-collection-gas-drive-colab.md)；[Colab 執行說明](../research/colab/README.md)。已結案舊 GCP/BQ 研究清理保持 CLOSED，不重開。
 
+- [ ] **D07-PRE-FOUR-ROLE-FACTOR-FACTORY｜最後一步共用因子庫**：已提供 [v3.8 Notebook/模組/測試候選包](https://drive.google.com/file/d/1QfCs0zeReUlp3hJzgVqsZv75xab40G2Z/view)，本地 22 cells compile、14/14 tests、121,326 筆真 OHLCV 三月 smoke PASS；會計/營收公告時間與來源仍不能冒稱 PIT。**待完成**：在 Colab 以本人 OAuth 挂載 Drive 完整執行、生成/驗 SHA readback、按來源權利有界補收大盤/歷史產業/法人/股數等可得原始資料；原 v3.6 保持單一正式入口，候選 v3.8 未覆寫原 ID。產出研究 X（加總／平均／窗口／位階／比率）與**獨立 Y 候選**，四模型評估後逐一正規化需要的 schema/貼標/校準，不能讓研究 Y 流入 X；不改 Risk v1。詳 [研究採集契約](spec/research-collection-gas-drive-colab.md)。
+
 ## 4. D07｜五角色模型與正式介接
 
 - [ ] **共用X/Y與時間處理**：依[因子時間契約](spec/model-feature-time-contract.md)建立交易日/公告as-of join、公司行動與單位、滾動feature builder、成熟label、版本/增量及訓練/推論同輸入一致性；不每天重抓整段歷史。
