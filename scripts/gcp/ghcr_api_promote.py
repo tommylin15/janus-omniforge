@@ -236,7 +236,10 @@ def verify_current_jobs_before_api_traffic(proof):
     jobs.legacy_writers()
     if jobs.scheduler().get("state") != "ENABLED":
         raise ValueError("api_promotion_scheduler_not_enabled")
-    jobs.fence()
+    # Natural dev batch executions may be running when API is promoted.
+    # Reuse the existing bounded terminal fence rather than treating this
+    # transient state as a release failure or bypassing live-writer safety.
+    jobs.wait_for_terminal_executions(timeout=720)
     targets = proof.get("targets", {})
     snapshots = proof.get("snapshots", {})
     if not isinstance(targets, dict):
