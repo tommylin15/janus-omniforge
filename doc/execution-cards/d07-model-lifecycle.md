@@ -1,9 +1,9 @@
 # D07｜Colab開發、GCS模型發布、日週推論及月評估 — AI操作指令
-更新：2026-10-21。本輪只寫文件；後續使用者要求執行時，依[TODO](../todo.md)完成同一D07工作包，不創第二套queue。
+更新：2026-10-23。本輪寫入三模型 ChatGPT 試訓及四模型快取決策；後續使用者要求執行時，依[TODO](../todo.md)完成同一D07工作包，不創第二套queue。
 必讀：AGENTS/PROJECT_RULES、[模型生命週期](../spec/model-lifecycle.md)、[X/Y](../spec/specialist-engines.md)、[因子時間](../spec/model-feature-time-contract.md)、[D07卡](d07-specialist-b9-oos.md)、[Colab README](../../research/colab/README.md)。程序/資料量以生命週期SPEC為唯一權威。
 
 ## 1. 整包AI指令（可複製）
-> 執行D07模型生命週期。核對main及現有Risk/Colab/Controller，按doc/spec/model-lifecycle.md完成共用採集清洗/as-of/label/features→五角色baseline/challenger→OOS→immutable candidate bundle→GCS上傳與讀回→Mart驗證/shadow/registry→深度股票批次推論與站內模板報告→成熟outcome回收與每月評估。先Risk後Quant，其他角色依資料量及標籤，rules也是合法交付。模型由Colab人工訓練；GCS只存artifact，既有Controller/Mart執行分析，不新增每股Job、不恢復Cloud Run訓練器。新流程工程、model promotion及月評估證據分開；每階段可續跑，整包集中必要驗收，不在每股/每角色任意停等。新付費/重大擴權/大量不可逆刪除依PROJECT_RULES處理，OAuth由本人授權。
+> 執行D07模型生命週期。核對main及現有Risk/Colab/Controller，按doc/spec/model-lifecycle.md完成共用採集清洗/as-of/label/features→五角色baseline/challenger→OOS→immutable candidate bundle→GCS上傳與讀回→Mart驗證/shadow/registry→深度股票批次推論與站內模板報告→成熟outcome回收與每月評估。先Risk後Quant，其他角色依資料量及標籤，rules也是合法交付。Risk 既有模型不動，三個未發布角色優先由 ChatGPT 研究環境試訓（Colab 可選）；GCS只存artifact，既有Controller/Mart執行分析，不新增每股Job、不恢復Cloud Run訓練器。新流程工程、model promotion及月評估證據分開；每階段可續跑，整包集中必要驗收，不在每股/每角色任意停等。新付費/重大擴權/大量不可逆刪除依PROJECT_RULES處理，OAuth由本人授權。
 
 ## 2. 共用Colab入口必須交付的cells
 C0掛Drive/checkout固定Git SHA/安裝鎖定依賴→C1選role/start/end/cutoff/cohort→C2採集與resume→C3清洗/品質→C4features/as-of→C5labels/maturity→C6time folds/preprocessor/train→C7OOS/evaluation/model card→C8export→C9候選上傳/readback。
@@ -33,6 +33,16 @@ drive.mount('/content/drive')
 | Valuation | [估值建模](../colab-models/04-valuation-xgboost.md) | `04_Valuation估值_XGBoost.ipynb` |
 
 四份皆只讀 `JanusDataset_v3_202610/canonical/CURRENT.json` 指定的Parquet release，共用Python模組但可各自Run all；不要求先執行另一模型。新版訓練不得使用上節舊r1 CLI作主要入口，舊命令只供歷史試點重現。Risk沿用既有XGBoost8／八因子，不接手現行部署工項；其他角色以XGBoost為challenger且保留baseline。Event／新聞與人工標註另討論；不在本輪建立第五份Notebook。
+
+### 2026-10-23 新執行路徑：ChatGPT 三角色試訓 → 可部署 → Risk + 三角色快取整併
+
+1. 已確認 Drive `janusChatGPT/CoLab程式` 三份 Notebook：`01_Quant趨勢_XGBoost.ipynb`、`03_Fundamental營運_XGBoost.ipynb`、`04_Valuation估值_XGBoost.ipynb`。用 ChatGPT 可用 Python／研究環境依三份原模型契約直接試做，不強制 Colab；無完整原始 Parquet 授權讀取時回報 BLOCKED，不拿片段摘要冒充實收。固定 CURRENT/manifest/SHA 與 Git source、依賴/seed。
+2. 每角色真實訓練與 time-purged OOS/baseline，保留 mature-at/PIT/公司行動/授權、防洩漏、清洗及缺值；輸出模型卡、研究報告、UBJ、安全重新載入與固定向量、版本/hash。完成 GCS 不可變候選與受控 shadow/發布接口相容評估；個別以有證據的 DEPLOYABLE/RESEARCH_ONLY/INCONCLUSIVE/BLOCKED 呈現，不自動切 ACTIVE。
+3. 三者**全部可部署**前，不重訓 Risk v1、不修改 Risk 正式 Job/ACTIVE/rollback，不開四角色共同快取工程；可規劃 interface，但不能把規劃當作完成。
+4. 三者都達標後，才在既有 Janus Mart 整合四角色共用版本化 loader/cache。Cloud Run 不同 Job execution 無共享 RAM；GCS immutable UBJ/manifest/hash 是權威，每 execution 同角色載入一次+RAM cache 為基線，image layer 固定模型為待實測替代；不新增付費/常駐服務，模型與程式 SHA/digest 及 rollback 一起受控。
+5. 對相同 Core snapshot/target/X 量測模型 fetch/load/predict/Job 全程時間、GCS GET/bytes、CPU/RAM、成本；核 fixed vector、一致輸出、失效/換版/併發、ETF、Owner、真實日批與回退。未通過原定實測不標 CLOSED；沒有顯著效益則保留基線。
+
+**執行 AI 指令（覆蓋本卡較早 Colab-only 要求）**：只處理 D07 的 Quant、Fundamental、Valuation，從三份現成 Drive Notebook 出發，以 ChatGPT 執行環境做真資料試訓、OOS 與候選驗證，允許模型個別不足。三模型具可部署證據後，才把 Risk v1 一起納入共同跨 Job 版本快取優化；使用既有 GCS、Cloud Run Mart、Controller、PG，無付費擴張。保留 provenance、source authorization、PIT、hash、rollback，別把 Notebook/文件/研究準入當正式發布。
 
 ## 4. 候選上傳範例（exporter完成及既有權限確認後才可用）
 只示範Google Storage client機制；本次沒有上傳或授權變更。runtime須另實作importer/registry。
