@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install pytest -q
-          python -m pytest -q tests/test_governance_metadata_readonly.py tests/test_governance_mart_metadata_readonly.py tests/test_governance_job_reconcile_readonly.py
+          python -m pytest -q tests/test_governance_metadata_readonly.py tests/test_governance_mart_metadata_readonly.py tests/test_governance_job_reconcile_readonly.py tests/test_governance_mart_reader_inventory.py
           python - <<'PY'
           import json
           from scripts.gcp.governance_metadata_readonly import validate_request
@@ -55,6 +55,9 @@ jobs:
       - name: Reconcile bounded PG leases with existing Cloud Run Job executions (GET only)
         run: |
           python scripts/gcp/governance_job_reconcile_readonly.py
+      - name: Enumerate code references and deployed Mart reader metadata (GET only)
+        run: |
+          python scripts/gcp/governance_mart_reader_inventory.py
       - name: Cross-validate PG/Core and Mart identity receipts
         run: |
           python - <<'PY'
@@ -64,6 +67,12 @@ jobs:
           c=json.loads(Path('governance-metadata-readonly-receipt.json').read_text())
           m=json.loads(Path('governance-mart-metadata-readonly-receipt.json').read_text())
           j=json.loads(Path('governance-job-reconcile-readonly-receipt.json').read_text())
+          reader=json.loads(Path('governance-mart-reader-inventory.json').read_text())
+          assert reader['source_git_sha']==os.environ['GITHUB_SHA']
+          assert reader['read_only'] is True and reader['data_mutations']==0
+          assert len(reader['references_by_table'])==10
+          assert reader['no_literal_hit_means_no_reader'] is False
+          assert reader['actual_per_table_reader_usage']=='UNKNOWN_NO_TABLE_LEVEL_RUNTIME_TRACE'
           assert j['source_git_sha']==os.environ['GITHUB_SHA']
           assert j['read_only'] is True and j['status']=='PASS'
           assert j['data_mutations']==j['iam_changes']==j['new_resources']==0
@@ -113,6 +122,10 @@ jobs:
           assert constraints[0][0]=='mart_report_index_table_identifier_check'
           assert 'mart.mart_scoped_analysis_v1' in constraints[0][1]
           assert len(c['sections']['publication_pg_scan_cumulative']['items'])==2
+          summary.update(mart_code_scan_status=reader['status'],
+                         mart_code_scan_files=reader['scanned_files'],
+                         mart_reader_literal_tables_with_refs=sum(
+                             bool(v) for v in reader['references_by_table'].values()))
           summary.update(lease_job_reconcile_status=j['status'],
                          nonterminal_lease_groups=len(j['control_pg_lease_groups']),
                          nonterminal_occurrence_link_groups=len(j['control_pg_occurrence_link_groups']),
@@ -142,5 +155,6 @@ jobs:
             governance-mart-metadata-readonly-receipt.json
             governance-metadata-joined-summary.json
             governance-job-reconcile-readonly-receipt.json
+            governance-mart-reader-inventory.json
           retention-days: 14
           if-no-files-found: ignore
