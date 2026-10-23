@@ -271,10 +271,10 @@ else:
             # are never logged. MD5 matches the preceding C1-A pseudoref.
             sql_section(c, "control_p02_execution_decisions_30d", """
                 WITH candidates AS (
-                    SELECT e.execution_id,e.trace_id,e.config_id,
-                           e.trigger_type,e.status,e.requested_at,
-                           e.started_at,e.finished_at,e.claimed_until,
-                           e.claimed_by,e.retry_count,e.error_code
+                    SELECT execution_id,trace_id,config_id,
+                           trigger_type,status,requested_at,
+                           started_at,finished_at,claimed_until,
+                           claimed_by,retry_count,error_code
                       FROM control.executions e
                      WHERE e.status IN ('queued','running','retrying')
                        AND e.requested_at >= now()-interval '30 days'
