@@ -342,7 +342,38 @@ def main() -> None:
         print(PREFIX + json.dumps(item, ensure_ascii=False, sort_keys=True))
     summary = result["sections"]["summary"]["items"][0]
     if summary.get("status") != "PASS":
-        raise RuntimeError("readonly_governance_metadata_partial")
+        # Existing ingestion-core identity cannot read Mart GCS metadata. Accept
+        # ONLY this known, scoped partial result when the companion Mart Job
+        # probes the same registered namespace in the next workflow step.
+        # Any other blocked section remains a hard failure.
+        snapshots = result["sections"].get("iceberg_snapshots", {}).get("items", [])
+        catalogue = result["sections"].get("iceberg_catalog", {}).get("items", [])
+        expected_sections = {
+            "pg_relations", "pg_columns", "pg_constraints", "pg_indexes",
+            "information_schema_tables", "information_schema_columns",
+            "iceberg_catalog", "schema_migrations"
+        }
+        section_ok = all(
+            result["sections"].get(s, {}).get("status") == "PASS"
+            for s in expected_sections
+        )
+        core = [x for x in snapshots if x.get("name", "").startswith("core.")]
+        mart = [x for x in snapshots if x.get("name", "").startswith("mart.")]
+        actual_catalog = sorted(str(row[1]) + "." + str(row[2]) for row in catalogue)
+        actual_metadata = sorted(x.get("name", "") for x in snapshots)
+        permitted_handoff = (
+            summary.get("status") == "PARTIAL"
+            and summary.get("missing") == [] and summary.get("errors") == {}
+            and section_ok and len(core) == 9 and len(mart) == 11
+            and len(catalogue) == 20 and actual_catalog == actual_metadata
+            and all(x.get("status") == "READABLE" for x in core)
+            and all(x.get("status") == "UNKNOWN"
+                    and x.get("error", {}).get("error_class") == "PermissionError"
+                    for x in mart)
+        )
+        if not permitted_handoff:
+            raise RuntimeError("readonly_governance_metadata_partial")
+        print("CORE_PG_PASS_MART_PERMISSION_HANDOFF_REQUIRED")
 
 if __name__ == "__main__":
     main()
