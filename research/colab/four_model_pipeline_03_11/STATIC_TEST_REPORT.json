@@ -1,0 +1,74 @@
+[
+  {
+    "filename": "03_收檔驗收與Drive同步.ipynb",
+    "sha256": "e8409d215240417938432b6155630abd74fa11077657e9607c442203763d44ca",
+    "bytes": 14626,
+    "cells": 4,
+    "static": "PASS",
+    "colab_live": "NOT_EXECUTED"
+  },
+  {
+    "filename": "04_資料包全量Preflight.ipynb",
+    "sha256": "283e347da8d594ebb3a973fb96d68e13cccf26953043e916e9a6446436c79457",
+    "bytes": 10725,
+    "cells": 3,
+    "static": "PASS",
+    "colab_live": "NOT_EXECUTED"
+  },
+  {
+    "filename": "05_四模型XY建立.ipynb",
+    "sha256": "c42526e4c4d37cd392395767cb40092a8a172fffa810a7b60315edc56782671f",
+    "bytes": 12433,
+    "cells": 3,
+    "static": "PASS",
+    "colab_live": "NOT_EXECUTED"
+  },
+  {
+    "filename": "06_Quant訓練.ipynb",
+    "sha256": "302b39309da83e6be79a5f5fb24aeacc8099b4c8a19284287b8511d33c92ada2",
+    "bytes": 10548,
+    "cells": 3,
+    "static": "PASS",
+    "colab_live": "NOT_EXECUTED"
+  },
+  {
+    "filename": "07_Risk研究驗證.ipynb",
+    "sha256": "63d10bba8699cbf81e42173e36682dea97ad310649cc89e10241e8449e2b1c53",
+    "bytes": 10554,
+    "cells": 3,
+    "static": "PASS",
+    "colab_live": "NOT_EXECUTED"
+  },
+  {
+    "filename": "08_Fundamental訓練.ipynb",
+    "sha256": "d03d2c85eb1ea5be78c6419b083b760f6c8de2d60bd888b4a1eb2f0a720dd604",
+    "bytes": 10566,
+    "cells": 3,
+    "static": "PASS",
+    "colab_live": "NOT_EXECUTED"
+  },
+  {
+    "filename": "09_Valuation訓練.ipynb",
+    "sha256": "fc5fd43cafa30348e2a0a715ce2ce783de1bd193d0303dba5ebb94e64b2d1ffb",
+    "bytes": 10567,
+    "cells": 3,
+    "static": "PASS",
+    "colab_live": "NOT_EXECUTED"
+  },
+  {
+    "filename": "10_模型結果同步Drive.ipynb",
+    "sha256": "710bb083d17fa7be673499060c8758445c17d9358f8e08bd4567a928a43e304e",
+    "bytes": 10674,
+    "cells": 3,
+    "static": "PASS",
+    "colab_live": "NOT_EXECUTED"
+  },
+  {
+    "filename": "11_候選模型評估.ipynb",
+    "sha256": "ffa92b6282cfe7718ecbedf5f9fa9a73a309faaa7a35a65c3e7a1ace677e58f7",
+    "bytes": 10462,
+    "cells": 3,
+    "static": "PASS",
+    "colab_live": "NOT_EXECUTED"
+  }
+]
