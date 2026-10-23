@@ -164,6 +164,12 @@ jobs:
           gcloud storage cat "$uri" --project "$PROJECT" > /tmp/risk-live-specialist-manifest.json
           jq -e --arg sha "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044" '
             .risk_active.artifact_uri|startswith("gs://gen-lang-client-0593591102-dev-mart/risk-active/")' /tmp/risk-live-specialist-manifest.json >/dev/null
+          quality_uri="$(jq -r .risk_quality.artifact_uri // empty /tmp/risk-live-specialist-manifest.json)"
+          [[ "$quality_uri" == "gs://$BUCKET/risk-quality/"*".json" ]]
+          gcloud storage cat "$quality_uri" --project "$PROJECT" > /tmp/risk-live-quality.json
+          jq -e '.artifact_kind=="mart_risk_8factor_quality_v1" and
+            .ordinary_targets>0 and .ready_symbols>0 and .owner_fields_exposed==false and
+            (.rows|length)==.ordinary_targets' /tmp/risk-live-quality.json >/dev/null
           risk_uri="$(jq -r .risk_active.artifact_uri /tmp/risk-live-specialist-manifest.json)"
           gcloud storage cat "$risk_uri" --project "$PROJECT" > /tmp/risk-live-selected.json
           jq -e '.publication_status=="FIRST_RELEASE_APPROVED" and .scope=="HELD_AND_WATCHLISTED_ORDINARY_SHARES"
@@ -174,6 +180,8 @@ jobs:
           echo "### Live selected-only XGBoost canary PASS; API still deterministic" >> "$GITHUB_STEP_SUMMARY"
           jq '{analysis_as_of,target_count,ordinary_target_count,excluded_nonordinary_target_count,prediction_count:(.rows|length)}' \
             /tmp/risk-live-selected.json >> "$GITHUB_STEP_SUMMARY"
+          jq '{analysis_as_of,ordinary_targets,ready_symbols,scanner:.scan_receipt.table,rows_read:.scan_receipt.rows_read}' \
+            /tmp/risk-live-quality.json >> "$GITHUB_STEP_SUMMARY"
       - name: Publish private immutable activation request and append PG switch
         id: pg-switch
         shell: bash
