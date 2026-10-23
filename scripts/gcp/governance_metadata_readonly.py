@@ -265,6 +265,70 @@ else:
                    AND e.requested_at >= now()-interval '30 days'
                  ORDER BY e.requested_at,e.execution_id LIMIT 301
             """, 300)
+            # P0-2: per-record state-machine evidence. This is inspection,
+            # not authority to fail queued jobs or complete in-flight work.
+            # UUID, owner symbols, raw request options and error payload
+            # are never logged. MD5 matches the preceding C1-A pseudoref.
+            sql_section(c, "control_p02_execution_decisions_30d", """
+                WITH candidates AS (
+                    SELECT e.execution_id,e.trace_id,e.config_id,
+                           e.trigger_type,e.status,e.requested_at,
+                           e.started_at,e.finished_at,e.claimed_until,
+                           e.claimed_by,e.retry_count,e.error_code
+                      FROM control.executions e
+                     WHERE e.status IN ('queued','running','retrying')
+                       AND e.requested_at >= now()-interval '30 days'
+                     ORDER BY e.requested_at,e.execution_id LIMIT 301
+                ),
+                facts AS (
+                    SELECT c.*,
+                      (SELECT COUNT(*)::integer FROM control.execution_items i
+                        WHERE i.execution_id=c.execution_id) AS item_count,
+                      (SELECT COUNT(*)::integer FROM control.execution_items i
+                        WHERE i.execution_id=c.execution_id
+                          AND i.state IN ('success','fallback')) AS successful_items,
+                      (SELECT COUNT(*)::integer FROM control.execution_items i
+                        WHERE i.execution_id=c.execution_id
+                          AND i.state IN ('failed','schema_drift','unavailable','partial')) AS problem_items,
+                      EXISTS (SELECT 1 FROM control.core_ready_events re
+                        WHERE re.core_execution_id=c.execution_id) AS core_ready,
+                      EXISTS (SELECT 1 FROM control.core_ready_events re
+                        WHERE re.analysis_execution_id=c.execution_id) AS parent_core_ready,
+                      EXISTS (SELECT 1 FROM control.batch_occurrences b
+                        WHERE b.scheduled_at>=now()-interval '30 days'
+                          AND b.state->>'queued_execution_id'=c.execution_id::text) AS controller_link,
+                      (SELECT COUNT(*)::integer FROM control.executions next
+                        WHERE next.trace_id=c.trace_id
+                          AND next.execution_id<>c.execution_id
+                          AND next.status IN ('succeeded','partial')) AS related_terminals,
+                      EXISTS (SELECT 1 FROM control.collection_configs cfg
+                        WHERE cfg.config_id=c.config_id AND cfg.enabled) AS config_enabled
+                    FROM candidates c
+                )
+                SELECT md5(execution_id::text),trigger_type,status,
+                       requested_at::text,started_at::text,
+                       (claimed_until > clock_timestamp()) AS active_lease,
+                       (claimed_until IS NULL) AS no_lease,
+                       (claimed_by IS NOT NULL) AS has_claimer,
+                       item_count,successful_items,problem_items,
+                       core_ready,parent_core_ready,controller_link,related_terminals,
+                       config_enabled,
+                       CASE
+                         WHEN claimed_until > clock_timestamp() THEN 'ACTIVE_LEASE_NO_MUTATION'
+                         WHEN controller_link THEN 'CONTROLLER_LINK_TERMINAL_REQUIRES_CHECK'
+                         WHEN core_ready THEN 'READY_EVENT_STATUS_CONFLICT_REVIEW'
+                         WHEN trigger_type='analysis' AND parent_core_ready
+                              THEN 'QUEUED_ANALYSIS_FROM_CORE_NOT_TERMINAL'
+                         WHEN trigger_type='analysis' THEN 'ANALYSIS_NO_TERMINAL_PROOF'
+                         WHEN item_count>0 THEN 'COLLECTION_ITEM_EVIDENCE_NOT_TERMINAL'
+                         WHEN status='queued' THEN 'QUEUED_WITHOUT_TERMINAL_PROOF'
+                         ELSE 'RUNNING_WITHOUT_TERMINAL_PROOF' END AS decision,
+                       CASE WHEN error_code IS NULL THEN NULL ELSE
+                         substring(error_code FROM 1 FOR 48) END AS error_code,
+                       retry_count
+                  FROM facts
+                 ORDER BY requested_at,execution_id LIMIT 301
+            """, 300)
             # VM ledger-backup requests have a dedicated status source, not Cloud Run.
             sql_section(c, "control_ledger_backup_reconcile_30d", """
                 SELECT b.scheduled_at::text, b.state->>'status',
