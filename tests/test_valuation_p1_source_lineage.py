@@ -4,7 +4,9 @@ from pathlib import Path
 import pytest
 import json
 
-P=Path(__file__).with_name('valuation_p1_source_lineage.py')
+P=Path(__file__).resolve().parents[1]/'research'/'colab'/'valuation_p1_source_lineage.py'
+if not P.is_file():
+    P=Path(__file__).with_name('valuation_p1_source_lineage.py')
 spec=importlib.util.spec_from_file_location('valuation_p1_source_lineage',P)
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 
