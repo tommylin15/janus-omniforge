@@ -1,0 +1,14 @@
+{
+  "intent": "user-approved-risk-first-release",
+  "environment": "dev",
+  "approved": true,
+  "mode": "ACTIVE",
+  "source_sha": "3e5f3c0ef569513c81e52c67794af9ba40d5cade",
+  "model_sha256": "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044",
+  "release_run": "39874777208",
+  "jobs_run": "39875718471",
+  "api_run": "39885037268",
+  "no_new_resources": true,
+  "target_scope": "HELD_AND_WATCHLISTED_ORDINARY_SHARES",
+  "purpose": "User approved formal Risk XGBoost8 first release ACTIVE. Exact published GHCR source with full 1626 Python tests, Flutter PASS, dev serving migration 068 PASS, four Jobs rollout, reversible 100% API #39885037268. Shadow/prospective monthly OOS remains separate; require real GCS selected-stock predictions and PG API switch only after runtime canary."
+}
