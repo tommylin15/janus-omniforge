@@ -46,6 +46,8 @@ def test_verify_success_cannot_be_used_as_a_full_release(monkeypatch):
     assert not rollout.successful_operation(metadata, '123', 'legacy', 'release')
 
 
+
+
 def test_transient_control_get_retries_but_dispatch_does_not(monkeypatch):
     from urllib.error import HTTPError
     import io

@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "3e5f3c0ef569513c81e52c67794af9ba40d5cade",
+  "sha": "6739c18c84497622fb03e6be7d25a6fc3f0ca394",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Risk XGBoost first ACTIVE 0% API candidate #39875342927 read-only OAuth/Owner/MCP boundary acceptance before reversible four-Jobs rollout.",
-  "request_attempt": 3
+  "purpose": "Risk target-only OHLCV fix candidate #39893584099 PASS at 0%; automated OAuth/Owner/MCP negative-auth boundary read-only before new four-Jobs rollout; existing API traffic 100% unchanged.",
+  "request_attempt": 4
 }

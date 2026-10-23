@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "1bf2e5d24a14b50dcb9974120e0b6c5bede58934",
+  "sha": "6739c18c84497622fb03e6be7d25a6fc3f0ca394",
   "digest": "",
   "release_run": "39892375248",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Risk target-only OHLCV 220-calendar-day Mart fix; full verified release #39892375248. Zero-traffic API candidate for exact-source auth boundary before Jobs rollout. No API traffic or Risk Registry mutation.",
-  "request_attempt": 4
+  "purpose": "Risk bounded OHLCV scope fix, exact actual GITHUB_SHA=6739c18c and image tag/digest confirmed from Release #39892375248; 0% API candidate only; no serving traffic changes.",
+  "request_attempt": 6
 }

@@ -3,13 +3,13 @@
   "environment": "dev",
   "approved": true,
   "mode": "ACTIVE",
-  "source_sha": "3e5f3c0ef569513c81e52c67794af9ba40d5cade",
+  "source_sha": "6739c18c84497622fb03e6be7d25a6fc3f0ca394",
   "model_sha256": "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044",
-  "release_run": "39874777208",
-  "jobs_run": "39875718471",
+  "release_run": "39892375248",
+  "jobs_run": "39893872327",
   "api_run": "39885037268",
   "no_new_resources": true,
   "target_scope": "HELD_AND_WATCHLISTED_ORDINARY_SHARES",
-  "purpose": "User-authorized Risk XGB ACTIVE retry: exact original model GCS hash, live 8 target union (6 ordinary 2 ETF/nonordinary), prior 2026-10-23 pre-EOD canary produced 0 due missing 8 feature as-of window. Reuse known valid completed 2026-10-21 Core acceptance EOD from historical real shadow proof; require >0 target predictions and PG active only afterwards.",
-  "request_attempt": 3
+  "purpose": "Authorized first Risk ACTIVE. Exact 6739c18c release with six ordinary target-only 220-calendar-day OHLCV and per-stock 8-feature quality. Jobs rollout #39893872327 must complete PASS before generation-CAS Registry, true six-stock predictions and PostgreSQL activation. Existing API 100% source 3e5 still same API/UI code. Fail closed, deterministic fallback; no extra resource and no retraining.",
+  "request_attempt": 4
 }
