@@ -6,6 +6,43 @@
 交付 Notebook：`01_Quant趨勢_XGBoost.ipynb`；角色代碼 `quant`。
 本次使用者指定前四角色各一份獨立 XGBoost Notebook；覆蓋舊建議中的 LightGBM challenger 選擇，保留 baseline 與時間／發布規範。第五個 Event 另議。
 
+
+## 2026-10-24｜Quant 20D 研究基準版鎖定決策（優先於本文較早的研究選型建議）
+
+**本節只鎖定下一輪研究的單一主候選，不修改本文件既有 XGBoost Notebook 的歷史說明，也不代表正式 Quant 模型已發布。**
+
+| 欄位 | 固定研究契約 |
+|---|---|
+| 研究標識 | `quant-up20-logistic12-expanding-20260701-r1`（本次決策用識別碼；非 Registry model version） |
+| 研究狀態 | `RESEARCH_CANDIDATE`；模型優勝與正式可用性仍 `INSUFFICIENT_EVIDENCE` |
+| 角色／目標 | `quant`；未來 **20 個市場交易日**，原研究未調整價 `forward_up20`（上漲為 1、否則為 0） |
+| 模型 | `StandardScaler`（只在訓練期 fit）＋`LogisticRegression(solver="lbfgs", C=1.0)` |
+| 訓練 | **全歷史擴張窗**（`F14_12_expanding`）；不優先進行 XGBoost／LightGBM／CatBoost 新一輪參數搜尋 |
+| 鎖定訓練時點 | 嚴格 `mature_at < 2026-07-01`；最晚成熟標籤 2026-06-30 |
+| 實際訓練 cohort | 2025-04-10～2026-06-01，466,823 筆、279 訊號日期、1,877 檔股票（僅指本次歷史模擬凍結版） |
+| 研究特徵 12 欄（**順序固定**） | `ret5, ret20, ma20_distance, ma60_distance, vol20, vol60, drawdown60, volume_ratio20, log_turnover20, market_code, ret10, bollinger_z20` |
+| 舊 F14 名稱 | **F14 是原消融實驗代號，非 14 因子**。本次選定 12 欄；原 15 欄與最近 120 日訓練版僅作固定對照 |
+| 原 X SHA256 | `1b5c2cdd6f7b48427f81351ece2a855f4b97d44d89606ecd0f3fe29f5f8403ae` |
+| 原 Y SHA256 | `e00b92ee1eb0d651b4baa5c28c2fa81dc9de6679b7e3e1b37a9a6ce1d1f44d5e` |
+| 固定研究模型 JSON SHA256 | `2f693b1268b525e51560f1b45f7262e6756f4faadaf02fea02628c66de4b8b11`（原模擬產物；完整係數、scaler參數見下方 `evidence.json`） |
+| 原研究訓練程式 Git SHA | `28fd738d509ab9936bf997b7024430372ac9ceac`；本次歷史模擬用程式與套件另見 evidence manifest |
+| 研究資料／市場限制 | 原 `Stage05.1 candidate-21588985ff46345d`；未調整價、observed-market-session union，**非正式 PIT 交易日曆與價格調整基準** |
+| 輸出與校準 | 原始 `predict_proba` 研究機率；**尚未認證 sigmoid 校準**，不得在 UI 標示已認證勝率 |
+| publication | `publication_allowed=false`；不接 canonical、Risk ACTIVE、Registry、正式推論或部署 |
+
+### 選定理由及不可超越的證據邊界
+
+- 2026-07-01 前鎖住的 12F 全歷史版本，在 2026/07–08 的 **43 個已成熟訊號日期／76,237 筆 native12 相同樣本**，日期等權 Brier `0.246413`、pooled AUC `0.575574`；訓練正例率常數 `0.246877`，最近120日 `0.251868`。全歷史相對常數**僅改善 0.000464**，7 月還比常數差；不得將它寫成穩定優勝。
+- 2026/07–09「模擬前瞻」是在 2026-10-23 **事後重播**，不是實際於7月逐日簽發之不可變預測，且 7–8 月先前被檢視；分類 `development/retrospective simulation`。2026/09 的 Y 尚未在截止資料中成熟，不可虛構。
+- 原 42／56 日期 Logistic 重現僅證明其既有研究可複算；56 日期的 20 日區塊敏感度及對常數的增益仍不足；不等於未碰觸 OOS、正式 PIT、公司行動／授權或 serving parity 通過。
+- **這一版的「定版」是選型與當前參數／資料指紋凍結，不是允許隨新資料悄悄覆寫模型係數。** 若未來新增可成熟資料需要重訓，先建立新的有版本識別候選及完整 manifest，不改寫 `r1` 收據。
+- 下一步先將該研究版作固定基準：新資料訊號日實際產生並 append-only 保存 `as_of`、特徵與模型 SHA、原始研究機率、來源與版本；等官方交易日定義下真正滿20市場交易日後才回收標籤。若無新資料或無不可變發出紀錄，該範圍維持 `PENDING/NOT_VERIFIED`；不因此阻止研究診斷。
+- 同一評估股票日期與 Y 下保留 **訓練正例率常數、原15F全歷史、12F最近120日** 三個對照，主指標日期等權 Brier，輔以 LogLoss/AUC/每日 Rank IC、月度與市場/流動性/波動切片，以及 10／20／30 交易日 paired-block CI；不得用結果挑新的候選或宣稱因果。
+- 原12因子 X／Y 名稱與計算依 [factor_factory_v1.py](../../research/chatgpt/factor_factory_v1.py)、[janus_precision.py](../../research/chatgpt/janus_precision.py) 的實際實作為準；任何公式、PIT或特徵順序改變皆建立**新研究版**，不能借用本次 Brier。
+
+**單一證據讀取入口：**[2026/07–09 模擬前瞻研究報告](../research/quant-2026jul-sep-forward-replay-2026-10-23.md)、[凍結權重與訓練/回收 evidence.json](../../research/experiments/quant-forward-202607/evidence.json)、[研究程式](../../research/experiments/quant_forward_jul2026.py)、[Q4 比較](../research/quant-q4-20d-evidence-2026-10-23.md)。
+
+
 ### 2026-10-23 最新實作方式（覆蓋本文末尾較早的 Colab-only AI 指令）
 
 - Drive 已存在 [01_Quant趨勢_XGBoost.ipynb](https://drive.google.com/file/d/1TtaQUUjlvKmlBzV2ZRFqmrxXndzbVDnV/view)；**Notebook 存在不等於已訓練/OOS PASS/ACTIVE**。優先採用 ChatGPT 可用 Python/研究執行環境試做，Colab 可選；在執行環境取不到完整 Parquet 原始檔時不得用摘要或 fixture 冒稱實跑。
