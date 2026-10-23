@@ -35,6 +35,12 @@
 - 5%：-0.010319，95% CI [-0.018953,-0.000601]，**NO_IMPROVEMENT**。
 - 10%：-0.021316，95% CI [-0.037010,-0.004821]，**NO_IMPROVEMENT**。
 
+## Drive 研究證據（janusChatGPT 內）
+
+- [各折截尾門檻／剔除數／模型 SHA](https://drive.google.com/file/d/1UMc8tLOEjBAazYX5DhUPN_v4PR3m4jrk/view)
+- [完整同樣本切片指標（含 Top1／2／5／10%）](https://drive.google.com/file/d/1u5LfMENKi9fMb984yXhhvDhqb6XOCeW4/view)
+- [84個日期配對誤差](https://drive.google.com/file/d/1dTyZbsllXvUgQ4hbyXsLEaRG2tI1p_cS/view)
+
 ## 本輪裁定
 
 **維持完整樣本 XGBoost12 研究定版；不採用按訓練 Y 上尾分位數直接排除的做法。** 真實高波動並非自動等於資料錯誤。未來若能確認公司行動／股價口徑污染，應依可證實的異常原因個別修復或排除，而非無差別刪除高 Y。
