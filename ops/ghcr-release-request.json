@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "efb79f20791c82cb4752929cc9125e021e332012",
-  "purpose": "ADMIN-SIMPLIFY follow-up: rerun complete Python/Flutter regression and publish four existing GHCR images after CI regression test fixes. The actual immutable release source is the triggering run head_sha, not this pre-trigger baseline. No IAM changes, dev API traffic promotion, or worker Jobs rollout.",
+  "sha": "8ff8169d5581de47718176b09db7965591eda15d",
+  "purpose": "Risk XGBoost Owner UI regression: build/test all published components from this triggering run's exact HEAD, including API pinned ACTIVE Risk roll-forward with immutable source/date and rollback guard; release images only, no automatic Cloud Run traffic or Jobs changes.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -12,5 +12,6 @@
   "no_new_resources": true,
   "api_only_promotion": false,
   "keep_existing_jobs": true,
-  "no_api_traffic_changes": true
+  "no_api_traffic_changes": true,
+  "request_attempt": 1
 }
