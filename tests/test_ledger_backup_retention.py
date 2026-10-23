@@ -84,35 +84,47 @@ def test_cleanup_ignores_non_matching_files():
     assert result["count"] == 1
 
 
-def test_poll_backup_triggers_cleanup_on_success():
-    """Cleanup should run after successful backup."""
+def test_poll_backup_success_does_not_trigger_gcs_retention():
+    """A successful VM backup transitions even if the GCS cleanup is unavailable."""
     from ingestion_core.ledger_backup import poll_backup
-    
+
     mock_cursor = MagicMock()
     mock_cursor.fetchone.return_value = (
-        'succeeded',  # status
-        1024000,      # size_bytes
-        'a' * 64,     # sha256
-        datetime(2026, 10, 17, 2, 0, 0),  # completed_at
-        None,         # error_code
+        'succeeded', 1024000, 'a' * 64, datetime(2026, 10, 17, 2), None
     )
     mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
     mock_cursor.__exit__ = MagicMock(return_value=False)
-    
     mock_connection = MagicMock()
     mock_connection.cursor.return_value = mock_cursor
-    
     state = {
-        'job': 'janus-batch-controller',
-        'batch': 'ledger-backup',
-        'status': 'running',
-        'backup_date': '2026-10-17',
+        'job': 'janus-batch-controller', 'batch': 'ledger-backup',
+        'status': 'running', 'backup_date': '2026-10-17',
     }
-    
+
     with patch("ingestion_core.ledger_backup.cleanup_old_backups") as mock_cleanup:
-        mock_cleanup.return_value = {"status": "completed", "kept": 7, "deleted": []}
+        mock_cleanup.side_effect = PermissionError("GCS private backup bucket")
         result = poll_backup(mock_connection, state)
-    
-    assert result["status"] == "succeeded"
-    assert "retention_cleanup" in result
-    mock_cleanup.assert_called_once()
+
+    assert result['status'] == 'succeeded'
+    assert result['retention_cleanup'] == {'status': 'not_run_in_reconcile'}
+    assert result['size_bytes'] == 1024000
+    assert result['completion_time'] == '2026-10-17T02:00:00'
+    mock_cleanup.assert_not_called()
+
+
+def test_poll_backup_failed_and_missing_receipts_do_not_mark_succeeded():
+    from ingestion_core.ledger_backup import poll_backup
+
+    mock_cursor = MagicMock()
+    mock_cursor.fetchone.return_value = (
+        'succeeded', 1024000, 'not-a-checksum', datetime(2026, 10, 17, 2), None
+    )
+    mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
+    mock_cursor.__exit__ = MagicMock(return_value=False)
+    mock_connection = MagicMock()
+    mock_connection.cursor.return_value = mock_cursor
+    with pytest.raises(ValueError, match='invalid completed backup receipt'):
+        poll_backup(mock_connection, {'status':'running','backup_date':'2026-10-17'})
+    mock_cursor.fetchone.return_value = ('failed', None, None, None, 'BACKUP_FAILED')
+    result = poll_backup(mock_connection, {'status':'running','backup_date':'2026-10-17'})
+    assert result['status'] == 'failed'
