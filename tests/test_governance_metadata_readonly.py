@@ -91,5 +91,5 @@ def test_nonterminal_lease_probe_is_bounded_and_metadata_only():
     assert "execution_id::text" in module.PROBE
     # Only the join key is used inside PG; no raw UUID is selected.
     assert "SELECT execution_id,trigger_type,status,claimed_until" in module.PROBE
-    assert "SELECT state->>'job',state->>'status',state->>'execution'" in module.PROBE
+    assert "SELECT state->>'job',state->>'status',state->>'batch'" in module.PROBE
     assert "UPDATE control.executions" not in module.PROBE
