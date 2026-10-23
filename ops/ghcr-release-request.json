@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "1bf2e5d24a14b50dcb9974120e0b6c5bede58934",
-  "purpose": "Risk XGBoost first ACTIVE fix: scoped ordinary holdings/watchlist only Mart acceptance and separate pinned 220-calendar-day OHLCV eight-factor quality read; no model retraining, no broadened row limit. Full regression, build GHCR existing dev only; preserve API 100% until new candidate verified.",
+  "sha": "c8bb263a696c6f69143d7f1b75d73b0ce6c17a63",
+  "purpose": "ADMIN-SIMPLIFY: full Python and Flutter regression plus four existing dev GHCR images for simplified Admin and controller-scoped batch controls. Build only; no IAM changes, no API traffic or Job rollout.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
