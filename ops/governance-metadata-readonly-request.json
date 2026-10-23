@@ -8,6 +8,7 @@
   "no_new_resources": true,
   "no_iam_expansion": true,
   "job": "janus-ingestion-core",
-  "purpose": "One bounded PostgreSQL pg_catalog/information_schema plus Iceberg core/mart catalog/metadata readback using existing dev WIF and existing Cloud Run Job. No table data scan, no private row reads, no DDL, no deployments.",
-  "execution_count": 1
+  "purpose": "C1-A one-time bounded existing-dev PostgreSQL nonterminal lease/Controller occurrence readback and Cloud Run GET-only execution reconciliation; retain C0 PG/Core/Mart metadata checks, no mutations or deployment.",
+  "execution_count": 1,
+  "audit_focus": "c1a-lease-41queued-16running-cloudrun-crosscheck"
 }
