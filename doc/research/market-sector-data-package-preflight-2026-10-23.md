@@ -15,7 +15,7 @@
 
 ## 實際 payload 抽樣驗收
 
-| 样本 | 實測結果 | 稽核說明 |
+| 樣本 | 實測結果 | 稽核說明 |
 | --- | --- | --- |
 | TWSE 大盤 2026-09 | 20 個交易日、20 筆，唯一指數 TAIEX | normalized SHA256 與檔名一致；raw SHA256 與檔名一致 |
 | TPEx 大盤 2026-09 | 20 個交易日、20 筆，唯一指數 TPEX | normalized SHA256 與檔名一致；raw SHA256 與檔名一致 |
@@ -45,3 +45,23 @@
 - 現行 code：`research/colab/market_sector_trial.py`、`research/colab/market_sector_tpex_v2.py`、`research/colab/official_index_backfill.py`。
 - 來源路徑在 Colab：`/content/drive/MyDrive/給ai專用/janusChatGPT`，**不是**`MyDrive/個人用`。
 - 完整資料包需從相同 Drive 資料源以唯讀模式建出 pinned manifest（每檔路徑、SHA256、筆數、交易日、來源與版次），生成 `preflight_summary.json` 與 `preflight_issues.csv`，驗收完成才許供 `research/chatgpt` 讀取；不得修改現有成功收檔 receipt。
+
+## 2026-10-23 補充：可重跑 Preflight CLI 與 CI
+
+- **實作**：[market_sector_package_preflight.py](../../research/chatgpt/market_sector_package_preflight.py) 已提交 `main`。唯讀掃描全部分區 receipt、原始／標準化 SHA256、schema、rows、OHLC、唯一鍵、月份範圍、來源 URL 及跨資料集交易日集合；輸出 `preflight_summary.json`、`preflight_issues.csv`，不更動原始收檔與模型。
+- **回歸測試**：[test_market_sector_package_preflight.py](../../tests/test_market_sector_package_preflight.py) 涵蓋正常 fixture、checksum 篡改、缺漏日分區；[GitHub Actions #39938208461](https://github.com/tommylin15/janus-omniforge/actions/runs/39938208461) `success`，其 selective tests job 亦 `success`。**這是程式測試通過，不是完整 84 月 payload 驗收通過**。
+- 2025-01 `tpex_market` 額外實證：`error_latest.json` 更新於 2026-10-23 09:25 UTC，隨後 `receipt.json` 於 10:02 UTC 記錄 `VERIFIED`、15 筆、2025-01-02～22，故該月舊 error 應視為「先前嘗試的留存證據」，不直接推翻較新 verified 收據；其他月份仍需逐檔核對。
+- 因 ChatGPT 當前僅個別透過 Drive 連接器讀回檔案，**並未擁有掛載在可執行 Python 的完整 Drive 資料目錄**，無法聲稱 CLI 已對完整資料包跑完。Full-data run 狀態 `PENDING`。
+
+### 完整驗收命令（有 Drive mount 的 Linux／Colab 環境）
+
+```bash
+ROOT="/content/drive/MyDrive/給ai專用/janusChatGPT"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+python research/chatgpt/market_sector_package_preflight.py \
+  --root "$ROOT/資料源/大盤產業_免費來源_2025H1_試跑" \
+  --start-month 2025-01 --end-month 2026-09 \
+  --output "$ROOT/資料源/JanusDataset_v3_202610/reports/market_sector_preflight_$STAMP"
+```
+
+從 GitHub clone／更新 `main` 後於 repo 根目錄執行；需可讀整批 Drive payload。退出碼 `0` 表示**研究資料包 preflight 的已定義機械 gate** 通過；`2` 表示 `BLOCKED` 並輸出逐分區缺口，仍不等於模型 OOS／歷史 PIT／用途授權／publication PASS。產出應再以 SHA 固定成唯讀的研究 input release，核對跨來源 mapping 才進四模型特徵工廠。
