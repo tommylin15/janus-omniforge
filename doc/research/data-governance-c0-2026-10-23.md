@@ -422,3 +422,51 @@
 **本工項完成標準：\`C0-L01 PostgreSQL bounded schema/constraints/index/migrations receipt\` 與 \`C0-L02 9 Core + 11 Mart metadata catalog/schema/spec/snapshot existence census\` 已在明確有界範圍驗收 PASS。** 這不代表 GitHub 68 支 migration 都已套用；§16.1 的 migration 名稱差異仍需處理。 \`C0-L03\` 最近30天 reader/writer/Job、\`C0-L04\` 今日 GCS prefix/lease、\`C0-L05\` 模型真實 X/PIT coverage 不是這個 metadata-only Workflow 的範圍，仍 \`PARTIAL/UNKNOWN\`；**C1-B 實體清掃仍 NOT_READY、核准可刪 0**。
 
 **安全操作提醒：** 未來若 ChatGPT 需要更新這份即時證據，可在明確授權的 repo main 更新已固定的 \`ops/governance-metadata-readonly-request.json\` 觸發新的一次 workflow；不要將此擴充成任意 SQL 執行器，若需新查詢先以版本化 script、測試、唯讀交易與有界收據審查。
+
+
+---
+
+## 19. C1-A 讀者依賴 Live 驗證（2026-10-23 12:17–12:19 UTC）
+
+**工作流與證據：** [GitHub Actions #39952096357](https://github.com/tommylin15/janus-omniforge/actions/runs/39952096357)，job \`120408771409\`，\`conclusion=success\`；\`source_git_sha=d0ec9d49e8db1ca807948c40fae338a25415e2ac\`；8 個 offline security tests passed。這次是**真正 dev 既有 PostgreSQL 身分與 Mart 身分分工的唯讀聚合查詢**，不是沿用 §18 的舊結果。收據使用與 §18 相同的 \`JANUS_GOVERNANCE_METADATA_RECEIPT_V1:\`／\`JANUS_GOVERNANCE_MART_METADATA_RECEIPT_V1:\` JSON log 分片及 Actions Artifact。整合 receipt \`janus_governance_c0_live_metadata_join_v1\`：\`status=PASS\`、\`reader_reference_status=PASS\`、\`data_mutations=0\`、\`iam_changes=0\`、\`new_resources=0\`，既有兩 Job template fingerprint 不變。
+
+### 19.1 真實 PostgreSQL Mart 發布參照（\`janus_mart_publication\`，metadata only）
+
+| 查詢來源 | Live receipt | 嚴格意義 |
+|---|---|---|
+| \`publication.mart_report_index\` 按 table/status/outcome 分組（全期間） | 138 個 reference rows，全部 \`table_identifier='mart.mart_scoped_analysis_v1'\`，其中 blocked/insufficient_data=29、blocked/invalid=90、blocked/review_required=18、publishable/complete=1 | **138 筆是發布索引列，不是 138 個 reader 或 138 次 API 點閱。** 每組有各自歷史 snapshot 引用；不得為清掃移除其來源 |
+| \`publication.mart_report_index\` 依 \`analysis_as_of >= current_date-interval '30 days'\` | 35 列（29 blocked/insufficient_data、6 blocked/invalid） | 這是**分析業務日期**的 30 天切片，不是 \`created_at\` 的 30 天執行紀錄，也不證明 35 次讀取 |
+| \`pg_get_constraintdef(mart_report_index_table_identifier_check)\` | \`CHECK ((table_identifier = 'mart.mart_scoped_analysis_v1'::text))\` | **實際 dev PG constraint 定義**已讀回；不能只更新 Mart 表名不連動 API / PG publication 契約 |
+| \`pg_stat_user_tables\` 的 \`mart_report_index\` | seq_scan=187；idx_scan=678 | **累積統計**；\`stats_reset\` 尚未讀回，不能宣稱「最近 30 日 865 次讀取」或分辨特定 API / Job |
+| \`pg_stat_user_tables\` 的 \`mart_report_outbox\` | seq_scan=38；idx_scan=0 | 累積 PG 存取統計，非 outbox 未交付量或即時 payload |
+| \`publication_index_all\` 各組不同 \`iceberg_snapshot_id\` | distinct snapshots 分組各為 9、21、13、1（分組間可能重疊） | 證明報表索引具有 snapshot-fenced reference；**不保證舊 Iceberg snapshot 依現行 current-only 策略仍可 replay** |
+
+**明確的靜態讀者鏈：**
+\`packages/web_api/public.py:PostgreSQLPublicIndex.latest\` 查 \`publication.publishable_mart_reports\` → \`IcebergArtifactReader\` 驗證 GCS artifact hash 與固定 \`mart.mart_scoped_analysis_v1\` → \`catalog.load_table(index["table_identifier"])\`／\`table.scan(snapshot_id=index["iceberg_snapshot_id"])\`。這是 live index 138 筆不能單靠「目前舊 writer 已下線」來刪 Mart 表的關鍵原因。另 \`packages/admin_api/service.py\` 仍具有 \`mart_reports\`／\`execution_details\`／\`review_mart_report\` 讀取契約；\`jobs/intelligence-mart/intelligence_mart/retention.py\` 還會巡查所有 11 個 Mart 表並維護保留期。
+
+### 19.2 近 30 天控制面執行證據（\`janus_control\`，僅 status/count）
+
+篩選基準是 \`control.executions.requested_at >= now()-interval '30 days'\`，以 \`trigger_type,status\` 聚合，不取 \`requested_symbols\`、UUID、Owner 記錄或 payload。執行 \`checked_at_utc=2026-10-23T12:17:27.783556+00:00\`。
+
+| trigger_type | status | requested_at 最近 30 日內筆數 |
+|---|---|---:|
+| analysis | failed | 8 |
+| analysis | queued | **41** |
+| analysis | succeeded | 18 |
+| collection | failed | 48 |
+| collection | partial | 50 |
+| collection | running | **16** |
+| collection | succeeded | 89 |
+| **合計** | | **270** |
+
+\`queued=41\` 與 \`running=16\` 是實際 PG status，**不直接等於目前有 41 個待跑或 16 個 lease 還有效**；需要下一步以 \`claimed_until > now()\`／Job execution terminal 和入列時間拆解 stale。這是具體 follow-up，避免 Stage 48h 清理錯誤保護。此清冊沒有 30 日 **Cloud Scheduler/Cloud Run 實際觸發全列**，不得將 PG \`requested_at\` 當 Cloud Run execution 發生時間。
+
+### 19.3 C1-A 優先分類變化
+
+- **\`mart.mart_scoped_analysis_v1\`：KEEP（強讀者依賴證據）。** 有 dev Live PG 138 個 Mart 發布 reference、1 個 \`publishable\`、確實套用的 CHECK、靜態公開 API 直接讀該表與指定 snapshot，且有 Mart retention。**禁 DROP、禁刪舊相容路徑**。
+- **其他十張 Mart 表：\`LIVE_CATALOG_PRESENT\`，本次 \`publication.mart_report_index\` 內無引用（由 CHECK 約束本身限制），**不能提升為 NO_READERS**。** \`mart_risk_portfolio_v1\` 因 Risk/Owner 邊界維持高風險保護待查；其他仍 \`RETIRE_CANDIDATE/UNKNOWN_READER\`。兩張沒有 current snapshot 的 \`mart_alternative_sentiment_v1\`、\`mart_daily_brief_v1\` 仍可讀 schema，但不等於零資料或可刪。
+- **Core \`ohlcv_v1\`：KEEP。** \`jobs/intelligence-mart/intelligence_mart/risk_inputs.py:TABLE\` 固定為 \`core.ohlcv_v1\`，且 \`specialist_runtime.py\` 會讀 pinned Core datasets；不得與 \`market_volume_v1\` 合併實刪。
+- **讀者追蹤剩餘：** 仍缺 Cloud Run 已部署 reader revision/code 對應、其餘十張 Mart 是否有直接或間接 consumer、過去30日 Scheduler/Job 獨立 status 收據、PG index snapshot 與 current snapshot 是否匹配、rollback/rebuild 路徑及 GCS reference。尤其 1 筆 \`publishable\` 是**舊業務日期**，尚未做 API 正向讀取，不應宣稱公開報表現在可成功 replay。
+- **退役安全結論：** \`C1-A READER_REFERENCE_BOUNDED_PASS\`，但 \`C1-A RETIREMENT_GATES=PARTIAL\`；**C1-B 可直接實刪 Table/Column/Object 仍 0**。未改變任何資料/Writer/Scheduler/IAM 或部署；此輪只新增版本化固定唯讀彙總 SQL、安全測試和治理文件。
+
+**證據級別小結：** 已經由真實 PG 聚合證明 \`publication.mart_report_index\` 對 scoped_analysis 的依賴；尚未以 PG 掃描數確定哪個 API/owner 曾讀，亦未以「單一 publication index 中無其他 Mart 名稱」推論其他十張全系統無讀者。
