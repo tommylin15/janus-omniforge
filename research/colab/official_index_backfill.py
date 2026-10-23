@@ -34,12 +34,12 @@ SOURCES = {
         'market': 'TWSE', 'kind': 'sector_index',
     },
     'tpex_market': {
-        'endpoint': 'https://www.tpex.org.tw/zh-tw/mainboard/trading/info/daily-indices.html',
+        'endpoint': 'https://www.tpex.org.tw/www/zh-tw/mainboard/trading/info/daily-indices',
         'source_page': 'https://www.tpex.org.tw/zh-tw/mainboard/trading/info/daily-indices.html',
         'market': 'TPEX', 'kind': 'market_index',
     },
     'tpex_sector': {
-        'endpoint': 'https://www.tpex.org.tw/zh-tw/mainboard/trading/statistics/indices/daily-sector.html',
+        'endpoint': 'https://www.tpex.org.tw/www/zh-tw/mainboard/trading/statistics/indices/daily-sector',
         'source_page': 'https://www.tpex.org.tw/zh-tw/mainboard/trading/statistics/indices/daily-sector.html',
         'market': 'TPEX', 'kind': 'sector_index',
     },
@@ -326,8 +326,8 @@ def url_for(source: str, stamp: str) -> str:
         if source=='twse_market':
             args={'response':'json','date':f'{y:04d}{m:02d}01'}
         else:
-            # TPEx historical reports use ROC month query; endpoint/schema must be
-            # checked by parse_tpex_* before the receipt can report VERIFIED.
+            # TPEx website JSON candidate (not the .html landing page). ROC month
+            # and actual schema/date must pass parsing before VERIFIED; probe live.
             args={'date':f'{y-1911}/{m:02d}/01','response':'json'}
     return SOURCES[source]['endpoint']+'?'+urlencode(args)
 
