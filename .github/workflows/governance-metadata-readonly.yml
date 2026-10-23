@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install pytest -q
-          python -m pytest -q tests/test_governance_metadata_readonly.py tests/test_governance_mart_metadata_readonly.py
+          python -m pytest -q tests/test_governance_metadata_readonly.py tests/test_governance_mart_metadata_readonly.py tests/test_governance_job_reconcile_readonly.py
           python - <<'PY'
           import json
           from scripts.gcp.governance_metadata_readonly import validate_request
@@ -52,6 +52,9 @@ jobs:
         if: ${{ always() && steps.guard.outcome == 'success' && steps.setup.outcome == 'success' }}
         run: |
           python scripts/gcp/governance_mart_metadata_readonly.py
+      - name: Reconcile bounded PG leases with existing Cloud Run Job executions (GET only)
+        run: |
+          python scripts/gcp/governance_job_reconcile_readonly.py
       - name: Cross-validate PG/Core and Mart identity receipts
         run: |
           python - <<'PY'
@@ -60,6 +63,16 @@ jobs:
           from pathlib import Path
           c=json.loads(Path('governance-metadata-readonly-receipt.json').read_text())
           m=json.loads(Path('governance-mart-metadata-readonly-receipt.json').read_text())
+          j=json.loads(Path('governance-job-reconcile-readonly-receipt.json').read_text())
+          assert j['source_git_sha']==os.environ['GITHUB_SHA']
+          assert j['read_only'] is True and j['status']=='PASS'
+          assert j['data_mutations']==j['iam_changes']==j['new_resources']==0
+          assert all(row['pagination_complete'] for row in j['cloud_run_job_last_30d'])
+          for key in ('control_nonterminal_lease_30d',
+                      'control_nonterminal_occurrence_link_30d',
+                      'control_active_batch_occurrences_30d'):
+              assert c['sections'][key]['status']=='PASS'
+
           assert c['source_git_sha']==m['git_sha']==os.environ['GITHUB_SHA']
           assert c['data_mutations']==m['data_mutations']==0
           assert c['job_configuration_unchanged'] is True
@@ -100,6 +113,11 @@ jobs:
           assert constraints[0][0]=='mart_report_index_table_identifier_check'
           assert 'mart.mart_scoped_analysis_v1' in constraints[0][1]
           assert len(c['sections']['publication_pg_scan_cumulative']['items'])==2
+          summary.update(lease_job_reconcile_status=j['status'],
+                         nonterminal_lease_groups=len(j['control_pg_lease_groups']),
+                         nonterminal_occurrence_link_groups=len(j['control_pg_occurrence_link_groups']),
+                         controller_active_refs=len(j['controller_active_refs']),
+                         cloud_run_job_execution_scopes=len(j['cloud_run_job_last_30d']))
           summary.update(reader_reference_status='PASS',
                          control_occurrence_30d_groups=len(
                              c['sections']['control_execution_30d']['items']),
@@ -123,5 +141,6 @@ jobs:
             governance-metadata-readonly-receipt.json
             governance-mart-metadata-readonly-receipt.json
             governance-metadata-joined-summary.json
+            governance-job-reconcile-readonly-receipt.json
           retention-days: 14
           if-no-files-found: ignore
