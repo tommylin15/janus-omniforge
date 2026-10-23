@@ -29,6 +29,8 @@
 | B／C／D | B 新增 downside share 無改善，完整 HAR/Amihud20/vol5/Yang–Zhang 仍受逐日源存取阻擋；C 缺 120日回撤擴大覆蓋但 validation/test 反向，INCONCLUSIVE；D 最多6組有界淺樹調參，NO_IMPROVEMENT |
 | 已知誤差 | 以真實高波動事後分群量得平均低估約0.108年化尺度；不能把事後分群當 T 日可用的 eligibility |
 
+- **定版後診斷（2026-10-24）：**[訓練Y上尾端排除2%／5%／10%研究收據](risk20-high-volatility-trim-2-5-10-2026-10-24.md)：四折同測試集整體MAE 0.125219 → 0.129248／0.135538／0.146535，5%／10%有證據支持惡化；**不改研究定版、ACTIVE 或 Registry**。
+
 ## 發布與後續邊界
 
 - `historical_pit=NOT_VERIFIED`、`corporate_action=NOT_VERIFIED`、`external_market_calendar=NOT_INDEPENDENTLY_VERIFIED`、`source_authorization=NOT_INDEPENDENTLY_VERIFIED`。原資料以觀測市場日期聯集建 grid，並非已獨立驗證交易所行事曆；缺 source 全量證據不可冒稱 VERIFIED。
