@@ -92,14 +92,14 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
   testWidgets(
-      'Admin analysis shows honest provider health without enabling providers',
+      'Admin model/report page does not enable providers without evidence',
       (tester) async {
     final api = AnalysisApi();
     await tester
         .pumpWidget(MaterialApp(home: Scaffold(body: AdminAnalysisPage(api))));
     await tester.pumpAndSettle();
-    expect(find.text('分析管理'), findsOneWidget);
-    expect(find.textContaining('NOT VERIFIED'), findsOneWidget);
+    expect(find.text('模型與報告管理'), findsOneWidget);
+    expect(find.textContaining('登入、品質或費用證據不足'), findsOneWidget);
     expect(api.posts, isEmpty);
   });
 }

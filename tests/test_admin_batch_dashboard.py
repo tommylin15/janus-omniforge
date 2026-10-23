@@ -149,7 +149,7 @@ def test_batch_routes_reject_user_tokens_and_never_accept_arbitrary_job_or_env()
     headers = {"Authorization": "Bearer admin"}
     assert api.get("/api/v1/admin/batch-dashboard", headers=headers).status_code == 200
     assert api.post(url, json={"action": "start", "expected_version": 0,
-                              "job": "arbitrary", "env": {"unsafe": "value"}}, headers=headers).status_code == 400
+                              "job": "arbitrary", "env": {"unsafe": "value"}}, headers=headers).status_code == 422
     service.batch_action.assert_not_called()
 
 

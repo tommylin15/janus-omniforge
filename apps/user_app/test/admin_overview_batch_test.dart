@@ -342,7 +342,11 @@ void main() {
     expect(find.textContaining('部分完成'), findsWidgets);
     expect(find.textContaining('成功'), findsWidgets);
 
-    await tester.tap(find.text('查看').first);
+    final partialRow = find.ancestor(
+      of: find.text('ohlcv · 資料收集'),
+      matching: find.byType(ListTile),
+    );
+    await tester.tap(find.descendant(of: partialRow, matching: find.text('查看')));
     await tester.pumpAndSettle();
     expect(find.text('執行追蹤'), findsOneWidget);
     expect(find.text('重試'), findsOneWidget);
