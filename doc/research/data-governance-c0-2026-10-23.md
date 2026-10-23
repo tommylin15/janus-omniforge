@@ -172,3 +172,76 @@
 ## 11. 審查結論
 
 本輪完成的是**有界的 GitHub 靜態證據盤點與 C1 gate 清單**，不是完整 Live baseline，也不是 C0 全驗證 PASS。**不新增、修改或刪除 schema、資料、排程、模型、runtime，也未執行任何 SQL。** 只有取得 Q01/Q03/Q04 與受影響資產的實際 reader、writer、snapshot、備份/重建收據後，才能按每項明確證據提升至 `LIVE_CONFIRMED` 或批准小範圍 C1。
+
+---
+
+## 12. C0-Live 唯讀證據續查（2026-10-23，第二輪）
+
+> **證據時態標籤：** `HISTORICAL_RUNTIME_RECEIPT` 表示先前 GitHub Actions 在真實 dev 執行得到的收據，不代表現在的資料量或目前每張表存在；`STATIC_CODE` 是 GitHub main 定義；`CURRENT_LIVE_UNKNOWN` 表示本輪無直接 SQL/API 讀回。不得將 GitHub Actions workflow `success` 單獨當成該資料流完整驗收。
+>
+> **本輪直接環境唯讀查詢：未執行（工具能力缺口）。** GitHub App 能讀 repository / Action 既有 job logs；目前 GCP connector 僅支援 IAM role/deny-policy 管理查詢，未提供 Cloud SQL/PG、Iceberg、GCS、Cloud Scheduler 或 Cloud Run 服務狀態唯讀列舉；Janus Dev Read-only v2 `janus_sources` 回傳 `The tool failed internally`，且其用途本為有界發布市場資料而非 metadata SQL。**不可據此假定 dev runtime 消失。**
+
+### 12.1 本輪固定的版本與既有執行收據
+
+- 續查開始的 GitHub `main` HEAD：`cd347c52eb6be4fd32b1864165860f4391473c34`，提交時間 2026-10-23 10:59:08 UTC；距 C0 初稿 commit `ca2c037e6966286fde4dce17fa12c810003f20f0` 的五個提交僅涉及 research/preflight 文件，沒有本 C0 核心 Core/Mart 實作差異（[GitHub compare](https://github.com/tommylin15/janus-omniforge/compare/ca2c037e6966286fde4dce17fa12c810003f20f0...cd347c52eb6be4fd32b1864165860f4391473c34)）。
+- [GitHub Actions #39552667601](https://github.com/tommylin15/janus-omniforge/actions/runs/39552667601)，`gcs-storage-footprint` job `119065218667`，2026-10-21 05:59:59 UTC，`OBSERVED_COMPLETE`，`bucket_discovery=COMPLETE`、6 buckets；來源是該 job 的 **Google Cloud 實際唯讀執行 log 中的 JSON 回傳**，並非本輪即時掃描。
+- [GitHub Actions #39522934040](https://github.com/tommylin15/janus-omniforge/actions/runs/39522934040)，`stage-retention-trace` job `118970866333`，2026-10-21 00:43:02 UTC：`mode=read-only`、`natural_due_receipt=PASS`、`generation_readback=PASS`，但 `occurrence_database_readback=NOT_VERIFIED`；**此執行並非本輪 Stage dry-run**。
+- [GitHub Actions #39938087196](https://github.com/tommylin15/janus-omniforge/actions/runs/39938087196)，`rollback` job `120362477591`，2026-10-23 10:19 UTC，已執行 GCS Registry `ACTIVE→DETERMINISTIC` generation-CAS、PG append-only rollback 及讀回；當時收據 PASS，不推論本輪之後沒有別的 writer。Registry 當時讀回 generation `1792750694551405`，與現在狀態不可混為一談。
+- [GitHub Actions #39898282552](https://github.com/tommylin15/janus-omniforge/actions/runs/39898282552)，2026-10-23 04:04 UTC 的早期 Risk `ACTIVE` 讀回已成功，但時間早於上述受控回滾；**不得據此把 Risk 當前判成 ACTIVE**，也不得用 Risk 產物成功表示全部 Core/Mart 已盤清。
+- [GitHub Actions #39942899812](https://github.com/tommylin15/janus-omniforge/actions/runs/39942899812) 於 2026-10-23 10:59 UTC 執行 selective CI 的 `plan` job 成功、`tests` job skipped；不代表 runtime 的 schema census 或資料品質通過。
+
+### 12.2 GCS 六桶歷史容量收據（**2026-10-21 05:59:59 UTC，不是目前容量**）
+
+| 桶用途 | 本次找到的歷史 Bucket | historical current_objects | historical current_bytes | historical noncurrent_bytes |
+|---|---|---:|---:|---:|
+| cloudbuild | `gen-lang-client-0593591102-cloudbuild-regional` | 2 | 127030 | 0 |
+| Core | `gen-lang-client-0593591102-dev-core` | 2694 | 142319924 | 0 |
+| Mart | `gen-lang-client-0593591102-dev-mart` | 1528 | 20744328 | 2749618 |
+| Private | `gen-lang-client-0593591102-dev-private` | 2138 | 224655448 | 0 |
+| Research | `gen-lang-client-0593591102-dev-research-big-move-500` | 145 | 299467376 | 0 |
+| Stage | `gen-lang-client-0593591102-dev-stage` | 649 | 95347393 | 0 |
+| **合計（當時）** | 6 | **7156** | **782661499** | **2749618** |
+
+同一歷史回傳：`total_object_bytes=785411117`（current + noncurrent），`soft_deleted_bytes=0`，Stage `age_7d={objects:0,bytes:0}`。此 `age_7d` 不是 Stage 48h 清掃候選；48h 有無超期、lease、generation 仍須逐物件當前掃描。以上桶用量不等於 Iceberg table rows、不等於邏輯資料量，也不得作當前可回收容量。私人桶只取 metadata 彙總，未讀 owner 內容。現有 connector 不支援直接再跑此 inventory。
+
+### 12.3 C0-L01–L05 實際驗證判定（不可把歷史和即時混列）
+
+| 工作項 | 本輪獲得的最高等級證據 | 尚未取得 | 本輪狀態 |
+|---|---|---|---|
+| **L01 PG** | `002/003/018/037/054/055/068` migration 靜態與 Risk PG rollback 歷史讀回 | 現時 `pg_catalog` schema、`information_schema.columns`、PK/FK/index、`control.schema_migrations` 全集合、read/write 條件 | `PARTIAL/HISTORICAL_ONLY`；完整 inventory `BLOCKED` |
+| **L02 Iceberg** | 9 Core 表映射與 11 Mart 歷史 handle 定義；歷史 Core/Mart bucket metadata | `catalog.iceberg_tables` 的當前 catalog-qualified 表列、schema/spec/snapshot、邏輯/物理 row count | `STATIC_ONLY/CURRENT_LIVE_UNKNOWN` |
+| **L03 依賴/排程** | C0 第5節程式 lineage 與既有 ingress/Risk rollback 工作收據 | 實際 Scheduler job list/state、Cloud Run Job/Service 修訂版、最近30日 occurrences、表級 reader/writer 追溯與 failover | `PARTIAL/HISTORICAL_ONLY` |
+| **L04 GCS** | 上述六桶 2026-10-21 真實掃描彙總、Stage retention 歷史讀回、Risk Registry 歷史讀回 | 今日 GCS inventory、prefix/generation/age、Stage 48h lease、安全引用、Iceberg metadata / manifest live | `HISTORICAL_RUNTIME_RECEIPT`；目前 `UNKNOWN` |
+| **L05 34 X** | `janus_precision.py` 8+11+10+5，27 unique；舊 C0 的 RAW/Y/context/quality/PIT/provenance 分類 | 真實 research manifests、四模型 X 的 observed columns/non-null/coverage/available-at、每一 upstream 來源的 Live 對應 | `CODE_CONFIRMED`；值級驗證 `UNKNOWN` |
+
+具體現存 PG 全表數、Core/Mart 實存表數、每張表實際 columns、讀寫量、最後寫入時間、rowcount、partition spec、Scheduler 名稱、Stage 48h 到期數，**一律 UNKNOWN；不得把 C0 的 9/11 靜態名稱寫成 Live 已有 9/11 張表**。
+
+### 12.4 C0-Live 進 C1 的具體有界查詢表（未執行）
+
+| 查詢 ID | 唯讀資料源與查核 | 最低輸出／收據 |
+|---|---|---|
+| `L01-Q01` | dev PG: `SELECT current_database(),current_user,clock_timestamp()`、`control.schema_migrations`、`information_schema.columns`、`pg_catalog.pg_class/pg_constraint/pg_index/pg_depend`（只限必要 schema/metadata） | as-of/role/scope、完整 table/view/field/key/index/constraint 清冊；private 僅 schema |
+| `L02-Q02` | 同 PG 既有 JDBC catalog 的 `catalog.iceberg_tables`，以確定的 `catalog_name` 篩 core/mart；有 Iceberg 唯讀客戶端時個別查 `current_snapshot/spec_id/schema` | 精確存表/ABSENT，snapshot/spec/metadata_location、bounded records/count；`UNREADABLE` 與不存在分開 |
+| `L03-Q03` | `control.batch_occurrences` 最近30日 & `control.executions`，另以 Cloud Scheduler `jobs list/describe`、Cloud Run `jobs/services list/describe` 比對 Git SHA、job env/reader/writer（不得回傳 secrets） | active vs archived、排程真正 due、執行終態、依賴/錯誤有據 |
+| `L04-Q04` | GCS `objects list` metadata only，限已確認的 dev 六桶及目的 prefix；Stage object `updated`、generation 對應 PG **有效 lease** | current objects/bytes/prefix、Stage `>48h` 候選、保護理由、只產出 dry-run；Owner bucket 禁止 row payload |
+| `L05-Q05` | 受控 release manifest／研究版本 X Schema 與 model input order、`core.market_volume_v1` / `core.ohlcv_v1` 同期 keys 及相交欄位規格比對 | 34/27 X、實際 model feature parity、X/Y/PIT 各域完整度、market-volume 值/單位/讀者/extra fields 的報告 |
+
+上述 SQL/CLI 是操作清單而非已執行證據；若原 Drive 方案 §9 query 與現場 schema 不同，優先採主線 schema 並記錄差異。所有查詢需 `READ ONLY`、statement timeout、範圍限制、無新增資源與有限讀取成本；不得為取得證據觸發任何含 data write 的 GitHub Workflow、Cloud Run Job 或 Scheduler。
+
+### 12.5 候選分級更新與 C1 準備程度
+
+- **P0 候選 `core.market_volume_v1` vs `core.ohlcv_v1`**：已有程式雙寫證據，仍缺現時 catalog、共同 keys/values/units、額外欄、API/研究讀者。暫 `CONSOLIDATE_CANDIDATE`，不得停 writer / DROP。
+- **P0 候選 11 個 `mart.mart_*_v1`**：程式歷史維護清單，有 `NO_LEGACY_ANALYSIS_WRITER` 註解；但 Live 是否存在、是否有 fallback reader/Owner 引用全部未驗。暫 `RETIRE_CANDIDATE`；**11/11 未能判定 ABSENT**，不得按表名 DROP。
+- **相容因子欄**：候選別名只能先做 field contract/parity，版本 schema 和 Y/PIT/quality 必須保護。暫 `ALIAS_CANDIDATE`，本次可刪欄位 0。
+- **Stage 48h**：Stage 歷史 metadata 與保護證據不等於今日到期數。此回合只保留既有政策，不執行 cleanup。
+- **Private Owner／Ledger、Risk 回滾、GCS research frozen inputs**：KEEP，非本次退役對象。
+
+**C0-Live 仍 PARTIAL，C1 實際可安全刪除的 Table=0、Field=0、GCS object=0（是批准清單空，不是 Live 實際無冗餘）。** 不把 `UNKNOWN` 當 `ABSENT`；不批准實體刪除、不觸發工作。
+
+### 12.6 後續執行能力缺口／回報要求
+
+- 本輪只有 GitHub/Drive 既有紀錄與有界 Janus 發布查詢插件，**沒有 Cloud SQL / PostgreSQL arbitrary SELECT、Iceberg catalog+object schema、GCS objects metadata 列舉、Scheduler/Cloud Run list/describe 的通用唯讀能力**；沒有現成可直接採用的整套 L01–L05 查詢結果。此限制是工具/存取界線，不等於 GCP IAM_DENIED 或系統故障。
+- 原 `Janus_Data_Governance_Audit_2026-10-23.xlsx` 在可見 Drive/root/Library 的現有搜尋仍無法定位（先前 C0 缺口繼續保留）；Drive Markdown §2/§8/§9 可作參照但**不得冒稱 Sheet 11–14 原始逐格驗證**。
+- 寫回 GitHub 此節是現有允許的**治理文件修改**；Drive 的同名原始 `.md` 若 connector 不支援 raw bytes 寫回，須將已提交證據 URL 記在該檔同一評論串並讀回，並明示「評論同步、原始內文未變」。
+- 後續只有在既有 dev 已授權且具安全 read-only SQL/GCS/Scheduler 查詢的執行環境可用時，按 L01-Q01 → L02-Q02 → L03-Q03 → L04-Q04 → L05-Q05 一次完成有界盤點；回寫每項時間、Git SHA、使用角色、SQL digest、缺值/失敗與不可刪原因，完成後停止在 C0，不自動進 C1。
+
