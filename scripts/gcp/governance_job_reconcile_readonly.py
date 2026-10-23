@@ -52,7 +52,7 @@ def exact_controller_refs(rows):
             raise ValueError("controller_batch_identity_invalid")
         if job not in ALLOWED_JOBS or controller_state not in ("running","dispatching","ambiguous"):
             raise ValueError("controller_ref_outside_allowlist")
-        record = {"job": job, "controller_state": controller_state,
+        record = {"job": job, "controller_state": controller_state, "batch": batch,
                   "scheduled_at": scheduled_at, "cloud_state": "NO_EXECUTION_REFERENCE"}
         if execution:
             # Exact resource names only; prevents arbitrary host/path queries.
