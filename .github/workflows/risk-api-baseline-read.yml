@@ -1,0 +1,54 @@
+name: Risk first-release current API rollback baseline read-only
+on:
+  push:
+    branches: [main]
+    paths: ['ops/risk-api-baseline-read.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify read-only API rollback inventory
+        run: jq -e '.intent=="risk-first-release-api-rollback-baseline" and .read_only==true and .no_gcp_mutation==true' ops/risk-api-baseline-read.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Inspect exact live Cloud Run revision and verified GHCR digest
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud run services describe janus-api --project=gen-lang-client-0593591102 --region=us-central1 --format=json > /tmp/risk-api-service.json
+          revision="$(jq -r '[.status.traffic[]|select((.percent//0)>0)] | if length==1 and .[0].percent==100 then .[0].revisionName else error("API traffic not a single 100 percent revision") end' /tmp/risk-api-service.json)"
+          test -n "$revision"
+          gcloud run revisions describe "$revision" --project=gen-lang-client-0593591102 --region=us-central1 --format=json > /tmp/risk-api-live-revision.json
+          sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+          python3 - <<'PY'
+          import json,re,subprocess
+          from pathlib import Path
+          service=json.loads(Path('/tmp/risk-api-service.json').read_text())
+          revision=json.loads(Path('/tmp/risk-api-live-revision.json').read_text())
+          container=(revision.get('spec') or {}).get('containers')
+          if not container: container=((revision.get('spec') or {}).get('template') or {}).get('spec',{}).get('containers')
+          if not container: container=revision.get('containers')
+          assert len(container)==1, 'single API image required'
+          image=container[0].get('image','')
+          image=image.removeprefix('cache.us-docker.pkg.dev/')
+          if not re.fullmatch(r'ghcr\.io/tommylin15/janus-api@sha256:[0-9a-f]{64}',image):
+            raise SystemExit('live image is not immutable public GHCR')
+          desc=json.loads(subprocess.check_output(['skopeo','inspect','--no-creds','docker://'+image],timeout=45))
+          sha=desc.get('Labels',{}).get('org.opencontainers.image.revision','')
+          assert re.fullmatch('[0-9a-f]{40}',sha)
+          assert desc['Digest']==image.rsplit('@',1)[-1]
+          traffic=[x for x in service['status']['traffic'] if x.get('percent',0)>0]
+          result={'source_sha':sha,'api_image':image,
+            'revision_name':traffic[0]['revisionName'],'traffic_percent':traffic[0]['percent'],
+            'gcp_writes':0,'status':'PASS'}
+          print(json.dumps(result,sort_keys=True))
+          PY
