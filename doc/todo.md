@@ -16,7 +16,7 @@
 
 ## 2. ADMIN-SIMPLIFY｜整批修改後集中驗收
 
-2026-10-23：UI、API／Controller 與佇列限定執行已實作；本地 Python 103 項、Flutter 36 項 PASS。Windows ASGI 路由測試因事件迴圈阻塞未取得結果，保留於 Linux 完整 CI 執行。即時喚醒與指定執行停止的兩項最小 IAM 權限已套用並讀回。完整 Release [#39907341839](https://github.com/tommylin15/janus-omniforge/actions/runs/39907341839) 在固定來源 `0ad738b1f7c3432bf6fac59ecb7d5063dce63447` **PASS**（Python 1680 passed／2 deselected、Flutter PASS、四 GHCR publish＋匿名 Digest PASS）；仍待同 SHA candidate／auth／既有 dev 受控發布、rollback 與登入 Admin 正向驗收，**IN_PROGRESS**，不能以 Release PASS 代替 runtime PASS。
+2026-10-23：UI、API／Controller 與佇列限定執行已實作；本地 Python 103 項、Flutter 36 項 PASS。Windows ASGI 路由測試因事件迴圈阻塞未取得結果，保留於 Linux 完整 CI 執行。即時喚醒與指定執行停止的兩項最小 IAM 權限已套用並讀回。完整 Release [#39907341839](https://github.com/tommylin15/janus-omniforge/actions/runs/39907341839) 固定來源 `0ad738b1f7c3432bf6fac59ecb7d5063dce63447` **PASS**（Python 1680 passed／2 deselected、Flutter PASS、四 GHCR publish＋匿名 Digest PASS）；同 SHA [0% Candidate #39908830013](https://github.com/tommylin15/janus-omniforge/actions/runs/39908830013) 與 [Auth Boundary #39909168202](https://github.com/tommylin15/janus-omniforge/actions/runs/39909168202) **PASS**；[四 Jobs #39909889109](https://github.com/tommylin15/janus-omniforge/actions/runs/39909889109) 真實 8/8 Canary 與可回復基準 **PASS**；使用者決定 dev 不做刻意往返流量演練，[API 100% 單次切流 #39913542437](https://github.com/tommylin15/janus-omniforge/actions/runs/39913542437) **PASS**，正式收據 `phase=PASS`／`direct`／`rollback_rehearsal=NOT_REQUESTED`，新 revision `janus-api-00599-cil`。**尚待 Admin 真正登入後 4頁10功能正向試用、讀取與操作確認；仍 IN_PROGRESS**。不因已部署就冒稱 UI 功能全部可用；細節見 [Operations](spec/operations-and-testing.md)。
 
 - [ ] 依 [Admin UI 最新契約](ui/admin.md) 完成全功能盤點、保留／移除／合併，更新四頁十功能與白話操作。
 - [ ] 首頁以可操作的工作／資料健康／損益更新取代 Core／Mart 數量與 AI placeholder。
