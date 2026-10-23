@@ -358,3 +358,15 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 - **Mart 讀者**：Mart executions 中 retention/apply 19、retention/dry-run 5、queue 86、market-screening 5，191 筆 mode 不在安全白名單；mode 不代表成功 scan。主線 retention.py 仍動態掃描11表，不能稱十表零讀者。scoped_analysis KEEP（138個 index refs）；risk_portfolio KEEP_PROTECTED_PENDING；其餘九張 RETIRE_CANDIDATE/UNKNOWN_READER。
 
 **結論：C1-A 既定有界唯讀核查 PASS；六筆備份 Controller 狀態滯留屬獨立修復項，逐筆 PG→Cloud Run exact join 與十 Mart 表級讀者／可回復證據屬 C1-B 特定資產 gate。未作刪除或 state mutation；C1-B 已核准實體刪除仍為 0。**
+
+---
+
+## 16. Controller ledger-backup 狀態滯留修復（2026-10-23）
+
+**實機基線**：唯讀 [#39963400042](https://github.com/tommylin15/janus-omniforge/actions/runs/39963400042) 確認 6 個 ledger-backup Controller occurrence = running，但同日期 control.ledger_backup_requests = succeeded，6/6 checksum/size/completed_at 有效。備份內容本身不得重跑或刪除。
+
+**可重現的程式缺陷**：jobs/ingestion-core/ingestion_core/ledger_backup.py 中 poll_backup 在成功備份後，先呼叫 cleanup_old_backups()（包含 GCS list/delete），才回傳 succeeded；若儲存清理出錯，batch_controller.py 的 exception branch 保留 running 狀態並記錄 cloud_status_unavailable。將業務終態寫回與刪除型 retention 綁在一起不合理。這是確定的程式風險；六筆的實際例外類別仍須讀 Controller live log，不能預稱已找到唯一根因。
+
+**最小程式修正**：poll_backup 成功時只驗證 VM 完成收據並回傳 succeeded，不做任何 GCS 清理；retention_cleanup 標記 not_run_in_reconcile。原 cleanup_old_backups 函式保留，未重新啟用另一排程。請注意目前原 private-ledger-backup-retention workflow 的 schedule 已停用，故正式保留期清理須後續獨立受控路徑重新驗證；**不能把本次不刪資料的修復宣稱備份 retention 全面驗收通過**。
+
+**驗收閘門**：(1) 新增測試證明即使 GCS cleanup 無權限，poll_backup 也可成功回傳、且不執行 cleanup；(2) 完整 GHCR Release 與 Controller/ingestion-core 新 image dev 部署；(3) 以原先 6 個指定 occurrence 在同時段 Controller 鎖與 PG 完成收據下進行 reconcile；(4) live readback 六筆 succeeded、backup_requests 保持 succeeded、未新增備份／未清除任何 GCS 物件。未取得第 2–4 項證據時維持 PARTIAL，不僅憑 GitHub commit／CI 宣稱 runtime 修復。
