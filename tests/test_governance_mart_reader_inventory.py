@@ -19,3 +19,8 @@ def test_mart_reader_inventory_is_fixed_and_readonly():
     for dangerous in ("jobs:run", "gcp.cloud(path, ", "cloud scheduler jobs run", "DELETE FROM",
                       "UPDATE control.executions", "private.positions"):
         assert dangerous not in CODE
+
+def test_scanner_excludes_self_and_marks_handle_declarations():
+    assert "path.resolve() == Path(__file__).resolve()" in CODE
+    assert '"DECLARATION_ONLY"' in CODE
+    assert 'jobs/intelligence-mart/intelligence_mart/storage.py' in CODE
