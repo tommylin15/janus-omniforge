@@ -1,0 +1,11 @@
+{
+  "intent": "risk-strict-gate-rollback",
+  "environment": "dev",
+  "approved": true,
+  "mode": "DETERMINISTIC",
+  "no_new_resources": true,
+  "expected_previous_mode": "ACTIVE",
+  "expected_model_sha256": "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044",
+  "reason": "2026-10-23 current instruction requires verified source rights, market calendars, corporate-action/PIT/survivorship controls, fresh matured 20-session cohort and independent OOS, eight-factor parity, atomic rollback, natural daily inference and owner UI before any promotion. These strict gates have not been proven. Revert already ACTIVE dev data-plane safely without touching candidate/shadow or adding resources.",
+  "run_once": true
+}
