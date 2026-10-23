@@ -6,8 +6,8 @@
   "release_run": "38153154441",
   "jobs_run": "",
   "rollback_mode": "reversible_ghcr",
-  "baseline_source_sha": "253d9d37132f4ce6d77bb1e84d6d7dac4d905d01",
+  "baseline_source_sha": "3e5f3c0ef569513c81e52c67794af9ba40d5cade",
   "allow_legacy_forward_only": false,
-  "gate": "INERT approved=false; template reflects live-verified prior API source, and real releases require exact release/Jobs/Owner boundary proof.",
+  "gate": "INERT approved=false, no jobs_run or auth_boundary_run. Verified 2026-10-23 serving API rollback source 3e5f3c0e... from #39912120817; any future deployment must re-read active revision, immutable GHCR digest, full Release, Jobs receipt, exact-source candidate and OAuth boundary before explicitly enabling promotion.",
   "auth_boundary_run": ""
 }
