@@ -39,6 +39,9 @@ def main():
         elif name == "specialist-acceptance":
             from .specialist_runtime import run_acceptance
             operation = run_acceptance
+        elif name == "risk-target-acceptance":
+            from .specialist_runtime import run_acceptance
+            operation = lambda: run_acceptance(operation="risk-target-acceptance")
         elif name == "deep-coverage":
             from .specialist_runtime import run_deep_coverage
             operation = run_deep_coverage
