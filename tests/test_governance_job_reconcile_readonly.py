@@ -10,7 +10,7 @@ CODE = SCRIPT.read_text(encoding="utf-8")
 
 def test_reconcile_script_is_get_only_and_bounded():
     ast.parse(CODE)
-    assert "MAX_PAGES_PER_JOB = 5" in CODE
+    assert "MAX_PAGES_PER_JOB = 12" in CODE
     assert "MAX_ACTIVE_REFS = 100" in CODE
     assert "ALLOWED_JOBS = tuple(sorted(gcp.REQUIRED_JOBS))" in CODE
     assert "gcp.cloud(execution)  # GET only" in CODE
