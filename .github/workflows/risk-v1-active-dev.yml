@@ -112,16 +112,14 @@ jobs:
           jq -e '[.status.traffic[]|select((.percent//0)>0)]|length==1 and .[0].percent==100' /tmp/risk-api-service.json >/dev/null
           gcloud run jobs executions list --job="$JOB" --region="$REGION" --project="$PROJECT" --limit=20 --format=json >/tmp/risk-executions-before.json
           jq -e '[.[]|select((.status.completionTime//"")=="")]|length==0' /tmp/risk-executions-before.json >/dev/null
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          from scripts.gcp.risk_registry_cas import REQUIRED_PROMOTION_EVIDENCE
-          # These are pre-promotion *bounded* proofs: exact-source release, tests,
-          # model SHA and UBJ real loader, old shadow Core readback. Full live
-          # selected-union + API checks are mandatory BEFORE the PG switch below.
-          Path("/tmp/risk-bounded-preflight.json").write_text(
-              json.dumps({k:"PASS" for k in REQUIRED_PROMOTION_EVIDENCE}))
-          PY
+          # Strict 2026-10-23 promotion contract: no synthetic PASS receipt.
+          # Training/source-use license, official market calendars, corporate
+          # actions, historical PIT/survivorship, new mature 20-session cohort,
+          # independent OOS, Core/Mart parity and Owner API/UI must be verified.
+          # This legacy ACTIVE path is disabled until a separately reviewed,
+          # machine-verifiable evidence bundle and validation step exist.
+          echo "::error::Risk strict promotion gates are unverified; no ACTIVE publication allowed" >&2
+          exit 1
       - name: Write GCS registry with exact generation CAS (API remains deterministic)
         id: registry
         shell: bash
