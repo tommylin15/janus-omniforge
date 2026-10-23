@@ -7,6 +7,6 @@
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Risk target-only OHLCV 220-calendar-day Mart fix; full verified release #39892375248. Zero-traffic API candidate for exact-source auth boundary before Jobs rollout. No API traffic or Risk Registry mutation.",
-  "request_attempt": 4
+  "purpose": "Retry immutable scoped Risk Mart image candidate after fixing ops-trigger-HEAD vs requested-image-SHA provenance mismatch; full release #39892375248 already SUCCESS; do not modify API traffic.",
+  "request_attempt": 5
 }
