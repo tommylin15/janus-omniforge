@@ -405,4 +405,10 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 
 **首次受控 apply**：[Actions #39975063840](https://github.com/tommylin15/janus-omniforge/actions/runs/39975063840) 的 one-time apply request 使用固定 preflight #39974251644 與 restore #38991644822 gate，狀態在本節提交時尚在 pending。實刪實際件數／bytes、最新 generation before/after 以及最新 Scheduler/Actions 狀態需待該 run 完成才可宣稱 PASS。若失敗，讀取 guard/物件收據，禁止覆蓋已通過的六筆 Controller 備份狀態、不得提高 IAM 或盲目重送備份。
 
-**目前判定**：POLICY_CONVERGED / REAL_DRY_RUN_PASS / INDEPENDENT_SCHEDULE_CONFIGURED / LIVE_APPLY_PENDING。C1-B Mart/Stage 清理仍為 0 許可。
+**首次正式 apply LIVE 驗收（2026-10-23）**：[Actions #39975063840](https://github.com/tommylin15/janus-omniforge/actions/runs/39975063840) completed/success，source SHA `4f38c2f4e24a4eff68493f448490f6f006ab2484`，10 tests PASS，依 #39974251644 dry-run 及 #38991644822 isolated restore gate 通過。GCS 固定 generation 條件刪除 + current 清冊前後讀回 `APPLY_PASS`：
+- `daily`：**10 → 7 個 current objects**，**280,183,918 → 220,233,050 current bytes**，本次 3 個舊 daily current objects、**59,950,868 current bytes** 移除。
+- `monthly`：**2 → 2 個 current objects**，417,396 bytes 不變；因未達六份保留上限，monthly 刪除 0。
+- `backup_reexecutions=0`、`pg_mutations=0`、`iam_changes=0`、`new_resources=0`；未觸及六筆已完成的 Controller occurrence 或 Owner ledger row。
+- 實際月/日 current inventory delta 已核對，不把 current bytes 直接冒充 GCS 版本化／soft-delete／計費實體空間節省。跨 bucket 實體成本下降仍未驗證。
+
+**目前判定**：P0-1 `POLICY_CONVERGED / REAL_DRY_RUN_PASS / INDEPENDENT_CRON_ENABLED / BOUNDED_APPLY_PASS`；**既有 workflow 13:30 Asia/Taipei 的首次自然 scheduled run 尚未發生，故 recurring NATURAL_TRIGGER_NOT_YET_OBSERVED**，不得冒稱已有每日穩定執行證據。治理 C1-B Mart/Stage 清理仍為 0 許可。
