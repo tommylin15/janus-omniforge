@@ -107,8 +107,10 @@ def test_recent_older_risk_is_visible_without_downgrading_newer_baseline():
         "data_status", "freshness",
     }}
     assert served["source_projection_hash"] == content_hash(projection)
+    # Presentation-only status/freshness are attached after the immutable
+    # API response hash is computed and are intentionally not signed.
     assert served["content_hash"] == content_hash({k: v for k, v in served.items()
-                                                   if k != "content_hash"})
+                                                   if k not in {"content_hash", "data_status", "freshness"}})
     assert any("payload_json ?" in sql for sql, _ in repo.calls)
 
 
