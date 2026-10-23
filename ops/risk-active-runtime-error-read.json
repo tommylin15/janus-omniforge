@@ -1,6 +1,6 @@
 {
   "run": "39885407349",
   "read_only": true,
-  "request_attempt": 3,
-  "purpose": "Read immutable Risk active canary receipt aggregate counts and exclusions only; no owner identifiers"
+  "request_attempt": 4,
+  "purpose": "Exact read-only failure readback for 10/21 EOD canary janus-intelligence-mart-tkvfp, no owner data"
 }
