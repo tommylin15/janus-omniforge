@@ -164,7 +164,7 @@ jobs:
           gcloud storage cat "$uri" --project "$PROJECT" > /tmp/risk-live-specialist-manifest.json
           jq -e --arg sha "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044" '
             .risk_active.artifact_uri|startswith("gs://gen-lang-client-0593591102-dev-mart/risk-active/")' /tmp/risk-live-specialist-manifest.json >/dev/null
-          quality_uri="$(jq -r .risk_quality.artifact_uri // empty /tmp/risk-live-specialist-manifest.json)"
+          quality_uri="$(jq -r '.risk_quality.artifact_uri // empty' /tmp/risk-live-specialist-manifest.json)"
           [[ "$quality_uri" == "gs://$BUCKET/risk-quality/"*".json" ]]
           gcloud storage cat "$quality_uri" --project "$PROJECT" > /tmp/risk-live-quality.json
           jq -e '.artifact_kind=="mart_risk_8factor_quality_v1" and
