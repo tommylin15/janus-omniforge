@@ -52,6 +52,8 @@ def test_output_must_not_point_to_canonical(tmp_path):
         run(data,data)
     with pytest.raises(ValueError,match='OUTPUT_MUST_NOT'):
         run(data,data/'canonical'/'new')
+    with pytest.raises(ValueError,match='OUTPUT_MUST_NOT'):
+        run(data,data/'data'/'derived')
 
 
 def test_missing_real_dataset_fails_closed(tmp_path):

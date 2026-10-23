@@ -19,7 +19,7 @@ def run(dataset_root: Path, output_root: Path, *, max_rows: int = 1500000, verif
     dataset_root = Path(dataset_root).expanduser().resolve()
     output_root = Path(output_root).expanduser().resolve()
     canonical = (dataset_root / 'canonical').resolve()
-    if output_root == dataset_root or output_root == canonical or canonical in output_root.parents:
+    if output_root == dataset_root or dataset_root in output_root.parents:
         raise ValueError('OUTPUT_MUST_NOT_OVERWRITE_CANONICAL_OR_DATASET_ROOT')
     if max_rows < 1 or max_rows > 1500000:
         raise ValueError('ROW_LIMIT_OUT_OF_RANGE')
