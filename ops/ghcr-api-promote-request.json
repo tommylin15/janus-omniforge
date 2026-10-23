@@ -10,6 +10,7 @@
   "allow_legacy_forward_only": false,
   "auth_boundary_run": "39909168202",
   "api_image": "ghcr.io/tommylin15/janus-api@sha256:9e6bbccab1a77c126f7b8d771e2434d53b86285b42715991f4db7db1e78f8a7f",
-  "purpose": "ADMIN-SIMPLIFY approved existing dev API reversible GHCR 100% promotion for immutable release 0ad738b1... #39907341839, 0% candidate #39908830013 PASS, read-only auth boundary #39909168202 PASS, 4 Jobs rollout #39909889109 phase PASS 8/8 real canaries. PREVIOUS ACTIVE API baseline verified independently from live Cloud Run revision janus-api-00594-did by #39912120817, SHA 3e5f3c0e... and GHCR digest 0c810be3..., 100% traffic. Under shared global owner lease rehearse candidate100→old100→candidate100, preserve tags/config, health/auth/build SHA and reversible rollback. No new resources, Jobs, IAM, storage modifications. Retry after #39912426348 failed PRE-MUTATION only in 106/107 local contract tests because inert templates pointed at historical Jobs digests. Two approved=false templates realigned with live source 0ad738b1... four Jobs and 3e5f3c0e... API rollback. All template guard invariants rechecked. Do not relax release, lock, scheduler, owner-auth or rollback gates.",
-  "request_attempt": 5
+  "purpose": "2026-10-23 user-approved simplified existing dev release: one direct 100% switch to the already-verified API Candidate SHA 0ad738b1...; no deliberate old/new traffic rehearsal. Retain exact full Release #39907341839, Candidate #39908830013, Auth #39909168202, 4-Jobs 8/8 PASS #39909889109, previous serving SHA 3e5f3c0e... / immutable digest from #39912120817. Under normal lease and live fences, do one traffic readback, health/build-id/unauthenticated checks; restore previous revision only upon actual failure. No other resources modified.",
+  "request_attempt": 6,
+  "traffic_validation_mode": "direct"
 }
