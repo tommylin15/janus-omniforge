@@ -24,7 +24,7 @@
 
 ## 執行與驗證
 
-從 Drive `janusChatGPT/CoLab程式/15_Valuation_P1_來源證據與安全輸入.ipynb` 執行，可產生與本地相同的研究報告。輸入只用 `janusChatGPT/模型研究` 的 P0、P1 凍結 ZIP，SHA 鎖定；不需要 API token。`python -m pytest -q tests/test_valuation_p1_source_lineage.py` 本地 17/17 PASS；Drive Colab live 尚待實際執行回報，不稱已完成。
+從 GitHub `main/research/colab/15_Valuation_P1_來源證據與安全輸入.ipynb` 以 Colab 開啟。Notebook 優先使用 Drive `CoLab程式/valuation_p1_source_lineage.py` 的正確 SHA 檔；若尚未獨立同步，則讀取已同步 Drive `模型研究/Valuation_P1_來源證據與安全輸入_20261024.zip` 的同版模組，SHA 驗過才執行，無需手動複製。輸入只用 `janusChatGPT/模型研究` 的 P0、P1 凍結 ZIP，SHA 鎖定；不需要 API token。`python -m pytest -q tests/test_valuation_p1_source_lineage.py` 本地 17/17 PASS；Drive Colab live 尚待實際執行回報，不稱已完成。
 
 ## 未解除障礙
 
