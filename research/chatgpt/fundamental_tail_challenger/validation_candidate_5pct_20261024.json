@@ -1,0 +1,60 @@
+{
+  "schema_version": "fundamental_abstention_validation_candidate_v1",
+  "decision_date": "2026-10-24",
+  "user_decision": "SELECT_5_PERCENT_FOR_VALIDATION",
+  "state": "VALIDATION_CANDIDATE_ONLY",
+  "publication_allowed": false,
+  "serving_deployed": false,
+  "prior_studies_exposed": true,
+  "pit_verified": false,
+  "target": "next_month_revenue_yoy_percentage_points",
+  "financial_stocks_included": true,
+  "policy": {
+    "selection": "exclude approximately 5 percent by union of train-fold-frozen X-only conditions",
+    "gate_decision_on_any_rule": "ANALYST_ONLY",
+    "missing_or_unverifiable_inputs": "DATA_UNVERIFIED",
+    "model_value_when_abstained": null,
+    "conditions": "prior_year_target_month_revenue_twd <= base_twd_max OR trailing_12m_mean_revenue_twd / prior_year_target_month_revenue_twd >= ratio_min OR abs(current_month_known_yoy_pp) >= abs_known_yoy_min_pp",
+    "test_cohort_quantile_recalibration_forbidden": true
+  },
+  "validation_reference_only": {
+    "calibration_fold": "2026-08",
+    "base_twd_max": 3270000,
+    "ratio_min": 3.151094,
+    "abs_known_yoy_min_pp": 241.978039,
+    "fold_thresholds_sha256": "6acdd9ba0c0fd1d70c584f2e037dabc5804ca55f87bfd6fa79aa2d8ed3dbf6c1",
+    "warning": "Reference 2026-08 fold thresholds, NOT approved production settings. No retuning on prospective evaluated cohort."
+  },
+  "retrospective_receipt": {
+    "months": 12,
+    "common_rows": 18106,
+    "abstained": 894,
+    "accepted": 17212,
+    "actual_abstention_fraction": 0.0493759,
+    "extreme_realized_yoy_threshold_abs_pp": 1000,
+    "extreme_cases_total": 137,
+    "extreme_cases_abstained": 127,
+    "extreme_cases_missed": 10,
+    "false_positives_relative_to_extreme_abs_yoy_threshold": 767,
+    "lgb_accepted_month_equal_mae_pp": 23.910621,
+    "xgb_accepted_month_equal_mae_pp": 23.900146,
+    "combo_baseline_accepted_month_equal_mae_pp": 30.062407,
+    "last_revenue_carry_accepted_month_equal_mae_pp": 25.89369,
+    "LGB_vs_last_revenue_gain_pp": 1.983069,
+    "LGB_vs_last_revenue_3m_bootstrap_ci95_pp": [
+      -0.566,
+      5.644
+    ],
+    "confidence_interval_is_exploratory": true
+  },
+  "validation_checks": [
+    "real_published_at_asof_eligibility",
+    "same_monthly_cohort_across_all_models",
+    "unseen_forward_months",
+    "compare_last_revenue_carry_and_xgb_and_combo_baseline",
+    "coverage_and_rejected_case_reason_codes",
+    "extreme_yoy_catch_and_miss",
+    "input_source_revision_and_unit",
+    "no_canonical_or_registry_change"
+  ]
+}
