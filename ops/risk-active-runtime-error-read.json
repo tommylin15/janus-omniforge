@@ -1,4 +1,6 @@
 {
   "run": "39885407349",
-  "read_only": true
+  "read_only": true,
+  "request_attempt": 2,
+  "purpose": "Sanitized read-only evidence for successful live Mart canary 785qd and Risk immutable artifact count; no owner symbols"
 }
