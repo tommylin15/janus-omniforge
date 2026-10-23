@@ -84,3 +84,28 @@
 - 本地 36／36 重新訓練折完成、9／9 單元測試 PASS，額外測試：gate 2% 是 5% 的子集、5% 是 10% 的子集；拒絕個案全為空預測、`publication_allowed=false`、12 月份完整。
 - 完整研究 ZIP 另含：`refit.py`、`serving_gate.py`、`test_serving_gate.py`、36 折 metadata、36 折原始預測、18,106×3 逐筆評分、月門檻、CI、coverage、source SHA256 和自含研究輸入。
 - 未修改 canonical／Risk ACTIVE／Registry／serving／CI／部署；沒有 live acceptance 證據。
+
+
+## 2026-10-24｜5% 接受樣本的 ±4／±10／±20pp 精準命中率
+
+依使用者指定之 **5% 研究候選**，於已凍結、**未按真實 Y 重新篩選**的 18,106 筆回溯樣本，排除 894 筆，接受 **17,212 筆**（95.0624%），重新計算**前次已存在的預測**之命中率；**本輪不重訓或修改模型／gate／ACTIVE**。期間 2025-09～2026-08 共 12 個已曝光月份，未證實 PIT。
+
+定義：`hit_±k = count(abs(y_next_month_yoy_pp - yhat_next_month_yoy_pp) <= k) / nonmissing_prediction_count`；**pp 是百分點，不是預測數值的相對百分比**。舉例預測 20% 的 ±4pp 是 16%～24%，但下表的命中率是整體樣本，**不能直接視為條件在預測值=20% 的機率**。
+
+| 原始既有模型／Baseline | 有效筆數 | ±4pp | ±10pp | ±20pp |
+|---|---:|---:|---:|---:|
+| XGBoost（直接 YoY） | 17,212 | 3,455／**20.073%** | 7,759／**45.079%** | 11,884／**69.045%** |
+| LightGBM（營收 log-level＋低基期分流） | 17,212 | 3,456／**20.079%** | 7,700／**44.736%** | 11,886／**69.057%** |
+| CatBoost（營收 log-level＋低基期分流） | 17,212 | 3,417／**19.852%** | 7,633／**44.347%** | 11,797／**68.539%** |
+| 已知最近營收延用 baseline | 17,212 | 3,516／**20.428%** | 7,514／**43.656%** | 11,465／**66.610%** |
+| 原組合 baseline（有 4 筆缺值） | 17,208 | 2,692／**15.644%** | 6,074／**35.298%** | 10,079／**58.572%** |
+
+### 主要評估結果
+- **±4pp 精準度不足**：三種 ML 的命中率均約 20%，不優於簡單的「延續最近營收」baseline 20.43%。模型族群差距微小。
+- 與強簡單 baseline 配對，月份等權 ±4pp 命中率差值（單位 pp）與 3 個月 moving-block bootstrap 95% CI：XGB **−0.353** [−2.484,+2.344]；LightGBM **−0.349** [−1.957,+2.012]；CatBoost **−0.574** [−2.190,+1.683]，均跨零；僅是**已曝光回溯診斷**，不構成真正的 OOS 顯著性。
+- ±10／±20pp 命中率 AI 約 44～45%／68～69%，略高於簡單 baseline 43.66%／66.61%，但月份穩定度有限；如 LightGBM ±4pp 在 2026-01 只有約 9.6%，2025-10 約 25.5%。
+- 先前 5% 過濾後的重訓版本，命中率亦接近：XGB 20.22%／45.14%／69.09%；LightGBM 20.13%／44.97%／68.88%；CatBoost 19.86%／44.48%／68.72%；沒有本質改善。
+- 只看各模型自身**預測 YoY 介於 15%～25%** 的樣本，±4pp 命中率 XGB 17.36%（2,010 筆）、LightGBM 18.19%（2,012 筆）、CatBoost 17.73%（1,980 筆）。這是歷史分組，**不是個股 20% 預測的保證**。
+- **決策**：5% 異常拒絕仍保留作驗證候選，**Fundamental 目前尚未達到 ±4pp 精準預測期望**；不可把 MAE 23.91pp 說成「20% ±4%」。保持 `publication_allowed=false`，等歷史真實 PIT 與全量母體／未曝光前瞻 cohort 才能做正式模型有效性判定。
+
+**可重跑收據**：輸入 `all_predictions.csv`（來源：本專案前次 5% 研究 bundle）重評，`hit_rate_5pct_analysis.py`、`test_hit_rate_5pct_analysis.py`，本地 7／7 PASS；輸出 `hit_rate_5pct_summary.csv`、`hit_rate_5pct_monthly.csv`、`hit_rate_5pct_paired_baseline.csv`、`hit_rate_5pct_paired_counts.csv` 與 SHA manifest。研究程式與逐筆大型輸入不直接寫進 GitHub，完整可下載交付另放 ChatGPT 產物／白名單 Drive。
