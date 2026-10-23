@@ -54,7 +54,23 @@
 - 5%：攔截 127／137（92.7%），相對 2% 多拒絕 525 筆但多攔截 16 筆真正極端案例。
 - 10%：攔截 132／137（96.4%），相對 5% 多拒絕 1,000 筆只多攔截 5 筆真正極端案例。
 
-**研究建議：保留三種版本，優先選 5% 作為「新、未曝光前瞻資料」的驗證候選；正式版本與門檻尚未核准，也未部署。** 所有 12 月樣本已曝光，仍需原始公告 PIT、全量母體及 live serving parity。
+**使用者已於 2026-10-24 選定 5% 作為驗證候選（`VALIDATION_CANDIDATE_ONLY`）。** 這取代原本「研究建議優先」的未決狀態，但**不代表 ACTIVE、production gate、threshold production approval、或 publication 核准**。2%／10% 僅保留研究比較；正式 serving 仍不變。可追溯的研究候選設定參見 [`validation_candidate_5pct_20261024.json`](validation_candidate_5pct_20261024.json)。
+
+### 5% 候選：分開評估適用性與預測能力（補充核驗）
+- 研究樣本 18,106 筆；gate 避開 894 筆（4.938%），接受 17,212 筆（95.062%）。
+- **異常攔截**：若「異常」*事後*定義為真實下一月 `|YoY|>=1000` 百分點，攔截 127／137（recall 92.70%）、漏掉 10 筆；894 筆被拒絕者只有 127 筆達到此事後極端定義（precision 14.21%），其餘 767 筆並非這個閾值的極端樣本，不能隱藏這項 opportunity cost。攔截檢驗標籤不得反用到推論 gate。
+- **接受樣本的月份等權 MAE（YoY 百分點）**：LightGBM gate **23.9106**，XGBoost direct YoY **23.9001**，最後已知月營收延用 baseline **25.8937**，原 combo baseline **30.0624**（combo 有 4 筆空值，配對用 17,208 列）。中位 AE 11.5768，90 分位 AE 44.4809。
+- LightGBM vs combo baseline：同股同月配對改善約 **6.166** 百分點（原重訓報告以新 fit LightGBM 比 combo 為 **6.028**，不可混寫）。LightGBM vs **更強**的 `last_revenue_carry`：改善 **1.983** 百分點，12 月中僅 **6 月改善**，3 月區塊 5,000 次 bootstrap 約 95% CI **[−0.566,+5.644]**；不支持宣稱已穩定勝過強 naive baseline。LightGBM 相對直接 XGBoost 差 **−0.0105** 百分點，也沒有演算法優勢。
+- **跨覆蓋率比較限制**：431.645（100% 範圍）→23.911（95.06% 覆蓋）屬 selective prediction 的案例移交，不是同一母體上模型泛化突然變好。以 gate 留下的樣本給不同模型比才公平。
+- **可信度判定**：gate 的回溯攔截能力 **promising**；LightGBM 在接受樣本相對 combo 有實質訊號，但對強 naive 和 XGBoost **不具已證實優勢**。樣本僅 12 個已曝光月份、PIT 仍缺、原完整母體尚未對齊，不能對使用者宣稱正式有效或啟用。
+
+### 下一輪必交的驗證證據
+1. 固定研究候選 5% 參數及 SHA；以 2026-08 研究折作**參考凍結值**（去年目標月基期上限 TWD 3,270,000；比率下限 3.151094；已公告 YoY 絕對值下限 241.978039 pp）。不得在待評估 cohort 上重估百分位。這些**不是正式 serving 參數**。
+2. 逐股核對公告 `published_at/available_at`、去年對應月份、TWD 單位、來源版次與營收 12 月窗口；無法核對 → `DATA_UNVERIFIED`。
+3. 用**未被前次研究曝光**且標籤實際成熟的月度 cohort，保留金融股，比較 LightGBM／XGBoost、combo baseline、`last_revenue_carry`；報告月份等權 MAE、Median AE、P90、coverage、gate recall／miss／precision、正常誤擋個案及產業切片。
+4. gate 標記 `ANALYST_ONLY` 時 `model_prediction=null`，分析師只描述已核實的極端現象與來源，不能自動產生未來 YoY、影射真實企業事件或當成模型成功。
+5. 只在研究範圍結案；需另有 ACTIVE 授權、serving parity、CI、部署及 live evidence 才能宣稱正式可用。
+ 所有 12 月樣本已曝光，仍需原始公告 PIT、全量母體及 live serving parity。
 
 ## 未來服務與分析師異常說明規格（待另案部署驗收）
 - 已公告 X 完整、有效且未觸發 → `MODEL_ELIGIBLE_BY_TAIL_GATE`，仍需通過 ACTIVE、PIT 和其他服務規則才可真正呼叫模型。
