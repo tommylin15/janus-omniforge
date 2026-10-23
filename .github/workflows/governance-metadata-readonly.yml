@@ -17,17 +17,18 @@ jobs:
   metadata-readback:
     runs-on: ubuntu-latest
     environment: dev
-    timeout-minutes: 12
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Offline read-only contract tests and fixed request guard
+      - id: guard
+        name: Offline read-only contract tests and fixed request guard
         run: |
           set -euo pipefail
           python -m pip install pytest -q
-          python -m pytest -q tests/test_governance_metadata_readonly.py
+          python -m pytest -q tests/test_governance_metadata_readonly.py tests/test_governance_mart_metadata_readonly.py
           python - <<'PY'
           import json
           from scripts.gcp.governance_metadata_readonly import validate_request
@@ -38,7 +39,8 @@ jobs:
           assert req['no_iam_expansion'] is True
           assert req['execution_count'] == 1
           PY
-      - uses: ./.github/actions/setup-janus
+      - id: setup
+        uses: ./.github/actions/setup-janus
         with:
           install-deps: none
           wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
@@ -46,10 +48,16 @@ jobs:
       - name: Read PG schema and Core/Mart Iceberg metadata with existing dev identity
         run: |
           python scripts/gcp/governance_metadata_readonly.py
+      - name: Read Mart metadata via existing Mart identity even if Core is partial
+        if: ${{ always() && steps.guard.outcome == 'success' && steps.setup.outcome == 'success' }}
+        run: |
+          python scripts/gcp/governance_mart_metadata_readonly.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: janus-governance-metadata-readonly
-          path: governance-metadata-readonly-receipt.json
+          path: |
+            governance-metadata-readonly-receipt.json
+            governance-mart-metadata-readonly-receipt.json
           retention-days: 14
           if-no-files-found: ignore
