@@ -18,6 +18,7 @@
 | 角色／目標 | `quant`；未來 **20 個市場交易日**，原研究未調整價 `forward_up20`（上漲為 1、否則為 0） |
 | 模型 | `StandardScaler`（只在訓練期 fit）＋`LogisticRegression(solver="lbfgs", C=1.0)` |
 | 訓練 | **全歷史擴張窗**（`F14_12_expanding`）；不優先進行 XGBoost／LightGBM／CatBoost 新一輪參數搜尋 |
+| **股票母體／金融股決策（2026-10-24）** | **維持 TWSE／TPEx 研究普通股母體，金融股繼續納入 r1 的原始訓練與符合特徵品質條件的出分、評估；不因所屬金融業直接排除。** 金融股身分不加入這12因子，不改動原研究模型權重或資料 SHA。 |
 | 鎖定訓練時點 | 嚴格 `mature_at < 2026-07-01`；最晚成熟標籤 2026-06-30 |
 | 實際訓練 cohort | 2025-04-10～2026-06-01，466,823 筆、279 訊號日期、1,877 檔股票（僅指本次歷史模擬凍結版） |
 | 研究特徵 12 欄（**順序固定**） | `ret5, ret20, ma20_distance, ma60_distance, vol20, vol60, drawdown60, volume_ratio20, log_turnover20, market_code, ret10, bollinger_z20` |
@@ -36,6 +37,7 @@
 - 2026/07–09「模擬前瞻」是在 2026-10-23 **事後重播**，不是實際於7月逐日簽發之不可變預測，且 7–8 月先前被檢視；分類 `development/retrospective simulation`。2026/09 的 Y 尚未在截止資料中成熟，不可虛構。
 - 原 42／56 日期 Logistic 重現僅證明其既有研究可複算；56 日期的 20 日區塊敏感度及對常數的增益仍不足；不等於未碰觸 OOS、正式 PIT、公司行動／授權或 serving parity 通過。
 - **這一版的「定版」是選型與當前參數／資料指紋凍結，不是允許隨新資料悄悄覆寫模型係數。** 若未來新增可成熟資料需要重訓，先建立新的有版本識別候選及完整 manifest，不改寫 `r1` 收據。
+- **金融股去留已決定：維持納入。** 2026-10-24 的[金融股排除消融研究](../research/quant-financial-sector-ablation-2026-10-24.md)雖見微幅重訓改善，但相同樣本20日區塊CI跨零，且未優於該模型專屬常數基準；因此僅保留對照，不建立金融股排除版為主候選。若需改變母體，另立新研究版並評估，不得覆寫r1。
 - 下一步先將該研究版作固定基準：新資料訊號日實際產生並 append-only 保存 `as_of`、特徵與模型 SHA、原始研究機率、來源與版本；等官方交易日定義下真正滿20市場交易日後才回收標籤。若無新資料或無不可變發出紀錄，該範圍維持 `PENDING/NOT_VERIFIED`；不因此阻止研究診斷。
 - 同一評估股票日期與 Y 下保留 **訓練正例率常數、原15F全歷史、12F最近120日** 三個對照，主指標日期等權 Brier，輔以 LogLoss/AUC/每日 Rank IC、月度與市場/流動性/波動切片，以及 10／20／30 交易日 paired-block CI；不得用結果挑新的候選或宣稱因果。
 - 原12因子 X／Y 名稱與計算依 [factor_factory_v1.py](../../research/chatgpt/factor_factory_v1.py)、[janus_precision.py](../../research/chatgpt/janus_precision.py) 的實際實作為準；任何公式、PIT或特徵順序改變皆建立**新研究版**，不能借用本次 Brier。
