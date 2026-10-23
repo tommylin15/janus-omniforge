@@ -93,3 +93,18 @@ def test_nonterminal_lease_probe_is_bounded_and_metadata_only():
     assert "SELECT execution_id,trigger_type,status,claimed_until" in module.PROBE
     assert "SELECT state->>'job',state->>'status',state->>'batch'" in module.PROBE
     assert "UPDATE control.executions" not in module.PROBE
+
+
+def test_c1a_per_execution_and_backup_receipts_are_bounded_and_nonidentifying():
+    assert '"control_nonterminal_rows_30d"' in module.PROBE
+    assert '"control_ledger_backup_reconcile_30d"' in module.PROBE
+    assert "md5(e.execution_id::text) AS execution_ref" in module.PROBE
+    assert "NO_LEASE_TERMINAL_UNKNOWN" in module.PROBE
+    assert "EXPIRED_LEASE_TERMINAL_UNKNOWN" in module.PROBE
+    assert "control.ledger_backup_requests" in module.PROBE
+    assert "LIMIT 301" in module.PROBE
+    assert "e.requested_symbols" not in module.PROBE
+    assert "SELECT e.execution_id" not in module.PROBE
+    assert "l.sha256," not in module.PROBE
+    assert "SET LOCAL statement_timeout" in module.PROBE
+    ast.parse(module.PROBE)
