@@ -3,7 +3,7 @@
   "environment": "dev",
   "risk_candidate_sha256": "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044",
   "no_gcp_writes": true,
-  "source": "Risk eight-factor bounded OHLCV reader release #39892375248",
-  "purpose": "Current exact four existing dev Jobs source/digest/config readback before rollout of scoped Risk OHLCV code; no GCP writes.",
-  "request_attempt": 7
+  "source": "ADMIN-SIMPLIFY full Release #39907341839; API Candidate #39908830013 and auth boundary #39909168202 PASS; immutable source 0ad738b1f7c3432bf6fac59ecb7d5063dce63447",
+  "purpose": "Read current 4 existing dev Jobs immutable GHCR image digests/source SHA and exact configuration fingerprints as reversible rollback baseline prior to any Admin deployment. Read-only; do not change API traffic, Jobs, Scheduler, IAM or storage.",
+  "request_attempt": 8
 }
