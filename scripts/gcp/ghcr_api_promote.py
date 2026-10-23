@@ -71,7 +71,8 @@ def approved_regular_promotion(release_run, jobs_run, sha, baseline_sha):
             or data.get("baseline_source_sha") != baseline_sha
             or not isinstance(data.get("auth_boundary_run"), str)
             or not re.fullmatch(r"[0-9]+", data["auth_boundary_run"])
-            or data.get("allow_legacy_forward_only") is not False):
+            or data.get("allow_legacy_forward_only") is not False
+            or data.get("traffic_validation_mode", "three_phase") not in ("three_phase", "direct")):
         raise ValueError("regular_api_promotion_request_unapproved")
     return data
 
