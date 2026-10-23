@@ -292,3 +292,8 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 **必要區別：** 命中兩個程式文字位置是引用線索，不是有兩名讀者，亦不代表有兩次讀取。部署 digest 讀回只證明實機的存在與版本，無自動 source SHA 對映或 request SQL trace。共用 `MartMaintenanceStore` 和 `retention.py` 對全部11表仍有動態讀取／維護路徑，應作實際保留依賴看待；如未有表級遙測，最多保留 `UNKNOWN`，不得依負面文字搜尋授予退役。
 
 **決策：** 將57筆非終態修復留在本輪之外的受控例外，不自動變更 queue/Job。P0 依已定義範圍結案，P1 完成可行的程式參照與部署唯讀盤點；十表退役許可及下一步現役讀者缺口仍 `PARTIAL`。只對具體發現的真實依賴/回復缺口繼續追查，不創造虛構 `0 READERS`。**C1-B 允許 DROP/DELETE 的資產仍 = 0**。
+
+
+### 13.4 讀者清冊假陽性修正與判定邊界
+
+§13.3 `2 code reference hits` 是 [#39956176106](https://github.com/tommylin15/janus-omniforge/actions/runs/39956176106) 原始收據；後續程式檢查發現掃描器自身 `TABLE_NAMES` 白名單也被計為一次，因此**不能把兩次命中視為兩個獨立實作讀者**。已在新版本排除自身掃描器，並將 `storage.py` 的歷史 Mart handle 宣告標記 `DECLARATION_ONLY`。新版 [#39957904423](https://github.com/tommylin15/janus-omniforge/actions/runs/39957904423) 的獨立結果應取代「淨業務命中數」；任何 `0 direct literal reader` 只能代表此有界程式掃描查無直接字串，**不是** runtime 零讀者。十表 `RETIRE_CANDIDATE` 只維持研究候選，不是 DROP 許可。
