@@ -260,3 +260,54 @@
 - \`janus_precision.py\` 研究契約 \`VERSION=3.8.2\` 的 **34 ordered X slots／27 distinct names**，不是 7 個可刪重複欄；factory 中 \`dollar_liquidity=turnover\`、\`mean_reversion5=-ret5\`、\`revenue_yoy=revenue_growth_12m\` 僅**同研究 panel 的公式關係**，不能直接移植成跨 Core/PG/模型的 Drop 權。RAW/Y/QUALITY/CONTEXT/PIT/PROVENANCE 同樣保護。
 
 **本輪沒有新的 current-live 直接 SQL/GCS/Scheduler 回傳。** 已知歷史 GCS / Risk receipt 見 §12；原 Excel Sheet 11–14 仍未逐格取得。C1 的 11 Mart、Core 雙寫、Alias 等現在仍只是候選；**經批准可實刪實體 = 0 項**。若缺少 PG catalog/constraint、Iceberg snapshot、GCS current generation、最近30日 reader/Job 與獨立回復證據，**不可執行 C1-B**。
+
+---
+
+## 14. PG／Iceberg 即時清冊補驗：既有 dev Core Census 收據發現與權限界線（2026-10-23）
+
+**本節找到的是 2026-10-17 / 10-18 的真實 dev 唯讀 Iceberg 快照收據，絕非 2026-10-23 新執行的 SQL 或當前 catalog。** 本輪可逐張將九個 Core dataset 狀態從 `STATIC_ONLY` 提升至 `HISTORICAL_LIVE_EXISTS_ON_2026-10-18`，但 **`CURRENT_LIVE_EXISTS=UNKNOWN`、`CURRENT_SNAPSHOT=UNKNOWN`**。不能將下表任何日期/數值當最新狀態、也不能藉此准許 C1-B。
+
+**來源：** [GitHub Actions #39083283620](https://github.com/tommylin15/janus-omniforge/actions/runs/39083283620)，job `117544512424`、dev read-only `feature_readiness_inventory` 收據 `janus-ingestion-core-4bqcd`，`checked_at=2026-10-18T00:36:17.909819+00:00`，`status=PASS`；對照 [#38997408284](https://github.com/tommylin15/janus-omniforge/actions/runs/38997408284) job `117292878856`、`checked_at=2026-10-17T03:06:18.258289+00:00`，`status=PASS`。以上均來自實際 Job logs JSON `receipt.tables`，**不是以 GitHub Actions success 猜測表列**。
+
+| Core dataset（實存於 10/18 的報告） | 10/18 Snapshot 紀錄數 | 10/17 → 10/18 行數變化 | 10/18 current_snapshot_id（歷史值） | schema 欄數 | 歷史 partition 數／日期區間 |
+|---|---:|---:|---|---:|---|
+| `core.stock_profile_v1` | 19731 | +0 | `5704536836386558575` | 9 | 2／2026-09～2026-10 |
+| `core.market_volume_v1` | 39699 | +0 | `7853133804320960012` | 15 | 2／2026-09～2026-10 |
+| `core.ohlcv_v1` | 111929 | +250 | `4001332868550575344` | 15 | 36／2023-11～2026-10 |
+| `core.valuation_v1` | 16595 | +1924 | `4660132369949617208` | 11 | 36／2023-11～2026-10 |
+| `core.institutional_v1` | 37947 | +0 | `8662583558237815416` | 12 | 5／2026-03～2026-10 |
+| `core.financials_v1` | 88131 | +504 | `5736520631016782502` | 40 | 2／2025～2026 |
+| `core.events_v1` | 882 | +0 | `8025274657125259451` | 12 | 3／2026-08～2026-10 |
+| `core.market_activity_v1` | 135050 | +0 | `2900189873320370266` | 11 | 5／2026-03～2026-10 |
+| `core.benchmark_v1` | 759 | +0 | `16811576102780075` | 10 | 36／2023-11～2026-10 |
+
+10/18 歷史合計為 **450723 個各表邏輯紀錄**，**不是**去重股票日數、當前資料量、GCS bytes 或 10/23 的值；九個歷史 `status=COUNTED`。部分表即使 10/17→10/18 行數相同，snapshot ID 仍改變，不能由 `count unchanged` 推斷無 writer/無維護。
+
+### 14.1 歷史 schema 欄位清冊（原 receipt，而非預期欄位）
+
+| dataset | 2026-10-18 讀回的 field names（按表 Schema 順序） |
+|---|---|
+| `stock-profile` | `symbol`, `stock_name`, `market`, `observed_date`, `source_id`, `observed_at`, `execution_id`, `provenance_id`, `content_hash` |
+| `market-volume` | `symbol`, `stock_name`, `market`, `trade_date`, `volume_shares`, `turnover_twd`, `open`, `high`, `low`, `close`, `source_id`, `observed_at`, `execution_id`, `provenance_id`, `content_hash` |
+| `ohlcv` | `symbol`, `market`, `trade_date`, `open`, `high`, `low`, `close`, `volume_shares`, `turnover_twd`, `change_percent`, `source_id`, `observed_at`, `execution_id`, `provenance_id`, `content_hash` |
+| `valuation` | `symbol`, `market`, `observed_date`, `pe_ratio`, `pb_ratio`, `dividend_yield_percent`, `source_id`, `observed_at`, `execution_id`, `provenance_id`, `content_hash` |
+| `institutional` | `symbol`, `market`, `trade_date`, `investor_type`, `buy_shares`, `sell_shares`, `net_shares`, `source_id`, `observed_at`, `execution_id`, `provenance_id`, `content_hash` |
+| `financials` | `symbol`, `fiscal_year`, `fiscal_quarter`, `statement_type`, `published_at`, `metric`, `value`, `unit`, `currency`, `source_id`, `observed_at`, `execution_id`, `provenance_id`, `content_hash`, `source_report_date`, `availability_at`, `publication_time_authoritative`, `concept`, `context_id`, `period_start`, `period_end`, `period_basis`, `is_single_quarter`, `report_scope`, `industry_sector`, `report_type`, `numeric_revision_verified`, `fiscal_period_end`, `availability_basis`, `share_basis_status`, `historical_publication_status`, `source_document_sha256`, `official_filing_uploaded_at`, `filing_filename`, `version_at`, `fiscal_month`, `source_unit`, `financial_feature_version`, `comparison_value`, `comparison_period_end` |
+| `events` | `event_id`, `symbol`, `event_type`, `published_at`, `effective_date`, `severity`, `details`, `source_id`, `observed_at`, `execution_id`, `provenance_id`, `content_hash` |
+| `market-activity` | `symbol`, `market`, `trade_date`, `metric`, `value`, `unit`, `source_id`, `observed_at`, `execution_id`, `provenance_id`, `content_hash` |
+| `benchmark` | `benchmark_id`, `trade_date`, `close`, `return_percent`, `index_kind`, `source_id`, `observed_at`, `execution_id`, `provenance_id`, `content_hash` |
+
+### 14.2 對 C1-A 的直接影響與不成立的結論
+
+1. **`market-volume` vs `ohlcv` 並非當時的相同物理副本**：在 10/18 的讀回，前者 39699 筆、後者 111929 筆；`market-volume` 有 `stock_name` 而 `ohlcv` 無，`ohlcv` 有 `change_percent` 而 `market-volume` 無；最早分區分別 `2026-09` 與 `2023-11`。兩者的同名價格、交易量欄，仍需以同鍵、有界值級查詢核對是否重複；其歷史範圍和職責不同，**禁止直接刪表或停止 writer**。
+2. `financials` 的 `published_at`、`availability_at`、`version_at`、`source_document_sha256` 等欄位在 10/18 真實存在。即使不在四模型 34 個 X 席位內，也屬於 PIT、來源修訂和 provenance 保護，**不可當冗餘列刪除**。
+3. 此收據**只覆蓋 `core` 九個既有 `DuckDBIcebergCore.IDENTIFIERS`**，沒有 `mart` 表實存清冊、`catalog.iceberg_tables` 全 catalog namespace，也沒有 PG `information_schema`、keys/index、`schema_migrations` 實際全集；十月十八日的 Core PASS 不得升級成 `L01/L02 FULL_PASS`。
+4. 繼續保留第12節已發現的 GCS 歷史收據與 Risk 10/23 後續 DETERMINISTIC 回滾結論，兩者都與當前 10/23 PG/Iceberg 全庫清冊不同。
+
+### 14.3 即時讀取能力與可接受收據門檻
+
+- 有現成 [Core metadata census workflow](../../.github/workflows/feature-readiness-metadata-census.yml)，可以讀取 **Core 的 schema、current snapshot、row count/partition**，但它執行既有 dev Job 並讀回 logs；本輪 **沒有 dispatch / rerun**，而且即使執行也**不能得到 Mart 和 PG 完整清冊**。
+- [FinOps `iceberg-readback` 工作](../../.github/workflows/finops-dev.yml) 的實作是 **Scheduler/四個 Cloud Run Job/進行中 execution 列舉**，**並非 Iceberg SQL catalog 掃描**。不得以其成功代替 `L02-CATALOG`。
+- 目前已連線的 GCP plugin 僅提供 IAM roles/deny policies，沒有 PostgreSQL arbitrary SELECT 或 Iceberg metadata API；Browser tab read 在本輪回報 `Browser access requires the originating browser context`；`Janus Dev Read-only v2` 的 `janus_sources` 再次回報 `The tool failed internally`。**這些均是查詢通道限制，不證明 DB 不存在、IAM 真的被拒絕或資料壞掉。**
+- **須新增的不是資料或服務，而是由既有授權唯讀通道輸出一份 bounded PG+Iceberg metadata receipt：** as-of UTC/role/project/environment/Git SHA、PG schema/table/view/field/key/index/migration 查詢結果，`catalog.iceberg_tables` 的 `catalog_name='janus'` core/mart entries，逐表最新 schema/spec/current snapshot/summary row count，查詢錯誤/欄位無權限清楚標註。先固定 current catalog table list，再與這兩份 10/17–10/18 歷史收據比對差異；不得用舊 snapshot 補當前值。
+- 直到 **兩層現時清冊都讀回並可驗證**，C1A-01/02/03 仍不可准許物理清掃；**經核准可刪項目 = 0**。下一輪才可以在舊 C1-A 矩陣內按資產逐項升級 `LIVE_CONFIRMED`。
