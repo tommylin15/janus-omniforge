@@ -345,3 +345,16 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 - 下次驗收僅補缺失的 **(a)** 有界逐筆 pseudonymous lease/occurrence 與 state-machine 最終結果（遇 NULL 保留 NO_LEASE），**(b)** ledger backup 專用讀回，**(c)** Scheduler GET/Job execution 及部署 source 對映，**(d)** 十張表可取得的表級 reader/maintenance mode 與研究 manifest reference，**(e)** 擬清掃資產的可重建/回切證據。若授權接口不能取得，明確保留 `UNKNOWN`，不為「可能有讀者」無限擴張查核。
 - **C1-B 實體清掃准入仍 0 張、0 欄、0 個 object。** 本節只校正驗證語意，沒有 CREATE/UPDATE/DELETE/DROP，也沒有建立 Job、Scheduler、IAM 或付費資源。
 
+---
+
+## 15. C1-A 收斂驗證（2026-10-23）
+
+實機證據：[Actions #39963400042](https://github.com/tommylin15/janus-omniforge/actions/runs/39963400042)；source SHA a85e652fb3690e9910402ab353a874ffdd5400d7。Workflow success，15 tests PASS，PG/Core/Mart join PASS；data mutations、IAM changes、new resources 均為 0。PG/Core 單 worker PARTIAL 為既有 Mart metadata 跨身分邊界，由第二 Mart worker PASS 收斂。
+
+- **57 筆逐筆租約**：41 analysis queued、16 collection running；claimed_until 與 claimed_by 全為 NULL，0 active lease、0 expired timestamp lease、0 Controller queued_execution_id link。41 queued 沒有 started_at，16 running 有 started_at；全部無 finished_at；14 筆 execution_items 已有資料。PG 租約查核 PASS，但個別 Cloud Run terminal/orphan 仍 UNKNOWN，不更動工作狀態。
+- **六筆備份**：control.ledger_backup_requests 六筆 succeeded 且完成證明有效；對應的六筆 Controller occurrence 仍 running。需獨立查已部署 Controller 版本與 poll_backup／record 失敗原因；禁止重送成功備份。
+- **Scheduler**：janus-ingestion-daily ENABLED、30 * * * *、Asia/Taipei、target 符合契約，最近嘗試 2026-10-23T13:30:07.835901Z。
+- **Cloud Run 30日完整分頁**：controller 624、ingestion-core 435、intelligence-mart 306、private-pipeline 184、retired research 0；只有個別 Controller reference 可做精確 GET，不等於原57筆逐筆遠端終態。
+- **Mart 讀者**：Mart executions 中 retention/apply 19、retention/dry-run 5、queue 86、market-screening 5，191 筆 mode 不在安全白名單；mode 不代表成功 scan。主線 retention.py 仍動態掃描11表，不能稱十表零讀者。scoped_analysis KEEP（138個 index refs）；risk_portfolio KEEP_PROTECTED_PENDING；其餘九張 RETIRE_CANDIDATE/UNKNOWN_READER。
+
+**結論：C1-A 既定有界唯讀核查 PASS；六筆備份 Controller 狀態滯留屬獨立修復項，逐筆 PG→Cloud Run exact join 與十 Mart 表級讀者／可回復證據屬 C1-B 特定資產 gate。未作刪除或 state mutation；C1-B 已核准實體刪除仍為 0。**
