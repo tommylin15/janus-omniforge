@@ -1,8 +1,14 @@
 # 01｜Quant 趨勢：XGBoost Colab 建模與 AI 指令
 
-更新：2026-10-22。狀態：**開發規格已定義，非已完成 Notebook／訓練**。
+更新：2026-10-23。**Drive 已有 Notebook，ChatGPT 真實訓練／OOS／正式發布狀態仍待驗收**。
 交付 Notebook：`01_Quant趨勢_XGBoost.ipynb`；角色代碼 `quant`。
 本次使用者指定前四角色各一份獨立 XGBoost Notebook；覆蓋舊建議中的 LightGBM challenger 選擇，保留 baseline 與時間／發布規範。第五個 Event 另議。
+
+### 2026-10-23 最新實作方式（覆蓋本文末尾較早的 Colab-only AI 指令）
+
+- Drive 已存在 [01_Quant趨勢_XGBoost.ipynb](https://drive.google.com/file/d/1TtaQUUjlvKmlBzV2ZRFqmrxXndzbVDnV/view)；**Notebook 存在不等於已訓練/OOS PASS/ACTIVE**。優先採用 ChatGPT 可用 Python/研究執行環境試做，Colab 可選；在執行環境取不到完整 Parquet 原始檔時不得用摘要或 fixture 冒稱實跑。
+- 以 CURRENT.json 固定的 release/manifest/Parquet SHA 驗證，沿用本文特徵/標籤/PIT/公司行動/按時序 purge/OOS，禁重抓資料。先跑 未來20交易日 p_up 的 baseline/XGBoost、固定向量重載、UBJ/hash/模型卡，附真實品質和缺口收據；預設 publication_allowed=false。
+- 必須待 Quant、Fundamental、Valuation 三模型**都具可部署證據**，才與 Risk v1 一次實施共用版本化 loader/跨 Job 快取。不同 Cloud Run Job execution 不共享 RAM，優先實測 GCS 不可變模型+每 execution 單次載入及 image layer 替代；不提前改 Risk、不增建付費或常駐服務。完整流程見 [模型生命週期](../spec/model-lifecycle.md) 和 [D07 AI 卡](../execution-cards/d07-model-lifecycle.md)。
 
 ## 1．本版回答的問題與範圍
 
