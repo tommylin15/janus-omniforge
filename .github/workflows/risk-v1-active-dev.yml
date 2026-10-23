@@ -71,7 +71,7 @@ jobs:
           python -m pip install --disable-pip-version-check -q --require-hashes \
             -r jobs/intelligence-mart/requirements.lock
           python -m pytest -q \
-            tests/test_risk_active.py tests/test_risk_shadow.py \
+            tests/test_risk_inputs.py tests/test_risk_active.py tests/test_risk_shadow.py \
             tests/test_risk_feature_parity.py tests/test_analysis_product.py \
             tests/test_risk_registry_cas.py
       - uses: google-github-actions/auth@v2
