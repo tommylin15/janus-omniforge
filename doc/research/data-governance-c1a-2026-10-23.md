@@ -148,3 +148,27 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 \`GAP-L01\` dev PG arbitrary metadata SELECT；\`GAP-L02\` Iceberg catalog + metadata、table-level snapshot/fields；\`GAP-L03\` Scheduler/Cloud Run live list 及30日 execution 彙總；\`GAP-L04\` 今日 GCS object metadata/48h lease；\`GAP-L05\` pinned model release 的 X/Y/PIT/quality/provenance 對應；\`GAP-XLSX\` 原始治理 Excel Sheet 11–14 仍未有直讀證據；\`GAP-DRIVE\` 既有 Markdown Drive 原文未能以目前 connector 原位 raw bytes 更新（須保留同檔評論串，不能說原文已改）。
 
 **交接給下一位 AI 的單一指示：**「在不變更任何 live 資料、程式、排程、身份權限和 runtime 的前提下，先讀本文件與 C0 續查報告；利用**已授權的現有只讀** PG/Iceberg/GCS/Scheduler 查詢收據逐項消除 GAP-L01～L05，按 C1A-01～08 每筆補寫 current existence、欄位、writer/reader、最近使用與獨立回復證據。只更新 GitHub main 與 janusChatGPT 的治理文件，對未能查到的值如實維持 UNKNOWN/BLOCKED。不得將此工作自動升級成 C1-B 刪表／停寫或 B1 清掃後基準線。」**
+
+
+---
+
+## 9. C1-A 候選逐項證據升級：實際 dev Core 歷史收據（非當前 Live）
+
+**讀取時間界線：** 已找到 2026-10-17 與 10-18 的 [Core 唯讀 Census #38997408284](https://github.com/tommylin15/janus-omniforge/actions/runs/38997408284)、[#39083283620](https://github.com/tommylin15/janus-omniforge/actions/runs/39083283620)；兩次皆為 dev Jobs \`feature_readiness_inventory\` 的真實 JSON 讀回，而非靜態模型。完整當時九張表 schema、snapshot、行數、分區與 delta 已記錄於 [C0 §14](data-governance-c0-2026-10-23.md)。**沒有 2026-10-23 現時 PG/Iceberg 全清冊，本輪不能宣布 C0-Live PASS。**
+
+| C1-A 候選 | 比原先 CODE_ONLY 更強的新證據（2026-10-18 UTC） | 證據狀態升級 | 目前決策 |
+|---|---|---|---|
+| **C1A-01 \`market_volume\` vs \`ohlcv\`** | 曾實存兩張 Iceberg Core 表，分別 39,699 / 111,929 個 snapshot-summary records；其 \`stock_name\` vs \`change_percent\` 差異、最早月分區 2026-09 vs 2023-11 明確不同，且在主線有 DQ 後二階段 writer | \`HISTORICAL_LIVE_EXISTS_AND_DIFFERENT_SHAPES\`；\`CURRENT_LIVE_UNKNOWN\` | **不得整表合併/刪除**。僅可規劃個別同欄位來源比對和可逆 reader 優化 |
+| **C1A-02 \`mart_scoped_analysis\`** | PG migration 018 明訂 publication index \`table_identifier\` 名稱限制，Retention 維護入口仍列此表；無 10/23 PG applied / Mart catalog | \`STATIC_HARD_CONTRACT\`、\`CURRENT_LIVE_UNKNOWN\` | \`KEEP_DEPENDENCY_PENDING\`，禁 DROP |
+| **C1A-03 其他十個 Mart** | 歷史 Core Census **未掃 Mart namespace**；Mart maintenance 一共十一個名稱為程式宣告、不是存在性驗收 | \`STATIC_HANDLE_ONLY\`、\`CURRENT_LIVE_UNKNOWN\` | 十張仍 \`RETIRE_CANDIDATE\`，沒有任何 \`ABSENT\` 或可刪核准 |
+| **C1A-04 四模型因子** | 九個 Core 表當時 schema 包含 \`financials.published_at/availability_at/version_at/source_document_sha256\`，並非「未使用的普通因子」；34 slots 仍依 3.8.2 研究 contract | \`HISTORICAL_PIT_COLUMNS_OBSERVED\`、\`MODEL_LIVE_UNKNOWN\` | \`KEEP\` PIT/RAW/QUALITY/Y/CONTEXT/PROVENANCE；可刪欄 = 0 |
+| **C1A-05 PG** | Risk DETERMINISTIC 10/23 舊收據與 migration 靜態定義已存在，但**沒有** PG schema/table/field constraints 即時通盤查詢 | \`HISTORICAL_PARTIAL\` | \`KEEP_UNTIL_CURRENT_PG_CENSUS\` |
+
+**另有重要操作修正：** 倉庫 [\`.github/workflows/finops-dev.yml\`](../../.github/workflows/finops-dev.yml) 中的 \`iceberg-readback\` 分支實際僅讀 Scheduler、Cloud Run Job configuration 與 nonterminal executions，**不含 PG catalog/Core/Mart schema**；不能把該入口的 PASS 當成 PG/Iceberg 清冊。有一條 [\`feature-readiness-metadata-census.yml\`](../../.github/workflows/feature-readiness-metadata-census.yml) 可取得 Core 及 bounded row scan，但會以 override args 啟動現有 dev Job 且未涵蓋 Mart/PG 全量，因此**本輪未 rerun/dispatch**；不擅自以採集/寫入工作流替代唯讀盤點。
+
+### 9.1 目前 C1-A 最後必要的當前收據
+
+- **PG：** 本回合未取回 \`pg_catalog / information_schema / control.schema_migrations\` 的即時完整枚舉及 \`publication.mart_report_index\` 的實際 CHECK。要先由既有授權角色 \`BEGIN READ ONLY\` / bounded timeout 執行並輸出 env/as-of/role/schema/keys/index/migrations receipt。
+- **Iceberg：** 本回合未取回 \`catalog.iceberg_tables\` **同時涵蓋 core+mart namespace** 的當前 catalog entries，也沒有每張表的實際 current snapshot/schema/partition spec/summary 讀回；直到取得不可標 \`ABSENT\` 或 \`LIVE_CONFIRMED\`。
+- **阻擋原因：** 目前連接的 GCP 工具無通用唯讀 PG/Iceberg metadata action，Janus Dev Read-only v2 的 \`janus_sources\` 返回內部錯誤；既有 GitHub 憑證能讀取歷史 Action log，**不等於擁有 direct GCP SQL 授權**。不要將工具限制誤寫成 GCP permission denied。
+- **清掃 gate：** \`C1-B NOT_READY\`、**本輪新增批准實刪項目 = 0**；新的歷史證據可用於先保護不應清除的資產，不能反向用來批准破壞性操作。
