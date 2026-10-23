@@ -134,7 +134,7 @@ jobs:
           # supply Risk's 60-session as-of feature window.
           event="gs://$BUCKET/acceptance/specialists/risk-shadow-once-2026-10-21-a65b43111a821f43.json"
           execution="$(gcloud run jobs execute "$JOB" --region "$REGION" --project "$PROJECT" \
-            --update-env-vars="^@^MART_OPERATION=specialist-acceptance@MART_ACCEPTANCE_INPUT_URI=$event" \
+            --update-env-vars="^@^MART_OPERATION=risk-target-acceptance@MART_ACCEPTANCE_INPUT_URI=$event" \
             --async --format='value(metadata.name)')"
           test -n "$execution"
           execution_name="${execution##*/}"
@@ -154,7 +154,7 @@ jobs:
           for attempt in $(seq 1 12); do
             logs="$(gcloud logging read "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"$JOB\" AND labels.\"run.googleapis.com/execution_name\"=\"$execution_name\"" \
               --project "$PROJECT" --freshness=45m --limit=200 --format=json)"
-            evidence="$(jq -c '[.[] | (.jsonPayload // (.textPayload|fromjson?)) | select(.operation=="specialist-acceptance" and .component=="intelligence-mart" and .artifact_uri!=null)]|last//empty' <<<"$logs")"
+            evidence="$(jq -c '[.[] | (.jsonPayload // (.textPayload|fromjson?)) | select(.operation=="risk-target-acceptance" and .component=="intelligence-mart" and .artifact_uri!=null)]|last//empty' <<<"$logs")"
             [[ -n "$evidence" ]] && break
             sleep 5
           done
