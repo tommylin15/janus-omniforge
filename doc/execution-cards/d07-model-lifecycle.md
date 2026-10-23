@@ -23,7 +23,7 @@ drive.mount('/content/drive')
 新clean/label/train/export指令與notebook由本工項建立，完成後將真實路徑和測試命令回寫README；不能寫不存在的CLI讓使用者直接貼。
 
 ## 3. 四角色獨立 XGBoost Notebook 與完整 AI 指令
-2026-10-22 使用者要求本輪先交四份開發文件，各文件內已包含可直接貼給AI的完整指令、Colab儲存格、資料/X/Y、baseline、切分、驗收與輸出。這是文件交付，不等於Notebook已開發或模型已訓練。
+2026-10-22 先完成四份開發文件。**2026-10-23 已從 Drive 讀回 Quant/Fundamental/Valuation 三份 Notebook**，不再說三份未開發；是否已在 ChatGPT 環境真實訓練/OOS/具可部署條件，仍依三角色候選證據判定。Risk v1 既有模型獨立，不因本次改執行方式而重訓。
 
 | 角色 | 獨立開發文件／AI指令 | Notebook交付名稱 |
 |---|---|---|
