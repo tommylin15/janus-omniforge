@@ -312,3 +312,36 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 | Controller ledger backups | 6 `running` | `ledger_backup.py` 由 PostgreSQL VM 備份執行器負責，應以 `control.ledger_backup_requests` 專用狀態核對；本輪仍 UNKNOWN |
 
 **下一個真正未完 gate：** 對九個退役候選和 Risk protected 表，從已部署 image/source 对應、retention/reader Job execution mode、可取得的 SQL/Cloud Logging 具體 trace 及研究 release/manifest references 做有界 reader 查證。若現有 logs 不具表級可觀測性，忠實標 `UNKNOWN`，不可用無字面搜尋結果假裝 `ZERO_READER`。另須確保資料獨立可回復與業務契約/Owner 隔離。所有可能寫入/修復、Stage/GCS/PG/Iceberg 清掃另案；**C1-B 沒有任何物理刪除許可**。
+---
+
+## 14. 逐筆核對與排程證據邊界（2026-10-23 後續稽核，僅文件）
+
+**基準：** 本節檢查 GitHub \`main\` 上的 C1-A 已執行證據及查詢程式；最近取得的實機讀回仍是 [#39957904423](https://github.com/tommylin15/janus-omniforge/actions/runs/39957904423)（2026-10-23 13:06 UTC 左右，13 tests passed，受控 PG/Core/Mart/Cloud Run metadata 工作流 PASS）。**本節沒有重啟 Workflow、重新查 live PG/GCS/Scheduler、修改資料或實刪。** 不把幾分鐘前的快照當成永遠不變的當前狀態。
+
+### 14.1 四類分類必須區分「租約」和「最終工作終態」
+
+| 驗證目標 | 已取得證據 | 正確狀態 |
+|---|---|---|
+| 原 41 \`analysis/queued\` | 聚合 Live SELECT：5 筆 <48h、23 筆 2–7d、13 筆 7–30d，全部 \`claimed_until=NULL\` | **41/41 NO_LEASE**；不是 41 個 \`EXPIRED_LEASE\` 或已證實 orphan |
+| 原 16 \`collection/running\` | 聚合 Live SELECT：16 筆 7–30d，全部 \`claimed_until=NULL\` | **16/16 NO_LEASE**；需要獨立終態/manifest 才能確認 orphan |
+| 有效租約 | 原 57 非終態集合中 \`claimed_until > now()\` | **0/57**（限當次 PG 快照） |
+| 有 \`claimed_until\` 但已過期 | 原 57 集合 | **0/57 EXPIRED_LEASE**；NULL 不等同於過期時間戳 |
+| 與 Controller occurrence 連結 | \`queued_execution_id\` 聚合比對 | **0/57**；不能做逐筆 PG ↔ Cloud Run execution exact-join |
+| 另 6 筆 \`ledger-backup\` Controller \`running\` | Controller state 無 Cloud Run execution ref | **UNKNOWN**；由 \`control.ledger_backup_requests\` 與 \`ledger_backup.py:poll_backup\` 專用狀態核查，與 57 筆分開 |
+
+\`scripts/gcp/governance_metadata_readonly.py\` 本次為保護資料只輸出 status/age/lease/link 的**分群**，並沒有輸出 57 個逐筆 pseudonymous identifier、逐筆時間與個別 Cloud Run join 收據。因此**「57/57 租約聚合 PASS」不是「57/57 逐筆執行終態驗證 PASS」**。依使用者本次要求，後者維持 \`NOT_VERIFIED\`；\`active/expired/orphan/unknown\` 中不得把 57 筆直接塞進 \`orphan\`。目前可確證的是 **0 個有據 active lease，57 個 NO_LEASE／終態待判定**。
+
+### 14.2 欄位與保護邏輯的真實差異
+
+- \`infra/postgres/migrations/002_control_plane.sql\` 的 \`control.executions\` 定義有 \`claimed_until\`，本次使用的查詢以它判定租約；**沒有在這張 execution 表定義 \`heartbeat_at\` 或 \`expires_at\`**。\`control.response_cache.expires_at\` 是 cache TTL，不能拿來當執行租約到期。不得捏造不存在的 heartbeat 欄值；如 live schema 漂移，先以已授權 \`pg_catalog\` 精確核對。
+- \`jobs/ingestion-core/ingestion_core/retention.py:_stage_live_execution_ids\` 已使用 \`status IN (queued,running,retrying) AND claimed_until > now\`，並在 apply 前重查；原 57 個 \`NO_LEASE\` 不因狀態字串獲得 Stage 48h 額外保護，**但 Stage 實際 GCS objects/generation、其他現役租約仍未在本輪重查**。
+- \`jobs/intelligence-mart/intelligence_mart/retention.py\` 的 Specialist artifact active execution 清冊仍是 \`status\`-only，與 Stage 有效租約契約不同：**CODE_CONFIRMED_POLICY_GAP**，實際受影響件數/bytes、其他引用保護均未知。不得以此差異直接啟動 artifact 刪除。
+- 完整分頁 GET 可證五個已知 Cloud Run Jobs 的近30日 execution 狀態清冊，不提供 PG 57 筆的自然外鍵。**Cloud Scheduler 是否 ENABLED、實際 target/cron、最近 trigger delivery、Job execution 與排程一對一依賴，本收據未驗證**；repo Controller due slot 只屬靜態預期。
+
+### 14.3 十張 Mart 實際讀者及 C1-B gate
+
+- 修正版 [#39957904423](https://github.com/tommylin15/janus-omniforge/actions/runs/39957904423) 的 **477 檔固定字面掃描**，十張 Mart 每張僅 1 個 \`storage.py:MART_TABLES\` 宣告命中；稽核器自我引用已排除。\`retention.py\` 仍動態載入、掃描所有 handle，**沒有表級 SQL trace/Cloud Logging 使用證據**。已部署 API/Mart/Ingestion metadata 有讀回，但 digest ↔ source SHA、Scheduler runtime mode、直接 UI / 外部研究讀取不能由字面搜尋排除。
+- \`mart.mart_scoped_analysis_v1\` 有 **138 PG report index refs** 與 Public API reader contract → **KEEP**；\`mart.mart_risk_portfolio_v1\` 涉及 Owner/Risk 隔離 → **KEEP_PROTECTED_PENDING**。其餘 **9 張**僅 \`RETIRE_CANDIDATE / ACTUAL_READER_UNKNOWN\`；\`mart_alternative_sentiment_v1\`、\`mart_daily_brief_v1\` 的 \`current_snapshot=NULL\` 不是 0 rows、零讀者或可 DROP。
+- 下次驗收僅補缺失的 **(a)** 有界逐筆 pseudonymous lease/occurrence 與 state-machine 最終結果（遇 NULL 保留 NO_LEASE），**(b)** ledger backup 專用讀回，**(c)** Scheduler GET/Job execution 及部署 source 對映，**(d)** 十張表可取得的表級 reader/maintenance mode 與研究 manifest reference，**(e)** 擬清掃資產的可重建/回切證據。若授權接口不能取得，明確保留 \`UNKNOWN\`，不為「可能有讀者」無限擴張查核。
+- **C1-B 實體清掃准入仍 0 張、0 欄、0 個 object。** 本節只校正驗證語意，沒有 CREATE/UPDATE/DELETE/DROP，也沒有建立 Job、Scheduler、IAM 或付費資源。
+
