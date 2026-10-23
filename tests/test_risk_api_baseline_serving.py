@@ -61,7 +61,7 @@ class FakeRepository:
     def _connection(self):
         yield self
 
-    def execute(self, sql, params):
+    def execute(self, sql, params=None):
         self.calls.append((sql, params))
         if "FROM private.specialist_product" in sql:
             if "payload_json ?" in sql:
