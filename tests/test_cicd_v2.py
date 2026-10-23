@@ -307,4 +307,7 @@ def test_four_model_ci_uses_research_dependencies_and_real_parquet():
         rows = v2.ci_matrix([path])["include"]
         assert [row["group"] for row in rows] == ["research"]
         assert rows[0]["requirements"] == ["requirements-research-ci.txt"]
-        assert expected <= set(rows[0]["tests"])
+        if path.startswith("tests/"):
+            assert set(rows[0]["tests"]) == {path}
+        else:
+            assert expected <= set(rows[0]["tests"])

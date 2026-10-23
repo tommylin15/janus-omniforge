@@ -1,7 +1,9 @@
 from pathlib import Path
 import sys, unittest
 import numpy as np,pandas as pd
-sys.path.insert(0,str(Path(__file__).parent))
+ROOT=Path(__file__).resolve().parents[1]
+SRC=ROOT/'research/chatgpt' if (ROOT/'research/chatgpt').exists() else Path(__file__).resolve().parent
+sys.path.insert(0,str(SRC))
 from factor_factory_v1 import build_ohlcv_panel,build_revenue_panel,build_valuation_panel,build_financial_panel
 
 class FeatureFactoryTests(unittest.TestCase):
