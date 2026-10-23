@@ -71,3 +71,9 @@
 - `model_*.json` 保留固定Scaler和Logistic係數、模型SHA；`cumulative_asof_eod.csv` 為每天預測新增與到期回收進度。
 
 未改動原始 Parquet、canonical、Risk ACTIVE、Registry 或任何部署。
+
+## 2026-10-24 後續研究定版決策（不更改 2026-10-23 歷史測試成績）
+
+使用者決定：**將 `F14_12_expanding`（12 因子全歷史 Logistic）定為下一輪唯一主要研究候選**，研究版識別碼 `quant-up20-logistic12-expanding-20260701-r1`。不再優先進行 XGBoost／LightGBM／CatBoost 複雜調參；保留訓練正例率常數、原15因子全歷史及最近120日期12因子版本作固定比較。此為研究選型定版，**不是新訓練、正式發布、Registry切換或新增未觸碰OOS**。
+
+選定的模型係數、StandardScaler 參數、訓練截至時點、資料 SHA、因子順序、比較方法、狀態與後續不可覆寫規則統一記錄於 [Quant 主模型研究契約](../colab-models/01-quant-xgboost.md#2026-10-24quant-20d-研究基準版鎖定決策優先於本文較早的研究選型建議)。不可只持續引用本頁 `0.246413` 來認定真實有效；其對常數基準的增益很小且期間已被檢視，仍為 `INSUFFICIENT_EVIDENCE`。下一階段應優先真實不可變的逐日出分紀錄與20市場交易日後標籤成熟回收；未有真實發出證據前繼續標示事後模擬。
