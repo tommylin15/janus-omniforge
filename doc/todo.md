@@ -35,6 +35,10 @@
 
 ## 3. D07-PRE｜Colab 單一 Parquet 研究資料與缺口補收
 
+**2026-10-23 更新（只說明新工作，不覆蓋既有 2026-10-22 報告）**：Colab 原 264 批官方補收狀態 `ALL_SAVED`／pending 0，只能證明舊補收範圍無待補批次；**不涵蓋**新大盤、產業指數、歷史個股產業歸屬。v3.8.3 已交付官方指數增量補收程式，但 Colab live 結果未知；ChatGPT 歷史產業 PIT preflight 程式已交付，歷史 membership 真實資料仍缺。後續唯一未完範圍見本節下方三項，不能把程式本地 PASS 包裝為真實資料 PASS。
+
+
+
 **2026-10-22 最新狀態**：Drive `JanusDataset_v3_202610/canonical/CURRENT.json` 指向 v3.1.0 research-only Parquet release，已核對 153 個分區檔及 manifest；**Parquet 格式整併 CLOSED**。**官方／第三方補收仍 PARTIAL**：官方估值 50/72（TPEx 缺 22 個月份）、income 24/32、balance/cashflow 各 22/32；2026Q3 的財報尚在公告預留期，不能稱失敗。新版 [`00_資料收集.ipynb` v3.3](https://drive.google.com/file/d/1403NtnW0sQ5VuATycDiFvEsHztOvlMvH/view) 已上傳，內含只補缺、`BUDGET_PAUSED` 斷點及動態繁中研究准入表，16 cells／7 modules 解析與本地 targeted 6/6 PASS。**未執行新版 v3.3 Colab 實機補收，故不可關閉補收**。
 - [x] `PARQUET-MERGE`：模型資料唯一 Parquet 入口、版次 manifest 與現況 Drive 檔案讀回（只關閉格式整併）。
 - [x] `COLLECT-NOTEBOOK-LONGTERM`：v3.3 同一份 Notebook 支援台灣時間上月截止、2027/03 自動至 2027-02、所有新增月份/市場/資料類型增量補缺、年度普通股名冊 revision 與舊檔保留；6/6 本地 targeted PASS，Drive 上傳/metadata 讀回。此項只關閉程式交付；Colab 實際新月份補收仍屬下項。\n- [x] `TPEx-VALUATION-ADAPTER-v3.4`：22 月 TPEx 估值錯誤根因定位為舊 JSON envelope 無法辨識時，同來源兩次失敗即略過其他月份。改用官方歷史日期 HTML 整市場表格核對日期，保留 checkpoint/原始 hash；確認 parser schema failure 才啟用有界 FinMind 歷史備援，不繞過拒絕/限流；本地 TPEx 7/7 ＋原跨年度 7/7 PASS，Drive [原 Notebook](https://drive.google.com/file/d/1403NtnW0sQ5VuATycDiFvEsHztOvlMvH/view) 原 ID 改為 v3.4 且 SHA 讀回，v3.3 有封存備份。**本項只關閉工程交付，不代表 22 月已補齊。**\n- [x] `COLLECT-NOTEBOOK-v3.5-REPAIR`：原 Drive v3.4 安裝格只剩單行 import（確為 Notebook 檔案缺陷）；從可查前版恢復 10 行包含 pip、Drive 掛載與 ROOT。Drive raw TPEx 2025-05-30／2026-02-27 具正確日期、`<tbody>` 空、`共0筆`，改作明確無資料往前有界查日，不能當 schema 不符。真實原始 3 檔測試＋其他修復 8/8、跨年度回歸 7/7 PASS；Drive 原 ID 更新/下載 SHA256 一致，v3.4 封存可回復。**此項僅關閉程式修復，7 月真實補收未結案**。\n- [ ] `COLLECT-GAP`：用 v3.5 Notebook 定向完成 TPEx 估值剩餘 7 個未達標月（2024-10、2025-01～05、2026-02），已達標的其餘月份不得重抓；真正缺口可依門檻有限 FinMind 補缺，季財報依新報告各自獨立檢查；核對 `reports/驗收總表.csv`、`模型試訓準入.csv`、`逐期缺口與原因.csv`。BUDGET_STOP 不視為來源失敗，尚待 Colab 實機補跑。
@@ -49,7 +53,9 @@
 
 [唯一研究資料 SPEC](spec/research-collection-gas-drive-colab.md)；[Colab 執行說明](../research/colab/README.md)。已結案舊 GCP/BQ 研究清理保持 CLOSED，不重開。
 
-- [ ] **D07-PRE-FOUR-ROLE-FACTOR-FACTORY｜最後一步共用因子庫**：已提供 [v3.8 Notebook/模組/測試候選包](https://drive.google.com/file/d/1QfCs0zeReUlp3hJzgVqsZv75xab40G2Z/view)，本地 22 cells compile、14/14 tests、121,326 筆真 OHLCV 三月 smoke PASS；會計/營收公告時間與來源仍不能冒稱 PIT。**待完成**：在 Colab 以本人 OAuth 挂載 Drive 完整執行、生成/驗 SHA readback、按來源權利有界補收大盤/歷史產業/法人/股數等可得原始資料；原 v3.6 保持單一正式入口，候選 v3.8 未覆寫原 ID。產出研究 X（加總／平均／窗口／位階／比率）與**獨立 Y 候選**，四模型評估後逐一正規化需要的 schema/貼標/校準，不能讓研究 Y 流入 X；不改 Risk v1。詳 [研究採集契約](spec/research-collection-gas-drive-colab.md)。
+- [ ] **D07-PRE-FOUR-ROLE-FACTOR-FACTORY｜收集／貼標分工與因子資料驗收**：已將採集與計算分為 **Colab `research/colab/00_資料收集_v3.8.2_Colab.ipynb`** 和 **ChatGPT `research/chatgpt/label_four_models.py`** 兩個工作入口；大盤／產業歷史補收另有 v3.8.3 [Colab Notebook](../research/colab/00_資料收集_v3.8.3_大盤產業歷史補收.ipynb) 與 [採集器](../research/colab/official_index_backfill.py)，離線 15 passed／1 skipped；**未確認 Colab 真實 HTTP 回應／TPEx schema／逐日與逐月完整性**，不宣稱新資料已收齊。待實際 Colab 報告、研究輸入分區 hash/row readback、ChatGPT 全量特徵／獨立 Y 輸出、四角色試訓與各自 OOS；研究 X/Y 不在 Colab 執行，不改現役 Risk。詳 [兩入口與 PIT 檢查](research/four-model-collection-label-split-v382.md)、[補收 v3.8.3](research/official-index-sector-history-backfill-v383.md)。
+- [x] **D07-PRE-INDUSTRY-MEMBERSHIP-PREFLIGHT｜貼標前歷史產業歸屬檢查（程式交付 CLOSED）**：`label_four_models.py` 的 `--verify-only` 和正常貼標皆呼叫 `industry_membership.py`；驗 manifest／Parquet SHA、來源用途、歷史公告時間與有效期，官方 primary 不可同時重疊，secondary/theme/supply_chain 可多重歸屬；產業 X 仍未接入，缺資料回報 `MISSING/BLOCKED/PARTIAL_COVERAGE` 且非產業候選可繼續。`--require-industry` 對非 VERIFIED 全流程 fail closed。本地 41 passed／6 skipped（缺 pyarrow）；GitHub main 與 Drive 核心檔案比對一致。**只關閉程式交付，不代表實際歷史名冊或模型資料驗收 PASS。**
+- [ ] **D07-PRE-INDUSTRY-MEMBERSHIP-DATA｜歷史個股→產業 PIT 資料與指數對應**：建立有來源、授權、SHA 與 `valid_from/valid_to/published_at` 的 `derived/factor_inputs/industry_membership/{industry_membership.parquet,manifest.json}`，按兩市場歷史普通股×交易日驗覆蓋與缺口；官方主要產業唯一、次產業及多重主題可重疊。另建有證據的 industry_id→sector index crosswalk，避免名稱猜測；完成後在 ChatGPT 全量 `--verify-only --require-industry` 讀回。**當前實際名冊、crosswalk、Colab live 採集均未驗證**；不能用 v3.8.3 產業指數冒充個股名冊，也不能當 v1 Risk promotion 的新等待 gate。
 
 ## 4. D07｜五角色模型與正式介接
 
