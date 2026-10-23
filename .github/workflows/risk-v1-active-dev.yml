@@ -170,6 +170,7 @@ jobs:
           jq '{analysis_as_of,target_count,ordinary_target_count,excluded_nonordinary_target_count,prediction_count:(.rows|length)}' \
             /tmp/risk-live-selected.json >> "$GITHUB_STEP_SUMMARY"
       - name: Publish private immutable activation request and append PG switch
+        id: pg-switch
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -213,7 +214,7 @@ jobs:
             echo "GCS registry reverted to DETERMINISTIC; verify PG switch before closure." >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Recovery - reverse PG API gate if it might have become ACTIVE
-        if: failure()
+        if: failure() && steps.pg-switch.outcome != 'skipped'
         shell: bash
         run: |
           set -Eeuo pipefail
