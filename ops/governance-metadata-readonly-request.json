@@ -8,7 +8,7 @@
   "no_new_resources": true,
   "no_iam_expansion": true,
   "job": "janus-ingestion-core",
-  "purpose": "C1-A bounded readonly per-execution pseudonymous lease reconciliation, VM ledger-backup status, existing Scheduler and Cloud Run execution modes; no cleanup, no new IAM.",
+  "purpose": "P0-2 current dev PostgreSQL exact 57-row status evidence: core-ready events, execution_items states, owner-safe pseudorefs, config/trace/controller links, bounded existing Cloud Run executions. No status changes, no backup/retention actions.",
   "execution_count": 1,
-  "audit_focus": "c1a-remaining-blockers-bounded-live-readback-20261023"
+  "audit_focus": "p02-57-no-lease-execution-evidence-20261023"
 }
