@@ -39,7 +39,7 @@
 去金融後 13 因子**最差 1% 絕對誤差貢獻 95.42%**，尾部問題依舊存在。原組合 baseline 94.61%。不能把這些案例自動當髒資料刪除。
 
 ## 驗收與結論
-本地 `test_finance_exclusion_retest` **8/8 PASS**；提供重跑 Python、固定來源 SHA256、40 檔金融排除表、17,779 筆逐筆預測、逐月分數、配對區塊統計、訓練折證據和報告。研究 bundle 可由本次 ChatGPT 對話取得，**沒有宣稱已交付到 GitHub repo 的大型 CSV 或 Google Drive**。
+本地 `test_finance_exclusion_retest` **8/8 PASS**；提供重跑 Python、固定來源 SHA256、40 檔金融排除表、17,779 筆逐筆預測、逐月分數、配對區塊統計、訓練折證據和報告。完整自含研究 bundle（重跑 Python、研究輸入、預測、測試、SHA manifest）已寫入並讀回 Google Drive 白名單根 `janusChatGPT/模型研究`：https://drive.google.com/file/d/1Npmh90rYA54XoXt3LzpMmQwGqT547CAO/view 。大型 CSV 與程式保留在 Drive bundle，**並未聲稱完整程式已在 GitHub repo 內**。
 
 **決策**：金融股不是此問題的主要誤差來源，單獨排除金融股沒有必要；維持 DEFER LightGBM／CatBoost。優先定位非金融低基期、接近零收入與企業事件的極端 YoY 異常；等待可信公告 PIT 與獨立前瞻 cohort。不得宣稱模型正式可上線。
 
