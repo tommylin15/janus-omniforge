@@ -528,3 +528,8 @@
 這些證明實機資源/映像版本存在，**尚未**從 image digest 反解編譯後的 source SHA、未取得十表各自近30天的實際 SQL scan/reader identity。對其餘十張 Mart，狀態維持 `LIVE_CATALOG_PRESENT / CODE_REFERENCE_OBSERVED / ACTUAL_PER_TABLE_READER_UNKNOWN`；不能因僅有共用維護/宣告引用、PG scoped index無其名稱，就誤標 `NO_READERS`、`SAFE_TO_DROP` 或 C1-B PASS。下一步只需對有具體讀者/引用的表有界補查 deploy→code→log/manifest，無證據不無限追加假設性查核。
 
 **本階段收斂：** `P0_LEASE_CLASSIFICATION=LIVE_PASS`、`P0_CLOUD_RUN_30D_INVENTORY=PASS`、`P0_EXACT_PG_TO_CLOUD_PER_EXECUTION=UNKNOWN`、`P1_STATIC_AND_DEPLOYED_METADATA=PASS`、`P1_TEN_TABLE_ACTUAL_RUNTIME_READER=UNKNOWN`。保留 Stage 48h 有效租約/重讀政策；實刪授權依然 **0**。
+
+
+### 20.5 靜態讀者掃描的自我引用修正（2026-10-23）
+
+重新檢查 §20.4 的 `2 hits/each` 分析方法時，發現 `scripts/gcp/governance_mart_reader_inventory.py` 掃描了自身的固定十表白名單，導致**每張表至少 1 筆是稽核程式自我引用，不能作為業務 reader**。修正主線掃描器，明確排除自己的路徑、將 `storage.py` 的名字登錄標 `DECLARATION_ONLY`；新增離線測試。上段 `2` 是 #39956176106 **原始收據數值**，保留可追溯，但**撤銷其「2 個非掃描器程式引用」的任何推論**。修正後唯讀重新讀回的 run 為 [#39957904423](https://github.com/tommylin15/janus-omniforge/actions/runs/39957904423)；未取得其終態前，十表全部維持 `ACTUAL_RUNTIME_READER_UNKNOWN`，不准刪。
