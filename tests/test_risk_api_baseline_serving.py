@@ -98,7 +98,15 @@ def test_recent_older_risk_is_visible_without_downgrading_newer_baseline():
     assert served["specialists"][2] == latest["specialists"][2]
     assert latest["content_hash"] == content_hash({k: v for k, v in latest.items()
                                                    if k != "content_hash"})
-    assert served["source_projection_hash"] == latest["content_hash"]
+    # A roll-forward mixes the latest baseline with a previously verified Risk
+    # observation, so its projection hash must not equal the raw latest hash.
+    # Verify the exact merged projection rather than weakening the integrity gate.
+    assert served["source_projection_hash"] != latest["content_hash"]
+    projection = {k: v for k, v in served.items() if k not in {
+        "content_hash", "source_projection_hash", "market_context",
+        "data_status", "freshness",
+    }}
+    assert served["source_projection_hash"] == content_hash(projection)
     assert served["content_hash"] == content_hash({k: v for k, v in served.items()
                                                    if k != "content_hash"})
     assert any("payload_json ?" in sql for sql, _ in repo.calls)
