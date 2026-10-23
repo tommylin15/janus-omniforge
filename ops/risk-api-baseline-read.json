@@ -1,5 +1,7 @@
 {
   "intent": "risk-first-release-api-rollback-baseline",
   "read_only": true,
-  "no_gcp_mutation": true
+  "no_gcp_mutation": true,
+  "request_attempt": 1,
+  "purpose": "ADMIN-SIMPLIFY after 4-Jobs #39909889109 PASS; read live canonical 100% serving API Revision, GHCR immutable digest, image source SHA before authorizing 0ad738b1... API traffic switch. Read-only, no GCP mutations."
 }
