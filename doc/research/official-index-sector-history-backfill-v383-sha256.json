@@ -1,0 +1,10 @@
+{
+  "version": "v3.8.3",
+  "files": {
+    "00_資料收集_v3.8.3_大盤產業歷史補收.ipynb": "12e31f2f80b4a99522b85af657e2f0e7c024c45e40c802629ed2bee0bdc05cc3",
+    "official_index_backfill.py": "dd3b6dc16c3212d616f45d9f79b44a74ea270922a712f0a42f0c875c35dd0d01",
+    "test_official_index_backfill.py": "b0a9a76bd92e095fcb0a71217fe0e2faf1d21c60cb24b1a45b711c282c7e8e60",
+    "README_v3.8.3.md": "6227f5be12fc2daf4231b924324b60afa5bf03eeac469883093b277b04464f23",
+    "TEST_RESULTS.txt": "4b2e8c0ee4da20cf886ff01b0a9e8c50b158d6d61a496ee62a811404a97d3d95"
+  }
+}
