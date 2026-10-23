@@ -244,3 +244,25 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 4. **發布資料守門：** 138 reference rows 中 1 筆可發布，但是其 \`analysis_as_of\` 較早；現行只保留 current Iceberg snapshot 的治理決策不保證舊 snapshot 還能讀。若實際 API replay 失敗，應先標 \`BLOCKED_PUBLIC_REPORT\` 處理相容問題，而非刪表。
 
 本輪可獨立結案項為 **C1-A 固定範圍 PG reader/reference audit PASS**，非全部 C1-A / C1-B；\`mart_scoped_analysis\` KEEP 已有充分依賴證據，**全部 Table/Field/Object 實刪核准清單仍 0**。
+
+---
+
+## 13. 優先處理 57 筆非終態執行與十 Mart Reader 的 C1-A 分流（2026-10-23）
+
+### 13.1 P0 實機結果（不是推測）
+
+新證據詳見 [C0 §20](data-governance-c0-2026-10-23.md)；PG 聚合已確認最近30日原 **41 analysis queued** 與 **16 collection running** 均 `claimed_until IS NULL`、有效租約 **0/57**；分群為 analysis 5（<48h）/23（2–7d）/13（7–30d），collection running 16（7–30d）。PG controller occurrence 的 `queued_execution_id` 直接關聯也是 **0/57**。這 57 筆應列為 `NONTERMINAL_WITHOUT_LEASE` 待人工／後續有界程式流程處理，不因狀態字串認定活躍，也**不在本輪直接更新 PG status**。
+
+另有 **6 筆 Controller active occurrence** `state.status=running` 且 `state.job=janus-batch-controller`，沒有可直接 GET 的 `state.execution`；它們是獨立集合，須以 `batch`／Controller 執行語意另作核對，不得誤併 57 筆。首次 Cloud Run 30 日全量掃描遇 500 筆分頁上限而 `PARTIAL`；擴充到有界最多1200筆的修正版與十 Mart 程式/部署參照清冊在 [#39956176106](https://github.com/tommylin15/janus-omniforge/actions/runs/39956176106)，**該 Run 完成／讀回前不得預先標 CLOUD_RUN_PASS／MART_READER_PASS**。
+
+### 13.2 C1-A 安全決策與限制
+
+| 實體 | 本次判定 | 不可省略的後續證據 |
+|---|---|---|
+| 57 PG 非終態 execution | `NO_LEASE_LIVE_CONFIRMED`（該次快照） | 若要更新狀態：真正 queue consumer／polling 的狀態機規則、是否新取得租約、對下游有無影響、受控可復原與明確授權 |
+| Stage 超過48h 物件 | `NOT_EVALUATED`，不因57筆 stale 狀態保護 | 當前 generation/updated、`_stage_live_execution_ids` apply 前重讀、GCS 最少一份合法代表引用 |
+| Mart specialist artifact retention | `STATIC_POLICY_GAP`：以 status-only 作 active，無 lease predicate | 對比真實 artifact refs、其他有效保護來源、當前 retention mode；需要另案 targeted test/改動/驗收 |
+| 其餘十張 Mart 表 | `LIVE_CATALOG_PRESENT / UNKNOWN_ACTUAL_READER` | 已部署 API/Mart revision、目前 main code references、近30日 Job/直接或動態資料表讀者、snapshot/manifest、rebuild/rollback |
+| `mart.mart_scoped_analysis_v1` | `KEEP`，具138筆 PG index + API contract | 只核舊 snapshot replay / API 正向可用性，不因其他十張暫無 PG index 就推論無讀者 |
+
+**本輪不能做的事：** 批量把這57筆改 `failed`、刪除 Core/Mart 表、刪除 Stage/GCS 物件、停止既有 Job/Writer 或擴大 IAM／新增付費資源。Stage 與 Mart specialist artifact retention 的保護語意不同，後者的 status-only 差異需要實際影響證據，不把程式檢查缺口寫成已發生資料損失。C1-B 物理清掃核准 = **0**。
