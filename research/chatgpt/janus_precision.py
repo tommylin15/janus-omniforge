@@ -1,4 +1,4 @@
-"""Janus v3.8.2 research contracts. No network, CURRENT write or publication."""
+"""Janus v3.8.1 research contracts. No network, CURRENT write or publication."""
 from __future__ import annotations
 import ast, hashlib, json, re, sys
 from pathlib import Path
@@ -268,11 +268,13 @@ def valuation_panel(data,mapping):
         v['y_'+t]=np.log(n.where(n>0))
     return v,VAL
 
-def export_dataset(root,max_rows=1500000,output_root=None):
+def export_dataset(root,max_rows=1500000,output_root=None,industry_preflight_fn=None):
     """Shared X/Y package; original canonical release remains immutable."""
     data,receipt=load_release(root,max_rows=max_rows)
+    preflight = (industry_preflight_fn(data) if industry_preflight_fn is not None
+                 else {'status':'NOT_RUN','industry_features_in_model_x':False})
     code_sha=hashlib.sha256((sha(__file__)+sha(legacy.__file__)+pd.__version__+np.__version__).encode()).hexdigest()
-    ident=hashlib.sha256(json.dumps([receipt,code_sha],sort_keys=True).encode()).hexdigest()[:16]
+    ident=hashlib.sha256(json.dumps([receipt,code_sha,preflight],sort_keys=True,default=str).encode()).hexdigest()[:16]
     out=Path(output_root if output_root is not None else root)/'derived/four_model_precision'/('v3.8.2-'+ident)
     done=out/'manifest.json'
     if done.exists():
@@ -283,6 +285,7 @@ def export_dataset(root,max_rows=1500000,output_root=None):
     if out.exists():raise ValueError('INCOMPLETE_RUN_REMOVE_ONLY_AFTER_INSPECTION '+str(out))
     out.mkdir(parents=True)
     write_json(out/'input_manifest.json',receipt)
+    write_json(out/'industry_membership_precheck.json',preflight)
     catalog={};status={}
     def save(name,frame,kind):
         frame.to_parquet(out/(name+'.parquet'),index=False)
@@ -304,7 +307,8 @@ def export_dataset(root,max_rows=1500000,output_root=None):
         a.to_csv(out/'financial_mapping_audit.csv',index=False,encoding='utf-8-sig')
     write_json(out/'factor_catalog.json',catalog)
     write_json(out/'readiness.json',{'status':status,'historical_pit':'NOT_VERIFIED',
-        'market_index':'NOT_IN_CURRENT_RELEASE','industry':'NOT_IN_CURRENT_RELEASE',
+        'market_index':'NOT_IN_CURRENT_RELEASE','industry':'NOT_IN_MODEL_X_REQUIRES_PIT_JOIN_AND_VERIFIED_INDEX_CROSSWALK',
+        'industry_membership_precheck':preflight,
         'valuation_training':'REQUIRES_VERIFIED_FINANCIAL_MAPPING_AND_COHORT',
         'publication_allowed':False})
     files={p.name:sha(p) for p in out.iterdir() if p.is_file()}
