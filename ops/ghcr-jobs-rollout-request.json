@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "6739c18c84497622fb03e6be7d25a6fc3f0ca394",
-  "release_run": "39892375248",
+  "sha": "0ad738b1f7c3432bf6fac59ecb7d5063dce63447",
+  "release_run": "39907341839",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "3e5f3c0ef569513c81e52c67794af9ba40d5cade",
+  "baseline_source_sha": "6739c18c84497622fb03e6be7d25a6fc3f0ca394",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:48201f1dea956f16aaeecfde542e2e015b68557de0077171931a35a105d3d23b",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:48201f1dea956f16aaeecfde542e2e015b68557de0077171931a35a105d3d23b",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:9951e50e998b6dcbfcd9e8a09fcf2c838b8db62f66e37a4d975964f70c4c29a3",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:c654fe084a72ca3265f75044a97fe6bbee742fbc705ce154ef1e4a1390341603"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:ac8520eafd08fd973585b7d2784e394a509fcd44d398d5dec2fe636d2fbc42f0",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:ac8520eafd08fd973585b7d2784e394a509fcd44d398d5dec2fe636d2fbc42f0",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:b8b2fd08dd9e8d40ff12af2cf7c6db744e4d69f4cf9174e5de1854180079c113",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:b321f000831b5fec375efc6315b4e1157c5fe57dad039295f5fa890f01b7133e"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
@@ -19,8 +19,8 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "auth_boundary_run": "39893763429",
-  "request_attempt": 52,
-  "safety": "Risk ordinary target-only OHLCV reader, full Release #39892375248 PASS, exact 0% candidate #39893584099 PASS, owner/auth #39893763429 PASS, live four-Jobs baseline #39892505894 PASS; strictly reversible existing dev Jobs, no new scheduler, no model GCS/PG activation at this stage.",
-  "authorization": "User explicitly directed full Risk XGBoost ACTIVE delivery; deploy current existing dev Jobs first, then selected-stock Core canary, then fenced ACTIVE if evidence PASS."
+  "auth_boundary_run": "39909168202",
+  "request_attempt": 53,
+  "safety": "ADMIN-SIMPLIFY source 0ad738b1... full GHCR Release #39907341839 PASS; 0% API Candidate #39908830013 PASS; read-only OAuth/Owner/Admin/MCP boundary #39909168202 PASS; exact real four-Jobs rollback baseline #39909440092 PASS, previous source 6739c18c..., mutable active Job state rechecked under global lease. Existing dev jobs only, scheduler/execution fence and two real canaries per Job; reversible GHCR, no new resources or standalone model activation.",
+  "authorization": "User explicitly asked to continue Admin UI dev deployment following Release/Candidate/Auth Boundary/JOB rollback baseline gates. Update existing four dev Jobs under pinned digest and reversible snapshot, preserve current API traffic until separate promotion and Admin live acceptance."
 }
