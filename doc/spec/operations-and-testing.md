@@ -1,12 +1,12 @@
 # Janus 最新驗收證據索引
 
-### 2026-10-23｜ADMIN-SIMPLIFY 0% API Candidate PASS；Auth Boundary 已啟動
+### 2026-10-23｜ADMIN-SIMPLIFY Candidate／Auth Boundary PASS；Jobs 基準執行中
 
-- [完整 Release #39907341839](https://github.com/tommylin15/janus-omniforge/actions/runs/39907341839) 已通過；固定 source SHA `0ad738b1f7c3432bf6fac59ecb7d5063dce63447`。
-- [0% Candidate #39908830013](https://github.com/tommylin15/janus-omniforge/actions/runs/39908830013) `completed/success`；Release exact-source 驗證、公開 GHCR image digest `sha256:9e6bbccab1a77c126f7b8d771e2434d53b86285b42715991f4db7db1e78f8a7f`、Cloud Run 0% 候選 `ghcr-0ad738b1f7c3`、新版 /health 與 /api/v1/public/health、未登入 /api/v1/me/profile 401、/app/build-id.txt 與完整 SHA、舊 revision 維持 100% traffic 均由 Workflow 成功終態驗證。共用 lease 對照 live baseline `SAFE_TO_RELEASE` 後釋放成功。未更新 Jobs、沒有正式流量切換。
-- [Auth Boundary #39909168202](https://github.com/tommylin15/janus-omniforge/actions/runs/39909168202) 已透過唯讀 `ops/ghcr-candidate-boundary-request.json` 觸發；**觸發當下 queued，驗收終態待讀回**。驗證 OAuth metadata／PKCE、Owner 與 Admin 私有路徑未登入 401/403、MCP Bearer challenge、0% tag／正式 100% 流量與版本。不可將 Candidate PASS 視為這些獨立 gate 已 PASS，更不代表真人登入或四 Jobs / API promotion 已完成。
-- **後續**：Auth Boundary 成功且 exact SHA 核對後，依既有可逆發布 runbook 執行四 Jobs rollback baseline、受控 Jobs rollout、API traffic promotion／rollback／live readback，最後 Admin 四頁十功能登入正向驗收。當前狀態 `IN_PROGRESS／CANDIDATE_PASS_AUTH_PENDING`。
-
+- **完整 Release**：[ #39907341839](https://github.com/tommylin15/janus-omniforge/actions/runs/39907341839) `completed/success`；固定映像來源 SHA `0ad738b1f7c3432bf6fac59ecb7d5063dce63447`。
+- **0% Candidate**：[ #39908830013](https://github.com/tommylin15/janus-omniforge/actions/runs/39908830013) `completed/success`；GHCR API image digest `sha256:9e6bbccab1a77c126f7b8d771e2434d53b86285b42715991f4db7db1e78f8a7f`；Cloud Run `ghcr-0ad738b1f7c3` candidate 維持 0%、舊版仍 100%，Ready、health、build-id SHA、未登入 401 與 lease 安全釋放均經 readback PASS。Jobs 尚未改動。
+- **Auth Boundary**：[ #39909168202](https://github.com/tommylin15/janus-omniforge/actions/runs/39909168202) `completed/success`，Job 全部步驟 PASS；OAuth protected-resource／authorization-server metadata 200、S256／refresh grant、User/Admin 私有路徑與 GCS inspect 未登入 401、MCP Bearer challenge 401 + `isError=true`、build-id 固定 SHA 與 0%/100% traffic 保持不變均已驗證。此為負向 auth＋metadata，**不代表 Admin 真人登入正向驗收已通過**。
+- **Jobs Rollback Baseline**：[ #39909440092](https://github.com/tommylin15/janus-omniforge/actions/runs/39909440092) 由 `ops/ghcr-jobs-baseline-request.json` 觸發，首次讀回 `in_progress`，執行中 `jobs-baseline` 只讀取現役四 Jobs 的固定 digest、來源 SHA 與配置 fingerprint，不改動 GCP。**尚未取得終態或 artifact，不能直接進入 rollout。**
+- **下一步**：Jobs 基準 PASS 且 receipt 核對後才可按既有可逆流程進行四 Jobs rollout、API promotion／rollback、live readback，最後 Admin 四頁十功能登入正向驗收。現況 `IN_PROGRESS／AUTH_PASS_JOBS_BASELINE_PENDING`。
 
 
 ### 2026-10-23｜ADMIN-SIMPLIFY／Risk API 完整 Release gate PASS（部署／登入驗收未執行）
