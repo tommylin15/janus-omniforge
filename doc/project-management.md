@@ -22,7 +22,7 @@
 
 ## 2. 唯一施工順序與研究資料責任（2026-10-20）
 
-**A-CHANGE → D07-PRE → D07 → D08；STAGE-48H 原對話獨立收尾**，進度只在 [TODO](todo.md)。D01～D06、DRL-01、FINOPS-AB 不重新開啟。D07-PRE 唯一輸入為 [官方 API→Colab→Drive 月資料夾→Colab](spec/research-collection-gas-drive-colab.md)：普通股且 ETF 排除，TWSE／TPEx 各資料集研究採集門檻 70%；先看現有持股/觀察股公開欄位能否取得，歷史 PIT/24月完整度不再阻擋**第一輪採集**。正式 Core 90%/70% 不變；模型 OOS/未來洩漏防護仍獨立驗證。
+**A-CHANGE → D07-PRE → D07 → D08**，進度只在 [TODO](todo.md)。D01～D06、DRL-01、FINOPS-AB 不重新開啟。D07-PRE 唯一輸入為 [官方 API→Colab→Drive 月資料夾→Colab](spec/research-collection-gas-drive-colab.md)：普通股且 ETF 排除，TWSE／TPEx 各資料集研究採集門檻 70%；先看現有持股/觀察股公開欄位能否取得，歷史 PIT/24月完整度不再阻擋**第一輪採集**。正式 Core 90%/70% 不變；模型 OOS/未來洩漏防護仍獨立驗證。
 
 **舊研究退役已結案（2026-10-20）**：Cloud Run Controller 月度 retrain、手動入口、Mart 舊 fit 已移除並完成四 Jobs rollout；GCP 舊研究專屬 Job／Scheduler 和 B5～B8 BigQuery 中介實體經 [實機盤點](archive/d07-gcp-bq-retirement-live-2026-10-20.md) 查無殘留，無待刪資源，依有界驗收原則 `CLOSED`。不再作 D07 開發前置、不重啟假設性調查；正式行情、Market Screening、Owner、API、Stage48h、週 Iceberg 和備份保留。
 

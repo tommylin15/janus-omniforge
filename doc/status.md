@@ -23,7 +23,7 @@
 
 | 工作包 | 目前狀態與可操作的剩餘驗收 |
 |---|---|
-| **P0 STAGE-48H** | **原部署／清理／去重及 10/20 自然 Stage-only 執行 PASS；2026-10-21 新版 dev API 已 100% 發布（GHCR source `0b0a42b6`，MB／千分位 UI／有界錯誤碼、回滾演練 PASS）[#39560369519](https://github.com/tommylin15/janus-omniforge/actions/runs/39560369519)。真人 Admin 登入及按鈕曾 PASS；尚待在新版驗收 Stage／Cloud Build 兩桶並確認六桶 `OBSERVED`，目前整包 PARTIAL。** [原 4,927 件實刪 #39355428497](https://github.com/tommylin15/janus-omniforge/actions/runs/39355428497)、[shared raw #39358645373](https://github.com/tommylin15/janus-omniforge/actions/runs/39358645373)、[自然執行讀回 #39523200448](https://github.com/tommylin15/janus-omniforge/actions/runs/39523200448)：Controller 18:31 tick，worker 18:33 terminal／generation PASS，該輪實刪 1,025 件／265,691,880 bytes，週維護 true；直接 PG occurrence row 未另查。既有刪除／部署不重做。 |
+| **STAGE-48H CLOSED** | 2026-10-23 已授權六桶唯讀 IAM 修復並逐桶讀回；正式 Admin 六桶全 OBSERVED，合計 902.71 MB／7,638 件。既有清理與發布未重做。證據見 [Operations](spec/operations-and-testing.md)。 |
 | **P1 A-CHANGE** | **IN_PROGRESS**：使用者已啟動 A1～A4 整包；事實／跨日狀態／盤前盤後與首頁／個股接線已實作，集中 targeted／CI／dev／真實 API/UI 驗收進行中，尚未結案。 |
 | **P1 D07-PRE** | **21 個月 Drive r1 實際封存、SHA 與普通股研究品質 PASS（TWSE ≥90%、TPEx ≥70%）；Risk 研究 OOS 已實跑完成。** 已確認 799,468 行／1,979 有行情股票；Rolling20 vs Ridge：181,557 OOS 行 MAE 改善8.49%，但2026 Q1 walk-forward 退步7.09%，仍是 `RESEARCH_OOS_ONLY_NOT_PROMOTABLE`。來源授權、歷史PIT與公司行動留在D07正式promotion gate；研究收據見 [Risk OOS](archive/d07-risk-oos-real-2026-10-21.md)。Colab本人執行／新版CI尚無收據。 |
 | **P2 D07** | **Risk v0 五因子及 v1 八因子研究 OOS 已完成，均未發布。** v1 在21月現行普通股名冊真實資料上，同樣本 MAE 為0.127537，較 v0 0.133647 改善4.57%；四段回溯診斷改善但非 untouched holdout；[v1研究收據](archive/d07-risk-v1-ohlcv-oos-2026-10-22.md)。Colab本人重跑、CI與正式promotion gate未通過；其他角色仍待開發。 現行 Risk 維持baseline，Quant等其他角色之 Colab OOS、Janus Mart Registry／推論／rollback／Admin 品質未完成；Event 缺真人標籤仍採rules。 |

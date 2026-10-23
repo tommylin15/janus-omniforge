@@ -1,5 +1,12 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-23｜STAGE-48H Admin 六桶驗收 PASS／CLOSED
+
+- **根因與授權修復**：正式 dev API revision `janus-api-00589-bux`（100% traffic，GHCR source `253d9d37132f4ce6d77bb1e84d6d7dac4d905d01`）使用 `janus-user-api@gen-lang-client-0593591102.iam.gserviceaccount.com`。修復前真人觸發盤點 `2026-10-23T00:39:59.706489+00:00` 六桶皆為 HTTP 403／`bucket_metadata`。使用者明確授權後，僅在既有 Stage、Core、Mart、Private、Research、Cloud Build 六桶新增該身分的 `roles/storage.legacyBucketReader`，六桶 IAM policy 逐桶讀回 PASS；保留原 binding／conditions，不新增 object payload 下載、寫入或刪除權限。
+- **正式 Admin 正向驗收**：已登入 Admin → 資料品質 → 儲存維護一鍵盤點，`2026-10-23T00:43:46.507129+00:00`（台北 08:43:46）回傳 `KNOWN_BUCKETS_COMPLETE`，六桶全數 `OBSERVED`；六桶合計 **902.71 MB**、current **902.71 MB**、**7,638 件**，歷史版本與 soft-deleted 均顯示 **0.00 MB**。逐桶 current：Stage 126.87 MB／654 件、Core 150.50 MB／2,946 件、Mart 25.97 MB／1,627 件、Private 299.78 MB／2,264 件、Research 299.47 MB／145 件、Cloud Build 0.13 MB／2 件；各桶四捨五入後顯示值不要求加總等於未四捨五入的合計。Stage 疑似 MD5 重複 3.30 MB 僅為觀測，不是可刪清單。
+- **範圍與驗證**：現有盤點／metadata targeted tests **15 PASS**。本輪無程式變更、無 API／Jobs 重發、無 Scheduler 變更、無物件刪除，未重跑已 PASS 的自然清理／去重／匿名拒絕。既有自然排程與發布證據保留於下方歷史紀錄；STAGE-48H 全部原定驗收 CLOSED。容量是盤點當下六桶觀測量，不是 GCP 帳單。
+
+
 ### 2026-10-22｜Life 風格股市色卡：dev UI 真人驗收 PASS／CLOSED
 
 - **實作**：`1fc29ea3634d519eb731f11e8ccddd67140be4f5`；`final_visual_common.dart` 共用薄荷／霧藍／奶杏／淡紫色卡，已用於 Today、Watchlist、Ledger 持股摘要與緊湊列、Stock Detail 標頭。前端不變更 canonical 數字、PIT、Owner authorization、缺值或 Risk promotion 語意。
