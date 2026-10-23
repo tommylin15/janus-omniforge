@@ -1,6 +1,6 @@
 # Janus 資料治理、批次與補資料總入口
 
-更新：2026-10-19（Asia/Taipei）。此頁是正式**治理與執行路由**，不另建 TODO、Scheduler 或資料庫；現行 implementation 以 GitHub `main` 和 runtime 為準，狀態以 [TODO](../todo.md)、[status](../status.md) 與 [operations](operations-and-testing.md) 為準。
+更新：2026-10-23（Asia/Taipei）。此頁是正式**治理與執行路由**，不另建 TODO、Scheduler 或資料庫；現行 implementation 以 GitHub `main` 和 runtime 為準，狀態以 [TODO](../todo.md)、[status](../status.md) 與 [operations](operations-and-testing.md) 為準。
 
 ## 1. 資料責任與文件唯一入口
 
@@ -28,7 +28,7 @@ Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當�
 
 | 批次／Worker | due（台北） | 主要條件 |
 |---|---|---|
-| `ledger-backup`／controller | 每日 02:30 | 備份本體與 GitHub 清理分開 |
+| `ledger-backup`／controller | 每日 02:30 | 備份本體僅 Controller→既有 VM 執行；獨立 GitHub 備份清理每日 13:30，保守保留 7 daily＋6 monthly |
 | `ingestion`／ingestion-core | 每日 07:30、14:30 | 上午收集；下午行情／指數；交易日有效性由 worker 檢查 |
 | `data-supplement`／ingestion-core | 每日 08:30 | 依 07:30 ingestion，日增量／缺漏補收 |
 | `mart`／intelligence-mart | 平日 09:00 | 依 ingestion＋supplement；下一個 :30 tick 才可能派送 |
@@ -38,6 +38,8 @@ Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當�
 | `data-quality`／ingestion-core | 每週六 12:30 | 獨立品質檢核，不是全量多年補抓 |
 | `stage-cleanup`／ingestion-core | **每日 18:30** | 只處理超過48小時且不被 active execution 使用的 Stage 物件；不啟動 Iceberg | 
 | `iceberg-compaction → mart-cleanup → core-cleanup` | **每週六 23:30** | `FINOPS_WEEKLY_MAINTENANCE=true` 才週維護；依序且可能跨小時 |
+
+**Private 備份保留期清理（2026-10-23）**：既有 `.github/workflows/private-ledger-backup-retention.yml` 已恢復備份專用 cron `30 5 * * *` UTC（台灣 13:30），與每日 02:30 Controller 備份分離。保守策略保留最近 7 個 daily 及 6 個 monthly，僅在最近 daily GCS 建立時間 ≤36h、有效 metadata/count/generation、既有 WIF 權限與確認 request 下有界 generation 條件刪除（每次最多 3 daily、1 monthly）；不因 Controller `poll_backup` success 執行 GCS cleanup。第一次 [唯讀 #39974251644](https://github.com/tommylin15/janus-omniforge/actions/runs/39974251644) PASS、[實際 apply #39975063840](https://github.com/tommylin15/janus-omniforge/actions/runs/39975063840) PASS：daily 10→7/current bytes 減少 59,950,868，monthly 2→2；未增加 IAM、重跑備份、修改 PG。本次 current bytes 差額不等於已驗證計費節省。首次自然 cron 尚待觀測；治理收據見 [C1-A §18](../research/data-governance-c1a-2026-10-23.md)。
 
 `effective_batches()` 有 legacy `FINOPS_WEEKLY_MAINTENANCE=false` 的每日 23:30 分支，**不是**目前核准的週維護目標。2026-10-18 文件收據記錄週維護切換成功，但本次未做新一輪 Scheduler/env/自然 occurrence live 讀回。不要引用 [2026-10-13 歷史盤點](../archive/batch-inventory-2026-10-13.md) 當作目前 cron。
 
