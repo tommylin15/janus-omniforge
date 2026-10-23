@@ -67,7 +67,8 @@ jobs:
           PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
         run: |
           set -Eeuo pipefail
-          python -m pip install --disable-pip-version-check -q -r requirements-dev.txt \
+          python -m pip install --disable-pip-version-check -q -r requirements-dev.txt
+          python -m pip install --disable-pip-version-check -q --require-hashes \
             -r jobs/intelligence-mart/requirements.lock
           python -m pytest -q \
             tests/test_risk_active.py tests/test_risk_shadow.py \
