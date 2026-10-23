@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "6739c18c84497622fb03e6be7d25a6fc3f0ca394",
+  "sha": "0ad738b1f7c3432bf6fac59ecb7d5063dce63447",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Risk target-only OHLCV fix candidate #39893584099 PASS at 0%; automated OAuth/Owner/MCP negative-auth boundary read-only before new four-Jobs rollout; existing API traffic 100% unchanged.",
-  "request_attempt": 4
+  "purpose": "ADMIN-SIMPLIFY 0% API Candidate #39908830013 PASS for exact full Release #39907341839. Verify OAuth discovery/PKCE, private User/Admin API 401/403, MCP Bearer challenge and build SHA without GCP mutation or traffic change; owner authenticated UI still NOT_VERIFIED.",
+  "request_attempt": 5
 }
