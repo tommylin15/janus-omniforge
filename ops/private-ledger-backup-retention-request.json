@@ -1,15 +1,20 @@
 {
   "intent": "dev-private-ledger-retention-independent",
   "scope": "existing-dev-private-backup-prefixes",
-  "purpose": "P0-1 live metadata-only preflight of existing GCS daily/monthly VM ledger backups; keep 7 daily and 6 monthly as conservative floor; no deletion until dry-run accepted, never re-run pg_dump or modify PG.",
+  "purpose": "P0-1: independent 13:30 Taipei dev Private backup retention after real GCS dry-run PASS: 10 daily, 2 monthly, recent daily 20.45h, candidate 3 old daily and 0 monthly; isolated restore #38991644822 PASS. Conservative daily keep 7, monthly keep 6, maximum 3 daily and 1 monthly per bounded run, generation CAS/readback, no pg_dump, no Owner row reads, no IAM/new paid resources.",
   "dry_run_first": true,
   "daily_keep": 7,
   "monthly_keep": 6,
   "max_daily_deletes_per_run": 3,
   "max_monthly_deletes_per_run": 1,
-  "approved_scheduled_apply": false,
+  "approved_scheduled_apply": true,
   "no_new_resources": true,
   "no_iam_expansion": true,
   "no_pg_mutation": true,
-  "no_new_backup": true
+  "no_new_backup": true,
+  "evidence": {
+    "dry_run_run": 39974251644,
+    "dry_run_source": "c064cff362f0b7fc488403f622d3cb3c955b078d",
+    "isolated_restore_run": 38991644822
+  }
 }
