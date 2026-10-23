@@ -2,13 +2,13 @@
   "intent": "promote-authenticated-reversible-ghcr-dev",
   "approved": true,
   "scope": "existing-dev-janus-api-only",
-  "source_sha": "b3ecba5ea87bff8b7cdec0730ee857a611a71951",
-  "release_run": "39561334687",
-  "jobs_run": "39566457538",
+  "source_sha": "3e5f3c0ef569513c81e52c67794af9ba40d5cade",
+  "release_run": "39874777208",
+  "jobs_run": "39875718471",
   "rollback_mode": "reversible_ghcr",
-  "baseline_source_sha": "0b0a42b608143d62f5241d47c2d25e855949f36b",
+  "baseline_source_sha": "253d9d37132f4ce6d77bb1e84d6d7dac4d905d01",
   "allow_legacy_forward_only": false,
-  "auth_boundary_run": "39564026541",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:703f30f209791616860dac57f0d3d9e294c479dcbeff796ebd324bacf5315981",
-  "purpose": "User explicitly authorized A-CHANGE A1-A4 existing dev rollout and centralized acceptance. Full Release, zero-traffic candidate and OAuth boundary PASS; four Jobs #39566457538 PASS 8/8. API rollback source/digest from successful #39560369519. Revalidate live baseline under lease, rehearse new-old-new traffic and verify immutable source. No new resources or IAM expansion."
+  "auth_boundary_run": "39875495080",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:0c810be3f398fceb8be7938d1b27bf17ac00b57e7fa0b09aa6f91a8b76ab1d2d",
+  "purpose": "User approved Risk XGBoost ACTIVE. Reversible 100% dev API cutover FIRST, prior model registry activation. GHCR Release #39874777208, candidate #39875342927, auth #39875495080, Jobs rollout #39875718471 PASS; exact live API old revision and digest #39875923337. Preserve deterministic gate while Risk rollout proceeds."
 }
