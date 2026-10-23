@@ -19,7 +19,7 @@
 ## 1. 現況、架構與責任
 以下早期基線保留作背景；新訓練輸入以 `JanusDataset_v3_202610/canonical/CURRENT.json` 指定 Parquet release 為準，Risk 既有 XGBoost8 參照專用模型卡／重訓手冊。早期查證基準 main 530a93030f478a91b33256ce98be6e55115a779c：
 - 現有Colab採集README只示範2025-01～2026-09，共21個月，不是已收齊兩年，更不是五年。真實收量須讀manifest，不能由命令範圍推定。
-- 已有OHLCV採集/月資料夾/續跑、Risk Ridge試點；五模型完整notebook、訓練/推論共用前處理、候選匯入、shadow、月評估需依D07實作。
+- 已有 OHLCV 採集/月資料夾/續跑與 Risk 試點；Drive 三份 Quant/Fundamental/Valuation Notebook 已存在，仍需逐角色真實試訓及 OOS；共用 train/serving 前處理、其餘候選匯入、shadow、月評估與快取整併依 D07 的實際證據判定。
 - Controller程式已有平日mart 09:00 due、market-screening 16:30 due，總控以每小時:30喚醒。09:00 due實際可能09:30才執行，**不能拿現有mart時段宣稱盤前報告已成立**。
 - GCS只保存模型/小型事實/預測/報告；Cloud Scheduler→既有Controller→janus-intelligence-mart執行推論/結果回收。新三角色可於 ChatGPT 可用 Python 執行環境試訓，Colab 為可選替代；Notebook/Drive不是無人值守正式 runtime。
 - Colab上傳是**模型業務artifact**，不改GitHub Actions→GHCR的程式Release路徑，不把GCS當container registry、CI receipt或release mutex。
@@ -142,6 +142,6 @@ horizon用市場交易日，非湊滿20筆有價觀測；停牌/退市導致終�
 8. 每月Admin只列每角色版本、有效樣本與成熟期、相對baseline、狀態/理由、建議動作；一般User只看可理解研究結果。
 
 ## 11. 交付與引用
-需交付：沿用 `00_資料收集.ipynb`，另交四份各自可從新runtime獨立執行的 Quant／Risk／Fundamental／Valuation XGBoost Notebook及共用Python模組；Event入口另議。其餘包含資料/label builders、bundle exporter/uploader、Mart candidate importer/registry/shadow、批次推論、outcome/monthly evaluator及最小Admin呈現。這些是待實作交付物，不是現有可執行指令。
+交付狀態：沿用 `00_資料收集.ipynb`；Drive 已有 Quant/Fundamental/Valuation 三份獨立 Notebook（尚未驗證 ChatGPT 真實 OOS/可部署），Risk v1 沿用既有模型與專用發布管線；共用 Python 模組/資料標籤 builders、bundle exporter/uploader、Mart 匯入/registry/shadow、批次推論、outcome/monthly evaluator及必要 Admin 呈現各按實際版本/測試與 dev 驗收判定。Event 另議；本節是交付契約，不冒充未驗證的 runtime 能力。
 官方參考（2026-10-21查閱）：[Cloud Storage上傳與generation precondition](https://docs.cloud.google.com/storage/docs/samples/storage-upload-file)、[Cloud Run Jobs排程](https://docs.cloud.google.com/run/docs/execute/jobs-on-schedule)。Google提供機制不等於本專案已配置，驗收依runtime readback。
 
