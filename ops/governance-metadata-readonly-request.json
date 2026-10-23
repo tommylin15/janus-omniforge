@@ -8,7 +8,7 @@
   "no_new_resources": true,
   "no_iam_expansion": true,
   "job": "janus-ingestion-core",
-  "purpose": "Bounded existing-dev C1-A follow-up: classify 41 queued/16 running lease, distinguish 6 controller batch occurrences, GET-only Cloud Run 30d execution status and ten Mart code/deployed-reader references; zero mutations.",
+  "purpose": "Revalidate bounded C1-A existing-dev readonly lease/Cloud Run and 10-Mart source reference inventory after excluding scanner self-references; do not treat declared handles as actual readers.",
   "execution_count": 1,
-  "audit_focus": "c1a-lease-57-nonterminal-controller-batches-job-30d-mart-readers"
+  "audit_focus": "c1a-lease-jobs-mart-reader-self-reference-excluded"
 }
