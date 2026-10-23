@@ -46,6 +46,31 @@ def test_verify_success_cannot_be_used_as_a_full_release(monkeypatch):
     assert not rollout.successful_operation(metadata, '123', 'legacy', 'release')
 
 
+
+def test_full_release_image_source_is_pinned_request_not_ops_head(monkeypatch):
+    original = "a" * 40
+    head = "b" * 40
+    metadata = {"headSha": head, "workflowName": "Janus GHCR operations",
+                "status": "completed", "conclusion": "success"}
+    monkeypatch.setattr(rollout, "successful_operation", lambda *args: True)
+    calls = []
+    def command(args):
+        calls.append(args)
+        if args[:2] == ["git", "show"]:
+            assert args[2] == head + ":ops/ghcr-release-request.json"
+            return json.dumps({"intent": "dev-ghcr-full-release",
+                "scope": "full-python-flutter-ghcr", "sha": original})
+        assert args == ["git", "merge-base", "--is-ancestor", original, head]
+        return ""
+    monkeypatch.setattr(rollout, "command", command)
+    assert rollout.full_release_image_source(metadata, "91") == original
+    assert len(calls) == 2
+    monkeypatch.setattr(rollout, "command", lambda args: json.dumps(
+        {"intent": "dev-ghcr-full-release", "scope": "full-python-flutter-ghcr",
+         "sha": "not-a-sha"}))
+    with pytest.raises(ValueError, match="original_request_invalid"):
+        rollout.full_release_image_source(metadata, "91")
+
 def test_transient_control_get_retries_but_dispatch_does_not(monkeypatch):
     from urllib.error import HTTPError
     import io
