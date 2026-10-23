@@ -63,7 +63,7 @@ def test_missing_real_dataset_fails_closed(tmp_path):
 
 def test_out_of_budget_rejected(tmp_path):
     with pytest.raises(ValueError,match='ROW_LIMIT'):
-        run(tmp_path,tmp_path/'o',max_rows=10_000_000)
+        run(tmp_path/'input',tmp_path/'output',max_rows=10_000_000)
 
 
 def _prices(n=150):
