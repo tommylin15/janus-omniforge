@@ -1,15 +1,14 @@
 {
   "status": "VERIFIED_PUBLIC_GHCR_ROLLBACK_BASELINE",
-  "source_sha": "0b0a42b608143d62f5241d47c2d25e855949f36b",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:254bf70d102b86aa60e38155da46eb46947e9c830b860fb65c4429b3272a89ea",
-  "release_run": "39559241673",
-  "validation_run": "39560369519",
-  "job_source_sha": "b3ecba5ea87bff8b7cdec0730ee857a611a71951",
+  "source_sha": "253d9d37132f4ce6d77bb1e84d6d7dac4d905d01",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:e295c7c4b5e7615a19170301d564060fc8e562886b8c3a646c0f048f2bacee43",
+  "validation_run": "39875923337",
+  "job_source_sha": "a80ac6ecdd1ce8f7f07295a8158ae6d540dea2e1",
   "job_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:32c50462876f57dbc15d822352d6a54d9d3bd9f2741dfbc5ce980adfb1b00b31",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:32c50462876f57dbc15d822352d6a54d9d3bd9f2741dfbc5ce980adfb1b00b31",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:67366d049d6c16db77b2d9b121cad0f191ebb4b2b14503924928dd1b98e4d0d1",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:3be570fcd702cd990eff503177550531ae07b09b935a3562848964ad92583f42"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:d0d5868355070023d92e28fca50f72415bfa8d07c00f7b5055d250c012dcda69",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:d0d5868355070023d92e28fca50f72415bfa8d07c00f7b5055d250c012dcda69",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:e29274672aa3645384d2362d67c68de5fcbdaa1a680b0eb87d9db895ff02dd78",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:5e9b671506ac0744f91e339ea16fbb6f9c7e00283e334e39c19ca16a0c8fef4f"
   },
   "job_config_hashes": {
     "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
@@ -19,6 +18,6 @@
   },
   "private_historical_config_parity": "NOT_VERIFIED",
   "old_ar_rollback_exercised": false,
-  "observed_evidence": "API-only promotion #39560369519 PASS with 100% traffic and rollback rehearsal; four Jobs rollout #39566457538 PASS with 8/8 canaries and exact image/config readback.",
-  "semantics": "API rollback baseline is 0b0a42b6; four Jobs now use b3ecba5e. Independent API and Jobs sources are intentional and separately verified."
+  "observed_evidence": "2026-10-23 live public API 100% source/digest #39875923337; four Jobs previous serving digests/config hashes #39875185822. Old rollback exercised in earlier release only, not this live API source.",
+  "semantics": "Current serving API rollback baseline is 253d9d37, separate from current four-Jobs before Risk rollout source a80ac6ec; both checked live. Source is ancestor of Risk full Release 3e5f3c0e."
 }
