@@ -106,6 +106,14 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - 研究全市場普通股 pooled training／screening 保留；**日常 XGBoost inference 只能對 `control.mart_ai_target_symbols(as_of)` 去識別持股與觀察股聯集**，ETF 出具不適用原因，不向一般產物輸出 Owner 明細。
 - 不准單純刪 gate 或把 `publication_allowed` 調為 true。首次 promotion 仍須實證八因子與訓練/serving parity、候選 GCS hash／安全 loader、來源用途、必要窗口污染防護及原子 Registry CAS／回滾。API/UI 及自然日批屬正式啟用後的驗收，未執行不可標 PASS。完結本次有界驗收且無異常即結案，不新增假設性待辦。
 
+
+### 1.12 D07 Risk XGBoost8 v1 正式 promotion 嚴格門檻（2026-10-23 最新指令）
+
+- 本節為使用者較新明確指令，**覆蓋 §1.11/§1.11.1 對首次 Risk promotion 的放寬**；不追溯否定已驗證的歷史 shadow、候選 hash、既有 CI 與 dev 受控部署收據，但歷史 PASS 不等於目前可 ACTIVE。
+- 正式 promotion 前須有可稽核的**實際來源** ML 訓練／資料保留／部署用途授權；正式 TWSE／TPEx 分市場交易日曆；訓練與 serving 涉及的公司行動、歷史 PIT／survivorship 控制；**模型訓練後新增**的前瞻 cohort 且 20 個市場交易日 Y 真正成熟；**獨立 OOS**（不可用已檢視歷史回測取代）；Core／Mart 八因子逐值／as-of 一致；GCS／Registry 原子切換、PG/API gate 與可核驗 rollback；每日自然推論；Owner 登入可驗收的 API/UI。缺一即保持 **DETERMINISTIC serving + SHADOW_UNVALIDATED candidate**，不得切 ACTIVE、偽造證據或把未驗證項標 PASS。
+- 2026-10-23 實機已曾 ACTIVE；在上述 gate 未通過時以現有 dev 可回復機制執行一次性受控回滾，見 [#39938087196](https://github.com/tommylin15/janus-omniforge/actions/runs/39938087196)：GCS generation CAS 與 PG append-only rollback 及讀回 PASS，當前為 DETERMINISTIC。原 ACTIVE 的歷史資料面驗收不重做。原啟用 workflow 的 synthetic `REQUIRED_PROMOTION_EVIDENCE=PASS` 已刪除，fail closed；未有真實驗證 bundle 前不得恢復該捷徑。
+- 只修具體未完成 gate／已確認缺陷，已 PASS 工項不重做；不重建舊研究排程、不新增付費資源。重大授權／權限／不可逆事項依 §1.3；本輪無新證據／無可安全執行工作時不發通知。所有 gate 通過且正式 dev 啟用與讀回確認後才宣告完成。
+
 ## 2. Dev 平行上線環境政策
 
 - 目前 `dev` 是 Janus 個人使用階段的主要真實運行環境（parallel-live environment），不是只供假資料、mock、demo 或 pre-production 演練的 staging。
