@@ -9,11 +9,25 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "jobs/intelligence-mart"))
 from intelligence_mart.risk_inputs import (
     read_risk_ohlcv, risk_quality_report, risk_read_plan,
     FIELDS, MAX_ROWS_PER_SYMBOL, TABLE)
-from test_risk_shadow import bars as _market_bars
 
 
 def fixture():
-    source = _market_bars()
+    source = []
+    start = date(2026, 2, 1)
+    for market, symbol in (("TWSE", "2330"), ("TPEX", "6488")):
+        for i in range(137):
+            day = start + timedelta(days=i)
+            if day.weekday() >= 5:
+                continue
+            close = 100. + i * .13 + (i % 7) * .04
+            source.append({
+                "symbol": symbol, "market": market,
+                "trade_date": day.isoformat(), "open": close * .999,
+                "high": close * 1.015, "low": close * .985, "close": close,
+                "volume_shares": 1000 + i, "turnover_twd": (1000 + i) * close,
+                "source_id": market.lower(), "provenance_id": f"{symbol}-{i}",
+                "quality_flag": "pass", "source_authorization": "approved",
+            })
     as_of = max(row["trade_date"] for row in source)
     core = {
         "snapshot_id": "frozen-core-id",
