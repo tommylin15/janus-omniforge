@@ -1,0 +1,5 @@
+{
+  "intent": "risk-first-release-api-rollback-baseline",
+  "read_only": true,
+  "no_gcp_mutation": true
+}
