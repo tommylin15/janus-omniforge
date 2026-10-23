@@ -1,0 +1,20 @@
+{
+  "intent": "controller-ledger-backup-occurrence-repair",
+  "approved": true,
+  "scope": "existing-dev-controller-only",
+  "sha": "0e5e8a680ebf02c534a42438ee744ff2c63f1c21",
+  "release_run": 39967114806,
+  "backup_dates": [
+    "2026-10-18",
+    "2026-10-19",
+    "2026-10-20",
+    "2026-10-21",
+    "2026-10-22",
+    "2026-10-23"
+  ],
+  "no_backup_execution": true,
+  "no_gcs_mutation": true,
+  "no_iam_expansion": true,
+  "no_api_deployment": true,
+  "purpose": "One-time existing dev Controller-only immutable GHCR patch with verified old image rollback; reconcile exact six already-succeeded PostgreSQL VM ledger backup occurrence statuses through safe row-level CAS and audit, keep Scheduler enabled afterward."
+}
