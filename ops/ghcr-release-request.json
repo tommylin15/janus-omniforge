@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "c536dd3028db95f1165dd6d36d856157979d7925",
-  "purpose": "Risk XGBoost API full release retry: #39903449069 fake SQL params error repaired; cross-symbol ValueError assertion now matches intentional fail-closed identity rejection. Execute complete Python/Flutter gates for triggering exact source SHA, publish GHCR only. No traffic/Jobs/IAM/storage mutation.",
+  "sha": "15d024e76b8533d693f49cdc2d2e87b7556ca37b",
+  "purpose": "Admin UI full Release unblock: Risk API roll-forward source_projection_hash test expected raw latest baseline hash even though approved Risk is merged from a prior immutable row. Verify exact merged projection hash while preserving source integrity and publish four GHCR images only; no traffic/Jobs/IAM/storage mutation.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 3
+  "request_attempt": 4
 }
