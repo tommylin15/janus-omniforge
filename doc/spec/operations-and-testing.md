@@ -1,5 +1,12 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-23｜Risk XGBoost8 首次 dev ACTIVE 資料面 PASS（Owner UI 正向另驗）
+
+- **正式啟用**：[Risk #39896276392](https://github.com/tommylin15/janus-omniforge/actions/runs/39896276392) completed/success；真實 Mart canary janus-intelligence-mart-lmmqq、GCS Registry generation CAS、PostgreSQL append-only ACTIVE Job janus-intelligence-mart-z89xx 均完成 SUCCESS；沒有觸發自動回滾。原四 Jobs [#39893872327](https://github.com/tommylin15/janus-omniforge/actions/runs/39893872327) completed/success。
+- **獨立唯讀驗收**：[ #39898282552](https://github.com/tommylin15/janus-omniforge/actions/runs/39898282552) completed/success，直接由現役 GCS 讀回 Registry ACTIVE（核准模型 SHA 36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044）；2026-10-21 EOD union 8 檔、6 普通股八因子 READY／有效預測 6 筆、非普通股排除 2、普通股排除 0，Risk OHLCV 掃描 900 列。GCS immutable bytes hash／來源 Core manifest 關聯、PG 啟用執行與成功日誌、API 現役 100% 流量／health／未登入拒絕全部 PASS。驗收只輸出統計，不公開 Owner 持股清單。
+- **有界剩餘**：Owner 登入後最新個股 API row 實際回傳 first_release_approved／前台 RiskSignalCard 正向呈現、確定較新 deterministic row 不會蓋掉 10/21 真預測、實際 GCS+PG deterministic 回退與復原、自然盤後日批／每月成熟 outcome 均沒有本次獨立正向證據，維持 NOT_VERIFIED。不能把 ACTIVE data-plane PASS 外推成 full UI/自然週期 CLOSED。沒有重訓或新增資源。
+
+
 ### 2026-10-23｜ADMIN-SIMPLIFY 最小 IAM 權限套用與讀回
 
 - Controller Job `janus-batch-controller` 僅新增 `roles/run.invoker` 給 `janus-user-api@gen-lang-client-0593591102.iam.gserviceaccount.com`；原 Scheduler binding 保留。
