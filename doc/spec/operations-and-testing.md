@@ -1,12 +1,12 @@
 # Janus 最新驗收證據索引
 
-### 2026-10-23｜ADMIN-SIMPLIFY Candidate／Auth Boundary PASS；Jobs 基準執行中
+### 2026-10-23｜ADMIN-SIMPLIFY Candidate／Auth Boundary PASS；Jobs 基準 PASS；待受控 rollout
 
 - **完整 Release**：[ #39907341839](https://github.com/tommylin15/janus-omniforge/actions/runs/39907341839) `completed/success`；固定映像來源 SHA `0ad738b1f7c3432bf6fac59ecb7d5063dce63447`。
 - **0% Candidate**：[ #39908830013](https://github.com/tommylin15/janus-omniforge/actions/runs/39908830013) `completed/success`；GHCR API image digest `sha256:9e6bbccab1a77c126f7b8d771e2434d53b86285b42715991f4db7db1e78f8a7f`；Cloud Run `ghcr-0ad738b1f7c3` candidate 維持 0%、舊版仍 100%，Ready、health、build-id SHA、未登入 401 與 lease 安全釋放均經 readback PASS。Jobs 尚未改動。
 - **Auth Boundary**：[ #39909168202](https://github.com/tommylin15/janus-omniforge/actions/runs/39909168202) `completed/success`，Job 全部步驟 PASS；OAuth protected-resource／authorization-server metadata 200、S256／refresh grant、User/Admin 私有路徑與 GCS inspect 未登入 401、MCP Bearer challenge 401 + `isError=true`、build-id 固定 SHA 與 0%/100% traffic 保持不變均已驗證。此為負向 auth＋metadata，**不代表 Admin 真人登入正向驗收已通過**。
-- **Jobs Rollback Baseline**：[ #39909440092](https://github.com/tommylin15/janus-omniforge/actions/runs/39909440092) 由 `ops/ghcr-jobs-baseline-request.json` 觸發，首次讀回 `in_progress`，執行中 `jobs-baseline` 只讀取現役四 Jobs 的固定 digest、來源 SHA 與配置 fingerprint，不改動 GCP。**尚未取得終態或 artifact，不能直接進入 rollout。**
-- **下一步**：Jobs 基準 PASS 且 receipt 核對後才可按既有可逆流程進行四 Jobs rollout、API promotion／rollback、live readback，最後 Admin 四頁十功能登入正向驗收。現況 `IN_PROGRESS／AUTH_PASS_JOBS_BASELINE_PENDING`。
+- **Jobs Rollback Baseline**：[ #39909440092](https://github.com/tommylin15/janus-omniforge/actions/runs/39909440092) `completed/success`，`jobs-baseline` 唯讀四 Jobs，`gcp_writes=0`，artifact `ghcr-jobs-baseline` ID `12481978551`。四個 Jobs 現役映像均為 GHCR 固定 digest、共同來源 SHA `6739c18c84497622fb03e6be7d25a6fc3f0ca394`。現役各映像：`janus-batch-controller`／`janus-ingestion-core`→`janus-ingestion-core@sha256:ac8520eafd08fd973585b7d2784e394a509fcd44d398d5dec2fe636d2fbc42f0`；`janus-intelligence-mart`→`janus-intelligence-mart@sha256:b8b2fd08dd9e8d40ff12af2cf7c6db744e4d69f4cf9174e5de1854180079c113`；`janus-private-pipeline`→`janus-private-pipeline@sha256:b321f000831b5fec375efc6315b4e1157c5fe57dad039295f5fa890f01b7133e`。四個配置 fingerprints 已由 Job log／收據讀回，實際 rollout 前仍須再次 live fence，不能以此宣稱新版已部署。
+- **下一步**：Jobs 基準 PASS 且 receipt 核對後才可按既有可逆流程進行四 Jobs rollout、API promotion／rollback、live readback，最後 Admin 四頁十功能登入正向驗收。現況 `IN_PROGRESS／RELEASE_CANDIDATE_AUTH_JOBS_BASELINE_PASS_ROLLOUT_PENDING`。
 
 
 ### 2026-10-23｜ADMIN-SIMPLIFY／Risk API 完整 Release gate PASS（部署／登入驗收未執行）
