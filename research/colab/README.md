@@ -4,6 +4,10 @@
 
 ## 2026-10-23｜四模型最後一步研究因子工廠（v3.8 候選）
 
+**Drive 可直接開啟的 v3.8 候選 Notebook：** [00_資料收集_v3.8_四模型共用因子工廠_候選.ipynb](https://drive.google.com/file/d/1EGtrQTxcyTNOHMFaxAw-PaFDOu4wqm8A/view)（Drive 上傳後再次下載、SHA256 `cbcc1f40f9e2a61ab0ed46aa5fe6332efcb9b87ad65c0837762a62ee8d8d3163`，22 cells 編譯 PASS）。可以獨立在 Colab 開啟跑 `FACTOR_ONLY=True`／`FACTOR_BUILD=True`；**尚未完成 Colab 帳號授權與全量衍生檔驗收，不可覆蓋現行正式 v3.6**。
+
+
+
 已將 Colab 單一採集 Notebook 最後加一格共用特徵派生；候選 [v3.8 ZIP（Notebook+Python+targeted tests）](https://drive.google.com/file/d/1QfCs0zeReUlp3hJzgVqsZv75xab40G2Z/view) 已存 `janusChatGPT/CoLab程式`。**Drive 原 v3.6 Notebook 未覆寫**，且擴充前備份已放在 `CoLab程式/_archive`；Colab 採集與全量因子實跑尚未驗證。v3.8 在一般增量採集後預設 `FACTOR_BUILD=True`，可設 `FACTOR_ONLY=True` 不重抓舊資料而只以現有 `CURRENT` 建因子，`RECHECK_ONLY=True` 則完全不變更資料。生成 `derived/four_model_features/` 的 X 候選、隔離 Y 候選、factor_catalog、SHA 收據，不更改 canonical，不替代正式模型的 PIT／貼標／train-only preprocessing。產業/指數/法人等未有合格實收資料時明確標 PENDING。詳 [研究資料 SPEC](../../doc/spec/research-collection-gas-drive-colab.md)。
 
 ## 四角色獨立訓練 Notebook 開發文件
