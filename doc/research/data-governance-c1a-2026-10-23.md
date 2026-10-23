@@ -297,3 +297,18 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 ### 13.4 讀者清冊假陽性修正與判定邊界
 
 §13.3 `2 code reference hits` 是 [#39956176106](https://github.com/tommylin15/janus-omniforge/actions/runs/39956176106) 原始收據；後續程式檢查發現掃描器自身 `TABLE_NAMES` 白名單也被計為一次，因此**不能把兩次命中視為兩個獨立實作讀者**。已在新版本排除自身掃描器，並將 `storage.py` 的歷史 Mart handle 宣告標記 `DECLARATION_ONLY`。新版 [#39957904423](https://github.com/tommylin15/janus-omniforge/actions/runs/39957904423) 的獨立結果應取代「淨業務命中數」；任何 `0 direct literal reader` 只能代表此有界程式掃描查無直接字串，**不是** runtime 零讀者。十表 `RETIRE_CANDIDATE` 只維持研究候選，不是 DROP 許可。
+
+
+### 13.5 最終 C1-A 資產分類（自我引用已排除）
+
+以 [Actions #39957904423](https://github.com/tommylin15/janus-omniforge/actions/runs/39957904423)（sha `017fd2363c34942569d47768b1e4af5ecf2bf557`、13 tests PASS、完整 PG/Core/Mart/Cloud Run 收據）取代早期 `2 reference hits` 做淨碼判定：**477個受控檔案、十 Mart 各1個 handle 宣告命中**，對應 `jobs/intelligence-mart/intelligence_mart/storage.py:MART_TABLES`。掃描範圍內無其他逐表硬編碼引用，**不代表 runtime 零讀者**。Mart retention 透過 `MART_TABLES` 迴圈動態 `catalog.table_exists/load_table/table.scan`，仍是需看運作模式的共用 reader/maintenance 路徑。原 §13.3 各表 `2` 數字是被自我引用污染的歷史收據，現已修正，不能繼續當作淨讀者計數。
+
+| 分類 | 數量／實體 | 判定 |
+|---|---|---|
+| Hard KEEP | 1：`mart.mart_scoped_analysis_v1` | PG實存138索引、API/GCS snapshot 契約，禁刪 |
+| Protected Pending | 1：`mart.mart_risk_portfolio_v1` | Owner/Risk 隔離保護，待查實際下游 |
+| Retire candidates with unknown runtime readers | 9：screening signals、core alpha、alternative sentiment、market regime、sector rotation、topic trends、candidate health、daily brief、llm narratives | `CODE_DIRECT_READER_NOT_FOUND_IN_BOUNDED_SCAN` + `DYNAMIC_MAINTENANCE_POSSIBLE` + `ACTUAL_READER_UNKNOWN`，非可刪 |
+| P0 PG nonterminal status | 41 queued + 16 running | `NO_LEASE=57/57` Live PASS；不要自動更改狀態 |
+| Controller ledger backups | 6 `running` | `ledger_backup.py` 由 PostgreSQL VM 備份執行器負責，應以 `control.ledger_backup_requests` 專用狀態核對；本輪仍 UNKNOWN |
+
+**下一個真正未完 gate：** 對九個退役候選和 Risk protected 表，從已部署 image/source 对應、retention/reader Job execution mode、可取得的 SQL/Cloud Logging 具體 trace 及研究 release/manifest references 做有界 reader 查證。若現有 logs 不具表級可觀測性，忠實標 `UNKNOWN`，不可用無字面搜尋結果假裝 `ZERO_READER`。另須確保資料獨立可回復與業務契約/Owner 隔離。所有可能寫入/修復、Stage/GCS/PG/Iceberg 清掃另案；**C1-B 沒有任何物理刪除許可**。
