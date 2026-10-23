@@ -79,7 +79,9 @@ jobs:
           assert all(row['pagination_complete'] for row in j['cloud_run_job_last_30d'])
           for key in ('control_nonterminal_lease_30d',
                       'control_nonterminal_occurrence_link_30d',
-                      'control_active_batch_occurrences_30d'):
+                      'control_active_batch_occurrences_30d',
+                      'control_nonterminal_rows_30d',
+                      'control_ledger_backup_reconcile_30d'):
               assert c['sections'][key]['status']=='PASS'
 
           assert c['source_git_sha']==m['git_sha']==os.environ['GITHUB_SHA']
@@ -126,6 +128,10 @@ jobs:
                          mart_code_scan_files=reader['scanned_files'],
                          mart_reader_literal_tables_with_refs=sum(
                              bool(v) for v in reader['references_by_table'].values()))
+          summary.update(per_execution_receipts=len(c['sections']['control_nonterminal_rows_30d']['items']),
+                         ledger_backup_active_reconciliation=len(c['sections']['control_ledger_backup_reconcile_30d']['items']),
+                         scheduler_metadata_status=j['scheduler']['status'],
+                         pg_to_cloud_exact_join=j['pg_to_cloud_full_row_join'])
           summary.update(lease_job_reconcile_status=j['status'],
                          nonterminal_lease_groups=len(j['control_pg_lease_groups']),
                          nonterminal_occurrence_link_groups=len(j['control_pg_occurrence_link_groups']),
