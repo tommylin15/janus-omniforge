@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "3e5f3c0ef569513c81e52c67794af9ba40d5cade",
+  "sha": "1bf2e5d24a14b50dcb9974120e0b6c5bede58934",
   "digest": "",
-  "release_run": "39874777208",
+  "release_run": "39892375248",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Risk XGBoost first ACTIVE full release success #39874777208; existing janus-api new digest at zero traffic only. No model Registry activation until Mart and API serving canary pass.",
-  "request_attempt": 3
+  "purpose": "Risk target-only OHLCV 220-calendar-day Mart fix; full verified release #39892375248. Zero-traffic API candidate for exact-source auth boundary before Jobs rollout. No API traffic or Risk Registry mutation.",
+  "request_attempt": 4
 }
