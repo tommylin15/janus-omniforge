@@ -34,3 +34,13 @@ GitHub main `research/colab/`、`research/chatgpt/`、`tests/`、`doc/research/`
 
 - 本地：Notebook JSON/cells/code compile、沒有貼標和訓練副作用、貼標器 dry-run／正向導出／SHA 拒絕／缺交易日／缺月份／maturity 與兩份 X/Y 隔離；保留 pytest 收據。
 - 雲端：Colab OAuth / 官方來源新採集沒有在此工作環境直接執行，不宣稱 PASS；ChatGPT full dataset 端到端與四模型實際重訓亦須等完整 release 本地可讀後另行驗證。
+
+## 個股歷史產業歸屬 PIT 貼標前檢查（2026-10-23）
+
+ChatGPT 側 `research/chatgpt/label_four_models.py` **每次** `--verify-only` 與研究貼標前，均呼叫 `research/chatgpt/industry_membership.py` 的 `check_industry_membership`。
+
+- 指定研究輸入：`derived/factor_inputs/industry_membership/industry_membership.parquet` 與同目錄 `manifest.json`，不是 Colab 收到的市場／產業指數。必須驗證 Parquet SHA、row count、schema、每筆來源在 manifest 登記之 SHA/授權用途、歷史首次公開時間、官方主要產業時間區間唯一性。
+- 主要產業一時點唯一（TWSE_OFFICIAL/TPEX_OFFICIAL 按市場），次產業／theme／supply_chain 可多重重疊；`valid_to` 右開。交易日 X 只允許 `published_at` 嚴格早於該台灣交易日的來源證據，今日分類不得倒填歷史。
+- preflight 結果納入貼標輸出 `industry_membership_precheck.json`、`readiness.json` 與輸出版本身份；缺失、schema 無效、授權未知、PIT 未證、覆蓋率不足須明列 `MISSING/BLOCKED/PARTIAL_COVERAGE`。仍允許**不依賴產業**的其他候選 X/Y；產業因子和指數 crosswalk **未自動加入**任何模型 X。使用 `--require-industry` 可要求完整 `VERIFIED` 才允許任何輸出。
+- 本地 pytest：41 passed, 6 skipped（缺 pyarrow）；尚無已驗證的逐股歷史產業名冊、正式 index crosswalk 或 live 全量驗收。現役 Risk/Registry/CURRENT 均未更動。
+- Drive 白名單 `janusChatGPT/CoLab程式` 保存新 label、helper、測試與 `README_產業歸屬貼標前檢查.md`。舊 v3.8.2 ZIP 仍屬歷史候選，非本次新 code。
