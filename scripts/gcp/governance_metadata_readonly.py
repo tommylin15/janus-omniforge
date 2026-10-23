@@ -247,8 +247,8 @@ else:
             # Only already-known managed Cloud Run jobs/execution names;
             # never output occurrence IDs or owner-linked data.
             sql_section(c, "control_active_batch_occurrences_30d", """
-                SELECT state->>'job',state->>'status',state->>'execution',
-                       scheduled_at::text
+                SELECT state->>'job',state->>'status',state->>'batch',
+                       state->>'execution',scheduled_at::text
                   FROM control.batch_occurrences
                  WHERE scheduled_at>=now()-interval '30 days'
                    AND state->>'status' IN ('dispatching','running','ambiguous')
