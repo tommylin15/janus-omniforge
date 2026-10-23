@@ -148,6 +148,14 @@ features={'total_slots':sum(map(len,roles.values())),'roles':{r:{'slots':len(v),
  'data_presence_only':dataset_pass,'computed_X_coverage':'NOT_VERIFIED',
  'historical_PIT':'NOT_VERIFIED','publication_allowed':False} for r,v in roles.items()}}
 (out/'model_feature_coverage.json').write_text(json.dumps(features,ensure_ascii=False,indent=2)+'\n')
+quality={'research_loader_exit_code':read('research_exit_code.txt'),
+ 'dataset_sha_row_gate':inv.get('summary',{}).get('status','ERROR'),
+ 'quarantine_from_loader':res.get('input',{}).get('quarantine',[]),
+ 'industry_membership_precheck':res.get('industry_membership_precheck',{'status':'UNKNOWN'}),
+ 'manifest_unresolved_conflicts':inv.get('summary',{}).get('unresolved_conflict_rows_declared'),
+ 'source_authorization':'NOT_VERIFIED','historical_PIT':'NOT_VERIFIED',
+ 'interpretation':'source presence and mechanical gate do not certify model X coverage'}
+(out/'preflight_quality.json').write_text(json.dumps(quality,ensure_ascii=False,indent=2)+'\n')
 issues=list(inv.get('summary',{}).get('issues',[]))
 for condition,code in [(not stable,'CURRENT_CHANGED_DURING_RUN'),(not dataset_pass,'RESEARCH_DATASET_NOT_PASS'),(not market_pass,'MARKET_SECTOR_NOT_PASS')]:
     if condition:issues.append({'code':code})
@@ -180,7 +188,7 @@ echo "Full Preflight reports: $OUT"
 
 - `input_pinned.json`：固定 CURRENT release、pointer/manifest SHA。
 - `preflight_inventory.json`：全部 manifest 引用資料檔之實讀 hash/rows/metadata。
-- `research_verify.json`：既有 loader 的完整驗證及產業 PIT 前置結論。
+- `research_verify.json`、`preflight_quality.json`：既有 loader 的完整驗證、quarantine 數、來源/PIT 與產業 precheck 狀態。
 - `market_sector/preflight_summary.json`、`preflight_issues.csv`：大盤產業全期摘要/問題。
 - `model_feature_coverage.json`：四模型共 34 個席位及「已定義／已衍生／PIT可用／完整覆蓋」狀態，**目前不得僅由 source 有檔就宣稱 34 因子 PASS**。
 - `preflight_summary.json`、`preflight_issues.csv`、`checkpoint.json`、`git_commit.txt`、`test.log`：本輪證據、執行狀態、缺口、可重驗入口。
