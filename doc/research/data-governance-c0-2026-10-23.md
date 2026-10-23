@@ -338,3 +338,42 @@
 | \`core.benchmark_v1\` | 764 | \`4617056096245975844\` | 10 |
 
 **範圍限制：** 上述 Core Census 只覆蓋其執行時列於 \`DuckDBIcebergCore.IDENTIFIERS\` 的九表，不證明 \`mart\` 實存張數／PostgreSQL 全 Schema／全部未知 Core 表。C1-B 仍 NOT_READY；以上不構成刪表授權。
+
+---
+
+## 16. 受控 ChatGPT → GitHub Actions → dev PG／Iceberg 即時 SQL 收據（2026-10-23）
+
+**實際執行，不再是單純規劃：** [GitHub Actions #39948922788](https://github.com/tommylin15/janus-omniforge/actions/runs/39948922788)，job \`120398320107\`，既有 dev \`janus-ingestion-core\` metadata-only Job override。資料回傳 \`checked_at_utc=2026-10-23T11:52:29.793747+00:00\`，執行來源 Git SHA \`1e45d5f9be2307291dee2808ce6588803191ed0a\`，\`data_mutations=0\`，PG 使用 \`janus_catalog\` / \`janus_control\` 現役 role。收據可由 Action job logs 的 \`JANUS_GOVERNANCE_METADATA_RECEIPT_V1:\` 前綴逐 section/chunk 讀回，並保存 [JSON artifact](https://github.com/tommylin15/janus-omniforge/actions/runs/39948922788/artifacts/12499886060)。
+
+**Workflow 總體 conclusion = failure，這是預期的 fail-closed partial gate：** PG catalog 等收據真實讀回成功，但 11 個 Mart Iceberg metadata load 全部遭遇 \`PermissionError\`（Core Job 身分不等於 Mart GCS metadata 可讀），腳本因整體 \`PARTIAL\` 回傳非零；**不得把 Workflow failure 當成全部查詢失敗，也不得把 Catalog 登錄當資料檔可讀。**
+
+| 讀取範圍 | Live receipt（本輪） | 判定／限制 |
+|---|---:|---|
+| PostgreSQL \`pg_catalog\` relations（Table、View 等） | 93 | PASS；audit=3、catalog=2、control=36、private=38、public=2、publication=12（僅 metadata，未查私人 rows） |
+| \`pg_catalog.pg_attribute\` columns | 728 | PASS；含全部上述 namespace 的 schema metadata |
+| \`pg_catalog.pg_constraint\` | 379 | PASS；確認 \`publication.mart_report_index_table_identifier_check\` 的實際 constraint 名（未取出約束 expression） |
+| \`pg_catalog.pg_index\` | 149 | PASS |
+| \`information_schema.tables\`、\`columns\` | 4／19 | QUERY_PASS但ROLE_LIMITED；以 \`janus_catalog\` role 看見的部分，不代表只有 4 張 PG Table |
+| \`control.schema_migrations\` applied versions | 66 | PASS_READ、**版本漂移待分析** |
+| \`catalog.iceberg_tables\`（\`catalog_name='janus'\`） | **20**：Core 9、Mart 11 | **LIVE_CATALOG_PRESENT**；不是資料 Row Count 的間接推估 |
+| PyIceberg \`core\` current snapshot/schema/spec | **9/9 READABLE** | PASS（此時間點）；依 metadata summary 的 \`total-records\`，不掃資料列 |
+| PyIceberg \`mart\` current snapshot/schema/spec | **0/11 READABLE** | BLOCKED_MART_STORAGE_PERMISSION；全部 \`PermissionError\`，不可因 catalog 存在就視為資料可讀或可刪 |
+
+### 16.1 已套用 Migration 與 GitHub 版本化 SQL 差異（本次真正 PG 讀回）
+
+比較 \`control.schema_migrations\` 實際 66 個版本值 vs \`infra/postgres/migrations/\` GitHub main 的 68 支 SQL 檔名：
+- GitHub 有但 Live migration ledger 未記錄：\`030_private_stock_master_read\`、\`031_portfolio_market_coverage\`、\`034_offlist_watchlist_retirement\`。
+- Live ledger 有但 GitHub 當前同名檔不存在：\`049_batch_skipped_state\`；當前 repo 是 \`049_batch_occurrence_skipped_status\`。
+- 因此**不是單純「缺 2 個 migration」**；可能涉及重命名／替換／歷史手動遷移，但本輪無 DDL 或 private rows 驗證，**不得推定 Live schema 必然有缺陷，也不得自動重跑 migration。** 此差異升級 C0 GAP 並要求釐清 schema contract / applied checksum。
+
+### 16.2 C1-A 清掃候選即時升級
+
+- Core 9 張：\`LIVE_CATALOG_PRESENT_AND_METADATA_READABLE\`。§15 讀回的 9 個 snapshot 行數與本次同一時段 metadata 一致；這個結論只代表 2026-10-23 11:52 UTC 附近的 dev 狀態。
+- Mart 歷史 11 張：由 \`CODE_STATIC/UNKNOWN\` 升級 **\`LIVE_CATALOG_PRESENT\`**，11/11 列於實際 \`catalog.iceberg_tables\`；其實際 current snapshot、data-file 可讀性、row counts/partition spec、reader usage 仍 \`BLOCKED/UNKNOWN\`。
+- \`mart.mart_scoped_analysis_v1\`：PG \`publication.mart_report_index\` Live relation 和 \`mart_report_index_table_identifier_check\` constraint 確實存在，屬**目前明確保護**；此讀回僅取得約束名稱，\`pg_get_constraintdef\` 的實際內容尚未讀回，不假裝已驗。
+- \`core.market_volume_v1\` / \`core.ohlcv_v1\`：Live metadata 證實兩張表都存在且筆數、欄位差異，但值級與 reader parity 仍未完成，不批准合併或刪除。
+- 原定 C1-B 入場的完整 reader/writer 使用證據、回復路徑依然未證實；**核准實體刪除 0 項**。
+
+### 16.3 身分／查詢通道判定及最小補驗方向
+
+首次查詢明確說明**PostgreSQL \`pg_catalog\`／Iceberg catalog SELECT 權限已足夠**，毋須增大 Core 身分授權；Mart GCS metadata 存取遭遇 \`PermissionError\`，不建議立即提升 ingestion SA IAM 權限。改由既有 \`janus-intelligence-mart\` dev Job 身分讀取 Mart Iceberg metadata，不改 Cloud Run Job template、不加 IAM、不新增資源；此替代方式已加入同一個 [治理 Workflow](../../.github/workflows/governance-metadata-readonly.yml)，第二輪 [#39949570989](https://github.com/tommylin15/janus-omniforge/actions/runs/39949570989) 的終態和收據應另行補登，不得由本節推定 PASS。
