@@ -48,6 +48,9 @@
 
 ## 2026-10-23 補充：可重跑 Preflight CLI 與 CI
 
+**完整執行操作手冊（供使用者／另一個 AI）**：[逐月小批次 Preflight SOP](market-sector-preflight-operation-runbook.md)。SOP 為文件交付，不代表正式全量驗證已執行；各批結果以獨立 checkpoint 與 final manifest 讀回判定。
+
+
 - **實作**：[market_sector_package_preflight.py](../../research/chatgpt/market_sector_package_preflight.py) 已提交 `main`。唯讀掃描全部分區 receipt、原始／標準化 SHA256、schema、rows、OHLC、唯一鍵、月份範圍、來源 URL 及跨資料集交易日集合；輸出 `preflight_summary.json`、`preflight_issues.csv`，不更動原始收檔與模型。
 - **回歸測試**：[test_market_sector_package_preflight.py](../../tests/test_market_sector_package_preflight.py) 涵蓋正常 fixture、checksum 篡改、缺漏日分區；[GitHub Actions #39938208461](https://github.com/tommylin15/janus-omniforge/actions/runs/39938208461) `success`，其 selective tests job 亦 `success`。**這是程式測試通過，不是完整 84 月 payload 驗收通過**。
 - 2025-01 `tpex_market` 額外實證：`error_latest.json` 更新於 2026-10-23 09:25 UTC，隨後 `receipt.json` 於 10:02 UTC 記錄 `VERIFIED`、15 筆、2025-01-02～22，故該月舊 error 應視為「先前嘗試的留存證據」，不直接推翻較新 verified 收據；其他月份仍需逐檔核對。
