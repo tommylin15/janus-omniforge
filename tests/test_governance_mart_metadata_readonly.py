@@ -25,3 +25,15 @@ def test_mart_override_selects_one_existing_job():
     job["template"]["template"]["containers"][0]["command"]=["bash"]
     with pytest.raises(ValueError):
         m.override(job,"a"*40)
+
+
+def test_mart_reader_aggregates_hide_owner_identifiers():
+    assert '"publication_index_all"' in m.MART_PROBE
+    assert '"publication_index_30d"' in m.MART_PROBE
+    assert "publication.mart_report_index" in m.MART_PROBE
+    assert "GROUP BY table_identifier,publication_status,analysis_outcome" in m.MART_PROBE
+    assert "BEGIN READ ONLY" in m.MART_PROBE
+    assert "default_transaction_read_only=on" in m.MART_PROBE
+    assert "scope_id" not in m.MART_PROBE
+    assert "requested_symbols" not in m.MART_PROBE
+    assert "artifact_uri" not in m.MART_PROBE
