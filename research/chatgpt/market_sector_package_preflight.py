@@ -64,7 +64,7 @@ def check_partition(root: Path, folder: Path, source: str, period: str):
         fail("RESEARCH_CLASSIFICATION", str(receipt.get("classification")))
     url = receipt.get("source_url")
     host = urlparse(url).hostname if isinstance(url, str) else None
-    if urlparse(url).scheme != "https" or host != SOURCES[source][1]:
+    if not isinstance(url, str) or urlparse(url).scheme != "https" or host != SOURCES[source][1]:
         fail("SOURCE_URL", str(url)[:200])
     if not receipt.get("retrieved_at_utc"):
         fail("NO_RETRIEVAL_TIME", "missing retrieved_at_utc")
@@ -80,7 +80,7 @@ def check_partition(root: Path, folder: Path, source: str, period: str):
                 not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)):
             fail("BAD_CHECKSUM_DECLARATION", str(filename)[:100])
             continue
-        if digest not in filename:
+        if isinstance(filename, str) and isinstance(digest, str) and digest not in filename:
             fail("FILENAME_SHA_MISMATCH", filename)
         target = folder / filename
         if not target.is_file():
