@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
+import pandas as pd
+
 from .analytics_reader import IcebergSnapshotReader
 from .risk_shadow import _eligible_price_rows
 from research.colab.risk_pilot import make_risk_panel
@@ -93,7 +95,7 @@ def risk_quality_report(rows, as_of, symbols, snapshot_id):
             if len(at) == 1:
                 valid = at.iloc[0]
         missing_features = [name for name in V1_FEATURES
-                            if valid is None or __import__("pandas").isna(valid[name])]
+                            if valid is None or pd.isna(valid[name])]
         state = "READY" if not missing_features and latest == as_of else "WINDOW_INCOMPLETE"
         report.append({
             "symbol": symbol, "latest_accepted_trade_date": latest,
