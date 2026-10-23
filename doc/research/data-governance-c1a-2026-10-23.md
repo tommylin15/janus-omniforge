@@ -399,4 +399,10 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 
 **第一輪讀取**：[GitHub Actions #39974251644](https://github.com/tommylin15/janus-omniforge/actions/runs/39974251644) 為新的 dry-run trigger（本節撰寫時終態尚未知）；第一個 [#39974161959](https://github.com/tommylin15/janus-omniforge/actions/runs/39974161959) 僅因 `ops/private-ledger-backup-retention-request.json` 當時尚未提交而 FileNotFoundError，10 個測試通過，沒有 GCS 刪除或 apply。
 
-**狀態**：IMPLEMENTED / FIRST_LIVE_DRY_RUN_PENDING / SCHEDULE_APPLY_DISABLED / DELETIONS_ZERO，直到有真實收據才更新驗收結論；不能用程式或 CI 代替 live 權限、物件清冊與清理 readback。
+**2026-10-23 追加實機收據**：[GCS dry-run #39974251644](https://github.com/tommylin15/janus-omniforge/actions/runs/39974251644) completed/success，10 tests passed、GCS 唯讀 inventory PASS。Private daily 10 份／280,183,918 bytes；monthly 2 份／417,396 bytes。最新 daily 建立 20.45h；7 daily 被保護，保守候選 3 daily、0 monthly，實刪 0。以前 [D04 isolated restore #38991644822](https://github.com/tommylin15/janus-omniforge/actions/runs/38991644822) completed/success，實際讀回備份收據、隔離資料庫還原、handoff 三步皆通過。第一個 #39974161959 失敗原因只是初始 request 檔尚未建立，後續有真實 dry-run PASS 取代，不列為資料失敗。
+
+**排程啟用**：已依既有容許的「GitHub Actions 備份清理例外」恢復原 workflow 的每日 `30 5 * * *`（UTC，台灣時間 13:30）。專用 `ops/private-ledger-backup-retention-request.json` 已在真實 dry-run 與 restore 收據後設 `approved_scheduled_apply=true`；明確限定最近 7 daily、6 monthly。不得恢復舊 3 份 destructive script 或 Controller poll_backup 的清理副作用。
+
+**首次受控 apply**：[Actions #39975063840](https://github.com/tommylin15/janus-omniforge/actions/runs/39975063840) 的 one-time apply request 使用固定 preflight #39974251644 與 restore #38991644822 gate，狀態在本節提交時尚在 pending。實刪實際件數／bytes、最新 generation before/after 以及最新 Scheduler/Actions 狀態需待該 run 完成才可宣稱 PASS。若失敗，讀取 guard/物件收據，禁止覆蓋已通過的六筆 Controller 備份狀態、不得提高 IAM 或盲目重送備份。
+
+**目前判定**：POLICY_CONVERGED / REAL_DRY_RUN_PASS / INDEPENDENT_SCHEDULE_CONFIGURED / LIVE_APPLY_PENDING。C1-B Mart/Stage 清理仍為 0 許可。
