@@ -48,7 +48,7 @@ try:
     load_postgres_bundle("JANUS_MART_POSTGRES_BUNDLE", {
         "CATALOG_DB_PASSWORD":("mart_catalog_password","catalog_password")})
     # Existing Mart publication role receives SELECT only on approved metadata
-    # columns (migrations 035/038); no owner/symbol/scope_id/URI is selected.
+    # columns (migrations 035/038); no owner identifiers are selected.
     load_postgres_bundle("JANUS_MART_POSTGRES_BUNDLE", {
         "PUBLICATION_DB_PASSWORD":("mart_publication_password","publication_password")})
     import psycopg
