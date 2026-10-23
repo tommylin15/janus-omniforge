@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "8ff8169d5581de47718176b09db7965591eda15d",
-  "purpose": "Risk XGBoost Owner UI regression: build/test all published components from this triggering run's exact HEAD, including API pinned ACTIVE Risk roll-forward with immutable source/date and rollback guard; release images only, no automatic Cloud Run traffic or Jobs changes.",
+  "sha": "9ff291fea3f81484ca7b4f1f5525232243de720c",
+  "purpose": "Risk API retry after #39903449069 failed four tests because the test FakeRepository.execute() incorrectly required SQL params. Test double fixed in 9ff291f; full source SHA tests and image publication on the new workflow head. No dev API traffic, Jobs, IAM, or resource changes.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 1
+  "request_attempt": 2
 }
