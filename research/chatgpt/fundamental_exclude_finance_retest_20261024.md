@@ -2,7 +2,7 @@
 
 **研究狀態**：RETROSPECTIVE_FINANCE_EXCLUSION_RESEARCH_EVALUATED；**publication_allowed=false**，不修改 Risk ACTIVE／Registry／canonical／任何部署。
 
-## 股票排除定義與資料母體
+> **後續研究決策（2026-10-24）**：本文件記錄的是去金融股對照的歷史結果；其中「維持 DEFER LightGBM／CatBoost」已由使用者當次決策取代。正式研究方向為保留金融股、優先處理低基期／極端營收，並已實測 LightGBM／CatBoost；請看 [`fundamental_tail_lightgbm_catboost_20261024.md`](fundamental_tail_lightgbm_catboost_20261024.md)。此註記不改變原實驗數字。\n\n## 股票排除定義與資料母體
 - 本研究按交易所**金融保險類別代碼 17** 的 `(market,symbol)` 精確配對，非單純代碼前綴。台灣證交所公司基本資料 2026-10-23：上市 31 檔；櫃買金融類股交叉核對：上櫃 9 檔。原回溯預測 23,101 列中實際排除 33 檔、366 列，剩 22,735 列。官方名單出處：`https://openapi.twse.com.tw/v1/opendata/t187ap03_L`，`https://ic.tpex.org.tw/introduce.php?ic=U000&stk_code=6878`。
 - 產業名單為**現況分類**，沒有舊日歷史產業快照，無法保證 2025 年逐日分類版本完全正確。
 - 既有 reconstructed 研究 CSV 比完整原 Parquet 少：與舊 23,101 筆預測對齊後取非金融**共同 17,779 列**，覆蓋非金融原母體 22,735 列的 **78.20%**，12 個已曝光測試月份為 2025-09 至 2026-08。不可混稱全量。
