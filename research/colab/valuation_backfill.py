@@ -80,6 +80,12 @@ FACTORS = {
  'log_total_assets':('total_assets',)}
 
 
+# The v2 label catalog is dataset-scoped; semantic matches do not certify units/PIT.
+def standard_item(dataset: str, raw: str) -> str:
+    from valuation_mapping_p0p1 import mapping_label
+    return mapping_label(dataset, raw)[0]
+
+
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -172,16 +178,10 @@ def classify_existing(row:dict)->tuple[str,str]:
         if measure is None and row.get('_dataset') in keys:
             return ('MAPPING_REQUIRED','VALUE_MISSING_OR_UNIDENTIFIED')
         return ('EXISTING_USABLE','PRESENT_RAW_NOT_PIT_VERIFIED')
-    value=row.get('value')
-    try: valid=(value is not None and math.isfinite(float(str(value).replace(',',''))))
-    except(ValueError,TypeError):valid=False
-    if not valid:return 'MAPPING_REQUIRED','INVALID_OR_MISSING_VALUE'
-    if not row.get('unit_basis') or 'VERIFY' in str(row.get('unit_basis')) or row.get('unit_basis')=='UNKNOWN':
-        return 'MAPPING_REQUIRED','UNKNOWN_UNIT_BASIS'
-    if not row.get('period_basis') or row.get('period_basis')=='UNKNOWN':
-        return 'MAPPING_REQUIRED','UNKNOWN_PERIOD_BASIS'
-    return ('DERIVABLE' if raw in MAPPING else 'MAPPING_REQUIRED',
-            'RAW_ITEM_NEEDS_VERIFIED_SCOPE_OR_MAPPING')
+    from valuation_mapping_p0p1 import disposition
+    return disposition(mapped=bool(standard_item(dataset,raw)),value=row.get('value'),
+       unit_basis=row.get('unit_basis'),period_basis=row.get('period_basis'),
+       published_at=row.get('published_at'),statement_scope=row.get('statement_scope'))
 
 
 def inventory(root:Path, run:Path, *, rows:list[dict]|None=None)->dict:
@@ -192,7 +192,7 @@ def inventory(root:Path, run:Path, *, rows:list[dict]|None=None)->dict:
         dataset=str(r.get('dataset') or r.get('_dataset') or '')
         status,reason=classify_existing(r)
         raw=str(r.get('item') or r.get('item_raw') or '')
-        item=MAPPING.get(raw,'')
+        item=standard_item(dataset,raw)
         v={'market':str(r.get('market','')),'symbol':str(r.get('symbol','')),
            'dataset':dataset,'period':infer_period(r), 'item_raw':raw,
            'item_standard':item,'statement_scope':r.get('statement_scope') or 'UNKNOWN',
@@ -465,7 +465,7 @@ def normalize(run:Path)->list[dict]:
         source=marker['source_id']
         for raw in json.loads((folder/'rows.json').read_text('utf-8')):
             item_raw=str(raw.get('type') or raw.get('origin_name') or '')
-            item_std=MAPPING.get(str(raw.get('type')),'')
+            item_std=standard_item(task['dataset'],str(raw.get('type') or ''))
             endpoint=str(raw.get('date',''))
             # FinMind `date` is financial period, never a publication timestamp.
             scope='UNKNOWN';basis='UNKNOWN';unit='UNKNOWN'
@@ -615,7 +615,7 @@ def report(run:Path)->str:
 
 def main(argv=None):
     ap=argparse.ArgumentParser(description='Janus Valuation research-only backfill')
-    ap.add_argument('command',choices=['inventory','plan','fetch','normalize','derive','validate','report'])
+    ap.add_argument('command',choices=['audit-p0p1','inventory','plan','fetch','normalize','derive','validate','report'])
     ap.add_argument('--root',default=ROOT_DEFAULT);ap.add_argument('--run-id',required=True)
     ap.add_argument('--symbols',default='');ap.add_argument('--markets',default='')
     ap.add_argument('--start',default='2025-01-01');ap.add_argument('--end',default='2026-09-30')
@@ -627,7 +627,11 @@ def main(argv=None):
     root=checked_root(args.root)
     if not re.fullmatch(r'[a-zA-Z0-9_-]{4,80}',args.run_id):raise ValueError('INVALID_RUN_ID')
     run=root/'模型研究'/'valuation'/'backfill_candidates'/args.run_id
-    if args.command=='inventory':
+    if args.command=='audit-p0p1':
+        from valuation_mapping_p0p1 import live_canonical_audit
+        summary=live_canonical_audit(root,run/'p0p1',verify_manifest=checked_current)
+        print(json.dumps(summary,ensure_ascii=False,indent=2))
+    elif args.command=='inventory':
         run.mkdir(parents=True,exist_ok=True);result=inventory(root,run)
         print('inventory rows:',len(result['inventory']))
     elif args.command=='plan':

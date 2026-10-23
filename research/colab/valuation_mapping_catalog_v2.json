@@ -1,0 +1,162 @@
+{
+  "mapping_version": "valuation-financial-label-v2.0.0",
+  "authority": "P0P1_EXACT_LABEL_CANDIDATE_MAPPING",
+  "publication_allowed": false,
+  "verification": "Raw name equivalence only; accounting scope, period basis, unit, publication timing and PIT remain unverified",
+  "source_data_release": "release-0bbae8d9c1ca7d8d",
+  "rules": {
+    "no_fuzzy_match": true,
+    "no_per_suffix_as_amount": true,
+    "gross_profit_before_adjustment_separate": true,
+    "source_versions_preserved": true
+  },
+  "raw_aliases": {
+    "income": {
+      "revenue": [
+        "營業收入",
+        "Revenue"
+      ],
+      "cost_of_goods_sold": [
+        "營業成本",
+        "CostOfGoodsSold"
+      ],
+      "gross_profit": [
+        "營業毛利（毛損）淨額",
+        "GrossProfit"
+      ],
+      "gross_profit_before_adjustment": [
+        "營業毛利（毛損）"
+      ],
+      "operating_profit": [
+        "營業利益（損失）",
+        "營業利益",
+        "OperatingIncome"
+      ],
+      "pretax_income": [
+        "稅前淨利（淨損）",
+        "繼續營業單位稅前淨利（淨損）",
+        "繼續營業單位稅前損益",
+        "PreTaxIncome"
+      ],
+      "net_income": [
+        "本期淨利（淨損）",
+        "本期稅後淨利（淨損）",
+        "IncomeAfterTaxes",
+        "TotalConsolidatedProfitForThePeriod"
+      ],
+      "parent_net_income": [
+        "淨利（淨損）歸屬於母公司業主",
+        "淨利（損）歸屬於母公司業主"
+      ],
+      "basic_eps": [
+        "基本每股盈餘（元）",
+        "EPS"
+      ],
+      "diluted_eps": [
+        "稀釋每股盈餘（元）"
+      ],
+      "interest_expense": [
+        "利息費用",
+        "InterestExpense"
+      ],
+      "rd_expense": [
+        "研究發展費用",
+        "研究及發展費用",
+        "ResearchAndDevelopmentExpenses"
+      ]
+    },
+    "balance": {
+      "total_assets": [
+        "資產總計",
+        "資產總額",
+        "TotalAssets",
+        "Assets"
+      ],
+      "total_liabilities": [
+        "負債總計",
+        "負債總額",
+        "Liabilities"
+      ],
+      "total_equity": [
+        "權益總計",
+        "權益總額",
+        "Equity"
+      ],
+      "parent_equity": [
+        "歸屬於母公司業主之權益合計",
+        "歸屬於母公司業主權益合計",
+        "歸屬於母公司業主之權益",
+        "EquityAttributableToOwnersOfParent"
+      ],
+      "cash_and_equivalents": [
+        "現金及約當現金",
+        "CashAndCashEquivalents"
+      ],
+      "current_assets": [
+        "流動資產",
+        "CurrentAssets"
+      ],
+      "current_liabilities": [
+        "流動負債",
+        "CurrentLiabilities"
+      ],
+      "short_term_debt": [
+        "短期借款",
+        "ShortTermBorrowings"
+      ],
+      "long_term_debt": [
+        "長期借款",
+        "LongTermBorrowings"
+      ],
+      "current_portion_debt": [
+        "一年或一營業週期內到期長期負債",
+        "一年內到期長期借款"
+      ],
+      "bonds_payable": [
+        "應付公司債",
+        "應付債券"
+      ],
+      "lease_liabilities": [
+        "租賃負債",
+        "LeaseLiabilities"
+      ],
+      "intangibles": [
+        "無形資產",
+        "無形資產－淨額",
+        "IntangibleAssets"
+      ],
+      "goodwill": [
+        "商譽",
+        "Goodwill"
+      ],
+      "receivables": [
+        "應收帳款淨額",
+        "應收款項－淨額",
+        "AccountsReceivableNet"
+      ],
+      "inventory": [
+        "存貨",
+        "Inventories"
+      ]
+    },
+    "cashflow": {
+      "cfo": [
+        "營業活動之淨現金流入（流出）",
+        "CashFlowsFromOperatingActivities",
+        "NetCashInflowFromOperatingActivities"
+      ],
+      "capex": [
+        "購置不動產、廠房及設備",
+        "購置不動產廠房及設備"
+      ],
+      "depreciation": [
+        "折舊費用",
+        "Depreciation"
+      ],
+      "amortization": [
+        "攤銷費用",
+        "AmortizationExpense"
+      ]
+    }
+  }
+}
