@@ -159,6 +159,26 @@ else:
                    AND table_namespace IN ('core','mart')
                  ORDER BY table_namespace,table_name LIMIT 201
             """, 200)
+            sql_section(c, "mart_table_identifier_constraint", """
+                SELECT con.conname,pg_catalog.pg_get_constraintdef(con.oid)
+                  FROM pg_catalog.pg_constraint con
+                  JOIN pg_catalog.pg_class cls ON cls.oid=con.conrelid
+                  JOIN pg_catalog.pg_namespace n ON n.oid=cls.relnamespace
+                 WHERE n.nspname='publication'
+                   AND cls.relname='mart_report_index'
+                   AND con.conname='mart_report_index_table_identifier_check'
+                 LIMIT 2
+            """, 1)
+            # These are cumulative database stats, NOT a 30-day reader trace.
+            sql_section(c, "publication_pg_scan_cumulative", """
+                SELECT schemaname,relname,
+                       COALESCE(seq_scan,0)::bigint,
+                       COALESCE(idx_scan,0)::bigint
+                  FROM pg_catalog.pg_stat_user_tables
+                 WHERE schemaname='publication'
+                   AND relname IN ('mart_report_index','mart_report_outbox')
+                 ORDER BY relname LIMIT 3
+            """, 2)
     except Exception as e:
         OUT["errors"]["catalog_connection"] = error_code(e)
         emit("catalog_connection", [error_code(e)], "BLOCKED")
@@ -170,6 +190,16 @@ else:
                 SELECT version FROM control.schema_migrations
                  ORDER BY version LIMIT 201
             """, 200)
+            # Counts/status only: no requested_symbols, owner rows, UUIDs or
+            # arbitrary JSON. requested_at is the occurrence event time.
+            sql_section(c, "control_execution_30d", """
+                SELECT trigger_type,status,count(*)::bigint,
+                       max(requested_at)::text,max(finished_at)::text
+                  FROM control.executions
+                 WHERE requested_at>=now()-interval '30 days'
+                 GROUP BY trigger_type,status
+                 ORDER BY trigger_type,status LIMIT 41
+            """, 40)
     except Exception as e:
         OUT["errors"]["control_connection"] = error_code(e)
         emit("control_connection", [error_code(e)], "BLOCKED")
