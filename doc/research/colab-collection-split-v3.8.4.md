@@ -20,3 +20,11 @@
 本地原 15 passed 1 skipped 新增三項測試後 `18 passed, 1 skipped`；兩 Notebook code cell 可 compile，個股 code cell 與 v3.8.2 完全一致。**尚未完成 Colab OAuth、TWSE/TPEx 真實回應與 Parquet 實收驗證**，不是 source success 或模型上線。
 
 官方入口：https://openapi.twse.com.tw/ 、https://www.twse.com.tw/zh/indices/taiex/mi-5min-hist.html 、https://www.tpex.org.tw/zh-tw/mainboard/trading/info/daily-indices.html 、https://www.tpex.org.tw/zh-tw/mainboard/trading/statistics/indices/daily-sector.html
+
+## 2026-10-23｜使用者 Colab 2025-01 立即回報與修正
+
+- 已從使用者 Colab 輸出確認：`twse_market` 2025-01 VERIFIED 15 筆；`twse_sector` 2025-01-02 VERIFIED 41 筆，01-03 BUDGET_PAUSED；TPEx 市場／產業原 `.html` 登陸頁都回 `SOURCE_FORMAT_UNSUPPORTED` 與 `NON_JSON_HTML_PAGE_NOT_API`。
+- 根因：00B 誤設 `/content/drive/MyDrive/個人用/janusChatGPT`；TPEx 兩來源把 `.html` 展示頁當 API；初探最多四次請求、TWSE 產業按日抓，第四次之後暫停符合配置。
+- 本次改為 `MyDrive/給ai專用/janusChatGPT`；TPEx 改用 `/www/zh-tw/` JSON **候選**端點。候選端點和欄位尚無 2025-01 Colab 真實回應證據，若回 HTML/schema 不合仍 fail closed，不能冒稱已修通或已補足。
+- 00A 已採正確路徑且穩定，本次維持不變；00B 有內嵌 helper，須與 `official_index_backfill.py` 同步，避免 Colab 跟 GitHub 外部 helper 分歧。研究 `CURRENT`/Risk ACTIVE 不動。既有 VERIFIED receipt 跨重跑保留，TPEx 失敗 receipt 可更新但 raw hash/attempt 不刪改。
+- 此修正的實際 Colab 掛載、TPEx 成功列數、日曆完整度、Parquet 讀回及 Drive 檔案覆寫需另有 runtime/Drive evidence 才能改為 PASS。
