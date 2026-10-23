@@ -202,3 +202,45 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 [整合唯讀 Workflow #39950278408](https://github.com/tommylin15/janus-omniforge/actions/runs/39950278408) 已 **success**，\`janus_governance_c0_live_metadata_join_v1=PASS\`、離線測試 6 passed。現有 dev WIF 身分分工：\`janus-ingestion-core\` 讀 PG metadata、Core Iceberg、全 Catalog；\`janus-intelligence-mart\` 讀 Mart metadata，再交叉比對同 Git SHA / Catalog name，不擴張 IAM。詳細 93 PG relations、728 PG fields、379 constraints、149 indexes、66 migration values、9 Core、11 Mart 讀回見 [C0 §16–§18](data-governance-c0-2026-10-23.md)。
 
 **C1-A 現在不再因「未知實際 Core/Mart 表數」卡住。** 20 張全在 Live Catalog 有登錄；11 張 Mart Metadata 可讀、其中 \`mart_alternative_sentiment_v1\` 與 \`mart_daily_brief_v1\` 無 current snapshot 而 rowcount=NULL（不推定 0）。真正剩餘 C1-B 閘門是**每個候選的現役讀者／writer/30天 job/scheduler 依賴、publication index reference、同鍵/單位差異、GCS 備份重建和回切收據**；此外 PostgreSQL 66 applied migration 名稱相對 68 code 檔案仍有既知差異需釐清。此次只完成 metadata 查詢入口與有界基準，不進行清掃；**可實體刪除的核准名單 = 空**。
+
+
+---
+
+## 12. C1-A 讀者依賴驗證：LIVE 參照與逐表決策（2026-10-23）
+
+已透過 **[#39952096357](https://github.com/tommylin15/janus-omniforge/actions/runs/39952096357)**（job \`120408771409\`；Git SHA \`d0ec9d49e8db1ca807948c40fae338a25415e2ac\`；8 個安全測試通過）新增的受控 dev 唯讀聚合，取得 \`publication.mart_report_index\`、\`control.executions\` 最近30日狀態、真實 \`pg_get_constraintdef\`、\`pg_stat_user_tables\` 累計觀測。原始細節與執行時間見 [C0 §19](data-governance-c0-2026-10-23.md)。
+
+### 12.1 讀者與引用的有效證據
+
+1. **硬性契約／真實資料：** \`mart.mart_scoped_analysis_v1\` 是現行 PG \`mart_report_index\` 唯一允許的 table identifier（實際 CHECK 已讀回），**138 筆歷史發佈索引列**全部指它；其中 **1 筆 publishable/complete、137 筆 blocked**。30 日 \`analysis_as_of\` 切片有 **35 筆 blocked**，屬業務日期而非 35 個 API 讀取。
+2. **API 程式讀者：** \`packages/web_api/public.py\` 的 \`PostgreSQLPublicIndex.latest\` → \`publication.publishable_mart_reports\`；\`IcebergArtifactReader\` 確認 \`table_identifier == mart.mart_scoped_analysis_v1\` 再按被索引 snapshot 讀 Iceberg。\`packages/admin_api/service.py\` 還存在 \`mart_reports\`、execution lineage、review APIs；**目前部署的 API revision及最近30日是否被叫用仍待 runtime 驗證**。
+3. **維護 Reader/Writer：** \`jobs/intelligence-mart/intelligence_mart/retention.py\` 確有 11 個 Mart table handles 的 table_exists/load/scan、可選 apply row delete 與 snapshot compaction 路徑；尚缺最近執行與實際 mode 收據，不能稱 11 張已停用。
+4. **PostgreSQL 觀測：** \`mart_report_index\` 累積 seq_scan=187 / idx_scan=678（非30日）、\`mart_report_outbox\` seq_scan=38 / idx_scan=0（非 outbox pending）；具 DB 物件讀取使用跡象，尚無 SQL caller identity。
+5. **Control 最近 30 天工作狀態：** \`analysis\` 18 succeeded／8 failed／**41 queued**；\`collection\` 89 succeeded／48 failed／50 partial／**16 running**；共 270 個 requested_at 落在30日的 status rows。queued / running 不等於現有效租約；需另讀 \`claimed_until\` 與實際 Cloud Run Job 交叉確認，防止 cleanup 誤判。
+
+### 12.2 十一張 Mart 清掃候選逐表「有證據」分級（仍不實刪）
+
+| Live Mart identifier | 本次 PG 發布 Index | 現行 GitHub 直接讀者／依賴 | C1-A 本次判定 | C1-B gate |
+|---|---|---|---|---|
+| \`mart.mart_scoped_analysis_v1\` | **138 references、真實 CHECK、1 publishable** | **PublicMartService/IcebergArtifactReader + Admin Mart API + retention** | **KEEP** | 禁 DROP；舊 snapshot replay 與 API 正向讀回仍待核 |
+| \`mart.mart_risk_portfolio_v1\` | 不在此 PG index（index 僅容 scoped） | Mart maintenance；Risk/Owner 隔離與舊研究／報表讀者需獨立查 | **KEEP_PROTECTED_PENDING** | 先驗 Owner/Risk 依賴、無存取洩漏，再談任何退役 |
+| \`mart.mart_screening_signals_v1\` | 不在此 PG index | Mart maintenance；screening GCS/PG product reader 還需比對 | **RETIRE_CANDIDATE / UNKNOWN_READERS** | 近30日 actual writer/reader、fallback、重建收據 |
+| \`mart.mart_core_alpha_v1\` | 不在此 PG index | Mart maintenance；研究/舊 alpha 需查 | **RETIRE_CANDIDATE / UNKNOWN_READERS** | 同上 |
+| \`mart.mart_alternative_sentiment_v1\` | 不在此 PG index | Mart maintenance；**Live 無 current snapshot** | **RETIRE_CANDIDATE / UNKNOWN_READERS** | NULL snapshot 非 0 row/ABSENT，舊 refs/重建先釐清 |
+| \`mart.mart_market_regime_daily_v1\` | 不在此 PG index | Mart maintenance；regime 下游待證 | **RETIRE_CANDIDATE / UNKNOWN_READERS** | reader/資料契約與替代方案 |
+| \`mart.mart_sector_rotation_daily_v1\` | 不在此 PG index | Mart maintenance；產業輪動下游待證 | **RETIRE_CANDIDATE / UNKNOWN_READERS** | 同上 |
+| \`mart.mart_topic_trends_daily_v1\` | 不在此 PG index | Mart maintenance；趨勢/研究下游待證 | **RETIRE_CANDIDATE / UNKNOWN_READERS** | 同上 |
+| \`mart.mart_candidate_health_v1\` | 不在此 PG index | Mart maintenance；品質/Admin 下游待證 | **RETIRE_CANDIDATE / UNKNOWN_READERS** | 同上 |
+| \`mart.mart_daily_brief_v1\` | 不在此 PG index | Mart maintenance；**Live 無 current snapshot**、簡報/發布舊引用待證 | **RETIRE_CANDIDATE / UNKNOWN_READERS** | NULL snapshot 非 0 row/ABSENT；報告 reader 先釐清 |
+| \`mart.mart_llm_narratives_v1\` | 不在此 PG index | Mart maintenance；內容生成結果與歷史引用待證 | **RETIRE_CANDIDATE / UNKNOWN_READERS** | 同上 |
+
+**不成立的推論：** 這個 PG 表由 CHECK 限制僅能引用 scoped analysis，因此其餘十表「不在 mart_report_index」是**結構必然**，不代表全專案零讀取、亦不表示安全退役。沒有對任何 Mart 表證實真正 30 日零讀者（要比對已部署 Job/API、Cloud Scheduler 與日誌）。
+
+### 12.3 下一小階段的精確收斂順序
+
+1. **先釐清 PG status 活躍性：** 41 queued analysis 與16 running collection 查 \`claimed_until\`、\`requested_at\` bucket、Cloud Run Job 執行終態；防止把 stale lease 用作 GCS 48h 保護或將 queued 誤認有效工作。
+2. **追蹤已部署 reader：** 讀 \`janus-api\` revision digest、\`janus-intelligence-mart\` 等現役 Job config 與最近30天 executions，以及 \`mart.scoped_analysis\` 的正向 API 是否成功讀取 \`publishable\` snapshot；不要讀 owner payload 或自行 invoke 寫入 Job。
+3. **其他十個 Mart 用途：** 檢查所有已部署查詢／研究版本 manifest、GCS artifact refs 與 current snapshot 的必要重建證據，再按每張表更新 \`KEEP/CONSOLIDATE/RETIRE_CANDIDATE\`。不以掃碼查無字串作 Live 無讀者的唯一證據。
+4. **發布資料守門：** 138 reference rows 中 1 筆可發布，但是其 \`analysis_as_of\` 較早；現行只保留 current Iceberg snapshot 的治理決策不保證舊 snapshot 還能讀。若實際 API replay 失敗，應先標 \`BLOCKED_PUBLIC_REPORT\` 處理相容問題，而非刪表。
+
+本輪可獨立結案項為 **C1-A 固定範圍 PG reader/reference audit PASS**，非全部 C1-A / C1-B；\`mart_scoped_analysis\` KEEP 已有充分依賴證據，**全部 Table/Field/Object 實刪核准清單仍 0**。
