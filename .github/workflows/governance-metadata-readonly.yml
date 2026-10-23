@@ -1,0 +1,55 @@
+name: Janus governance C0-Live bounded metadata read-only
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/governance-metadata-readonly.yml'
+      - 'ops/governance-metadata-readonly-request.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-governance-metadata-readonly
+  cancel-in-progress: false
+
+jobs:
+  metadata-readback:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline read-only contract tests and fixed request guard
+        run: |
+          set -euo pipefail
+          python -m pip install pytest -q
+          python -m pytest -q tests/test_governance_metadata_readonly.py
+          python - <<'PY'
+          import json
+          from scripts.gcp.governance_metadata_readonly import validate_request
+          with open('ops/governance-metadata-readonly-request.json',encoding='utf-8') as f:
+              req=json.load(f)
+          validate_request(req)
+          assert req['no_new_resources'] is True
+          assert req['no_iam_expansion'] is True
+          assert req['execution_count'] == 1
+          PY
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: none
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Read PG schema and Core/Mart Iceberg metadata with existing dev identity
+        run: |
+          python scripts/gcp/governance_metadata_readonly.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: janus-governance-metadata-readonly
+          path: governance-metadata-readonly-receipt.json
+          retention-days: 14
+          if-no-files-found: ignore
