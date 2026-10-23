@@ -190,7 +190,7 @@ else:
                 SELECT version FROM control.schema_migrations
                  ORDER BY version LIMIT 201
             """, 200)
-            # Counts/status only: no requested_symbols, owner rows, UUIDs or
+            # Counts/status only: no owner-linked rows, UUIDs or
             # arbitrary JSON. requested_at is the occurrence event time.
             sql_section(c, "control_execution_30d", """
                 SELECT trigger_type,status,count(*)::bigint,
