@@ -200,6 +200,60 @@ else:
                  GROUP BY trigger_type,status
                  ORDER BY trigger_type,status LIMIT 41
             """, 40)
+            # C1-A nonterminal rows: status is NOT proof of an active lease.
+            # No UUID, symbol, owner, claim token or row payload leaves PG.
+            sql_section(c, "control_nonterminal_lease_30d", """
+                SELECT trigger_type,status,
+                       CASE WHEN requested_at >= now()-interval '48 hours' THEN 'LT_48H'
+                            WHEN requested_at >= now()-interval '7 days' THEN 'D2_TO_D7'
+                            ELSE 'D7_TO_D30' END AS age_bucket,
+                       CASE WHEN claimed_until IS NULL THEN 'NO_LEASE'
+                            WHEN claimed_until > clock_timestamp() THEN 'VALID_LEASE'
+                            ELSE 'EXPIRED_LEASE' END AS lease_bucket,
+                       count(*)::bigint,
+                       min(requested_at)::text,max(requested_at)::text,
+                       max(claimed_until)::text
+                  FROM control.executions
+                 WHERE status IN ('queued','running','retrying')
+                   AND requested_at >= now()-interval '30 days'
+                 GROUP BY 1,2,3,4
+                 ORDER BY 1,2,3,4 LIMIT 81
+            """, 80)
+            # Controller occurrence linkage is only an operational hint;
+            # do not infer a Cloud Run execution occurred from PG status.
+            sql_section(c, "control_nonterminal_occurrence_link_30d", """
+                WITH recent AS (
+                  SELECT execution_id,trigger_type,status,claimed_until
+                    FROM control.executions
+                   WHERE status IN ('queued','running','retrying')
+                     AND requested_at >= now()-interval '30 days'
+                   ORDER BY requested_at DESC LIMIT 500
+                ), classified AS (
+                  SELECT trigger_type,status,
+                         CASE WHEN claimed_until IS NULL THEN 'NO_LEASE'
+                              WHEN claimed_until > clock_timestamp() THEN 'VALID_LEASE'
+                              ELSE 'EXPIRED_LEASE' END AS lease_bucket,
+                         CASE WHEN EXISTS (
+                           SELECT 1 FROM control.batch_occurrences b
+                            WHERE b.scheduled_at >= now()-interval '30 days'
+                              AND b.state->>'queued_execution_id'=recent.execution_id::text
+                         ) THEN 'OCCURRENCE_LINKED'
+                           ELSE 'NO_OCCURRENCE_LINK' END AS link_bucket
+                    FROM recent
+                )
+                SELECT trigger_type,status,lease_bucket,link_bucket,count(*)::bigint
+                  FROM classified GROUP BY 1,2,3,4 ORDER BY 1,2,3,4 LIMIT 81
+            """, 80)
+            # Only already-known managed Cloud Run jobs/execution names;
+            # never output occurrence_id, requested_symbols, owner data or UUID.
+            sql_section(c, "control_active_batch_occurrences_30d", """
+                SELECT state->>'job',state->>'status',state->>'execution',
+                       scheduled_at::text
+                  FROM control.batch_occurrences
+                 WHERE scheduled_at>=now()-interval '30 days'
+                   AND state->>'status' IN ('dispatching','running','ambiguous')
+                 ORDER BY scheduled_at DESC LIMIT 101
+            """, 100)
     except Exception as e:
         OUT["errors"]["control_connection"] = error_code(e)
         emit("control_connection", [error_code(e)], "BLOCKED")
