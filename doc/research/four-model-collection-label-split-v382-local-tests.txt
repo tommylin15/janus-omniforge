@@ -1,0 +1,7 @@
+2026-10-23 (Asia/Taipei) | Local Python 3.13
+pytest -q tests/test_four_model_split.py tests/test_original_factory.py tests/test_precision.py
+22 passed, 6 skipped in 2.86s
+6 skips: 5 original precision tests + 1 newly added real Parquet test. Reason: pyarrow/fastparquet not installed; dependency retrieval blocked by network DNS.
+Colab notebook: 21 cells, all code cells compile.
+Not tested: Colab OAuth/live collection, complete real CURRENT Parquet load, full ChatGPT four-model OOS, GitHub CI.
+Publication allowed: false. No canonical/ACTIVE/PG/GCS changes.

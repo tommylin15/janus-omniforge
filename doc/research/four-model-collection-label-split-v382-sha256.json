@@ -1,0 +1,16 @@
+{
+  "version": "3.8.2",
+  "files": {
+    "00_資料收集_v3.8.2_Colab.ipynb": "ddd4abd09d34fd066def505a2d7c0cf7a4b09c7deb3286d71068f310298ad571",
+    "README_v3.8.2.md": "b1f7ce5cede362bb56cc860abacc80d9583481229b7c9ca505cb6528eaf73fc7",
+    "TEST_RESULTS.txt": "dd48f1cb572b5339fc6d53f4f3e87f5cbd34587648077746373eefde1a786a2d",
+    "src/janus_train.py": "6f84c07d4df4a73ad6f4c299677c38ee9a2c20180ffb4db395706c6a05cdc051",
+    "src/label_four_models.py": "69ef223c0f8be38bd70e17761e4dee124755175d6108a601a982ff5ecd006a71",
+    "src/factor_factory_v1.py": "72a5cc8340f4d8aa91ecab604aceef6b6a333308821b8ded7c6dd05a8d47532c",
+    "src/janus_precision.py": "41fbc576d0f77ccb0d7e4db8f3a134d709547391e94ec94bf84260c16f01c965",
+    "tests/test_precision.py": "b4b28e49d32a4f0d3cc7c8da02edb425e2e28df87a065ed4bb7ca0a9e59b17a7",
+    "tests/test_four_model_split.py": "1e508dd77bd0d25bbe9687a7f2582c095450e05c2088373b152bb4829c1a4a79",
+    "tests/test_original_factory.py": "e1e56dd1987d33020054ca7d2a6e1ed9268217943efd6a30cbedb488c69c276d"
+  },
+  "scope": "research only; not canonical or production"
+}
