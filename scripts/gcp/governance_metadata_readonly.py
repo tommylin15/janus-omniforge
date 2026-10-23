@@ -323,8 +323,7 @@ else:
                          WHEN item_count>0 THEN 'COLLECTION_ITEM_EVIDENCE_NOT_TERMINAL'
                          WHEN status='queued' THEN 'QUEUED_WITHOUT_TERMINAL_PROOF'
                          ELSE 'RUNNING_WITHOUT_TERMINAL_PROOF' END AS decision,
-                       CASE WHEN error_code IS NULL THEN NULL ELSE
-                         substring(error_code FROM 1 FOR 48) END AS error_code,
+                       (error_code IS NOT NULL) AS has_error_code,
                        retry_count
                   FROM facts
                  ORDER BY requested_at,execution_id LIMIT 301
