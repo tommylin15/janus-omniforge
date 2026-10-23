@@ -52,6 +52,46 @@ jobs:
         if: ${{ always() && steps.guard.outcome == 'success' && steps.setup.outcome == 'success' }}
         run: |
           python scripts/gcp/governance_mart_metadata_readonly.py
+      - name: Cross-validate PG/Core and Mart identity receipts
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          c=json.loads(Path('governance-metadata-readonly-receipt.json').read_text())
+          m=json.loads(Path('governance-mart-metadata-readonly-receipt.json').read_text())
+          assert c['source_git_sha']==m['git_sha']==os.environ['GITHUB_SHA']
+          assert c['data_mutations']==m['data_mutations']==0
+          assert c['job_configuration_unchanged'] is True
+          assert m['job_configuration_unchanged'] is True
+          required=('pg_relations','pg_columns','pg_constraints','pg_indexes',
+                    'information_schema_tables','information_schema_columns',
+                    'iceberg_catalog','schema_migrations')
+          assert all(c['sections'][x]['status']=='PASS' for x in required)
+          catalogue=c['sections']['iceberg_catalog']['items']
+          core=sorted('core.'+r[2] for r in catalogue if r[1]=='core')
+          mart=sorted('mart.'+r[2] for r in catalogue if r[1]=='mart')
+          assert len(core)==9 and len(mart)==11
+          core_detail=c['sections']['iceberg_snapshots']['items']
+          assert {x['name'] for x in core_detail if x['status']=='READABLE'}>=set(core)
+          mart_detail=m['sections']['mart_snapshots']['items']
+          assert sorted(x['name'] for x in mart_detail)==mart
+          assert all(x['status']=='READABLE' for x in mart_detail)
+          assert m['sections']['summary']['items'][0]['status']=='PASS'
+          summary={'component':'janus_governance_c0_live_metadata_join_v1',
+                   'status':'PASS','source_git_sha':os.environ['GITHUB_SHA'],
+                   'core_catalog_tables':len(core),'mart_catalog_tables':len(mart),
+                   'core_snapshots_readable':len(core),'mart_metadata_readable':len(mart),
+                   'postgres_relations':len(c['sections']['pg_relations']['items']),
+                   'postgres_columns':len(c['sections']['pg_columns']['items']),
+                   'postgres_constraints':len(c['sections']['pg_constraints']['items']),
+                   'postgres_indexes':len(c['sections']['pg_indexes']['items']),
+                   'applied_migrations':len(c['sections']['schema_migrations']['items']),
+                   'data_mutations':0,'iam_changes':0,'new_resources':0}
+          Path('governance-metadata-joined-summary.json').write_text(
+             json.dumps(summary,ensure_ascii=False,sort_keys=True,indent=2))
+          print(json.dumps(summary,ensure_ascii=False,sort_keys=True))
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -59,5 +99,6 @@ jobs:
           path: |
             governance-metadata-readonly-receipt.json
             governance-mart-metadata-readonly-receipt.json
+            governance-metadata-joined-summary.json
           retention-days: 14
           if-no-files-found: ignore
