@@ -2,14 +2,14 @@
   "intent": "promote-authenticated-reversible-ghcr-dev",
   "approved": true,
   "scope": "existing-dev-janus-api-only",
-  "source_sha": "3e5f3c0ef569513c81e52c67794af9ba40d5cade",
-  "release_run": "39874777208",
-  "jobs_run": "39875718471",
+  "source_sha": "0ad738b1f7c3432bf6fac59ecb7d5063dce63447",
+  "release_run": "39907341839",
+  "jobs_run": "39909889109",
   "rollback_mode": "reversible_ghcr",
-  "baseline_source_sha": "253d9d37132f4ce6d77bb1e84d6d7dac4d905d01",
+  "baseline_source_sha": "3e5f3c0ef569513c81e52c67794af9ba40d5cade",
   "allow_legacy_forward_only": false,
-  "auth_boundary_run": "39875495080",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:0c810be3f398fceb8be7938d1b27bf17ac00b57e7fa0b09aa6f91a8b76ab1d2d",
-  "purpose": "Risk XGB authorized dev API 100% promo retry, diagnostics scoped to safe phase+error class; previous #39884719605 returned generic control_failure before any confirmed success, preserve reversible baseline and exact release.",
-  "request_attempt": 3
+  "auth_boundary_run": "39909168202",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:9e6bbccab1a77c126f7b8d771e2434d53b86285b42715991f4db7db1e78f8a7f",
+  "purpose": "ADMIN-SIMPLIFY approved existing dev API reversible GHCR 100% promotion for immutable release 0ad738b1... #39907341839, 0% candidate #39908830013 PASS, read-only auth boundary #39909168202 PASS, 4 Jobs rollout #39909889109 phase PASS 8/8 real canaries. PREVIOUS ACTIVE API baseline verified independently from live Cloud Run revision janus-api-00594-did by #39912120817, SHA 3e5f3c0e... and GHCR digest 0c810be3..., 100% traffic. Under shared global owner lease rehearse candidate100→old100→candidate100, preserve tags/config, health/auth/build SHA and reversible rollback. No new resources, Jobs, IAM, storage modifications.",
+  "request_attempt": 4
 }
