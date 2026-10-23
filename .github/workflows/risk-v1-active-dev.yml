@@ -53,7 +53,14 @@ jobs:
           # ops-only commits, so their workflow HEADs cannot equal that SHA.
           jq -e --arg source "$source" '.headSha==$source' /tmp/risk-release_run.json >/dev/null
           jq -e --arg source "$source" '.sha==$source' ops/ghcr-jobs-rollout-request.json >/dev/null
-          jq -e --arg source "$source" '.source_sha==$source' ops/ghcr-api-promote-request.json >/dev/null
+          # API already runs 100% from a reversible verified release. Its
+          # source need not be rebuilt when only Mart Risk OHLCV files change.
+          api_source="$(jq -r .source_sha ops/ghcr-api-promote-request.json)"
+          jq -e --arg api "$api_source" '.headSha==$api' /tmp/risk-api_run.json >/dev/null || {
+            # API rollout action is triggered by an ops-only request commit.
+            jq -e --arg api "$api_source" '.source_sha==$api' ops/ghcr-api-promote-request.json >/dev/null
+          }
+          git diff --exit-code "$api_source" "$source" -- services/api/ apps/user_app/ >/dev/null
           jq -e '[.jobs[]|select(.name=="release-verify" and .conclusion=="success")]|length==1' /tmp/risk-release_run.json >/dev/null
           jq -e '[.jobs[]|select(.name=="jobs-rollout" and .conclusion=="success")]|length==1' /tmp/risk-jobs_run.json >/dev/null
           jq -e '[.jobs[]|select(.name=="promote" and .conclusion=="success")]|length==1' /tmp/risk-api_run.json >/dev/null
