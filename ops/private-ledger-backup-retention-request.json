@@ -1,0 +1,15 @@
+{
+  "intent": "dev-private-ledger-retention-independent",
+  "scope": "existing-dev-private-backup-prefixes",
+  "purpose": "P0-1 live metadata-only preflight of existing GCS daily/monthly VM ledger backups; keep 7 daily and 6 monthly as conservative floor; no deletion until dry-run accepted, never re-run pg_dump or modify PG.",
+  "dry_run_first": true,
+  "daily_keep": 7,
+  "monthly_keep": 6,
+  "max_daily_deletes_per_run": 3,
+  "max_monthly_deletes_per_run": 1,
+  "approved_scheduled_apply": false,
+  "no_new_resources": true,
+  "no_iam_expansion": true,
+  "no_pg_mutation": true,
+  "no_new_backup": true
+}
