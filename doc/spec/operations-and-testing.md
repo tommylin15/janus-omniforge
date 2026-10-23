@@ -1,5 +1,13 @@
 # Janus 最新驗收證據索引
 
+
+### 2026-10-23｜ADMIN-SIMPLIFY／Risk API 完整 Release gate 修復（CI 重試中）
+
+- [GHCR Release #39904873962](https://github.com/tommylin15/janus-omniforge/actions/runs/39904873962) **completed/failure**：Python `release-tests` 1650 passed、1 failed、2 deselected；唯一失敗 `tests/test_risk_api_baseline_serving.py::test_recent_older_risk_is_visible_without_downgrading_newer_baseline` 第 101 行，誤將 roll-forward 合併 Risk 投影的 `source_projection_hash` 與最新 *raw deterministic baseline* 的 `content_hash` 比較相等。Flutter PASS；GHCR 發布與匿名 Digest gate 均 skipped，無任何本輪 API 切流或 Jobs 更新。
+- [修正 commit 15d024e](https://github.com/tommylin15/janus-omniforge/commit/15d024e76b8533d693f49cdc2d2e87b7556ca37b) 只修改該 Risk 回歸測試：改驗合併 projection hash 必須與 raw latest 不同，且須與刪除 presentation-only 欄位後的確切 projection 內容 hash 相同；原始 `latest` hash、Risk 來源 hash、serving output hash 的完整性驗證與 fail-closed 邏輯保留。尚不得把測試修正視為 CI、GHCR 或 live UI 已 PASS。
+- [新的 full Release #39906632427](https://github.com/tommylin15/janus-omniforge/actions/runs/39906632427) 由 `ops/ghcr-release-request.json` 第四次請求觸發，觸發 source SHA `eb53e90a96ebe44a87b9d71547a688e95a78eb11`；已觀察到 Python／Flutter 測試執行中，**終態、四 GHCR 映像與 Digest 仍待 GitHub Actions 讀回**。完整 Release 成功後仍需同 SHA candidate／受控部署／登入 Admin 正向驗收，不能由 CI 自動判 CLOSED。
+
+
 ### 2026-10-23｜Risk XGBoost8 首次 dev ACTIVE 資料面 PASS（Owner UI 正向另驗）
 
 - **正式啟用**：[Risk #39896276392](https://github.com/tommylin15/janus-omniforge/actions/runs/39896276392) completed/success；真實 Mart canary janus-intelligence-mart-lmmqq、GCS Registry generation CAS、PostgreSQL append-only ACTIVE Job janus-intelligence-mart-z89xx 均完成 SUCCESS；沒有觸發自動回滾。原四 Jobs [#39893872327](https://github.com/tommylin15/janus-omniforge/actions/runs/39893872327) completed/success。
