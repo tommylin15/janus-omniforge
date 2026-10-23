@@ -84,4 +84,4 @@ Operations只保存當前適用摘要／歷史連結，不無限追加。原2296
 - [Fundamental 營運｜XGBoost 操作與開發指令](colab-models/03-fundamental-xgboost.md)
 - [Valuation 估值｜XGBoost 操作與開發指令](colab-models/04-valuation-xgboost.md)
 
-四份訓練 Notebook 各自可執行，共用程式模組；輸入固定為新版 Parquet CURRENT release。文件完成不等於模型已訓練，Event另議。
+2026-10-23 最新決策：Drive 已有 Quant、Fundamental、Valuation 三份 Notebook，優先於 ChatGPT 可用研究/Python 環境試訓，Colab 為可選備援。三模型各自完成實際 OOS、模型/資料合法性、GCS 候選/受控發布條件後，才連同既有 Risk v1 一次優化四模型跨 Job 載入快取。不同 Cloud Run Job execution 不共享 RAM；先量測 GCS 單次下載+execution 記憶體快取與 image layer 的成本/效能，不新增付費常駐服務。來源入口、順序和驗收以 [模型生命週期](spec/model-lifecycle.md)、[D07 AI卡](execution-cards/d07-model-lifecycle.md) 與 [唯一 TODO](todo.md) 為準；Notebook 存在不代表模型已訓練或發布。
