@@ -10,6 +10,6 @@
   "api_run": "39885037268",
   "no_new_resources": true,
   "target_scope": "HELD_AND_WATCHLISTED_ORDINARY_SHARES",
-  "purpose": "Authorized first Risk ACTIVE. Exact 6739c18c release with six ordinary target-only 220-calendar-day OHLCV and per-stock 8-feature quality. Jobs rollout #39893872327 must complete PASS before generation-CAS Registry, true six-stock predictions and PostgreSQL activation. Existing API 100% source 3e5 still same API/UI code. Fail closed, deterministic fallback; no extra resource and no retraining.",
-  "request_attempt": 4
+  "purpose": "Resume after exact existing dev Jobs rollout #39893872327 completed SUCCESS 2026-10-23. Run corrected Risk ordinary held/watchlist target-only 220-day pinned OHLCV EOD canary and six-stock quality receipt, GCS immutable readback, PG candidate projection; only then ACTIVE CAS/API/UI gated verification, retaining deterministic rollback and zero new paid resources.",
+  "request_attempt": 5
 }
