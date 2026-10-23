@@ -407,3 +407,18 @@
 - \`C0-L01\` PG catalog metadata、columns/types、constraint/index names、migration ledger **已實讀**；剩餘是當前 migration 名稱 drift、Role 限制下 information_schema 可見性與特定 constraint 定義內容核對。
 - \`C0-L03\` 30 日 writer/reader/Cloud Scheduler/Cloud Run 使用證據和 \`C0-L04\` GCS today prefix/lease、\`C0-L05\` 四模型真實 X values/PIT 仍需分開驗證；**C0 全部不是 FULL PASS，C1-B 無實刪授權**。
 - 執行流程已改成 Core role 與 Mart role 各查可讀資產後 cross-validate（[治理 Workflow](../../.github/workflows/governance-metadata-readonly.yml)）；新版 [#39950278408](https://github.com/tommylin15/janus-omniforge/actions/runs/39950278408) 首次整合結果仍需讀回，未達成前不能提前寫 \`WORKFLOW_PASS\`。
+
+---
+
+## 18. ChatGPT 受控 PG／Core／Mart Metadata 查詢通道整合驗收 PASS（2026-10-23）
+
+**跨兩個既有 dev 身分整合驗收已成功，不只是兩個彼此獨立的綠色步驟：**
+- [GitHub Actions #39950278408](https://github.com/tommylin15/janus-omniforge/actions/runs/39950278408)，job \`120402762186\`，\`conclusion=success\`；執行 Git SHA \`cd63e699e3d0da8e44b39552406f9255b8fd9aaa\`，流程離線測試 **6 passed**。
+- 真正整合 receipt：\`component=janus_governance_c0_live_metadata_join_v1\`、\`status=PASS\`、\`postgres_relations=93\`、\`postgres_columns=728\`、\`postgres_constraints=379\`、\`postgres_indexes=149\`、\`applied_migrations=66\`、\`core_catalog_tables=9\`、\`mart_catalog_tables=11\`、\`core_snapshots_readable=9\`、\`mart_metadata_readable=11\`、\`data_mutations=0\`、\`iam_changes=0\`、\`new_resources=0\`。
+- Workflow 明確驗證：PG Core 收據與 Mart 收據的 **Git SHA 一致**、實際 \`core/mart\` 表名逐一與 Live Catalog 比對、前者的 9 Core metadata 全可讀、後者的 11 Mart metadata 全可讀、兩個既有 Job 的 template fingerprint 未變；Core role 對 Mart 的原先 \`PermissionError\` 只在**完整限定 9/9 Core PASS + 11/11 Mart PermissionError**時允許轉交 Mart 身分，其他部分失敗仍阻擋。
+- 成果保存於該 Actions 的 \`janus-governance-metadata-readonly\` artifact 與有前綴的可稽核 JSON logs；未在 Git 或使用者可見文件寫入任何 secrets、密碼、OAuth token 或 private row payload。
+- ChatGPT 實際查詢路徑是「**GitHub connector → 受控 GitHub Actions → 既有 dev WIF/Job → PG/Iceberg metadata → GitHub logs/artifact → ChatGPT**」，不是通用、互動式 PostgreSQL SQL Connector；以固定 query、固定 project、已知權限邊界換取最小 IAM 與可稽核性。未新增新的付費 GCP 資源或權限。
+
+**本工項完成標準：\`C0-L01 PostgreSQL bounded schema/constraints/index/migrations receipt\` 與 \`C0-L02 9 Core + 11 Mart metadata catalog/schema/spec/snapshot existence census\` 已在明確有界範圍驗收 PASS。** 這不代表 GitHub 68 支 migration 都已套用；§16.1 的 migration 名稱差異仍需處理。 \`C0-L03\` 最近30天 reader/writer/Job、\`C0-L04\` 今日 GCS prefix/lease、\`C0-L05\` 模型真實 X/PIT coverage 不是這個 metadata-only Workflow 的範圍，仍 \`PARTIAL/UNKNOWN\`；**C1-B 實體清掃仍 NOT_READY、核准可刪 0**。
+
+**安全操作提醒：** 未來若 ChatGPT 需要更新這份即時證據，可在明確授權的 repo main 更新已固定的 \`ops/governance-metadata-readonly-request.json\` 觸發新的一次 workflow；不要將此擴充成任意 SQL 執行器，若需新查詢先以版本化 script、測試、唯讀交易與有界收據審查。
