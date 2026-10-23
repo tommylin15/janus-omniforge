@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-23",
+  "mode": "local_fixture_only",
+  "tests": "15 passed",
+  "pytest_version": "9.0.2",
+  "python_version": "3.13.5",
+  "colab_live": "NOT_VERIFIED",
+  "finmind_live": "NOT_VERIFIED",
+  "canonical_parquet_readback": "NOT_VERIFIED",
+  "notebook_json": "PASS",
+  "notebook_python_cells_syntax": "PASS",
+  "module_sha256": "c7d05cda416dc64505374f317f7970c31a3efbc509bfe3259025a55d5b26e1dd",
+  "publication_allowed": false,
+  "github_commit": "NOT_DONE",
+  "drive_sync": "NOT_DONE"
+}

@@ -1,0 +1,29 @@
+{
+  "version": "valuation-factors-contract-v1",
+  "publication_allowed": false,
+  "recording_units": "ratios in decimal; log_total_assets base must be fixed before computation",
+  "pit_rule": "available_at >= maximum verified dependency published_at; missing date=>PIT_UNVERIFIED",
+  "current_implementation": "Only debt_ratio and cash_to_assets when explicitly VERIFIED inputs match scope/currency/unit; others readiness BLOCKED",
+  "formulas": {
+    "gross_margin_ttm": "gross_profit_ttm/revenue_ttm",
+    "operating_margin_ttm": "operating_profit_ttm/revenue_ttm",
+    "net_margin_ttm": "net_income_ttm/revenue_ttm",
+    "roa_ttm": "net_income_ttm/average_total_assets",
+    "roe_ttm": "parent_net_income_ttm/average_parent_equity",
+    "asset_turnover_ttm": "revenue_ttm/average_total_assets",
+    "debt_ratio": "total_liabilities/total_assets",
+    "cash_to_assets": "cash_and_equivalents/total_assets",
+    "cfo_to_assets": "cfo_ttm/average_total_assets",
+    "accruals_to_assets": "(net_income_ttm-cfo_ttm)/average_total_assets",
+    "log_total_assets": "model contract must select log or log1p; no unannounced fallback",
+    "revenue_yoy_1m": "revenue[t]/revenue[t-12]-1",
+    "revenue_yoy_3m": "sum(revenue[t-2:t])/sum(revenue[t-14:t-12])-1",
+    "revenue_yoy_12m": "sum(revenue[t-11:t])/sum(revenue[t-23:t-12])-1",
+    "revenue_growth_acceleration": "revenue_yoy_3m-revenue_yoy_12m",
+    "roe_change_yoy": "roe_ttm[t]-roe_ttm[t-4q]",
+    "operating_margin_change_yoy": "operating_margin_ttm[t]-operating_margin_ttm[t-4q]",
+    "earnings_or_margin_volatility_8q": "std(comparable quarterly earnings or margins, minimum 8 valid quarters)",
+    "financial_age_days": "signal_asof_date - latest_dependency_published_date"
+  },
+  "disallowed": "No EPS YTD subtraction, stock balance summation, artificial epsilon, present PE/PB inversion, non-PIT future data, global winsorization, or train-time transformation."
+}

@@ -1,0 +1,21 @@
+{
+  "checked_at": "2026-10-23",
+  "research_only": true,
+  "publication_allowed": false,
+  "source": "FinMind",
+  "api": "https://api.finmindtrade.com/api/v4/data",
+  "docs": "https://finmind.github.io/tutor/TaiwanMarket/Fundamental/",
+  "terms_url": "https://finmindtrade.com/",
+  "datasets": {
+    "income": "TaiwanStockFinancialStatements",
+    "balance": "TaiwanStockBalanceSheet",
+    "cashflow": "TaiwanStockCashFlowsStatement",
+    "revenue": "TaiwanStockMonthRevenue",
+    "valuation": "TaiwanStockPER",
+    "dividend": "TaiwanStockDividend"
+  },
+  "authorization": "Only bounded per-symbol API with existing token; whole-market tier not assumed",
+  "unit_scope_publication_revision": "NOT_VERIFIED",
+  "terms_for_research_storage_training": "NOT_VERIFIED",
+  "live_api_smoke": "NOT_VERIFIED"
+}

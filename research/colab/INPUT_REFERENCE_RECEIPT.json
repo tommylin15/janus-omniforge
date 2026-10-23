@@ -1,0 +1,34 @@
+{
+  "captured_date": "2026-10-23",
+  "evidence_type": "DRIVE_CURRENT_AND_MANIFEST_READ_ONLY",
+  "root_folder": "janusChatGPT",
+  "canonical_pointer_file_id": "1Ke5mhE5RKk9tivfrOqpi76NSQo1pcLLg",
+  "current_json_sha256": "0b64ac6927805fb98260121da94624d7e08ac423f0aa13b8349d4c304f0135cd",
+  "release": "release-0bbae8d9c1ca7d8d",
+  "manifest_file_id": "1A2a9XDpe1rLM28_Gq70jdsTimVYCqA6y",
+  "manifest_sha256": "7b80d441efabbc307d359ea5d15cd9202ccee5e2930cf4c3cc337496c95eb542",
+  "manifest_release_id": "0bbae8d9c1ca7d8d",
+  "manifest_version": "3.1.0",
+  "manifest_publication_allowed": false,
+  "manifest_tables_reported_rows": {
+    "corporate_actions": 891,
+    "financials": 1181442,
+    "ohlcv": 799468,
+    "revenue": 92910,
+    "valuation": 78730
+  },
+  "manifest_referenced_files": 155,
+  "manifest_file_count_by_dataset": {
+    "conflicts.csv": 1,
+    "corporate_actions": 32,
+    "financials": 15,
+    "invalid.csv": 1,
+    "ohlcv": 21,
+    "revenue": 49,
+    "valuation": 36
+  },
+  "parquet_data_readback": "NOT_VERIFIED",
+  "all_referenced_sha256_readback": "NOT_VERIFIED",
+  "live_source_smoke": "NOT_VERIFIED",
+  "notes": "Drive CURRENT and manifest were read; 155 individual files were not downloaded/hashed; reported row counts are manifest metadata, not fresh verified Parquet counts."
+}
