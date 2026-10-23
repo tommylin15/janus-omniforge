@@ -27,10 +27,13 @@ def poll_backup(connection, state):
     if status == 'succeeded':
         if size is None or size < 1024 or not checksum or len(checksum) != 64 or completed is None:
             raise ValueError('invalid completed backup receipt')
-        # Run retention cleanup after successful backup
-        cleanup = cleanup_old_backups()
+        # Confirmation is read-only: never couple the Controller occurrence
+        # transition to GCS retention inventory/deletion permissions. A storage
+        # failure used to leave completed VM backups stuck in 'running'.
+        # Backup retention is a separate guarded operation, not a poll side effect.
         return {**state, 'status': 'succeeded', 'size_bytes': size, 'sha256': checksum,
-                'completion_time': completed.isoformat(), 'retention_cleanup': cleanup}
+                'completion_time': completed.isoformat(),
+                'retention_cleanup': {'status': 'not_run_in_reconcile'}}
     if status == 'failed':
         return {**state, 'status': 'failed', 'reason': 'backup_executor_failed'}
     return {**state, 'status': 'running', 'backup_status': status}
