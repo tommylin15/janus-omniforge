@@ -194,3 +194,11 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 | C1A-05 | PG publication/control/schema | \`LIVE_METADATA_READBACK\`，且 migration ledger 命名漂移待釐清 | KEEP；禁止自動 migration / schema cleanup |
 
 **本輪沒有 \`ABSENT\` 的 Core/Mart 名稱；沒有達到 C1-B 退役 gate 的表。** 雙表重疊、Mart 最近讀者和資料參照、GCS generation、影響測試及獨立復原仍需真實證據。下一個合理步驟是**以現有唯讀查詢通道有界驗證 Mart reader / publication references 與近30天 Cloud Scheduler/Run receipts**，不是直接 DROP/DELETE。
+
+---
+
+## 11. C1-A 前置 metadata 查詢閘門正式完成（2026-10-23）
+
+[整合唯讀 Workflow #39950278408](https://github.com/tommylin15/janus-omniforge/actions/runs/39950278408) 已 **success**，\`janus_governance_c0_live_metadata_join_v1=PASS\`、離線測試 6 passed。現有 dev WIF 身分分工：\`janus-ingestion-core\` 讀 PG metadata、Core Iceberg、全 Catalog；\`janus-intelligence-mart\` 讀 Mart metadata，再交叉比對同 Git SHA / Catalog name，不擴張 IAM。詳細 93 PG relations、728 PG fields、379 constraints、149 indexes、66 migration values、9 Core、11 Mart 讀回見 [C0 §16–§18](data-governance-c0-2026-10-23.md)。
+
+**C1-A 現在不再因「未知實際 Core/Mart 表數」卡住。** 20 張全在 Live Catalog 有登錄；11 張 Mart Metadata 可讀、其中 \`mart_alternative_sentiment_v1\` 與 \`mart_daily_brief_v1\` 無 current snapshot 而 rowcount=NULL（不推定 0）。真正剩餘 C1-B 閘門是**每個候選的現役讀者／writer/30天 job/scheduler 依賴、publication index reference、同鍵/單位差異、GCS 備份重建和回切收據**；此外 PostgreSQL 66 applied migration 名稱相對 68 code 檔案仍有既知差異需釐清。此次只完成 metadata 查詢入口與有界基準，不進行清掃；**可實體刪除的核准名單 = 空**。
