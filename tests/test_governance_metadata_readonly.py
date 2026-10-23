@@ -78,3 +78,18 @@ def test_reader_dependency_probe_limits_scope_to_aggregates():
     assert "pg_catalog.pg_stat_user_tables" in module.PROBE
     assert "requested_symbols" not in module.PROBE
     assert "scope_id" not in module.PROBE
+
+def test_nonterminal_lease_probe_is_bounded_and_metadata_only():
+    assert '"control_nonterminal_lease_30d"' in module.PROBE
+    assert '"control_nonterminal_occurrence_link_30d"' in module.PROBE
+    assert '"control_active_batch_occurrences_30d"' in module.PROBE
+    assert "claimed_until > clock_timestamp()" in module.PROBE
+    assert "NO_LEASE" in module.PROBE and "EXPIRED_LEASE" in module.PROBE
+    assert "OCCURRENCE_LINKED" in module.PROBE
+    assert "interval '48 hours'" in module.PROBE
+    assert "LIMIT 101" in module.PROBE
+    assert "execution_id::text" in module.PROBE
+    # Only the join key is used inside PG; no raw UUID is selected.
+    assert "SELECT execution_id,trigger_type,status,claimed_until" in module.PROBE
+    assert "SELECT state->>'job',state->>'status',state->>'execution'" in module.PROBE
+    assert "UPDATE control.executions" not in module.PROBE
