@@ -501,3 +501,30 @@
 - **Mart specialist artifact retention：需獨立處理。** `jobs/intelligence-mart/intelligence_mart/retention.py` 目前取 `status IN ('queued','running','retrying')` 的 execution_id 當 `active_executions`，沒有在此處使用 `claimed_until`，並傳給 `clean_specialist_artifacts`；可能造成 artifact retention 過度保護。這是**靜態可確認的邏輯落差**，但尚未查證受影響物件的實際數量／容量；不授權本輪直接改刪除行為。與 Stage 48h 策略、Core manifest guard 應分開治理。
 
 本輪有界的 P0 **PG_LEASE 分群已取得實機證據**；Cloud Run 30 日完整分頁、6 Controller occurrence 的 batch 身分、其餘十張 Mart 實際讀者/部署修訂版與有界證據須採 [#39956176106](https://github.com/tommylin15/janus-omniforge/actions/runs/39956176106) 讀回後再判定。未清除任何 PG 狀態、GCS 物件、Iceberg 表；**C1-B 仍 NOT_READY，准刪實體 0**。
+
+
+### 20.4 最終受控唯讀收據：P0 Cloud Run 分頁完成／P1 Mart 程式與部署資訊（2026-10-23 12:56 UTC）
+
+**權威收據：** [Actions #39956176106](https://github.com/tommylin15/janus-omniforge/actions/runs/39956176106)，job `120423747240`，`conclusion=success`，`source_git_sha=1ab6e8667e5f40cc2d7a1a64c5ba7254e9d38c09`，**12 tests passed**。產物 `governance-job-reconcile-readonly-receipt.json`、`governance-mart-reader-inventory.json` 與 PG／Mart metadata 和 join summary 均由原 Workflow 寫成 Artifact。Join summary `status=PASS`，`lease_job_reconcile_status=PASS`、`mart_code_scan_status=CODE_SCAN_AND_DEPLOYED_METADATA_PASS`，`data_mutations=0,iam_changes=0,new_resources=0`。PASS 僅限本次有界查詢，不代表每張表已證實零讀者或每筆 PG 執行有 Cloud Run exact match。
+
+**P0（2026-10-23T12:56:18+00:00）：** 57 筆非終態 PG Execution 全部仍 `NO_LEASE`，四分群與 §20.1 相同。Controller 的六筆未終態 occurrence 是 `batch=ledger-backup`、`state.job=janus-batch-controller`、`state.execution` 未提供；應依 ledger-backup 專用流程核對，**不能直接以 Cloud Run execution list 反推這六筆完成或失敗**。57 筆與六筆為不同集合。Cloud Run 最近30日獨立完整分頁 readback：
+
+| Existing Cloud Run Job | SUCCEEDED | FAILED_OR_CANCELLED | 完整掃描 execution | Pagination |
+|---|---:|---:|---:|---|
+| `janus-batch-controller` | 581 | 42 | 623 | complete |
+| `janus-ingestion-core` | 359 | 74 | 433 | complete |
+| `janus-intelligence-mart` | 269 | 35 | 304 | complete |
+| `janus-private-pipeline` | 166 | 18 | 184 | complete |
+| `janus-research-big-move-500` | 0 | 0 | 0 | complete |
+
+表內是 **Cloud Run execution 的 `createTime` 最近30日範圍**，不可直接等同 PostgreSQL `control.executions` 270 筆、也不能宣稱 57 筆個別都找到遠端 Job 終態。若 Cloud Run 欄位無精確映射，receipt 明確維持 `pg_to_cloud_full_row_join=NOT_AVAILABLE_WITHOUT_EXPLICIT_OCCURRENCE_LINK`。
+
+**P1（十張 Mart）：** 受控掃描目前 checkout 的 478 支程式／SQL／配置檔；每個歷史 Mart identifier 各有 **2 筆 literal-or-handle code references**，合計20（不是20名實際使用者，也不保證部署映像等於最新main）。確認唯讀部署 metadata：
+
+- `janus-api`：`janus-api-00599-cil`（`latestReadyRevision`）、image SHA256 `9e6bbccab1a77c126f7b8d771e2434d53b86285b42715991f4db7db1e78f8a7f`，generation 600。
+- `janus-intelligence-mart`：image SHA256 `e4f48f93e060dbe484b785845f0698cc381d1c2ad92dc61951358327a597128e`，generation 290。
+- `janus-ingestion-core`：image SHA256 `2c61164a8da4d8eb743f9fa27f074798a2cbc24bb3650bc4f77ea0e9bd7be1b1`，generation 363。
+
+這些證明實機資源/映像版本存在，**尚未**從 image digest 反解編譯後的 source SHA、未取得十表各自近30天的實際 SQL scan/reader identity。對其餘十張 Mart，狀態維持 `LIVE_CATALOG_PRESENT / CODE_REFERENCE_OBSERVED / ACTUAL_PER_TABLE_READER_UNKNOWN`；不能因僅有共用維護/宣告引用、PG scoped index無其名稱，就誤標 `NO_READERS`、`SAFE_TO_DROP` 或 C1-B PASS。下一步只需對有具體讀者/引用的表有界補查 deploy→code→log/manifest，無證據不無限追加假設性查核。
+
+**本階段收斂：** `P0_LEASE_CLASSIFICATION=LIVE_PASS`、`P0_CLOUD_RUN_30D_INVENTORY=PASS`、`P0_EXACT_PG_TO_CLOUD_PER_EXECUTION=UNKNOWN`、`P1_STATIC_AND_DEPLOYED_METADATA=PASS`、`P1_TEN_TABLE_ACTUAL_RUNTIME_READER=UNKNOWN`。保留 Stage 48h 有效租約/重讀政策；實刪授權依然 **0**。
