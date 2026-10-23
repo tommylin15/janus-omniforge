@@ -6,10 +6,11 @@
 
 1. `03_收檔驗收與Drive同步.ipynb`：掛載 Drive；固定 release、研究 run 與 Git SHA；逐檔 SHA + footer row count；可選用 GitHub Actions artifact 比對與唯讀保存。預設不需要 GitHub Token。
 2. `04_資料包全量Preflight.ipynb`：呼叫 `label_four_models.py --verify-only` 和 `market_sector_package_preflight.py`；2025-01 至 2026-09 一次全期。
-3. `05_四模型XY建立.ipynb`：呼叫既有 `label_four_models.run()`；以 `training_panel` 實算各模型 X/Y 並分開保存，記錄 34 個 X 指定席位的可用性；Valuation 缺證據型 mapping 時標 BLOCKED。
-4. `06_Quant訓練.ipynb`、`07_Risk研究驗證.ipynb`、`08_Fundamental訓練.ipynb`、`09_Valuation訓練.ipynb`：呼叫 `janus_train.run()`；比較第 5 階段 X/Y 的 SHA，一致才結案。`mode=retrospective`，不冒稱真正 forward OOS。四支可以依順序分別執行。
-5. `10_模型結果同步Drive.ipynb`：訓練產物 hash 檢查後歸檔到 `janusChatGPT/模型研究/<role>/<run_id>/<fingerprint>/`。
-6. `11_候選模型評估.ipynb`：依 `reports/result.json`、baseline、成對時間區塊增益、切片回報研究建議，不更動 Risk ACTIVE。
+3. `05_四模型XY建立.ipynb`：呼叫既有 `label_four_models.run()`；以 `training_panel` 實算各模型 X/Y 並分開保存，記錄原 34 個 X 指定席位的可用性；Valuation 缺證據型 mapping 時標 BLOCKED。
+4. `05.1_研究候選因子擴充.ipynb`：在 05 後、06 前執行。Quant +4→15、Risk +4→12、Fundamental +3→13；建立獨立 `X_extended.parquet`、每角色 `feature_order`/X SHA/原 Y SHA 收據及 immutable research fingerprint。不重算 Y；Valuation 仍 5 欄。05.1.1 的結果 `PASS_RESEARCH_ONLY` 是 06～09 的來源驗證門檻。
+5. `06_Quant訓練.ipynb`、`07_Risk研究驗證.ipynb`、`08_Fundamental訓練.ipynb`：讀 05.1.1 擴充 X 與 05 原 Y，驗每個 manifest、特徵順序、鍵值、X/Y SHA 後，以 **Stage 03 釘選 Git SHA** 中 `janus_train.fit_one()` 訓練新的研究候選；不會偷偷回退成 34 席位。輸出至 `training_05_1/`，供 Stage 10/11 歸檔評估。`09_Valuation訓練.ipynb`：仍讀 05 的原五欄 X/Y，且需具備 verified financial mapping/cohort，否則 BLOCKED。全部僅 retrospective，非前瞻 OOS。
+6. `10_模型結果同步Drive.ipynb`：訓練產物 hash 檢查後歸檔到 `janusChatGPT/模型研究/<role>/<run_id>/<fingerprint>/`。
+7. `11_候選模型評估.ipynb`：依 `reports/result.json`、baseline、成對時間區塊增益、切片回報研究建議，不更動 Risk ACTIVE。
 
 **掛載路徑**：`/content/drive/MyDrive/給ai專用/janusChatGPT`，不是 `個人用`。只有 Stage 03 能建立新研究 run；如需重開新 run，將它的 `NEW_RUN=True`。不要切換 `ACTIVE_RUN` 的任何 SHA 去套用舊訓練資料。
 
@@ -20,3 +21,5 @@
 **已知驗證界線**：2026-10-23 初步檢查全部 155 個 CURRENT 引用檔 SHA 及 153 個 Parquet footer rows 已通過，但 `revenue/2022-09.parquet` 的 `unit_basis` physical schema 不一致。本套 Colab Stage 04 loader 能進一步確認是否可完整解碼。TWSE/TPEx 485 分區是前一輪預期基準，不得為湊基準修改資料。
 
 **本套版本的驗收**：Notebook JSON schema、所有 Python code cell 語法與基本契約的靜態檢查可在 ChatGPT 完成；沒有替你登入 Colab 執行 Google OAuth、也沒有宣稱 live Drive 全量 04～11 已 PASS。正式 runtime acceptance 以各 stage 的 `*_status.json` 與實際結果為準。
+
+**訓練變更治理（2026-10-23）**：05.1 預設候選全量研究 X 為 15/12/13 欄，並保留 Stage 05 原 11/8/10 baseline X 與 Y。Stage 06～08 不再以原版 `janus_train.run()` 重建 X；透過 05.1 receipt 的 `feature_order` + X SHA + Y SHA 綁定新研究訓練。09 不虛構估值新增 11 個候選。Stage 03 的 `cfg.git_sha` 保留為研究程式基底，新增 Notebook 本身由 05.1.1 / 訓練版本指紋區分；**正式推論與 Registry/ACTIVE 完全不改**。本次只完成程式與契約更新，Colab 真實全量驗收仍需執行。
