@@ -266,3 +266,29 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 | `mart.mart_scoped_analysis_v1` | `KEEP`，具138筆 PG index + API contract | 只核舊 snapshot replay / API 正向可用性，不因其他十張暫無 PG index 就推論無讀者 |
 
 **本輪不能做的事：** 批量把這57筆改 `failed`、刪除 Core/Mart 表、刪除 Stage/GCS 物件、停止既有 Job/Writer 或擴大 IAM／新增付費資源。Stage 與 Mart specialist artifact retention 的保護語意不同，後者的 status-only 差異需要實際影響證據，不把程式檢查缺口寫成已發生資料損失。C1-B 物理清掃核准 = **0**。
+
+
+### 13.3 最終驗證分級：P0 PASS、十 Mart 讀者仍按資產守門
+
+**最新 Live Workfow：** [#39956176106](https://github.com/tommylin15/janus-omniforge/actions/runs/39956176106)；job `120423747240`，`source_git_sha=1ab6e8667e5f40cc2d7a1a64c5ba7254e9d38c09`，12 offline tests passed、join `status=PASS`、零 data mutation／IAM change／新資源。完整細節及各 Job 確切30日終態計數見 [C0 §20.4](data-governance-c0-2026-10-23.md)。
+
+- **P0 PG lease：`LIVE_PASS`。** 41 queued +16 running＝57/57 `claimed_until IS NULL`，不符合有效 lease 的 Stage 防刪條件；58+ 筆不存在這類推論（6 筆另為 ledger-backup Controller occurrence），Stage apply 前仍需重讀。
+- **P0 Cloud Run Job 最近30日清冊：`PASS`。** 既有五個 Jobs 各自完整分頁，並核對 6 筆 Controller occurrence 都是 `ledger-backup`、沒有精確 Execution ref。**PG 57 筆逐筆 Cloud Run exact join 仍無必要對應鍵**，不能據此變更 PG 狀態；ledger-backup 應走自身 poll/reconcile。
+- **P1 Mart source-reference/部署清冊：`BOUNDED_PASS`。** 共掃 478 個現行 checkout 檔案；下列十個名稱各出現2個 `LITERAL_OR_HANDLE_ONLY` 引用。API、Mart、Ingestion 三個 dev 部署資源的 revision/digest 已唯讀讀回，但未取得 SQL-level 的**最近30日各表實際 reader/writer**，故不得標 `NO_READERS` 或允許 DROP。
+
+| Mart identifier（皆為 `mart.*`） | code reference hits | 目前可作出的判斷 |
+|---|---:|---|
+| `mart_screening_signals_v1` | 2 | `RETIRE_CANDIDATE/ACTUAL_READER_UNKNOWN`，screening 的其他 GCS/PG product 需分別看 |
+| `mart_core_alpha_v1` | 2 | `RETIRE_CANDIDATE/ACTUAL_READER_UNKNOWN` |
+| `mart_risk_portfolio_v1` | 2 | `KEEP_PROTECTED_PENDING`，Risk/Owner 邊界先保留 |
+| `mart_alternative_sentiment_v1` | 2 | `RETIRE_CANDIDATE/ACTUAL_READER_UNKNOWN`；catalog live but `current_snapshot=NULL` |
+| `mart_market_regime_daily_v1` | 2 | `RETIRE_CANDIDATE/ACTUAL_READER_UNKNOWN` |
+| `mart_sector_rotation_daily_v1` | 2 | `RETIRE_CANDIDATE/ACTUAL_READER_UNKNOWN` |
+| `mart_topic_trends_daily_v1` | 2 | `RETIRE_CANDIDATE/ACTUAL_READER_UNKNOWN` |
+| `mart_candidate_health_v1` | 2 | `RETIRE_CANDIDATE/ACTUAL_READER_UNKNOWN` |
+| `mart_daily_brief_v1` | 2 | `RETIRE_CANDIDATE/ACTUAL_READER_UNKNOWN`；catalog live but `current_snapshot=NULL` |
+| `mart_llm_narratives_v1` | 2 | `RETIRE_CANDIDATE/ACTUAL_READER_UNKNOWN` |
+
+**必要區別：** 命中兩個程式文字位置是引用線索，不是有兩名讀者，亦不代表有兩次讀取。部署 digest 讀回只證明實機的存在與版本，無自動 source SHA 對映或 request SQL trace。共用 `MartMaintenanceStore` 和 `retention.py` 對全部11表仍有動態讀取／維護路徑，應作實際保留依賴看待；如未有表級遙測，最多保留 `UNKNOWN`，不得依負面文字搜尋授予退役。
+
+**決策：** 將57筆非終態修復留在本輪之外的受控例外，不自動變更 queue/Job。P0 依已定義範圍結案，P1 完成可行的程式參照與部署唯讀盤點；十表退役許可及下一步現役讀者缺口仍 `PARTIAL`。只對具體發現的真實依賴/回復缺口繼續追查，不創造虛構 `0 READERS`。**C1-B 允許 DROP/DELETE 的資產仍 = 0**。
