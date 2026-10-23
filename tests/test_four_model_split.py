@@ -1,4 +1,4 @@
-"""v3.8.2 separated Colab collector / ChatGPT labeler contract tests.
+"""v3.8.4 separated Colab collector / ChatGPT labeler contract tests.
 
 Parquet integration requires pyarrow; if unavailable those tests skip explicitly.
 """
@@ -19,7 +19,7 @@ from label_four_models import run
 
 
 def _nb():
-    return json.loads((COLAB/'00_資料收集_v3.8.2_Colab.ipynb').read_text(encoding='utf-8'))
+    return json.loads((COLAB/'00_資料收集_v3.8.4_個股.ipynb').read_text(encoding='utf-8'))
 
 
 def test_colab_notebook_parses_compiles_and_has_no_research_y():

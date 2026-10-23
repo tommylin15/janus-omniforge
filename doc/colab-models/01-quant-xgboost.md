@@ -1,4 +1,4 @@
-> **最新 v3.8.2（2026-10-23）執行環境變更：** Colab 只負責資料採集、來源驗證、基本清理與不可變 Parquet；採用 `research/colab/00_資料收集_v3.8.2_Colab.ipynb`。四模型研究因子、貼標、X/Y、訓練與 OOS 改由 **ChatGPT Python 執行環境** 負責，貼標入口 `research/chatgpt/label_four_models.py`，共用模組 `factor_factory_v1.py`、`janus_precision.py`，模型介面 `janus_train.py`。ChatGPT 必須先取得可讀的真實 CURRENT、manifest 與全部 referenced Parquet；不能假設 Colab 的 /content/drive 在 ChatGPT 存在。既有各角色 Colab 研究 Notebook 保留作舊版候選，不再作為新流程建模入口。v3.8.2 本地測試 22 PASS、6 SKIP（缺 pyarrow），尚無 Colab live 或四模型全量 OOS，研究版不得發布、不得變動 Risk ACTIVE。詳細：[拆分說明](../research/four-model-collection-label-split-v382.md)。
+> **最新執行入口（2026-10-23）：** [四模型目前版本總索引](../research/00-四模型最新版本索引.md)；個股收檔／大盤產業收檔改為兩本 v3.8.4 Colab Notebook，ChatGPT 貼標使用 `label_four_models.py`（含產業 PIT preflight），四角色研究訓練使用 `janus_train.py`。本文件其他 v3.8.2 或更早 Colab 執行說明僅供歷史研究，模型正式發布另行驗收。
 
 # 01｜Quant 趨勢：XGBoost Colab 建模與 AI 指令
 
