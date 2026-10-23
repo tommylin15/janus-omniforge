@@ -47,6 +47,51 @@ status="PARTIAL"
 try:
     load_postgres_bundle("JANUS_MART_POSTGRES_BUNDLE", {
         "CATALOG_DB_PASSWORD":("mart_catalog_password","catalog_password")})
+    # Existing Mart publication role receives SELECT only on approved metadata
+    # columns (migrations 035/038); no owner/symbol/scope_id/URI is selected.
+    load_postgres_bundle("JANUS_MART_POSTGRES_BUNDLE", {
+        "PUBLICATION_DB_PASSWORD":("mart_publication_password","publication_password")})
+    import psycopg
+    from intelligence_mart.runtime import _settings
+    try:
+        cfg=_settings("PUBLICATION_DB")
+        cfg["dbname"]=cfg.pop("name")
+        with psycopg.connect(**cfg,sslmode=os.environ.get("PUBLICATION_DB_SSLMODE","require"),
+                             connect_timeout=5,autocommit=True,
+                             options="-cdefault_transaction_read_only=on") as conn:
+            for sec,query in [
+                ("publication_index_all", """
+                    SELECT table_identifier,publication_status,analysis_outcome,
+                           count(*)::bigint,min(analysis_as_of)::text,
+                           max(analysis_as_of)::text,
+                           count(DISTINCT iceberg_snapshot_id)::bigint
+                      FROM publication.mart_report_index
+                     GROUP BY table_identifier,publication_status,analysis_outcome
+                     ORDER BY table_identifier,publication_status,analysis_outcome LIMIT 51
+                """),
+                ("publication_index_30d", """
+                    SELECT table_identifier,publication_status,analysis_outcome,
+                           count(*)::bigint,max(analysis_as_of)::text
+                      FROM publication.mart_report_index
+                     WHERE analysis_as_of>=current_date-interval '30 days'
+                     GROUP BY table_identifier,publication_status,analysis_outcome
+                     ORDER BY table_identifier,publication_status,analysis_outcome LIMIT 51
+                """)]:
+                try:
+                    conn.execute("BEGIN READ ONLY")
+                    conn.execute("SET LOCAL statement_timeout='10000ms'")
+                    result=conn.execute(query).fetchall()
+                    conn.execute("ROLLBACK")
+                    if len(result)>50:
+                        emit(sec,[{"error_class":"RESULT_LIMIT_EXCEEDED"}],"BLOCKED")
+                    else:
+                        emit(sec,[list(row) for row in result],"PASS")
+                except Exception as e:
+                    try:conn.execute("ROLLBACK")
+                    except Exception:pass
+                    emit(sec,[err(e)],"BLOCKED")
+    except Exception as e:
+        emit("publication_reader_connection",[err(e)],"BLOCKED")
     from intelligence_mart.storage import sql_catalog_from_environment
     catalog = sql_catalog_from_environment()
     try:
