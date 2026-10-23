@@ -1,0 +1,88 @@
+name: Risk ACTIVE postlaunch immutable evidence readback
+on:
+  push:
+    branches: [main]
+    paths: ['ops/risk-active-postlaunch-readback.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-risk-readonly-inspection
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check read-only request
+        run: |
+          jq -e '.intent=="risk-active-postlaunch-readback" and .run_id=="39896276392" and .read_only==true and .no_owner_payload==true and .no_gcp_mutation==true' ops/risk-active-postlaunch-readback.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read GCS model pointer and real selected-stock predictions
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          project=gen-lang-client-0593591102
+          bucket=gen-lang-client-0593591102-dev-mart
+          gcloud storage cat "gs://$bucket/risk-models/registry/risk-active.json" --project "$project" > /tmp/ptr.json
+          jq -e '.mode=="ACTIVE" and .model_sha256=="36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044" and .source_git_sha=="6739c18c84497622fb03e6be7d25a6fc3f0ca394"' /tmp/ptr.json >/dev/null
+          gcloud run jobs executions describe janus-intelligence-mart-lmmqq --project "$project" --region=us-central1 --format=json > /tmp/canary-ex.json
+          jq -e '.status.succeededCount==1 and (.status.failedCount//0)==0' /tmp/canary-ex.json >/dev/null
+          gcloud logging read 'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="janus-intelligence-mart-lmmqq"' --project "$project" --freshness=4h --limit=250 --format=json > /tmp/canary-logs.json
+          manifest_uri="$(jq -r '[.[] | (.jsonPayload // (.textPayload|fromjson?)) | select(type=="object" and .component=="intelligence-mart" and .operation=="risk-target-acceptance" and (.artifact_uri|type=="string")) | .artifact_uri] | first // empty' /tmp/canary-logs.json)"
+          [[ "$manifest_uri" == "gs://$bucket/executions/"*"/specialist-manifest.json" ]]
+          gcloud storage cat "$manifest_uri" --project "$project" > /tmp/manifest.json
+          risk_uri="$(jq -r '.risk_active.artifact_uri // empty' /tmp/manifest.json)"
+          quality_uri="$(jq -r '.risk_quality.artifact_uri // empty' /tmp/manifest.json)"
+          [[ "$risk_uri" == "gs://$bucket/risk-active/"*".json" ]]
+          [[ "$quality_uri" == "gs://$bucket/risk-quality/"*".json" ]]
+          gcloud storage cat "$risk_uri" --project "$project" > /tmp/risk.json
+          gcloud storage cat "$quality_uri" --project "$project" > /tmp/quality.json
+          jq -e '.artifact_kind=="mart_risk_active_predictions_v1" and .publication_status=="FIRST_RELEASE_APPROVED" and (.rows|length)>0 and .target_count==(.ordinary_target_count + .excluded_nonordinary_target_count) and .ordinary_target_count==((.rows|length)+.excluded_ordinary_target_count)' /tmp/risk.json >/dev/null
+          jq -e '.artifact_kind=="mart_risk_8factor_quality_v1" and .ready_symbols>0 and .owner_fields_exposed==false and .ordinary_targets==(.rows|length)' /tmp/quality.json >/dev/null
+          python3 - <<'PY'
+          import json,hashlib,os
+          from pathlib import Path
+          m=json.loads(Path('/tmp/manifest.json').read_text())
+          p=json.loads(Path('/tmp/risk.json').read_text())
+          q=json.loads(Path('/tmp/quality.json').read_text())
+          for key,file in [('risk_active','risk'),('risk_quality','quality')]:
+              observed='sha256:'+hashlib.sha256(Path('/tmp/'+file+'.json').read_bytes()).hexdigest()
+              assert observed==m[key]['artifact_hash'], 'immutable bytes must match manifest'
+          assert m['analysis_as_of']==q['analysis_as_of']==p['analysis_as_of']
+          assert p['source_manifest_hash']==m['source_core_manifest_hash']
+          assert p['model_sha256']=='36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044'
+          stats={'status':'PASS','analysis_as_of':p['analysis_as_of'],
+             'target_count':p['target_count'],'ordinary_target_count':p['ordinary_target_count'],
+             'excluded_nonordinary':p['excluded_nonordinary_target_count'],
+             'excluded_ordinary':p['excluded_ordinary_target_count'],
+             'real_predictions':len(p['rows']),'quality_ready_count':q['ready_symbols'],
+             'risk_ohlcv_rows_read':q['scan_receipt']['rows_read'],
+             'gcs_hash_and_core_provenance':'PASS','owner_symbols_exposed':False}
+          print('RISK_GCS_AGGREGATE_EVIDENCE='+json.dumps(stats,sort_keys=True))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as h:h.write('Risk immutable GCS '+json.dumps(stats,sort_keys=True)+'\n')
+          PY
+      - name: Read PG ACTIVE result and API live traffic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          project=gen-lang-client-0593591102
+          gcloud run jobs executions describe janus-intelligence-mart-z89xx --project "$project" --region=us-central1 --format=json >/tmp/pg-ex.json
+          jq -e '.status.succeededCount==1 and (.status.failedCount//0)==0' /tmp/pg-ex.json >/dev/null
+          gcloud logging read 'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="janus-intelligence-mart-z89xx"' --project "$project" --freshness=4h --limit=200 --format=json > /tmp/pg-logs.json
+          jq -e '[.[] | (.jsonPayload // (.textPayload|fromjson?)) | select(type=="object" and .component=="intelligence-mart" and .operation=="risk-activation" and .mode=="ACTIVE" and .status=="PASS" and .model_sha256=="36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044")] | length>0' /tmp/pg-logs.json >/dev/null
+          gcloud run services describe janus-api --project "$project" --region=us-central1 --format=json >/tmp/api.json
+          jq -e '[.status.traffic[]|select((.percent//0)>0)]|length==1 and .[0].percent==100' /tmp/api.json >/dev/null
+          url="$(jq -r .status.url /tmp/api.json)"
+          test -n "$url"
+          curl -fsS "$url/health" >/dev/null
+          status="$(curl -s -o /dev/null -w '%{http_code}' "$url/api/v1/me/profile")"
+          [[ "$status" == 401 || "$status" == 403 ]]
+          echo 'RISK_PG_SWITCH_EXECUTION_LOG=PASS; API_TRAFFIC_HEALTH_NEGATIVE_AUTH=PASS' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Owner-authenticated Risk positive UI readback=NOT_VERIFIED' >> "$GITHUB_STEP_SUMMARY"
