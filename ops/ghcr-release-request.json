@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "15d024e76b8533d693f49cdc2d2e87b7556ca37b",
-  "purpose": "Admin UI full Release unblock: Risk API roll-forward source_projection_hash test expected raw latest baseline hash even though approved Risk is merged from a prior immutable row. Verify exact merged projection hash while preserving source integrity and publish four GHCR images only; no traffic/Jobs/IAM/storage mutation.",
+  "sha": "3a326225ff7142ea1dda658cb84e528a7450e304",
+  "purpose": "Admin full Release unblock: Risk roll-forward test now checks verified combined source projection and signed API response excluding display-only data_status/freshness; one failure in #39906632427 corrected. Full Python/Flutter and four GHCR anonymous digest gates, no API traffic, Jobs, IAM or storage mutation.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 4
+  "request_attempt": 5
 }
