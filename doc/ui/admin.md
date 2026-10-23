@@ -4,6 +4,8 @@
 
 本輪範圍是現役 Admin 全功能盤點、精簡操作及同批驗收。允許必要 UI 重構，不新增第二套排程／資料庫。以下為目標契約，未經測試、同來源發布與真實驗收不得視為已上線。
 
+**2026-10-23 本輪結案：CLOSED／PASS（dev 可用性範圍）**。完整 Release [#39907341839](https://github.com/tommylin15/janus-omniforge/actions/runs/39907341839)、同來源 0% Candidate [#39908830013](https://github.com/tommylin15/janus-omniforge/actions/runs/39908830013)、Auth Boundary [#39909168202](https://github.com/tommylin15/janus-omniforge/actions/runs/39909168202)、四 Jobs 8/8 真實 Canary [#39909889109](https://github.com/tommylin15/janus-omniforge/actions/runs/39909889109)、API 單次 100% 正式切流 [#39913542437](https://github.com/tommylin15/janus-omniforge/actions/runs/39913542437) 均 PASS；使用者於 2026-10-23 依最新約定的「Admin 能登入、四頁可開啟且資料能顯示」實際試用後明確回報「驗收完成」。這是**使用者回報**的手動正向驗收；不冒稱十項子功能、每一個變更操作或手機／桌面組合均有逐項自動化錄證。使用者已豁免刻意新→舊→新流量演練，仍保留失敗時回復上一版的可逆能力；`rollback_rehearsal=NOT_REQUESTED`。詳細收據見 [Operations](../spec/operations-and-testing.md)，本輪不新增其他無證據追查待辦。
+
 ### 四個主頁、十項功能
 
 | 主頁 | 功能 | 日常任務 |
@@ -49,7 +51,7 @@
 
 ### 整批驗收
 
-完成 UI、API／Controller、必要資料契約、tests 與文件後集中驗收：4頁10功能、舊深連結相容、白話狀態／未知、手機／桌面、最新排序／7日邊界、日週月與未啟用、時間／耗時／安全log、逾期與例外、手動去重／依賴／啟停隔離、User/Admin／Owner／secret邊界、現有六桶盤點及損益功能回歸。完整 Release／同SHA candidate／auth／受控發布／回滾及登入 Admin 正向讀回完成才 CLOSED。不重做已結案 Stage 清理；長時間遠端任務已啟動後依 PROJECT_RULES §10 交接。
+完成 UI、API／Controller、必要資料契約、tests 與文件後集中驗收：4頁10功能、舊深連結相容、白話狀態／未知、手機／桌面、最新排序／7日邊界、日週月與未啟用、時間／耗時／安全log、逾期與例外、手動去重／依賴／啟停隔離、User/Admin／Owner／secret邊界、現有六桶盤點及損益功能回歸。完整 Release、同 SHA candidate／auth、既有 dev 受控發布、健康／來源讀回及本輪已核准的使用者正向可用性驗收均通過才 CLOSED；dev API 可採使用者核准的單次切流並保留失敗恢復，不要求刻意來回回滾演練。歷史詳細驗收要求仍為品質參考，不得據此冒稱所有未獨立實測的子情境已 PASS。不重做已結案 Stage 清理；長時間遠端任務已啟動後依 PROJECT_RULES §10 交接。
 
 ## 9.0 Target workspace
 
