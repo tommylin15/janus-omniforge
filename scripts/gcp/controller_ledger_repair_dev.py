@@ -335,9 +335,16 @@ def main():
             journal["phase"]="RESTORED_OLD_IMAGE";save()
         elif paused:
             raise RuntimeError("controller_repair_preflight_unknown_lease_retained")
+        else:
+            # The existing Scheduler/job was never changed. Verify their
+            # fingerprint before safely releasing the global deployment lease.
+            if scheduler_hash and gcp.scheduler_fingerprint(gcp.scheduler())!=scheduler_hash:
+                raise RuntimeError("controller_repair_preflight_schedule_drift")
+            journal["phase"]="PREFLIGHT_BLOCKED_NO_MUTATION"
+            save()
         raise
     finally:
-        if journal["phase"] in ("PASS","RESTORED_OLD_IMAGE"):
+        if journal["phase"] in ("PASS","RESTORED_OLD_IMAGE","PREFLIGHT_BLOCKED_NO_MUTATION"):
             gcp.command(gcp.LEASE+["release","--safe-to-release"])
             held=False
             journal["global_lease_released"]=True;save()
