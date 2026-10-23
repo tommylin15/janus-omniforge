@@ -172,3 +172,25 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 - **Iceberg：** 本回合未取回 \`catalog.iceberg_tables\` **同時涵蓋 core+mart namespace** 的當前 catalog entries，也沒有每張表的實際 current snapshot/schema/partition spec/summary 讀回；直到取得不可標 \`ABSENT\` 或 \`LIVE_CONFIRMED\`。
 - **阻擋原因：** 目前連接的 GCP 工具無通用唯讀 PG/Iceberg metadata action，Janus Dev Read-only v2 的 \`janus_sources\` 返回內部錯誤；既有 GitHub 憑證能讀取歷史 Action log，**不等於擁有 direct GCP SQL 授權**。不要將工具限制誤寫成 GCP permission denied。
 - **清掃 gate：** \`C1-B NOT_READY\`、**本輪新增批准實刪項目 = 0**；新的歷史證據可用於先保護不應清除的資產，不能反向用來批准破壞性操作。
+
+---
+
+## 10. C0-Live 補驗突破：九 Core＋十一 Mart 實存 Metadata 收據（2026-10-23）
+
+新的既有 dev GitHub WIF 唯讀查詢通道見 [C0 §16–§17](data-governance-c0-2026-10-23.md)，真實執行而非推算：
+- [PG/Catalog #39948922788](https://github.com/tommylin15/janus-omniforge/actions/runs/39948922788) 讀到 PG 93 relations、728 cols、379 constraints、149 indexes、66 applied migrations；Iceberg catalog 共 20 entries（Core 9、Mart 11），Core 9 張 schema/spec/snapshot metadata 可讀。 \`information_schema\` 是權限受限檢視，不能推論全庫只有四表。
+- [Mart #39949570989](https://github.com/tommylin15/janus-omniforge/actions/runs/39949570989) 以 \`janus-intelligence-mart\` 身分讀到 11/11 張 Mart metadata（共同各 23 fields；共同 \`analysis_date:month\` + \`scope_id:bucket[32]\`）。
+- \`mart_alternative_sentiment_v1\`、\`mart_daily_brief_v1\` **Live Catalog / table metadata 存在，但 current snapshot=NULL**，rowcount 一律 \`UNKNOWN/NULL\`，不可宣稱 0 筆或 \`ABSENT\`。其餘九表分別具有 current snapshot，歷史研究/published index/retention 仍須確認。
+- Migration 比對發現 Live ledger 缺主線 \`030/031/034\` 同名值、Live \`049_batch_skipped_state\` 與 repo \`049_batch_occurrence_skipped_status\` 命名差異；**不得擅自執行 SQL migrations**。
+
+### 10.1 C1-A 候選即時分類修訂（有明確 Live，而非全部 UNKNOWN）
+
+| C1-A ID | 原候選 | 現時證據分類 | 安全決策 |
+|---|---|---|---|
+| C1A-01 | \`core.market_volume_v1\` vs \`core.ohlcv_v1\` | \`LIVE_PRESENT_BOTH; DIFFERENT_FIELDS_AND_HISTORICAL_DEPTH\`（10/23 Core 163544 vs 200926；同鍵值 parity 未執行） | CONSOLIDATE_CANDIDATE_ONLY；**禁刪** |
+| C1A-02 | \`mart.mart_scoped_analysis_v1\` | \`LIVE_PRESENT_SNAPSHOT_138_ROWS; PG_PUBLICATION_CONSTRAINT_PRESENT\`（約束內容仍待核） | KEEP_DEPENDENCY_PENDING；**禁刪** |
+| C1A-03 | 其餘十張歷史 Mart 表 | \`LIVE_CATALOG_PRESENT_ALL\`：八張有 snapshot，兩張無 snapshot（詳 C0 §17） | RETIRE_CANDIDATE，仍缺最近30日 reader/last writer、備份/rebuild、可回復；**十張全部禁刪** |
+| C1A-04 | Alias / 候選 X 特徵 | \`34_X_SLOTS_PROTECTED\`；Core financial PIT/provenance 時間欄實存 | KEEP／ALIAS_CANDIDATE；**禁刪欄** |
+| C1A-05 | PG publication/control/schema | \`LIVE_METADATA_READBACK\`，且 migration ledger 命名漂移待釐清 | KEEP；禁止自動 migration / schema cleanup |
+
+**本輪沒有 \`ABSENT\` 的 Core/Mart 名稱；沒有達到 C1-B 退役 gate 的表。** 雙表重疊、Mart 最近讀者和資料參照、GCS generation、影響測試及獨立復原仍需真實證據。下一個合理步驟是**以現有唯讀查詢通道有界驗證 Mart reader / publication references 與近30天 Cloud Scheduler/Run receipts**，不是直接 DROP/DELETE。
