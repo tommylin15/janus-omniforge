@@ -294,3 +294,17 @@ def test_revision_cleanup_never_calls_cloud_build_or_registries():
     assert "builds submit" not in source
     assert "artifacts docker images delete" not in source
     assert '"run", "revisions", "delete"' in source
+
+
+def test_four_model_ci_uses_research_dependencies_and_real_parquet():
+    """Research-only labelers/tests must never run in the API dependency lane."""
+    expected = {"tests/test_four_model_original_factory_v382.py",
+                "tests/test_four_model_precision_v382.py",
+                "tests/test_four_model_split.py"}
+    for path in ["research/chatgpt/label_four_models.py",
+                 "research/colab/00_資料收集_v3.8.2_Colab.ipynb",
+                 "tests/test_four_model_split.py"]:
+        rows = v2.ci_matrix([path])["include"]
+        assert [row["group"] for row in rows] == ["research"]
+        assert rows[0]["requirements"] == ["requirements-research-ci.txt"]
+        assert expected <= set(rows[0]["tests"])
