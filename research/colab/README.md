@@ -2,6 +2,10 @@
 
 2026-10-20：新研究路徑為 **官方 TWSE／TPEx → Colab Python → 私有 Drive 每月資料夾 → Colab 五分析師**。GAS／GAS Loader 已退役，不需要 GAS MCP、Apps Script API 或 GCP Job。Colab MCP 可用時可作選配操控介面，**不是**採集或訓練前置條件；目前 ChatGPT 無已連線的 Colab MCP，尚無 Colab 真實執行收據。
 
+## 2026-10-23｜四模型最後一步研究因子工廠（v3.8 候選）
+
+已將 Colab 單一採集 Notebook 最後加一格共用特徵派生；候選 [v3.8 ZIP（Notebook+Python+targeted tests）](https://drive.google.com/file/d/1QfCs0zeReUlp3hJzgVqsZv75xab40G2Z/view) 已存 `janusChatGPT/CoLab程式`。**Drive 原 v3.6 Notebook 未覆寫**，且擴充前備份已放在 `CoLab程式/_archive`；Colab 採集與全量因子實跑尚未驗證。v3.8 在一般增量採集後預設 `FACTOR_BUILD=True`，可設 `FACTOR_ONLY=True` 不重抓舊資料而只以現有 `CURRENT` 建因子，`RECHECK_ONLY=True` 則完全不變更資料。生成 `derived/four_model_features/` 的 X 候選、隔離 Y 候選、factor_catalog、SHA 收據，不更改 canonical，不替代正式模型的 PIT／貼標／train-only preprocessing。產業/指數/法人等未有合格實收資料時明確標 PENDING。詳 [研究資料 SPEC](../../doc/spec/research-collection-gas-drive-colab.md)。
+
 ## 四角色獨立訓練 Notebook 開發文件
 
 2026-10-22 使用者指定前四角色各自一份XGBoost Notebook。完整Colab步驟與AI程式開發指令：[Quant 趨勢](../../doc/colab-models/01-quant-xgboost.md)、[Risk 風險](../../doc/colab-models/02-risk-xgboost.md)、[Fundamental 營運](../../doc/colab-models/03-fundamental-xgboost.md)、[Valuation 估值](../../doc/colab-models/04-valuation-xgboost.md)。四份文件已交付；Notebook實作與實際訓練仍按D07驗收。Event另議，不在本輪建立第五份。
