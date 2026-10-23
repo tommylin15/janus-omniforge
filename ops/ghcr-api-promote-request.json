@@ -10,6 +10,6 @@
   "allow_legacy_forward_only": false,
   "auth_boundary_run": "39875495080",
   "api_image": "ghcr.io/tommylin15/janus-api@sha256:0c810be3f398fceb8be7938d1b27bf17ac00b57e7fa0b09aa6f91a8b76ab1d2d",
-  "purpose": "Retry Risk dev API 100% reversible cutover after updating inert rollback templates to verified current API/Jobs baselines; prior #39884201358 stopped before GCP traffic changes by outdated CI template (106 PASS / 1 FAIL).",
-  "request_attempt": 1
+  "purpose": "Retry authorized Risk XGBoost first-release API 100% promotion. Prior #39884431169 passed 107 CI gates, stopped safely before traffic while natural dev Job execution was running. Current promote code waits boundedly for all existing Job executions to finish, without bypassing the writer fence.",
+  "request_attempt": 2
 }
