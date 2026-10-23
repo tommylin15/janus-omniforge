@@ -311,3 +311,30 @@
 - 目前已連線的 GCP plugin 僅提供 IAM roles/deny policies，沒有 PostgreSQL arbitrary SELECT 或 Iceberg metadata API；Browser tab read 在本輪回報 `Browser access requires the originating browser context`；`Janus Dev Read-only v2` 的 `janus_sources` 再次回報 `The tool failed internally`。**這些均是查詢通道限制，不證明 DB 不存在、IAM 真的被拒絕或資料壞掉。**
 - **須新增的不是資料或服務，而是由既有授權唯讀通道輸出一份 bounded PG+Iceberg metadata receipt：** as-of UTC/role/project/environment/Git SHA、PG schema/table/view/field/key/index/migration 查詢結果，`catalog.iceberg_tables` 的 `catalog_name='janus'` core/mart entries，逐表最新 schema/spec/current snapshot/summary row count，查詢錯誤/欄位無權限清楚標註。先固定 current catalog table list，再與這兩份 10/17–10/18 歷史收據比對差異；不得用舊 snapshot 補當前值。
 - 直到 **兩層現時清冊都讀回並可驗證**，C1A-01/02/03 仍不可准許物理清掃；**經核准可刪項目 = 0**。下一輪才可以在舊 C1-A 矩陣內按資產逐項升級 `LIVE_CONFIRMED`。
+
+---
+
+## 15. 既有 dev 身分新增受控 ChatGPT → GitHub Actions → PG／Iceberg Metadata 查詢入口（2026-10-23）
+
+用戶授權「沒有就加上去」，採取**不開放任意 SQL、不新增付費資源、不擴張 IAM**的最小工程方案。本階段新增三項工程資產：
+
+- [\`.github/workflows/governance-metadata-readonly.yml\`](../../.github/workflows/governance-metadata-readonly.yml)：push 指定治理 request 或手動 workflow_dispatch；使用既有 dev WIF 和 CI 身分，不暴露 secret。
+- [\`scripts/gcp/governance_metadata_readonly.py\`](../../scripts/gcp/governance_metadata_readonly.py)：固定有界查詢，在現有 \`janus-ingestion-core\` Job 以單次 Python override（不改 Job template）取得 PostgreSQL \`pg_catalog\`、\`information_schema\`、\`control.schema_migrations\`、\`catalog.iceberg_tables\`（core+mart）和 PyIceberg current metadata。每段 \`BEGIN READ ONLY\`、statement_timeout 10s；不做 table.scan/資料列讀取；私人資料只讀 schema metadata；結果按 section/chunk 保留 JSON 收據、SQLSTATE / error class，不印敏感 error/Secrets。
+- [\`tests/test_governance_metadata_readonly.py\`](../../tests/test_governance_metadata_readonly.py) 與 [\`ops/governance-metadata-readonly-request.json\`](../../ops/governance-metadata-readonly-request.json)：固定審查範圍、不可變資料和離線 guard。ChatGPT 可透過 GitHub 已授權 connector 更新受控 request 觸發一次 metadata scan，再透過同一 GitHub connector 讀回 Action log/Artifact。**此入口是 GitHub mediated，不是 ChatGPT 直接連 Cloud SQL 的 SQL connector**。
+
+正式執行現場 **Run #39948922788**：[GitHub Actions](https://github.com/tommylin15/janus-omniforge/actions/runs/39948922788)。**第一次收據尚待實際 job 終態與 JSON 驗證；本節記錄程式提交與 dispatch，不代替 Live PASS。** 如需此入口獲得所有 metadata，仍受既有資料庫角色的 schema visibility、Iceberg storage 讀權限制；不足時輸出 \`PARTIAL\` / \`BLOCKED\`，**不得自動 GRANT 或調整 IAM**。
+
+另於 2026-10-23 11:45:48 UTC 重新執行原本 [Core Census #39083283620 attempt 2](https://github.com/tommylin15/janus-omniforge/actions/runs/39083283620)，dev Job \`janus-ingestion-core-z9z27\` 真實讀回 **9/9 Core \`COUNTED\`**（歷史 §14 是 10/18，本次是 10/23 真正新的 snapshot）。
+| Core dataset | 2026-10-23 11:45 UTC snapshot-summary total-records | current_snapshot_id at that time | schema fields |
+|---|---:|---|---:|
+| \`core.stock_profile_v1\` | 27691 | \`5647992786866848105\` | 9 |
+| \`core.market_volume_v1\` | 163544 | \`743663981527903040\` | 15 |
+| \`core.ohlcv_v1\` | 200926 | \`4615080908076408192\` | 15 |
+| \`core.valuation_v1\` | 25004 | \`6880250134433223964\` | 11 |
+| \`core.institutional_v1\` | 60222 | \`4091141956722620864\` | 12 |
+| \`core.financials_v1\` | 90391 | \`3571756500360077023\` | 40 |
+| \`core.events_v1\` | 1245 | \`7156204294980068762\` | 12 |
+| \`core.market_activity_v1\` | 215714 | \`2203751285827207874\` | 11 |
+| \`core.benchmark_v1\` | 764 | \`4617056096245975844\` | 10 |
+
+**範圍限制：** 上述 Core Census 只覆蓋其執行時列於 \`DuckDBIcebergCore.IDENTIFIERS\` 的九表，不證明 \`mart\` 實存張數／PostgreSQL 全 Schema／全部未知 Core 表。C1-B 仍 NOT_READY；以上不構成刪表授權。
