@@ -533,3 +533,14 @@
 ### 20.5 靜態讀者掃描的自我引用修正（2026-10-23）
 
 重新檢查 §20.4 的 `2 hits/each` 分析方法時，發現 `scripts/gcp/governance_mart_reader_inventory.py` 掃描了自身的固定十表白名單，導致**每張表至少 1 筆是稽核程式自我引用，不能作為業務 reader**。修正主線掃描器，明確排除自己的路徑、將 `storage.py` 的名字登錄標 `DECLARATION_ONLY`；新增離線測試。上段 `2` 是 #39956176106 **原始收據數值**，保留可追溯，但**撤銷其「2 個非掃描器程式引用」的任何推論**。修正後唯讀重新讀回的 run 為 [#39957904423](https://github.com/tommylin15/janus-omniforge/actions/runs/39957904423)；未取得其終態前，十表全部維持 `ACTUAL_RUNTIME_READER_UNKNOWN`，不准刪。
+
+
+### 20.6 排除掃描器自我引用的最終補驗（2026-10-23 13:06 UTC）
+
+**修正版實機 Run [#39957904423](https://github.com/tommylin15/janus-omniforge/actions/runs/39957904423)，job `120428237947`：`conclusion=success`，`source_git_sha=017fd2363c34942569d47768b1e4af5ecf2bf557`，13 個 offline tests passed，PG/Core/Mart join `status=PASS`，`data_mutations=0,iam_changes=0,new_resources=0`。** 上個 §20.4 的 2 hits/表確定包含掃描器本身的 table allowlist；該舊收據只作歷史追溯，不能宣稱兩個業務讀者。
+
+修正後掃描 **477** 個 GitHub main checkout 程式／SQL／配置檔（排除稽核器自我引用），十張 Mart **各1筆**直接表名引用，且已知 `jobs/intelligence-mart/intelligence_mart/storage.py:MART_TABLES` 每個表名恰一項；也就是在本次掃描**未發現其他逐表硬編碼 reader/writer 呼叫**。此為固定 Git SHA、有界原始碼字面搜尋的結果，不涵蓋 dynamic names、SQL 拼接、未同步部署 source 或獨立 Colab／外部研究引用，不能寫成 `NO_ACTUAL_READER`。十表仍有 `retention.py` 的共用動態 table_exists/load/scan 維護路徑；實際近30日是否觸發各表仍需運行日誌/表級可觀測性。
+
+同一個 Run PG 非終態分類仍確認 41 queued、16 running 全部 `NO_LEASE`（0/57 有效租約）、0/57 Controller `queued_execution_id` 關聯；六筆獨立 `ledger-backup` Controller running 沒有 Cloud Run execution reference。**這六筆理應走 `ledger_backup.py:poll_backup` 查 `control.ledger_backup_requests` 狀態，不應要求 Cloud Run Job exact-match**；本輪未新增此備份專屬 PG 狀態查詢，結果 `UNKNOWN`。
+
+Cloud Run 最近30日 GET-only 清冊再度分頁完整：Controller 623、ingestion-core 434、intelligence-mart 305、private-pipeline 184、research-big-move-500 0；各 Job 的狀態分類與兩次收據觀察時間不同，不能直接把數量的增加視作特定工作成功/失敗。十張 Mart `ACTUAL_PER_TABLE_READER=UNKNOWN_NO_TABLE_LEVEL_RUNTIME_TRACE`；本次源碼引用+部署 metadata 本身 `PASS`，**C1-B 表／欄／物件刪除核准仍 0**。
