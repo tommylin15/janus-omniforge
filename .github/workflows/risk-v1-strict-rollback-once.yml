@@ -1,0 +1,112 @@
+name: Risk strict-gate deterministic rollback (one shot)
+on:
+  push:
+    branches: [main]
+    paths: ['ops/risk-v1-strict-rollback-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  rollback:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 35
+    env:
+      PROJECT: gen-lang-client-0593591102
+      GCP_PROJECT_ID: gen-lang-client-0593591102
+      REGION: us-central1
+      BUCKET: gen-lang-client-0593591102-dev-mart
+      JOB: janus-intelligence-mart
+      RISK_ACTIVE_APPROVED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact one-shot dev rollback request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="risk-strict-gate-rollback" and .environment=="dev" and
+            .approved==true and .mode=="DETERMINISTIC" and .no_new_resources==true and
+            .expected_previous_mode=="ACTIVE" and
+            .expected_model_sha256=="36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044"' \
+            ops/risk-v1-strict-rollback-request.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Preflight existing ACTIVE pointer and idle Mart job
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud storage cat "gs://$BUCKET/risk-models/registry/risk-active.json" --project "$PROJECT" > /tmp/risk-before.json
+          jq -e '.mode=="ACTIVE" and .model_sha256=="36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044"' /tmp/risk-before.json >/dev/null
+          gcloud run jobs describe "$JOB" --region "$REGION" --project "$PROJECT" --format=json >/tmp/risk-job.json
+          jq -e '.metadata.name=="janus-intelligence-mart"' /tmp/risk-job.json >/dev/null
+          gcloud run jobs executions list --job="$JOB" --region="$REGION" --project="$PROJECT" --limit=30 --format=json > /tmp/risk-running.json
+          jq -e '[.[]|select((.status.completionTime//"")=="")]|length==0' /tmp/risk-running.json >/dev/null
+      - name: GCS generation-CAS to DETERMINISTIC
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          printf '{}\n' > /tmp/risk-empty-evidence.json
+          python scripts/gcp/risk_registry_apply.py --mode DETERMINISTIC \
+            --source-sha "$GITHUB_SHA" --evidence /tmp/risk-empty-evidence.json \
+            --receipt /tmp/risk-rollback-registry.json
+          jq -e '.status=="PASS" and .registry_mode=="DETERMINISTIC" and .previous_mode=="ACTIVE"' /tmp/risk-rollback-registry.json >/dev/null
+          echo "REGISTRY_GENERATION=$(jq -r .generation /tmp/risk-rollback-registry.json)" >> "$GITHUB_ENV"
+      - name: Append PG deterministic rollback via existing Mart Job
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          uri="gs://$BUCKET/risk-models/activation-requests/$GITHUB_SHA-$REGISTRY_GENERATION-strict-rollback.json"
+          jq -n --argjson generation "$REGISTRY_GENERATION" '{
+            intent:"user-approved-risk-first-release",environment:"dev",approved:true,
+            mode:"DETERMINISTIC",expected_mode:"ACTIVE",generation:$generation
+          }' > /tmp/risk-pg-rollback-request.json
+          gcloud storage cp --no-clobber /tmp/risk-pg-rollback-request.json "$uri" --project "$PROJECT"
+          gcloud storage cat "$uri" --project "$PROJECT" | cmp -s /tmp/risk-pg-rollback-request.json -
+          execution="$(gcloud run jobs execute "$JOB" --project "$PROJECT" --region "$REGION" \
+            --update-env-vars="^@^MART_OPERATION=risk-activation@RISK_ACTIVATION_REQUEST_URI=$uri" \
+            --async --format='value(metadata.name)')"
+          test -n "$execution"
+          name="${execution##*/}"
+          echo "ROLLBACK_EXECUTION=$name" >> "$GITHUB_ENV"
+          completed=''
+          for _ in $(seq 1 120); do
+            info="$(gcloud run jobs executions describe "$name" --project "$PROJECT" --region "$REGION" --format=json)"
+            completed="$(jq -r '.status.completionTime // empty' <<< "$info")"
+            if [[ -n "$completed" ]]; then
+              jq -e '.status.succeededCount==1 and (.status.failedCount//0)==0' <<< "$info" >/dev/null
+              break
+            fi
+            sleep 5
+          done
+          test -n "$completed"
+      - name: Read back GCS and exact PG execution
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud storage cat "gs://$BUCKET/risk-models/registry/risk-active.json" --project "$PROJECT" > /tmp/risk-after.json
+          jq -e '.mode=="DETERMINISTIC" and .model_sha256==null and .model_gcs_uri==null' /tmp/risk-after.json >/dev/null
+          gcloud run jobs executions describe "$ROLLBACK_EXECUTION" --project "$PROJECT" --region "$REGION" --format=json > /tmp/risk-pg-execution.json
+          jq -e '.status.succeededCount==1 and (.status.failedCount//0)==0' /tmp/risk-pg-execution.json >/dev/null
+          gcloud logging read "resource.type=\"cloud_run_job\" AND labels.\"run.googleapis.com/execution_name\"=\"$ROLLBACK_EXECUTION\"" \
+            --project "$PROJECT" --freshness=2h --limit=200 --format=json > /tmp/risk-pg-logs.json
+          jq -e '[.[] | (.jsonPayload // (.textPayload|fromjson?)) |
+            select(type=="object" and .component=="intelligence-mart" and
+              .operation=="risk-activation" and .mode=="DETERMINISTIC" and .status=="PASS" and
+              .model_sha256==null)] | length>0' /tmp/risk-pg-logs.json >/dev/null
+          echo "Risk strict gate rollback: GCS DETERMINISTIC and PG DETERMINISTIC readback PASS; model remains unvalidated." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: risk-strict-rollback-receipts
+          path: |
+            /tmp/risk-rollback-registry.json
+            /tmp/risk-pg-execution.json
+          if-no-files-found: ignore
+          retention-days: 14
