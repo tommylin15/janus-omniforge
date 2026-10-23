@@ -33,3 +33,16 @@ jobs:
             --project=gen-lang-client-0593591102 --freshness=2h --limit=100 --format=json \
             | jq '[.[] | .jsonPayload? | select(.component=="intelligence-mart" and .error_code!=null) |
                 {operation,error_code,locations:[.locations[]?|{file,function,line}]}]'
+
+      - name: Read only selected-stock canary aggregate receipt
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud logging read \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="janus-intelligence-mart" AND labels."run.googleapis.com/execution_name"="janus-intelligence-mart-785qd"' \
+            --project=gen-lang-client-0593591102 --freshness=3h --limit=140 --format=json \
+            | jq '[.[] | (.jsonPayload // (.textPayload|fromjson?)) |
+                select(.component=="intelligence-mart") |
+                {operation,artifact_uri,analysis_as_of,reports,model_training,specialist_status}]'
+          gcloud storage ls 'gs://gen-lang-client-0593591102-dev-mart/risk-active/*.json' \
+            --project=gen-lang-client-0593591102 | wc -l
