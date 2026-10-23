@@ -8,7 +8,7 @@
   "no_new_resources": true,
   "no_iam_expansion": true,
   "job": "janus-ingestion-core",
-  "purpose": "Revalidate bounded C1-A existing-dev readonly lease/Cloud Run and 10-Mart source reference inventory after excluding scanner self-references; do not treat declared handles as actual readers.",
+  "purpose": "C1-A bounded readonly per-execution pseudonymous lease reconciliation, VM ledger-backup status, existing Scheduler and Cloud Run execution modes; no cleanup, no new IAM.",
   "execution_count": 1,
-  "audit_focus": "c1a-lease-jobs-mart-reader-self-reference-excluded"
+  "audit_focus": "c1a-remaining-blockers-bounded-live-readback-20261023"
 }
