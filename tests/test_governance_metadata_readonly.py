@@ -66,3 +66,15 @@ def test_output_has_no_secret_bearing_diagnostics():
     assert "print(traceback" not in module.PROBE
     assert "print(os.environ)" not in module.PROBE
     assert "SELECT * FROM private." not in module.PROBE
+
+
+def test_reader_dependency_probe_limits_scope_to_aggregates():
+    assert '"control_execution_30d"' in module.PROBE
+    assert '"mart_table_identifier_constraint"' in module.PROBE
+    assert '"publication_pg_scan_cumulative"' in module.PROBE
+    assert "interval '30 days'" in module.PROBE
+    assert "GROUP BY trigger_type,status" in module.PROBE
+    assert "pg_catalog.pg_get_constraintdef" in module.PROBE
+    assert "pg_catalog.pg_stat_user_tables" in module.PROBE
+    assert "requested_symbols" not in module.PROBE
+    assert "scope_id" not in module.PROBE
