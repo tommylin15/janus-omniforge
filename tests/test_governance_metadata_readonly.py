@@ -108,3 +108,27 @@ def test_c1a_per_execution_and_backup_receipts_are_bounded_and_nonidentifying():
     assert "l.sha256," not in module.PROBE
     assert "SET LOCAL statement_timeout" in module.PROBE
     ast.parse(module.PROBE)
+
+
+
+def test_p02_pseudonymous_terminal_evidence_does_not_infer_outcomes():
+    import re
+    assert '"control_p02_execution_decisions_30d"' in module.PROBE
+    assert "control.core_ready_events" in module.PROBE
+    assert "control.execution_items" in module.PROBE
+    assert "parent_core_ready" in module.PROBE
+    assert "controller_link" in module.PROBE
+    assert "related_terminals" in module.PROBE
+    assert "ACTIVE_LEASE_NO_MUTATION" in module.PROBE
+    assert "READY_EVENT_STATUS_CONFLICT_REVIEW" in module.PROBE
+    assert "COLLECTION_ITEM_EVIDENCE_NOT_TERMINAL" in module.PROBE
+    assert "QUEUED_ANALYSIS_FROM_CORE_NOT_TERMINAL" in module.PROBE
+    assert "NO_TERMINAL_PROOF" in module.PROBE
+    assert "UPDATE control.executions" not in module.PROBE
+    assert "DELETE FROM control.executions" not in module.PROBE
+    assert "requested_symbols" not in module.PROBE
+    assert "has_error_code" in module.PROBE
+    assert "substring(error_code" not in module.PROBE
+    assert "md5(execution_id::text)" in module.PROBE
+    assert "LIMIT 301" in module.PROBE
+    ast.parse(module.PROBE)
