@@ -81,6 +81,7 @@ jobs:
                       'control_nonterminal_occurrence_link_30d',
                       'control_active_batch_occurrences_30d',
                       'control_nonterminal_rows_30d',
+                      'control_p02_execution_decisions_30d',
                       'control_ledger_backup_reconcile_30d'):
               assert c['sections'][key]['status']=='PASS'
 
@@ -128,7 +129,16 @@ jobs:
                          mart_code_scan_files=reader['scanned_files'],
                          mart_reader_literal_tables_with_refs=sum(
                              bool(v) for v in reader['references_by_table'].values()))
-          summary.update(per_execution_receipts=len(c['sections']['control_nonterminal_rows_30d']['items']),
+          p02=c['sections']['control_p02_execution_decisions_30d']['items']
+          original=c['sections']['control_nonterminal_rows_30d']['items']
+          assert len(p02)==len(original)
+          assert {v[0] for v in p02}=={v[0] for v in original}
+          from collections import Counter
+          classifications=dict(Counter(v[16] for v in p02))
+          summary.update(p02_total=len(p02),p02_classifications=classifications,
+                         p02_verified_terminal_mutations=0,
+                         p02_unproven_not_forced_failed=True)
+          summary.update(per_execution_receipts=len(original),
                          ledger_backup_active_reconciliation=len(c['sections']['control_ledger_backup_reconcile_30d']['items']),
                          scheduler_metadata_status=j['scheduler']['status'],
                          pg_to_cloud_exact_join=j['pg_to_cloud_full_row_join'])
