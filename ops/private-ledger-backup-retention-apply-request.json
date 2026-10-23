@@ -1,0 +1,13 @@
+{
+  "intent": "private-ledger-retention-one-time-apply",
+  "approved": true,
+  "scope": "existing-dev-private-backup-prefixes",
+  "dry_run_run": 39974251644,
+  "restore_run": 38991644822,
+  "max_daily_deletes": 3,
+  "max_monthly_deletes": 1,
+  "no_new_backup": true,
+  "no_pg_mutation": true,
+  "no_iam_expansion": true,
+  "purpose": "One bounded live retention apply after real dry-run PASS and previously verified isolated restore: remove at most three oldest daily backups beyond seven protected daily generations; monthly two below six means zero monthly deletes. This is unrelated to six completed Controller backup statuses."
+}
