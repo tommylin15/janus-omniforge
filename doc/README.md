@@ -77,6 +77,10 @@ Operations只保存當前適用摘要／歷史連結，不無限追加。原2296
 模型週期補充：[資料量→Colab→GCS→日週分析→每月有效性](spec/model-lifecycle.md)，[完整AI指令](execution-cards/d07-model-lifecycle.md)。這是D07同一工作包的交付，不新增獨立模型訓練服務。
 
 
+## 四模型收檔／貼標／訓練目前唯一版本入口
+
+[四模型與資料工程最新版本總索引](research/00-四模型最新版本索引.md)：兩本 v3.8.4 獨立 Colab 收檔、ChatGPT v3.8.2 貼標及產業 PIT 檢查、ChatGPT 四模型訓練介面、各角色 OOS/發布證據及 _archive 位置。舊版 Colab Notebook 與歷史研究文件保留歸檔，不再當現行工作入口。此研究流程與目前已發布的 Risk v1 模型分開。
+
 ## 四角色獨立 Colab 建模文件與 AI 指令
 
 - [Quant 趨勢｜XGBoost 操作與開發指令](colab-models/01-quant-xgboost.md)
