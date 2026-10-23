@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "6739c18c84497622fb03e6be7d25a6fc3f0ca394",
+  "sha": "0ad738b1f7c3432bf6fac59ecb7d5063dce63447",
   "digest": "",
-  "release_run": "39892375248",
+  "release_run": "39907341839",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Risk bounded OHLCV scope fix, exact actual GITHUB_SHA=6739c18c and image tag/digest confirmed from Release #39892375248; 0% API candidate only; no serving traffic changes.",
-  "request_attempt": 6
+  "purpose": "ADMIN-SIMPLIFY dev API zero-traffic fixed-digest candidate for exact full Release #39907341839; preserve existing 100% serving traffic and Jobs images; automatic health, identity and source readback only.",
+  "request_attempt": 7
 }
