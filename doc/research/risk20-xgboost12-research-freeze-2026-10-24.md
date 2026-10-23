@@ -14,6 +14,7 @@
 - 原研究 Git SHA：`28fd738d509ab9936bf997b7024430372ac9ceac`；Stage05.1 fingerprint：`07ec943fa3a1784f`。
 - 原 X SHA256：`3b55e1868d19ed481b603fc3822f7d3523adfcea269ec89a01f00fdf1c27fedb`；原 Y SHA256：`08e6666976e34693411544f51b1de5e526c5855d44fe5277f501c7f3d10fa3a3`。該 run 的 `CURRENT.json` SHA256：`0b64ac6927805fb98260121da94624d7e08ac423f0aa13b8349d4c304f0135cd`，**不代表往後 CURRENT 永遠固定**。
 - [原封存 Risk12 artifact（candidate-77eede082941eecb）](https://drive.google.com/drive/folders/1s9_MzLVUm-BlVb2IxZ_ylP68cHp7Dlm-)：原封存 UBJ SHA256 `11b9196028799e57513e744b2c0b39f9a8ff4123bccae36957a4a7a7719aef14`；原環境 xgboost 3.4.1，14 檔原始 SHA 比對 PASS、8 個 UBJ 測試向量與舊 MAE 重算 PASS，**非 bit-for-bit 重新訓練**。
+- [Drive 定版決策備份](https://drive.google.com/file/d/14eh_a11mPi_QNYxsUBtH52IWE8KC7UJd/view)；[Drive 研究成果完整 ZIP](https://drive.google.com/file/d/17J02TZmQzZ2rYjT-d2vdpfJWToHU7Ujf/view)。兩檔位於白名單 `janusChatGPT/Risk 模型｜研究與重訓`。上傳檔案大小讀回：Markdown 6,925 bytes；ZIP 33,445,618 bytes；ZIP 在本輪本地檢查 105 筆目錄與 104 個逐檔 SHA 項目皆無異常。
 - 本輪**研究參考 checkpoint** `model_xgboost12_refit.ubj` SHA256 `e00d302b082fb135991dc4e6f146cf4b9b7dbb56311daae27539564a629e05eb`，保存在 `Risk20_research_20261023.zip`；它是 A 階段固定 42 日期／70,485 列研究模型，**不是**四折重新 fit 後的單一正式 serving 模型。四折有各自 UBJ，不混為同一模型。研究 ZIP SHA256 `b654fc10f918e590cdf2f28434a4ce524cee402ae2e9ad5c5044bc74dd7bf8fc`；本輪完整 research bundle 清單及 SHA 收據見 ZIP。
 - **基準命名修正**：原封存 `ridge8.json` 實際使用12因子（12係數）；本輪才建立真正 Ridge8/Ridge12 對照。勿把檔名誤認成實際維度。
 
