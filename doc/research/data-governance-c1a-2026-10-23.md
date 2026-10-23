@@ -386,3 +386,17 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 - Artifact `janus-controller-ledger-repair`（GitHub artifact ID `12508449986`）已產出；此次核對依 GitHub Workflow conclusion/step 與日誌終態，不虛構額外人工查驗。
 
 **驗收決策**：先前六筆 Controller stale `running` 的指定修復工項 **CLOSED / PASS**。此判定不涵蓋另項備份保留期清理：新 `poll_backup` 不再以 GCS retention cleanup 作為狀態完成前置；獨立 `cleanup_old_backups` 與備份 retention 排程可用性仍需另行驗證，不能宣稱 retention PASS。本輪沒有任何 C1-B Mart/Stage 實體清掃授權。
+
+---
+
+## 18. P0-1 備份保留期獨立清理恢復（2026-10-23）
+
+**現行不一致**：D04 歷史交接卡使用「每日 3 代」，原 `.github/workflows/private-ledger-backup-retention.yml` 停用的腳本亦使用 3 份每日 + 6 份每月；然而已部署 Controller 版本所帶 `ledger_backup.py` 的 `BACKUP_KEEP_DAYS=7`，且修正後 `poll_backup()` 成功狀態核對不再執行任何 GCS 清理。因此，截至本節實施前，**獨立 retention cron 未啟用；不能宣稱定期清理已完成**。
+
+**保守恢復契約（先核對清冊）**：選擇至少保留最近 **7 個 daily 檔**、**6 個 monthly 檔**，作為不低於既有 Controller 程式與月備份保護的暫行保守規則；不直接使用原舊版 3 代刪除程式。這是「備份份數」而非滿 7 日即刪全部。部署路徑沿既有 Actions + WIF，僅列 GCS `pilot-ledger-backups/daily/` 與 `monthly/`，不讀取資料內容、不碰 private ledger rows、不觸發 pg_dump、不增加 Scheduler/Job/IAM/付費資源。
+
+**程式與邊界**：`scripts/gcp/private_ledger_backup_retention.py`、`tests/test_private_ledger_backup_retention.py`、改造既有 `.github/workflows/private-ledger-backup-retention.yml`，以及 `ops/private-ledger-backup-retention-request.json`。預設只有 dry-run；按名稱/日期/size/generation/分頁做白名單驗證，最新 daily 超過 36 小時或少於 7 份 fail closed。月備份最新月份超過 62 日，只暫停 monthly apply。未來在 dry-run、GCS 清冊及可靠可還原證據均完成後，才可將 `approved_scheduled_apply=true` 與既有備份專用 GitHub Cron 啟用。Apply 每輪最多 3 個 daily + 1 個 monthly、固定 GCS generation 條件刪除、前後全量清冊與 bytes 讀回；不重新啟用 Controller `poll_backup()` 的 GCS 清理。未具上述條件不得清除 Owner 備份。
+
+**第一輪讀取**：[GitHub Actions #39974251644](https://github.com/tommylin15/janus-omniforge/actions/runs/39974251644) 為新的 dry-run trigger（本節撰寫時終態尚未知）；第一個 [#39974161959](https://github.com/tommylin15/janus-omniforge/actions/runs/39974161959) 僅因 `ops/private-ledger-backup-retention-request.json` 當時尚未提交而 FileNotFoundError，10 個測試通過，沒有 GCS 刪除或 apply。
+
+**狀態**：IMPLEMENTED / FIRST_LIVE_DRY_RUN_PENDING / SCHEDULE_APPLY_DISABLED / DELETIONS_ZERO，直到有真實收據才更新驗收結論；不能用程式或 CI 代替 live 權限、物件清冊與清理 readback。
