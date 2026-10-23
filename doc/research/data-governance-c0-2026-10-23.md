@@ -377,3 +377,33 @@
 ### 16.3 身分／查詢通道判定及最小補驗方向
 
 首次查詢明確說明**PostgreSQL \`pg_catalog\`／Iceberg catalog SELECT 權限已足夠**，毋須增大 Core 身分授權；Mart GCS metadata 存取遭遇 \`PermissionError\`，不建議立即提升 ingestion SA IAM 權限。改由既有 \`janus-intelligence-mart\` dev Job 身分讀取 Mart Iceberg metadata，不改 Cloud Run Job template、不加 IAM、不新增資源；此替代方式已加入同一個 [治理 Workflow](../../.github/workflows/governance-metadata-readonly.yml)，第二輪 [#39949570989](https://github.com/tommylin15/janus-omniforge/actions/runs/39949570989) 的終態和收據應另行補登，不得由本節推定 PASS。
+
+---
+
+## 17. Mart 11/11 Live metadata 以既有 Mart 身分補驗（2026-10-23）
+
+為避免新增 IAM grant，維持 §16 已知的 Core 身分 \`PermissionError\`，另使用**既有** \`janus-intelligence-mart\` Job dev 身分，唯讀執行 PyIceberg \`list_tables(('mart',))\` + \`load_table\` metadata；沒有調整 Cloud Run Job template、資料、角色或 bucket policy。
+
+**實際收據：** [GitHub Actions #39949570989](https://github.com/tommylin15/janus-omniforge/actions/runs/39949570989)，job \`120400442445\`，\`JANUS_GOVERNANCE_MART_METADATA_RECEIPT_V1:\` JSON logs，\`checked_at_utc=2026-10-23T11:59:05.540844+00:00\`，\`git_sha=b67d7e4cb28c16de0bba0f80ca64e400de45f01c\`。該 run 的第一個 Core 執行步驟仍將已知的 \`Mart GCS PermissionError\` 判為 \`PARTIAL\` 而使 Workflow 顯示 **failure**，但第二步 Mart 專用 Job 讀回 \`summary.status=PASS\`、\`catalog_names=11\`、\`snapshots_readable=11\`（「metadata 可讀」，其中有兩張沒有 snapshot，不等同 11 張有資料）。
+
+| Live Mart Iceberg table | 2026-10-23 11:59 UTC Current Snapshot ID | snapshot summary total-records | 實際 schema 欄數 | \`READABLE\` |
+|---|---|---:|---:|---|
+| \`mart.mart_alternative_sentiment_v1\` | **NULL（無 current snapshot）** | **UNKNOWN/NULL，不得填 0** | 23 | 是，表 metadata |
+| \`mart.mart_candidate_health_v1\` | \`118880949889506234\` | 104 | 23 | 是 |
+| \`mart.mart_core_alpha_v1\` | \`4538355055818619845\` | 104 | 23 | 是 |
+| \`mart.mart_daily_brief_v1\` | **NULL（無 current snapshot）** | **UNKNOWN/NULL，不得填 0** | 23 | 是，表 metadata |
+| \`mart.mart_llm_narratives_v1\` | \`1043193908964583361\` | 1 | 23 | 是 |
+| \`mart.mart_market_regime_daily_v1\` | \`6029291748398477743\` | 21 | 23 | 是 |
+| \`mart.mart_risk_portfolio_v1\` | \`8959822825160784524\` | 104 | 23 | 是 |
+| \`mart.mart_scoped_analysis_v1\` | \`6354316357698419865\` | 138 | 23 | 是 |
+| \`mart.mart_screening_signals_v1\` | \`2540499314470004370\` | 104 | 23 | 是 |
+| \`mart.mart_sector_rotation_daily_v1\` | \`1716098001482105032\` | 13 | 23 | 是 |
+| \`mart.mart_topic_trends_daily_v1\` | \`6110792041360640349\` | 21 | 23 | 是 |
+
+**實際 Partition Spec**：11 表共同為 \`analysis_date_month = month\`、\`scope_id_bucket_32 = bucket[32]\`；每張 metadata schema 均為 23 個 fields（表級 field type/nullability 明細保存在原始 receipts）。這只是 metadata 的實際欄位，非各表最近 30 日 reader 使用量證明。 \`mart_scoped_analysis_v1\` 在 PG \`publication.mart_report_index\` 的實際 constraint 仍須確認表 identifier 的具體 expression 和目前 reference rows。
+
+**狀態提升與安全限制：**
+- \`C0-L02\` **Live catalog enumeration + all Core/Mart current schema/partition/snapshot metadata 已取得**（九張 Core、十一張 Mart）。其中兩表無 snapshot；不得解釋為不存在或 rowcount=0。
+- \`C0-L01\` PG catalog metadata、columns/types、constraint/index names、migration ledger **已實讀**；剩餘是當前 migration 名稱 drift、Role 限制下 information_schema 可見性與特定 constraint 定義內容核對。
+- \`C0-L03\` 30 日 writer/reader/Cloud Scheduler/Cloud Run 使用證據和 \`C0-L04\` GCS today prefix/lease、\`C0-L05\` 四模型真實 X values/PIT 仍需分開驗證；**C0 全部不是 FULL PASS，C1-B 無實刪授權**。
+- 執行流程已改成 Core role 與 Mart role 各查可讀資產後 cross-validate（[治理 Workflow](../../.github/workflows/governance-metadata-readonly.yml)）；新版 [#39950278408](https://github.com/tommylin15/janus-omniforge/actions/runs/39950278408) 首次整合結果仍需讀回，未達成前不能提前寫 \`WORKFLOW_PASS\`。
