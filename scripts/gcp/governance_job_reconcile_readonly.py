@@ -45,9 +45,11 @@ def exact_controller_refs(rows):
         raise ValueError("controller_refs_exceed_cap")
     result = []
     for row in rows:
-        if len(row) != 4:
+        if len(row) != 5:
             raise ValueError("invalid_controller_ref_shape")
-        job, controller_state, execution, scheduled_at = row
+        job, controller_state, batch, execution, scheduled_at = row
+        if batch is not None and not re.fullmatch(r"[a-z0-9-]{1,64}",str(batch)):
+            raise ValueError("controller_batch_identity_invalid")
         if job not in ALLOWED_JOBS or controller_state not in ("running","dispatching","ambiguous"):
             raise ValueError("controller_ref_outside_allowlist")
         record = {"job": job, "controller_state": controller_state,
