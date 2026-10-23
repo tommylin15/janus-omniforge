@@ -1,0 +1,30 @@
+{
+  "policy_version": "valuation-p1-source-lineage-v3.0.0",
+  "research_only": true,
+  "publication_allowed": false,
+  "source_release": "release-0bbae8d9c1ca7d8d",
+  "finance_income": {
+    "IncomeAfterTaxes": "net_income",
+    "TotalConsolidatedProfitForThePeriod": "OTHER_PROFIT_MEASURE_OR_COMPREHENSIVE_UNVERIFIED"
+  },
+  "cashflow": {
+    "CashFlowsFromOperatingActivities": "cfo_primary_candidate",
+    "NetCashInflowFromOperatingActivities": "cfo_alias_candidate_only_when_same_value"
+  },
+  "strict_gates": [
+    "original payload SHA and bytes",
+    "exact source row anchor",
+    "accounting scope",
+    "period basis",
+    "currency and unit",
+    "source revision",
+    "original disclosure for historical PIT"
+  ],
+  "forbidden": [
+    "cohort scaling as certification",
+    "YTD EPS differencing",
+    "cross-source revised source overwrite",
+    "using fiscal date as publication timestamp"
+  ],
+  "preserve_v2_for_old_frozen_experiment": true
+}
