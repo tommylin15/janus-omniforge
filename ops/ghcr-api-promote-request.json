@@ -10,5 +10,6 @@
   "allow_legacy_forward_only": false,
   "auth_boundary_run": "39875495080",
   "api_image": "ghcr.io/tommylin15/janus-api@sha256:0c810be3f398fceb8be7938d1b27bf17ac00b57e7fa0b09aa6f91a8b76ab1d2d",
-  "purpose": "User approved Risk XGBoost ACTIVE. Reversible 100% dev API cutover FIRST, prior model registry activation. GHCR Release #39874777208, candidate #39875342927, auth #39875495080, Jobs rollout #39875718471 PASS; exact live API old revision and digest #39875923337. Preserve deterministic gate while Risk rollout proceeds."
+  "purpose": "Retry Risk dev API 100% reversible cutover after updating inert rollback templates to verified current API/Jobs baselines; prior #39884201358 stopped before GCP traffic changes by outdated CI template (106 PASS / 1 FAIL).",
+  "request_attempt": 1
 }
