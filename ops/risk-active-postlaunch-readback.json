@@ -1,0 +1,8 @@
+{
+  "intent": "risk-active-postlaunch-readback",
+  "run_id": "39896276392",
+  "read_only": true,
+  "no_owner_payload": true,
+  "no_gcp_mutation": true,
+  "scope": "Aggregate-only GCS real Risk predictions, PG activation completion proof and API 100 percent negative auth. Do not print held/watchlist ticker identities; authenticated UI positive pending."
+}
