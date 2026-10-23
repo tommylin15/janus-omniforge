@@ -68,7 +68,6 @@ def test_fail_closed_if_newest_daily_stale_or_inventory_short():
 
 def test_old_monthly_backup_causes_monthly_skip_not_daily_loss():
     daily,monthly=entries()
-    p=policy.plan(daily,monthly,now=datetime(2027,1,2, tzinfo=timezone.utc))
     # Fresh daily must still be attested, so put the latest in the same period.
     # Test monthly guard without weakening the daily freshness gate by
     # constructing a separate recent daily inventory.
