@@ -62,3 +62,17 @@ jobs:
               target_count,ordinary_target_count,excluded_nonordinary_target_count,
               excluded_ordinary_target_count,excluded_reasons,
               prediction_count:(.rows|length),output_hash}'
+
+      - name: Exact 10-21 canary termination and redacted traceback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          x='janus-intelligence-mart-tkvfp'
+          gcloud run jobs executions describe "$x" --region=us-central1 --project=gen-lang-client-0593591102 --format=json \
+            | jq '{name:.metadata.name,completionTime:.status.completionTime,failedCount:.status.failedCount,succeededCount:.status.succeededCount,
+              conditions:[.status.conditions[]?|{type,state,reason}]}'
+          gcloud logging read \
+            'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="janus-intelligence-mart-tkvfp"' \
+            --project=gen-lang-client-0593591102 --freshness=2h --limit=150 --format=json \
+            | jq '[.[] | .jsonPayload? | select(.component=="intelligence-mart") |
+              {status,error_code,operation,locations:[.locations[]?|{file,function,line}]}]'
