@@ -52,7 +52,7 @@
 - SHA256(`research_panel_reconstructed.csv`) = `c506a363d639599c9daf01cd3761f0e2d7a8b38597a4deb6f5274cd27b0d484e`。
 - SHA256(`walkforward_predictions.csv`) = `b3b7cb182b3aba2fb2a465194b050547e5b58ef9fbb0bd2ed4adaaa4fb207c56`。
 - **12/12 folds 完成；9/9 本地單元與驗收測試 PASS。**
-- 此 repository 文件是研究狀態／關鍵數字收據；**本次完整 Python 和大型 CSV 在本對話生成的自含 ZIP，而非聲稱已存入 GitHub**。
+- 完整且與本地 9／9 測試版本逐字讀回一致的 Python／測試，已提交 GitHub `main`：[`experiment.py`](fundamental_tail_challenger/experiment.py)（commit `246ec0a29e493cd8398c99255618019eb4557657`）、[`test_experiment.py`](fundamental_tail_challenger/test_experiment.py)（commit `437b3d7c4571bba4e3f19a2abb59f05c5172aae0`）。**大型 18,106 筆逐筆 CSV 與固定研究輸入仍在本對話自含 ZIP，不在 GitHub repo**；須解壓至程式預期的相對路徑。
 
 ### 下一個研究工作，不自動發布
 1. 原始公告、修訂與 `label_available_at` PIT 驗證；完整 Parquet 93,036 列對齊；
