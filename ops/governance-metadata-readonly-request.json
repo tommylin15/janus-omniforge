@@ -8,7 +8,7 @@
   "no_new_resources": true,
   "no_iam_expansion": true,
   "job": "janus-ingestion-core",
-  "purpose": "C1-A one-time bounded existing-dev PostgreSQL nonterminal lease/Controller occurrence readback and Cloud Run GET-only execution reconciliation; retain C0 PG/Core/Mart metadata checks, no mutations or deployment.",
+  "purpose": "Bounded existing-dev C1-A follow-up: classify 41 queued/16 running lease, distinguish 6 controller batch occurrences, GET-only Cloud Run 30d execution status and ten Mart code/deployed-reader references; zero mutations.",
   "execution_count": 1,
-  "audit_focus": "c1a-lease-41queued-16running-cloudrun-crosscheck"
+  "audit_focus": "c1a-lease-57-nonterminal-controller-batches-job-30d-mart-readers"
 }
