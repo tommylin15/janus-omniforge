@@ -3,7 +3,7 @@
   "environment": "dev",
   "risk_candidate_sha256": "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044",
   "no_gcp_writes": true,
-  "source": "Risk first-release ACTIVE pre-rollout readback, model pinned, latest GHCR full release #39874777208",
-  "purpose": "Read exact current four existing dev Jobs GHCR digests and immutable config fingerprints for reversible Risk ACTIVE release; no GCP writes",
-  "request_attempt": 6
+  "source": "Risk eight-factor bounded OHLCV reader release #39892375248",
+  "purpose": "Current exact four existing dev Jobs source/digest/config readback before rollout of scoped Risk OHLCV code; no GCP writes.",
+  "request_attempt": 7
 }
