@@ -10,6 +10,6 @@
   "allow_legacy_forward_only": false,
   "auth_boundary_run": "39875495080",
   "api_image": "ghcr.io/tommylin15/janus-api@sha256:0c810be3f398fceb8be7938d1b27bf17ac00b57e7fa0b09aa6f91a8b76ab1d2d",
-  "purpose": "Retry authorized Risk XGBoost first-release API 100% promotion. Prior #39884431169 passed 107 CI gates, stopped safely before traffic while natural dev Job execution was running. Current promote code waits boundedly for all existing Job executions to finish, without bypassing the writer fence.",
-  "request_attempt": 2
+  "purpose": "Risk XGB authorized dev API 100% promo retry, diagnostics scoped to safe phase+error class; previous #39884719605 returned generic control_failure before any confirmed success, preserve reversible baseline and exact release.",
+  "request_attempt": 3
 }
