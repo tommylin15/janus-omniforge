@@ -1,15 +1,27 @@
 # D07｜五分析師完整模型生命週期
-更新：2026-10-22。使用者要求補齊建議資料量、Colab到GCS發布、日/週推論及每月有效性回收。
+更新：2026-10-23。原模型生命週期與 Colab 規格保留，新增 ChatGPT 三角色試訓與四角色跨 Job 快取的延後整併決策。
 **本文件是開發/營運目標，非已部署能力或已實收資料。** 模型/X/Y見[Specialist](specialist-engines.md)，精確時間/公式見[Feature契約](model-feature-time-contract.md)；不複製另一套公式。狀態唯一見[TODO](../todo.md)，操作與AI指令見[完整開發卡](../execution-cards/d07-model-lifecycle.md)。
 
 **本輪交付決策（2026-10-22）**：前四角色各自獨立 XGBoost Notebook；共用 Python 模組，不共用一份必須依序執行的訓練 Notebook。操作／AI 指令：[Quant 趨勢](../colab-models/01-quant-xgboost.md)、[Risk 風險](../colab-models/02-risk-xgboost.md)、[Fundamental 營運](../colab-models/03-fundamental-xgboost.md)、[Valuation 估值](../colab-models/04-valuation-xgboost.md)。Event 暫另議。本次僅文件完成，訓練與發布狀態仍依 TODO／實際收據。
+
+### 2026-10-23｜三模型 ChatGPT 試做與四模型跨 Job 快取決策
+
+**最新決策，覆蓋本文件較早的 Colab-only 步驟**：Drive `janusChatGPT/CoLab程式` 已有 `01_Quant趨勢_XGBoost.ipynb`、`03_Fundamental營運_XGBoost.ipynb`、`04_Valuation估值_XGBoost.ipynb`。三模型優先在 ChatGPT 可用 Python／研究執行環境試做，**不必使用 Colab**；Colab 保留選配。Notebook 存在與資料 `training_ready=True` 只表示可以試訓，不代表真實訓練、OOS、部署或 ACTIVE 已通過。Risk v1 的原模型/hash、現役發布與回滾狀態不因新試訓而改變。
+
+1. **三角色先個別完成研究試訓**：固定讀取 `JanusDataset_v3_202610/canonical/CURRENT.json` 指向的不可變 Parquet release；核對 manifest、完整分區檔 SHA256、schema、時間、來源及使用授權。ChatGPT 環境若無 Google Drive 掛載，須經既有已授權檔案通道取得完整檔案，不能用文字片段/舊 r1 CSV/fixture 代替真實訓練。禁止重新採集已收資料。沿用各 Notebook 的 X/Y、label mature-at、PIT、公司行動、按時序切分與 purge、train-only 處理、baseline、OOS 與重載測試。記錄環境/依賴/seed/source hash/run fingerprint；預設 RESEARCH_ONLY、publication_allowed=false。
+2. **可部署條件按角色獨立判定**：Quant（20交易日 p_up）、Fundamental（下一月營收 YoY）、Valuation（獨立 logPE/logPB）各需真實可重現 OOS/baseline、來源用途與時間合法性、必要污染控制、train/serving parity、模型 UBJ/前處理/schema/固定向量和 SHA、既有 GCS 不可變候選讀回、受控 shadow、registry/PG/API/UI/rollback 相容方案以及對應 CI/dev 證據。資料不足者保留 RESEARCH_ONLY/INCONCLUSIVE/BLOCKED，不能為湊齊三份而冒稱 DEPLOYABLE。
+3. **三角色全部可佈版後才整併快取**：僅當 Quant/Fundamental/Valuation **全數具備可部署證據與受控發版入口**，才連同 Risk v1 一次改造共同 loader、版本釘選、快取與 registry，沿用既有 Scheduler→Controller→janus-intelligence-mart；不得提前改 Risk v1 現役推論、重新訓練 Risk 或另建每模型 Job。GCS 私有不可變模型與 manifest/hash 保留為唯一版本權威；按 role、model SHA、feature/preprocessor schema identity，Job 每次 execution 對每角色只載入一次到該 execution 記憶體，再批次向量化預測。
+4. **跨 Job 快取並非共享 RAM**：不同 Cloud Run Job execution 不能保證保留前次 RAM、容器或 /tmp。先比較 A) 既有 GCS immutable artifact、每次 execution 單次下載+SHA驗證+in-process cache（低成本基線），B) 經 CI 綁定 image digest/model hash 的 image layer 內封裝模型（若實測較快且版本/回滾可控），C) 其他**已核准、成本確認**的共享快取方案。不得把 GCS 本身或容器暫存誤稱跨 execution 共享記憶體，也不新增 Redis/Vertex Endpoint/VM/常駐服務或付費額度，除非先取得使用者授權。
+5. **統一驗收與回退**：同 target union、Core snapshot、as-of、X、版本下，比較改造前後模型讀取時間、load/predict/批次總耗時、GCS GET/bytes、CPU/RAM 峰值、成本估算；要求 fixed vectors、實際 dev 日批結果一致，驗壞 hash、cache invalidation、並發、Owner 隔離、ETF N/A、rollback。效益不明顯就維持 GCS+每Job單次載入基線；完成原定驗收才結案，不因假設性風險無限延長。
+
+執行步驟與 AI 指令見 [D07 模型生命週期卡](../execution-cards/d07-model-lifecycle.md)；三個角色的具體公式仍以各自模型文件為準。本項在原 D07 內，不另開 WBS 或增加 D08 工作。
 
 ## 1. 現況、架構與責任
 以下早期基線保留作背景；新訓練輸入以 `JanusDataset_v3_202610/canonical/CURRENT.json` 指定 Parquet release 為準，Risk 既有 XGBoost8 參照專用模型卡／重訓手冊。早期查證基準 main 530a93030f478a91b33256ce98be6e55115a779c：
 - 現有Colab採集README只示範2025-01～2026-09，共21個月，不是已收齊兩年，更不是五年。真實收量須讀manifest，不能由命令範圍推定。
 - 已有OHLCV採集/月資料夾/續跑、Risk Ridge試點；五模型完整notebook、訓練/推論共用前處理、候選匯入、shadow、月評估需依D07實作。
 - Controller程式已有平日mart 09:00 due、market-screening 16:30 due，總控以每小時:30喚醒。09:00 due實際可能09:30才執行，**不能拿現有mart時段宣稱盤前報告已成立**。
-- GCS只保存模型/小型事實/預測/報告；Cloud Scheduler→既有Controller→janus-intelligence-mart執行推論/結果回收。Colab人工訓練，不能把notebook/Drive當無人值守正式runtime。
+- GCS只保存模型/小型事實/預測/報告；Cloud Scheduler→既有Controller→janus-intelligence-mart執行推論/結果回收。新三角色可於 ChatGPT 可用 Python 執行環境試訓，Colab 為可選替代；Notebook/Drive不是無人值守正式 runtime。
 - Colab上傳是**模型業務artifact**，不改GitHub Actions→GHCR的程式Release路徑，不把GCS當container registry、CI receipt或release mutex。
 - 程式與模型分開發布：新runtime/feature/schema先經既有GitHub CI/dev release；相容模型包才走registry promotion，不由Colab改Cloud Run image或正式active pointer。
 
@@ -26,7 +38,7 @@
 初期先把可用既有21月Risk流程跑通；目標歷史分階段擴充，不為等五年而擋方案A事實產品。要延伸2025以前，先補對應年度交易日曆/來源支援與歷史母體，不能只改start日期硬跑。
 以N個合格股票估容量：日頻約N×交易日數、月營收N×月數、財報N×季數；多股票共用market/benchmark，勿逐股複製大型raw。實測壓縮bytes/row後報成本，不編造GCS/Drive用量或免費保證。
 
-## 3. Colab八階段開發流程
+## 3. 研究訓練八階段開發流程（ChatGPT／Colab）
 所有notebook採版本化Python共用模組，不把主要邏輯藏在未追蹤cell；固定Git SHA、依賴版本、seed。每階段寫Drive manifest/checkpoint，可重新連線續跑；不可使用保活繞過Colab限制。
 | 階段 | 操作 | 產物與完成條件 |
 |---|---|---|
@@ -50,7 +62,7 @@
 | Event | 人審指南、抽樣複標、一致性/類別分布；TF-IDF及分類器只fit train，事件家族不跨fold | 先版本化rules；classifier有合格資料才發布；新公告/修訂才重算，日期到期做狀態轉移 |
 每個角色可以是rules而不是ML，版本同樣可追蹤。五角色不用同時成功；壞模型不得阻止其他有效事實/角色服務。
 
-## 5. Colab→GCS→正式發布
+## 5. 研究執行環境→GCS→正式發布
 擬定模型業務prefix使用**既有dev Mart bucket**，實作前讀回bucket/IAM/現有retention，不新增bucket或默認擴權：
 gs://gen-lang-client-0593591102-dev-mart/models/candidates/<role>/<model_version>/
 此prefix是新設計，現有Runtime未必支援。不得套用舊分析只留三代/90天的清理規則直接刪候選或有效評估證據。
@@ -82,7 +94,7 @@ GCS不運算。**唯一既有Scheduler→Controller→Mart Job→Core/PG讀取�
 | 每週六 | 資料品質完成後既有Mart受控階段核missing/drift/成熟outcome/未完成重試，與23:30 Iceberg維護隔離 | 週摘要與資料/推論健康；不每週重訓五模型 |
 | 每月首個週維護 | 上月結算cutoff固定；評估截至該cutoff已成熟資料，記月份冪等key | 月度evaluation、保留/觀察/降級/回退/建議人工重訓 |
 盤前08:30與既有supplement/鎖可能競爭，A3實作必做一次實測，採source ready/cutoff降級，不承諾秒級準時；若現有總控無法滿足，不暗增喚醒頻率，回報具體延遲與最小調整方案。
-不恢復specialist-retrain。月評估是輕量scoring，不在Cloud Run fit；人於Colab讀月評估後重訓候選。
+不恢復specialist-retrain。月評估是輕量scoring，不在Cloud Run fit；研究操作者在 ChatGPT 可用環境（或選配 Colab）讀月評估後重訓候選。
 
 ## 7. 每股獨立還是全市場一起
 - **訓練**：每角色的pooled panel由多股票共同學習；不同target/horizon可多個estimator，不等於每股一套模型。
@@ -125,7 +137,7 @@ horizon用市場交易日，非湊滿20筆有價觀測；停牌/退市導致終�
 3. champion與shadow challenger必用同一可比較cohort、cutoff、label、成本假設；無足量成熟證據則INSUFFICIENT_MATURED_LABELS，不以0命中率或PASS代替。
 4. 訓練前evaluation plan固定允許退化幅度/樣本下限/校準容忍，根據當時OOS與block uncertainty設定，不為所有角色硬訂「勝率60%」。不得看本月test後追改門檻。
 5. 狀態：KEEP（維持）/WATCH（觀察）/RETRAIN_RECOMMENDED（回Colab）/ROLLBACK或RULES_ONLY（具體品質/相容錯誤）。安全/數字/模型相容錯誤立即停該角色；統計退化應以成熟樣本及不確定性證據判斷，非一個月負報酬自動重訓。
-6. Colab人工讀月評估，更新已到位資料、重建有版本X/Y、訓練新candidate；新增資料只用當時成熟label。看過的歷史OOS可成後續training，但不能再當新模型獨立test；保留新的時間外期間/前瞻shadow。
+6. 研究操作者在 ChatGPT 執行環境（或選配 Colab）人工讀月評估，更新已到位資料、重建有版本X/Y、訓練新candidate；新增資料只用當時成熟label。看過的歷史OOS可成後續training，但不能再當新模型獨立test；保留新的時間外期間/前瞻shadow。
 7. 新candidate→immutable上傳→validator→shadow→promotion/保留舊版，循環回每日推論。月評估自動產出不等自動重訓/自動替換模型。
 8. 每月Admin只列每角色版本、有效樣本與成熟期、相對baseline、狀態/理由、建議動作；一般User只看可理解研究結果。
 
