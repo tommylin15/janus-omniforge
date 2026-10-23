@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "6ffabe28105a981ecaee3e4d394a7f1a4aa7b05f",
-  "purpose": "Admin full Release gate retry: Risk serving test hash assertions repaired; four-model ChatGPT labeler out-of-budget test corrected to use output sibling of dataset root so ROW_LIMIT guard is actually reached. Preserve all canonical overwrite and immutable serving protections. Full Python, Flutter, four GHCR image/digest only; no runtime mutations.",
+  "sha": "29f9162d0ba18d611fb263bd64aad87b05c5cc72",
+  "purpose": "Fix dev Controller ledger-backup six stale running occurrences: make poll_backup receipt-only, never invoke GCS backup retention deletion while reconciling status. Full pinned GHCR release for guarded Controller/ingestion-core rollout; no repeat backup, no changes to API traffic or models.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 6
+  "request_attempt": 7
 }
