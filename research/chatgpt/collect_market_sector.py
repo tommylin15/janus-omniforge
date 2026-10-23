@@ -20,6 +20,10 @@ def load_collector(repo_root: Path):
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load collector: {path}")
     module = importlib.util.module_from_spec(spec)
+    # Python 3.12 dataclasses resolves annotations through sys.modules while
+    # the class decorator is executing, so register the module before exec.
+    import sys
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
