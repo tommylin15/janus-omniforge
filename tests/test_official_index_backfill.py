@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-sys.path.insert(0,str(Path(__file__).resolve().parent))
+sys.path.insert(0,str(Path(__file__).resolve().parents[1] / 'research' / 'colab'))
 import official_index_backfill as c
 
 
@@ -175,3 +175,46 @@ def test_actual_parquet_roundtrip_if_available(tmp_path):
     receipt={'attempt_id':'20261023-abc','version':c.VERSION,'status':'UNKNOWN'}
     c.write_partition(tmp_path,b'{"stat":"OK"}',rows,receipt)
     assert c._verify_receipt(tmp_path)['rows']==2
+
+class RawResponse:
+    def __init__(self, raw, status_code=200, content_type='text/html'):
+        self.status_code=status_code
+        self.content=raw
+        self.headers={'Content-Type':content_type}
+
+
+def test_html_404_one_probe_per_source(tmp_path):
+    seen=[]
+    def fetch(url,timeout=None,headers=None):
+        seen.append(url)
+        return RawResponse(b'<!DOCTYPE html><html><head><title>404</title></head><body>gone</body></html>')
+    got=c.backfill(tmp_path,c.RunOptions(start_month='2025-01',end_month='2025-03',max_requests=70,
+                include_twse_sector=True,include_tpex_sector=True),fetch=fetch,sleep=lambda x:None)
+    assert len(seen)==3
+    assert got['current_run_status_counts']['SOURCE_ENDPOINT_INVALID']==3
+    assert got['current_run_status_counts']['SKIPPED_INVALID_SOURCE']==6
+    assert got['partition_verified_counts']['twse_market']==0
+    assert got['outstanding_partition_count']==12
+    rec=json.loads((tmp_path/'derived'/'factor_inputs'/'official_index_backfill'/c.VERSION/'twse_market'/'2025-01'/'receipt.json').read_text())
+    assert rec['response_content_type']=='text/html'
+    assert rec['detail']=='HTTP_200_HTML_404'
+    assert rec['publication_allowed'] is False
+
+
+def test_real_404_one_probe_per_source(tmp_path):
+    seen=[]
+    def fetch(url,timeout=None,headers=None):
+        seen.append(url)
+        return RawResponse(b'Not Found',status_code=404)
+    got=c.backfill(tmp_path,c.RunOptions(start_month='2025-01',end_month='2025-03',max_requests=70),fetch=fetch,sleep=lambda x:None)
+    assert len(seen)==3
+    assert got['current_run_status_counts']['SOURCE_ENDPOINT_INVALID']==3
+    assert got['current_run_status_counts']['SKIPPED_INVALID_SOURCE']==6
+
+
+def test_html_landing_page_distinguished_from_404(tmp_path):
+    def fetch(url,timeout=None,headers=None):
+        return RawResponse(b'<!doctype html><html><title>Daily indices</title></html>')
+    got=c.backfill(tmp_path,c.RunOptions(start_month='2025-01',end_month='2025-01',max_requests=4),fetch=fetch,sleep=lambda x:None)
+    assert got['current_run_status_counts']['SOURCE_FORMAT_UNSUPPORTED']==3
+    assert got['status']!='SOURCE_DATA_VERIFIED_COMPLETE'

@@ -1,7 +1,7 @@
-"""Janus v3.8.3 official market/sector history backfill (Colab collection only).
+"""Janus v3.8.4 official market/sector history backfill (Colab collection only).
 
 Read-only for canonical/CURRENT.json. Writes immutable research-only source
-partitions under derived/factor_inputs/official_index_backfill/v3.8.3.
+partitions under derived/factor_inputs/official_index_backfill/v3.8.4.
 No ML labels or point-in-time security-industry membership are generated.
 """
 from __future__ import annotations
@@ -21,10 +21,10 @@ from urllib.parse import urlencode
 
 import requests
 
-VERSION = 'v3.8.3'
+VERSION = 'v3.8.4'
 SOURCES = {
     'twse_market': {
-        'endpoint': 'https://www.twse.com.tw/rwd/zh/indicesReport/MI_5MINS_HIST',
+        'endpoint': 'https://www.twse.com.tw/indicesReport/MI_5MINS_HIST',
         'source_page': 'https://www.twse.com.tw/zh/indices/taiex/mi-5min-hist.html',
         'market': 'TWSE', 'kind': 'market_index',
     },
@@ -34,12 +34,12 @@ SOURCES = {
         'market': 'TWSE', 'kind': 'sector_index',
     },
     'tpex_market': {
-        'endpoint': 'https://www.tpex.org.tw/www/zh-tw/mainboard/trading/info/daily-indices',
+        'endpoint': 'https://www.tpex.org.tw/zh-tw/mainboard/trading/info/daily-indices.html',
         'source_page': 'https://www.tpex.org.tw/zh-tw/mainboard/trading/info/daily-indices.html',
         'market': 'TPEX', 'kind': 'market_index',
     },
     'tpex_sector': {
-        'endpoint': 'https://www.tpex.org.tw/www/zh-tw/mainboard/trading/statistics/indices/daily-sector',
+        'endpoint': 'https://www.tpex.org.tw/zh-tw/mainboard/trading/statistics/indices/daily-sector.html',
         'source_page': 'https://www.tpex.org.tw/zh-tw/mainboard/trading/statistics/indices/daily-sector.html',
         'market': 'TPEX', 'kind': 'sector_index',
     },
@@ -448,7 +448,7 @@ def backfill(root: str | Path, options: RunOptions, *, fetch=None, sleep=None, c
     out.mkdir(parents=True,exist_ok=True)
     months=months_between(o.start_month,o.end_month)
     fetch=fetch or requests.get;sleep=sleep or time.sleep;clock=clock or time.monotonic
-    began=clock();calls=0;events=[];refused_hosts=set();states={}
+    began=clock();calls=0;events=[];refused_hosts=set();invalid_sources=set();states={}
     for source,stamp in _job_list(months,out,include_twse_sector=o.include_twse_sector,
                                     include_tpex_sector=o.include_tpex_sector):
         folder=partition(out,source,stamp)
@@ -457,6 +457,10 @@ def backfill(root: str | Path, options: RunOptions, *, fetch=None, sleep=None, c
             states[source+'_SKIPPED_VERIFIED']=states.get(source+'_SKIPPED_VERIFIED',0)+1
             continue
         market=SOURCES[source]['market']
+        if source in invalid_sources:
+            events.append({'source':source,'period':stamp,'status':'SKIPPED_INVALID_SOURCE','rows':0,
+                           'reason':'SOURCE_PROBE_FAILED_EARLIER_IN_RUN'})
+            continue
         if market in refused_hosts:
             events.append({'source':source,'period':stamp,'status':'SOURCE_BLOCKED_HOST'});continue
         if calls>=o.max_requests or (clock()-began)>o.max_minutes*60:
@@ -480,13 +484,18 @@ def backfill(root: str | Path, options: RunOptions, *, fetch=None, sleep=None, c
                 'source_endpoint_use_authorization':'REQUIRES_INDIVIDUAL_VERIFICATION',
                 'fetched_at_utc':stamped,'source_publication_time':'NOT_VERIFIED',
                 'historical_industry_membership_pit':'NOT_VERIFIED',
-                'http_status':status,'raw_sha256':rawsha,'publication_allowed':False,
+                'http_status':status,'raw_sha256':rawsha,
+                'response_content_type':str((getattr(r,'headers',{}) or {}).get('Content-Type',''))[:128],
+                'publication_allowed':False,
                 'canonical_current_mutated':False,'status':'UNKNOWN',
                 'attempt_id':re.sub(r'[^0-9]','',stamped)[:20]+'-'+rawsha[:8]}
             if status in BLOCK_STATUSES:
                 receipt['status']='SOURCE_BLOCKED'; refused_hosts.add(market)
             elif status!=200:
-                receipt['status']='HTTP_ERROR'
+                receipt['status']='SOURCE_ENDPOINT_INVALID' if status in (404,410) else 'HTTP_ERROR'
+                if status in (404,410):
+                    invalid_sources.add(source)
+                    receipt['detail']='HTTP_SOURCE_PATH_NOT_FOUND'
             else:
                 try:
                     payload=json.loads(raw.decode('utf-8-sig'))
@@ -504,7 +513,14 @@ def backfill(root: str | Path, options: RunOptions, *, fetch=None, sleep=None, c
                             raise SchemaBlocked('TPEX_SECTOR_TOO_FEW_INDUSTRIES')
                     write_partition(folder,raw,normalized,receipt)
                 except (ValueError,KeyError,TypeError,UnicodeError) as exc:
-                    receipt['status']='SCHEMA_BLOCKED';receipt['detail']=str(exc)[:240]
+                    peek=raw[:4096].lstrip().lower()
+                    if peek.startswith((b'<!doctype html', b'<html')) or b'<html' in peek[:256]:
+                        title_404=b'<title>404' in peek or b'<h1>404' in peek
+                        receipt['status']='SOURCE_ENDPOINT_INVALID' if title_404 else 'SOURCE_FORMAT_UNSUPPORTED'
+                        receipt['detail']='HTTP_200_HTML_404' if title_404 else 'NON_JSON_HTML_PAGE_NOT_API'
+                        invalid_sources.add(source)
+                    else:
+                        receipt['status']='SCHEMA_BLOCKED';receipt['detail']=str(exc)[:240]
             if receipt['status']!='VERIFIED':
                 _save_receipt(folder,receipt)
             events.append({'source':source,'period':stamp,'status':receipt['status'],
