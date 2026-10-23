@@ -26,3 +26,17 @@ def test_join_is_not_claimed_when_missing():
     assert "pg_receipt_sha_mismatch" in CODE
     assert "pg_active_reference_section_incomplete" in CODE
     assert "pagination_complete" in CODE
+
+
+def test_scheduler_readback_and_execution_modes_are_get_only_and_sanitized():
+    ast.parse(CODE)
+    assert "def scheduler_snapshot()" in CODE
+    assert '"scheduler", "jobs", "describe"' in CODE
+    assert '"--format=json"' in CODE
+    assert '"scheduler": scheduler_snapshot()' in CODE
+    assert "def execution_mode(item, job)" in CODE
+    assert '"UNKNOWN_MODE_OVERRIDE"' in CODE
+    assert '"last_30d_by_observable_mode"' in CODE
+    assert '"MART_OPERATION"' in CODE and '"MART_RETENTION_MODE"' in CODE
+    assert '"UNKNOWN_UNRECOGNIZED_MODE"' in CODE
+    assert "jobs:run" not in CODE
