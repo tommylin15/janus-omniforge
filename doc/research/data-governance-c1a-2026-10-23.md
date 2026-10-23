@@ -370,3 +370,19 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 **最小程式修正**：poll_backup 成功時只驗證 VM 完成收據並回傳 succeeded，不做任何 GCS 清理；retention_cleanup 標記 not_run_in_reconcile。原 cleanup_old_backups 函式保留，未重新啟用另一排程。請注意目前原 private-ledger-backup-retention workflow 的 schedule 已停用，故正式保留期清理須後續獨立受控路徑重新驗證；**不能把本次不刪資料的修復宣稱備份 retention 全面驗收通過**。
 
 **驗收閘門**：(1) 新增測試證明即使 GCS cleanup 無權限，poll_backup 也可成功回傳、且不執行 cleanup；(2) 完整 GHCR Release 與 Controller/ingestion-core 新 image dev 部署；(3) 以原先 6 個指定 occurrence 在同時段 Controller 鎖與 PG 完成收據下進行 reconcile；(4) live readback 六筆 succeeded、backup_requests 保持 succeeded、未新增備份／未清除任何 GCS 物件。未取得第 2–4 項證據時維持 PARTIAL，不僅憑 GitHub commit／CI 宣稱 runtime 修復。
+
+---
+
+## 17. Controller 六筆備份正式驗收（2026-10-23）
+
+**Release 證據**：[完整 GHCR #39967114806](https://github.com/tommylin15/janus-omniforge/actions/runs/39967114806) completed/success；source SHA `0e5e8a680ebf02c534a42438ee744ff2c63f1c21`，完整 Python、Flutter、四映像發布與 digest 驗收 PASS。
+
+**Controller-only 部署及 PG Live 收斂證據**：[Actions #39970387282](https://github.com/tommylin15/janus-omniforge/actions/runs/39970387282)，head SHA `da64c615dc9a6817e85016247b63e17de21821d9`，2026-10-23T14:38:05Z completed/success；`controller-ledger-repair` Job success，離線合約測試 22 passed。實際執行日誌以受控回執回報：
+
+- `component=janus-batch-controller`、`existing_job_updated=true`；只更新既有 Controller 映像，沒有更新 API/Mart/Private。
+- `backup_repaired=6`、`backup_succeeded=6`，來源是精確指定的六筆 PostgreSQL occurrence 和已完成 VM 備份收據，逐筆 CAS UPDATE、outbox 登記，當次二次讀回均為 `succeeded`；`backup_requests_unchanged=true` 為工作內部驗收條件。
+- `scheduler=ENABLED`，表示部署後恢復正常排程；舊 pinned GHCR 映像已作為回滾來源驗證。
+- `backup_jobs_dispatched=0`、`gcs_deletions=0`，指**本次修復操作**沒有重送備份／刪除 GCS 物件，不代表同期全專案一切 GCS 寫入為零。
+- Artifact `janus-controller-ledger-repair`（GitHub artifact ID `12508449986`）已產出；此次核對依 GitHub Workflow conclusion/step 與日誌終態，不虛構額外人工查驗。
+
+**驗收決策**：先前六筆 Controller stale `running` 的指定修復工項 **CLOSED / PASS**。此判定不涵蓋另項備份保留期清理：新 `poll_backup` 不再以 GCS retention cleanup 作為狀態完成前置；獨立 `cleanup_old_backups` 與備份 retention 排程可用性仍需另行驗證，不能宣稱 retention PASS。本輪沒有任何 C1-B Mart/Stage 實體清掃授權。
