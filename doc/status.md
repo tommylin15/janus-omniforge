@@ -6,7 +6,7 @@
 
 此頁較下方 A-CHANGE／D07-PRE／Risk 研究敘述是 **2026-10-22 當時截面**，不得作目前完結狀態或下一任務順序。**唯一 active 順序/狀態是 [TODO §1](todo.md)**；跨線依賴見 [WBS](wbs.md)；本次只改文件，不宣稱新 runtime PASS。
 
-- **OPS-P0-2（2026-10-24 新範圍）**：使用者取消原 57 筆超過五天工作的逐筆追查與恢復，保留歷史 PG 稽核紀錄、不實體刪除。舊 Controller-only [#40047503576](https://github.com/tommylin15/janus-omniforge/actions/runs/40047503576) `completed/success`（7 天政策）；新版 5 天 SELECT／pending dispatch fence／歷史 override 停用已提交 main，**targeted CI、dev 新映像及 Scheduler 讀回仍待驗，不宣稱已生效**。依 [PROJECT_RULES §1.8.1](PROJECT_RULES.md)。
+- **OPS-P0-2｜5 天工作排除／Controller live（CLOSED／PASS，2026-10-24）**：使用者核准超過 5×24h 的 analysis／collection 只排除追查與恢復，不實體刪除。一般 queue SQL 5 天上限、persisted pending 派送前重新核對、舊 30 天 one-shot override 停用均已實作；[targeted CI #40048549032](https://github.com/tommylin15/janus-omniforge/actions/runs/40048549032) 37 PASS；首輪完整 Release 舊測試 2 FAIL 已修正，[正式 GHCR #40049195127](https://github.com/tommylin15/janus-omniforge/actions/runs/40049195127) 完整 PASS；[Controller-only dev #40049724410](https://github.com/tommylin15/janus-omniforge/actions/runs/40049724410) `completed/success`：5 個 rollout 測試 PASS、read-only canary PASS、Scheduler ENABLED、目前 image digest `sha256:ccc4decc6f38b12e0b0ed62c2f22ab3b9e82a3fad336f10912671b1a028dd0f2`、`data_mutations=0`、`queue_recovery_dispatches=0`、Global Lease 已釋放。**不宣稱原 57 筆執行終態已補正**；原 57 超齡歷史按 §1.8.1 撤出追查，PG／GCS 紀錄保持。
 - **P0-1**：備份分離清理已經歷有界 dry-run/apply PASS，但首個自然排程未取得證據；僅待其真實 occurrence readback，不重跑全部。
 - **C1-A／資料治理**：Live metadata 與 reader 部分收斂，**C1-B 刪表/欄許可為 0**；不得先刪後驗。
 - **Janus 2.0／A-CHANGE**：已有部分程式與 UI，但原定整包 dev/Owner 驗收未結案；2.0 建議為設計方向，**非已發布新 UI**。
