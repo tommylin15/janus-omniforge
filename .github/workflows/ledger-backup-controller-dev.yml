@@ -141,6 +141,22 @@ jobs:
           '
           echo "CONTROLLER_OCCURRENCE_BY_LOCAL_DAY"
           gcloud compute ssh janus-postgres-dev --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet --command='sudo docker exec --user postgres janus-postgres psql -X -qAt -d janus_control -c "SELECT (scheduled_at AT TIME ZONE '\''Asia/Taipei'\'')::date::text,count(*),count(*) FILTER (WHERE state->>'\''status'\''='\''succeeded'\''),count(*) FILTER (WHERE state->>'\''status'\''='\''failed'\''),count(*) FILTER (WHERE state->>'\''batch'\''='\''ledger-backup'\'') FROM control.batch_occurrences WHERE scheduled_at>=now()-interval '\''3 days'\'' GROUP BY 1 ORDER BY 1 DESC LIMIT 4"'
+          echo "LIVE_CONTROLLER_CONFIG_ALLOWLIST_ONLY"
+          gcloud run jobs describe janus-batch-controller --project="$GCP_PROJECT_ID" --region=us-central1 --format=json |
+            python -c '
+          import json,sys
+          obj=json.load(sys.stdin)
+          tpl=obj.get("spec",{}).get("template",{}).get("spec",{}).get("template",{}).get("spec",{})
+          containers=tpl.get("containers",[])
+          allowed={"BATCH_CONTROLLER_MODE","BATCH_CONTROLLER_NOT_BEFORE","FINOPS_WEEKLY_MAINTENANCE"}
+          env={r["name"]:r.get("value","NON_LITERAL")
+               for c in containers for r in c.get("env",[]) if r.get("name") in allowed}
+          print(json.dumps({"allowed_runtime_env":env,
+              "image_sha_digest_present":any("@sha256:" in c.get("image","") for c in containers)},
+              sort_keys=True))
+          '
+          echo "TODAY_EXACT_OCCURRENCES"
+          gcloud compute ssh janus-postgres-dev --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet --command='sudo docker exec --user postgres janus-postgres psql -X -qAt -d janus_control -c "SELECT scheduled_at::text,state->>'\''batch'\'',state->>'\''status'\'',coalesce(state->>'\''reason'\'','\''NONE'\'') FROM control.batch_occurrences WHERE scheduled_at >= (now() AT TIME ZONE '\''Asia/Taipei'\'')::date AT TIME ZONE '\''Asia/Taipei'\'' ORDER BY scheduled_at ASC LIMIT 18"'
           echo "NO_SCHEDULER_OR_JOB_MUTATION=true"
       - name: Install local request executor without stopping original backup
         if: steps.request.outputs.phase == 'install'
