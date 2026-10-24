@@ -7,6 +7,6 @@
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "Independent existing dev API 100% read-only acceptance; compare newline-tolerant /app/build-id, immutable digest, 200 health and 401/403 Owner/Admin without owner session, and bounded public stock presence. No GCP mutation.",
-  "request_attempt": 2
+  "purpose": "Existing dev 100% source, source image, build-id and app; Owner private + GET-only Admin batch-dashboard must return anonymous 401/403; public history is optional. Corrected method contract; zero GCP writes or API re-deploy.",
+  "request_attempt": 3
 }
