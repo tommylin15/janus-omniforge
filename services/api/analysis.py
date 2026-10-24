@@ -89,16 +89,23 @@ class AnalysisService:
         items = []
         from packages.change_analysis import instant
         kind_order = {'event': 0, 'operation': 1, 'price': 2, 'valuation': 3}
+        active_change = {'new', 'strengthened', 'weakened', 'invalidated'}
+        def change_rank(item):
+            # A missing/stale observation is not a newly confirmed change.
+            # Still retain it as an explicit fallback if no current fact exists.
+            return (0 if item.get('status') == 'available' else 1,
+                    0 if item.get('state') in active_change and item.get('changed') else 1,
+                    kind_order.get(item.get('kind'), 99),
+                    -instant(item['source_available_at']).timestamp())
         for row in rows:
             view = views.get(row['symbol'], {})
             candidates = [i for i in view.get('observations', []) if i['state'] != 'expired'
                           and (i['state'] != 'ongoing' or i.get('changed'))]
-            candidates.sort(key=lambda i: (kind_order[i['kind']], -instant(i['source_available_at']).timestamp(), i['identity']))
+            candidates.sort(key=lambda i: (*change_rank(i), i['identity']))
             if candidates:
                 items.append({**candidates[0], 'session': session, 'cutoff_at': view['cutoff_at'],
                               'price_date': view['price_date'], 'membership_priority': row['priority']})
-        items.sort(key=lambda i: (i['membership_priority'], kind_order[i['kind']],
-                                  -instant(i['source_available_at']).timestamp(), i['symbol']))
+        items.sort(key=lambda i: (i['membership_priority'], *change_rank(i), i['symbol']))
         return {'session': session, 'items': [{k: v for k, v in i.items() if k != 'membership_priority'}
                                             for i in items[:3]], 'status':
                 'available' if len(views) == len(rows) and all(v['status'] == 'available' for v in views.values())
