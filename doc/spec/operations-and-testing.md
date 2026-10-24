@@ -16,6 +16,13 @@
 - 證據 artifact `janus-c1a-reader-dependency-get-only`（[#40051843751](https://github.com/tommylin15/janus-omniforge/actions/runs/40051843751)），結果 `CODE_SCAN_AND_DEPLOYED_METADATA_PASS`、`data_mutations=0`、`new_resources=0`；只能結案這輪狹義 GET/Code 盤點，不將整個 C1-A 或 C1-B 標為 PASS。
 
 
+#### 2026-10-24｜GOV-C1A 追加 live table/scan 實證
+
+- **現役 Core/Mart 表 metadata：[ #40052513368](https://github.com/tommylin15/janus-omniforge/actions/runs/40052513368) PASS**：2 Core＋11 Mart 共 13 張 `load_table`／current schema／snapshot／manifest metadata READABLE；同時可讀三個 API/Jobs 日誌來源，既有 Job config fingerprint 不變；資料異動與新增資源 0。不代表每張有 current snapshot 或獨立還原。
+- **真實表級維護掃描：[ #40052878512](https://github.com/tommylin15/janus-omniforge/actions/runs/40052878512) PASS**：受控 GET 已存在 `maintenance/retention/` 成功產物，逐項核實 `component=mart-retention`、`tables[].table`；**11/11 Mart 表存在完整的 maintenance scan 收據**，但正式 API/UI/ML 業務讀者仍 `UNKNOWN`，不是 11 張可刪或完全無人使用。
+- **Core 雙表結構實測**：14 個共同欄位；`core.market_volume_v1` 多 `stock_name`、`core.ohlcv_v1` 多 `change_percent`；雙表從相同市場資料路徑但走不同 DQ／serving 分支，逐鍵 parity 尚未驗；兩者維持 KEEP。兩輪全部只讀，不包含資料列掃描、部署、DROP 或刪除。
+- **還原 gate**：`independent_recovery=NOT_VERIFIED`，單純 current Iceberg metadata 可讀不等於獨立備份；Stage 48h 與 current-only snapshot 更不可冒稱獨立 rollback。完整 sanitized 機器可讀回執：[artifact #12544166907](https://github.com/tommylin15/janus-omniforge/actions/runs/40052878512/artifacts/12544166907)。Scanner 自引用排除修正另見 [CI #40052966026](https://github.com/tommylin15/janus-omniforge/actions/runs/40052966026)。C1-A 仍 PARTIAL，C1-B 物理刪除准許 0；逐表評估見 [C1-A §23](../research/data-governance-c1a-2026-10-23.md)。
+
 ### 2026-10-24｜OPS-P0-2 五天 queue 排除／Controller-only 正式 dev 驗收 CLOSED
 
 - **使用者核准範圍**：[PROJECT_RULES §1.8.1](../PROJECT_RULES.md)：`control.executions.requested_at` 超過 5×24h 的 analysis／collection 不再追查、恢復或自動重派；保留 PostgreSQL／GCS 歷史，不做 bulk status mutation、資料實刪或假造終態。原 41 analysis＋16 collection 為歷史凍結快照，並非「已結案 57 筆成功」的證據。
