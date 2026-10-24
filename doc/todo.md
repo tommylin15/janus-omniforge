@@ -4,7 +4,7 @@
 
 | 工作 | 剩餘交付 | 範圍 |
 |---|---|---|
-| RV-01…06（04 Valuation） | RV-01 已完成靜態 reader 接線清冊，仍缺真實代表股票覆蓋；RV-02 已交純函式與 14 項 CI PASS；接續 RV-01 真實抽樣 → RV-03 實際資料接線 → RV-04 API/Mart → RV-05 唯一估值卡 → RV-06 Dev 驗收 | [RV-01 接線](research/valuation-rv01-serving-readers-2026-10-24.md)／[估值 SPEC](spec/valuation-range.md)；正式仍僅四模型，未部署、不補全歷史 PIT |
+| RV-01…06（04 Valuation） | RV-01 已完成靜態 reader 接線清冊，仍缺真實代表股票覆蓋；RV-02 已交純函式與 16 項 CI PASS；接續 RV-01 真實抽樣 → RV-03 實際資料接線 → RV-04 API/Mart → RV-05 唯一估值卡 → RV-06 Dev 驗收 | [RV-01 接線](research/valuation-rv01-serving-readers-2026-10-24.md)／[估值 SPEC](spec/valuation-range.md)；正式仍僅四模型，未部署、不補全歷史 PIT |
 | VAL-MIN30 | v25 **重建版**模型封包已從真實 v23/P0P1 資料重新擬合與測試（兩份 UBJ、Ridge、逐筆預測；6/6 targeted PASS），原 v25 位元檔未尋回；v26 五因子／2024–2026 Colab 執行程式已交付，**2024–2026 真實時間切分尚未執行**，下一步以 Colab 真正訓練並讀回報告、UBJ 及測試集成績 | 不重抓資料、不冒稱 original v25；[v25 報告](research/valuation-v25-nonpit-direct-training-2026-10-24.md)／[v26 交付狀態](research/valuation-v26-rebuild-and-five-factor-2026-10-24.md)；RESEARCH_NON_PIT、publication_allowed=false |
 | DATA-RELEASE-PREFLIGHT／FACTOR-FACTORY | 讀現有 CURRENT、必要欄位與樣本，產生 X/Y | 不重跑全期 hash／來源／產業歷史稽核；缺實際必要資料才補 |
 | D07 共用 X/Y | 日期排序、滾動特徵、X/Y 分離、必要樣本及 train/serving 一致 | 不重建首次公告精確時間、歷史名冊或全公司行動 |
