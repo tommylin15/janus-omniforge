@@ -2,15 +2,16 @@
   "intent": "promote-existing-dev-api-only-fixed-ghcr",
   "approved": true,
   "scope": "existing-dev-janus-api-only",
-  "source_sha": "253d9d37132f4ce6d77bb1e84d6d7dac4d905d01",
-  "release_run": "39757237689",
-  "candidate_run": "39760791053",
-  "auth_boundary_run": "39761510405",
-  "prior_serving_sha": "a3a3b30648e7b05f2b9cb5363eca4594d52a2b20",
+  "source_sha": "2d0e874ce3efdee03e344370d7b6bde09dc54d87",
+  "release_run": "40058872816",
+  "candidate_run": "40059252248",
+  "auth_boundary_run": "40059387673",
+  "prior_serving_sha": "0ad738b1f7c3432bf6fac59ecb7d5063dce63447",
   "rollback_mode": "reversible_ghcr",
   "no_jobs_mutation": true,
   "no_scheduler_mutation": true,
   "no_storage_mutation": true,
   "no_iam_mutation": true,
-  "purpose": "User-requested Janus User App Life Assistant style stock UI pastel card refresh. Full release #39757237689, exact-source 0% API candidate #39760791053 and auth boundary #39761510405 all PASS. Prior latest successful API-only promotion #39711125553 served a3a3b306; validate actual current /app/build-id and previous public GHCR rollback digest under lease before reversible candidate→prior→candidate 100% traffic switch. No Jobs, Scheduler, data, IAM or new resources."
+  "purpose": "A-CHANGE 2026-10-24 existing dev API-only: full immutable GHCR #40058872816 PASS, 0% candidate #40059252248 PASS, anonymous OAuth/Owner/MCP boundary #40059387673 PASS. Prior live source expected 0ad738... from 2026-10-23 successful promotion #39913542437; live build-id, source and pinned previous rollback must match before lease. One direct 100% switch after lease, rollback only on actual failure. Do not update Jobs, Scheduler, Storage, IAM, API subscription or canonical data.",
+  "traffic_validation_mode": "direct"
 }
