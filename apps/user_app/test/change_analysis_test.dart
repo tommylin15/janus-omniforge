@@ -113,7 +113,7 @@ void main() {
       ]
     })))));
     await tester.pumpAndSettle();
-    expect(find.textContaining('最新營運事實'), findsOneWidget);
+    expect(find.text('新增｜最新營運事實'), findsOneWidget);
     expect(find.textContaining('下一觀察：下一份營運公告'), findsOneWidget);
     expect(find.textContaining('失效條件：驗證 最新營運事實'), findsOneWidget);
     expect(find.textContaining('舊營運等待更新'), findsNothing);
