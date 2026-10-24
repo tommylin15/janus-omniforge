@@ -127,13 +127,40 @@ def enqueue_manual_queues(connection, batches, paused, now, occurrence_env):
             enqueue_queued_worker(connection, batch, now, occurrence_env)
 
 
-def enqueue_queued_worker(connection, batch, now, occurrence_env, origin="queue", request_version=None):
+def enqueue_queued_worker(connection, batch, now, occurrence_env, origin="queue", request_version=None,
+                          *, historical_recovery=False):
+    """Enqueue one worker only after a durable, bounded lease/recovery decision.
+
+    Historical >7-day analysis work requires a separately verified recovery
+    gate. Never automatically replay legacy 'running' rows with a NULL lease:
+    they may contain 14 partially produced collection artifacts.
+    """
     trigger = {"collection-queue": "collection", "analysis-queue": "analysis"}[batch.name]
+    if historical_recovery and trigger != "analysis":
+        raise ValueError("historical collection recovery requires artifact-level review")
     with connection.transaction(), connection.cursor() as cursor:
-        cursor.execute("""SELECT execution_id,retry_count FROM control.executions
-            WHERE (status IN ('queued','retrying') OR status='running' AND claimed_until < now()) AND trigger_type=%s
-            AND requested_at >= now() - interval '7 days'
-            ORDER BY requested_at,execution_id LIMIT 1""", (trigger,))
+        cursor.execute("""SELECT e.execution_id,e.retry_count FROM control.executions e
+            WHERE e.trigger_type=%s AND e.finished_at IS NULL
+              AND e.requested_at >= now() - interval '30 days'
+              AND (e.requested_at >= now() - interval '7 days' OR %s)
+              AND (
+                e.status IN ('queued','retrying')
+                OR (e.status='running' AND e.claimed_until IS NOT NULL
+                    AND e.claimed_until < now())
+                OR (e.status='running' AND e.claimed_until IS NULL
+                    AND e.started_at IS NULL
+                    AND NOT EXISTS (SELECT 1 FROM control.execution_items i
+                        WHERE i.execution_id=e.execution_id))
+              )
+              AND (e.trigger_type='collection' OR EXISTS (
+                   SELECT 1 FROM control.core_ready_events r
+                   WHERE r.analysis_execution_id=e.execution_id))
+              AND NOT EXISTS (
+                   SELECT 1 FROM control.batch_occurrences b
+                   WHERE b.state->>'queued_execution_id'=e.execution_id::text
+                     AND b.state->>'status' IN ('pending','dispatching','running','ambiguous'))
+            ORDER BY e.requested_at,e.execution_id LIMIT 1""",
+                       (trigger, historical_recovery))
         queued = cursor.fetchone()
         if not queued:
             return "queue_empty"
