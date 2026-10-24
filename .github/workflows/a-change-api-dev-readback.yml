@@ -52,7 +52,8 @@ jobs:
                       return r.status,r.read(1000)
               except urllib.error.HTTPError as e:
                   return e.code,b""
-          assert get("/app/build-id.txt")==(200,q["source_sha"].encode())
+          build_code,build_body=get("/app/build-id.txt")
+          assert build_code==200 and build_body.decode("utf-8","replace").strip()==q["source_sha"]
           for path in ("/app/","/health","/api/v1/public/health"):
               assert get(path)[0]==200,path
           protected=("/api/v1/me/profile",
