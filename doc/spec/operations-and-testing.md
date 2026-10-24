@@ -3,6 +3,19 @@
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
 
+### 2026-10-24｜OPS-P0-1 備份真實恢復＋GCS 保留保護（BOUNDED CLOSED／PASS）
+
+- **有界結案**：最新 [備份 VM／Controller 唯讀稽核 #40095061967](https://github.com/tommylin15/janus-omniforge/actions/runs/40095061967) `completed/success`，已在現有 PostgreSQL `control.ledger_backup_requests` 讀到 **2026-10-24 Daily `succeeded`，40,587,735 bytes，完成 2026-10-24 08:32:02Z（台灣 16:32:02）**；`ledger-backup/2026-10-24/02` occurrence 是 `succeeded`，控制設定 `paused=false`／version 2。既有 `janus-ledger-backup-executor.timer` `active/enabled`、舊 timer `inactive/disabled`、Cloud Scheduler `janus-ingestion-daily` `ENABLED`，並有當日 Controller 實際成功 execution。唯讀探針無備份手動執行、PG mutation、GCS delete、Scheduler/IAM 變更。Workflow 原有漏閉合 shell 引號已修正（`e34a61f`），`audit` push 交接 `98f8dea`。
+- **GCS 36h 保護實證**：[獨立 Private backup retention push dry-run #40095324398](https://github.com/tommylin15/janus-omniforge/actions/runs/40095324398) `completed/success`；實際 GCS metadata 枚舉 `daily_count=7`、`monthly_count=2`、`daily_latest_age_hours=4.25`，`protected_count={daily:7,monthly:2}`、`planned_deletes=0`、`actual_deletes=0`，`status=DRY_RUN_PASS`，`backup_reexecutions=0`、`pg_mutations=0`、`iam_changes=0`。其 plan 的 `0<=age_hours<=36` gate 仍啟用；所查 current object metadata 含 GCS `generation`／`size`，證明保留計畫在新 Daily 上可計算、沒有刪除。
+- **既有獨立還原／受控清理**：[隔離 restore #38991644822](https://github.com/tommylin15/janus-omniforge/actions/runs/38991644822) 與 [過往有界 apply #39975063840](https://github.com/tommylin15/janus-omniforge/actions/runs/39975063840) 原有 PASS 有效，本輪遵 [PROJECT_RULES §1.1.1](../PROJECT_RULES.md) 不重跑已驗證操作。**不表示 2026-10-24 新備份又單獨做了一次完整 checksum/download/隔離 restore**；如日後出現實際讀取/還原失敗再追查。GitHub 舊自然 schedule 無事件的歷史 observation 被 2026-10-24 精簡決策取消追查，不再作 active gate。
+- **狀態**：OPS-P0-1 按「真實 Daily 自動產生成功＋GCS current metadata/36h 方案可用＋先前隔離還原與受控清理已 PASS」之原定有界驗收 `CLOSED/PASS`；以本節覆蓋下方 10/24 15:35 舊 `PARTIAL` checkpoint。不擴大為全面 GCP 災難復原演練或自然 GitHub schedule 登錄測試。
+
+### 2026-10-24｜04 Valuation RV-01／RV-02 首輪工程（CODE／CI PASS，LIVE NOT VERIFIED）
+
+- [RV-01 靜態現役 reader 接線盤點](../research/valuation-rv01-serving-readers-2026-10-24.md)：已定位 Core daily PE/PB → `publication.stock_valuation_five_year` 的舊 2 年 profile、serving EPS、XBRL、Yahoo 單季 EPS；**不等於** 60 月／24 月末真實覆蓋，也沒有已完成 BVPS per-share reader。RV-01 真實代表股票抽樣／可用數目仍 `NOT_VERIFIED`。
+- `packages/valuation_range.py` 新增 RV-02 `calculate_reference_range`，維持既有 04 Valuation 角色、不讀 DB/GCS/Owner 個資、不改 canonical 或 Registry：非金融同口徑四個連續單季 EPS × 60 月內有效 24 月以上的月末 PE；金融正 BVPS × 月末 PB；Decimal 分位、未來資料排除、ETF 不適用、權限/缺值封鎖與缺值 reason。新增 `tests/test_valuation_range.py` 的 **14 targeted tests PASS**：[修正後 #40095621714](https://github.com/tommylin15/janus-omniforge/actions/runs/40095621714)，後續程式細節修正 [#40095666431](https://github.com/tommylin15/janus-omniforge/actions/runs/40095666431) `completed/success`；首次 [#40095542969](https://github.com/tommylin15/janus-omniforge/actions/runs/40095542969) 為 2 項純 decimal 字串外觀期望錯誤，已改數值 Decimal 等同性而非放寬業務檢查。
+- **剩餘**：RV-01 真實資料 coverage，RV-03 adapter，RV-04 Mart/API/完整 schema，RV-05 單一 UI 及 RV-06 Dev 發布/Owner 驗收均未執行；不宣稱已發布估值參考價帶。現有 event 相容讀端保留，Risk ACTIVE 不變。
+
 ### 2026-10-24｜研究稽核精簡 Dev 部署與一次 Runtime 驗收（CLOSED／BOUNDED PASS）
 
 - 研究精簡已完成現有程式與文件更新；離線 Python 259 PASS、Flutter 5 PASS：[CI #40080225057](https://github.com/tommylin15/janus-omniforge/actions/runs/40080225057)／[離線測試 #40080225060](https://github.com/tommylin15/janus-omniforge/actions/runs/40080225060)。五個退役稽核 Workflow 不再有 active `.yml` 入口。
