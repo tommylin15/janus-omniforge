@@ -2,6 +2,8 @@
 from dataclasses import asdict
 from datetime import timedelta
 import json
+import os
+import re
 from zoneinfo import ZoneInfo
 
 
@@ -122,13 +124,22 @@ def consume_requests(control, batches, now, not_before, due, occurrence_env, rec
 
 
 def enqueue_manual_queues(connection, batches, paused, now, occurrence_env):
+    # Only an explicit, single-Job *override* may consider historical (>7-day)
+    # analysis work. Normal Scheduler ticks remain bounded to fresh requests.
+    mode = os.environ.get("JANUS_P02_ANALYSIS_RECOVERY", "")
+    target_ref = os.environ.get("JANUS_P02_ANALYSIS_EXECUTION_REF", "")
+    if bool(mode) != bool(target_ref) or (mode and mode != "one-shot"):
+        raise ValueError("historical analysis recovery requires one verified target")
     for batch in batches:
         if batch.manual_only and batch.name not in paused:
-            enqueue_queued_worker(connection, batch, now, occurrence_env)
+            allow = batch.name == "analysis-queue" and mode == "one-shot"
+            enqueue_queued_worker(connection, batch, now, occurrence_env,
+                historical_recovery=allow,
+                target_execution_ref=target_ref if allow else None)
 
 
 def enqueue_queued_worker(connection, batch, now, occurrence_env, origin="queue", request_version=None,
-                          *, historical_recovery=False):
+                          *, historical_recovery=False, target_execution_ref=None):
     """Enqueue one worker only after a durable, bounded lease/recovery decision.
 
     Historical >7-day analysis work requires a separately verified recovery
@@ -138,11 +149,18 @@ def enqueue_queued_worker(connection, batch, now, occurrence_env, origin="queue"
     trigger = {"collection-queue": "collection", "analysis-queue": "analysis"}[batch.name]
     if historical_recovery and trigger != "analysis":
         raise ValueError("historical collection recovery requires artifact-level review")
+    if historical_recovery and (
+        not isinstance(target_execution_ref, str)
+        or re.fullmatch(r"[0-9a-f]{32}", target_execution_ref) is None):
+        raise ValueError("historical recovery requires one pseudonymous execution ref")
+    if target_execution_ref and not historical_recovery:
+        raise ValueError("historical target without enabled recovery")
     with connection.transaction(), connection.cursor() as cursor:
         cursor.execute("""SELECT e.execution_id,e.retry_count FROM control.executions e
             WHERE e.trigger_type=%s AND e.finished_at IS NULL
               AND e.requested_at >= now() - interval '30 days'
               AND (e.requested_at >= now() - interval '7 days' OR %s)
+              AND (%s::text IS NULL OR md5(e.execution_id::text)=%s)
               AND (
                 e.status IN ('queued','retrying')
                 OR (e.status='running' AND e.claimed_until IS NOT NULL
@@ -160,7 +178,8 @@ def enqueue_queued_worker(connection, batch, now, occurrence_env, origin="queue"
                    WHERE b.state->>'queued_execution_id'=e.execution_id::text
                      AND b.state->>'status' IN ('pending','dispatching','running','ambiguous'))
             ORDER BY e.requested_at,e.execution_id LIMIT 1""",
-                       (trigger, historical_recovery))
+                       (trigger, historical_recovery,
+                        target_execution_ref, target_execution_ref))
         queued = cursor.fetchone()
         if not queued:
             return "queue_empty"
