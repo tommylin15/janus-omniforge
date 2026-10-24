@@ -6,7 +6,7 @@
 
 此頁較下方 A-CHANGE／D07-PRE／Risk 研究敘述是 **2026-10-22 當時截面**，不得作目前完結狀態或下一任務順序。**唯一 active 順序/狀態是 [TODO §1](todo.md)**；跨線依賴見 [WBS](wbs.md)；本次只改文件，不宣稱新 runtime PASS。
 
-- **OPS-P0-2**：原始 57 筆無有效 lease（41 analysis queued／16 collection running）尚未全部結案；dispatch 修正已寫入，但 Controller live deployment／artifact review／逐筆安全收斂未證全部完成，**PARTIAL**。[C1-A §19](research/data-governance-c1a-2026-10-23.md)。
+- **OPS-P0-2（2026-10-24 新範圍）**：使用者取消原 57 筆超過五天工作的逐筆追查與恢復，保留歷史 PG 稽核紀錄、不實體刪除。舊 Controller-only [#40047503576](https://github.com/tommylin15/janus-omniforge/actions/runs/40047503576) `completed/success`（7 天政策）；新版 5 天 SELECT／pending dispatch fence／歷史 override 停用已提交 main，**targeted CI、dev 新映像及 Scheduler 讀回仍待驗，不宣稱已生效**。依 [PROJECT_RULES §1.8.1](PROJECT_RULES.md)。
 - **P0-1**：備份分離清理已經歷有界 dry-run/apply PASS，但首個自然排程未取得證據；僅待其真實 occurrence readback，不重跑全部。
 - **C1-A／資料治理**：Live metadata 與 reader 部分收斂，**C1-B 刪表/欄許可為 0**；不得先刪後驗。
 - **Janus 2.0／A-CHANGE**：已有部分程式與 UI，但原定整包 dev/Owner 驗收未結案；2.0 建議為設計方向，**非已發布新 UI**。
