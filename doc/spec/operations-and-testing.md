@@ -1,5 +1,13 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-24｜OPS-P0-2 五天 queue 排除／Controller-only 正式 dev 驗收 CLOSED
+
+- **使用者核准範圍**：[PROJECT_RULES §1.8.1](../PROJECT_RULES.md)：`control.executions.requested_at` 超過 5×24h 的 analysis／collection 不再追查、恢復或自動重派；保留 PostgreSQL／GCS 歷史，不做 bulk status mutation、資料實刪或假造終態。原 41 analysis＋16 collection 為歷史凍結快照，並非「已結案 57 筆成功」的證據。
+- **程式與驗證**：`jobs/ingestion-core/ingestion_core/admin_batches.py` 以 5 天 SELECT 限制 queue、停用 historical one-shot；`batch_controller.py` 在 persisted pending 派送前再核對 execution age/type/未終結，不合條件的 occurrence 記錄 `skipped`，不派 Cloud Run。相關 [37 項 targeted CI #40048549032](https://github.com/tommylin15/janus-omniforge/actions/runs/40048549032) PASS；完整 Release 首次因 2 項過時 7／30 天測試 FAIL，已修正，正式 [#40049195127](https://github.com/tommylin15/janus-omniforge/actions/runs/40049195127) Python／Flutter／四 GHCR digest 全部 PASS。
+- **現役 dev Controller**：[Controller-only #40049724410](https://github.com/tommylin15/janus-omniforge/actions/runs/40049724410) `completed/success`；新 image SHA tag `6891656ac52e0ddc6e541229b73d88217c615ebb`，immutable digest `sha256:ccc4decc6f38b12e0b0ed62c2f22ab3b9e82a3fad336f10912671b1a028dd0f2`；readonly canary `janus-batch-controller-9b82j` PASS、Scheduler `ENABLED`、`data_mutations=0`、`queue_recovery_dispatches=0`，global deployment Lease 已安全釋放。首試 [#40049612738](https://github.com/tommylin15/janus-omniforge/actions/runs/40049612738) 受 concurrent main ref lease guard 阻擋，發生於 GCP 修改前，未略過 guard；隨後新 run 正常完成。
+- **驗收邊界**：這是 **5 天派送排除策略、Controller-only 版本與 Scheduler 生效**的正式驗收；不代表原 57 個 UUID 的執行結果已重建、逐筆完成或業務資料被刪除。P0-2 範圍已按使用者最新決策 CLOSED，P0-1 自然備份／清理排程與資料治理 C1-A 仍是獨立工作。
+
+
 ### 2026-10-23｜ADMIN-SIMPLIFY 正式 dev 發布與使用者可用性驗收 CLOSED／PASS
 
 - **固定 full Release**：[ #39907341839](https://github.com/tommylin15/janus-omniforge/actions/runs/39907341839) `completed/success`；source SHA `0ad738b1f7c3432bf6fac59ecb7d5063dce63447`，API Image Digest `sha256:9e6bbccab1a77c126f7b8d771e2434d53b86285b42715991f4db7db1e78f8a7f`。
