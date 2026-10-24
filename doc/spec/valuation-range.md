@@ -13,7 +13,7 @@
 
 ## 2. 計算／資料契約（RV-01 至 RV-03）
 
-1. 対上市／上櫃普通股：一般獲利非金融公司使用**連續、同口徑四季單季 EPS 加總的正 TTM EPS**；金融股使用同每股基準、已公告且為正的 BVPS。ETF `not_applicable`。分母未知、重大不可比或虧損不得硬湊成價帶。
+1. 對上市／上櫃普通股：一般獲利非金融公司使用**連續、同口徑四季單季 EPS 加總的正 TTM EPS**；金融股使用同每股基準、已公告且為正的 BVPS。ETF `not_applicable`。分母未知、重大不可比或虧損不得硬湊成價帶。
 2. 取 `as_of` 截止前最近 **60 個月的月末合法有效歷史 PE 或 PB**，預設至少 **24 個有效月**；此為產品起始參數，並非統計獨立樣本充分性保證。必要時 `missing/limited`；不把今天已知財報回填到歷史公告前。歷史倍數若缺 first-observed 證據，不宣稱嚴格 PIT 回測。
 3. 固定當前基礎 `B` 與歷史倍數分位 `M25,M50,M75`，輸出 `lower=B*M25`、`mid=B*M50`、`upper=B*M75`；`price_gap_to_reference_mid_pct = P/mid-1`。量化過程和版本固定，只在顯示端四捨五入；`0<lower<=mid<=upper`，缺值採 null 與 reason codes。區間高低只代表相對假設，不代表漲跌機率、目標價或買賣訊號。
 4. 輸出保留 `symbol/market/security_type/as_of/calculated_at/price_as_of/financial_period/source_published_at/first_observed_at/schema_version/method_version/method/basis_type/share_basis/window_months/valid_month_count/excluded_reasons/input_refs/input_hash/rights_status/historical_pit_status` 與 `available/limited/missing/stale/not_applicable/blocked_basis/blocked_rights/error` 狀態。使用者端不得假裝缺值為零。
