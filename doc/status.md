@@ -1,6 +1,18 @@
 # Janus｜目前實作與驗收狀態
 
-更新：2026-10-22（Asia/Taipei）。**此頁是現況摘要，不是第二份 TODO。** 現行工作順序與未完成驗收以 [唯一 Active TODO](todo.md) 為準；完整收據集中 [Operations](spec/operations-and-testing.md)，既往狀態見 [archive](archive/status-before-consolidation-2026-10-19.md)。
+更新：2026-10-24（多線文件整理；本輪未重新執行 runtime）。**此頁是現況摘要，不是第二份 TODO。** 現行工作順序與未完成驗收以 [唯一 Active TODO](todo.md) 為準；完整收據集中 [Operations](spec/operations-and-testing.md)，既往狀態見 [archive](archive/status-before-consolidation-2026-10-19.md)。
+
+## 2026-10-24 多工作線狀態覆蓋（較下方 10/22 歷史表更新）
+
+此頁較下方 A-CHANGE／D07-PRE／Risk 研究敘述是 **2026-10-22 當時截面**，不得作目前完結狀態或下一任務順序。**唯一 active 順序/狀態是 [TODO §1](todo.md)**；跨線依賴見 [WBS](wbs.md)；本次只改文件，不宣稱新 runtime PASS。
+
+- **OPS-P0-2**：原始 57 筆無有效 lease（41 analysis queued／16 collection running）尚未全部結案；dispatch 修正已寫入，但 Controller live deployment／artifact review／逐筆安全收斂未證全部完成，**PARTIAL**。[C1-A §19](research/data-governance-c1a-2026-10-23.md)。
+- **P0-1**：備份分離清理已經歷有界 dry-run/apply PASS，但首個自然排程未取得證據；僅待其真實 occurrence readback，不重跑全部。
+- **C1-A／資料治理**：Live metadata 與 reader 部分收斂，**C1-B 刪表/欄許可為 0**；不得先刪後驗。
+- **Janus 2.0／A-CHANGE**：已有部分程式與 UI，但原定整包 dev/Owner 驗收未結案；2.0 建議為設計方向，**非已發布新 UI**。
+- **第五角色**：2026-10-24 已核准以 `valuation_range` 取代 Event 模型，[SPEC](spec/valuation-range.md) 已寫，**NOT_IMPLEMENTED**；公告/事實提醒保留。
+- **四模型研究**：Quant 研究 r1 凍結且不可發布；Risk 依 [PROJECT_RULES §1.12](PROJECT_RULES.md) 最新受控回滾 **DETERMINISTIC + SHADOW_UNVALIDATED**（本輪未重新查 live）；Fundamental XGB 5% RC1 僅研究；Valuation 財務 mapping、單位及 PIT 尚未具完整資料驗證；四模型各自 OOS/promotion gate 未通過。
+- **D08**：可平行準備事實 Fact Pack／Owner 受控報告，模型數值只有相應模型正式發布後才可納入。
 
 ## 已完成／結案
 
