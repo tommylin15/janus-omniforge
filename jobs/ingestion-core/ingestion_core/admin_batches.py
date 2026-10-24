@@ -3,7 +3,6 @@ from dataclasses import asdict
 from datetime import timedelta
 import json
 import os
-import re
 from zoneinfo import ZoneInfo
 
 
@@ -124,50 +123,48 @@ def consume_requests(control, batches, now, not_before, due, occurrence_env, rec
 
 
 def enqueue_manual_queues(connection, batches, paused, now, occurrence_env):
-    # Only an explicit, single-Job *override* may consider historical (>7-day)
-    # analysis work. Normal Scheduler ticks remain bounded to fresh requests.
-    mode = os.environ.get("JANUS_P02_ANALYSIS_RECOVERY", "")
-    target_ref = os.environ.get("JANUS_P02_ANALYSIS_EXECUTION_REF", "")
-    if bool(mode) != bool(target_ref) or (mode and mode != "one-shot"):
-        raise ValueError("historical analysis recovery requires one verified target")
+    # User-approved five-day cutoff. Legacy P0-2 historical recovery is
+    # disabled, even if an old Job environment retains its override variables.
+    if (os.environ.get("JANUS_P02_ANALYSIS_RECOVERY")
+            or os.environ.get("JANUS_P02_ANALYSIS_EXECUTION_REF")):
+        raise ValueError("historical recovery disabled: five-day queue policy")
     for batch in batches:
-        # An exact P0-2 historical recovery must not accidentally enqueue an
-        # unrelated collection request in the same Controller tick.
-        if mode == "one-shot" and batch.name != "analysis-queue":
-            continue
         if batch.manual_only and batch.name not in paused:
-            allow = batch.name == "analysis-queue" and mode == "one-shot"
-            enqueue_queued_worker(connection, batch, now, occurrence_env,
-                historical_recovery=allow,
-                target_execution_ref=target_ref if allow else None)
+            enqueue_queued_worker(connection, batch, now, occurrence_env)
+
+
+def queued_execution_is_fresh(connection, execution_id, trigger):
+    """Fail-closed read fence for queue occurrences persisted before cutoff.
+
+    Does not mutate execution status; only permits a current, unfinished
+    execution of the matching queue type to reach Cloud Run dispatch.
+    """
+    if not execution_id or trigger not in {"analysis", "collection"}:
+        return False
+    with connection.cursor() as cursor:
+        cursor.execute("""SELECT 1 FROM control.executions
+            WHERE execution_id=%s AND trigger_type=%s
+              AND requested_at >= now() - interval '5 days'
+              AND finished_at IS NULL
+              AND status IN ('queued','retrying','running')""",
+            (execution_id, trigger))
+        return cursor.fetchone() is not None
 
 
 def enqueue_queued_worker(connection, batch, now, occurrence_env, origin="queue", request_version=None,
                           *, historical_recovery=False, target_execution_ref=None):
-    """Enqueue one worker only after a durable, bounded lease/recovery decision.
+    """Enqueue only current <=5-day work; never replay legacy old rows.
 
-    Historical >7-day analysis work requires a separately verified recovery
-    gate. Never automatically replay legacy 'running' rows with a NULL lease:
-    they may contain 14 partially produced collection artifacts.
+    The old P0-2 historical override is intentionally rejected. A missing lease
+    on a started collection must not be taken as proof it can be replayed.
     """
     trigger = {"collection-queue": "collection", "analysis-queue": "analysis"}[batch.name]
-    if historical_recovery and trigger != "analysis":
-        raise ValueError("historical collection recovery requires artifact-level review")
-    if historical_recovery and (
-        not isinstance(target_execution_ref, str)
-        or re.fullmatch(r"[0-9a-f]{32}", target_execution_ref) is None):
-        raise ValueError("historical recovery requires one pseudonymous execution ref")
-    if target_execution_ref and not historical_recovery:
-        raise ValueError("historical target without enabled recovery")
+    if historical_recovery or target_execution_ref:
+        raise ValueError("historical recovery disabled: five-day queue policy")
     with connection.transaction(), connection.cursor() as cursor:
         cursor.execute("""SELECT e.execution_id,e.retry_count FROM control.executions e
             WHERE e.trigger_type=%s AND e.finished_at IS NULL
-              AND e.requested_at >= now() - interval '30 days'
-              AND (e.requested_at >= now() - interval '7 days' OR %s)
-              AND (%s::text IS NULL OR md5(e.execution_id::text)=%s)
-              AND (NOT %s OR
-                    (e.trigger_type='analysis' AND e.status='queued'
-                      AND e.started_at IS NULL))
+              AND e.requested_at >= now() - interval '5 days'
               AND EXISTS (SELECT 1 FROM control.collection_configs cfg
                           WHERE cfg.config_id=e.config_id AND cfg.enabled
                             AND (e.trigger_type='collection' OR cfg.analysis_enabled))
@@ -194,9 +191,7 @@ def enqueue_queued_worker(connection, batch, now, occurrence_env, origin="queue"
                    WHERE b.state->>'queued_execution_id'=e.execution_id::text
                      AND b.state->>'status' IN ('pending','dispatching','running','ambiguous'))
             ORDER BY e.requested_at,e.execution_id LIMIT 1""",
-                       (trigger, historical_recovery,
-                        target_execution_ref, target_execution_ref,
-                        historical_recovery))
+                       (trigger,))
         queued = cursor.fetchone()
         if not queued:
             return "queue_empty"
