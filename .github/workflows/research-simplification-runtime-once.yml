@@ -61,8 +61,10 @@ jobs:
           for path in ("/app/","/health","/api/v1/public/health"):
               assert get(path)[0]==200, ("api_health",path)
           boundaries={}
-          for path in ("/api/v1/me/profile", "/api/v1/admin/batch-dashboard",
-                       "/api/v1/admin/gcs-storage/inspect"):
+          # /api/v1/admin/gcs-storage/inspect is POST-only; an unauthenticated
+          # GET correctly returns 405 and cannot be used as an auth assertion.
+          # The 0% Candidate already checked its correct-method auth boundary.
+          for path in ("/api/v1/me/profile", "/api/v1/admin/batch-dashboard"):
               code,_=get(path)
               assert code in (401,403), ("private_boundary",path,code)
               boundaries[path]=code
