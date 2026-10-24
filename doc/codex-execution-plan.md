@@ -11,13 +11,10 @@
 
 | 現行工作包 | AI 必讀操作卡 | 必要契約／成果 |
 |---|---|---|
-| **OPS-P0-2／OPS-P0-1-NATURAL** | [C1-A §18–19](research/data-governance-c1a-2026-10-23.md)、[Controller Runbook](runbook-batch-controller-dev.md) | 先審計 57 個 UUID、artifact/lease/recovery，獨立讀備份清理自然 occurrence；勿將派送程式已寫視為終態完成 |
-| **GOV-C1A-READERS** | [資料治理](spec/data-governance.md)、[C1-A](research/data-governance-c1a-2026-10-23.md) | PG/Iceberg reader、snapshot 和 rollback 逐表確認；C1-B 物理刪除尚不可執行 |
-| **RV-01…RV-06／Janus 2.0** | [Valuation Range SPEC](spec/valuation-range.md)、[A-CHANGE](execution-cards/a-change-analysis.md)、[WBS 合流圖](wbs.md) | 第五角色確定性 PE/PB 參考價帶、同一 public Fact Pack/Owner UI；沒有第五套 Event 模型訓練 |
-| **STAGE-48H** | [Stage retention Runbook](runbook-batch-controller-dev.md) | 48h Stage TTL、每日 stage-only Controller、已證實合法引用、generation readback；後續 source 去重與 Admin GCS 唯讀盤點 |
-| **A-CHANGE** | [方案A卡](execution-cards/a-change-analysis.md) | [變化判讀](spec/change-analysis.md)；事實→跨日變化→盤前盤後→UI集中驗收 |
-| **D07-PRE** | [新研究採集契約](spec/research-collection-gas-drive-colab.md) | [D07 五角色任務卡](execution-cards/d07-specialist-b9-oos.md)、[資料治理](spec/data-governance.md)；先完成公開欄位可得性與缺值盤點、Colab 月資料夾／manifest／品質讀回，再做 Colab OOS |
-| **D07** | [D07 五角色卡](execution-cards/d07-specialist-b9-oos.md) | [Specialist SPEC](spec/specialist-engines.md)、[WBS-5](wbs/wbs-5-specialist-engines.md)；Colab 模型 fit/OOS、Janus Registry／推論及各角色 Promotion Gate 獨立驗證 |
+| **OPS-P0-1 備份與清理** | [Controller Runbook](runbook-batch-controller-dev.md)、[唯一 TODO](todo.md) | 只確認新備份實際可用與清理安全；有真故障才修，保留 36h 刪除保護，不重開自然排程探針 |
+| **RV-01…RV-06／Janus 2.0** | [Valuation Range SPEC](spec/valuation-range.md)、[WBS 合流圖](wbs.md) | 04 Valuation 子功能的可重算 PE/PB 參考區間、共用 Fact Pack/Owner UI；不建立第五個模型或 Registry role |
+| **D07-PRE** | [新研究採集契約](spec/research-collection-gas-drive-colab.md) | [D07 研究操作卡（舊五角色描述僅供參考）](execution-cards/d07-specialist-b9-oos.md)、[資料治理](spec/data-governance.md)；先完成公開欄位可得性與缺值盤點、Colab 月資料夾／manifest／品質讀回，再做 Colab OOS |
+| **D07** | [D07 研究操作卡（舊五角色描述僅供參考）](execution-cards/d07-specialist-b9-oos.md) | [Specialist SPEC](spec/specialist-engines.md)、[WBS-5](wbs/wbs-5-specialist-engines.md)；Colab 模型 fit/OOS、Janus Registry／推論及各角色 Promotion Gate 獨立驗證 |
 | **D08** | [D08 CEO 卡](execution-cards/d08-ceo-admin-owner-report.md) | [AI/Mart SPEC](spec/intelligence-and-governance.md)、[Admin UI](ui/admin.md)；Validated Fact Pack/Owner/報告 |
 | **已結案 D01～D06／DRL-01／Admin v2** | [歷史任務卡索引](execution-cards/README.md)＋[結案](wbs/completed-index.md) | **不重啟**歷史 gate；若新缺陷實際影響正在開發的 D07/D08，按該工項修復 |
 
@@ -25,7 +22,7 @@
 
 - **舊研究執行器退役已 CLOSED（2026-10-20）**：Controller `specialist-retrain`、手動舊 workflow/request、Mart fit、獨立研究 Job/Scheduler 與 B5～B8 中介 BQ 實體依原定範圍已完成程式退役、部署及實機查核；詳見 [結案收據](archive/d07-gcp-bq-retirement-live-2026-10-20.md)。不再分派清理工項，不為假設性未知資源新增追查。
 - 新研究唯一輸入：[官方 TWSE／TPEx → Colab → 私有 Drive 月資料夾 → Colab 人工建模](spec/research-collection-gas-drive-colab.md)，普通股母體排除 ETF，TWSE／TPEx 各 dataset 最低 70%。先盤點現有公開欄位可得性與缺值，不用舊 Core frozen Parquet、BQ SQL 或完整歷史 PIT census 才能開始抓資料。研究時點欄位仍保留供後續標籤，正式 OOS/promotion 要防 future leakage。
-- 現行四個獨立研究角色 Quant／Risk／Fundamental／Valuation 依各自資料／OOS gate 執行；第五角色依 2026-10-24 核准決策改為確定性 `valuation_range`，Event **僅保留現役事實解析及提醒**，不再排模型訓練。Colab 模型與確定性 baseline 同一 OOS、模型 version/hash、費用/安全/rollback；Janus Mart 不再訓練新模型。
+- 現行四個獨立研究角色 Quant／Risk／Fundamental／Valuation 依現有資料與 baseline 研究。獨立第五模型已撤銷；`valuation_range` 是 04 Valuation 的確定性估值情境**子功能**，Event 只保留現役事實解析及提醒。研究可使用現有歷史時間切分而不等待新 cohort／全歷史 PIT；必要防洩漏與實際發布檢查仍保留。Janus Mart 不再訓練新模型。
 - **保留正式服務**：Core/EOD／Screening、Private Owner、持股 ETF 行情、API、週 Iceberg 清理、Stage 48h 及備份。正式 Core 90%/70% 品質規範不被研究 70% 改掉。現役共用 BQ/Job 只有在確認其他服務不使用後才能刪。
 - 已結案的舊研究僅保留必要 audit 收據；不得重新成為 D07-PRE／D07 的前置工作。**Colab 資料讀取驗收歸 D07-PRE；四個研究角色 fit／OOS／promotion 歸 D07，第五估值情境 RV-01…06 獨立驗收**，不得重複派工。
 
