@@ -118,8 +118,15 @@ jobs:
           for key in ('control_execution_30d','mart_table_identifier_constraint',
                       'publication_pg_scan_cumulative'):
               assert c['sections'][key]['status']=='PASS', key
-          for key in ('publication_index_all','publication_index_30d'):
+          for key in ('publication_index_all','publication_index_30d',
+                      'publication_p02_execution_refs_30d'):
               assert m['sections'][key]['status']=='PASS', key
+          p02_ref_list=c['sections']['control_p02_execution_decisions_30d']['items']
+          pending={r[0] for r in p02_ref_list if r[1]=='analysis'}
+          published={r[0] for r in m['sections']['publication_p02_execution_refs_30d']['items']}
+          summary.update(p02_analysis_queued=len(pending),
+                         p02_analysis_publication_overlap=len(pending & published),
+                         p02_analysis_without_publication=len(pending - published))
           constraints=c['sections']['mart_table_identifier_constraint']['items']
           assert len(constraints)==1
           assert constraints[0][0]=='mart_report_index_table_identifier_check'
