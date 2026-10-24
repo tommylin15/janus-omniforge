@@ -59,7 +59,7 @@ jobs:
           protected=("/api/v1/me/profile",
                      "/api/v1/me/today-changes?session=postmarket",
                      "/api/v1/me/analysis/2330/changes",
-                     "/api/v1/admin/gcs-storage/inspect")
+                     "/api/v1/admin/batch-dashboard")
           codes={}
           for path in protected:
               code,_=get(path)
