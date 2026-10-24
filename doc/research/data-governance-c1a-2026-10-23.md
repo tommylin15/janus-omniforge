@@ -467,3 +467,26 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 - **十張 Mart 候選：** 每張僅 1 個 `DECLARATION_ONLY` 來源（`jobs/intelligence-mart/intelligence_mart/storage.py` 的 table handle）；不是十張各一個現役業務 reader，亦不是零讀者證據。掃描器正式回報 `actual_per_table_reader_usage=UNKNOWN_NO_TABLE_LEVEL_RUNTIME_TRACE`。現有 `retention.py` 仍有動態 table_exists/scan 維護入口，這次沒有查明各表最近 30 日的 table-level caller，**九張 retire candidate 仍禁刪**。
 - **現役資源 GET 讀回：** `janus-api`（image SHA256 `9e6bbccab1a77c126f7b8d771e2434d53b86285b42715991f4db7db1e78f8a7f`，generation 600）、`janus-intelligence-mart`（`e4f48f93e060dbe484b785845f0698cc381d1c2ad92dc61951358327a597128e`，generation 290）、`janus-ingestion-core`（`2c61164a8da4d8eb743f9fa27f074798a2cbc24bb3650bc4f77ea0e9bd7be1b1`，generation 363）；三者 `READABLE`。映像 metadata 不等於能證實各 table 的 SQL query trace。
 - **維持 C1-A 決策：** `mart_scoped_analysis_v1=KEEP`、`mart_risk_portfolio_v1=KEEP_PROTECTED_PENDING`、其餘九張 `RETIRE_CANDIDATE/UNKNOWN_READERS`；`core.market_volume_v1` 與 `core.ohlcv_v1` 的表級實際讀者、欄位口徑／同鍵合併／回切證據仍不充分，保留現役兩表。只在找到可靠的實際讀者觀測與重建／回切證據後，才可提出另案的 C1-B 建議；**未批准任何 DROP/DELETE/停寫**。完整新收據索引 [Operations](../spec/operations-and-testing.md)。
+
+## 23. C1-A Core／Mart 實際 metadata、逐表讀者與回復證據（2026-10-24）
+
+### 23.1 固定範圍的實機唯讀證據
+
+- [#40052513368](https://github.com/tommylin15/janus-omniforge/actions/runs/40052513368) `completed/success`，probe source SHA `9a989eee036af0c473b4d2031b075aabcf44f468`：在**既有** `janus-ingestion-core`／`janus-intelligence-mart` Job 只執行 `PyIceberg.load_table/current_snapshot/manifests`，不掃表列資料，Job config fingerprint 前後相同；**Core 2＋Mart 11 = 13 張 current metadata 均 READABLE**，三個 API/Job Cloud Logging 樣本來源能 GET；`data_mutations=0`、`new_resources=0`。Action artifact `janus-c1a-reader-dependency-get-only` 保存逐表 schema、snapshot id、manifest count、資料列計數與 source SHA；`READABLE` 只表示 catalog/current metadata 讀取正常，**不表示必有 current snapshot/data rows**（歷史證據另有兩張 Mart `snapshot_id=NULL`）。
+- **不能由此斷言實際業務讀者 = 0**：Cloud Run deployed API、Mart、Ingestion 三個原身份與 image metadata 讀回，但 Cloud Logging 7 日的有界抽樣及程式字面引用不能代表所有 SQL/Iceberg read path。定義三類獨立證據：`CODE_DEPENDENCY`、`RECORDED_SUCCESSFUL_SCAN`、`ACTUAL_BUSINESS_READER`，不能互相冒充。
+- 新 probe 內含十個 Mart 名稱，不得由 `governance_mart_reader_inventory.py` 計為應用讀者；已修改 scanner 排除自身及 `governance_c1a_live_proof.py`。**產生較多 3 次命中是審計程式自引用，不是新增三個業務 reader。** 正式判斷以不同程式層的實際引用與執行收據為準。
+
+### 23.2 Core 雙表保留與差異
+
+| 對象 | 實際程式連結／輸入口徑 | 當前 C1-A 決策 |
+|---|---|---|
+| `core.market_volume_v1` | `ingestion_core.__main__` 的 TWSE／TPEx 官方全市場 `market-volume` 批次，先寫入 Core 完整來源列，並更新完整證券名冊／市場涵蓋；`_limit_response()` 對此 dataset 明確保持全市場 | **KEEP_SOURCE / NO_DROP**；尚未證實被 `ohlcv` 在資料、欄位、下游需求上完全取代 |
+| `core.ohlcv_v1` | 同一路徑自 `market-volume` 衍生價格列，但經 `validate_ohlcv` 品質判定後再獨立 `core.write(dataset_id="ohlcv")`、同步 serving；Risk `risk_inputs.py` 和市場篩選 `market_screening.py` 明確使用此 snapshot，且需 PIT／來源欄位 | **KEEP_CANONICAL / NO_DROP**；依賴正式分析及 serving |
+
+兩張表的邏輯鍵皆以 `(symbol,market,trade_date)` 為基礎、兩者按月 partition，但**寫入驗證及母體不同**。實機已確認兩表現役 metadata 可讀；本輪沒有抽取股票列做同鍵逐值 parity／來源口徑等價測試。即使欄位相同也不表示日後能刪除其中一張；目前不安排 consolidation 或 writer cutover。
+
+### 23.3 回復能力與 C1-B gate
+
+- **已證明**：current Iceberg metadata（含目前 schema、current snapshot ID／manifest 清單的有界讀取）、現有 writer／reader GitHub 契約及既有 dev identity 可讀。此為當前狀態健全性，不是獨立備份或歷史重播證明。
+- **未證明**：各表獨立 backup 的完整 current data files、固定 GCS generation/bytes、與 current catalog 不共依賴的可重建來源、還原隔離測試、雙表業務數值 parity、正式 API/owner reader 切換回歸。Stage 48h／Iceberg current-only 政策尤其不能替代獨立 rollback。當任一此類 gate 未過時 `REBUILD/RESTORE_UNVERIFIED`。
+- **一律不做**：`DROP`／`TRUNCATE`／`DELETE`、停止現役 writer、更新 canonical、修改模型、重跑舊 P0-2 57 筆；本輪 C1-B 實體刪除核准仍 **0**。
