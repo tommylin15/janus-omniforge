@@ -5,7 +5,7 @@
 | 工作 | 剩餘交付 | 範圍 |
 |---|---|---|
 | RV-01…06（04 Valuation） | RV-01 已完成靜態 reader 接線清冊，仍缺真實代表股票覆蓋；RV-02 已交純函式與 16 項 CI PASS；接續 RV-01 真實抽樣 → RV-03 實際資料接線 → RV-04 API/Mart → RV-05 唯一估值卡 → RV-06 Dev 驗收 | [RV-01 接線](research/valuation-rv01-serving-readers-2026-10-24.md)／[估值 SPEC](spec/valuation-range.md)；正式仍僅四模型，未部署、不補全歷史 PIT |
-| VAL-MIN30 | v25 **重建版**模型封包已從真實 v23/P0P1 資料重新擬合與測試（兩份 UBJ、Ridge、逐筆預測；6/6 targeted PASS），原 v25 位元檔未尋回；v26 五因子／2024–2026 Colab 執行程式已交付，**2024–2026 真實時間切分尚未執行**，下一步以 Colab 真正訓練並讀回報告、UBJ 及測試集成績 | 不重抓資料、不冒稱 original v25；[v25 報告](research/valuation-v25-nonpit-direct-training-2026-10-24.md)／[v26 交付狀態](research/valuation-v26-rebuild-and-five-factor-2026-10-24.md)；RESEARCH_NON_PIT、publication_allowed=false |
+| VAL-MIN30 | **v25 新重跑封包與 v26 真資料五因子擴展已完成本輪研究驗收**：原 v25 位元檔未尋回，另從 v23/P0P1 真資料重訓兩個 `.ubj`、Ridge 與測試預測（不得稱原 SHA 復原）；v26 已直接讀回既有 release 2024-01～2026-09 33 個 valuation Parquet、比對來源 manifest SHA，組出 54,764 列真實五因子 X/Y，完成 2025Q4 與 2026Q1–Q3 兩組 PE/PB Ridge／XGBoost 時序 OOS；2026 PE/PB XGB log MAE **0.6259/0.5182**（同窗基準 **0.7062/0.5931**）；同樣本四因子 vs 五因子 PE/PB 均有小幅改善。5/5 targeted tests 與全部 `.ubj` 重新載入 PASS。**限制：2025 PE 驗證未勝基準、財報 quarter_end+90d 是 NON_PIT 研究假設；不等於可發布或預測報酬**。兩份模型 ZIP／測試／預測已上傳 Drive 並讀回；參閱 [v26 真資料試訓](research/valuation-v26-fivefactor-time-oos-2026-10-24.md)。後續只在需要時做更獨立的 OOS／模型效用檢查，不再重跑補收或溯源稽核。 | `publication_allowed=false`；Research NON_PIT，原 canonical／Registry／Risk ACTIVE 皆未改；沒有新付費資源 |
 | DATA-RELEASE-PREFLIGHT／FACTOR-FACTORY | 讀現有 CURRENT、必要欄位與樣本，產生 X/Y | 不重跑全期 hash／來源／產業歷史稽核；缺實際必要資料才補 |
 | D07 共用 X/Y | 日期排序、滾動特徵、X/Y 分離、必要樣本及 train/serving 一致 | 不重建首次公告精確時間、歷史名冊或全公司行動 |
 | D07 四模型研究 | Quant、Risk、Fundamental、Valuation 各自使用現有資料與 baseline 比較 | 歷史時間切分足以研究；前瞻新 cohort 非前置；不得把欠佳結果寫成有效 |
