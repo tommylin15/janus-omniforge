@@ -101,7 +101,7 @@ def _basis(
             return None, None, "blocked_basis", ["eps_share_or_scope_incomparable"]
         total = sum((_number(r["value"]) for r in chosen), Decimal(0))
         if total <= 0:
-            return None, f"{quarters[-1] // 4}Q{quarters[-1] % 4 or 4}", "missing", ["nonpositive_ttm_eps"]
+            return None, f"{chosen[-1]['fiscal_year']}Q{chosen[-1]['fiscal_quarter']}", "missing", ["nonpositive_ttm_eps"]
         last = chosen[-1]
         return total, f"{last['fiscal_year']}Q{last['fiscal_quarter']}", "available", []
     # Financial companies: the latest known same-share-basis reported BVPS.
