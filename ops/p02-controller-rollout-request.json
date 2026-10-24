@@ -9,7 +9,7 @@
   "no_data_mutation": true,
   "no_iam_expansion": true,
   "no_api_traffic_change": true,
-  "purpose": "P0-2 five-day queue cutoff Controller-only dev rollout, immutable verified GHCR digest; no recovery of old 57, no status/data mutation, safe read-only canary, Scheduler readback and rollback",
-  "retry_attempt": 6,
+  "purpose": "P0-2 five-day controller-only retry after protected main lease mismatch; immutable release #40049195127, no old 57 replay, no status/data mutation",
+  "retry_attempt": 7,
   "release_image_sha": "6891656ac52e0ddc6e541229b73d88217c615ebb"
 }
