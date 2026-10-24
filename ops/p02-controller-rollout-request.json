@@ -9,7 +9,7 @@
   "no_data_mutation": true,
   "no_iam_expansion": true,
   "no_api_traffic_change": true,
-  "purpose": "P0-2 fourth bounded existing-dev Controller-only pinned GHCR retry during main quiet window; retain global current-main lease and all readback/rollback fences. No history replay or queue mutation.",
-  "retry_attempt": 4,
+  "purpose": "P0-2 bounded Controller-only retry after correcting GitHub tag lease write scope. Exact pinned GHCR source; retain global current-main lease and Scheduler/job/readback/rollback fences; no 57-row recovery mutation.",
+  "retry_attempt": 5,
   "release_image_sha": "7d71992a567e80252ba68049f1d6c23246f2af70"
 }
