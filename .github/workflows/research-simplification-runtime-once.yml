@@ -55,7 +55,9 @@ jobs:
           manifest=cmd(["skopeo","inspect","--no-creds","docker://"+api_ref])
           assert manifest.get("Digest")==api_ref.rsplit("@",1)[-1]
           assert manifest.get("Labels",{}).get("org.opencontainers.image.revision")==expected
-          assert get("/app/build-id.txt")== (200, expected.encode()), "api_build_identity"
+          build_code,build_body=get("/app/build-id.txt")
+          observed_build=build_body.decode("utf-8","replace").strip()
+          assert build_code==200 and observed_build==expected, ("api_build_identity",build_code,observed_build[:50])
           for path in ("/app/","/health","/api/v1/public/health"):
               assert get(path)[0]==200, ("api_health",path)
           boundaries={}
