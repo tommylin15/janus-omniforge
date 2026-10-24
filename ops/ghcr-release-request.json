@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "166f4d7086d9ffbaa578792e5746b89dc1d334f4",
-  "purpose": "P0-2 five-day queue exclusion with full CI regression: guard 5d selects + persisted pending, disable 30d one-shot; no replay/mutation/traffic changes",
+  "sha": "1543057da2c5017620629df94406283ed4e2d4c8",
+  "purpose": "A-CHANGE Janus 2.0 existing dev: current factual change prioritization, headline-next-check evidence parity, owner-change safe read model, direct API-only promotion with rollback-on-failure, full Python/Flutter/GHCR immutable release, no new paid services or data mutations.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 11
+  "request_attempt": 12
 }
