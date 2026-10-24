@@ -273,3 +273,38 @@ def test_scoped_mart_claim_uses_only_the_target_uuid_without_broad_table_access(
     assert "SELECT *" not in query and params == (selected,)
     with pytest.raises(ValueError):
         PostgreSQLAnalysisQueue(connection, execution_id="arbitrary-sql")
+
+
+def test_p02_dispatch_null_lease_and_historical_recovery_are_explicit():
+    from unittest.mock import MagicMock
+    import pytest
+    from ingestion_core.admin_batches import enqueue_queued_worker
+    from ingestion_core.batch_controller import Batch, occurrence_env
+    from uuid import uuid4
+
+    connection = MagicMock()
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchone.return_value = None
+    analysis = Batch("analysis-queue","janus-intelligence-mart",(0,),manual_only=True)
+    assert enqueue_queued_worker(connection, analysis, NOW, occurrence_env) == "queue_empty"
+    sql, params = cursor.execute.call_args_list[0].args
+    assert "e.requested_at >= now() - interval '30 days'" in sql
+    assert "e.requested_at >= now() - interval '7 days' OR %s" in sql
+    assert "e.claimed_until IS NULL" in sql
+    assert "e.started_at IS NULL" in sql
+    assert "NOT EXISTS (SELECT 1 FROM control.execution_items" in sql
+    assert "control.core_ready_events" in sql
+    assert "r.analysis_execution_id=e.execution_id" in sql
+    assert "AND e.finished_at IS NULL" in sql
+    assert "control.batch_occurrences" in sql
+    assert params == ("analysis", False)
+
+    connection.reset_mock()
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchone.return_value = None
+    assert enqueue_queued_worker(connection, analysis, NOW, occurrence_env,
+                                 historical_recovery=True) == "queue_empty"
+    assert cursor.execute.call_args_list[0].args[1] == ("analysis",True)
+    collection = Batch("collection-queue","janus-ingestion-core",(0,),manual_only=True)
+    with pytest.raises(ValueError,match="artifact-level review"):
+        enqueue_queued_worker(connection,collection,NOW,occurrence_env,historical_recovery=True)
