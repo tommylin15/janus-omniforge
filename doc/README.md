@@ -2,7 +2,7 @@
 
 更新：2026-10-24。本頁只導航，不保存暫停、部署版本或重複待辦。
 
-先讀 [PROJECT_RULES](PROJECT_RULES.md) → [專案管理](project-management.md) → [status](status.md) → [TODO](todo.md) → 指定一張 [AI 任務卡](execution-cards/README.md)。現行**多線並行**依 [WBS 依賴矩陣](wbs.md) 與 [唯一 Active TODO §1](todo.md) 分流：P0 作業安全、P1 A-CHANGE／Janus 2.0／Valuation Range／資料可用性、P2 四模型研究、P3 D08；不是所有線都要串行等待，已完成工作不重開。
+先讀 [PROJECT_RULES](PROJECT_RULES.md) → [專案管理](project-management.md) → [status](status.md) → [TODO](todo.md) → 指定一張 [AI 任務卡](execution-cards/README.md)。現行**多線並行**依 [WBS 依賴矩陣](wbs.md) 與 [唯一 Active TODO §1](todo.md) 分流：P0 作業安全、P1 A-CHANGE／Janus 2.0／04 Valuation 估值區間功能／資料可用性、P2 四模型研究、P3 D08；不是所有線都要串行等待，已完成工作不重開。
 
 文件權責、唯一待辦與**需要使用者決策的重大風險**統一見 [專案管理](project-management.md)；舊 [文件盤點](archive/documentation-review-2026-10-15.md) 轉歷史證據，不當現在的工作佇列。
 
@@ -29,7 +29,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 
 - `PROJECT_RULES.md`：治理、權限、驗證與文件維護規則。
 - `project-management.md`：單一執行順序、文件責任、驗收與風險決策選項。
-- `spec/valuation-range.md`：2026-10-24 核准的第五角色估值參考區間；正式定義取代 Event 模型，工程待做；[Drive AI 交接](https://drive.google.com/file/d/1M7pxgkeyzK_Joi4C9Z2aTSRCgdV-u5YO/view)。
+- `spec/valuation-range.md`：2026-10-24 最新決策改為 **04 Valuation 估值區間子契約**，第五模型已撤銷、工程待做；舊 Drive AI 交接屬歷史參考；[Drive AI 交接](https://drive.google.com/file/d/1M7pxgkeyzK_Joi4C9Z2aTSRCgdV-u5YO/view)。
 - `wbs.md`：多線並行、互斥資源、必要前置與合流 gate；不另建第二份 TODO。
 - `spec/data-governance.md`：正式 Canonical 保存、Scheduler 與補收政策；模型研究採集另以 `spec/research-collection-gas-drive-colab.md` 為唯一規格。
 - `status.md`：目前狀態與下一個執行序列的短入口；不是新的 source of truth。
@@ -73,7 +73,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 Operations只保存當前適用摘要／歷史連結，不無限追加。原2296行ledger完整保存於 [歷史快照](archive/documentation-baseline-2026-10-15-operations-and-testing.md)，相對連結已校正；新增證據以完整SHA／run／scope／觀察時間記錄，舊FAIL不改判。Pilot自然觀察仍在原檔，不重啟六個月窗口。
 
 ## 方案 A 與模型資料入口（2026-10-21）
-[變化判讀SPEC](spec/change-analysis.md) → [A-CHANGE AI卡](execution-cards/a-change-analysis.md)；[五分析師模型/X/Y](spec/specialist-engines.md) → [時間窗口與前處理](spec/model-feature-time-contract.md) → [D07 AI卡](execution-cards/d07-specialist-b9-oos.md)。唯一工作順序與驗收仍見[TODO](todo.md)。
+[變化判讀SPEC](spec/change-analysis.md) → [A-CHANGE AI卡](execution-cards/a-change-analysis.md)；[四模型角色/X/Y](spec/specialist-engines.md) → [時間窗口與前處理](spec/model-feature-time-contract.md) → [D07 AI卡](execution-cards/d07-specialist-b9-oos.md)。唯一工作順序與驗收仍見[TODO](todo.md)。
 
 
 模型週期補充：[資料量→Colab→GCS→日週分析→每月有效性](spec/model-lifecycle.md)，[完整AI指令](execution-cards/d07-model-lifecycle.md)。這是D07同一工作包的交付，不新增獨立模型訓練服務。

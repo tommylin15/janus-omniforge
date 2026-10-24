@@ -1,3 +1,5 @@
+> **2026-10-24 最新模型治理決策：**正式模型角色只有 Quant、Risk、Fundamental、Valuation **四個**；04 同時管理 PE/PB 研究與估值參考區間情境，共用資料品質、證據與 publication，UI 一張估值卡。下文「五分析師」記載的是**現役 legacy deterministic specialist baseline 的五筆 artifact／event API 現況**，不再構成第五模型或新開發目標；須先通過 reader/API/Owner/rollback 相容與 dev 驗收才可移除舊五筆假設。公告與 Event 事實仍歸 A-CHANGE，不做第五訓練模型。權威進度依 [唯一 TODO](../todo.md) 與 [04 子契約](valuation-range.md)。
+
 # Janus SPEC — Intelligence、Aggregator 與 Runtime
 
 **2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。實作與 runtime 切換狀態見 status／operations，不以本契約推定完成。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](../spec/full-market-batch-policy.md)。

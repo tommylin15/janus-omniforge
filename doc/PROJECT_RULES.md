@@ -90,6 +90,14 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 ### 1.10 方案 A（2026-10-21）
 使用者選擇先交付有證據的事實解讀、站內盤前/盤後與變化追蹤，再接經驗證模型。契約見 [變化判讀](spec/change-analysis.md)、[五分析師](spec/specialist-engines.md)、[因子時間](spec/model-feature-time-contract.md)。事實模板不依賴五模型validated；未驗證ML不得顯示機率或買賣分數。公開個股判斷不以Owner現金/成本作X，私人曝險另隔離。本輪授權文件整理，不因列入TODO而自動開發/部署；後續依使用者指定工作包執行。舊結案不重開，無新推播/付費/日常LLM。
 
+
+### 1.10.1 四模型與 Valuation 整合（2026-10-24 最新決策，覆蓋同日較早第五模型提案）
+
+- **正式模型角色僅四個**：Quant、Risk、Fundamental、Valuation。**取消獨立第五模型**，`valuation_range` 不得成為 model／Registry／promotion role、第五訓練工作線、第二組 canonical 價帶或額外發布排程；Event／Catalyst 亦不設第五個模型。
+- 原「估值參考區間」**功能併入 04 Valuation**：保留原 PE／PB 相對估值 baseline、XGBoost 倍數研究；共用 EPS/BVPS、歷史 PE/PB、來源、會計期別、PIT、公司行動及同一 publication/rollback 管理。以可重算、可獨立驗收的確定性情境引擎輸出**唯一估值卡**；不要求 XGBoost 已通過 promotion 才能研究或啟用情境，但情境輸入／算式／顯示仍需自身品質 gate。不得將分位區間稱為 ML 報酬預測或信賴區間。
+- 保留 Event 公告原文、修訂去重、公司行動與 A-CHANGE 事實提醒。**現役 runtime 仍有五筆 deterministic specialist baseline 及 `event` schema/API/快取/讀取器**，此為舊相容資料現況，非新第五模型。後續須在 04/RV 工作線完成 reader/Owner/API/rollback 相容、真實 dev 測試後才可解除舊五筆假設；不得因決策直接刪除既有 artifact、資料表、API 或共享排程。
+- 第三方研究補證可沿既有範圍進行；本決策不授權新增付費服務、變更 Risk ACTIVE、擴大全市場採集或直接修改 canonical。舊 Drive 第五模型指示只作已撤案歷史參考，權威執行範圍以本規則、[四模型 SPEC](spec/specialist-engines.md)、[04 子契約](spec/valuation-range.md)、[WBS](wbs.md) 及[唯一 TODO](todo.md) 為準。
+
 ### 1.11.1 Risk 來源准入簡化（2026-10-22 最新決策；覆蓋 §1.11 與舊 Runbook 相反要求）
 
 - **只要有能提供 Risk 所需 OHLCV 的明確授權開放資料來源，首次發布的「來源可用性 gate」即 PASS。** 本次已找到 TWSE 開放資料集 11549、TPEx 開放資料集 11370，均為政府資料開放授權條款第1版（OGDL 1.0）；不再要求逐月溯源既有21月 r1 原始 API、重抓原檔或完成舊 endpoint→開放資料集授權映射才允許進下一 gate。

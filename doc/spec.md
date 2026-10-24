@@ -14,7 +14,7 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 
 先讀本索引，再只讀任務直接相關的切片。只有遇到跨領域契約、安全邊界或引用缺失時才增讀其他切片；目前實作與完成證據另讀 GitHub `main`、runtime 及 `spec/operations-and-testing.md`。
 
-已結案 D01～D05／DRL／Admin 的有效業務契約仍見 [持股優先](spec/holdings-first.md) 與相應 domain SPEC，不代表當前仍需重做；**目前全部 active 執行依 [唯一 TODO](todo.md) 的 P0 作業安全、A-CHANGE／2.0、Valuation Range、D07-PRE／治理、四模型研究與 D08 分線；責任與跨線合流依 [WBS](wbs.md)**。
+已結案 D01～D05／DRL／Admin 的有效業務契約仍見 [持股優先](spec/holdings-first.md) 與相應 domain SPEC，不代表當前仍需重做；**目前全部 active 執行依 [唯一 TODO](todo.md) 的 P0 作業安全、A-CHANGE／2.0、04 Valuation 估值區間子功能、D07-PRE／治理、四模型研究與 D08 分線；責任與跨線合流依 [WBS](wbs.md)**。
 
 全上市櫃母體、TWSE缺失率≤10%／TPEx≤30% coverage、批次總控與即時快照見 [新契約](spec/full-market-batch-policy.md)。
 
@@ -27,7 +27,7 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 | 產品目標、優先序、Token-first specialist、On-demand CEO、全域架構決策 | [產品目標與架構決策](spec/overview-and-decisions.md) | 涉及 API 或部署時再讀對應切片 |
 | Monorepo、服務責任、GCP 拓撲 | [Monorepo 與 GCP 拓撲](spec/repository-and-gcp.md) | 涉及 IAM／release 時讀品質與發布 |
 | Iceberg／PostgreSQL、公開／私人資料、來源、Ingestion | [儲存、資料供應與 Ingestion](spec/storage-data-and-ingestion.md) | 產製 Mart 時讀 Intelligence |
-| Mart、Fact Pack、五 specialist、evaluation、On-demand CEO boundary、publication、DuckDB boundary | [Intelligence、Aggregator 與 Runtime](spec/intelligence-and-governance.md) | specialist 細節再讀 [Specialist Engines](spec/specialist-engines.md) |
+| Mart、Fact Pack、四模型及舊 event 事實 specialist 相容、evaluation、On-demand CEO boundary、publication、DuckDB boundary | [Intelligence、Aggregator 與 Runtime](spec/intelligence-and-governance.md) | specialist 細節再讀 [Specialist Engines](spec/specialist-engines.md) |
 | 公開資料 retention／Stage-Core-Mart 清理與 current-only snapshot | [公開資料保存治理](spec/retention-governance.md) | 排程、補收先讀 [統一治理入口](spec/data-governance.md)；真實執行查 Operations |
 | FastAPI、User／Admin、MCP／OAuth、GCP 開發與 CI/CD | [API、User、Admin 與交付](spec/api-and-delivery.md) | UI 行為另讀 UI 索引 |
 | 非功能需求、驗收與發布 gate | [非功能需求與 Release Gate](spec/quality-and-release.md) | 需要現況證據時讀測試摘要 |
@@ -40,14 +40,14 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 ## 2026-10-24 最新 SPEC ↔ WBS ↔ TODO 串接
 
 - **正式文件追溯順序**：[PROJECT_RULES](PROJECT_RULES.md) → 指定領域 SPEC → [WBS 依賴矩陣](wbs.md) → [唯一 Active TODO](todo.md) → [Operations 驗收證據](spec/operations-and-testing.md)。
-- **第五角色 Valuation Range**：[核准的估值參考區間 SPEC](spec/valuation-range.md)，取代 Event 模型；公告／變化提醒仍由 [A-CHANGE](spec/change-analysis.md) 提供。RV-01…06 在 TODO，不為 Event 開新訓練工項。
+- **04 Valuation 估值參考區間子功能**：[04 情境子契約](spec/valuation-range.md) 正式取消第五模型，保留 PE/PB 研究並將唯一價格區間卡、EPS/BVPS/歷史倍數、來源及 publication 整合於 04；公告／變化提醒仍由 [A-CHANGE](spec/change-analysis.md) 提供。RV-01…06 在 TODO 是 04 功能工作，現役舊五筆 event baseline 相容遷移需實際驗收。
 - **治理 C0/C1、57 leases**：[資料治理](spec/data-governance.md)／[C1-A Live](research/data-governance-c1a-2026-10-23.md)。現況不等於 C1-B 清掃許可，P0-2 作業收斂不自動阻塞研究。
 - **研究資料與四模型**：[最新研究索引](research/00-四模型最新版本索引.md) 管理實際 Notebook／資料版本；[模型時間](spec/model-feature-time-contract.md)、[模型生命週期](spec/model-lifecycle.md) 管理獨立 OOS／promotion；四角色可獨立研究，不能修改現役 Risk。
 - **Janus 2.0**：[Drive 核准設計](https://drive.google.com/file/d/15sT38MsE96RAwD-aZnAHvOvEINtythPO/view) 是研究／產品目標，不代表已部署；最新 UI 仍讀 [UI 契約](ui.md) 與 runtime。
 
 ## 方案 A 與模型資料入口（2026-10-21）
-[變化判讀SPEC](spec/change-analysis.md) → [A-CHANGE AI卡](execution-cards/a-change-analysis.md)；[五分析師模型/X/Y](spec/specialist-engines.md) → [時間窗口與前處理](spec/model-feature-time-contract.md) → [D07 AI卡](execution-cards/d07-specialist-b9-oos.md)。唯一工作順序與驗收仍見[TODO](todo.md)。
+[變化判讀SPEC](spec/change-analysis.md) → [A-CHANGE AI卡](execution-cards/a-change-analysis.md)；[四模型角色/X/Y](spec/specialist-engines.md) → [時間窗口與前處理](spec/model-feature-time-contract.md) → [D07 AI卡](execution-cards/d07-specialist-b9-oos.md)。唯一工作順序與驗收仍見[TODO](todo.md)。
 
 
-模型開發/運作/回收唯一契約：[模型生命週期](spec/model-lifecycle.md)，涵蓋五角色建議資料量、GCS候選與受控發布、批次推論、結果成熟、36月回饋保存與每月評估；實作狀態依TODO。
+模型開發/運作/回收唯一契約：[模型生命週期](spec/model-lifecycle.md)，涵蓋四模型建議資料量及舊 event 事實相容、GCS候選與受控發布、批次推論、結果成熟、36月回饋保存與每月評估；實作狀態依TODO。
 
