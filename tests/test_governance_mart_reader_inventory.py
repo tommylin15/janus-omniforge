@@ -21,6 +21,7 @@ def test_mart_reader_inventory_is_fixed_and_readonly():
         assert dangerous not in CODE
 
 def test_scanner_excludes_self_and_marks_handle_declarations():
-    assert "path.resolve() == Path(__file__).resolve()" in CODE
+    assert '(ROOT / "scripts/gcp/governance_c1a_live_proof.py").resolve()' in CODE
+    assert "Path(__file__).resolve()" in CODE
     assert '"DECLARATION_ONLY"' in CODE
     assert 'jobs/intelligence-mart/intelligence_mart/storage.py' in CODE
