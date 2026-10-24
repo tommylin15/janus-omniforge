@@ -72,7 +72,17 @@ def _quantile(ordered: list[Decimal], fraction: Decimal) -> Decimal:
 def _basis(
     financial_rows: Sequence[Mapping[str, Any]], *, as_of: date, method: str
 ) -> tuple[Decimal | None, str | None, str, list[str]]:
-    valid = [r for r in financial_rows if not _known_after(r, as_of)]
+    # Never admit a fiscal quarter that has not ended at the requested as-of;
+    # even records without explicit availability timestamps cannot travel forward.
+    as_of_quarter = as_of.year * 4 + (as_of.month - 1) // 3 + 1
+    valid = [
+        r for r in financial_rows
+        if not _known_after(r, as_of)
+        and (q := _quarter(r)) is not None
+        and q <= as_of_quarter
+        and (_day(r.get("fiscal_period_end") or r.get("period_end")) is None
+             or _day(r.get("fiscal_period_end") or r.get("period_end")) <= as_of)
+    ]
     if method == "pe":
         # Exactly four successive *single-quarter* EPS, not cumulative/YTD.
         rows = [r for r in valid if r.get("metric") in ("eps_single_quarter", "eps")]
