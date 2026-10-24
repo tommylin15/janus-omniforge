@@ -1,5 +1,14 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-24｜A-CHANGE 今日變化優先順序／同源下一觀察（TARGETED PASS，DEV 尚未驗收）
+
+- 原始實作已存在：`packages/change_analysis.py`、`services/api/analysis.py`、`jobs/intelligence-mart/intelligence_mart/product_runtime.py`、Flutter `final_changes.dart`／`final_today_v2.dart`。本輪不重建新來源、事實批次、API 或第二套 UI。
+- 修正一：`AnalysisService.today_changes` 對同股票優先選擇 `status=available` 且真實有變化的 observation，避免較舊 `event=missing/pending` 蓋過已確認的新價格／營運事實；若真的沒有有效事實則保留 `pending` 但維持 `partial`，不捏造「無事發生」。
+- 修正二：`FinalChangeCard` 依有效性／變化／可得時間擇取同類主事實，主卡 headline、`next_check` 與 `invalidation_condition` 來自**同一筆 observation**；缺值與 provenance 下鑽仍保留。
+- [Python selective CI #40054555576](https://github.com/tommylin15/janus-omniforge/actions/runs/40054555576) `completed/success`；[Flutter User App #40054555582](https://github.com/tommylin15/janus-omniforge/actions/runs/40054555582) `completed/success`，靜態分析、widget tests、Web build PASS。首次 Flutter [#40054395817](https://github.com/tommylin15/janus-omniforge/actions/runs/40054395817) 有 125 tests passed／1 failed，失敗原因僅新測試 `find.textContaining` 誤同時匹配 headline 與 invalidation 文字；改為精確匹配後完整 run PASS，無放寬產品行為。
+- **本輪驗收界線**：`A-CHANGE PARTIAL／CODE_AND_CI_PASS`；尚無正式 GHCR / Flutter 發布、dev 實際 Owner 登入、受控 API readback、390px/桌面 screenshot、全 A1–A4 代表股票／盤前盤後真實資料驗收，均維持 `NOT_VERIFIED`。P0-1 自然排程另行驗收；C1-A 有界治理盤點已 CLOSED，但 C1-B 刪除 gate = 0。
+
+
 
 ### 2026-10-24｜OPS-P0-1 首次自然排程前置驗證（PARTIAL／AWAITING_SCHEDULE）
 
