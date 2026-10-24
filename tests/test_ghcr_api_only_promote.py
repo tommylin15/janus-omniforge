@@ -52,3 +52,58 @@ def test_http_failure_never_counted_as_released_success(tmp_path, monkeypatch):
     receipt = tmp_path / "receipt.json"
     assert p.promote(receipt) == 78
     assert __import__("json").loads(receipt.read_text())["phase"] == "PREFLIGHT_BLOCKED"
+
+
+def test_direct_mode_switches_only_once_and_never_claims_rehearsal(tmp_path, monkeypatch):
+    import json
+    req = approved()
+    req["traffic_validation_mode"] = "direct"
+    monkeypatch.setattr(p, "REQUEST", tmp_path / "request.json")
+    p.REQUEST.write_text(json.dumps(req))
+    monkeypatch.setattr(p, "preflight", lambda _payload: None)
+    baseline = {"status": {"traffic": []}}
+    monkeypatch.setattr(p, "live_pair", lambda _payload:
+                        (baseline, "old-revision", "new-revision", "ghcr.io/example"))
+    monkeypatch.setattr(p, "describe", lambda: {"status": {}})
+    monkeypatch.setattr(p.api, "active", lambda _: "new-revision")
+    switches = []
+    monkeypatch.setattr(p.api, "switch", lambda revision, _baseline: switches.append(revision))
+    monkeypatch.setattr(p.api, "health", lambda _sha: None)
+    commands = []
+    monkeypatch.setattr(p, "command", lambda args: commands.append(list(args)) or "")
+    receipt = tmp_path / "receipt.json"
+    assert p.promote(receipt) == 0
+    result = json.loads(receipt.read_text())
+    assert switches == ["new-revision"]
+    assert result["phase"] == "PASS_API_ONLY_100_PERCENT"
+    assert result["traffic_validation_mode"] == "direct"
+    assert result["rollback_exercised"] is False
+    assert result["lease_released"] is True
+    assert any("release" in args for args in commands)
+
+
+def test_direct_mode_rollback_on_real_health_failure(tmp_path, monkeypatch):
+    import json
+    req = approved()
+    req["traffic_validation_mode"] = "direct"
+    monkeypatch.setattr(p, "REQUEST", tmp_path / "request.json")
+    p.REQUEST.write_text(json.dumps(req))
+    monkeypatch.setattr(p, "preflight", lambda _payload: None)
+    baseline = {"status": {"traffic": []}}
+    monkeypatch.setattr(p, "live_pair", lambda _payload:
+                        (baseline, "old-revision", "new-revision", "ghcr.io/example"))
+    monkeypatch.setattr(p, "describe", lambda: {"status": {}})
+    monkeypatch.setattr(p.api, "active", lambda _: "old-revision")
+    switches = []
+    monkeypatch.setattr(p.api, "switch", lambda revision, _baseline: switches.append(revision))
+    def health(sha):
+        if sha == req["source_sha"]:
+            raise RuntimeError("candidate_health_failed")
+    monkeypatch.setattr(p.api, "health", health)
+    monkeypatch.setattr(p, "command", lambda _: "")
+    receipt = tmp_path / "receipt.json"
+    assert p.promote(receipt) == 78
+    result = json.loads(receipt.read_text())
+    assert switches == ["new-revision", "old-revision"]
+    assert result["phase"] == "RESTORED_PREVIOUS_100_PERCENT"
+    assert result["lease_released"] is True
