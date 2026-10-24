@@ -14,7 +14,7 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 
 先讀本索引，再只讀任務直接相關的切片。只有遇到跨領域契約、安全邊界或引用缺失時才增讀其他切片；目前實作與完成證據另讀 GitHub `main`、runtime 及 `spec/operations-and-testing.md`。
 
-已結案 D01～D05／DRL／Admin 的有效業務契約仍見 [持股優先](spec/holdings-first.md) 與相應 domain SPEC，不代表當前仍需重做；**目前工程只依 [TODO](todo.md) 的 A-CHANGE、D07-PRE、D07、D08；Stage原對話獨立收尾**。
+已結案 D01～D05／DRL／Admin 的有效業務契約仍見 [持股優先](spec/holdings-first.md) 與相應 domain SPEC，不代表當前仍需重做；**目前全部 active 執行依 [唯一 TODO](todo.md) 的 P0 作業安全、A-CHANGE／2.0、Valuation Range、D07-PRE／治理、四模型研究與 D08 分線；責任與跨線合流依 [WBS](wbs.md)**。
 
 全上市櫃母體、TWSE缺失率≤10%／TPEx≤30% coverage、批次總控與即時快照見 [新契約](spec/full-market-batch-policy.md)。
 
@@ -36,6 +36,14 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 執行工作前另依 [TODO](todo.md) 取得當前優先序與驗收條件，依 [WBS](wbs.md) 路由到指定工作切片；UI 工作再讀 [UI](ui.md)。
 
 2026-10-15 補強契約：[系統建置與驗收補強](spec/system-development-contract.md)；狀態與執行順序只看TODO。
+
+## 2026-10-24 最新 SPEC ↔ WBS ↔ TODO 串接
+
+- **正式文件追溯順序**：[PROJECT_RULES](PROJECT_RULES.md) → 指定領域 SPEC → [WBS 依賴矩陣](wbs.md) → [唯一 Active TODO](todo.md) → [Operations 驗收證據](spec/operations-and-testing.md)。
+- **第五角色 Valuation Range**：[核准的估值參考區間 SPEC](spec/valuation-range.md)，取代 Event 模型；公告／變化提醒仍由 [A-CHANGE](spec/change-analysis.md) 提供。RV-01…06 在 TODO，不為 Event 開新訓練工項。
+- **治理 C0/C1、57 leases**：[資料治理](spec/data-governance.md)／[C1-A Live](research/data-governance-c1a-2026-10-23.md)。現況不等於 C1-B 清掃許可，P0-2 作業收斂不自動阻塞研究。
+- **研究資料與四模型**：[最新研究索引](research/00-四模型最新版本索引.md) 管理實際 Notebook／資料版本；[模型時間](spec/model-feature-time-contract.md)、[模型生命週期](spec/model-lifecycle.md) 管理獨立 OOS／promotion；四角色可獨立研究，不能修改現役 Risk。
+- **Janus 2.0**：[Drive 核准設計](https://drive.google.com/file/d/15sT38MsE96RAwD-aZnAHvOvEINtythPO/view) 是研究／產品目標，不代表已部署；最新 UI 仍讀 [UI 契約](ui.md) 與 runtime。
 
 ## 方案 A 與模型資料入口（2026-10-21）
 [變化判讀SPEC](spec/change-analysis.md) → [A-CHANGE AI卡](execution-cards/a-change-analysis.md)；[五分析師模型/X/Y](spec/specialist-engines.md) → [時間窗口與前處理](spec/model-feature-time-contract.md) → [D07 AI卡](execution-cards/d07-specialist-b9-oos.md)。唯一工作順序與驗收仍見[TODO](todo.md)。
