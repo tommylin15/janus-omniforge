@@ -1,5 +1,21 @@
 # Janus 最新驗收證據索引
 
+
+### 2026-10-24｜OPS-P0-1 首次自然排程前置驗證（PARTIAL／AWAITING_SCHEDULE）
+
+- 現行 `.github/workflows/private-ledger-backup-retention.yml` 已定義每日 `30 5 * * *` UTC（台灣時間13:30），`schedule` 事件才切 `apply`；`ops/private-ledger-backup-retention-request.json` 仍為 `approved_scheduled_apply=true`、daily 保留7、monthly 保留6、每輪最多3 daily／1 monthly，沒有新備份、PG、IAM 或新資源行為。清理執行前重新掃 GCS 並比較 generation／size，失敗時 fail closed。
+- 既有 [dry-run #39974251644](https://github.com/tommylin15/janus-omniforge/actions/runs/39974251644) 與 [隔離還原 #38991644822](https://github.com/tommylin15/janus-omniforge/actions/runs/38991644822) PASS；一次性有界實際 apply [#39975063840](https://github.com/tommylin15/janus-omniforge/actions/runs/39975063840) PASS，daily 10→7、移除3個舊 current objects／59,950,868 bytes，monthly 2→2、移除0；不將 current bytes 等於計費成本節省。
+- 2026-10-24 上午（首輪13:30之前）以 GitHub Actions `event=schedule` 的有界查詢未查到**新版獨立備份清理 Workflow** 的自然執行收據。舊 `Private ledger daily backups - retain three` 的 schedule 成功是已退役的舊版本，不可挪用。本輪未觸發 GCS 清理／人工 Workflow、未做 PG 或 IAM 變更。**首次自然觸發、Job conclusion、objects/bytes/generation readback 仍待2026-10-24 13:30後讀回；P0-1 不結案**。
+- GitHub workflow 目前的 `schedule` 定義可確認，但單靠原始 YAML 與舊執行成功**不能證明 Actions 目前的 enabled state**；最終以 13:30 後確實的 `event=schedule` run 為準。
+
+### 2026-10-24｜GOV-C1A-READERS 新版有界唯讀驗證（PARTIAL／NO_DELETE）
+
+- 在現行 main 新增既有 Governance workflow 的 `reader-only` 有界分流，固定 [GitHub Actions #40051843751](https://github.com/tommylin15/janus-omniforge/actions/runs/40051843751) `completed/success`、source SHA `dda5c5276df4066b9cc8457bcbcf5871fdab1808`；**metadata-readback（含舊 P0-2 30天 execution scan）實際 SKIPPED**。本輪只執行離線保護測試、當前程式引用掃描、三個既有 GCP 資源 GET；不執行 Cloud Run Job、SQL 寫入、GCS 刪除、IAM/資源變更。
+- 掃描 **497 個檔案**；十張 Mart 候選表各 **1 個 `DECLARATION_ONLY`**（`jobs/intelligence-mart/intelligence_mart/storage.py`），不能據此稱已證實沒有 runtime reader。現役 `janus-api`、`janus-intelligence-mart`、`janus-ingestion-core` 均 `READABLE`，目前映像 SHA256 digest 依序為 `9e6bbccab1a77c126f7b8d771e2434d53b86285b42715991f4db7db1e78f8a7f`、`e4f48f93e060dbe484b785845f0698cc381d1c2ad92dc61951358327a597128e`、`2c61164a8da4d8eb743f9fa27f074798a2cbc24bb3650bc4f77ea0e9bd7be1b1`。
+- `actual_per_table_reader_usage=UNKNOWN_NO_TABLE_LEVEL_RUNTIME_TRACE`；這是既有 scanner 明示的能力邊界，**不是十張表零讀者的證據**。scoped analysis 保持 `KEEP`、risk portfolio `KEEP_PROTECTED_PENDING`、另外九表維持 `RETIRE_CANDIDATE/UNKNOWN_READERS`。Core market_volume/ohlcv 的同鍵／單位與讀者重建證據仍待有界比對。C1-B 可批准實體 DROP/DELETE 表、欄、物件數仍為0。
+- 證據 artifact `janus-c1a-reader-dependency-get-only`（[#40051843751](https://github.com/tommylin15/janus-omniforge/actions/runs/40051843751)），結果 `CODE_SCAN_AND_DEPLOYED_METADATA_PASS`、`data_mutations=0`、`new_resources=0`；只能結案這輪狹義 GET/Code 盤點，不將整個 C1-A 或 C1-B 標為 PASS。
+
+
 ### 2026-10-24｜OPS-P0-2 五天 queue 排除／Controller-only 正式 dev 驗收 CLOSED
 
 - **使用者核准範圍**：[PROJECT_RULES §1.8.1](../PROJECT_RULES.md)：`control.executions.requested_at` 超過 5×24h 的 analysis／collection 不再追查、恢復或自動重派；保留 PostgreSQL／GCS 歷史，不做 bulk status mutation、資料實刪或假造終態。原 41 analysis＋16 collection 為歷史凍結快照，並非「已結案 57 筆成功」的證據。
