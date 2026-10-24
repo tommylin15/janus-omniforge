@@ -11,6 +11,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 import ghcr_jobs_rollout as gcp
 
 SOURCE="4fbf330a600f5e4280bbf0de36cff261373daed4"
+IMAGE_SOURCE_SHA="7d71992a567e80252ba68049f1d6c23246f2af70"
 RELEASE_RUN="40045758731"
 JOB="janus-batch-controller"
 OUT=Path("/tmp/p02-controller-rollout.json")
@@ -40,14 +41,16 @@ def verified_image():
     # Release request push head can differ from the immutable image *source*.
     history=json.loads(gcp.command(["git","show",
        d["headSha"]+":ops/ghcr-release-request.json"]))
-    if history.get("sha")!=SOURCE:
+    if history.get("sha")!=SOURCE or d.get("headSha")!=IMAGE_SOURCE_SHA:
         raise ValueError("p02_release_source_mismatch")
-    label="ghcr.io/tommylin15/janus-ingestion-core:sha-"+SOURCE
+    # GHCR release builds from the request commit (github.sha), not the
+    # source SHA recorded in the ops request. Both must be pinned and linked.
+    label="ghcr.io/tommylin15/janus-ingestion-core:sha-"+IMAGE_SOURCE_SHA
     info=json.loads(gcp.command(["skopeo","inspect","--no-creds",
                                  "docker://"+label]))
     target="ghcr.io/tommylin15/janus-ingestion-core@"+info.get("Digest","")
     if not gcp.PIN.fullmatch(target) or info.get("Labels",{}).get(
-       "org.opencontainers.image.revision")!=SOURCE:
+       "org.opencontainers.image.revision")!=IMAGE_SOURCE_SHA:
         raise ValueError("p02_target_unverified")
     gcp.command(["skopeo","inspect","--no-creds","docker://"+target])
     return target
@@ -68,7 +71,8 @@ def rollback_digest(job):
 def main():
     guard(json.loads(REQUEST.read_text(encoding="utf-8")))
     target=verified_image()
-    journal={"phase":"PRECHECK","source_sha":SOURCE,"release_run":RELEASE_RUN,
+    journal={"phase":"PRECHECK","source_sha":SOURCE,"release_image_sha":IMAGE_SOURCE_SHA,
+       "release_run":RELEASE_RUN,
        "job":JOB,"job_updates":0,"queue_recovery_dispatches":0,
        "data_mutations":0,"iam_changes":0,"new_resources":0,
        "operations":[],"canaries":[],"scheduler":"UNKNOWN"}
