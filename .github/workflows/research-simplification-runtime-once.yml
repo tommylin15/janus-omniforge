@@ -1,0 +1,101 @@
+name: Janus research simplification one-shot Dev runtime acceptance
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/research-simplification-runtime-once.yml']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Install read-only immutable image inspector
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: Verify current Dev API, existing four Job images, schedule and retired batch set
+        run: |
+          python - <<'PY'
+          import json, re, subprocess, sys, urllib.request, urllib.error
+          from pathlib import Path
+          sys.path.insert(0, "scripts/gcp")
+          from ghcr_jobs_rollout import JOB_COMPONENT, job, image, scheduler
+          from ingestion_core.batch_controller import BATCHES, effective_batches
+          expected = "cf69def50209ec590e464fcc7298ca4ece44bc6f"
+          project, region = "gen-lang-client-0593591102", "us-central1"
+          base = "https://janus-api-2oo7qbkd5q-uc.a.run.app"
+          def cmd(args, timeout=60):
+              return json.loads(subprocess.run(args, check=True, capture_output=True,
+                                               text=True, timeout=timeout).stdout)
+          def get(path):
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(
+                        base+path, method="GET"), timeout=25) as response:
+                      return response.status, response.read(1024)
+              except urllib.error.HTTPError as exc:
+                  return exc.code, b""
+          args = [f"--project={project}", f"--region={region}", "--format=json"]
+          svc=cmd(["gcloud","run","services","describe","janus-api",*args])
+          assert any(c.get("type")=="Ready" and c.get("status")=="True"
+                     for c in svc.get("status",{}).get("conditions",[]))
+          active=[x for x in svc.get("status",{}).get("traffic",[])
+                  if (x.get("percent") or 0)>0]
+          assert len(active)==1 and active[0]["percent"]==100, "api_not_single_100"
+          rev=cmd(["gcloud","run","revisions","describe",active[0]["revisionName"],*args])
+          api_ref=rev["spec"]["containers"][0]["image"].removeprefix("cache.us-docker.pkg.dev/")
+          assert re.fullmatch(r"ghcr[.]io/tommylin15/janus-api@sha256:[0-9a-f]{64}",api_ref)
+          manifest=cmd(["skopeo","inspect","--no-creds","docker://"+api_ref])
+          assert manifest.get("Digest")==api_ref.rsplit("@",1)[-1]
+          assert manifest.get("Labels",{}).get("org.opencontainers.image.revision")==expected
+          assert get("/app/build-id.txt")== (200, expected.encode()), "api_build_identity"
+          for path in ("/app/","/health","/api/v1/public/health"):
+              assert get(path)[0]==200, ("api_health",path)
+          boundaries={}
+          for path in ("/api/v1/me/profile", "/api/v1/admin/batch-dashboard",
+                       "/api/v1/admin/gcs-storage/inspect"):
+              code,_=get(path)
+              assert code in (401,403), ("private_boundary",path,code)
+              boundaries[path]=code
+          refs={}
+          for name, component in JOB_COMPONENT:
+              ref=image(job(name))
+              assert re.fullmatch(
+                  rf"ghcr[.]io/tommylin15/janus-{component}@sha256:[0-9a-f]{{64}}",ref),name
+              found=cmd(["skopeo","inspect","--no-creds","docker://"+ref])
+              assert found.get("Digest")==ref.rsplit("@",1)[-1],name
+              assert found.get("Labels",{}).get("org.opencontainers.image.revision")==expected,name
+              refs[name]=ref.rsplit("@",1)[-1][:19]
+          schedule=scheduler()
+          assert schedule["state"]=="ENABLED", "scheduler_not_enabled"
+          names={x.name for x in effective_batches()}
+          assert "data-quality" not in names, "retired_quality_still_scheduled"
+          assert {"ledger-backup","ingestion","data-supplement",
+                  "stage-cleanup","mart","mobile-ledger"} <= names
+          receipt={"status":"PASS_READ_ONLY","source_sha":expected,
+                   "api_revision":active[0]["revisionName"],"api_percent":100,
+                   "api_health":True,"anonymous_boundaries":boundaries,
+                   "existing_job_digest_prefixes":refs,
+                   "scheduler":"ENABLED","old_data_quality_batch_absent":True,
+                   "required_batches_present":True,"normal_job_canaries":
+                   "PREVIOUS_ROLLOUT_40085601337_PASS",
+                   "owner_authenticated_positive":"NOT_VERIFIED",
+                   "gcp_writes":0,"new_job_executions":0,
+                   "backup_artifact":"NOT_RECHECKED_IN_THIS_PROBE"}
+          Path("research-simplification-runtime-receipt.json").write_text(
+              json.dumps(receipt,sort_keys=True,indent=2))
+          print(json.dumps(receipt,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: research-simplification-runtime-receipt
+          path: research-simplification-runtime-receipt.json
+          if-no-files-found: ignore
+          retention-days: 14
