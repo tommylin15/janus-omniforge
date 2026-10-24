@@ -5,7 +5,7 @@
 
 更新：2026-10-24。本頁只導航，不保存暫停、部署版本或重複待辦。
 
-先讀 [PROJECT_RULES](PROJECT_RULES.md) → [專案管理](project-management.md) → [status](status.md) → [TODO](todo.md) → 指定一張 [AI 任務卡](execution-cards/README.md)。現行**多線並行**依 [WBS 依賴矩陣](wbs.md) 與 [唯一 Active TODO §1](todo.md) 分流：P0 作業安全、P1 A-CHANGE／Janus 2.0／04 Valuation 估值區間功能／資料可用性、P2 四模型研究、P3 D08；不是所有線都要串行等待，已完成工作不重開。
+先讀 [PROJECT_RULES](PROJECT_RULES.md) → [專案管理](project-management.md) → [status](status.md) → [TODO](todo.md) → 指定一張 [AI 任務卡](execution-cards/README.md)。現行**多線並行**依 [WBS 依賴矩陣](wbs.md) 與 [唯一 Active TODO §1](todo.md) 分流：P0 OPS-P0-1 備份可用性、P1 Janus 2.0／04 Valuation 估值區間功能／研究資料可用性、P2 四模型研究、P3 D08；不是所有線都要串行等待，已完成工作不重開。
 
 文件權責、唯一待辦與**需要使用者決策的重大風險**統一見 [專案管理](project-management.md)；舊 [文件盤點](archive/documentation-review-2026-10-15.md) 轉歷史證據，不當現在的工作佇列。
 
