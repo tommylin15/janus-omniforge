@@ -607,7 +607,8 @@ jobs:
           from pathlib import Path
           sys.path.insert(0, 'scripts/gcp')
           from ghcr_jobs_rollout import JOB_COMPONENT, PIN, job, image, fingerprint, command
-          result = {'rollback_images': {}, 'rollback_config_hashes': {}, 'gcp_writes': 0}
+          result = {'rollback_images': {}, 'rollback_config_hashes': {},
+                    'rollback_source_shas': {}, 'gcp_writes': 0}
           sources = set()
           for name, _ in JOB_COMPONENT:
               data = job(name)
@@ -616,11 +617,14 @@ jobs:
               result['rollback_images'][name] = ref
               result['rollback_config_hashes'][name] = fingerprint(data)
               metadata = json.loads(command(['skopeo', 'inspect', '--no-creds', 'docker://' + ref]))
-              sources.add(metadata.get('Labels', {}).get('org.opencontainers.image.revision', ''))
-          assert len(sources) == 1
-          source = sources.pop()
-          assert len(source) == 40 and all(c in '0123456789abcdef' for c in source)
-          result['baseline_source_sha'] = source
+              source = metadata.get('Labels', {}).get('org.opencontainers.image.revision', '')
+              assert len(source) == 40 and all(c in '0123456789abcdef' for c in source)
+              assert metadata.get('Digest') == ref.rsplit('@', 1)[-1]
+              result['rollback_source_shas'][name] = source
+              sources.add(source)
+          result['source_mode'] = 'single' if len(sources) == 1 else 'mixed'
+          if len(sources) == 1:
+              result['baseline_source_sha'] = next(iter(sources))
           receipt = json.dumps(result, sort_keys=True)
           Path('/tmp/ghcr-jobs-baseline.json').write_text(receipt)
           print(receipt)
