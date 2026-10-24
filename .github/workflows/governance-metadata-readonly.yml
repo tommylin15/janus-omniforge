@@ -14,7 +14,89 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  audit-mode:
+    runs-on: ubuntu-latest
+    outputs:
+      readers_only: ${{ steps.mode.outputs.readers_only }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: mode
+        name: Select bounded C1-A reader audit without legacy P0-2 query
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          request=json.loads(Path("ops/governance-metadata-readonly-request.json").read_text())
+          assert request.get("intent")=="c0-live-readonly-governance-metadata"
+          assert request.get("scope")=="existing-dev"
+          assert request.get("read_only") is True
+          assert request.get("no_data_mutation") is True
+          assert request.get("no_template_mutation") is True
+          assert request.get("no_private_row_data") is True
+          assert request.get("no_new_resources") is True
+          assert request.get("no_iam_expansion") is True
+          assert request.get("execution_count")==1
+          scope=request.get("audit_focus")
+          only=scope=="c1a-reader-dependency-get-only-20261024"
+          if not only and scope!="p02-57-no-lease-execution-evidence-20261023-retry-2":
+              raise ValueError("unknown governance audit focus")
+          with open(os.environ["GITHUB_OUTPUT"],"a") as output:
+              output.write("readers_only="+str(only).lower()+"\n")
+          PY
+  mart-reader-readonly:
+    needs: audit-mode
+    if: needs.audit-mode.outputs.readers_only == 'true'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test safe GET-only Mart reader scanner
+        run: |
+          python -m pip install -q pytest
+          python -m pytest -q tests/test_governance_mart_reader_inventory.py
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: none
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Recheck main reader references and deployed metadata without SQL/job execution
+        run: python scripts/gcp/governance_mart_reader_inventory.py
+      - name: Validate bounded evidence and explicitly preserve unknown reader status
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          x=json.loads(Path("governance-mart-reader-inventory.json").read_text())
+          assert x["source_git_sha"]==os.environ["GITHUB_SHA"]
+          assert x["read_only"] is True
+          assert x["data_mutations"]==x["iam_changes"]==x["new_resources"]==0
+          assert x["actual_per_table_reader_usage"]=="UNKNOWN_NO_TABLE_LEVEL_RUNTIME_TRACE"
+          assert x["no_literal_hit_means_no_reader"] is False
+          assert len(x["references_by_table"])==10
+          assert len(x["deployed_readers"])==3
+          print(json.dumps({"status":x["status"],"scanned_files":x["scanned_files"],
+              "deployed_readers":x["deployed_readers"],
+              "table_names":sorted(x["references_by_table"]),
+              "actual_reader_usage":x["actual_per_table_reader_usage"],
+              "data_mutations":0},sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: janus-c1a-reader-dependency-get-only
+          path: governance-mart-reader-inventory.json
+          if-no-files-found: ignore
+          retention-days: 14
   metadata-readback:
+    needs: audit-mode
+    if: needs.audit-mode.outputs.readers_only != 'true'
     runs-on: ubuntu-latest
     environment: dev
     timeout-minutes: 18

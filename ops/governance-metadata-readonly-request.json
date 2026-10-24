@@ -8,7 +8,7 @@
   "no_new_resources": true,
   "no_iam_expansion": true,
   "job": "janus-ingestion-core",
-  "purpose": "Re-run P0-2 per-execution readonly receipt after compatibility fix for preexisting raw-ID SQL substring contract; unchanged safety and existing dev identities.",
+  "purpose": "C1-A narrow read-only Mart code reference/deployed API & Jobs GET metadata audit, no legacy 57 status scan, no runtime job executions, no data mutation or IAM/resource changes.",
   "execution_count": 1,
-  "audit_focus": "p02-57-no-lease-execution-evidence-20261023-retry-2"
+  "audit_focus": "c1a-reader-dependency-get-only-20261024"
 }
