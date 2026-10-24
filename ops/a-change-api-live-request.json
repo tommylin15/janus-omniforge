@@ -7,5 +7,6 @@
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "Independently read exact live 100% GHCR/Flutter build, health, Owner/Admin anonymous boundary and a bounded public stock result. No authentication spoofing, no change to Cloud Run, jobs, database, IAM or traffic."
+  "purpose": "Independent existing dev API 100% read-only acceptance; compare newline-tolerant /app/build-id, immutable digest, 200 health and 401/403 Owner/Admin without owner session, and bounded public stock presence. No GCP mutation.",
+  "request_attempt": 2
 }
