@@ -21,8 +21,8 @@ def test_exact_request_and_no_replay_contract():
         with pytest.raises(ValueError,match="rollout_request_invalid"):
             r.guard(invalid)
     assert r.JOB=="janus-batch-controller"
-    assert r.SOURCE=="4fbf330a600f5e4280bbf0de36cff261373daed4"
-    assert r.IMAGE_SOURCE_SHA=="7d71992a567e80252ba68049f1d6c23246f2af70"
+    assert r.SOURCE=="6c96d6419e01f68ddc3f939171158af0b3c47882"
+    assert r.IMAGE_SOURCE_SHA=="71ca99ba9c87ed2ae381635ac1fa85cba18f06f2"
 
 def test_single_job_lease_fence_canary_and_rollback():
     s=(ROOT/"scripts/gcp/p02_controller_rollout.py").read_text()
@@ -56,3 +56,16 @@ def test_controller_rollout_github_lease_permission():
     assert "actions: read" in permissions
     assert "id-token: write" in permissions
     assert "packages: write" not in permissions
+
+
+def test_five_day_queue_contract_in_built_release_source():
+    """Release source has a strict 5-day cutoff and no old replay switch."""
+    queues = (ROOT / "jobs/ingestion-core/ingestion_core/admin_batches.py").read_text()
+    controller = (ROOT / "jobs/ingestion-core/ingestion_core/batch_controller.py").read_text()
+    assert "requested_at >= now() - interval '5 days'" in queues
+    assert "historical recovery disabled: five-day queue policy" in queues
+    assert "queued_execution_is_fresh" in queues and "queued_execution_is_fresh" in controller
+    assert "queue_request_excluded" in controller
+    assert "requested_at >= now() - interval '7 days'" not in queues
+    assert "requested_at >= now() - interval '30 days'" not in queues
+    assert r.RELEASE_RUN == "40048915305"
