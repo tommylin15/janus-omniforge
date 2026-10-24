@@ -4,10 +4,10 @@
 
 | 工作包 | 執行卡 | WBS 責任 |
 |---|---|---|
-| **OPS-P0-2／P0-1** | [Controller Runbook](../runbook-batch-controller-dev.md)、[C1-A §18–19](../research/data-governance-c1a-2026-10-23.md) | WBS-3/7/8；57 execution 收斂／自然 occurrence |
-| **GOV-C1A-READERS** | [治理契約](../spec/data-governance.md)、[C1-A](../research/data-governance-c1a-2026-10-23.md) | WBS-3/7；Live reader/rollback，C1-B 不放行 |
-| **RV-01…06／Janus 2.0** | [第五角色正式 SPEC](../spec/valuation-range.md)、[Drive AI交接](https://drive.google.com/file/d/1M7pxgkeyzK_Joi4C9Z2aTSRCgdV-u5YO/view)、[WBS 合流](../wbs.md) | WBS-5/6；取代 Event 模型；保留 A-CHANGE 事件事實 |
-| A-CHANGE | [方案A卡](a-change-analysis.md) | WBS-5/6；事實/變化/盤前盤後/UI |
+| **OPS-P0-1** | [Controller Runbook](../runbook-batch-controller-dev.md)、[唯一 TODO](../todo.md) | WBS-3/7/8；新備份可讀及清理安全；P0-2 已結案，不重開自然觀察 |
+| **GOV-C1A-READERS（已結案）** | [治理契約](../spec/data-governance.md)、[C1-A](../research/data-governance-c1a-2026-10-23.md) | 歷史定位，C1-B 物理刪除未授權；不列待辦 |
+| **RV-01…06／Janus 2.0** | [04 Valuation 區間子功能正式 SPEC](../spec/valuation-range.md)、[WBS 合流](../wbs.md) | WBS-5/6；不建立第五模型；Event／A-CHANGE 事實與提醒保留 |
+| A-CHANGE（USER_ACCEPTED／CLOSED） | [方案A歷史卡](a-change-analysis.md) | WBS-5/6；僅有具體新異常才修復，不重開整包 |
 | D01 | [持股交易／完整估值](d01-holdings-trading-valuation.md) | WBS 4J／6（必要時 4R） |
 | D02 | [全市場／首屏快照／效能](d02-full-market-snapshot-performance.md) | WBS 3／6 |
 | D03 | [四頁 UI／通用圖表／視覺收斂](d03-four-page-charts-visual.md) | WBS-6-USER-FINAL-VISUAL-CONVERGENCE（非 AI） |
@@ -15,7 +15,7 @@
 | D05 | [產品集中發布／完整 dev 驗收](d05-integrated-release-dev.md) | WBS 8／CI-CD |
 | **D07-PRE（唯一研究入口）** | [Colab／Drive 月資料夾 研究規格](../spec/research-collection-gas-drive-colab.md) | 研究普通股、分市場70%、欄位盤點；舊研究退役已結案，不作前置 |
 | D06（已併 FINOPS-AB 結案） | [歷史清理任務卡](d06-iceberg-retention-io.md) | 只供歷史／故障定位，不執行獨立工項 |
-| D07 | [五角色／歷史母體／B9 品質](d07-specialist-b9-oos.md) | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） |
+| D07 | [四模型研究（歷史五角色卡僅作操作參考）](d07-specialist-b9-oos.md) | WBS-5-MART-SPECIALIST-ENGINES；研究範圍依唯一 TODO／新政策 |
 | D08 | [CEO／Admin／正式 Owner 報告](d08-ceo-admin-owner-report.md) | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE |
 
 使用時先讀 [AGENTS](../../AGENTS.md) → [PROJECT_RULES](../PROJECT_RULES.md) → [TODO](../todo.md) 確認指定 Dxx 的授權與 active acceptance，再讀**該一張**任務卡與最小受影響 code/spec/UI；若未授權，卡片存在不代表可啟動。本索引不標 PASS／PARTIAL，真實狀態在 [status](../status.md)，唯一未完成清單在 [TODO](../todo.md)。
