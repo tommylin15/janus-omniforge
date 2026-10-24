@@ -21,7 +21,7 @@ def test_exact_request_and_no_replay_contract():
         with pytest.raises(ValueError,match="rollout_request_invalid"):
             r.guard(invalid)
     assert r.JOB=="janus-batch-controller"
-    assert r.SOURCE=="ba4fc98ca4a11e3c9092bd2b636ca105c9e8beb7"
+    assert r.SOURCE=="4fbf330a600f5e4280bbf0de36cff261373daed4"
 
 def test_single_job_lease_fence_canary_and_rollback():
     s=(ROOT/"scripts/gcp/p02_controller_rollout.py").read_text()
