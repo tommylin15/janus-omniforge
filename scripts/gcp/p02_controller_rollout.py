@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """P0-2: pinned image swap of EXISTING dev Controller ONLY.
 
-No queues executed or recovered: readiness canary is read-only; historical
-one-shot recovery remains disabled absent an explicit exact-row artifact gate.
+No queues executed or recovered: readiness canary is read-only. This update
+rolls out the five-day queue cutoff and disables all historical recovery.
 """
 from __future__ import annotations
 import json,os,re,sys
@@ -10,9 +10,9 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import ghcr_jobs_rollout as gcp
 
-SOURCE="4fbf330a600f5e4280bbf0de36cff261373daed4"
-IMAGE_SOURCE_SHA="7d71992a567e80252ba68049f1d6c23246f2af70"
-RELEASE_RUN="40045758731"
+SOURCE="6c96d6419e01f68ddc3f939171158af0b3c47882"
+IMAGE_SOURCE_SHA="71ca99ba9c87ed2ae381635ac1fa85cba18f06f2"
+RELEASE_RUN="40048915305"
 JOB="janus-batch-controller"
 OUT=Path("/tmp/p02-controller-rollout.json")
 REQUEST=Path("ops/p02-controller-rollout-request.json")
