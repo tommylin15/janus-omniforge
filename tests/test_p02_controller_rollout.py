@@ -22,6 +22,7 @@ def test_exact_request_and_no_replay_contract():
             r.guard(invalid)
     assert r.JOB=="janus-batch-controller"
     assert r.SOURCE=="4fbf330a600f5e4280bbf0de36cff261373daed4"
+    assert r.IMAGE_SOURCE_SHA=="7d71992a567e80252ba68049f1d6c23246f2af70"
 
 def test_single_job_lease_fence_canary_and_rollback():
     s=(ROOT/"scripts/gcp/p02_controller_rollout.py").read_text()
