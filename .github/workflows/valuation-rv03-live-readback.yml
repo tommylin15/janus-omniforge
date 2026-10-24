@@ -1,0 +1,46 @@
+name: RV-03 two-stock existing Dev readback
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/valuation-rv03-live-readback.json'
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-read-only-diagnostics
+  cancel-in-progress: false
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 14
+    env:
+      PYTHONPATH: '.:jobs/ingestion-core:scripts/gcp'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact two-symbol read-only scope and Python syntax
+        run: |
+          set -Eeuo pipefail
+          python -m py_compile scripts/gcp/valuation_rv03_live_readback.py jobs/ingestion-core/ingestion_core/valuation_range_inputs.py packages/valuation_range.py
+          python - <<'PY'
+          import json
+          from scripts.gcp.valuation_rv03_live_readback import request_guard
+          request_guard(json.load(open("ops/valuation-rv03-live-readback.json",encoding="utf-8")))
+          PY
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read real existing Core and Serving inputs on existing Dev Job
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/valuation_rv03_live_readback.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: valuation-rv03-two-stock-live-evidence
+          path: /tmp/valuation-rv03-live-readback.json
+          retention-days: 14
+          if-no-files-found: ignore
