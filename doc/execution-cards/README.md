@@ -1,9 +1,12 @@
 # D01～D08 獨立 AI 任務卡索引
 
-更新：2026-10-19。任務卡只保存**如何操作／驗收**，唯一 active queue 在 [TODO](../todo.md)，已結案卡片不重新形成待辦。
+更新：2026-10-24。任務卡只保存**如何操作／驗收**，唯一 active queue 在 [TODO](../todo.md)，已結案卡片不重新形成待辦。
 
 | 工作包 | 執行卡 | WBS 責任 |
 |---|---|---|
+| **OPS-P0-2／P0-1** | [Controller Runbook](../runbook-batch-controller-dev.md)、[C1-A §18–19](../research/data-governance-c1a-2026-10-23.md) | WBS-3/7/8；57 execution 收斂／自然 occurrence |
+| **GOV-C1A-READERS** | [治理契約](../spec/data-governance.md)、[C1-A](../research/data-governance-c1a-2026-10-23.md) | WBS-3/7；Live reader/rollback，C1-B 不放行 |
+| **RV-01…06／Janus 2.0** | [第五角色正式 SPEC](../spec/valuation-range.md)、[Drive AI交接](https://drive.google.com/file/d/1M7pxgkeyzK_Joi4C9Z2aTSRCgdV-u5YO/view)、[WBS 合流](../wbs.md) | WBS-5/6；取代 Event 模型；保留 A-CHANGE 事件事實 |
 | A-CHANGE | [方案A卡](a-change-analysis.md) | WBS-5/6；事實/變化/盤前盤後/UI |
 | D01 | [持股交易／完整估值](d01-holdings-trading-valuation.md) | WBS 4J／6（必要時 4R） |
 | D02 | [全市場／首屏快照／效能](d02-full-market-snapshot-performance.md) | WBS 3／6 |
