@@ -1,3 +1,5 @@
+> **ARCHIVED／SUPERSEDED（2026-10-24 當日較新決策）：**本頁「新補收限近兩年」的執行指示已撤銷。最新權威為 [04 Valuation ≥30 有效月末盤點](valuation-min30-ordinary-preflight-2026-10-24.md)：PE/PB 分開，先重用已有36月、不足時核查向前追溯，普通股與 PIT/IPO 正式核驗後才決定 FinMind；此頁1,977股與98組僅供歷史清冊參考。原 ZIP 在 Drive 已改名 `ARCHIVED_已取代_...`，不再用舊Notebook執行。
+
 # Janus 04 Valuation｜2026-10-24 兩年普通股定向補收前盤點
 
 狀態：**PARTIAL / INVENTORY ONLY**。本次 FinMind 財報 API 請求數 = **0**；publication_allowed=false。最終合格普通股數、PE/PB可訓練數仍 **NOT_VERIFIED**。
