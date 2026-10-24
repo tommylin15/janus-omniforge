@@ -1,10 +1,10 @@
 # Janus — 唯一 Active TODO
 
-更新：2026-10-24，研究精簡決策。完整政策見 [PROJECT_RULES §0](PROJECT_RULES.md)／[研究精簡](spec/research-simplification.md)。本輪為 CODE_DOC_UPDATED／NOT_TESTED／NOT_DEPLOYED。
+更新：2026-10-24，研究精簡決策。完整政策見 [PROJECT_RULES §0](PROJECT_RULES.md)／[研究精簡](spec/research-simplification.md)。目前狀態：CODE_DOC_UPDATED／OFFLINE_TESTED_PASS／NOT_DEPLOYED。2026-10-24 Python 259 項、Flutter 5 項測試通過；[CI 40080225057](https://github.com/tommylin15/janus-omniforge/actions/runs/40080225057) 與 [離線測試 40080225060](https://github.com/tommylin15/janus-omniforge/actions/runs/40080225060) 均成功。
 
 | 工作 | 剩餘交付 | 範圍 |
 |---|---|---|
-| 精簡版本交接 | 依 [WI](runbook-research-simplification-wi.md) 測試、部署及一次功能確認 | 交由其他 AI；本輪不執行 |
+| 精簡版本交接 | 離線測試 PASS；後續依 [WI](runbook-research-simplification-wi.md) 完成既有 dev 部署及一次功能確認 | 已完成測試，不冒稱 dev runtime 已更新 |
 | OPS-P0-1 備份與清理 | 確認恢復派送後能產生可用備份、清理可安全執行 | 保留真實備份故障修復；取消自然觸發等待與探針，不因 10/17 舊 run 持續追查；36h 刪除保護保留 |
 | RV-01…06 | 04 Valuation 估值情境、EPS/BVPS/PE/PB 算式、API/Mart、唯一估值卡與功能確認 | 無第五模型；按資料實際日期、單位處理，不補全歷史 PIT |
 | VAL-MIN30 | v25 已完成四因子 NON_PIT Ridge／XGBoost 試訓；補同窗 revenue_yoy、擴展月份與五因子比較 | 已收檔不重抓；[v25 結果](research/valuation-v25-nonpit-direct-training-2026-10-24.md) 保留，非完整 PIT 不阻擋研究 |

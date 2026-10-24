@@ -1,6 +1,6 @@
 # WI｜研究精簡版本驗證與部署交接
 
-日期：2026-10-24。**本輪沒有執行下列步驟**。本文件是後續 AI 的操作指示，不建立另一份 TODO。
+日期：2026-10-24。原清理輪次僅修改文件與程式；**後續離線測試已 PASS，dev 部署與 runtime 驗收尚未執行**。本文件保留可重跑操作指示，不建立另一份 TODO。
 
 ## 已改內容
 
@@ -30,11 +30,18 @@
 
 讀最新 main 的 `AGENTS.md`、`doc/PROJECT_RULES.md` §0、本 WI、`doc/todo.md`。確認沒有其他 AI 覆蓋本次變更。不要把取消的稽核重新列成門檻；不要還原退役 Workflow。
 
-本次 commit 使用 `[skip ci]`，依使用者要求把測試留到下一輪。未執行 `/ponytail-review`（環境未提供此命令）；本輪只做 diff／呼叫路徑靜態檢視，不冒稱測試通過。
+原始程式清理 commit 使用 `[skip ci]`；後續於 Git SHA `6e1de4f010b29eb347e5a3785f3b5846dc580b8f` 執行 CI 與離線測試並取得 PASS。`/ponytail-review` 在執行環境不可用，改採 diff／契約／CI 結果審查；不偽稱執行該命令。
 
-## 2. 有界離線測試
+## 2. 有界離線測試（2026-10-24 PASS）
 
-先安裝 repository 現有必要依賴，再執行：
+測試來源與結果（均為 2026-10-24 GitHub Actions 日誌，非 runtime acceptance）：
+
+- [Selective CI #40080225057](https://github.com/tommylin15/janus-omniforge/actions/runs/40080225057)：`controller` 99 passed，成功。
+- [離線測試 #40080225060](https://github.com/tommylin15/janus-omniforge/actions/runs/40080225060)：`ingestion-and-admin` 64 passed（1 warning）；`risk-and-mart` 77 passed（7 warnings）；`research` 19 passed；`flutter-admin` 5 passed；5 個已退役 Workflow 均無現役 `.yml` 入口。
+- Python 累計 259 test executions passed；Flutter 5 passed；無測試失敗。警告不代表 test failure，仍須以真實功能異常為修復依據。
+- 一次性離線測試 Workflow 在成功後自 `main` 刪除；保留 Actions Run 日誌作驗證依據。**下一步僅第 3 節 dev 部署與第 4 節一次功能驗收，不能提前標 PASS。**
+
+重跑時先安裝 repository 現有必要依賴，再執行：
 
 ```bash
 PYTHONPATH=jobs/ingestion-core:jobs/intelligence-mart:. python -m pytest -q \

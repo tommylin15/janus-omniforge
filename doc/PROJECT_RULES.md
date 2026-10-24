@@ -6,7 +6,7 @@
 
 依 [研究精簡政策](spec/research-simplification.md) 執行：取消獨立資料稽核、逐來源補證、全歷史 PIT／時間校準、例行品質重抓與前瞻成熟等待門檻。既有日期／單位／來源欄位可沿用，不做額外追溯工程。只保留直接影響功能、模型答案正確性與資料安全的檢查。本條覆蓋本文件其他章節及所有舊 SPEC／WBS／TODO／Drive 相反指示；取消不等於驗證通過。
 
-本次只改文件與程式，不執行測試、CI、部署、批次或 runtime 驗收；後續依 [WI](runbook-research-simplification-wi.md) 交接。
+原始研究清理只修改文件與程式；其後已在 2026-10-24 完成離線 CI／Python／Flutter 測試（PASS，證據及數量見 [WI](runbook-research-simplification-wi.md)）。**尚未完成 dev 部署、批次及 runtime 驗收**，不得因測試 PASS 宣稱業務環境已生效。
 
 ## 1. 權威與事實判定
 
