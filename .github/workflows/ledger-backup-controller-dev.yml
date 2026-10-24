@@ -114,6 +114,20 @@ jobs:
             echo "CONTROLLER_BACKUP_OCCURRENCES_PAST_5_DAYS"
             sudo docker exec --user postgres janus-postgres psql -X -qAt -d janus_control -c "SELECT scheduled_at::text,state->>'\''batch'\'',state->>'\''status'\'' FROM control.batch_occurrences WHERE state->>'\''batch'\''='\''ledger-backup'\'' AND scheduled_at >= now()-interval '\''5 days'\'' ORDER BY scheduled_at DESC LIMIT 8"
           '
+      - name: Inspect existing hourly Controller Scheduler and Cloud Run executions read only
+        if: steps.request.outputs.phase == 'audit'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "EXISTING_CONTROLLER_SCHEDULER"
+          gcloud scheduler jobs describe janus-ingestion-daily \
+            --project="$GCP_PROJECT_ID" --location=us-central1 \
+            --format='json(name,state,schedule,timeZone,lastAttemptTime,status)' || true
+          echo "RECENT_CONTROLLER_EXECUTIONS"
+          gcloud run jobs executions list --job=janus-batch-controller \
+            --project="$GCP_PROJECT_ID" --region=us-central1 --limit=15 \
+            --format='table(name,createTime,completionTime,succeededCount,failedCount)' || true
+          echo "NO_SCHEDULER_OR_JOB_MUTATION=true"
       - name: Install local request executor without stopping original backup
         if: steps.request.outputs.phase == 'install'
         run: |
