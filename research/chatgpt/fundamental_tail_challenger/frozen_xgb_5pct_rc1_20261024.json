@@ -103,7 +103,10 @@
     "local_tests_total": 8,
     "artifact_reload_parity": true,
     "CI": "NOT_RUN",
-    "live_serving": "NOT_VERIFIED"
+    "live_serving": "NOT_VERIFIED",
+    "retrain_same_source_reproduces_model_sha": true,
+    "retrain_same_source_reproduces_thresholds": true,
+    "retrain_same_source_reproduces_manifest_and_no_pit_replay": true
   },
   "package": {
     "zip_filename": "Janus_Fundamental_XGBoost_5pct_RC1_20261024.zip",
