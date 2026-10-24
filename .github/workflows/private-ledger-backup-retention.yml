@@ -10,7 +10,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '30 5 * * *'   # 13:30 Asia/Taipei; independently approved apply.
-    - cron: '15,25,35 7 24 10 *' # 2026-10-24 15:15/25/35 Taipei; diagnostic only, no GCP.
 
 permissions:
   contents: read
@@ -22,17 +21,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  scheduler-trigger-probe:
-    if: github.event_name == 'schedule' && github.event.schedule == '15,25,35 7 24 10 *'
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    permissions:
-      contents: read
-    steps:
-      - name: Prove GitHub schedule registration without GCP credentials
-        run: |
-          echo 'P0-1 scheduler probe only; GCP calls=0; backup writes=0; deletions=0'
-          echo 'Normal 13:30 retention apply remains a different cron and job.'
   retention:
     if: github.event_name != 'schedule' || github.event.schedule == '30 5 * * *'
     runs-on: ubuntu-latest
