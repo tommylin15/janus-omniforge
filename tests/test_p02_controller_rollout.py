@@ -21,8 +21,8 @@ def test_exact_request_and_no_replay_contract():
         with pytest.raises(ValueError,match="rollout_request_invalid"):
             r.guard(invalid)
     assert r.JOB=="janus-batch-controller"
-    assert r.SOURCE=="6c96d6419e01f68ddc3f939171158af0b3c47882"
-    assert r.IMAGE_SOURCE_SHA=="71ca99ba9c87ed2ae381635ac1fa85cba18f06f2"
+    assert r.SOURCE=="166f4d7086d9ffbaa578792e5746b89dc1d334f4"
+    assert r.IMAGE_SOURCE_SHA=="6891656ac52e0ddc6e541229b73d88217c615ebb"
 
 def test_single_job_lease_fence_canary_and_rollback():
     s=(ROOT/"scripts/gcp/p02_controller_rollout.py").read_text()
@@ -68,4 +68,4 @@ def test_five_day_queue_contract_in_built_release_source():
     assert "queue_request_excluded" in controller
     assert "requested_at >= now() - interval '7 days'" not in queues
     assert "requested_at >= now() - interval '30 days'" not in queues
-    assert r.RELEASE_RUN == "40048915305"
+    assert r.RELEASE_RUN == "40049195127"
