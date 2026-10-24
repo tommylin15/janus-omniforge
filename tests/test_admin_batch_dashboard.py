@@ -275,21 +275,20 @@ def test_scoped_mart_claim_uses_only_the_target_uuid_without_broad_table_access(
         PostgreSQLAnalysisQueue(connection, execution_id="arbitrary-sql")
 
 
-def test_p02_dispatch_null_lease_and_historical_recovery_are_explicit():
+def test_p02_dispatch_five_day_boundary_preserves_safe_lease_checks():
     from unittest.mock import MagicMock
     import pytest
     from ingestion_core.admin_batches import enqueue_queued_worker
     from ingestion_core.batch_controller import Batch, occurrence_env
-    from uuid import uuid4
 
     connection = MagicMock()
     cursor = connection.cursor.return_value.__enter__.return_value
     cursor.fetchone.return_value = None
-    analysis = Batch("analysis-queue","janus-intelligence-mart",(0,),manual_only=True)
+    analysis = Batch("analysis-queue", "janus-intelligence-mart", (0,), manual_only=True)
     assert enqueue_queued_worker(connection, analysis, NOW, occurrence_env) == "queue_empty"
     sql, params = cursor.execute.call_args_list[0].args
-    assert "e.requested_at >= now() - interval '30 days'" in sql
-    assert "e.requested_at >= now() - interval '7 days' OR %s" in sql
+    assert "e.requested_at >= now() - interval '5 days'" in sql
+    assert "interval '7 days'" not in sql and "interval '30 days'" not in sql
     assert "e.claimed_until IS NULL" in sql
     assert "e.started_at IS NULL" in sql
     assert "NOT EXISTS (SELECT 1 FROM control.execution_items" in sql
@@ -297,38 +296,42 @@ def test_p02_dispatch_null_lease_and_historical_recovery_are_explicit():
     assert "r.analysis_execution_id=e.execution_id" in sql
     assert "AND e.finished_at IS NULL" in sql
     assert "control.batch_occurrences" in sql
-    assert params == ("analysis", False, None, None, False)
+    assert params == ("analysis",)
 
-    connection.reset_mock()
-    cursor = connection.cursor.return_value.__enter__.return_value
-    cursor.fetchone.return_value = None
-    ref = "e" * 32
-    assert enqueue_queued_worker(connection, analysis, NOW, occurrence_env,
-                                 historical_recovery=True,
-                                 target_execution_ref=ref) == "queue_empty"
-    assert cursor.execute.call_args_list[0].args[1] == ("analysis",True,ref,ref,True)
-    with pytest.raises(ValueError,match="one pseudonymous"):
-        enqueue_queued_worker(connection,analysis,NOW,occurrence_env,historical_recovery=True)
-    collection = Batch("collection-queue","janus-ingestion-core",(0,),manual_only=True)
-    with pytest.raises(ValueError,match="artifact-level review"):
-        enqueue_queued_worker(connection,collection,NOW,occurrence_env,historical_recovery=True)
+    with pytest.raises(ValueError, match="historical recovery disabled"):
+        enqueue_queued_worker(connection, analysis, NOW, occurrence_env,
+                              historical_recovery=True, target_execution_ref="e" * 32)
+    with pytest.raises(ValueError, match="historical recovery disabled"):
+        enqueue_queued_worker(connection, analysis, NOW, occurrence_env,
+                              historical_recovery=True)
+    collection = Batch("collection-queue", "janus-ingestion-core", (0,), manual_only=True)
+    with pytest.raises(ValueError, match="historical recovery disabled"):
+        enqueue_queued_worker(connection, collection, NOW, occurrence_env,
+                              historical_recovery=True)
 
 
-def test_p02_controller_historical_recovery_override_single_ref_only(monkeypatch):
+def test_p02_controller_historical_override_is_rejected(monkeypatch):
     from unittest.mock import MagicMock
+    import pytest
     from ingestion_core.admin_batches import enqueue_manual_queues
     from ingestion_core.batch_controller import Batch, occurrence_env
-    analysis=Batch("analysis-queue","janus-intelligence-mart",(0,),manual_only=True)
-    collection=Batch("collection-queue","janus-ingestion-core",(0,),manual_only=True)
-    connection=MagicMock()
-    cur=connection.cursor.return_value.__enter__.return_value
-    cur.fetchone.return_value=None
-    monkeypatch.setenv("JANUS_P02_ANALYSIS_RECOVERY","one-shot")
-    monkeypatch.setenv("JANUS_P02_ANALYSIS_EXECUTION_REF","f"*32)
-    enqueue_manual_queues(connection,[collection,analysis],set(),NOW,occurrence_env)
-    selectors=[call.args[1] for call in cur.execute.call_args_list
-        if call.args and "SELECT e.execution_id,e.retry_count" in call.args[0]]
-    assert selectors == [("analysis",True,"f"*32,"f"*32,True)]
-    monkeypatch.setenv("JANUS_P02_ANALYSIS_EXECUTION_REF","")
-    with pytest.raises(ValueError,match="one verified target"):
-        enqueue_manual_queues(connection,[analysis],set(),NOW,occurrence_env)
+
+    analysis = Batch("analysis-queue", "janus-intelligence-mart", (0,), manual_only=True)
+    collection = Batch("collection-queue", "janus-ingestion-core", (0,), manual_only=True)
+    connection = MagicMock()
+    cur = connection.cursor.return_value.__enter__.return_value
+    cur.fetchone.return_value = None
+    monkeypatch.setenv("JANUS_P02_ANALYSIS_RECOVERY", "one-shot")
+    monkeypatch.setenv("JANUS_P02_ANALYSIS_EXECUTION_REF", "f" * 32)
+    with pytest.raises(ValueError, match="historical recovery disabled"):
+        enqueue_manual_queues(connection, [collection, analysis], set(), NOW, occurrence_env)
+    cur.execute.assert_not_called()
+
+    monkeypatch.setenv("JANUS_P02_ANALYSIS_EXECUTION_REF", "")
+    with pytest.raises(ValueError, match="historical recovery disabled"):
+        enqueue_manual_queues(connection, [analysis], set(), NOW, occurrence_env)
+    monkeypatch.delenv("JANUS_P02_ANALYSIS_RECOVERY")
+    enqueue_manual_queues(connection, [collection, analysis], set(), NOW, occurrence_env)
+    selectors = [call.args[1] for call in cur.execute.call_args_list
+                 if call.args and "SELECT e.execution_id,e.retry_count" in call.args[0]]
+    assert selectors == [("collection",), ("analysis",)]
