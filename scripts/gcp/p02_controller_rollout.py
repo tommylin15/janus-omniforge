@@ -10,8 +10,8 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import ghcr_jobs_rollout as gcp
 
-SOURCE="ba4fc98ca4a11e3c9092bd2b636ca105c9e8beb7"
-RELEASE_RUN="40045364232"
+SOURCE="4fbf330a600f5e4280bbf0de36cff261373daed4"
+RELEASE_RUN="40045758731"
 JOB="janus-batch-controller"
 OUT=Path("/tmp/p02-controller-rollout.json")
 REQUEST=Path("ops/p02-controller-rollout-request.json")
