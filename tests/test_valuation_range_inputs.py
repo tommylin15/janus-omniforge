@@ -180,8 +180,12 @@ class Connection:
 
 
 class Control:
-    def __init__(self):
+    def __init__(self, approved=True):
         self.connection = Connection()
+        self.approved = approved
+
+    def source_is_approved(self, source_id):
+        return self.approved and source_id in {"twse", "tpex", "mops"}
 
 
 class Scan:
@@ -233,6 +237,17 @@ def test_real_core_and_serving_reader_contract_with_injected_stores():
     assert report["status"] == "available"
     assert report["input_refs"]["core_snapshot_id"] == "126"
     assert report["source_rows_scanned"] == {"valuation": 24, "financials": 4, "price": 1}
+
+
+def test_existing_source_registry_denial_blocks_live_publication():
+    pytest.importorskip("pyiceberg.expressions")
+    report = read_existing_inputs(
+        Core(), Control(approved=False), symbol="2330", as_of=AS_OF,
+        security_type="ordinary_stock", is_financial=False,
+        rights_status="approved",
+    )
+    assert report["status"] == "blocked_rights"
+    assert report["lower"] is None
 
 
 def test_invalid_scope_never_queries_core():
