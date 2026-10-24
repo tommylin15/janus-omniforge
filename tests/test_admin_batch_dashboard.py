@@ -297,7 +297,7 @@ def test_p02_dispatch_null_lease_and_historical_recovery_are_explicit():
     assert "r.analysis_execution_id=e.execution_id" in sql
     assert "AND e.finished_at IS NULL" in sql
     assert "control.batch_occurrences" in sql
-    assert params == ("analysis", False, None, None)
+    assert params == ("analysis", False, None, None, False)
 
     connection.reset_mock()
     cursor = connection.cursor.return_value.__enter__.return_value
@@ -306,9 +306,30 @@ def test_p02_dispatch_null_lease_and_historical_recovery_are_explicit():
     assert enqueue_queued_worker(connection, analysis, NOW, occurrence_env,
                                  historical_recovery=True,
                                  target_execution_ref=ref) == "queue_empty"
-    assert cursor.execute.call_args_list[0].args[1] == ("analysis",True,ref,ref)
+    assert cursor.execute.call_args_list[0].args[1] == ("analysis",True,ref,ref,True)
     with pytest.raises(ValueError,match="one pseudonymous"):
         enqueue_queued_worker(connection,analysis,NOW,occurrence_env,historical_recovery=True)
     collection = Batch("collection-queue","janus-ingestion-core",(0,),manual_only=True)
     with pytest.raises(ValueError,match="artifact-level review"):
         enqueue_queued_worker(connection,collection,NOW,occurrence_env,historical_recovery=True)
+
+
+def test_p02_controller_historical_recovery_override_single_ref_only(monkeypatch):
+    from unittest.mock import MagicMock
+    from ingestion_core.admin_batches import enqueue_manual_queues
+    from ingestion_core.batch_controller import Batch, occurrence_env
+    analysis=Batch("analysis-queue","janus-intelligence-mart",(0,),manual_only=True)
+    collection=Batch("collection-queue","janus-ingestion-core",(0,),manual_only=True)
+    connection=MagicMock()
+    cur=connection.cursor.return_value.__enter__.return_value
+    cur.fetchone.return_value=None
+    monkeypatch.setenv("JANUS_P02_ANALYSIS_RECOVERY","one-shot")
+    monkeypatch.setenv("JANUS_P02_ANALYSIS_EXECUTION_REF","f"*32)
+    enqueue_manual_queues(connection,[collection,analysis],set(),NOW,occurrence_env)
+    selectors=[call.args[1] for call in cur.execute.call_args_list
+        if call.args and "SELECT e.execution_id,e.retry_count" in call.args[0]]
+    assert selectors == [("collection",False,None,None,False),
+                         ("analysis",True,"f"*32,"f"*32,True)]
+    monkeypatch.setenv("JANUS_P02_ANALYSIS_EXECUTION_REF","")
+    with pytest.raises(ValueError,match="one verified target"):
+        enqueue_manual_queues(connection,[analysis],set(),NOW,occurrence_env)
