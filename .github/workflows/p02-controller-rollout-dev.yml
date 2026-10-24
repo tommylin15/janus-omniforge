@@ -1,0 +1,45 @@
+name: Janus P0-2 Controller-only queue fix rollout
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/p02-controller-rollout-request.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  rollout:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 70
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: none
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Verify Controller-only rollout and non-replay contracts
+        run: |
+          python -m pip install -q pytest
+          python -m pytest -q tests/test_p02_controller_rollout.py tests/test_p02_core_artifact_audit.py
+      - name: Install immutable GHCR digest inspector
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: P0-2 existing dev Controller image only (readiness/rollback)
+        run: python scripts/gcp/p02_controller_rollout.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: janus-p02-controller-only-rollout
+          path: /tmp/p02-controller-rollout.json
+          if-no-files-found: ignore
+          retention-days: 14
