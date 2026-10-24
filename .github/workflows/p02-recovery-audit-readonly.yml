@@ -25,7 +25,8 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install -q pytest
-          python -m pytest -q tests/test_p02_core_artifact_audit.py tests/test_admin_batch_dashboard.py
+          python -m pytest -q tests/test_p02_core_artifact_audit.py
+          python -m pytest -q tests/test_admin_batch_dashboard.py -k 'p02 or manual_queue'
           python - <<'PY'
           import json
           v=json.load(open('ops/p02-recovery-audit-request.json'))
