@@ -14,7 +14,7 @@
 - 04 的區間子功能是可重算的確定性倍數情境，非 ML 未來報酬／信賴區間／交易建議。**不依賴 04 XGBoost 已 DEPLOYABLE**，但有自己的輸入／算式／授權／發布 gate，不是免費升級成已發布模型。
 - Research-only 材料不得直接替代正式 Core／serving 的授權、PIT、來源與可得時間；不編造 EPS、BVPS、季報或歷史倍數。新付費或擴權依 PROJECT_RULES §1.3。
 
-RV-01 已完成 [現役 reader 靜態清冊](../research/valuation-rv01-serving-readers-2026-10-24.md)，真實樣本／BVPS 來源覆蓋仍待補。RV-02 已新增 [純函式](../../packages/valuation_range.py) 及 [14 項測試](../../tests/test_valuation_range.py)，[CI #40095621714](https://github.com/tommylin15/janus-omniforge/actions/runs/40095621714) PASS；RV-02 目前是內部計算，不代表下列完整介接回傳欄位或發布已完成。接下來先完成 RV-01 真實來源抽樣，再進 RV-03。
+RV-01 已完成 [現役 reader 靜態清冊](../research/valuation-rv01-serving-readers-2026-10-24.md)，真實樣本／BVPS 來源覆蓋仍待補。RV-02 已新增 [純函式](../../packages/valuation_range.py) 及 [16 項測試](../../tests/test_valuation_range.py)，[CI #40096160077](https://github.com/tommylin15/janus-omniforge/actions/runs/40096160077) PASS（已補未來財報季度／period end 排除）；RV-02 目前是內部計算，不代表下列完整介接回傳欄位或發布已完成。接下來先完成 RV-01 真實來源抽樣，再進 RV-03。
 
 ## 2. 計算／資料契約（RV-01 至 RV-03）
 
