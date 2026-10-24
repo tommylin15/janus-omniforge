@@ -8,7 +8,7 @@
 
 | 優先/工作線 | 當前可驗證狀態（截至本次文件審閱） | 下一個可執行工項／安全限制 | 可否平行 |
 |---|---|---|---|
-| **P0 O｜作業安全／57 筆 lease（P0-2）** | 57/57 原凍結無有效 lease：41 analysis queued、16 collection running；近期 30 日視窗 55 非原 57 終態。派送篩選已寫入 main；Controller 完整 live 更新、artifact 準入與 57 UUID 業務終態 **PARTIAL** | 核對 Release #40045758731 與新唯讀 GCS artifact #40046056538 的結果及 live image/Controller readback；逐筆 41 Core manifest/重派準入，16 collection items/產物做終態對帳；不盲重派、不批次 UPDATE PG、不把消失於30日視窗當完成 | **是**，不與同一 Controller rollout/queue mutation 同時改動 |
+| **P0 O｜5 天工作佇列上限（P0-2）** | 原 57 筆（41 analysis、16 collection）是歷史審計快照，**超過 5 天不再追查或重派**；[原 Controller-only #40047503576](https://github.com/tommylin15/janus-omniforge/actions/runs/40047503576) 已 success，但它是舊 7 天映像。5 天新守門已 commit main／測試待驗／**尚未驗證部署生效** | 對 5 天新規則執行 targeted tests／CI、既有 dev Controller 安全 rollout 與 Scheduler/current image 讀回；舊 57 逐筆分析、16 collection 對帳及歷史 one-shot recovery **撤出 active TODO**。僅針對 5 天內實際仍阻礙運作的工作另依現況處理，不改歷史 PG status、不刪 Core/Mart/GCS | **是**，但 Controller deployment／queue mutation 僅一個 owner |
 | **P0 O｜P0-1／備份自然執行** | 分離清理策略、real dry-run、受控 apply 已有 PASS；**每日 13:30 自然排程首輪尚未有收據** | 到期後核對自然 occurrence、GCS generation/bytes 和保護引用。僅按既有保留政策，不增額外清掃 | 是，只讀不與 P0-2 Controller deployment 相撞 |
 | **P1 P｜A-CHANGE／Janus 2.0 UI** | A1–A4 部分程式已存在，集中 CI／dev／授權登入 UI 尚未逐項結案；[Drive 2.0](https://drive.google.com/file/d/15sT38MsE96RAwD-aZnAHvOvEINtythPO/view) 為新產品設計，不是已部署 | 先完成 A1–A4 現役功能的 targeted/CI/dev/API/UI 關卡；再按 2.0 重要性排序／摘要去重／下一觀察同源／圖表收斂做差異增量。不得重建已存在變化卡 | 是，與資料/研究獨立，正式 UI 接線與 RV-05 合流 |
 | **P1 V｜04 Valuation 估值情境功能 RV-01…06（非第五模型）** | 2026-10-24 最新決策**撤銷獨立第五模型**，將原 Valuation Range 功能合併入 04 PE/PB 研究、共用來源資料與 publication；**DESIGN_APPROVED／NOT_IMPLEMENTED**。規格 [SPEC](spec/valuation-range.md)／[Drive AI 指令](https://drive.google.com/file/d/1M7pxgkeyzK_Joi4C9Z2aTSRCgdV-u5YO/view) | RV-01 來源/每股口徑 → RV-02 確定性PE/PB分位函式（可先 fixtures）→ RV-03 真實資料 → RV-04 API/Mart → RV-05 UI → RV-06 dev 驗收；不依賴 04 XGBoost 研究模型已上線（情境同屬 04，但須有獨立品質 gate） | 是，RV-01/02/前端設計可平行；RV-04/05/06 必合流 |
@@ -18,7 +18,7 @@
 
 ### 1.1 新增／跨線但未在舊路由明列的工項
 
-- [ ] **OPS-P0-2｜57 UUID 有界收斂**：凍結 57 筆清冊；核對 [C1-A §19](research/data-governance-c1a-2026-10-23.md) 的新審計結果、GitHub Release/deploy digest/真實 Controller；對 41 analysis 逐筆查 Core manifest、publication/outbox 與恢復權；對 16 collection 查 items/上下游 GCS 成品及可恢復終態。每筆留下狀態與 rollback/fence 收據，最終符合安全規則才關閉，不把僅有派送程式當業務 CLOSED。
+- [ ] **OPS-P0-2｜5 天工作派送／排除生效驗收**：依 [PROJECT_RULES §1.8.1](PROJECT_RULES.md) 與 [C1-A §20](research/data-governance-c1a-2026-10-23.md)，使用 `requested_at >= now()-interval '5 days'` 選取新工作，對原本已持久化的 pending queue 在真正派送前重查；關閉歷史單筆恢復 override。驗證 targeted tests／CI、既有 dev Controller image/Job/Scheduler readback。**不再把原 57 筆超齡 UUID 逐筆收斂列為完成條件**；不做 PG/GCS 物理刪除、不盲重派。
 - [ ] **OPS-P0-1-NATURAL｜獨立備份清理首次自然排程驗證**：於規定時間發生後查 occurrence、執行身分、objects/bytes/generation 與零異常；既有受控 apply 不重跑。
 - [ ] **GOV-C1A-READERS｜C0-Live／C1-A 最後依賴收斂**：十一張 Mart（尤其其餘十張）及 Core market_volume/ohlcv 的真實 reader、retention、snapshot、重建/回滾依賴逐項分級；只有可證無讀者、具安全替代與可回復條件才另行放行 C1-B。**目前 C1-B 可刪 table/column = 0**，不得以此項擅自 DROP。
 - [ ] **J2-UI-INCREMENT｜2.0 使用體驗增量**：A-CHANGE 原定驗收先核對；按 Drive 2.0 已確認的實際程式差異修主訊息排序、下一觀察同源、重複摘要及圖表負擔。須符合原 auth/canonical/PIT 邊界並與 RV-05 合併驗收；不開第二套 UI / Fact Pack pipeline。
