@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "29f9162d0ba18d611fb263bd64aad87b05c5cc72",
-  "purpose": "Fix dev Controller ledger-backup six stale running occurrences: make poll_backup receipt-only, never invoke GCS backup retention deletion while reconciling status. Full pinned GHCR release for guarded Controller/ingestion-core rollout; no repeat backup, no changes to API traffic or models.",
+  "sha": "ba4fc98ca4a11e3c9092bd2b636ca105c9e8beb7",
+  "purpose": "P0-2 Controller queue fix: safe lease semantics and exact-target 30-day historical Analysis recovery with hash-bound Core-ready evidence; preserve 16 ambiguous running collections and 41 queued analysis until per-record proof; no API traffic change or paid resources.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 7
+  "request_attempt": 8
 }
