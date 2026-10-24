@@ -16,7 +16,7 @@
 
 | 任務／WBS | 預設模型 | 必讀切片 | 條件增讀 |
 |---|---|---|---|
-| D07-PRE：Colab 採集／ChatGPT 四模型貼標與產業歷史 PIT | 依當前能力 | [Active TODO D07-PRE](todo.md)、[研究採集契約](spec/research-collection-gas-drive-colab.md)、[兩入口與產業歸屬 preflight](research/four-model-collection-label-split-v382.md) | 只在需要時讀 [時間契約](spec/model-feature-time-contract.md)；程式交付與實際資料 PIT 分別驗收，不能把產業指數當逐股名冊 |
+| D07-PRE：Colab 採集／ChatGPT 四模型貼標（不強制產業歷史 PIT） | 依當前能力 | [Active TODO D07-PRE](todo.md)、[研究採集契約](spec/research-collection-gas-drive-colab.md)、[兩入口與產業歸屬 preflight](research/four-model-collection-label-split-v382.md) | 只在需要時讀 [時間契約](spec/model-feature-time-contract.md)；程式交付與實際資料 PIT 分別驗收，不能把產業指數當逐股名冊 |
 | A-CHANGE：站內變化判讀 | 依當前能力 | [方案A卡](execution-cards/a-change-analysis.md)、[契約](spec/change-analysis.md) | A1→A4：已在 2026-10-24 使用者端核對完成，USER_ACCEPTED／CLOSED；後續異常需具體證據；不重開已結案D03 |
 | A：User／Admin／效能／資料營運 | 【Sol】 | [執行指令 A](codex-execution-plan.md)、[WBS 6](wbs/wbs-6-api-and-apps.md)、[WBS 7](wbs/wbs-7-security-finops.md) | 私人資料讀 4J／4R；Core query／projection 讀相應 SPEC；User／Admin UI |
 | B：specialist／cache | 【Sol】 | [執行指令 B](codex-execution-plan.md)、[Specialist Engines](wbs/wbs-5-specialist-engines.md)、[WBS 5](wbs/wbs-5-intelligence-mart.md) | 對應 runtime／retention／Admin 顯示 |
