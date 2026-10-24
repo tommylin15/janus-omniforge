@@ -60,6 +60,14 @@ try:
                              connect_timeout=5,autocommit=True,
                              options="-cdefault_transaction_read_only=on") as conn:
             for sec,query in [
+                ("publication_p02_execution_refs_30d", """
+                    SELECT md5(execution_id::text),count(*)::integer,
+                           count(DISTINCT iceberg_snapshot_id)::integer,
+                           max(analysis_as_of)::text
+                      FROM publication.mart_report_index
+                     WHERE analysis_as_of >= current_date-interval '30 days'
+                     GROUP BY 1 ORDER BY 1 LIMIT 301
+                """),
                 ("publication_index_all", """
                     SELECT table_identifier,publication_status,analysis_outcome,
                            count(*)::bigint,min(analysis_as_of)::text,
@@ -82,7 +90,7 @@ try:
                     conn.execute("SET LOCAL statement_timeout='10000ms'")
                     result=conn.execute(query).fetchall()
                     conn.execute("ROLLBACK")
-                    if len(result)>50:
+                    if len(result)>(300 if sec=="publication_p02_execution_refs_30d" else 50):
                         emit(sec,[{"error_class":"RESULT_LIMIT_EXCEEDED"}],"BLOCKED")
                     else:
                         emit(sec,[list(row) for row in result],"PASS")
