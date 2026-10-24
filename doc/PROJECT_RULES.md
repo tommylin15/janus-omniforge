@@ -88,7 +88,7 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 個人非商業研究不代表可以忽略第三方 API 的自動存取、訓練使用與資料保留條款。研究/canonical 分離、來源 provenance、不得補造缺值、模型品質與 LLM 非出版權力依然有效。
 
 ### 1.10 方案 A（2026-10-21）
-使用者選擇先交付有證據的事實解讀、站內盤前/盤後與變化追蹤，再接經驗證模型。契約見 [變化判讀](spec/change-analysis.md)、[五分析師](spec/specialist-engines.md)、[因子時間](spec/model-feature-time-contract.md)。事實模板不依賴五模型validated；未驗證ML不得顯示機率或買賣分數。公開個股判斷不以Owner現金/成本作X，私人曝險另隔離。本輪授權文件整理，不因列入TODO而自動開發/部署；後續依使用者指定工作包執行。舊結案不重開，無新推播/付費/日常LLM。
+使用者選擇先交付有證據的事實解讀、站內盤前/盤後與變化追蹤，再接經驗證模型。契約見 [變化判讀](spec/change-analysis.md)、[四模型角色](spec/specialist-engines.md)、[因子時間](spec/model-feature-time-contract.md)。事實模板不依賴四模型validated；未驗證ML不得顯示機率或買賣分數。公開個股判斷不以Owner現金/成本作X，私人曝險另隔離。本輪授權文件整理，不因列入TODO而自動開發/部署；後續依使用者指定工作包執行。舊結案不重開，無新推播/付費/日常LLM。
 
 
 ### 1.10.1 四模型與 Valuation 整合（2026-10-24 最新決策，覆蓋同日較早第五模型提案）
