@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../../doc/spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Janus／OmniForge｜P1 例外收斂與來源證據鏈（2026-10-24）
 
 只做 Valuation 研究資料，`publication_allowed=false`。GitHub 初始 `main`：`ab5d07e301f522e77380511f1fc95a481f497708`；凍結 `CURRENT` 為 `release-0bbae8d9c1ca7d8d`，未異動。

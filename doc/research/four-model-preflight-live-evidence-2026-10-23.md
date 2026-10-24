@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Janus／OmniForge｜四模型研究資料包 Phase 1 Live Preflight 收據（2026-10-23）
 
 > **狀態：PARTIAL**。本輪已完成 `CURRENT` 研究 release 的 **155/155 檔完整 bytes SHA256**、**153/153 Parquet footer 筆數**、**2/2 CSV 行數**真實檢查；**尚未完成 Parquet 逐列資料品質、四模型 X/PIT 以及全量大盤／產業 485 個 partition 機械 Preflight**。不得宣告四模型資料準入 PASS。

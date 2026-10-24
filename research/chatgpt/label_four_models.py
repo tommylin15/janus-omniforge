@@ -1,10 +1,4 @@
-"""Janus ChatGPT-side four-model research labeling with mandatory PIT industry preflight.
-
-No Colab, network access or canonical writes. Historical industry membership is
-optional research input but its check is MANDATORY: a missing / invalid mapping
-blocks industry features; it does not synthesize a classification or stop
-unrelated X/Y candidates. Use --require-industry for strict fail-closed runs.
-"""
+"""Research labeling; historical industry audit is opt-in, never a default task."""
 from __future__ import annotations
 import argparse
 import json
@@ -26,6 +20,10 @@ def run(dataset_root: Path, output_root: Path, *, max_rows: int = 1500000,
         raise FileNotFoundError('Dataset CURRENT.json 尚未在 ChatGPT 工作目錄就緒；不可假裝已可直接讀取 Drive')
 
     def preflight(data):
+        if not require_industry:
+            return {'status': 'NOT_REQUESTED',
+                    'reason': 'historical_industry_audit_retired_by_default',
+                    'industry_features_in_model_x': False}
         result = check_industry_membership(dataset_root, data.get('ohlcv'))
         if require_industry and result['status'] != 'VERIFIED':
             raise ValueError('INDUSTRY_MEMBERSHIP_NOT_VERIFIED:' + result['reason'])
@@ -45,12 +43,12 @@ def run(dataset_root: Path, output_root: Path, *, max_rows: int = 1500000,
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Janus 四模型 ChatGPT 端研究貼標（含產業歷史 PIT 必要檢查，不連網）')
+    parser = argparse.ArgumentParser(description='Janus 四模型 ChatGPT 端研究貼標（預設不跑產業歷史稽核，不連網）')
     parser.add_argument('--dataset-root',type=Path,required=True,help='包含 canonical/CURRENT.json 的本地資料根')
     parser.add_argument('--output-root',type=Path,required=True,help='獨立研究輸出根，不可位於 dataset-root')
     parser.add_argument('--max-rows',type=int,default=1500000)
-    parser.add_argument('--verify-only',action='store_true',help='先驗 release + industry membership，不寫研究產物')
-    parser.add_argument('--require-industry',action='store_true',help='完整且 PIT 驗證通過前禁止執行任何貼標')
+    parser.add_argument('--verify-only',action='store_true',help='只讀研究輸入，不寫研究產物')
+    parser.add_argument('--require-industry',action='store_true',help='明確要求時才執行歷史產業檢查（預設關閉）')
     args=parser.parse_args(argv)
     result=run(args.dataset_root,args.output_root,max_rows=args.max_rows,
                verify_only=args.verify_only,require_industry=args.require_industry)

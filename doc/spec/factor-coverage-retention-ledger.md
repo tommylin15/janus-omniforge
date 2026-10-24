@@ -1,5 +1,8 @@
 # Janus 因子收錄母體、容量預算與資料保存矩陣
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 更新：2026-10-19（Asia/Taipei）。狀態：**正式規格對照／既有實作盤點；本文件不是新的資料回補、歸檔搬移或刪除授權，也不是 runtime 完成證據。**
 
 資料治理導航見 [統一入口](data-governance.md)。此矩陣將 [全市場批次契約](full-market-batch-policy.md)、[來源與 Stage/Core](storage-data-and-ingestion.md)、[五角色](specialist-engines.md)、[公開資料清理治理](retention-governance.md) 與 [DRL-01 active TODO](../todo.md) 接在一起；與它們衝突時以明確的 active 決策及實際 main/runtime 為準。涉及實際保留、清除、generation、fence，唯一權威仍是 `retention-governance.md` + 對應程式；私人 Ledger/筆記不得套用公開資料 TTL。

@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # D07｜Quant v3.6 ChatGPT 真資料研究試訓（2026-10-23）
 
 狀態：**RESEARCH_EVALUATED／NOT DEPLOYABLE**。本文件只記錄單次 research run 的已觀察事實；非模型正式發布、GCS candidate、Registry 或 dev LIVE 讀回。不可作為 Risk v1 改版或跨 Job 快取提前施工的依據。

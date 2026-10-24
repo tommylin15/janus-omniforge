@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Janus Quant｜2026/07–09 模擬前瞻回收報告
 
 **RESEARCH_CANDIDATE；publication_allowed=false；非真實前瞻紀錄。**

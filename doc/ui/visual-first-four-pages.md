@@ -1,5 +1,8 @@
 # Janus — 四頁視覺優先正式 UI 規格（A）
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](../spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 更新：2026-10-16
 狀態：Active presentation contract；實作、部署與驗收以 [status](../status.md)／[TODO](../todo.md) 為準，本文件不保存短期runtime狀態。
 範圍：今日、關注、記帳／筆記、個股詳情。執行切片及資料盤點請看 [B 工程工作單](visual-first-delivery.md)。

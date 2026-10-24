@@ -194,7 +194,7 @@ class _OperationsApi implements AdminApi {
 }
 
 void main() {
-  testWidgets('quality issues identify schedule repairs and show the runbook',
+  testWidgets('retired quality audit does not appear even with old issues',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(1280, 1200));
@@ -216,13 +216,9 @@ void main() {
     await tester
         .pumpWidget(MaterialApp(home: Scaffold(body: AdminOverviewPage(api))));
     await tester.pumpAndSettle();
-    expect(find.text('週六資料品質 · 需要處理'), findsOneWidget);
-    expect(find.textContaining('需要檢視並調整每日補資料'), findsOneWidget);
-    await tester.tap(find.text('結果與檢核文件'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('2330 · financials · 2026Q2'), findsOneWidget);
-    expect(find.textContaining('單位或幣別不一致'), findsOneWidget);
-    expect(find.textContaining('先檢核，再修正每日程式與排程'), findsOneWidget);
+    expect(find.text('週六資料品質 · 需要處理'), findsNothing);
+    expect(find.textContaining('需要檢視並調整每日補資料'), findsNothing);
+    expect(find.text('結果與檢核文件'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

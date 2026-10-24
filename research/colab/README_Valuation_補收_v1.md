@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../../doc/spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Janus／OmniForge Valuation PE／PB 研究補收 v1
 
 狀態：**研究資料工程部分完成；publication_allowed=false**。本套只建立候選研究資料；不覆寫 `canonical/CURRENT.json`、不修改 Registry/Risk ACTIVE、不啟動模型訓練、GCP 部署或全市場補收。

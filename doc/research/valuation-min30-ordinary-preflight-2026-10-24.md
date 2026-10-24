@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Janus 04 Valuation｜普通股「至少30個有效月末」定向補收前盤點
 
 更新：2026-10-24。狀態：**POLICY_UPDATED／PREFLIGHT_NOT_LIVE_VERIFIED**。研究限定，`publication_allowed=false`；FinMind 財報 API 請求數 **0**。

@@ -1,5 +1,8 @@
 # Supply-chain Intelligence Planning
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 Status: `WBS-5-SUPPLY-INTELLIGENCE-PLANNING` planning evidence, 2026-09-16.
 This document is a contract and planning boundary. It does not authorize a new
 adapter, crawler, schema, migration, paid source, or GCP resource.

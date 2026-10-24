@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Risk20｜訓練 Y 上尾端排除 2%／5%／10%｜研究收據（2026-10-24）
 
 **結果：RESEARCH_EVALUATED／NO_CHANGE_TO_FROZEN_CANDIDATE；publication_allowed=false。** 不更新既有 Risk ACTIVE、Registry、canonical、serving 或部署。

@@ -138,8 +138,9 @@ def test_strict_require_industry_fails_before_export(monkeypatch,tmp_path):
     monkeypatch.setattr(lab,'load_release',lambda *a,**k:({'ohlcv':prices('2025-01-10')},{'release':'fixture'}))
     with pytest.raises(ValueError,match='INDUSTRY_MEMBERSHIP_NOT_VERIFIED'):
         lab.run(root,tmp_path/'output',verify_only=True,require_industry=True)
+    monkeypatch.setattr(lab, 'check_industry_membership', lambda *a, **k: (_ for _ in ()).throw(AssertionError('default must not audit')))
     x=lab.run(root,tmp_path/'output',verify_only=True)
-    assert x['industry_membership_precheck']['status']=='MISSING'
+    assert x['industry_membership_precheck']['status']=='NOT_REQUESTED'
     assert not (tmp_path/'output').exists()
 
 
@@ -174,7 +175,7 @@ def test_preflight_before_export_non_strict(monkeypatch,tmp_path):
         return out,{'state':'RESEARCH_DERIVED_NOT_PROMOTABLE','input':{'release':'fake'},'version':'3.8.2','files':{}}
     monkeypatch.setattr(lab,'export_dataset',fake_export)
     result=lab.run(root,tmp_path/'output')
-    assert seen==['MISSING']
+    assert seen==['NOT_REQUESTED']
     assert result['publication_allowed'] is False
 
 

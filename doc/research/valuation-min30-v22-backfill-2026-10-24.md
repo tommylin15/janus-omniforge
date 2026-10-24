@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Valuation 04 v22｜歷史回溯可續跑補收（2026-10-24）
 
 狀態：**CODE_DELIVERED, TESTS_PASS, LIVE_COLAB_NOT_EXECUTED**。研究、非 canonical；publication_allowed=false。

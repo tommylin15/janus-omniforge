@@ -1,5 +1,8 @@
 # Janus 資料治理、批次與補資料總入口
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 更新：2026-10-23（Asia/Taipei）。此頁是正式**治理與執行路由**，不另建 TODO、Scheduler 或資料庫；現行 implementation 以 GitHub `main` 和 runtime 為準，狀態以 [TODO](../todo.md)、[status](../status.md) 與 [operations](operations-and-testing.md) 為準。
 
 ## 1. 資料責任與文件唯一入口
@@ -35,7 +38,6 @@ Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當�
 | `market-screening`／intelligence-mart | 平日 16:30 | EOD ready、同日來源與排他鎖 |
 | `private`／private-pipeline | 平日 15:30、21:30 | 前者依 ingestion；後者為獨立 fallback slot |
 | `mobile-ledger`／private-pipeline | 每小時 :30 | 只有 pending 才執行 |
-| `data-quality`／ingestion-core | 每週六 12:30 | 獨立品質檢核，不是全量多年補抓 |
 | `stage-cleanup`／ingestion-core | **每日 18:30** | 只處理超過48小時且不被 active execution 使用的 Stage 物件；不啟動 Iceberg | 
 | `iceberg-compaction → mart-cleanup → core-cleanup` | **每週六 23:30** | `FINOPS_WEEKLY_MAINTENANCE=true` 才週維護；依序且可能跨小時 |
 

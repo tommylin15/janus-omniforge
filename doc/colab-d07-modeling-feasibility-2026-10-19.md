@@ -1,5 +1,8 @@
 # D07-PRE｜研究資料可行性／最新架構
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 **2026-10-20 改版。** 本文先前的 Cloud Run／PyIceberg frozen export／BigQuery→Colab 研究訓練必經路線、兩年 PIT Census 開工 gate、舊 Mart monthly retrain 和 FINOPS-C 必須先行的前提均已失效。唯一有效研究資料規格為 [GAS→Drive 每月 ZIP→Colab](spec/research-collection-gas-drive-colab.md)，工程進度依 [TODO](todo.md)。
 
 ## 目前決策

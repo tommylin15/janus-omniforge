@@ -1,5 +1,8 @@
 # Dev 部署與 PostgreSQL Migration Runbook
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 本文件只記錄**目前可重複執行的 dev 操作程序**。一次性的 build ID、revision、image digest、歷史 split checkpoint 與舊 topology 不固定在本 runbook；需要目前實際狀態時，先查 GitHub `main`、GCP runtime，再對照 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
 
 目前 `dev` 是 Janus 個人使用階段的真實平行上線環境。部署、migration、Secret rotation、Job execution 都可能影響真實個人資料；執行前必須遵守 [`PROJECT_RULES.md`](PROJECT_RULES.md) 的費用、安全與不可逆操作授權規則。

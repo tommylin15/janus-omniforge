@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../../doc/spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Janus｜大盤／產業免費爬蟲 Colab｜2025H1 試跑
 
 > **研究試跑版、尚未執行實際抓取或測試。** 此版不使用 FinMind 付費 API、不貼標、不改 canonical CURRENT／模型 Registry／已穩定的個股 00A。

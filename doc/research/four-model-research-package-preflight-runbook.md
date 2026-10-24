@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Janus／OmniForge｜四模型研究資料包 Phase 1 全量 Preflight SOP（2026-10-23）
 
 > **現行主入口／一次驗全量。** 使用者指定：以 Google Drive `janusChatGPT` 內的研究資料包為主要驗收對象，**一次啟動檢驗全範圍，不再每個月停止等待人工確認**。本文件是操作規格，並非 live 完成收據。參閱 [PROJECT_RULES](../PROJECT_RULES.md)、[最新四模型索引](00-四模型最新版本索引.md)、[市場資料包子流程](market-sector-preflight-operation-runbook.md)。

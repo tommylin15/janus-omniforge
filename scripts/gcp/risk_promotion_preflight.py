@@ -162,7 +162,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--receipt", required=True)
     args = parser.parse_args()
-    result = evaluate(*read_live(), datetime.now(ZoneInfo("Asia/Taipei")).date())
+    result = {"component": "risk_xgboost_v1_promotion_preflight",
+              "status": "NOT_REQUESTED", "reason": "standalone_source_time_audit_retired_20261024",
+              "publication_allowed": False, "would_write_registry": False,
+              "would_change_api": False, "would_execute_model": False}
     receipt = Path(args.receipt)
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text(json.dumps(result, sort_keys=True, ensure_ascii=False) + "\n")

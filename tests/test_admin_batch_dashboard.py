@@ -25,11 +25,9 @@ def test_latest_seven_days_and_sort_do_not_hide_job_definitions():
     latest = {"ingestion": {"scheduled_at": NOW - timedelta(days=8), "status": "succeeded"},
               "data-quality": {"scheduled_at": NOW - timedelta(days=6), "status": "failed"}}
     result = dashboard(runtime(), latest, {}, NOW)
-    assert result["items"][0]["name"] == "data-quality"
+    assert all(row["name"] not in {"data-quality", "monthly-model-review"} for row in result["items"])
     ingestion = next(row for row in result["items"] if row["name"] == "ingestion")
     assert ingestion["latest"] is None and ingestion["overdue"] is True
-    assert result["items"][-1]["cadence"] == "monthly"
-    assert result["items"][-1]["can_start"] is False
 
 
 def test_stale_schedule_and_paused_or_conditional_work_never_claim_overdue():
@@ -45,7 +43,7 @@ def test_half_open_missing_start_and_weekend_are_not_success():
     fresh = runtime()
     fresh["not_before"] = NOW.isoformat()
     rows = dashboard(fresh, {}, {}, NOW)["items"]
-    weekly = next(row for row in rows if row["name"] == "data-quality")
+    weekly = next(row for row in rows if row["name"] == "iceberg-compaction")
     assert weekly["cadence"] == "weekly" and weekly["overdue"] is None
     assert weekly["latest"] is None
 

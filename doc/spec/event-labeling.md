@@ -1,5 +1,8 @@
 # B9 Event／Catalyst：繁中人工事件標註與 OOS 研究
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 狀態：**資料管線實作中；人工標註／ML 品質 NOT VERIFIED**。沿用 [Specialist 契約](specialist-engines.md) 和 [B9 品質證據](../b9-quality-evidence.md)，不重做 B7/B8。
 
 ## 原始資料、授權和事件識別

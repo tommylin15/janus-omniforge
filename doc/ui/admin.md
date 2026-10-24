@@ -1,5 +1,8 @@
 # Janus UI — Admin UI
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](../spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 ## 2026-10-23｜Admin 操作精簡整包（使用者授權；取代下文衝突的舊導覽）
 
 本輪範圍是現役 Admin 全功能盤點、精簡操作及同批驗收。允許必要 UI 重構，不新增第二套排程／資料庫。以下為目標契約，未經測試、同來源發布與真實驗收不得視為已上線。
@@ -95,7 +98,7 @@ Admin 的目標是 `apps/user_app` 內的 Flutter workspace，與 User 共用 co
 
 有異常時，至少能辨識「哪一筆、原因、最後更新、是否可安全處理」，並可 drill-down 到對應批次、資料或 AI 詳細資訊。可重試項目才顯示 retry／rerun action；partial success 不得顯示成 full success。
 
-`WBS-3-DATA-SUPPLEMENT-V1` 的週六資料品質檢查已接入 Admin Overview：顯示最近檢查時間、通過／需處理／執行失敗、受影響資料與是否需調整每日補資料；「結果與檢核文件」可讀安全結果及 `/api/v1/admin/data-quality/runbook`。檢查本身執行失敗與資料品質不合格必須分開；不透過 Email 或 Codex automation 通知。
+`data-quality` 及總覽週六品質卡已移除。舊品質紀錄不產生待辦或自動補收；保留一般批次錯誤及實際資料缺口。
 
 ### 9.1.1 使用分析 → 單一使用者（A4-U，待實作）
 

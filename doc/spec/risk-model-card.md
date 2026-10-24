@@ -1,5 +1,8 @@
 # Janus Risk 模型卡｜候選 XGBoost8（2026Q3）
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 更新：2026-10-22；**模型選型：XGBoost8 研究候選**。部署狀態：**CANDIDATE_PENDING_BOUNDED_PROMOTION_ACCEPTANCE**，不等於DEV ACTIVE。詳細流程：[完整重訓/日批操作手冊](risk-model-training-retraining-runbook.md)。
 
 ## 1. 用途與不適用事項

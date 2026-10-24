@@ -1,4 +1,7 @@
 # D07｜Colab開發、GCS模型發布、日週推論及月評估 — AI操作指令
+
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](../spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
 更新：2026-10-23。本輪寫入三模型 ChatGPT 試訓及四模型快取決策；後續使用者要求執行時，依[TODO](../todo.md)完成同一D07工作包，不創第二套queue。
 必讀：AGENTS/PROJECT_RULES、[模型生命週期](../spec/model-lifecycle.md)、[X/Y](../spec/specialist-engines.md)、[因子時間](../spec/model-feature-time-contract.md)、[D07卡](d07-specialist-b9-oos.md)、[Colab README](../../research/colab/README.md)。程序/資料量以生命週期SPEC為唯一權威。
 

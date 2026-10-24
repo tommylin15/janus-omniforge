@@ -1,4 +1,7 @@
 # D07｜五分析師完整模型生命週期
+
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
 更新：2026-10-23。原模型生命週期與 Colab 規格保留，新增 ChatGPT 三角色試訓與四角色跨 Job 快取的延後整併決策。
 **本文件是開發/營運目標，非已部署能力或已實收資料。** 模型/X/Y見[Specialist](specialist-engines.md)，精確時間/公式見[Feature契約](model-feature-time-contract.md)；不複製另一套公式。狀態唯一見[TODO](../todo.md)，操作與AI指令見[完整開發卡](../execution-cards/d07-model-lifecycle.md)。
 

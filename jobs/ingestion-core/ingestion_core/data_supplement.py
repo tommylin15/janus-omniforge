@@ -305,9 +305,9 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
         control.transition_execution(execution.execution_id, ExecutionStatus.RUNNING)
         summary.update(execution_id=execution.execution_id, symbols=list(symbols))
         prior = read_rows(core, "financials", symbols) if incremental or fundamental_only else []
-        quality = control.get_admin_setting("data_supplement_quality") if incremental else None
-        repairs = {(item.get("symbol"), item.get("dataset"), item.get("period"))
-                   for item in (quality[0].get("issues", []) if quality and isinstance(quality[0], dict) else [])}
+        # Retired audit findings must not trigger repeated historical downloads.
+        # Daily collection still fills genuinely missing periods from current data.
+        repairs = set()
 
         def stage(raw, url, source, dataset, extension, request_identity=None):
             received = datetime.now(timezone.utc)

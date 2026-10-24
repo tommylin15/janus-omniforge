@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../../doc/spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Janus / OmniForge Valuation P1 — 原始來源封包與歷史會計口徑查核
 
 日期：2026-10-24；研究限定（`publication_allowed=false`）。來源依 GitHub `main`、現行研究 `release-0bbae8d9c1ca7d8d` 及已凍結 P1 清冊；**不**修改 `canonical/CURRENT.json`、Registry、Risk ACTIVE、Core/Mart，不啟動訓練，不新增付費 API／訂閱，不擴大到全市場補收。

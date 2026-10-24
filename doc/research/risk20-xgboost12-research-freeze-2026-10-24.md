@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Risk20｜XGBoost12 研究定版（2026-10-24）
 
 > 決策：Risk 先以 **XGBoost12** 作為選定的「研究候選」，版本 `risk-rms20-xgboost12-research-20261024`；`RESEARCH_FROZEN / RESEARCH_IMPROVEMENT`、`publication_allowed=false`。這是研究方法及研究 checkpoint 凍結，**不是** Registry promotion、GCS 模型 pointer 修改、dev/prod ACTIVE 更換、API/serving 更新或部署。

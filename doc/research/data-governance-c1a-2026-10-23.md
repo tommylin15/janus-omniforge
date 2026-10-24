@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Janus／OmniForge 資料治理 C1-A 準備與 C0-Live 補驗並行計畫｜2026-10-23
 
 > **執行範圍：治理文件與既有證據的唯讀分析。** 這份文件是 C1-A 的可操作準備清單，**不是 C1-B 清掃許可證**；本輪未使用 PostgreSQL arbitrary SELECT、Iceberg live catalog、Cloud Scheduler/Cloud Run live list、GCS 本日 object inventory；未修改應用程式、排程、模型或任何資料。見 [C0 原始盤點及歷史 Live 收據](data-governance-c0-2026-10-23.md)。
@@ -164,7 +166,7 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 | **C1A-04 四模型因子** | 九個 Core 表當時 schema 包含 \`financials.published_at/availability_at/version_at/source_document_sha256\`，並非「未使用的普通因子」；34 slots 仍依 3.8.2 研究 contract | \`HISTORICAL_PIT_COLUMNS_OBSERVED\`、\`MODEL_LIVE_UNKNOWN\` | \`KEEP\` PIT/RAW/QUALITY/Y/CONTEXT/PROVENANCE；可刪欄 = 0 |
 | **C1A-05 PG** | Risk DETERMINISTIC 10/23 舊收據與 migration 靜態定義已存在，但**沒有** PG schema/table/field constraints 即時通盤查詢 | \`HISTORICAL_PARTIAL\` | \`KEEP_UNTIL_CURRENT_PG_CENSUS\` |
 
-**另有重要操作修正：** 倉庫 [\`.github/workflows/finops-dev.yml\`](../../.github/workflows/finops-dev.yml) 中的 \`iceberg-readback\` 分支實際僅讀 Scheduler、Cloud Run Job configuration 與 nonterminal executions，**不含 PG catalog/Core/Mart schema**；不能把該入口的 PASS 當成 PG/Iceberg 清冊。有一條 [\`feature-readiness-metadata-census.yml\`](../../.github/workflows/feature-readiness-metadata-census.yml) 可取得 Core 及 bounded row scan，但會以 override args 啟動現有 dev Job 且未涵蓋 Mart/PG 全量，因此**本輪未 rerun/dispatch**；不擅自以採集/寫入工作流替代唯讀盤點。
+**另有重要操作修正：** 倉庫 [\`.github/workflows/finops-dev.yml\`](../../.github/workflows/finops-dev.yml) 中的 \`iceberg-readback\` 分支實際僅讀 Scheduler、Cloud Run Job configuration 與 nonterminal executions，**不含 PG catalog/Core/Mart schema**；不能把該入口的 PASS 當成 PG/Iceberg 清冊。有一條 [\`feature-readiness-metadata-census.yml\`](../../.github/workflows/archive/feature-readiness-metadata-census.yml.disabled) 可取得 Core 及 bounded row scan，但會以 override args 啟動現有 dev Job 且未涵蓋 Mart/PG 全量，因此**本輪未 rerun/dispatch**；不擅自以採集/寫入工作流替代唯讀盤點。
 
 ### 9.1 目前 C1-A 最後必要的當前收據
 

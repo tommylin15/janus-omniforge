@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../../../doc/spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Janus／OmniForge｜Colab 四模型研究工作流（03～11）
 
 本套 Notebook 對應使用者指定的第 3～11 階段，**全部可在 Google Colab 操作**。流程使用 GitHub `tommylin15/janus-omniforge` 的已實作程式，**不新增或覆寫 canonical，沒有正式發布權限**。每支 Notebook 可單獨開啟；自動讀取同一個研究 run 的 `ACTIVE_RUN.json`，固定 `CURRENT.json` SHA、manifest SHA、Git SHA。若 upstream source 或 code 變動，fail closed。

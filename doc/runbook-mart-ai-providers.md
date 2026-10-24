@@ -1,5 +1,8 @@
 # 手動 CEO／Provider 操作
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 舊五角色 provider 批次已移除；`MART_AI_ENABLED` 不再能啟動日常角色呼叫。
 手動 CEO command、owner-scoped status/history、capability/quota/profile、取消與雲端終態核對的程式接線已加入。完成狀態仍以 CI、migration、真實 provider 與候選區驗收為準，不能把程式存在當成已上線。
 

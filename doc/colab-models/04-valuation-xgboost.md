@@ -1,3 +1,6 @@
+
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](../spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
 > **2026-10-24 最終四模型決策：**04 Valuation 保留 PE/PB 倍數、殘差和 XGBoost challenger 研究，**同時擁有 [估值參考區間功能](../spec/valuation-range.md)**。原第五模型 `valuation_range` 撤案；04 共用 EPS/BVPS、歷史倍數、單位、期間、PIT、來源授權、公司行動與同一 publication/rollback，前台只顯示一張區間卡。情境是確定性分位計算，無獨立訓練 Y、第五模型或 Registry role。04 XGBoost 研究尚未發布不阻止情境先依自己的來源/公式/發布 gate 開發。此為契約更新，**非 runtime/UI 已完成**。
 
 > **最新執行入口（2026-10-23）：** [四模型目前版本總索引](../research/00-四模型最新版本索引.md)；個股收檔／大盤產業收檔改為兩本 v3.8.4 Colab Notebook，ChatGPT 貼標使用 `label_four_models.py`（含產業 PIT preflight），四角色研究訓練使用 `janus_train.py`。本文件其他 v3.8.2 或更早 Colab 執行說明僅供歷史研究，模型正式發布另行驗收。

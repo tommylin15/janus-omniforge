@@ -1,5 +1,8 @@
 # D06｜Iceberg／受引用保護清理／I/O — AI 任務執行卡
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](../spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 > **2026-10-18 覆蓋決策：本卡已停止作為獨立 active 施工／驗收入口。** 所有剩餘安全引用保護、Snapshot／Orphan、Core／Mart retention 與 live readback 整併 [FINOPS-AB 唯一任務卡](finops-ingestion-iceberg-ab-and-c-gate.md)；已成功的 D06 477-object cleanup 與 audit mirror 不重跑。**兩天／長時間等量 I/O 量測取消，CANCELLED_BY_USER，不是 PASS。** 以下既有操作僅供歷史事實／引用 guard 查閱，不授權另派 D06 Job、另開 rollout 或啟動長時間量測。
 
 更新：2026-10-15；v1 文件指示，非工程驗收。

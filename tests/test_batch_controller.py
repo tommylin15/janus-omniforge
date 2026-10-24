@@ -316,15 +316,14 @@ def test_idle_active_tick_is_recorded_without_dispatch(monkeypatch):
     session.post.assert_not_called()
 
 
-def test_supplement_daily_precedes_mart_and_saturday_quality_is_independent():
+def test_supplement_daily_precedes_mart_and_quality_audit_is_retired():
     from ingestion_core.batch_controller import BATCHES
     batches = {batch.name: batch for batch in BATCHES}
     assert dict(batches["data-supplement"].env)["JANUS_DATA_SUPPLEMENT_MODE"] == "daily"
     assert "data-supplement" in batches["mart"].dependencies
-    assert batches["data-quality"].weekdays == (5,)
-    assert batches["data-quality"].dependencies == ()
+    assert "data-quality" not in batches
     saturday = due_batches(datetime(2026, 10, 3, 5, tzinfo=timezone.utc))
-    assert any(row[1].name == "data-quality" for row in saturday)
+    assert not any(row[1].name == "data-quality" for row in saturday)
     friday = due_batches(datetime(2026, 10, 2, 5, tzinfo=timezone.utc))
     assert not any(row[1].name == "data-quality" for row in friday)
 

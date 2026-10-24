@@ -1612,7 +1612,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @admin.get("/data-quality/runbook")
     def admin_data_quality_runbook():
         document = Path(__file__).resolve().parents[2] / "doc" / "runbook-data-supplement.md"
-        return {"title": "資料補充與週六檢核操作", "content": document.read_text(encoding="utf-8")}
+        return {"title": "資料補充操作（例行稽核已退役）", "content": document.read_text(encoding="utf-8")}
 
     @admin.post("/settings/{setting_key}")
     @admin.put("/settings/{setting_key}")

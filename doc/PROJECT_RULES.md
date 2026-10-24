@@ -2,6 +2,12 @@
 
 所有 Janus／OmniForge 工作遵守本文件。文件角色先看 [`README.md`](README.md)。
 
+## 0. 研究系統精簡（2026-10-24 最新決策）
+
+依 [研究精簡政策](spec/research-simplification.md) 執行：取消獨立資料稽核、逐來源補證、全歷史 PIT／時間校準、例行品質重抓與前瞻成熟等待門檻。既有日期／單位／來源欄位可沿用，不做額外追溯工程。只保留直接影響功能、模型答案正確性與資料安全的檢查。本條覆蓋本文件其他章節及所有舊 SPEC／WBS／TODO／Drive 相反指示；取消不等於驗證通過。
+
+本次只改文件與程式，不執行測試、CI、部署、批次或 runtime 驗收；後續依 [WI](runbook-research-simplification-wi.md) 交接。
+
 ## 1. 權威與事實判定
 
 ### 1.1 目前實作／完成狀態
@@ -106,29 +112,13 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - 保留 Event 公告原文、修訂去重、公司行動與 A-CHANGE 事實提醒。**現役 runtime 仍有五筆 deterministic specialist baseline 及 `event` schema/API/快取/讀取器**，此為舊相容資料現況，非新第五模型。後續須在 04/RV 工作線完成 reader/Owner/API/rollback 相容、真實 dev 測試後才可解除舊五筆假設；不得因決策直接刪除既有 artifact、資料表、API 或共享排程。
 - 第三方研究補證可沿既有範圍進行；本決策不授權新增付費服務、變更 Risk ACTIVE、擴大全市場採集或直接修改 canonical。舊 Drive 第五模型指示只作已撤案歷史參考，權威執行範圍以本規則、[四模型 SPEC](spec/specialist-engines.md)、[04 子契約](spec/valuation-range.md)、[WBS](wbs.md) 及[唯一 TODO](todo.md) 為準。
 
-### 1.11.1 Risk 來源准入簡化（2026-10-22 最新決策；覆蓋 §1.11 與舊 Runbook 相反要求）
+### 1.11 Risk 研究與發布
 
-- **只要有能提供 Risk 所需 OHLCV 的明確授權開放資料來源，首次發布的「來源可用性 gate」即 PASS。** 本次已找到 TWSE 開放資料集 11549、TPEx 開放資料集 11370，均為政府資料開放授權條款第1版（OGDL 1.0）；不再要求逐月溯源既有21月 r1 原始 API、重抓原檔或完成舊 endpoint→開放資料集授權映射才允許進下一 gate。
-- 此項 **PASS 表示可用開放資料替代管道存在，並非原 r1 每筆已依法從該開放資料集取得或原 API 自動獲得同一授權。** 保留原始 provenance、目前不可確認的 r1 授權映射，禁止冒稱已換源、已補收、已重新訓練或全部授權通過；明確實際禁止的取用／展示仍須停止受影響使用。採用 OGDL 資料要遵守來源顯名規則。
-- 本次來源 gate 從「逐來源全面授權認證」改成「開放來源存在與用途可涵蓋」；**只變更來源准入標準**，不解除已確認 future leakage 修正、受污染價格防護、模型特徵/serving parity、hash 與 CAS/rollback 的技術條件，不授權切 ACTIVE。
+取消逐來源授權補證、全歷史 PIT／公司行動重建、訓練後新增前瞻 cohort 與自然日批證明作發布前置。現有歷史回測可作研究評估，已看過的樣本不冒稱獨立新 OOS。保留實際模型載入、八因子順序與計算一致、必要欄位／數值、基本 cutoff 防洩漏、Owner 目標範圍與可回復切換。
 
-### 1.11 D07 Risk XGBoost 首次發布決策（2026-10-22，覆蓋舊等待閘門）
+### 1.12 Risk 目前狀態與交接
 
-- 沿用單一 `risk-xgboost8-2025h2-v1` 候選，不分 v1/v2 試用路線，不因單純驗證工作重建研究管線；本節並非授權直接切 ACTIVE。
-- **不把新增的前瞻20交易日完整成熟 OOS、全市場歷史退市名冊 PIT、全市場所有歷史公司行動補齊，列為首次發布的前置等待門檻。** 已檢視的2026年7–8月比較只能稱歷史診斷。正式預測須固定不可覆寫的 as-of／model SHA／X版本／來源參照；20市場交易日後才回收標籤，未成熟為 `PENDING`，每月按實際已成熟預測評估，不能視為成功或失敗。
-- 八項特徵的每個訊號截止日不得使用未來 OHLCV、公開/可用時間或修訂；`fetched_at` 不等於歷史首次 `published_at`。已知 future leakage 必須修正。現行名冊 survivorship／歷史修訂的有限性需如實標明，但不默認要求全市場歷史重建。
-- 公司行動只在實際訓練、評估、當前推論涉及的價格窗口處置。缺乏可證實同一調整基準時，排除受污染股票／樣本且留存理由與恢復條件；不得擅自調平價格或把真實暴跌當錯誤記錄刪除。如變更訓練樣本或基準，應重新評分並視需要重訓及變更 hash。
-- **資料來源不限定官方**（2026-10-22 最新補充）；已合法授權的開放資料或第三方資料皆可用，不必先窮盡官方管道。授權必須逐實際來源核對取得、ML訓練、保存、部署、展示與條款網址／日期。交易所一般網站與有明示政府開放授權之特定 dataset **不得混認**。明確禁止即排除，未能核對者標示實際受影響窗口與用途，不假稱已授權。
-- 研究全市場普通股 pooled training／screening 保留；**日常 XGBoost inference 只能對 `control.mart_ai_target_symbols(as_of)` 去識別持股與觀察股聯集**，ETF 出具不適用原因，不向一般產物輸出 Owner 明細。
-- 不准單純刪 gate 或把 `publication_allowed` 調為 true。首次 promotion 仍須實證八因子與訓練/serving parity、候選 GCS hash／安全 loader、來源用途、必要窗口污染防護及原子 Registry CAS／回滾。API/UI 及自然日批屬正式啟用後的驗收，未執行不可標 PASS。完結本次有界驗收且無異常即結案，不新增假設性待辦。
-
-
-### 1.12 D07 Risk XGBoost8 v1 正式 promotion 嚴格門檻（2026-10-23 最新指令）
-
-- 本節為使用者較新明確指令，**覆蓋 §1.11/§1.11.1 對首次 Risk promotion 的放寬**；不追溯否定已驗證的歷史 shadow、候選 hash、既有 CI 與 dev 受控部署收據，但歷史 PASS 不等於目前可 ACTIVE。
-- 正式 promotion 前須有可稽核的**實際來源** ML 訓練／資料保留／部署用途授權；正式 TWSE／TPEx 分市場交易日曆；訓練與 serving 涉及的公司行動、歷史 PIT／survivorship 控制；**模型訓練後新增**的前瞻 cohort 且 20 個市場交易日 Y 真正成熟；**獨立 OOS**（不可用已檢視歷史回測取代）；Core／Mart 八因子逐值／as-of 一致；GCS／Registry 原子切換、PG/API gate 與可核驗 rollback；每日自然推論；Owner 登入可驗收的 API/UI。缺一即保持 **DETERMINISTIC serving + SHADOW_UNVALIDATED candidate**，不得切 ACTIVE、偽造證據或把未驗證項標 PASS。
-- 2026-10-23 實機已曾 ACTIVE；在上述 gate 未通過時以現有 dev 可回復機制執行一次性受控回滾，見 [#39938087196](https://github.com/tommylin15/janus-omniforge/actions/runs/39938087196)：GCS generation CAS 與 PG append-only rollback 及讀回 PASS，當前為 DETERMINISTIC。原 ACTIVE 的歷史資料面驗收不重做。原啟用 workflow 的 synthetic `REQUIRED_PROMOTION_EVIDENCE=PASS` 已刪除，fail closed；未有真實驗證 bundle 前不得恢復該捷徑。
-- 只修具體未完成 gate／已確認缺陷，已 PASS 工項不重做；不重建舊研究排程、不新增付費資源。重大授權／權限／不可逆事項依 §1.3；本輪無新證據／無可安全執行工作時不發通知。所有 gate 通過且正式 dev 啟用與讀回確認後才宣告完成。
+2026-10-23 的 DETERMINISTIC 回滾是歷史已執行事實；本次只取消過度門檻，沒有改 Registry，也不把未測試的新程式稱為 ACTIVE。下一執行者依精簡 WI 完成有界技術測試與功能驗收，無須補做本次取消的稽核。
 
 ## 2. Dev 平行上線環境政策
 

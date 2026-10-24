@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../../doc/spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Janus Valuation 補收 v1：GitHub／Drive 交付讀回收據
 
 - 日期：2026-10-23；用途：研究資料工程候選；`publication_allowed=false`。

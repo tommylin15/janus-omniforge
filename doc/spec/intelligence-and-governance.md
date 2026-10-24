@@ -1,3 +1,6 @@
+
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
 > **2026-10-24 最新模型治理決策：**正式模型角色只有 Quant、Risk、Fundamental、Valuation **四個**；04 同時管理 PE/PB 研究與估值參考區間情境，共用資料品質、證據與 publication，UI 一張估值卡。下文「五分析師」記載的是**現役 legacy deterministic specialist baseline 的五筆 artifact／event API 現況**，不再構成第五模型或新開發目標；須先通過 reader/API/Owner/rollback 相容與 dev 驗收才可移除舊五筆假設。公告與 Event 事實仍歸 A-CHANGE，不做第五訓練模型。權威進度依 [唯一 TODO](../todo.md) 與 [04 子契約](valuation-range.md)。
 
 # Janus SPEC — Intelligence、Aggregator 與 Runtime

@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../../doc/spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Valuation P0＋P1 真實資料盤點與財務 Mapping（研究限定）
 
 版本：`valuation-financial-label-v2.0.0`。單純完成研究資料檢查與候選科目名稱映射。**無網路補收、無訓練、無模型發布，不更新 canonical/CURRENT.json，`publication_allowed=false`**。

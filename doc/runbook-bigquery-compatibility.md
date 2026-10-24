@@ -1,5 +1,8 @@
 # B2 BigQuery compatibility probe
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 狀態：B2 compatibility CLOSED / PASS；shared catalog mapping、native decimal/schema evolution、真實 Core partition pruning 已通過。Workload canary/default cutover 仍待後續驗收；PyIceberg 維持預設。
 
 ## 既有 dev 資源

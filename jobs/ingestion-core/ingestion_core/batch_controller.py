@@ -45,9 +45,6 @@ BATCHES = (
           (("MART_OPERATION", "market-screening"), ("MART_OOS_EVALUATION", "false"),
            ("MART_AI_ENABLED", "false"), ("MART_RISK_SHADOW_ENABLED", "true")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
-    Batch("data-quality", "janus-ingestion-core", (12,), (5,),
-          env=(("JANUS_DATA_SUPPLEMENT_MODE", "quality"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""),
-               ("ICEBERG_MAINTENANCE_MODE", "")), exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
     # 15:30 waits for daytime ingestion; 21:30 must still run when EOD ingestion
     # failed or has no terminal receipt. Private Mart enforces PIT/price safety.
     Batch("private", "janus-private-pipeline", (15, 21), tuple(range(5)), ("ingestion",),

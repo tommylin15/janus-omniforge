@@ -722,13 +722,6 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
             .get('/api/v1/admin/source-health?limit=200&active_only=true'),
         widget.api.get('/api/v1/admin/mart-reports?limit=50'),
         widget.api
-            .get('/api/v1/admin/settings/data_supplement_quality')
-            .catchError(
-              (_) => {
-                'value': {'status': 'unavailable'}
-              },
-            ),
-        widget.api
             .get('/api/v1/admin/operational-summary')
             .catchError((_) => <String, dynamic>{}),
         widget.api
@@ -791,42 +784,40 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                 attentionReports.length;
             return ListView(
               children: [
-                _DataQualityCard(widget.api,
-                    snapshot.data![3]['value'] as Map<String, dynamic>?),
                 ExpansionTile(title: const Text('營運與部署詳細資訊'), children: [
                   ListTile(
                       title: Text(
-                          'Private Mart 估值日 ${snapshot.data![4]['private_operations']?['valuation_date'] ?? '未知'}'),
+                          'Private Mart 估值日 ${snapshot.data![3]['private_operations']?['valuation_date'] ?? '未知'}'),
                       subtitle: Text(
-                          '快照資料日 ${snapshot.data![4]['snapshot']?['as_of_date'] ?? '未知'} · 更新 ${snapshot.data![4]['snapshot']?['updated_at'] ?? '未知'}')),
+                          '快照資料日 ${snapshot.data![3]['snapshot']?['as_of_date'] ?? '未知'} · 更新 ${snapshot.data![3]['snapshot']?['updated_at'] ?? '未知'}')),
                   ListTile(
                       title: Text(
-                          '目前回應 revision ${snapshot.data![4]['serving_revision'] ?? '未知'}'),
+                          '目前回應 revision ${snapshot.data![3]['serving_revision'] ?? '未知'}'),
                       subtitle: Text(
-                          'SHA ${snapshot.data![4]['serving_sha'] ?? '未知'}\n已驗證部署／digest：未知（不從目前回應版本推定）')),
+                          'SHA ${snapshot.data![3]['serving_sha'] ?? '未知'}\n已驗證部署／digest：未知（不從目前回應版本推定）')),
                 ]),
                 Wrap(spacing: 12, runSpacing: 12, children: [
                   _DashboardCard(
                       title: '自動工作',
-                      value: _items(snapshot.data![6]).isEmpty
+                      value: _items(snapshot.data![5]).isEmpty
                           ? '尚無最近一天的紀錄'
-                          : _label(_items(snapshot.data![6]).first['status']),
-                      detail: _items(snapshot.data![6]).isEmpty
+                          : _label(_items(snapshot.data![5]).first['status']),
+                      detail: _items(snapshot.data![5]).isEmpty
                           ? '沒有紀錄不代表工作正常。'
-                          : '最近一筆：${_label(_items(snapshot.data![6]).first['batch'])}\n更新 ${_items(snapshot.data![6]).first['updated_at'] ?? '時間未提供'}',
+                          : '最近一筆：${_label(_items(snapshot.data![5]).first['batch'])}\n更新 ${_items(snapshot.data![5]).first['updated_at'] ?? '時間未提供'}',
                       action: '查看自動工作',
                       onTap: () => widget.onOpen?.call(1, 0)),
                   _DashboardCard(
                       title: '全市場行情',
-                      value: _marketReadinessSummary(snapshot.data![5]),
+                      value: _marketReadinessSummary(snapshot.data![4]),
                       detail:
-                          '資料日 ${(snapshot.data![5] as Map)['value']?['as_of'] ?? '尚未確認'}\n營收與財報的缺口另列。',
+                          '資料日 ${(snapshot.data![4] as Map)['value']?['as_of'] ?? '尚未確認'}\n營收與財報的缺口另列。',
                       action: '查看資料缺口',
                       onTap: () => widget.onOpen?.call(2, 0)),
                   _DashboardCard(
                       title: '損益資料更新日',
                       value:
-                          '${snapshot.data![4]['private_operations']?['valuation_date'] ?? '尚未確認'}',
+                          '${snapshot.data![3]['private_operations']?['valuation_date'] ?? '尚未確認'}',
                       detail: '已保存的估值日期；重算進度請查看批次。',
                       action: '查看損益重算',
                       onTap: () => widget.onOpen?.call(1, 1)),
@@ -915,77 +906,6 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
               ],
             );
           },
-        ),
-      );
-}
-
-class _DataQualityCard extends StatelessWidget {
-  const _DataQualityCard(this.api, this.result);
-  final AdminApi api;
-  final Map<String, dynamic>? result;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        child: ListTile(
-          leading: const Icon(Icons.fact_check_outlined),
-          title: Text(
-              '週六資料品質 · ${result == null ? '尚未檢查' : _label(result!['status'])}'),
-          subtitle: Text(result == null
-              ? '最近檢查時間尚無紀錄'
-              : '最近檢查 ${result!['checked_at'] ?? '—'}\n'
-                  '${result!['needs_daily_schedule_adjustment'] == true ? '需要檢視並調整每日補資料' : result!['status'] == 'passed' ? '目前不需調整每日補資料' : '每日補資料狀態未知'}'),
-          trailing: TextButton(
-            child: const Text('結果與檢核文件'),
-            onPressed: () => showDialog<void>(
-              context: context,
-              builder: (dialogContext) => AlertDialog(
-                title: const Text('資料品質檢核'),
-                content: SizedBox(
-                  width: 700,
-                  child: ListView(shrinkWrap: true, children: [
-                    if (result == null) const Text('尚未檢查'),
-                    for (final issue in (result?['issues'] as List? ?? []))
-                      ListTile(
-                        title: Text(
-                            '${issue['symbol'] ?? '—'} · ${issue['dataset'] ?? '—'} · ${issue['period'] ?? '—'}'),
-                        subtitle: Text(
-                            '${issue['field'] ?? '—'} · ${_label(issue['reason'])}'),
-                      ),
-                    if (result?['status'] == 'execution_failed')
-                      Text(
-                          '檢查執行失敗：${result?['error_code'] ?? '未知原因'}，不能判定資料正常。'),
-                    for (final entry
-                        in (result?['coverage'] as Map<String, dynamic>? ?? {})
-                            .entries)
-                      ListTile(
-                        title: Text(entry.key),
-                        subtitle: Text(
-                            '財報 ${entry.value['financial_quarters'] ?? '—'} 季 · '
-                            '營收 ${entry.value['revenue_months'] ?? '—'} 月 · '
-                            '行情 ${entry.value['price_trading_dates'] ?? '—'} 交易日'),
-                      ),
-                    const Text(
-                        '歷史公告時間與原始版次尚未完整證明，保留 unknown；檢查通過不代表歷史 PIT 已還原。'),
-                    const Divider(),
-                    FutureBuilder<dynamic>(
-                      future: api.get('/api/v1/admin/data-quality/runbook'),
-                      builder: (context, snapshot) => snapshot.hasError
-                          ? const Text('檢核文件暫時無法載入')
-                          : snapshot.hasData
-                              ? SelectableText(
-                                  snapshot.data['content'] as String)
-                              : const CircularProgressIndicator(),
-                    ),
-                  ]),
-                ),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      child: const Text('關閉'))
-                ],
-              ),
-            ),
-          ),
         ),
       );
 }

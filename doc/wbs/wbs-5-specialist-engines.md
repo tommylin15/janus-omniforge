@@ -1,5 +1,8 @@
 # WBS-5｜五分析師引擎與研究模型
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](../spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 更新：2026-10-20。唯一研究資料契約：[官方歷史行情→Colab→Drive每月資料夾](../spec/research-collection-gas-drive-colab.md)；五角色輸出：[Specialist SPEC](../spec/specialist-engines.md)；唯一工作狀態：[TODO](../todo.md)。舊 B5～B8 Core/BQ/Cloud Run 訓練路徑不再是本 WBS。
 
 ## D07-PRE：資料與舊路線退役

@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 > **ARCHIVED／SUPERSEDED（2026-10-24 當日較新決策）：**本頁「新補收限近兩年」的執行指示已撤銷。最新權威為 [04 Valuation ≥30 有效月末盤點](valuation-min30-ordinary-preflight-2026-10-24.md)：PE/PB 分開，先重用已有36月、不足時核查向前追溯，普通股與 PIT/IPO 正式核驗後才決定 FinMind；此頁1,977股與98組僅供歷史清冊參考。原 ZIP 在 Drive 已改名 `ARCHIVED_已取代_...`，不再用舊Notebook執行。
 
 # Janus 04 Valuation｜2026-10-24 兩年普通股定向補收前盤點

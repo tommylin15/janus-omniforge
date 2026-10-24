@@ -24,3 +24,13 @@ def test_supplement_targets_reuse_ingestion_focus_and_deidentified_coverage():
     control = SimpleNamespace(config_symbols=lambda config: ("2330", "2327"),
                               portfolio_coverage_symbols=lambda: ("2330", "5876"))
     assert supplement_symbols(control) == ("2327", "2330", "5876")
+
+
+def test_retired_quality_entrypoint_does_not_access_runtime(monkeypatch):
+    import sys
+    from ingestion_core.data_quality import run_quality
+    monkeypatch.setitem(sys.modules, "ingestion_core.__main__", None)
+    result = run_quality()
+    assert result["status"] == "skipped"
+    assert result["source_checks"] == 0
+    assert result["needs_daily_schedule_adjustment"] is False

@@ -1,5 +1,8 @@
 # Janus 文件入口
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 更新：2026-10-24。本頁只導航，不保存暫停、部署版本或重複待辦。
 
 先讀 [PROJECT_RULES](PROJECT_RULES.md) → [專案管理](project-management.md) → [status](status.md) → [TODO](todo.md) → 指定一張 [AI 任務卡](execution-cards/README.md)。現行**多線並行**依 [WBS 依賴矩陣](wbs.md) 與 [唯一 Active TODO §1](todo.md) 分流：P0 作業安全、P1 A-CHANGE／Janus 2.0／04 Valuation 估值區間功能／資料可用性、P2 四模型研究、P3 D08；不是所有線都要串行等待，已完成工作不重開。
@@ -47,7 +50,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `ui/visual-first-delivery.md`：[已結案 D02/D03 原工程對照 B](ui/visual-first-delivery.md)，繼續作產品/資料/UI 契約參考，但不是新的 active TODO。
 - `spec/operations-and-testing.md`：最新證據索引；完整舊ledger已移至archive，日常定位先看status。
 - `pilot-operational-evidence.md`：`WBS-8-DEV-PILOT-RUN` 六個 calendar months evidence window 的新增 bounded checkpoint；保存 observed failure／recovery／manual intervention 與尚未觀察到的 evidence category，不把 checkpoint 當成 WBS 完成。
-- `runbook-data-supplement.md`：每日增量、週六品質檢查、Admin 結果與排程修復程序。
+- `runbook-data-supplement.md`：每日增量、按需資料處理、Admin 結果與排程修復程序。
 - `spec/cicd-v2.md`：GHCR → Cloud Run Release／回滾契約；2026-10-10 dev 發布範圍曾 PASS；後續版本仍須獨立驗收，歷史收據在 [archive](archive/cicd-ghcr-api-promotion-2026-10-10.md)，不重複寫在索引。
 - `runbook-dev-deploy.md`：dev API／Jobs 發布、共用鎖／lease、固定 Preview、回滾及 migration 的可重跑程序。
 - `github-workflows.md`：GitHub Actions workflow 架構、composite action 與統一 workflow 開發規範。

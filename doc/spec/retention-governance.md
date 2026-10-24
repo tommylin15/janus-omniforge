@@ -1,5 +1,8 @@
 # 公開資料保存與刪除治理
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 更新：2026-10-19。正式契約；資料分類／容量與 Tier 見 [因子矩陣](factor-coverage-retention-ledger.md)，排程、補收與治理邊界見 [統一入口](data-governance.md)。具體 worker 以 `jobs/ingestion-core/ingestion_core/retention.py` 與 `jobs/intelligence-mart/intelligence_mart/retention.py` 為實作證據。
 
 ## 1. Current-only Iceberg（2026-10-18 最新且具優先權）

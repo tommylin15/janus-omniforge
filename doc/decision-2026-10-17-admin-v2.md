@@ -1,5 +1,8 @@
 # 2026-10-17｜Admin v2 四頁架構與工程順序（核准設計）
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 狀態：**核准設計；2026-10-19 A1～A5（含 A4-U）已依原 TODO 指定測試／驗收範圍列 PASS**，當前 runtime 仍以實際 SHA/CI/部署 readback 為準。下列工程順序留作**歷史設計**，不是 active 重作指令；證據見 [原 TODO](archive/todo-before-consolidation-2026-10-19.md)、[Operations](spec/operations-and-testing.md)。本文件是 [TODO](todo.md) 中 `ADMIN-V2` 工作的設計依據，不是額外工作包或另一份執行 queue。
 
 ## 1. 決策與優先序

@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # TWSE／TPEx 大盤與產業研究資料包｜一次全量 Preflight SOP
 
 > **2026-10-23 使用者變更：停止「逐月執行、逐月交班」模式。** 現行四模型研究資料 Preflight 以 [Drive-first 全量主 SOP](four-model-research-package-preflight-runbook.md) 為唯一執行入口；**市場／產業為其中的關聯輸入驗證項**。本文件保留市場專用的機械 gate 與獨立重跑命令。仍屬操作規格，不是 full-run 完成證據。

@@ -1,5 +1,8 @@
 # B3 每日盤後 liquid-全市場 screening
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 **2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。實作與runtime切換狀態見status／operations，不以本契約推定完成。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](spec/full-market-batch-policy.md)。
 
 歷史B3範圍：**CLOSED / PASS（2026-10-07）**，不表示新全市場範圍全部驗收。Implementation、deployment、fixed-snapshot canary、兩次 reuse live acceptance 與 controller occurrence readback 均已有真實 dev evidence；BigQuery 未切 default，PyIceberg 維持預設 reader。

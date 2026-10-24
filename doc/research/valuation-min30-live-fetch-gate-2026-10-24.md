@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # Valuation 04｜FinMind 全量定向補收 GO／NO-GO 實機驗收
 
 日期：2026-10-24（Asia/Taipei）。結論：**NO-GO — 不放大為全部排定請求**。這不否定 FinMind API 可用性，只停止低效的批次擴張；研究資料 `publication_allowed=false`。

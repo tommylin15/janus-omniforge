@@ -1,57 +1,16 @@
 # Janus — Work Breakdown Structure
 
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
+
 更新：2026-10-24（跨線依賴矩陣）
 狀態：索引；執行順序與未完成條件以 [TODO](todo.md) 為準
 
-## AI 最小讀取規則
+## 現行工作順序
 
-收到 WBS ID 時，先從 TODO 取得範圍與驗收，再只讀對應切片及其直接引用的 SPEC／UI 切片。每個 AI 一次只擁有明確工作包；跨工作線允許分人平行，但共享 Controller／Registry／release／canonical writer 必須互斥。2026-10-05 的 A／B／C 合併工作組依 PROJECT_RULES 例外，以指定整組執行、共用驗收，原 WBS acceptance 保留。只有使用者明確指定全部組才跨組連續執行；不在 dataset／檔案／畫面之間反覆停等。操作見 [Codex 執行指令](codex-execution-plan.md)，範圍與狀態仍只看 [TODO](todo.md)。
+[唯一 TODO](todo.md) 是全部 active 工作。備份故障修復、04 估值情境、現有資料 X/Y 與四模型研究可獨立進行；D08 事實報告不等待模型全部完成。共享 writer／部署仍序列化。
 
-## Dev 平行上線驗收原則
-
-- 目前 `dev` 是個人使用階段的真實平行上線環境；WBS 的主要驗收預設走實際 GCP dev URL、真實 OAuth、真實持久化資料、真實 API／MCP／provider 與既有 Job／Scheduler，而不是先以 mock／fixture／假資料取代。
-- 本機 unit／contract／fixture 保留作快速回歸或故障注入；不得取代主要 real-path acceptance。
-- Production 只代表未來對外、多使用者、HA／SLA 或更嚴格營運需求；除非 WBS 明確屬於該範圍，不能以尚未 productionize 阻擋目前 dev 真實使用。
-- 程式已寫完但未部署、未觸發、未連真實依賴或只跑模擬資料，不得宣稱整體完成；partial success 不得包裝成 full success。
-- secret redaction、owner/auth boundary、migration 可追蹤、重要資料可重建／備份、不可逆大量刪除防護，以及 research/canonical/PIT/provenance/source authorization 邊界仍有效。
-
-## AI角色分工（非工具可用性閘門）
-
-舊 Sol／Luna 是歷史分工註記，不是模型選擇或前置閘門。**新工程順序以TODO為準：P0-1 自然排程獨立、P1 04 Valuation RV-01…06 與 D07-PRE 可平行，後續 D07 → D08；A-CHANGE 已結案**（見 [TODO](todo.md)）；下表 A／B／C、WBS3/4/5/6 的已結案範圍只用於找舊設計、修復所屬模組及稽核，不能成為另列的 backlog。工程依現有能力與 PROJECT_RULES 在 main 執行，不主動建 branch/PR。
-
-## 多工作線協同 WBS／依賴路由（2026-10-24）
-
-本表只定義**責任切片、SPEC、必要前置與合流 gate**，不複製進度；唯一 active 狀態與下一個可執行工項見 [TODO §1](todo.md#1-現行總優先順序與唯一主待辦2026-10-24-整併)，證據在 [Operations](spec/operations-and-testing.md)／相關 research receipt。AI 領取任務時先固定 `main` SHA、run_id、資料 release/fingerprint，再依直接依賴選擇最少必要文件。
-
-| Lane／WBS 擁有者 | 必讀 SPEC（設計契約） | 上游與可以先做的平行工作 | 禁止跨越的 gate／合流 |
-|---|---|---|---|
-| **O／WBS-3+7+8：Controller／5 天 queue（P0-2 CLOSED）／backup（P0-1 待驗）** | [資料治理](spec/data-governance.md)、[PROJECT_RULES §1.8.1](PROJECT_RULES.md)、[Controller runbook](runbook-batch-controller-dev.md) | 5 天派送守門、超齡追查排除、GHCR 完整測試與既有 dev Controller-only [#40049724410](https://github.com/tommylin15/janus-omniforge/actions/runs/40049724410) readback PASS；P0-2 已結案。P0-1 自然排程仍獨立待驗 | 新 Controller release／queue mutation 仍需互斥；保留舊 PG/GCS 歷史紀錄 |
-| **G／WBS-3+7：C0-Live→C1-A 資料治理** | [資料治理](spec/data-governance.md)、[資料保存](spec/retention-governance.md)、[研究候選與 Live](research/data-governance-c1a-2026-10-23.md) | PG/Iceberg reader/lineage 盤點可與市場 preflight／模型研究平行；逐張決策 | **C1-B DROP/DELETE 不可由文件直接放行**；需確認 active readers、backup/rebuild、owner/publication、current snapshot、回復與有界 apply 驗收 |
-| **D／WBS-3+5：研究採集、Preflight、X/Y** | [研究採集](spec/research-collection-gas-drive-colab.md)、[特徵時點](spec/model-feature-time-contract.md)、[最新版本索引](research/00-四模型最新版本索引.md)、[Preflight SOP](research/four-model-research-package-preflight-runbook.md) | 個股/市場產業收檔、查缺、PIT membership、欄位/單位 mapping 可按資料集分線；versioned release 彼此不覆蓋 | X/Y 依 frozen CURRENT/manifest/hash；產業 X 需真實歷史名冊與 crosswalk，Core/Stage writer 和清掃需避免競寫；研究資料不可默認 canonical |
-| **P／WBS-5+6：A-CHANGE／Janus 2.0 UI（USER_ACCEPTED／CLOSED）** | [變化判讀](spec/change-analysis.md)、[UI](ui.md)、[Operations 2026-10-24](spec/operations-and-testing.md) | A1–A4 原有事實／版本／盤前盤後與首頁／個股呈現已補事實優先／下一觀察同源，targeted tests／GHCR／dev API 100%／獨立 live 讀回 PASS；使用者 2026-10-24 明確「核對完成」 | **本工作包結案**；登入後 Owner 以 USER_ACCEPTED 收據為準，不偽稱獨立 OAuth/跨 Owner/截圖機器 PASS；04 RV-05 日後與現有 UI 合流是**獨立 Valuation 工項**，不重開 A-CHANGE |
-| **V／WBS-5+6：04 Valuation 前台情境 RV-01…06（非第五模型）** | [估值參考區間](spec/valuation-range.md)、[資料來源](spec/storage-data-and-ingestion.md)、[時間契約](spec/model-feature-time-contract.md) | RV-01 真實來源盤點、RV-02 純函式及 UI 設計可並行；**不依賴第04 Valuation XGB 可部署** | RV-03 真實可得/PIT → RV-04 相容 Mart/API → RV-05 一條價帶與 A-CHANGE 合流 → RV-06 dev/Owner/回滾驗收；不能冒稱 ML 預測 |
-| **M-Q／WBS-5+8：Quant 獨立研究** | [Quant 角色](colab-models/01-quant-xgboost.md)、[生命週期](spec/model-lifecycle.md) | 研究凍結 r1、前瞻 cohort、成熟回收可和其他模型獨立作業 | baseline/獨立 OOS/校準不足不得發布；不覆蓋別人的 frozen artifacts |
-| **M-R／WBS-5+8：Risk 現役＋研究** | [Risk model card](spec/risk-model-card.md)、[PROJECT_RULES §1.12](PROJECT_RULES.md#112-d07-risk-xgboost8-v1-正式-promotion-嚴格門檻2026-10-23-最新指令) | shadow/OOS 資料收集可與 Quant/Fundamental/Valuation 分線；正式日常 inference 維持原服務 | 嚴格來源/新成熟前瞻/獨立 OOS/PIT/action/parity/CAS/rollback 全 gate 才可切 ACTIVE；**現有 deterministic serving 不由研究者修改** |
-| **M-F／WBS-5+8：Fundamental 獨立研究** | [Fundamental](colab-models/03-fundamental-xgboost.md)、[時間契約](spec/model-feature-time-contract.md) | 可凍結研究 RC1 並同步查可用公布日／Y；不等 Quant 完成 | CURRENT 真實 PIT、成熟標籤、OOS、serving parity；研究 PASS ≠ 發布 |
-| **M-V／WBS-5+8：04 Valuation 研究＋V 情境共用資料與發布** | [Valuation](colab-models/04-valuation-xgboost.md)、[Valuation 稽核](research/valuation-p0p1-live-audit-2026-10-24.md) | 財務單位／期間／mapping／PIT、EPS/BVPS、歷史倍數共用**同一資料品質與授權閘門**，倍數研究與區間算式各自驗收 | 04 相對倍數研究 ≠ 04 確定性價格情境，但共用 publication/rollback；資料不可比先 blocked、前台不得有兩張價帶 |
-| **I／WBS-5+6+8：CEO/D08／整合發布** | [Intelligence](spec/intelligence-and-governance.md)、[D08 卡](execution-cards/d08-ceo-admin-owner-report.md)、[User UI](ui/user-app.md) | 事實 Pack、手動請求、validator、Owner history 可先做；不等待全部模型可部署 | 涉及模型結論僅讀該模型過 gate 的已發布 version；immutable report、auth、source、rollback 一致 |
-
-### 依賴關係／可平行與互斥
-
-```text
-O-P0-2 5 天 policy/queue/pending fence -> targeted CI -> Controller dev rollout/readback -> CLOSED（#40049724410）
-O-P0-1 自然觀測 ------------------------------ (與 O-P0-2 唯讀並行)
-G-C0 Live -> C1-A reader/rollback -> (另案批准+safe apply) C1-B
-D-採集/缺口 -> frozen release + preflight -> [M-Q | M-R | M-F | M-V] 各自 OOS
-04-RV01 ─┬→ RV03 真資料 ──┬→ RV04 API/Mart/舊event相容 ─→ RV05 唯一估值卡 ─→ RV06 驗收
-04-RV02 ─┘               ┘                       ↑
-P-A1..A4/2.0 UI ────────────────────────────────┘
-I-事實 Pack 可先行；每角色模型 publication gate → 該角色結果接 D08
-```
-
-**平行不等於同時改同一資源**：共享 `main` 調整以小 commit、重讀 HEAD 和不互相覆蓋為準；Controller/ingestion 改動必針對 deploy lease 序列化；GCS publication/Registry/PG migration/retention apply 需有明確單一責任與 rollback。研究四角色使用隔離 run_id、candidate、frozen X/Y fingerprint；任何模型試驗不得改 canonical 或現役 Risk；公開事實與 Owner 私人資料隔離。C1-B 清掃不可穿插未完成的資料/reader 合流。
-
-**一次只維護一份 TODO**：此表的 `Lane` 與 `RV/OPS/GOV/DATA` 工作 ID 在 [TODO §1.1](todo.md) 找到唯一未完條目；驗收證據追加到指定 Operations/研究 receipt；完結後從 TODO 移出，摘要保留於 [結案索引](wbs/completed-index.md)，不創造分支 TODO。
+來源稽核、歷史 PIT、前瞻新 cohort 與自然觀察均已取消，不形成跨線依賴。C1-A 已結案，C1-B 不在本輪刪資料。歷史 WBS 名稱只作定位，不恢復已取消驗收。
 
 ## WBS 路由
 

@@ -1,3 +1,6 @@
+
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](../spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
 > **最新執行入口（2026-10-23）：** [四模型目前版本總索引](../research/00-四模型最新版本索引.md)；個股收檔／大盤產業收檔改為兩本 v3.8.4 Colab Notebook，ChatGPT 貼標使用 `label_four_models.py`（含產業 PIT preflight），四角色研究訓練使用 `janus_train.py`。本文件其他 v3.8.2 或更早 Colab 執行說明僅供歷史研究，模型正式發布另行驗收。
 
 # 01｜Quant 趨勢：XGBoost Colab 建模與 AI 指令

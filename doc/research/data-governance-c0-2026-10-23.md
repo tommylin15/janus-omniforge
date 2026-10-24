@@ -1,3 +1,5 @@
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+
 # C0 清掃前證據盤點｜2026-10-23
 
 > **性質：研究／治理證據快照，非 production canonical data。** 本報告僅基於已取得的 GitHub main 程式與 Drive 規劃。**Live PG、Iceberg catalog、GCS 與 Scheduler 尚無可用唯讀驗證回傳，所有實存量/資料量/使用量保持 UNKNOWN。** 不可用本報告直接執行 DROP、DELETE 或停排程。
@@ -306,7 +308,7 @@
 
 ### 14.3 即時讀取能力與可接受收據門檻
 
-- 有現成 [Core metadata census workflow](../../.github/workflows/feature-readiness-metadata-census.yml)，可以讀取 **Core 的 schema、current snapshot、row count/partition**，但它執行既有 dev Job 並讀回 logs；本輪 **沒有 dispatch / rerun**，而且即使執行也**不能得到 Mart 和 PG 完整清冊**。
+- 有現成 [Core metadata census workflow](../../.github/workflows/archive/feature-readiness-metadata-census.yml.disabled)，可以讀取 **Core 的 schema、current snapshot、row count/partition**，但它執行既有 dev Job 並讀回 logs；本輪 **沒有 dispatch / rerun**，而且即使執行也**不能得到 Mart 和 PG 完整清冊**。
 - [FinOps `iceberg-readback` 工作](../../.github/workflows/finops-dev.yml) 的實作是 **Scheduler/四個 Cloud Run Job/進行中 execution 列舉**，**並非 Iceberg SQL catalog 掃描**。不得以其成功代替 `L02-CATALOG`。
 - 目前已連線的 GCP plugin 僅提供 IAM roles/deny policies，沒有 PostgreSQL arbitrary SELECT 或 Iceberg metadata API；Browser tab read 在本輪回報 `Browser access requires the originating browser context`；`Janus Dev Read-only v2` 的 `janus_sources` 再次回報 `The tool failed internally`。**這些均是查詢通道限制，不證明 DB 不存在、IAM 真的被拒絕或資料壞掉。**
 - **須新增的不是資料或服務，而是由既有授權唯讀通道輸出一份 bounded PG+Iceberg metadata receipt：** as-of UTC/role/project/environment/Git SHA、PG schema/table/view/field/key/index/migration 查詢結果，`catalog.iceberg_tables` 的 `catalog_name='janus'` core/mart entries，逐表最新 schema/spec/current snapshot/summary row count，查詢錯誤/欄位無權限清楚標註。先固定 current catalog table list，再與這兩份 10/17–10/18 歷史收據比對差異；不得用舊 snapshot 補當前值。
@@ -318,7 +320,7 @@
 
 用戶授權「沒有就加上去」，採取**不開放任意 SQL、不新增付費資源、不擴張 IAM**的最小工程方案。本階段新增三項工程資產：
 
-- [\`.github/workflows/governance-metadata-readonly.yml\`](../../.github/workflows/governance-metadata-readonly.yml)：push 指定治理 request 或手動 workflow_dispatch；使用既有 dev WIF 和 CI 身分，不暴露 secret。
+- [\`.github/workflows/archive/governance-metadata-readonly.yml.disabled\`](../../.github/workflows/archive/governance-metadata-readonly.yml.disabled)：push 指定治理 request 或手動 workflow_dispatch；使用既有 dev WIF 和 CI 身分，不暴露 secret。
 - [\`scripts/gcp/governance_metadata_readonly.py\`](../../scripts/gcp/governance_metadata_readonly.py)：固定有界查詢，在現有 \`janus-ingestion-core\` Job 以單次 Python override（不改 Job template）取得 PostgreSQL \`pg_catalog\`、\`information_schema\`、\`control.schema_migrations\`、\`catalog.iceberg_tables\`（core+mart）和 PyIceberg current metadata。每段 \`BEGIN READ ONLY\`、statement_timeout 10s；不做 table.scan/資料列讀取；私人資料只讀 schema metadata；結果按 section/chunk 保留 JSON 收據、SQLSTATE / error class，不印敏感 error/Secrets。
 - [\`tests/test_governance_metadata_readonly.py\`](../../tests/test_governance_metadata_readonly.py) 與 [\`ops/governance-metadata-readonly-request.json\`](../../ops/governance-metadata-readonly-request.json)：固定審查範圍、不可變資料和離線 guard。ChatGPT 可透過 GitHub 已授權 connector 更新受控 request 觸發一次 metadata scan，再透過同一 GitHub connector 讀回 Action log/Artifact。**此入口是 GitHub mediated，不是 ChatGPT 直接連 Cloud SQL 的 SQL connector**。
 
@@ -376,7 +378,7 @@
 
 ### 16.3 身分／查詢通道判定及最小補驗方向
 
-首次查詢明確說明**PostgreSQL \`pg_catalog\`／Iceberg catalog SELECT 權限已足夠**，毋須增大 Core 身分授權；Mart GCS metadata 存取遭遇 \`PermissionError\`，不建議立即提升 ingestion SA IAM 權限。改由既有 \`janus-intelligence-mart\` dev Job 身分讀取 Mart Iceberg metadata，不改 Cloud Run Job template、不加 IAM、不新增資源；此替代方式已加入同一個 [治理 Workflow](../../.github/workflows/governance-metadata-readonly.yml)，第二輪 [#39949570989](https://github.com/tommylin15/janus-omniforge/actions/runs/39949570989) 的終態和收據應另行補登，不得由本節推定 PASS。
+首次查詢明確說明**PostgreSQL \`pg_catalog\`／Iceberg catalog SELECT 權限已足夠**，毋須增大 Core 身分授權；Mart GCS metadata 存取遭遇 \`PermissionError\`，不建議立即提升 ingestion SA IAM 權限。改由既有 \`janus-intelligence-mart\` dev Job 身分讀取 Mart Iceberg metadata，不改 Cloud Run Job template、不加 IAM、不新增資源；此替代方式已加入同一個 [治理 Workflow](../../.github/workflows/archive/governance-metadata-readonly.yml.disabled)，第二輪 [#39949570989](https://github.com/tommylin15/janus-omniforge/actions/runs/39949570989) 的終態和收據應另行補登，不得由本節推定 PASS。
 
 ---
 
@@ -406,7 +408,7 @@
 - \`C0-L02\` **Live catalog enumeration + all Core/Mart current schema/partition/snapshot metadata 已取得**（九張 Core、十一張 Mart）。其中兩表無 snapshot；不得解釋為不存在或 rowcount=0。
 - \`C0-L01\` PG catalog metadata、columns/types、constraint/index names、migration ledger **已實讀**；剩餘是當前 migration 名稱 drift、Role 限制下 information_schema 可見性與特定 constraint 定義內容核對。
 - \`C0-L03\` 30 日 writer/reader/Cloud Scheduler/Cloud Run 使用證據和 \`C0-L04\` GCS today prefix/lease、\`C0-L05\` 四模型真實 X values/PIT 仍需分開驗證；**C0 全部不是 FULL PASS，C1-B 無實刪授權**。
-- 執行流程已改成 Core role 與 Mart role 各查可讀資產後 cross-validate（[治理 Workflow](../../.github/workflows/governance-metadata-readonly.yml)）；新版 [#39950278408](https://github.com/tommylin15/janus-omniforge/actions/runs/39950278408) 首次整合結果仍需讀回，未達成前不能提前寫 \`WORKFLOW_PASS\`。
+- 執行流程已改成 Core role 與 Mart role 各查可讀資產後 cross-validate（[治理 Workflow](../../.github/workflows/archive/governance-metadata-readonly.yml.disabled)）；新版 [#39950278408](https://github.com/tommylin15/janus-omniforge/actions/runs/39950278408) 首次整合結果仍需讀回，未達成前不能提前寫 \`WORKFLOW_PASS\`。
 
 ---
 

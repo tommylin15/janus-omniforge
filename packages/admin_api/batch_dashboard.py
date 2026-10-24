@@ -5,10 +5,9 @@ from zoneinfo import ZoneInfo
 TASKS = {
     "ledger-backup": ("交易資料備份", "備份交易資料，保留可還原的副本。"),
     "ingestion": ("收集市場資料", "取得上市、上櫃行情與公開資料。"),
-    "data-supplement": ("補齊缺漏資料", "依現有品質檢查補收缺少的資料。"),
+    "data-supplement": ("補齊缺漏資料", "依現有資料補收實際缺少的期別。"),
     "mart": ("更新分析結果", "將已收集資料轉成可供網站使用的分析結果。"),
     "market-screening": ("全市場分析", "更新全市場篩選與持股、關注股所需的分析。"),
-    "data-quality": ("每週資料檢查", "檢查行情、營收及財報的缺漏與品質。"),
     "private": ("更新個人損益", "用已入帳交易與合格行情更新私人損益。"),
     "stage-cleanup": ("清理過期暫存", "依48小時政策清理過期暫存，保留有效執行引用。"),
     "mobile-ledger": ("處理記帳佇列", "只在有待處理記帳資料時執行。"),
@@ -93,10 +92,5 @@ def dashboard(runtime, latest, settings, now=None):
                      "stop_note": "僅能停止可確認身分的這次執行，不影響其他工作。備份或結果不確定時不能強制停止。",
                      "unavailable_reason": None if fresh and enabled else "尚無近期已啟用的總控排程證據。"})
     rows.sort(key=lambda row: stamp((row["latest"] or {}).get("scheduled_at")) or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
-    rows.append({"name": "monthly-model-review", "title": "每月模型有效性檢查", "purpose": "檢查已成熟預測的模型表現；依模型生命週期規格，尚無總控執行定義。",
-                 "cadence": "monthly", "enabled": False, "schedule_verified": False,
-                 "latest": None, "can_start": False, "can_stop": False,
-                 "paused": False, "control_version": 0,
-                 "unavailable_reason": "規格已規劃，總控批次尚未實作；不是舊Cloud Run月度訓練。"})
     return {"items": rows, "observed_at": now, "controller_observed_at": observed,
             "controller_fresh": fresh, "history_days": 7}

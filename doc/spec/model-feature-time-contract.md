@@ -1,13 +1,12 @@
 # D07｜X/Y 因子、清洗整合與滾動時間契約
+
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+
 更新：2026-10-21。設計契約，非已部署 pipeline。角色/模型表見 [五分析師](specialist-engines.md)，採集見 [Colab/Drive](research-collection-gas-drive-colab.md)。
 
-## 2026-10-23｜歷史產業歸屬與多標籤貼標前必要檢查
+## 歷史產業分類檢查改為按需
 
-現在正式執行邊界為 **Colab 只收資料、ChatGPT 計算研究 X/Y 與貼標**；本文早期「採集 Notebook 最後一格計算 X/Y」為 v3.8 設計歷史，不再是現行執行入口。新大盤／產業指數的 v3.8.3 Colab 補收屬 research factor_inputs，**沒有提供個股歷史產業對照**。
-
-個股要使用產業指數／產業群等 X 前，ChatGPT `label_four_models.py` 每次貼標前必須呼叫 `industry_membership.py`：驗 `industry_membership.parquet`、版本 manifest、SHA／筆數／欄位、來源授權、PIT 發布時間、股票市場、主要產業有效期間及兩市場逐股逐交易日覆蓋。官方主產業每時點唯一；secondary/theme/supply_chain 允許重疊，但不能將多重主題誤當多筆股票而重複計算母體。歷史截止只用當時可得資訊，沒有可信 `published_at` 不做歷史 as-of join；指數 `index_id` 與 `industry_id` 的 crosswalk 需獨立證據。
-
-輸出 `industry_membership_precheck.json`／`readiness.json`。缺對照或未驗證：產業特徵 `MISSING/BLOCKED/PARTIAL_COVERAGE`，不進模型 X；其他合格非產業因子／候選 Y 可續作；如需完整依賴產業的研究流程使用 `--require-industry`，狀態非 VERIFIED 即停止。此項程式交付本地 41 passed、6 skipped，但真實名冊和 full-data PIT 尚待，**不等於產業因素可發布**。見 [雙入口與檢查細節](../research/four-model-collection-label-split-v382.md) 與 [Active TODO](../todo.md)。
+`label_four_models.py` 預設不讀產業歷史檔、不計算逐股逐日 PIT 覆蓋。只有使用者明確指定 `--require-industry` 才執行舊檢查。缺產業對照時不產生該因子，其他模型照常研究；不新增歷史名冊補證任務。採集由 Colab、研究 X/Y 由 ChatGPT 處理。
 
 ## 2026-10-23｜共用因子預處理與四角色模型正式標籤分離
 
