@@ -206,18 +206,28 @@ def verify_independent_job_rollback(proof, source_sha, release_run):
     """
     request = json.loads(Path("ops/ghcr-jobs-rollout-request.json").read_text())
     previous = request.get("baseline_source_sha")
+    source_map = request.get("rollback_source_shas")
     expected_images = request.get("rollback_images")
     expected_hashes = request.get("rollback_config_hashes")
     targets = {name for name, _ in JOB_COMPONENT}
+    baseline_valid = (
+        (source_map is None and isinstance(previous, str)
+         and re.fullmatch(r"[0-9a-f]{40}", previous) is not None
+         and previous != source_sha
+         and proof.get("rollback_baseline_sha") == previous)
+        or (source_map is not None and previous is None
+            and isinstance(source_map, dict) and set(source_map) == targets
+            and all(isinstance(value, str)
+                    and re.fullmatch(r"[0-9a-f]{40}", value)
+                    and value != source_sha for value in source_map.values())
+            and proof.get("rollback_baseline_shas") == source_map)
+    )
     if (request.get("approved") is not True
             or request.get("scope") != "existing-dev-four-jobs"
             or request.get("rollback_mode") != "reversible_ghcr"
             or request.get("sha") != source_sha
             or request.get("release_run") != release_run
-            or not isinstance(previous, str)
-            or not re.fullmatch(r"[0-9a-f]{40}", previous)
-            or previous == source_sha
-            or proof.get("rollback_baseline_sha") != previous
+            or not baseline_valid
             or not isinstance(expected_images, dict)
             or set(expected_images) != targets
             or not isinstance(expected_hashes, dict)
