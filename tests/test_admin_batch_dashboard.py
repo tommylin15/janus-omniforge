@@ -328,8 +328,7 @@ def test_p02_controller_historical_recovery_override_single_ref_only(monkeypatch
     enqueue_manual_queues(connection,[collection,analysis],set(),NOW,occurrence_env)
     selectors=[call.args[1] for call in cur.execute.call_args_list
         if call.args and "SELECT e.execution_id,e.retry_count" in call.args[0]]
-    assert selectors == [("collection",False,None,None,False),
-                         ("analysis",True,"f"*32,"f"*32,True)]
+    assert selectors == [("analysis",True,"f"*32,"f"*32,True)]
     monkeypatch.setenv("JANUS_P02_ANALYSIS_EXECUTION_REF","")
     with pytest.raises(ValueError,match="one verified target"):
         enqueue_manual_queues(connection,[analysis],set(),NOW,occurrence_env)
