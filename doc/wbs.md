@@ -1,11 +1,11 @@
 # Janus — Work Breakdown Structure
 
-更新：2026-10-19
+更新：2026-10-24（跨線依賴矩陣）
 狀態：索引；執行順序與未完成條件以 [TODO](todo.md) 為準
 
 ## AI 最小讀取規則
 
-收到 WBS ID 時，先從 TODO 取得範圍與驗收，再只讀對應切片及其直接引用的 SPEC／UI 切片。一般每次只執行一個 WBS；2026-10-05 的 A／B／C 合併工作組依 PROJECT_RULES 例外，以指定整組執行、共用驗收，原 WBS acceptance 保留。只有使用者明確指定全部組才跨組連續執行；不在 dataset／檔案／畫面之間反覆停等。操作見 [Codex 執行指令](codex-execution-plan.md)，範圍與狀態仍只看 [TODO](todo.md)。
+收到 WBS ID 時，先從 TODO 取得範圍與驗收，再只讀對應切片及其直接引用的 SPEC／UI 切片。每個 AI 一次只擁有明確工作包；跨工作線允許分人平行，但共享 Controller／Registry／release／canonical writer 必須互斥。2026-10-05 的 A／B／C 合併工作組依 PROJECT_RULES 例外，以指定整組執行、共用驗收，原 WBS acceptance 保留。只有使用者明確指定全部組才跨組連續執行；不在 dataset／檔案／畫面之間反覆停等。操作見 [Codex 執行指令](codex-execution-plan.md)，範圍與狀態仍只看 [TODO](todo.md)。
 
 ## Dev 平行上線驗收原則
 
