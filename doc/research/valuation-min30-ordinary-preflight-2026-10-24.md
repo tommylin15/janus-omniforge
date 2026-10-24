@@ -34,3 +34,15 @@ Colab 掛載 `/content/drive/MyDrive/給ai專用/janusChatGPT`，固定 CURRENT/
 本地 Python syntax PASS、最小模擬 33月／2股 PE/PB 正值與非正值分支／月份去重／零 API／輸出報表 PASS；**這是模擬測試，不是 Colab+真實 Parquet／官方主檔驗收**。不變更 canonical CURRENT、Risk ACTIVE、Registry、現役 Mart/API；無新付費服務。
 
 本頁覆蓋同日先前 [固定兩年盤點](valuation-2y-ordinary-preflight-2026-10-24.md) 的補收範圍與新的盤點程式；原先兩年 ZIP 已以 `ARCHIVED_已取代` 更名，保留歷史原樣。
+
+
+## 後續真正補收 Colab（v2.1；2026-10-24）
+
+原第20版 `RUN_FETCH=False` 的工作**僅做初盤**，使用者實際 Run all 的 `requests_executed=0`。依本次要求，現在有真正呼叫 FinMind 的第21版：
+
+- [GitHub 原碼與可執行 Notebook](../../research/colab/21_Valuation_04_FinMind_30有效月末_真實補收_可續跑.ipynb)
+- [Drive 單獨 Notebook](https://drive.google.com/file/d/1sNyTjs2eeCQHdRUg7LTNwYn3XsPfJxgE/view)；[Drive ZIP（Notebook＋核心模組＋pytest＋README）](https://drive.google.com/file/d/1sWl6Wlzx5QBpfTjN4I7eOCoopvbyoGcz/view)
+
+此版從現有六個第20版產物讀真實缺口、凍結資料包 SHA 與任務；依當前上市櫃公司主檔與上市日期限縮 PE/PB 缺月及兩類財報缺季，合併 `symbol×dataset` 跨期請求，使用 FinMind 免費 Bearer Token 查 `TaiwanStockPER`、`TaiwanStockFinancialStatements`、`TaiwanStockBalanceSheet`，**預設 RUN_FETCH=True**、每輪最多25個GET、原始bytes/SHA/receipt/checkpoint、重跑略過成功、限額停止。只存研究區 `janusChatGPT/模型研究/valuation/backfill_candidates/FINMIND_MIN30_REAL_20261024/`，**不修改 canonical/CURRENT、Risk ACTIVE、Registry**。30個正倍數月只當初步計數，仍需單位/合併/官方月末/PIT/rights 稽核；不是模型可發布驗收。
+
+交付狀態：Notebook JSON+語法檢查 PASS；6 項本地 mocked API 單測 PASS；GitHub、Drive 檔案讀回已核。**尚未使用真實 Token/Colab 執行抓檔；實際新增財務／估值月末數 UNKNOWN，不能聲稱資料已補齊**。唯一實際未完成狀態以 [Active TODO](../todo.md) 為準。
