@@ -29,6 +29,7 @@ def approved_request(payload: dict) -> dict:
             or payload.get("approved") is not True
             or payload.get("scope") != "existing-dev-janus-api-only"
             or payload.get("rollback_mode") != "reversible_ghcr"
+            or payload.get("traffic_validation_mode", "rehearsal") not in {"direct", "rehearsal"}
             or payload.get("no_jobs_mutation") is not True
             or payload.get("no_scheduler_mutation") is not True
             or payload.get("no_storage_mutation") is not True
@@ -153,18 +154,25 @@ def promote(receipt: Path) -> int:
         if locked_previous != previous or locked_candidate != candidate:
             raise ValueError("serving_or_candidate_drift_under_lease")
         baseline = locked
-        journal["phase"] = "REHEARSE_TRAFFIC_AND_ROLLBACK"
+        mode = payload.get("traffic_validation_mode", "rehearsal")
+        journal["traffic_validation_mode"] = mode
+        if mode == "rehearsal":
+            journal["phase"] = "REHEARSE_TRAFFIC_AND_ROLLBACK"
+            journal["traffic_mutation"] = True
+            save()
+            mutated = True
+            api.switch(candidate, baseline)
+            api.health(payload["source_sha"])
+            api.switch(previous, baseline)
+            api.health(payload["prior_serving_sha"])
+            journal["rollback_exercised"] = True
+            save()
+        # In explicitly approved direct mode, switch only once; revert to the
+        # pinned previous revision strictly on an actual post-switch failure.
+        journal["phase"] = "PROMOTE_API_100_PERCENT"
         journal["traffic_mutation"] = True
         save()
         mutated = True
-        api.switch(candidate, baseline)
-        api.health(payload["source_sha"])
-        api.switch(previous, baseline)
-        api.health(payload["prior_serving_sha"])
-        journal["rollback_exercised"] = True
-        save()
-        journal["phase"] = "PROMOTE_API_100_PERCENT"
-        save()
         api.switch(candidate, baseline)
         api.health(payload["source_sha"])
         if api.active(describe()) != candidate:
