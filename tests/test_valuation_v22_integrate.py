@@ -8,6 +8,16 @@ import valuation_v22_integrate as m
 
 HERE=Path(__file__).resolve().parent
 
+# The complete v22 research replay bundle is external and is not checked into
+# Git. Keep the replay assertions intact for an environment that stages it;
+# a generic CI checkout must explicitly SKIP instead of failing on a missing
+# file or pretending a historical 311-task replay succeeded.
+V22_REPLAY_PLAN = HERE / 'input' / 'frozen_plan_v22.json'
+REQUIRES_V22_REPLAY = unittest.skipUnless(
+    V22_REPLAY_PLAN.is_file(),
+    'external valuation v22 frozen replay fixture not staged (tests/input/frozen_plan_v22.json)',
+)
+
 class V22IntegrationTests(unittest.TestCase):
     def test_input_guards(self):
         self.assertFalse(m.is_positive(0))
@@ -16,6 +26,7 @@ class V22IntegrationTests(unittest.TestCase):
         self.assertFalse(m.is_positive(float('nan')))
         self.assertTrue(m.is_positive('2.2'))
         self.assertEqual(str(m.last_day('2024-02')), '2024-02-29')
+    @REQUIRES_V22_REPLAY
     def test_v22_full_raw_replay_and_coverage(self):
         with tempfile.TemporaryDirectory() as d:
             stats=m.assemble(HERE/'input',Path(d))
@@ -33,6 +44,7 @@ class V22IntegrationTests(unittest.TestCase):
             gate=json.loads((Path(d)/'05_model_training_gate.json').read_text())
             self.assertEqual(gate['state'],'BLOCKED_NOT_TRAINED')
             self.assertFalse(gate['publication_allowed'])
+    @REQUIRES_V22_REPLAY
     def test_frozen_plan_is_unchanged(self):
         import hashlib
         p=HERE/'input/frozen_plan_v22.json'
