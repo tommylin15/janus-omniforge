@@ -37,7 +37,7 @@ def _positive(value: Any) -> Decimal | None:
 
 
 def _window_start(as_of: date) -> date:
-    last = as_of.year * 12 + as_of.month - 60
+    last = as_of.year * 12 + as_of.month - 60 + 1
     return date((last - 1) // 12, (last - 1) % 12 + 1, 1)
 
 
