@@ -320,6 +320,9 @@ def main() -> None:
                 symbols,
                 timeout_seconds=int(os.environ.get("JANUS_ANALYSIS_REPLAY_TIMEOUT_SECONDS", "900")),
             )
+        elif os.getenv("JANUS_UNIFIED_COLLECTION", "false").lower() == "true":
+            from .unified_collection import run
+            result = run()
         else:
             operation = (
                 consume_queued_collection
@@ -327,6 +330,8 @@ def main() -> None:
                 else run_scheduled_collection
             )
             result = operation()
+        if result.get("status") in {"failed", "retrying", "partial"}:
+            raise RuntimeError("batch did not complete successfully")
         result["duration_ms"] = round((monotonic() - started) * 1000)
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     except Exception as error:

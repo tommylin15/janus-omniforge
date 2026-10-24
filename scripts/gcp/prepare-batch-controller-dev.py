@@ -43,4 +43,4 @@ if __name__ == "__main__":
     path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     print(json.dumps({"manifest": str(path.resolve()), "job": TARGET, "mode": "observe", "cpu": 1,
                       "memory_mib": 512, "timeout_seconds": 120, "max_retries": 0,
-                      "scheduler_cron": "30 * * * *", "time_zone": "Asia/Taipei", "resource_writes": 0}))
+                      "scheduler_cron": "30 */2 * * *", "time_zone": "Asia/Taipei", "resource_writes": 0}))

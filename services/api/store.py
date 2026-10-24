@@ -15,6 +15,7 @@ from uuid import UUID
 
 class PrivateIcebergStore:
     TABLE_KEYS = {
+        "workspace_snapshots": ("user_id", "snapshot_id"),
         "note_revisions": ("user_id", "note_id", "revision"),
         "ledger_events": ("user_id", "ledger_version"),
         "watchlist_events": ("user_id", "symbol", "change_version"),

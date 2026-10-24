@@ -84,7 +84,7 @@ def assess(evidence: Mapping[str, Any]) -> dict[str, Any]:
         if (
             entry.get("target") != SCHEDULER_TARGET
             or entry.get("identity") != SCHEDULER_IDENTITY
-            or entry.get("schedule") != "30 * * * *"
+            or entry.get("schedule") not in {"30 * * * *", "30 */2 * * *"}
             or entry.get("time_zone") != "Asia/Taipei"
             or entry.get("retry_count") != 1
         ):

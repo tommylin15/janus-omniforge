@@ -19,11 +19,11 @@ def request_backup(connection, state):
 
 def poll_backup(connection, state):
     with connection.cursor() as cursor:
-        cursor.execute('SELECT status,size_bytes,sha256,completed_at,error_code FROM control.ledger_backup_requests WHERE backup_date=%s', (state['backup_date'],))
+        cursor.execute('SELECT status,size_bytes,sha256,completed_at,error_code,retention_status FROM control.ledger_backup_requests WHERE backup_date=%s', (state['backup_date'],))
         row = cursor.fetchone()
     if row is None:
         return {**state, 'status': 'ambiguous', 'reason': 'backup_request_missing'}
-    status, size, checksum, completed, error = row
+    status, size, checksum, completed, error, retention_status = row
     if status == 'succeeded':
         if size is None or size < 1024 or not checksum or len(checksum) != 64 or completed is None:
             raise ValueError('invalid completed backup receipt')
@@ -31,53 +31,13 @@ def poll_backup(connection, state):
         # transition to GCS retention inventory/deletion permissions. A storage
         # failure used to leave completed VM backups stuck in 'running'.
         # Backup retention is a separate guarded operation, not a poll side effect.
-        return {**state, 'status': 'succeeded', 'size_bytes': size, 'sha256': checksum,
+        return {**state, 'status': ('running' if retention_status == 'pending' else
+                                  'succeeded' if retention_status == 'succeeded' else 'failed'),
+                'backup_status': 'succeeded',
+                'reason': 'backup_retention_' + retention_status, 'size_bytes': size, 'sha256': checksum,
                 'completion_time': completed.isoformat(),
-                'retention_cleanup': {'status': 'not_run_in_reconcile'}}
+                'retention_cleanup': {'status': retention_status, 'executor': 'existing_postgres_vm'}}
     if status == 'failed':
         return {**state, 'status': 'failed', 'reason': 'backup_executor_failed'}
     return {**state, 'status': 'running', 'backup_status': status}
 
-
-def cleanup_old_backups(storage_client=None):
-    """Remove daily backups older than BACKUP_KEEP_DAYS, keeping at least 3."""
-    if storage_client is None:
-        from google.cloud import storage
-        storage_client = storage.Client(project=os.environ.get("GCP_PROJECT_ID", "gen-lang-client-0593591102"))
-    
-    bucket = storage_client.bucket(BACKUP_BUCKET)
-    
-    # List all daily backups
-    blobs = list(bucket.list_blobs(prefix=BACKUP_PREFIX))
-    pattern = re.compile(r'^pilot-ledger-backups/daily/(\d{4}-\d{2}-\d{2})\.dump$')
-    
-    backups = []
-    for blob in blobs:
-        match = pattern.match(blob.name)
-        if match:
-            backups.append((match.group(1), blob))
-    
-    if len(backups) <= 3:
-        return {"status": "skipped", "reason": "minimum_retention", "count": len(backups)}
-    
-    # Sort by date descending
-    backups.sort(key=lambda x: x[0], reverse=True)
-    
-    # Keep the newest BACKUP_KEEP_DAYS, but always keep at least 3
-    keep_count = max(BACKUP_KEEP_DAYS, 3)
-    to_delete = backups[keep_count:]
-    
-    deleted = []
-    for date_str, blob in to_delete:
-        try:
-            blob.delete()
-            deleted.append(date_str)
-        except Exception:
-            pass  # Ignore deletion failures, will retry next cycle
-    
-    return {
-        "status": "completed",
-        "kept": len(backups) - len(deleted),
-        "deleted": deleted,
-        "policy_days": BACKUP_KEEP_DAYS,
-    }

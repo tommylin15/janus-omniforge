@@ -1122,6 +1122,15 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                asset_currency="TWD")
         return jsonable_encoder(result)
 
+    @private.get("/workspace-snapshots")
+    def workspace_snapshots(valuation_date: date,
+                            current: AuthenticatedUser = Depends(user)):
+        """Owner-only bounded history of the inputs actually used by Private Mart."""
+        rows = store.rows("workspace_snapshots", current.user_id, limit=200,
+                          filters={"valuation_date": valuation_date.isoformat()})
+        return {"items": jsonable_encoder(rows), "valuation_date": valuation_date.isoformat(),
+                "limit": 200, "may_be_truncated": len(rows) == 200}
+
     @private.get("/portfolio/snapshot")
     def portfolio_snapshot(current: AuthenticatedUser = Depends(user)):
         """DB-only, owner-checked first paint. Never calls a market network source."""

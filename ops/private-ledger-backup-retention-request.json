@@ -1,7 +1,7 @@
 {
   "intent": "dev-private-ledger-retention-independent",
   "scope": "existing-dev-private-backup-prefixes",
-  "purpose": "OPS-P0-1 2026-10-24 post-resume live GCS current-generation and Daily <=36h freshness readback; PUSH always dry-run, no delete. Preserve prior isolated restore PASS and existing 7 Daily/6 Monthly retention policy.",
+  "purpose": "Controller-requested backup readback followed by existing-VM bounded retention; no GitHub batch.",
   "dry_run_first": true,
   "daily_keep": 7,
   "monthly_keep": 6,
@@ -16,5 +16,7 @@
     "dry_run_run": 39974251644,
     "dry_run_source": "c064cff362f0b7fc488403f622d3cb3c955b078d",
     "isolated_restore_run": 38991644822
-  }
+  },
+  "weekly_keep": 4,
+  "max_weekly_deletes_per_run": 1
 }

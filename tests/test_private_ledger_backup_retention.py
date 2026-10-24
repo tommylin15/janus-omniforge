@@ -14,8 +14,8 @@ def req():
     return dict(
         intent="dev-private-ledger-retention-independent",
         scope="existing-dev-private-backup-prefixes",
-        dry_run_first=True, daily_keep=7, monthly_keep=6,
-        max_daily_deletes_per_run=3, max_monthly_deletes_per_run=1,
+        dry_run_first=True, daily_keep=7, weekly_keep=4, monthly_keep=6,
+        max_daily_deletes_per_run=3, max_weekly_deletes_per_run=1, max_monthly_deletes_per_run=1,
         no_new_resources=True, no_iam_expansion=True,
         no_pg_mutation=True, no_new_backup=True,
         approved_scheduled_apply=False
@@ -98,16 +98,16 @@ def test_dry_run_uses_get_only_and_no_deletion(monkeypatch,tmp_path):
     calls=[]
     def inv(token,kind):
         calls.append(("GET",kind))
-        return daily if kind=="daily" else monthly
+        return {"daily":daily,"weekly":[],"monthly":monthly}[kind]
     monkeypatch.setattr(policy,"inventory",inv)
     monkeypatch.setattr(policy,"OUT",tmp_path/"receipt.json")
     monkeypatch.setattr(policy,"api",lambda *a,**k: (_ for _ in ()).throw(
         AssertionError("dry-run must not call DELETE")))
     result=policy.run(mode="dry-run",request=req(),token="never-logged",now=NOW)
     assert result["status"]=="DRY_RUN_PASS"
-    assert result["actual_deletes"]=={"daily":0,"monthly":0}
-    assert result["planned_deletes"]=={"daily":3,"monthly":1}
-    assert calls==[("GET","daily"),("GET","monthly")]
+    assert result["actual_deletes"]=={"daily":0,"weekly":0,"monthly":0}
+    assert result["planned_deletes"]=={"daily":3,"weekly":0,"monthly":1}
+    assert calls==[("GET","daily"),("GET","weekly"),("GET","monthly")]
 
 
 def test_apply_requires_explicit_activation_flag(monkeypatch):
@@ -120,7 +120,7 @@ def test_apply_requires_explicit_activation_flag(monkeypatch):
 
 def test_apply_generation_exact_deletion_and_readback(monkeypatch,tmp_path):
     daily,monthly=entries()
-    state={"daily":daily[:],"monthly":monthly[:]}
+    state={"daily":daily[:],"weekly":[],"monthly":monthly[:]}
     actions=[]
     def inventory(token,kind):
         return [dict(x) for x in state[kind]]
@@ -141,19 +141,19 @@ def test_apply_generation_exact_deletion_and_readback(monkeypatch,tmp_path):
     r=req();r["approved_scheduled_apply"]=True
     result=policy.run(mode="apply",request=r,token="fake",now=NOW)
     assert result["status"]=="APPLY_PASS"
-    assert result["actual_deletes"]=={"daily":3,"monthly":1}
+    assert result["actual_deletes"]=={"daily":3,"weekly":0,"monthly":1}
     assert len(actions)==4
-    assert result["count_after"]=={"daily":11,"monthly":8}
+    assert result["count_after"]=={"daily":11,"weekly":0,"monthly":8}
     assert result["backup_reexecutions"]==result["pg_mutations"]==0
 
 
 def test_preapply_mutation_blocks_all_deletes(monkeypatch,tmp_path):
-    daily,monthly=entries();counts={"daily":0,"monthly":0}
+    daily,monthly=entries();counts={"daily":0,"weekly":0,"monthly":0}
     def inventory(token,kind):
         counts[kind]+=1
         if kind=="daily" and counts[kind]>1:
             return [{**daily[0],"generation":"999"},*daily[1:]]
-        return daily if kind=="daily" else monthly
+        return {"daily":daily,"weekly":[],"monthly":monthly}[kind]
     monkeypatch.setattr(policy,"inventory",inventory)
     monkeypatch.setattr(policy,"api",lambda *a,**k: (_ for _ in ()).throw(
         AssertionError("must not delete on drift")))
@@ -167,3 +167,11 @@ def test_preapply_mutation_blocks_all_deletes(monkeypatch,tmp_path):
 def test_api_allowlists_methods_and_does_not_print_token():
     with pytest.raises(ValueError,match="outside_allowlist"):
         policy.api("private-bearer-token","/o",method="PATCH")
+
+def test_weekly_keeps_four_and_deletes_at_most_one():
+    daily, monthly = entries()
+    weekly = [backup("weekly", day) for day in
+              ["2026-10-19", "2026-10-12", "2026-10-05", "2026-09-28", "2026-09-21", "2026-09-14"]]
+    result = policy.plan(daily, monthly, weekly=weekly, now=NOW)
+    assert len(result["protected"]["weekly"]) == 4
+    assert [r["name"] for r in result["expired"]["weekly"]] == [weekly[4]["name"]]

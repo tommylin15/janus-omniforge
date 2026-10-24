@@ -246,7 +246,7 @@ def scheduler():
     rows = json.loads(command(["gcloud", "scheduler", "jobs", "list", f"--project={PROJECT}",
                                f"--location={REGION}", "--format=json"]))
     if (len(rows) != 1 or rows[0]["name"] != f"{ROOT}/jobs/{SCHEDULER}"
-            or rows[0].get("schedule") != "30 * * * *" or rows[0].get("timeZone") != "Asia/Taipei"
+            or rows[0].get("schedule") not in {"30 * * * *", "30 */2 * * *"} or rows[0].get("timeZone") != "Asia/Taipei"
             or rows[0].get("httpTarget", {}).get("uri") != BASE + ROOT + "/jobs/janus-batch-controller:run"):
         raise ValueError("scheduler_topology_drift")
     return rows[0]

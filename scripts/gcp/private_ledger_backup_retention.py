@@ -2,7 +2,8 @@
 """Independent, bounded dev Private ledger backup retention (GCS metadata only).
 
 Dry-run by default. No PostgreSQL mutation, pg_dump, or extra GCP resources.
-One run may delete at most 3 old daily + 1 old monthly object, by generation.
+One run may delete at most 3 daily + 1 weekly + 1 monthly, by generation.
+Invoked by the existing VM after a Controller-requested successful backup.
 """
 from __future__ import annotations
 
@@ -21,14 +22,15 @@ from urllib.request import Request, urlopen
 PROJECT = "gen-lang-client-0593591102"
 BUCKET = PROJECT + "-dev-private"
 ROOT = "pilot-ledger-backups/"
-POLICY = {"daily": 7, "monthly": 6}
-CAP = {"daily": 3, "monthly": 1}
+POLICY = {"daily": 7, "weekly": 4, "monthly": 6}
+CAP = {"daily": 3, "weekly": 1, "monthly": 1}
 PATTERN = {
+    "weekly": re.compile(r"^pilot-ledger-backups/weekly/(\d{4}-\d{2}-\d{2})\.dump$"),
     "daily": re.compile(r"^pilot-ledger-backups/daily/(\d{4}-\d{2}-\d{2})\.dump$"),
     "monthly": re.compile(r"^pilot-ledger-backups/monthly/(\d{4}-\d{2})\.dump$"),
 }
 MAX_OBJECT_BYTES = 67_108_864
-MAX_OBJECTS = {"daily": 60, "monthly": 24}
+MAX_OBJECTS = {"daily": 60, "weekly": 16, "monthly": 24}
 OUT = Path("private-ledger-backup-retention-receipt.json")
 REQ = Path("ops/private-ledger-backup-retention-request.json")
 
@@ -39,6 +41,8 @@ def request_guard(request: dict) -> None:
         and request.get("scope") == "existing-dev-private-backup-prefixes"
         and request.get("dry_run_first") is True
         and request.get("daily_keep") == 7
+        and request.get("weekly_keep") == 4
+        and request.get("max_weekly_deletes_per_run") == 1
         and request.get("monthly_keep") == 6
         and request.get("max_daily_deletes_per_run") == 3
         and request.get("max_monthly_deletes_per_run") == 1
@@ -126,8 +130,9 @@ def keyset(rows: list[dict]):
     return {(r["name"], str(r["generation"]), str(r["size"])) for r in rows}
 
 
-def plan(daily: list[dict], monthly: list[dict], *, now=None) -> dict:
+def plan(daily: list[dict], monthly: list[dict], *, weekly=None, now=None) -> dict:
     now = now or datetime.now(timezone.utc)
+    weekly = weekly or []
     if len(daily) < POLICY["daily"] or not monthly:
         raise ValueError("retention_insufficient_backup_generations")
     newest = datetime.fromisoformat(daily[0]["timeCreated"].replace("Z", "+00:00"))
@@ -138,10 +143,12 @@ def plan(daily: list[dict], monthly: list[dict], *, now=None) -> dict:
     month_stale = (now.date() - latest_month.date()).days > 62
     protected = {
         "daily": daily[:POLICY["daily"]],
+        "weekly": weekly[:POLICY["weekly"]],
         "monthly": monthly[:POLICY["monthly"]],
     }
     expired = {
         "daily": daily[POLICY["daily"]:][:CAP["daily"]],
+        "weekly": weekly[POLICY["weekly"]:][:CAP["weekly"]],
         "monthly": ([] if month_stale else monthly[POLICY["monthly"]:][:CAP["monthly"]]),
     }
     return {
@@ -162,7 +169,7 @@ def run(*, mode: str, request: dict, token=None, now=None):
         raise ValueError("retention_apply_not_activated")
     token = token or access_token()
     before = {kind: inventory(token, kind) for kind in POLICY}
-    p = plan(before["daily"], before["monthly"], now=now)
+    p = plan(before["daily"], before["monthly"], weekly=before["weekly"], now=now)
     receipt = {
         "component": "janus_independent_private_backup_retention_v1",
         "mode": mode, "policy": POLICY,
@@ -173,8 +180,8 @@ def run(*, mode: str, request: dict, token=None, now=None):
         "protected_count": {kind: len(p["protected"][kind]) for kind in POLICY},
         "monthly_status": p["monthly_status"],
         "daily_latest_age_hours": p["daily_latest_age_hours"],
-        "actual_deletes": {"daily": 0, "monthly": 0},
-        "actual_deleted_bytes": {"daily": 0, "monthly": 0},
+        "actual_deletes": {kind: 0 for kind in POLICY},
+        "actual_deleted_bytes": {kind: 0 for kind in POLICY},
         "private_data_read": False, "backup_reexecutions": 0,
         "iam_changes": 0, "new_resources": 0, "pg_mutations": 0,
     }

@@ -1,4 +1,6 @@
 # D07｜四模型角色、X/Y 與估值區間情境
+
+> 2026-10-24 批次與快照改以 [統一流程](unified-batch-flow.md) 為準。四模型按可發布規劃，既有artifact/Registry真實狀態不改判；訓練仍外部執行、無週月例行模型稽核、無GitHub業務cron。本輪未測試／部署。
 更新：2026-10-24（撤銷第五模型；04 Valuation 統合研究及前台估值區間）。方案 A 先交付事實解讀；模型設計已整理，不代表訓練/驗證/上線。狀態只看 [TODO](../todo.md)，資料窗口與前處理唯一契約見 [因子與時間](model-feature-time-contract.md)，研究來源見 [Colab/Drive](research-collection-gas-drive-colab.md)。
 
 **2026-10-22 使用者指定：前四角色各一份獨立 XGBoost Colab Notebook，baseline 保留；Event 另議。** 詳細操作與可直接交給 AI 的開發指令：[Quant 趨勢](../colab-models/01-quant-xgboost.md)、[Risk 風險](../colab-models/02-risk-xgboost.md)、[Fundamental 營運](../colab-models/03-fundamental-xgboost.md)、[Valuation 估值](../colab-models/04-valuation-xgboost.md)。本次完成文件，不代表四份 Notebook 或模型已訓練。

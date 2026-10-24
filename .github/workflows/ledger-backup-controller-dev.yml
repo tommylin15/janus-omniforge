@@ -83,7 +83,7 @@ jobs:
             test "$sha" = "$EXPECTED_RELEASE_SHA"
           fi
           git merge-base --is-ancestor "$sha" HEAD
-          git diff --exit-code "$sha" HEAD -- scripts/gcp/ledger_backup_executor.py scripts/gcp/ledger-durability-dev.sh scripts/gcp/ledger_restore_verify.py
+          git diff --exit-code "$sha" HEAD -- scripts/gcp/ledger_backup_executor.py scripts/gcp/ledger-durability-dev.sh scripts/gcp/ledger_restore_verify.py scripts/gcp/private_ledger_backup_retention.py ops/private-ledger-backup-retention-request.json
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
@@ -180,6 +180,8 @@ jobs:
         if: steps.request.outputs.phase == 'install'
         run: |
           set -Eeuo pipefail
+          gcloud compute scp scripts/gcp/private_ledger_backup_retention.py janus-postgres-dev:/tmp/private_ledger_backup_retention.py --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet
+          gcloud compute scp ops/private-ledger-backup-retention-request.json janus-postgres-dev:/tmp/private-ledger-backup-retention-request.json --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet
           gcloud compute scp scripts/gcp/ledger_backup_executor.py janus-postgres-dev:/tmp/janus-ledger-backup-executor.py --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet
           gcloud compute scp scripts/gcp/ledger_restore_verify.py janus-postgres-dev:/tmp/janus-ledger-restore-verify.py --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet
           gcloud compute scp scripts/gcp/ledger-durability-dev.sh janus-postgres-dev:/tmp/janus-ledger-durability --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet

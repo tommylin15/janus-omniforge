@@ -3,6 +3,8 @@ from datetime import date
 import json
 import re
 import subprocess
+from pathlib import Path
+from urllib.request import Request, urlopen
 
 
 def sql(statement):
@@ -14,6 +16,32 @@ def sql(statement):
     if result.returncode:
         raise RuntimeError('backup_request_database_unavailable')
     return result.stdout.strip()
+
+
+def retain(day):
+    """Backup success and cleanup success are separate durable outcomes."""
+    import private_ledger_backup_retention as retention
+    try:
+        request = json.loads(Path("/var/lib/janus/private-ledger-backup-retention-request.json").read_text())
+        token_request = Request(
+            "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+            headers={"Metadata-Flavor": "Google"})
+        with urlopen(token_request, timeout=10) as response:
+            token = json.load(response)["access_token"]
+        retention.OUT = Path("/var/lib/janus/private-ledger-backup-retention-receipt.json")
+        retention.run(mode="dry-run", request=request, token=token)
+        receipt = retention.run(mode="apply", request=request, token=token)
+        encoded = json.dumps(receipt, sort_keys=True).replace("'", "''")
+        sql(f"""UPDATE control.ledger_backup_requests SET retention_status='succeeded',
+                 retention_receipt='{encoded}'::jsonb WHERE backup_date='{day}' AND status='succeeded'""")
+        return "succeeded"
+    except Exception as error:
+        # Never log tokens, private dump contents, or transport error payloads.
+        code = type(error).__name__.upper()
+        sql(f"""UPDATE control.ledger_backup_requests SET retention_status='failed',
+                 retention_receipt=jsonb_build_object('error_code','{code}')
+                 WHERE backup_date='{day}' AND status='succeeded'""")
+        return "failed"
 
 
 def run():
@@ -40,7 +68,7 @@ def run():
             raise ValueError('invalid_backup_receipt')
         sql(f"""UPDATE control.ledger_backup_requests SET status='succeeded',completed_at=now(),
                  size_bytes={size},sha256='{checksum}' WHERE backup_date='{day}' AND status='running'""")
-        return {'status': 'succeeded', 'backup_date': day, 'size_bytes': size, 'sha256': checksum}
+
     except subprocess.TimeoutExpired:
         # Timeout is not a proven failure. Preserve the claim for operator readback.
         return {'status': 'ambiguous', 'backup_date': day}
@@ -48,6 +76,9 @@ def run():
         sql(f"""UPDATE control.ledger_backup_requests SET status='failed',completed_at=now(),
                  error_code='BACKUP_EXECUTOR_FAILED' WHERE backup_date='{day}' AND status='running'""")
         return {'status': 'failed', 'backup_date': day}
+
+    return {'status': 'succeeded', 'backup_date': day, 'size_bytes': size, 'sha256': checksum,
+            'retention_status': retain(day)}
 
 
 if __name__ == '__main__':

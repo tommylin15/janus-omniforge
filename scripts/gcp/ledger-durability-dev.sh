@@ -129,7 +129,7 @@ PY
 }
 
 vm_backup() {
-  local temporary day month bytes digest
+  local temporary day month week bytes digest
   exec 9>/var/lib/janus/ledger-backup.lock
   flock -w 30 9 || fail 'another backup is active'
   temporary="$(mktemp -d /tmp/janus-ledger-backup.XXXXXX)"
@@ -143,10 +143,17 @@ vm_backup() {
   cmp "${temporary}/ledger.dump" "${temporary}/readback.dump" || fail 'backup readback mismatch'
   bytes="$(stat -c %s "${temporary}/ledger.dump")"
   digest="$(sha256sum "${temporary}/ledger.dump" | cut -d' ' -f1)"
-  gcs_object upload "${prefix}/monthly/${month}.dump" "${temporary}/ledger.dump"
+  week="$(date -u -d "${day} -$(( $(date -u -d "${day}" +%u) - 1 )) days" +%F)"
+  # Separate files: an immutable existing period object must not replace daily bytes.
+  for period in "weekly/${week}" "monthly/${month}"; do
+    cp "${temporary}/ledger.dump" "${temporary}/period.dump"
+    gcs_object upload "${prefix}/${period}.dump" "${temporary}/period.dump"
+    gcs_object download "${prefix}/${period}.dump" "${temporary}/period-readback.dump"
+    cmp "${temporary}/period.dump" "${temporary}/period-readback.dump" || fail 'period backup readback mismatch'
+  done
   # Retention is controller-fenced separately after successful backup readback.
   printf '{"backup_id":"%s","bytes":%s,"sha256":"sha256:%s","projected_retention_bytes":%s}\n' \
-    "${day}" "${bytes}" "${digest}" "$((bytes * 9))"
+    "${day}" "${bytes}" "${digest}" "$((bytes * 17))"
 }
 
 vm_restore_verify() {
@@ -196,6 +203,8 @@ case "${mode}" in
     install -d -m 755 /var/lib/janus
     install -m 700 "$0" /var/lib/janus/ledger-durability
     install -m 700 /tmp/janus-ledger-backup-executor.py /var/lib/janus/ledger-backup-executor.py
+    install -m 700 /tmp/private_ledger_backup_retention.py /var/lib/janus/private_ledger_backup_retention.py
+    install -m 600 /tmp/private-ledger-backup-retention-request.json /var/lib/janus/private-ledger-backup-retention-request.json
     install -m 700 /tmp/janus-ledger-restore-verify.py /var/lib/janus/ledger-restore-verify.py
     cat >/etc/systemd/system/janus-ledger-backup-executor.service <<EOF
 [Unit]
@@ -206,6 +215,8 @@ Type=oneshot
 Environment=GCP_PROJECT_ID=${project}
 Environment=LEDGER_BACKUP_BUCKET=${bucket}
 Environment=GCP_ENVIRONMENT=dev
+Environment=JANUS_BACKUP_RETENTION_SCHEDULED_APPLY=true
+WorkingDirectory=/var/lib/janus
 ExecStart=/usr/bin/python3 /var/lib/janus/ledger-backup-executor.py
 EOF
     cat >/etc/systemd/system/janus-ledger-backup-executor.timer <<'EOF'

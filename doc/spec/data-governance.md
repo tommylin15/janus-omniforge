@@ -1,5 +1,7 @@
 # Janus 資料治理、批次與補資料總入口
 
+> **2026-10-24 新統一流程**：[批次／收取／報告／私人快照／備份](unified-batch-flow.md) 是唯一現行時段表。舊排程已由本次程式重構取代；部署狀態 NOT VERIFIED。GitHub 不再執行日常業務批次。
+
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
 
@@ -25,30 +27,16 @@ Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當�
 
 2026-10-18 後 Core／Mart Iceberg 表**只保留 current snapshot**；取消舊 named refs、最近24h與研究／publication 外部引用作為舊 snapshot 保留 gate。非 current 過期、超過7天且無 current 引用的 orphan，仍須按 lock、catalog pointer、GCS generation、allowlist、readback 安全刪除。**已刪歷史 snapshot 不保證能重播**；保存舊 `snapshot_id` 文字不會重新建立歷史資料。重跑研究應另保留合法、有界的 versioned Parquet、feature/label/cohort/date range/schema/hash、授權/provenance。
 
-## 3. Cloud Scheduler、Batch、Job：一套正式節奏
+## 3. Cloud Scheduler、Batch、Job：唯一節奏
 
-唯一業務定時入口：Cloud Scheduler 目標 `janus-batch-controller:run`；既有 cron `30 * * * *`、`Asia/Taipei`。下表列 **due slot**，不承諾實際啟動與完成時間；controller lock/occurrence/依賴/ambiguous state 是派送權威，GitHub Actions 不新增業務 schedule（備份清理例外）。
-
-| 批次／Worker | due（台北） | 主要條件 |
-|---|---|---|
-| `ledger-backup`／controller | 每日 02:30 | 備份本體僅 Controller→既有 VM 執行；獨立 GitHub 備份清理每日 13:30，保守保留 7 daily＋6 monthly |
-| `ingestion`／ingestion-core | 每日 07:30、14:30 | 上午收集；下午行情／指數；交易日有效性由 worker 檢查 |
-| `data-supplement`／ingestion-core | 每日 08:30 | 依 07:30 ingestion，日增量／缺漏補收 |
-| `mart`／intelligence-mart | 平日 09:00 | 依 ingestion＋supplement；下一個 :30 tick 才可能派送 |
-| `market-screening`／intelligence-mart | 平日 16:30 | EOD ready、同日來源與排他鎖 |
-| `private`／private-pipeline | 平日 15:30、21:30 | 前者依 ingestion；後者為獨立 fallback slot |
-| `mobile-ledger`／private-pipeline | 每小時 :30 | 只有 pending 才執行 |
-| `stage-cleanup`／ingestion-core | **每日 18:30** | 只處理超過48小時且不被 active execution 使用的 Stage 物件；不啟動 Iceberg | 
-| `iceberg-compaction → mart-cleanup → core-cleanup` | **每週六 23:30** | `FINOPS_WEEKLY_MAINTENANCE=true` 才週維護；依序且可能跨小時 |
-
-**Private 備份保留期清理（2026-10-23）**：既有 `.github/workflows/private-ledger-backup-retention.yml` 已恢復備份專用 cron `30 5 * * *` UTC（台灣 13:30），與每日 02:30 Controller 備份分離。保守策略保留最近 7 個 daily 及 6 個 monthly，僅在最近 daily GCS 建立時間 ≤36h、有效 metadata/count/generation、既有 WIF 權限與確認 request 下有界 generation 條件刪除（每次最多 3 daily、1 monthly）；不因 Controller `poll_backup` success 執行 GCS cleanup。第一次 [唯讀 #39974251644](https://github.com/tommylin15/janus-omniforge/actions/runs/39974251644) PASS、[實際 apply #39975063840](https://github.com/tommylin15/janus-omniforge/actions/runs/39975063840) PASS：daily 10→7/current bytes 減少 59,950,868，monthly 2→2；未增加 IAM、重跑備份、修改 PG。本次 current bytes 差額不等於已驗證計費節省。首次自然 cron 尚待觀測；治理收據見 [C1-A §18](../research/data-governance-c1a-2026-10-23.md)。
-
-`effective_batches()` 有 legacy `FINOPS_WEEKLY_MAINTENANCE=false` 的每日 23:30 分支，**不是**目前核准的週維護目標。2026-10-18 文件收據記錄週維護切換成功，但本次未做新一輪 Scheduler/env/自然 occurrence live 讀回。不要引用 [2026-10-13 歷史盤點](../archive/batch-inventory-2026-10-13.md) 當作目前 cron。
+排程表與備份保留政策只維護在 [統一批次契約](unified-batch-flow.md)；Controller每兩小時檢查到期工作，GitHub業務cron已從程式移除，live切換仍待其他AI執行。
+日常市場收取／分析、私人更新與備份維護沿既有Worker；Stage48h與週Iceberg清理仍各自保留安全護欄。
+本文件不再複製時段或保存舊備份cron，歷史收據查Operations及Git歷史。
 
 ## 4. 資料補充：兩條路徑、同一來源治理
 
-1. **Daily／歷史定向修補**：`data_supplement.py` 的 `daily`、`backfill`、`valuation-history`、`fundamental-history` 與 `quality` 走既有 ingestion Job。daily 按缺期／新申報／已變更資料增量取得；quality 週六檢查，不盲抓五年全市場。現有官方 TWSE/MOPS 程式的適用限制不等於第三方 demand 的限制。
-2. **新增持股／關注股需求補收**：`stock_supplement.py` 使用 migration 066 的去識別化 symbol request、generation、lease；不阻塞使用者交易／關注。API 後背景 `demand` 使用原 ingestion Job，08:30 `daily` 再作兜底。價量至少120有效交易日、營收13個應到月、合法單季 EPS 近期12個已發布季度、估值兩年；ETF 不適用資訊須明示。採現役來源授權、去重／失敗重試、Stage→Core→serving→API 逐項讀回，不把成功一支 Job 稱為全項 ready。
+1. **Daily／歷史定向修補**：`data_supplement.py` 的 `daily`、`backfill`、`valuation-history`、`fundamental-history` 與 `quality` 走既有 ingestion Job。daily 按缺期／新申報／已變更資料增量取得；quality 例行檢查已取消，不盲抓五年全市場。現有官方 TWSE/MOPS 程式的適用限制不等於第三方 demand 的限制。
+2. **新增持股／關注股需求補收**：`stock_supplement.py` 使用 migration 066 的去識別化 symbol request、generation、lease；不阻塞使用者交易／關注。API 後背景 `demand` 使用原 ingestion Job，統一 ingestion 再作增量兜底。價量至少120有效交易日、營收13個應到月、合法單季 EPS 近期12個已發布季度、估值兩年；ETF 不適用資訊須明示。採現役來源授權、去重／失敗重試、Stage→Core→serving→API 逐項讀回，不把成功一支 Job 稱為全項 ready。
 3. **Data Readiness Ledger**：`daily` 嘗試寫入定期 Ledger，但自然執行、watermark、週詳細品質收據與 Admin 設定讀回另需驗收；成功 ingestion ≠ 成功 Ledger publication。來源未發布、限流、缺期、新上市維持 partial/not_applicable；未知終態先讀 Job execution 再處理。
 
 完整模式、手動修補限制、source URL/期別/單位與安全重試詳見 [runbook](../runbook-data-supplement.md)；不得以此頁新增第二個 Scheduler、付費資源、額外補抓範圍或寫入 Owner ledger。

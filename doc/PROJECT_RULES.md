@@ -8,6 +8,14 @@
 
 原始研究清理只修改文件與程式，其後已於 2026-10-24 完成離線測試、完整 Release、四個既有 Dev Jobs 更新、API 100% 切流與一次獨立唯讀 Runtime 驗收；本工項有界 CLOSED／PASS，詳細來源與未驗證事項見 [WI](runbook-research-simplification-wi.md)。不擴充為歷史來源稽核；個別備份可用性仍依 Active TODO 的 OPS-P0-1 判定。
 
+## 0.1 統一批次（2026-10-24 最新決策）
+
+批次、備份、清理、快照與UI路線統一依 [統一批次契約](spec/unified-batch-flow.md)。
+唯一業務定時入口改為 Cloud Scheduler 每兩小時（`30 */2 * * *`、Asia/Taipei）；移除 GitHub 業務 cron，備份清理併入既有 GCP VM executor。
+四模型按可發布設計，不因這項前提捏造 Registry ACTIVE／模型效用／runtime PASS。保留現有 Event 相容讀取，不設第五模型。
+本輪使用者明確要求先文件再程式，**不執行測試或驗收**；測試、CI、部署、migration與live acceptance交接其他AI，不以未執行稱完成。
+本條覆蓋下面與舊各領域文件相反的時段／保留數量；Stage48h、Core current-only／7日orphan、Owner保護與已取消稽核不變。
+
 ## 1. 權威與事實判定
 
 ### 1.1 目前實作／完成狀態

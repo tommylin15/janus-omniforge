@@ -3,11 +3,11 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 TASKS = {
-    "ledger-backup": ("交易資料備份", "備份交易資料，保留可還原的副本。"),
-    "ingestion": ("收集市場資料", "取得上市、上櫃行情與公開資料。"),
+    "ledger-backup": ("日週月備份與清理", "既有VM執行7日／4週／6月副本與有界清理。"),
+    "ingestion": ("市場收取與補齊", "同一工作完成增量補收、Stage、Core與快讀資料。"),
     "data-supplement": ("補齊缺漏資料", "依現有資料補收實際缺少的期別。"),
     "mart": ("更新分析結果", "將已收集資料轉成可供網站使用的分析結果。"),
-    "market-screening": ("全市場分析", "更新全市場篩選與持股、關注股所需的分析。"),
+    "market-screening": ("市場分析與四分析師", "共用Mart處理篩選、分析佇列與報告投影。"),
     "private": ("更新個人損益", "用已入帳交易與合格行情更新私人損益。"),
     "stage-cleanup": ("清理過期暫存", "依48小時政策清理過期暫存，保留有效執行引用。"),
     "mobile-ledger": ("處理記帳佇列", "只在有待處理記帳資料時執行。"),
@@ -45,11 +45,13 @@ def latest_slot(schedule, now):
 def dashboard(runtime, latest, settings, now=None):
     now = now or datetime.now(timezone.utc)
     observed = stamp(runtime.get("observed_at"))
-    fresh = observed is not None and timedelta(0) <= now - observed <= timedelta(hours=2)
+    fresh = observed is not None and timedelta(0) <= now - observed <= timedelta(minutes=150)
     schedules = {row["name"]: row for row in runtime.get("definitions", []) if row.get("name") in TASKS}
     rows = []
     for name, (title, purpose) in TASKS.items():
         schedule = schedules.get(name)
+        if name in {"data-supplement", "mart"} and schedule is None:
+            continue
         setting, version = settings.get(name, ({}, 0))
         observed_run = latest.get(name)
         recent = observed_run
@@ -67,8 +69,8 @@ def dashboard(runtime, latest, settings, now=None):
         overdue = None
         if fresh and enabled and not setting.get("paused") and not conditional and expected:
             not_before = stamp(runtime.get("not_before"))
-            # A missing record is meaningful only after the controller's hourly grace window.
-            if not_before and expected >= not_before and now - expected > timedelta(minutes=70):
+            # A missing record is meaningful only after the controller's two-hour grace window.
+            if not_before and expected >= not_before and now - expected > timedelta(minutes=130):
                 overdue = (not observed_run or stamp(observed_run.get("scheduled_at")) is None or
                            stamp(observed_run["scheduled_at"]) < expected or
                            observed_run.get("status") == "pending" and not observed_run.get("start_time") and

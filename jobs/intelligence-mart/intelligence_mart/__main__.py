@@ -45,6 +45,9 @@ def main():
         elif name == "deep-coverage":
             from .specialist_runtime import run_deep_coverage
             operation = run_deep_coverage
+        elif name == "market-cycle":
+            from .market_cycle import run
+            operation = run
         elif name == "market-screening":
             from .market_screening import run_daily
             operation = run_daily

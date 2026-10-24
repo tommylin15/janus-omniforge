@@ -304,10 +304,10 @@ String _label(Object? value) =>
       'mops': '公開資訊觀測站',
       'ingestion': '定時收集資料',
       'data-supplement': '補齊缺漏資料',
-      'market-screening': '全市場分析',
+      'market-screening': '市場分析與四分析師',
       'mart': '更新分析結果',
       'private': '更新個人損益',
-      'ledger-backup': '交易資料備份',
+      'ledger-backup': '日週月備份與清理',
       'data-quality': '每週資料檢查',
       'stage-cleanup': '清理過期暫存',
       'mobile-ledger': '處理記帳佇列',
@@ -1288,7 +1288,7 @@ class _AdminEffectiveBatchesState extends State<AdminEffectiveBatches> {
         return ListView(children: [
           ListTile(
               title: const Text('自動工作與紀錄'),
-              subtitle: const Text('每項只顯示最近7天內的最新一筆。啟動、停止及暫停都由總控處理。'),
+              subtitle: const Text('總控每兩小時檢查到期工作；顯示最近7天最新紀錄。資料日期以實際產物為準。'),
               trailing: IconButton(
                   tooltip: '重新整理',
                   onPressed: busy ? null : () => setState(() => data = load()),

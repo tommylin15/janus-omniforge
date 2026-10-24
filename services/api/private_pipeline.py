@@ -357,6 +357,7 @@ class PrivatePipeline:
             self.memberships(symbols,valuation_date),valuation_date,
         )
         return {
+            "user_id": str(user_id), "valuation_date": valuation_date.isoformat(),
             "ledger":ledger,
             "ledger_version":max((int(row.get("ledger_version",0)) for row in ledger),default=0),
             "watchlist":watchlist,
@@ -384,6 +385,21 @@ class PrivatePipeline:
         for table,rows in prepared["risk"].items():
             check()
             self.store.upsert(table,rows)
+        check()
+        # Preserve what this analysis actually used; event history remains authoritative.
+        payload = {
+            "schema_version": "1", "user_id": prepared["user_id"],
+            "valuation_date": prepared["valuation_date"],
+            "ledger_version": prepared["ledger_version"],
+            "watchlist": prepared["watchlist"], "profile": prepared["profile"],
+            "positions": prepared["marts"]["mart_user_positions"], "risk": prepared["risk"],
+        }
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+        self.store.upsert("workspace_snapshots", [{
+            "user_id": prepared["user_id"], "snapshot_id": "sha256:" + sha256(encoded.encode()).hexdigest(),
+            "schema_version": "1", "valuation_date": prepared["valuation_date"],
+            "ledger_version": prepared["ledger_version"], "payload": encoded,
+        }])
 
     def _write_user(self, user_id: Any, valuation_date: date) -> None:
         prepared=self._prepare_user(user_id, valuation_date)

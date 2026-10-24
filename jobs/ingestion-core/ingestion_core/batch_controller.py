@@ -1,4 +1,4 @@
-"""Hourly dev controller; never wait for or cancel child jobs."""
+"""Two-hour dev controller; never wait for or cancel child jobs."""
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
@@ -36,39 +36,33 @@ class Batch:
 
 BATCHES = (
     Batch("ledger-backup", "janus-batch-controller", (2,)),
-    Batch("ingestion", "janus-ingestion-core", (7, 14), env=(("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
-    Batch("data-supplement", "janus-ingestion-core", (8,), dependencies=("ingestion",),
-          env=(("JANUS_DATA_SUPPLEMENT_MODE", "daily"), ("JANUS_DATA_SUPPLEMENT_SYMBOLS", ""),
-               ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
-    Batch("mart", "janus-intelligence-mart", (9,), tuple(range(5)), ("ingestion", "data-supplement"), (("MART_OPERATION", "queue"), ("MART_AI_ENABLED", "false")), minute=0),
-    Batch("market-screening", "janus-intelligence-mart", (16,), tuple(range(5)), ("ingestion", "data-supplement"),
-          (("MART_OPERATION", "market-screening"), ("MART_OOS_EVALUATION", "false"),
-           ("MART_AI_ENABLED", "false"), ("MART_RISK_SHADOW_ENABLED", "true")),
+    Batch("ingestion", "janus-ingestion-core", (6, 14), env=(("JANUS_UNIFIED_COLLECTION", "true"), ("INGESTION_DATASETS", ""), ("INGESTION_DATE", ""), ("JANUS_DATA_SUPPLEMENT_MODE", ""), ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
+    Batch("market-screening", "janus-intelligence-mart", (8, 16), tuple(range(5)), ("ingestion",),
+          (("MART_OPERATION", "market-cycle"), ("QUEUE_EXECUTION_ID", ""), ("MART_OOS_EVALUATION", "false"),
+           ("MART_AI_ENABLED", "false"), ("MART_RISK_SHADOW_ENABLED", "false")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
-    # 15:30 waits for daytime ingestion; 21:30 must still run when EOD ingestion
-    # failed or has no terminal receipt. Private Mart enforces PIT/price safety.
-    Batch("private", "janus-private-pipeline", (15, 21), tuple(range(5)), ("ingestion",),
-          independent_hours=(21,)),
+    Batch("private", "janus-private-pipeline", (10, 18, 22), tuple(range(5)),
+          ("market-screening",), independent_hours=(22,)),
     # Independent daily 48h Stage TTL: reuse existing ingestion Job, not weekly Iceberg scans.
-    Batch("stage-cleanup", "janus-ingestion-core", (18,),
+    Batch("stage-cleanup", "janus-ingestion-core", (22,),
           env=(("ICEBERG_MAINTENANCE_MODE", "stage-only-apply"),
                ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""),
                ("JANUS_DATA_SUPPLEMENT_MODE", ""), ("JANUS_CONTROL_MIGRATION", ""),
                ("JANUS_SERVING_SCHEMA_MIGRATION", "")),
           exclusive_jobs=("janus-ingestion-core",)),
-    Batch("mobile-ledger", "janus-private-pipeline", tuple(range(24)),
+    Batch("mobile-ledger", "janus-private-pipeline", tuple(range(0, 24, 2)),
           env=(("MOBILE_LEDGER_ONLY", "true"),), catch_up=False),
     # This is an execution override of the existing ingestion Job, not another Scheduler or Cloud Run Job.
-    # Serial ordering avoids compaction racing with Mart/Core retention at the same 23:30 slot.
-    Batch("iceberg-compaction", "janus-ingestion-core", (23,), dependencies=("ingestion",),
+    # Serial ordering avoids compaction racing with Mart/Core retention at the same 22:30 slot.
+    Batch("iceberg-compaction", "janus-ingestion-core", (22,), dependencies=("ingestion",),
           env=(("ICEBERG_MAINTENANCE_MODE", "compact-nightly"), ("QUEUE_CONSUMER", "false"),
                ("MART_JOB", ""), ("JANUS_DATA_SUPPLEMENT_MODE", ""), ("JANUS_CONTROL_MIGRATION", ""),
                ("JANUS_SERVING_SCHEMA_MIGRATION", "")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
-    Batch("core-cleanup", "janus-ingestion-core", (23,), dependencies=("mart-cleanup",),
+    Batch("core-cleanup", "janus-ingestion-core", (22,), dependencies=("mart-cleanup",),
           env=(("ICEBERG_MAINTENANCE_MODE", "retention-apply"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", "")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
-    Batch("mart-cleanup", "janus-intelligence-mart", (23,), dependencies=("iceberg-compaction",),
+    Batch("mart-cleanup", "janus-intelligence-mart", (22,), dependencies=("iceberg-compaction",),
           env=(("MART_OPERATION", "retention"), ("MART_RETENTION_MODE", "apply"), ("MART_AI_ENABLED", "false")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
     Batch("collection-queue", "janus-ingestion-core", (0,), manual_only=True,
@@ -85,15 +79,15 @@ MAINTENANCE_NAMES = frozenset({"iceberg-compaction", "mart-cleanup", "core-clean
 
 
 def weekly_maintenance_enabled() -> bool:
-    """Fail closed on unknown config; legacy daily dispatch remains until verified cutover."""
-    value = os.environ.get("FINOPS_WEEKLY_MAINTENANCE", "false").strip().lower()
+    """Weekly by default; explicit false is retained only for rollback compatibility."""
+    value = os.environ.get("FINOPS_WEEKLY_MAINTENANCE", "true").strip().lower()
     if value not in {"true", "false"}:
         raise ValueError("FINOPS_WEEKLY_MAINTENANCE must be true or false")
     return value == "true"
 
 
 def effective_batches():
-    """Use Saturday occurrence identity without changing the hourly Scheduler or daily work."""
+    """Use Saturday occurrences; the Scheduler only wakes every two hours."""
     if not weekly_maintenance_enabled():
         return BATCHES
     return tuple(replace(batch, weekdays=(5,),
@@ -204,7 +198,7 @@ def prioritize_nightly_private(pending, now: datetime):
     This only changes iteration order; the durable occurrence and Cloud Run
     execution fences still decide if dispatch is allowed.
     """
-    night_key = f"private/{now.astimezone(ZoneInfo('Asia/Taipei')).date().isoformat()}/21"
+    night_key = f"private/{now.astimezone(ZoneInfo('Asia/Taipei')).date().isoformat()}/22"
     return sorted(pending, key=lambda row: 0 if row[0] == night_key else 1)
 
 
@@ -306,11 +300,13 @@ def job_active(session, job):
 def occurrence_env(batch, slot: datetime) -> tuple[tuple[str, str], ...]:
     """Resolve non-secret execution overrides once and persist them with the occurrence."""
     values = dict(batch.env)
+    if batch.job == "janus-ingestion-core":
+        values.setdefault("JANUS_UNIFIED_COLLECTION", "false")
     if batch.name == "market-screening":
-        values["SCREENING_DATE"] = slot.date().isoformat()
+        values["SCREENING_DATE"] = slot.date().isoformat() if slot.hour >= 14 else ""
     if batch.name == "ingestion" and slot.hour == 14 and slot.minute == 30:
         values["INGESTION_DATE"] = slot.date().isoformat()
-        values["INGESTION_DATASETS"] = "twse-market-volume,tpex-market-volume,taiex"
+        # Collect the configured market datasets, including actual OHLCV, before Mart.
     return tuple(sorted(values.items()))
 
 
@@ -508,8 +504,8 @@ def run(*, now=None, session=None, control=None):
                 cursor.execute("SELECT 1 FROM control.batch_occurrences WHERE state->>'job'=%s AND state->>'status' IN ('dispatching','running','ambiguous') LIMIT 1", (batch.job,))
                 busy = cursor.fetchone() is not None
             # If the afternoon upstream has already failed, its dependent
-            # 15:30 private occurrence cannot become runnable. Close this
-            # stale pending record; the independent 21:30 slot is its bounded
+            # daytime private occurrence cannot become runnable. Close this
+            # stale pending record; the independent 22:30 slot is its bounded
             # recovery path, not a fake success for the afternoon run.
             if batch.name == "private" and state.get("status") == "pending" and any(
                     statuses.get(dependency) == "failed" for dependency in dependencies):
