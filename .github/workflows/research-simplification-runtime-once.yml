@@ -26,6 +26,7 @@ jobs:
           import json, re, subprocess, sys, urllib.request, urllib.error
           from pathlib import Path
           sys.path.insert(0, "scripts/gcp")
+          sys.path.insert(0, "jobs/ingestion-core")
           from ghcr_jobs_rollout import JOB_COMPONENT, job, image, scheduler
           from ingestion_core.batch_controller import BATCHES, effective_batches
           expected = "cf69def50209ec590e464fcc7298ca4ece44bc6f"
