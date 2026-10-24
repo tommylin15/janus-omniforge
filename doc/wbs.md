@@ -25,7 +25,7 @@
 
 | Lane／WBS 擁有者 | 必讀 SPEC（設計契約） | 上游與可以先做的平行工作 | 禁止跨越的 gate／合流 |
 |---|---|---|---|
-| **O／WBS-3+7+8：Controller／57 leases／backup** | [資料治理](spec/data-governance.md)、[Retention](spec/retention-governance.md)、[Controller runbook](runbook-batch-controller-dev.md) | P0-2 審計／逐筆 reconciliation 可與 P0-1 自然 occurrence 唯讀觀測及其他研究同時進行 | 同一 Controller release／queue mutation 一次只容一個 owner；先驗 artifact、lease/fence、digest/live；未驗終態不更新 |
+| **O／WBS-3+7+8：Controller／5 天 queue 上限／backup** | [資料治理](spec/data-governance.md)、[PROJECT_RULES §1.8.1](PROJECT_RULES.md)、[Controller runbook](runbook-batch-controller-dev.md) | P0-2 原 57 筆中超過 5 天的 analysis／collection **排除追查／重派**；不再逐筆結案。新 5 天派送守門需 tests/CI、dev rollout 與 live readback | Controller release／queue mutation 一次只容一個 owner；不 bulk 改 PG status、不實體刪資料 |
 | **G／WBS-3+7：C0-Live→C1-A 資料治理** | [資料治理](spec/data-governance.md)、[資料保存](spec/retention-governance.md)、[研究候選與 Live](research/data-governance-c1a-2026-10-23.md) | PG/Iceberg reader/lineage 盤點可與市場 preflight／模型研究平行；逐張決策 | **C1-B DROP/DELETE 不可由文件直接放行**；需確認 active readers、backup/rebuild、owner/publication、current snapshot、回復與有界 apply 驗收 |
 | **D／WBS-3+5：研究採集、Preflight、X/Y** | [研究採集](spec/research-collection-gas-drive-colab.md)、[特徵時點](spec/model-feature-time-contract.md)、[最新版本索引](research/00-四模型最新版本索引.md)、[Preflight SOP](research/four-model-research-package-preflight-runbook.md) | 個股/市場產業收檔、查缺、PIT membership、欄位/單位 mapping 可按資料集分線；versioned release 彼此不覆蓋 | X/Y 依 frozen CURRENT/manifest/hash；產業 X 需真實歷史名冊與 crosswalk，Core/Stage writer 和清掃需避免競寫；研究資料不可默認 canonical |
 | **P／WBS-5+6：A-CHANGE／Janus 2.0 UI** | [變化判讀](spec/change-analysis.md)、[UI](ui.md)、[2.0 Drive 報告](https://drive.google.com/file/d/15sT38MsE96RAwD-aZnAHvOvEINtythPO/view) | 先驗既有 A1–A4，UI 重要性排序／簡化摘要與 RV-01/02 可以並行；可不等 ML | 後端只產出一份 versions/facts；RV-05 合流後一致 API/Owner 授權／真實 UI，不能以視覺樣稿代替讀回 |
@@ -39,7 +39,7 @@
 ### 依賴關係／可平行與互斥
 
 ```text
-O-P0-2 審計 -> lease/artifact 安全分類 -> Controller live 驗收 -> 57 UUID 終態
+O-P0-2 5 天 policy/queue/pending fence -> targeted CI -> Controller dev rollout/readback（超齡 57 歷史免逐筆追查）
 O-P0-1 自然觀測 ------------------------------ (與 O-P0-2 唯讀並行)
 G-C0 Live -> C1-A reader/rollback -> (另案批准+safe apply) C1-B
 D-採集/缺口 -> frozen release + preflight -> [M-Q | M-R | M-F | M-V] 各自 OOS
