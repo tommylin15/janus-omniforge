@@ -490,3 +490,29 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 - **已證明**：current Iceberg metadata（含目前 schema、current snapshot ID／manifest 清單的有界讀取）、現有 writer／reader GitHub 契約及既有 dev identity 可讀。此為當前狀態健全性，不是獨立備份或歷史重播證明。
 - **未證明**：各表獨立 backup 的完整 current data files、固定 GCS generation/bytes、與 current catalog 不共依賴的可重建來源、還原隔離測試、雙表業務數值 parity、正式 API/owner reader 切換回歸。Stage 48h／Iceberg current-only 政策尤其不能替代獨立 rollback。當任一此類 gate 未過時 `REBUILD/RESTORE_UNVERIFIED`。
 - **一律不做**：`DROP`／`TRUNCATE`／`DELETE`、停止現役 writer、更新 canonical、修改模型、重跑舊 P0-2 57 筆；本輪 C1-B 實體刪除核准仍 **0**。
+
+### 23.4 逐表實際維護掃描：11／11 具有已完成 receipt（2026-10-24 更新）
+
+[GitHub Actions #40052878512](https://github.com/tommylin15/janus-omniforge/actions/runs/40052878512) `completed/success`，probe commit `546ffec2934cab9aee1efe3aae4dc566ff0786fb`，4 項 C1-A targeted tests PASS（另 reader scan tests 2 PASS）；實際 dev `janus-intelligence-mart` 身分對已存在的 `maintenance/retention/` 成功產物執行有界 GET、validate `component=mart-retention` 與逐表 `tables[].table`，產物狀態 `READABLE_TABLE_SCANS`，**11／11 Mart 全數出現在已完成的 Mart retention 掃描收據**：
+
+| Mart 表 | 實際 maintenance reader | 前台／模型／業務 reader | 獨立 recovery 證據 | 安全分類 |
+|---|---|---|---|---|
+| `mart_scoped_analysis_v1` | **CONFIRMED** | 有 PG index / API 正式契約；live request trace 未逐筆追 | **NOT_VERIFIED** | **KEEP** |
+| `mart_risk_portfolio_v1` | **CONFIRMED** | Owner/Risk 依賴保護；表級業務 request trace 未證 | **NOT_VERIFIED** | **KEEP_PROTECTED** |
+| `mart_screening_signals_v1` | **CONFIRMED** | UNKNOWN | **NOT_VERIFIED** | RETIRE_CANDIDATE，**禁止刪除** |
+| `mart_core_alpha_v1` | **CONFIRMED** | UNKNOWN | **NOT_VERIFIED** | RETIRE_CANDIDATE，禁止刪除 |
+| `mart_alternative_sentiment_v1` | **CONFIRMED** | UNKNOWN（歷史無 current snapshot） | **NOT_VERIFIED** | RETIRE_CANDIDATE，禁止刪除 |
+| `mart_market_regime_daily_v1` | **CONFIRMED** | UNKNOWN | **NOT_VERIFIED** | RETIRE_CANDIDATE，禁止刪除 |
+| `mart_sector_rotation_daily_v1` | **CONFIRMED** | UNKNOWN | **NOT_VERIFIED** | RETIRE_CANDIDATE，禁止刪除 |
+| `mart_topic_trends_daily_v1` | **CONFIRMED** | UNKNOWN | **NOT_VERIFIED** | RETIRE_CANDIDATE，禁止刪除 |
+| `mart_candidate_health_v1` | **CONFIRMED** | UNKNOWN | **NOT_VERIFIED** | RETIRE_CANDIDATE，禁止刪除 |
+| `mart_daily_brief_v1` | **CONFIRMED** | UNKNOWN（歷史無 current snapshot） | **NOT_VERIFIED** | RETIRE_CANDIDATE，禁止刪除 |
+| `mart_llm_narratives_v1` | **CONFIRMED** | UNKNOWN | **NOT_VERIFIED** | RETIRE_CANDIDATE，禁止刪除 |
+
+**收據語意限制**：既有 retention 程式透過 `catalog.load_table(identifier)` 和 `table.scan(row_filter=expired).to_arrow()` 逐表讀取，成功產物可支持「該輪 maintenance scan 對表級成功執行」。**不等於有非維護性的業務讀者、該表當時有非零資料列、最新 7 日持續執行、或 C1-B 可刪。** 若要正式讓某表退役，必須獨立驗證所有真實業務讀者已停用/遷移，以及可回復或重建；任何缺口保持 `BLOCKED_FOR_RETIREMENT`。
+
+**Core 雙表逐欄實測**：同一 Action 的既有 ingest dev probe 讀回 schema，兩者共同欄位 **14**：`close,content_hash,execution_id,high,low,market,observed_at,open,provenance_id,source_id,symbol,trade_date,turnover_twd,volume_shares`；`core.market_volume_v1` 唯一 `stock_name`，`core.ohlcv_v1` 唯一 `change_percent`。雙表被實際讀取 current metadata，但**未做逐鍵值等價、收錄母體差異及完整獨立還原測試**，所以持續 `KEEP/KEEP`，不得將其中一表當成另一表的已驗證取代品。
+
+**回復證據**：兩輪證明 13 張 Iceberg catalog/current metadata 可讀、manifest 清冊與現役身份讀回、三個 dev Cloud Logging 資料來源可查；沒有 Core/Mart 各表獨立、可重複的備份／還原驗證及 current data-file generation 對帳，`independent_recovery=NOT_VERIFIED`。Snapshot current-only + Stage 48h 不能取代獨立備份。**C1-B 可刪 Table／Column = 0**。完整各表 `snapshot_id`、`row_count`、`manifest_count`、報告 SHA（以及可能的 log mentions 僅為字串線索）見 [本輪 artifact](https://github.com/tommylin15/janus-omniforge/actions/runs/40052878512/artifacts/12544166907)。
+
+**程式自引用修正**：`governance_mart_reader_inventory.py` 已排除本工具字面列舉的 10 個表名（[CI #40052966026](https://github.com/tommylin15/janus-omniforge/actions/runs/40052966026) PASS）；新工具被舊掃描器算成 2 次自引用不代表新增讀者，正式維護讀者證據**只用 retention 完成產物**。
