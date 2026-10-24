@@ -1,7 +1,11 @@
 # D07｜五分析師模型、X/Y 與預期輸出
-更新：2026-10-22。方案 A 先交付事實解讀；模型設計已整理，不代表訓練/驗證/上線。狀態只看 [TODO](../todo.md)，資料窗口與前處理唯一契約見 [因子與時間](model-feature-time-contract.md)，研究來源見 [Colab/Drive](research-collection-gas-drive-colab.md)。
+更新：2026-10-24（第五角色最新決策；保留舊研究截面）。方案 A 先交付事實解讀；模型設計已整理，不代表訓練/驗證/上線。狀態只看 [TODO](../todo.md)，資料窗口與前處理唯一契約見 [因子與時間](model-feature-time-contract.md)，研究來源見 [Colab/Drive](research-collection-gas-drive-colab.md)。
 
 **2026-10-22 使用者指定：前四角色各一份獨立 XGBoost Colab Notebook，baseline 保留；Event 另議。** 詳細操作與可直接交給 AI 的開發指令：[Quant 趨勢](../colab-models/01-quant-xgboost.md)、[Risk 風險](../colab-models/02-risk-xgboost.md)、[Fundamental 營運](../colab-models/03-fundamental-xgboost.md)、[Valuation 估值](../colab-models/04-valuation-xgboost.md)。本次完成文件，不代表四份 Notebook 或模型已訓練。
+
+## 2026-10-24 第五角色決策（優先覆蓋 10/22 舊 Event 規劃）
+
+使用者已核准第五角色 `valuation_range` **取代 Event／Catalyst 模型**，唯一正式契約為 [Valuation Range SPEC](valuation-range.md)，工作分解 RV-01…06 在 [唯一 TODO](../todo.md)。首版是確定性 PE/PB 參考價帶，無訓練 Y，也不等待第四角色 XGBoost 上線。原四個研究角色不變；公告解析/修訂去重/事實提醒仍由 A-CHANGE 提供，不再訓練或發佈第五套 Event 模型。以下 10/22 仍提 Event 的內容屬**已取代歷史設計**，不得從該表另立待辦。
 
 ## 1. 目前程式與建議
 查證 main d7083890738a8660786110d0c73d58d8fe183c15：
@@ -9,7 +13,7 @@
 - `research/colab/risk_pilot.py` 五因子 Ridge v0 已有真實 21 月 OOS；另 `risk_v1.py` 增加 `atr14_pct`、`abs_overnight_gap5`、`log_turnover20` 三因子，於同股票日期樣本比較 v0/v1。2026-10-22 研究環境 v1 MAE 0.127537、matched v0 0.133647；但未在 Colab 正式重跑，PIT／公司行動／授權／新樣本尚未達 promotion，不代表已部署。詳見 [v1實測收據](../archive/d07-risk-v1-ohlcv-oos-2026-10-22.md)。
 - 研究採集首版僅 OHLCV；正式 Core 有資料不代表 Drive 研究集已有同欄位。其餘 X 均為待資料對照/建置，不能假稱可訓練。
 - 模型先全市場普通股 pooled panel，按市場/產業特徵或分層評估，不為每檔訓練一套；排除 ETF。Owner 現金/成本/股數不進公開 X。
-- 順序：A 事實/變化可獨立交付；D07-PRE→Risk→Quant→Fundamental/Valuation（資料足夠才訓練）；Event 先 rules。各角色獨立 promotion。
+- 順序：A 事實/變化可獨立交付；D07-PRE→Risk→Quant→Fundamental/Valuation（資料足夠才訓練）；第五角色 `valuation_range` 獨立走確定性情境驗收；事件事實 alerts 仍以 rules 為基準；四個研究模型各自 promotion。
 
 ## 2. 模型／X／Y／輸出矩陣
 表內 challenger 是建議研究候選，需贏過 baseline 才採用，不承諾準確率。
@@ -19,7 +23,7 @@
 | Risk 風險 | Rolling20／Ridge5／Ridge8 → 既有 XGBoost8；分位另案 | 現有 vol20/vol60/drawdown60/abs_return5/volume_ratio20；擴充 ATR14/price、120日回撤、Beta/市場波動、流動性/跳空（OHLC齊備） | 股票×交易日；先未來20日 realized volatility；後續20日累積報酬 q05/q50/q95、最大回撤分開建模 | 「未來波動可能較近期大」；校準後的風險區間。歷史CVaR不是最大損失預測，分位區間不是保證 |
 | Fundamental 營運 | 同月去年／上一期成長延續／ElasticNet → 淺層 XGBoost；先月營收 | 月營收YoY、3月合計YoY/加速度；可比EPS、毛利/營益率、ROE、負債權益、CFO/淨利；缺欄位/資料年齡 | 股票×公告期；主目標下一個月營收YoY（百分點誤差）；次目標下一季可比EPS水準/差額，不用每日重複財報膨脹樣本 | 「營運改善/放緩」「成長是否延續」；下次公告待確認項。無足夠期數保留規則，不能硬訓練 |
 | Valuation 估值 | 自身歷史／train-only同業中位數／Ridge/Huber → XGBoost 解釋 log(PE) 或 log(PB) | 當時可得成長/ROE/負債/獲利率、規模、產業、利率若有；同業因子及有效樣本 | 股票×估值日（研究抽月末減重複）；Y為當期可比市場倍數，排除目標倍數及其代數等價欄位進X；未來60/120日超額報酬僅作獨立效用評估 | 「較自身歷史/可比同業偏高或偏低」與情境區間；這是相對定價，不是內在價值或明日股價預測 |
-| Event 事件 | 公告 parser/類型/日期/修訂去重 rules → 有人審標籤才 TF-IDF+Logistic | 截止前公告文字、類型、來源、修訂、已確認事件日期；文字處理在training fold fit | 股票×事件；人審事件類別/重要性。公告後5/20日異常報酬僅獨立市場反應研究，不替代語意標籤 | 「發生什麼、何時、影響已確認或待確認、下個驗證點」；不把公告分類機率當上漲機率 |
+| **Valuation Range 估值參考區間（第五角色）** | 確定性自身歷史 PE/PB 分位 × 同口徑 TTM EPS/BVPS；非 ML | 合法歷史倍數、財務可得時間、來源/每股基準、現價與適用性 | **無訓練 Y**；輸出 lower/mid/upper 參考價帶，非報酬分位 | 一條參考價帶、資料時點、有效月數、不可用原因、與前次變化；不生成買賣訊號 |
 
 ## 3. 各角色必要限制
 - Quant：p_up、p_outperform 不能互換；價格基準明示，預測描述不冒充可成交績效。沒有證實獲利的模型可被淘汰，baseline 仍服務。
@@ -43,7 +47,7 @@ D08只讀已驗證Fact Pack，LLM無canonical/publication權；A模板解讀不�
 | Risk | MAE/RMSE，追加QLIKE需正variance與一致尺度；分位用pinball loss、實際覆蓋率、分位不交叉與尾部表現 |
 | Fundamental | MAE（YoY百分點/EPS元）、對季節性baseline增益、轉盈轉虧與產業分段；不對零負值用MAPE |
 | Valuation | 時間外倍數殘差/區間覆蓋、cohort穩定性；未來報酬效用獨立報告，不以擬合市場價格證明合理價 |
-| Event | macro-F1、重要事件precision/recall、校準、修訂去重與人審一致性 |
+| **Valuation Range（第五角色）** | 確定性分位逐值 parity、來源與 as-of、適用性狀態、缺值/no lookahead、Owner/API/UI、回滾 |
 訓練前固定評估計畫/可接受退化幅度，不看最終test後調門檻；樣本按日期/事件block估不確定性，不能把相關股票列數當獨立日數。簡單baseline可勝出；沒有穩定增益則不promotion。保留現有有效模型回退，不能只用訓練分數驗收。
 
 ## 6. 官方方法參考
