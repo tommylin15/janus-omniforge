@@ -1,0 +1,130 @@
+{
+  "schema_version": "fundamental_xgb_abstain05_frozen_candidate_1",
+  "version": "fundamental-xgb-nextmonth-yoy-gate05-20261024-rc1",
+  "role": "fundamental",
+  "state": "FROZEN_RESEARCH_CANDIDATE_NOT_ACTIVE",
+  "publication_allowed": false,
+  "registered_active": false,
+  "serving_deployed": false,
+  "decision_date": "2026-10-24",
+  "policy_selected_by_user": "XGBoost + 5% X-only extreme abstention",
+  "train_data": {
+    "source": "research_panel_reconstructed.csv",
+    "source_sha256": "c506a363d639599c9daf01cd3761f0e2d7a8b38597a4deb6f5274cd27b0d484e",
+    "reconstructed_rows": 73209,
+    "original_parquet_rows": 93036,
+    "rows_used": 47616,
+    "symbols": 1531,
+    "feature_months": 32,
+    "min_feature_month": "2023-12",
+    "max_feature_month": "2026-07",
+    "cutoff_date": "2026-10-24",
+    "cutoff_is": "conservative label maturity proxy, NOT actual publication PIT",
+    "last_available_unlabeled_features_month": "2026-09",
+    "pit_verified": false,
+    "source_authorization_verified": false,
+    "finance_included": true,
+    "extreme_rows_in_training": true
+  },
+  "model": {
+    "engine": "XGBoostRegressor",
+    "format": "UBJ",
+    "filename": "model.ubj",
+    "sha256": "05fa3167f10c650389c4e481c3e3a7de8a2b70f9133ad867f0404c3eb9758b0c",
+    "target": "next_calendar_month_revenue_yoy_percentage_points",
+    "parameters": {
+      "objective": "reg:absoluteerror",
+      "n_estimators": 100,
+      "max_depth": 3,
+      "learning_rate": 0.05,
+      "min_child_weight": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_lambda": 20,
+      "tree_method": "hist",
+      "n_jobs": 2,
+      "random_state": 20261023
+    },
+    "features": [
+      "yoy_m",
+      "yoy_3m",
+      "yoy_change1",
+      "growth_acceleration",
+      "mom_m",
+      "log_revenue",
+      "season_sin",
+      "season_cos",
+      "revenue_vol3",
+      "market_code",
+      "revenue_sum6m",
+      "revenue_mean12m",
+      "revenue_growth_6m",
+      "base_log_twd",
+      "base_to_recent_log"
+    ],
+    "feature_dtype": "float32",
+    "train_script_sha256": "52fcc3ef239c12f759afdba258b20d403579f935579ff694d367d10752a6b7b5"
+  },
+  "gate": {
+    "phase": "pre_inference",
+    "calibration": "training X-only OR quantiles",
+    "target_fraction": 0.05,
+    "observed_train_fraction": 0.04998319892473118,
+    "base_twd_max": 3266999.83471632,
+    "ratio_min": 3.1528768314559463,
+    "abs_known_yoy_min_pp": 246.93646766061153,
+    "logic": "B <= base_twd_max OR M/B >= ratio_min OR abs(known_current_month_yoy_pp) >= abs_known_yoy_min_pp",
+    "future_target_or_test_error_allowed": false,
+    "test_cohort_recalibration_allowed": false,
+    "excluded_state": "ANALYST_ONLY",
+    "unverified_state": "DATA_UNVERIFIED",
+    "predicted_value_for_abstain": null
+  },
+  "offline_replay_2026_09": {
+    "rows": 1546,
+    "gate_eligible": 1436,
+    "analyst_only": 87,
+    "data_unverified": 23,
+    "numerical_predictions_emitted": 0,
+    "reason": "real publication PIT not verified"
+  },
+  "retrospective_reference_not_same_final_fit": {
+    "exposed_months": "2025-09..2026-08",
+    "accepted_rows": 17212,
+    "original_rows": 18106,
+    "xgb_hit_within_4pp": 0.20073,
+    "xgb_hit_within_10pp": 0.45079,
+    "xgb_hit_within_20pp": 0.69045,
+    "xgb_month_equal_mae_pp": 23.900146,
+    "no_claim_of_independent_OOS": true
+  },
+  "test_receipt": {
+    "local_tests_pass": 8,
+    "local_tests_total": 8,
+    "artifact_reload_parity": true,
+    "CI": "NOT_RUN",
+    "live_serving": "NOT_VERIFIED"
+  },
+  "package": {
+    "zip_filename": "Janus_Fundamental_XGBoost_5pct_RC1_20261024.zip",
+    "zip_sha256": "af6705e89eb0cef59759d58ac3d7b54a2739074400ea713207e7ef46b5c0a346",
+    "drive_url": "https://drive.google.com/file/d/1pp2dwWTKhvFWwKbO-LeYjSPCPFg8Afrf/view",
+    "included": [
+      "model.ubj",
+      "freeze_candidate.py",
+      "test_freeze_candidate.py",
+      "manifest.json",
+      "MODEL_CARD.md",
+      "research_panel_reconstructed.csv",
+      "latest_feature_replay_NO_PIT.csv"
+    ]
+  },
+  "promotion_blockers": [
+    "actual as-of published_at revision and label maturation",
+    "authorized canonical/source dataset mapping and PIT",
+    "full original parquet cohort and training-serving feature parity",
+    "unexposed forward OOS months",
+    "CI and real API/UI rollback acceptance"
+  ],
+  "github_pre_commit_head": "2a2d8903332dc62abb3962db5472c1679ef5d94c"
+}
