@@ -127,6 +127,20 @@ jobs:
           gcloud run jobs executions list --job=janus-batch-controller \
             --project="$GCP_PROJECT_ID" --region=us-central1 --limit=15 \
             --format='table(name,createTime,completionTime,succeededCount,failedCount)' || true
+          echo "CONTROLLER_EXECUTION_BOUNDED_JSON"
+          gcloud run jobs executions list --job=janus-batch-controller \
+            --project="$GCP_PROJECT_ID" --region=us-central1 --limit=20 \
+            --format=json | python -c '
+          import json,sys
+          for item in json.load(sys.stdin):
+            print(json.dumps({"name":item.get("metadata",{}).get("name",item.get("name")),
+            "created":item.get("metadata",{}).get("creationTimestamp",item.get("createTime")),
+            "completed":item.get("status",{}).get("completionTime",item.get("completionTime")),
+            "succeeded":item.get("status",{}).get("succeededCount",item.get("succeededCount")),
+            "failed":item.get("status",{}).get("failedCount",item.get("failedCount"))},sort_keys=True))
+          '
+          echo "CONTROLLER_OCCURRENCE_BY_LOCAL_DAY"
+          gcloud compute ssh janus-postgres-dev --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet --command='sudo docker exec --user postgres janus-postgres psql -X -qAt -d janus_control -c "SELECT (scheduled_at AT TIME ZONE '\''Asia/Taipei'\'')::date::text,count(*),count(*) FILTER (WHERE state->>'\''status'\''='\''succeeded'\''),count(*) FILTER (WHERE state->>'\''status'\''='\''failed'\''),count(*) FILTER (WHERE state->>'\''batch'\''='\''ledger-backup'\'') FROM control.batch_occurrences WHERE scheduled_at>=now()-interval '\''3 days'\'' GROUP BY 1 ORDER BY 1 DESC LIMIT 4"'
           echo "NO_SCHEDULER_OR_JOB_MUTATION=true"
       - name: Install local request executor without stopping original backup
         if: steps.request.outputs.phase == 'install'
