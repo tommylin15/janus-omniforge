@@ -3,6 +3,14 @@
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
 
+### 2026-10-24｜研究稽核精簡 Dev 部署與一次 Runtime 驗收（CLOSED／BOUNDED PASS）
+
+- 研究精簡已完成現有程式與文件更新；離線 Python 259 PASS、Flutter 5 PASS：[CI #40080225057](https://github.com/tommylin15/janus-omniforge/actions/runs/40080225057)／[離線測試 #40080225060](https://github.com/tommylin15/janus-omniforge/actions/runs/40080225060)。五個退役稽核 Workflow 不再有 active `.yml` 入口。
+- [完整 GHCR Release #40084702607](https://github.com/tommylin15/janus-omniforge/actions/runs/40084702607) SUCCESS：Python 1826 PASS、兩項僅限外部 replay fixture 的測試 SKIPPED，Flutter 與四映像發布成功；[0% Candidate #40085057604](https://github.com/tommylin15/janus-omniforge/actions/runs/40085057604) 與 [Auth Boundary #40085481922](https://github.com/tommylin15/janus-omniforge/actions/runs/40085481922) SUCCESS。
+- 四個既有 Dev Jobs 的舊版本來源不一致，實際逐 Job 回復基準 [#40085438273](https://github.com/tommylin15/janus-omniforge/actions/runs/40085438273) 已讀回；相容修正後 [109 測試 #40085455394](https://github.com/tommylin15/janus-omniforge/actions/runs/40085455394) PASS。[四 Jobs Rollout #40085601337](https://github.com/tommylin15/janus-omniforge/actions/runs/40085601337) SUCCESS；[API-only Promotion #40087061995](https://github.com/tommylin15/janus-omniforge/actions/runs/40087061995) SUCCESS。
+- 一次獨立唯讀 [Dev Runtime #40087520948](https://github.com/tommylin15/janus-omniforge/actions/runs/40087520948) `PASS_READ_ONLY`：API revision `janus-api-00603-vev`，單一 100% live traffic，source `cf69def50209ec590e464fcc7298ca4ece44bc6f`，App／health 成功、匿名 Owner／Admin 401；四個 Dev Jobs 的 GHCR source label 一致，Scheduler ENABLED，`data-quality` 不在新版 Controller 批次，正常批次定義保留，該探針 GCP writes 0、新 executions 0。前兩次探針模組路徑／Build ID 格式及 GET 誤探 POST-only endpoint 的失敗保留歷史，不視為 runtime 產品故障，也不改標 PASS。
+- **範圍界限**：此精簡工項 `CLOSED` 不代表已驗證真人登入正向 Owner、舊 pending DB 逐筆終態或最新備份內容可復原。備份可用性及清理安全仍在唯一 TODO 的 `OPS-P0-1`；`A-CHANGE` 的使用者接受是其獨立結案。詳細見 [研究精簡 WI](../runbook-research-simplification-wi.md)。
+
 ### 2026-10-24｜A-CHANGE A1–A4：使用者登入後核對確認（USER_ACCEPTED／CLOSED）
 
 - **使用者直接核對結果**：使用者在 2026-10-24 本對話、針對已上線 A-CHANGE 最後一段 Owner 真資料／App UI 驗收回覆「核對完成」。這是**使用者端接受（USER_ACCEPTED）**，可與既有已通過 CI、正式發版、live API 讀回組成既定範圍的結案依據，不另要求未指明的新測試。
