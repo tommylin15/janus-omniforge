@@ -1,5 +1,12 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-24｜A-CHANGE A1–A4：使用者登入後核對確認（USER_ACCEPTED／CLOSED）
+
+- **使用者直接核對結果**：使用者在 2026-10-24 本對話、針對已上線 A-CHANGE 最後一段 Owner 真資料／App UI 驗收回覆「核對完成」。這是**使用者端接受（USER_ACCEPTED）**，可與既有已通過 CI、正式發版、live API 讀回組成既定範圍的結案依據，不另要求未指明的新測試。
+- **已經機器驗證**：[Python/Flutter #40054555576／#40054555582](https://github.com/tommylin15/janus-omniforge/actions/runs/40054555582)、[GHCR #40058872816](https://github.com/tommylin15/janus-omniforge/actions/runs/40058872816)、[Candidate #40059252248](https://github.com/tommylin15/janus-omniforge/actions/runs/40059252248)、[Auth boundary #40059387673](https://github.com/tommylin15/janus-omniforge/actions/runs/40059387673)、[API-only dev 100% #40059471185](https://github.com/tommylin15/janus-omniforge/actions/runs/40059471185)、[獨立唯讀 #40059873102](https://github.com/tommylin15/janus-omniforge/actions/runs/40059873102) 均 PASS，固定來源 `2d0e874ce3efdee03e344370d7b6bde09dc54d87`，公開 2330 行情 HTTP 200/有資料，匿名 Owner/Admin 401／403，該次 readback GCP mutation 0。
+- **證據精度與界線**：沒有額外留存經工具驗證的已登入 Owner HTTP 200 payload、跨使用者隔離逐筆 trace、390px／桌面畫面截圖及每一個盤前／盤後情境機器 artifact。以上只是**使用者表示核對完成**，不得寫成獨立自動化逐項 PASS。依 [PROJECT_RULES §1.1.1](../PROJECT_RULES.md) 有界結案原則與既有 Release／runtime 證據，**A1–A4 工作包狀態 USER_ACCEPTED／CLOSED**，除有具體新異常不重啟已驗流程。
+- 下方同日 `OWNER_UI_PARTIAL` 說明是**使用者回覆前的先前狀態截面**，已由本節更新；P0-1 自然排程與 Valuation RV-01…RV-06 為獨立工項，不能視為同時結案。
+
 ### 2026-10-24｜A-CHANGE API-only 真實 dev 100% 與獨立讀回（DEPLOYED／LIVE_PASS，OWNER_UI_PARTIAL）
 
 - 原有 A1–A4 程式存在；本輪 A-CHANGE 修正 `services/api/analysis.py` confirmed／newest change 排序及 Flutter `final_changes.dart` 主訊息／next check／invalidation 同源，原有專案 Python [#40054555576](https://github.com/tommylin15/janus-omniforge/actions/runs/40054555576) 與 Flutter [#40054555582](https://github.com/tommylin15/janus-omniforge/actions/runs/40054555582) PASS。
