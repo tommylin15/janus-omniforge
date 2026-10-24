@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "0ad738b1f7c3432bf6fac59ecb7d5063dce63447",
+  "sha": "2d0e874ce3efdee03e344370d7b6bde09dc54d87",
   "digest": "",
-  "release_run": "39907341839",
+  "release_run": "40058872816",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "ADMIN-SIMPLIFY dev API zero-traffic fixed-digest candidate for exact full Release #39907341839; preserve existing 100% serving traffic and Jobs images; automatic health, identity and source readback only.",
-  "request_attempt": 7
+  "purpose": "A-CHANGE Janus 2.0 UI/API: verified GHCR full release #40058872816; exact 0% candidate health, deployed build-ID and anonymous Owner 401 boundary; preserve existing 100% API traffic and all Jobs; no data/schema/IAM/scheduler mutation.",
+  "request_attempt": 8
 }
