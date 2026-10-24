@@ -41,7 +41,7 @@ Colab 掛載 `/content/drive/MyDrive/給ai專用/janusChatGPT`，固定 CURRENT/
 原第20版 `RUN_FETCH=False` 的工作**僅做初盤**，使用者實際 Run all 的 `requests_executed=0`。依本次要求，現在有真正呼叫 FinMind 的第21版：
 
 - [GitHub 原碼與可執行 Notebook](../../research/colab/21_Valuation_04_FinMind_30有效月末_真實補收_可續跑.ipynb)
-- [Drive 單獨 Notebook](https://drive.google.com/file/d/1sNyTjs2eeCQHdRUg7LTNwYn3XsPfJxgE/view)；[Drive ZIP（Notebook＋核心模組＋pytest＋README）](https://drive.google.com/file/d/1sWl6Wlzx5QBpfTjN4I7eOCoopvbyoGcz/view)
+- [Drive 最新 ZIP（Notebook＋核心模組＋pytest＋README）](https://drive.google.com/file/d/1sWl6Wlzx5QBpfTjN4I7eOCoopvbyoGcz/view)；單獨 .ipynb 以本段 GitHub 最新版本或 ZIP 內檔案為準。Drive 先前單檔草稿已標記 ARCHIVED。
 
 此版從現有六個第20版產物讀真實缺口、凍結資料包 SHA 與任務；依當前上市櫃公司主檔與上市日期限縮 PE/PB 缺月及兩類財報缺季，合併 `symbol×dataset` 跨期請求，使用 FinMind 免費 Bearer Token 查 `TaiwanStockPER`、`TaiwanStockFinancialStatements`、`TaiwanStockBalanceSheet`，**預設 RUN_FETCH=True**、每輪最多25個GET、原始bytes/SHA/receipt/checkpoint、重跑略過成功、限額停止。只存研究區 `janusChatGPT/模型研究/valuation/backfill_candidates/FINMIND_MIN30_REAL_20261024/`，**不修改 canonical/CURRENT、Risk ACTIVE、Registry**。30個正倍數月只當初步計數，仍需單位/合併/官方月末/PIT/rights 稽核；不是模型可發布驗收。
 
