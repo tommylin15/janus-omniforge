@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "0ad738b1f7c3432bf6fac59ecb7d5063dce63447",
+  "sha": "2d0e874ce3efdee03e344370d7b6bde09dc54d87",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "ADMIN-SIMPLIFY 0% API Candidate #39908830013 PASS for exact full Release #39907341839. Verify OAuth discovery/PKCE, private User/Admin API 401/403, MCP Bearer challenge and build SHA without GCP mutation or traffic change; owner authenticated UI still NOT_VERIFIED.",
-  "request_attempt": 5
+  "purpose": "A-CHANGE existing dev 0% API candidate #40059252248 PASS; verify Google OAuth metadata/PKCE, anonymous User/Admin API isolation, MCP Bearer boundary and build SHA without GCP writes, traffic changes or new resources; positive Owner real auth remains separate.",
+  "request_attempt": 6
 }
