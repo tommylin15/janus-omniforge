@@ -206,7 +206,14 @@ def calculate_reference_range(
         month = day.year * 12 + day.month
         if not cutoff_month - WINDOW_MONTHS + 1 <= month <= cutoff_month:
             continue
-        if day.day != calendar.monthrange(day.year, day.month)[1]:
+        end = date(day.year, day.month, calendar.monthrange(day.year, day.month)[1])
+        if row.get("month_end_observation") is True:
+            # RV-03 stores the actual final trading date, not a fictitious
+            # calendar-end quote. The adapter proves source + proximity.
+            if (row.get("month_end_date") != end.isoformat()
+                    or not 0 <= (end - day).days <= 7):
+                continue
+        elif day != end:
             continue
         monthly.setdefault(month, []).append(val)
     # Conflicting same-month values are ambiguous and excluded, never averaged.
