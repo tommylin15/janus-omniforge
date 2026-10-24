@@ -30,17 +30,21 @@ jobs:
           data=json.load(open('/tmp/p02_probe_recent_logs.json'))
           errors=collections.Counter()
           hints=collections.Counter()
+          missing_modules=collections.Counter()
           for item in data:
               raw=item.get('textPayload') or ''
               for klass in re.findall(r'\b([A-Za-z_]+(?:Error|Exception))\b',raw):
                   if klass not in ('Exception',):
                       errors[klass[:65]]+=1
+              for module in re.findall(r"No module named '([a-zA-Z0-9_.-]+)'",raw):
+                  missing_modules[module[:64]]+=1
               if 'JANUS_P02_CORE_ARTIFACT_AUDIT_V1:' in raw:
                   hints['audit_receipt_emitted']+=1
               if 'core_snapshot' in raw:hints['core_snapshot_mentioned']+=1
               if 'psycopg' in raw:hints['psycopg_mentioned']+=1
               if 'storage' in raw:hints['storage_mentioned']+=1
           print(json.dumps({'p02_logs_seen':len(data),
-                  'exception_classes':dict(errors),'hints':dict(hints)},
+                  'exception_classes':dict(errors),'missing_modules':dict(missing_modules),
+                  'hints':dict(hints)},
                   sort_keys=True))
           PY
