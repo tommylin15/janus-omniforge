@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "2d0e874ce3efdee03e344370d7b6bde09dc54d87",
+  "sha": "cf69def50209ec590e464fcc7298ca4ece44bc6f",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "A-CHANGE existing dev 0% API candidate #40059252248 PASS; verify Google OAuth metadata/PKCE, anonymous User/Admin API isolation, MCP Bearer boundary and build SHA without GCP writes, traffic changes or new resources; positive Owner real auth remains separate.",
-  "request_attempt": 6
+  "purpose": "RESEARCH-SIMPLIFICATION existing dev candidate #40085057604 PASS; anonymous Google OAuth metadata, PKCE, private Owner/Admin/MCP negative boundary and candidate build-id read-only. No API traffic/GCP Job changes.",
+  "request_attempt": 7
 }
