@@ -353,3 +353,26 @@ def test_future_rollout_and_promotion_templates_are_inert_until_explicit_request
     assert "'ops/ghcr-api-promote-request.json'" in workflow
     assert "ops/ghcr-api-promote-request.template.json" not in workflow
     assert "ops/ghcr-jobs-rollout-request.template.json" not in workflow
+
+
+def test_api_promotion_accepts_only_exact_mixed_job_rollback_receipt():
+    proof = receipt()
+    source = "a" * 40
+    names = [name for name, _ in promote.JOB_COMPONENT]
+    by_name = {name: ("b" if i % 2 == 0 else "d") * 40 for i, name in enumerate(names)}
+    proof.pop("rollback_baseline_sha")
+    proof["rollback_baseline_shas"] = by_name
+    request = {
+        "approved": True, "scope": "existing-dev-four-jobs",
+        "rollback_mode": "reversible_ghcr", "sha": source, "release_run": "101",
+        "rollback_source_shas": by_name,
+        "rollback_images": {name: proof["snapshots"][name]["image"] for name in names},
+        "rollback_config_hashes": {name: proof["snapshots"][name]["configuration_hash"]
+                                   for name in names},
+    }
+    with patch.object(promote.Path, "read_text", return_value=json.dumps(request)):
+        promote.verify_independent_job_rollback(proof, source, "101")
+        wrong = deepcopy(proof)
+        wrong["rollback_baseline_shas"][names[0]] = "c" * 40
+        with pytest.raises(ValueError, match="independent_jobs_rollback_provenance_invalid"):
+            promote.verify_independent_job_rollback(wrong, source, "101")
