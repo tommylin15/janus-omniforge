@@ -1,5 +1,6 @@
 """RV-02 pure unit tests: no network, DB, model training or publication."""
 import calendar
+from decimal import Decimal
 from datetime import date
 
 import pytest
@@ -46,7 +47,7 @@ def test_pe_quantile_exact_and_deterministic():
     assert result["status"] == "available"
     assert result["valid_month_count"] == 24
     assert result["financial_period"] == "2025Q4"
-    assert (result["lower"], result["mid"], result["upper"]) == ("94.50", "129.00", "163.50")
+    assert tuple(Decimal(result[key]) for key in ("lower", "mid", "upper")) == (Decimal("94.50"), Decimal("129.00"), Decimal("163.50"))
     assert result["price_gap_to_reference_mid_pct"] == "0"
     assert result["historical_pit_status"] == "not_verified"
     assert result["input_hash"] == calculate_reference_range(**data())["input_hash"]
@@ -134,7 +135,7 @@ def test_financial_stock_uses_bvps_and_pb_only():
     assert result["status"] == "available"
     assert result["basis_type"] == "bvps"
     assert result["financial_period"] == "2026Q2"
-    assert result["mid"] == "430.0"
+    assert Decimal(result["mid"]) == Decimal("430")
 
 
 def test_negative_bvps_or_bad_share_basis_fails_closed():
