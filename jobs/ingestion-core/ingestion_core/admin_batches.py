@@ -131,6 +131,10 @@ def enqueue_manual_queues(connection, batches, paused, now, occurrence_env):
     if bool(mode) != bool(target_ref) or (mode and mode != "one-shot"):
         raise ValueError("historical analysis recovery requires one verified target")
     for batch in batches:
+        # An exact P0-2 historical recovery must not accidentally enqueue an
+        # unrelated collection request in the same Controller tick.
+        if mode == "one-shot" and batch.name != "analysis-queue":
+            continue
         if batch.manual_only and batch.name not in paused:
             allow = batch.name == "analysis-queue" and mode == "one-shot"
             enqueue_queued_worker(connection, batch, now, occurrence_env,
