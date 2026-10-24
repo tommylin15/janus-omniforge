@@ -23,6 +23,7 @@
 - [ ] **GOV-C1A-READERS｜C0-Live／C1-A 最後依賴收斂**：十一張 Mart（尤其其餘十張）及 Core market_volume/ohlcv 的真實 reader、retention、snapshot、重建/回滾依賴逐項分級；只有可證無讀者、具安全替代與可回復條件才另行放行 C1-B。**目前 C1-B 可刪 table/column = 0**，不得以此項擅自 DROP。
 - [ ] **J2-UI-INCREMENT｜2.0 使用體驗增量**：A-CHANGE 原定驗收先核對；按 Drive 2.0 已確認的實際程式差異修主訊息排序、下一觀察同源、重複摘要及圖表負擔。須符合原 auth/canonical/PIT 邊界並與 RV-05 合併驗收；不開第二套 UI / Fact Pack pipeline。
 - [ ] **RV-01…RV-06｜04 Valuation 參考區間子功能**：依 [04 子契約 §4](spec/valuation-range.md) 完成；共用 04 EPS/BVPS/PE/PB、PIT/來源/公司行動與唯一 publication/rollback。無第五套模型/Registry role。現役舊 event 五筆 baseline/API/Owner reader 須先相容遷移、保留 A-CHANGE 事件事實，經 targeted/CI/dev readback 驗收，不直接刪除；公式與 UI 另驗收。
+- [ ] **VAL-2Y｜04 Valuation 一般普通股兩年內定向補收（先盤、後抓）**：依[2026-10-24 初篩收據](research/valuation-2y-ordinary-preflight-2026-10-24.md)，目前 1,977 股票代號為財報初盤、最近四季 income+balance 共1,965檔、七季整份財報未見紀錄待核查98組；普通股及月末 PE/PB 逐股尚未驗完，API 執行0。先跑安全 Colab 核對當前公司主檔、歷史上市資格、36月既有估值及季財報，再依實際有效母體與來源缺口合併symbol×dataset產生最少FinMind任務；不重抓已存在但 metadata 未證實的財報、不擴全市場、不碰 canonical/ACTIVE。
 - [ ] **DATA-RELEASE-PREFLIGHT｜研究版本與資料可用性**：按 [四模型最新索引](research/00-四模型最新版本索引.md) 與 [全資料包 SOP](research/four-model-research-package-preflight-runbook.md) 固定 CURRENT/Parquet SHA/row、產業 member PIT、真實 market-sector 全期涵蓋，資料不存在或授權不符只阻擋相依因子，不阻擋其他非產業候選；不要僅憑使用者報告推導程式實際 live 完成。
 
 **已完成項不重開**：STAGE-48H 原定有界範圍、舊研究 GCP/BQ 退役、D01–D06/FINOPS-AB 原有結案仍依歷史收據保留；P0-1 的自然排程觀察是尚未完成的**特定新驗收**，不是要求重新做整個清理。現有 §2–§6 為各工作線展開細節；有日期的舊研究數字是歷史截面，以上述最新 gate 與實際 runtime 覆蓋，**不得把表內的日期快照當永久當前狀態**。
