@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "4fbf330a600f5e4280bbf0de36cff261373daed4",
-  "purpose": "P0-2 final Controller patch: exact-target historical analysis one-shot cannot also dispatch unrelated collection; lease-safe 30d recovery gated by Core-ready binding, config, and immutable digest; no bulk replay or API traffic change.",
+  "sha": "6c96d6419e01f68ddc3f939171158af0b3c47882",
+  "purpose": "P0-2 five-day queue cutoff: no replay of >5-day analysis/collection, persisted pending dispatch fence, historical override rejected; GHCR full gates/image build only, no API traffic or data mutation",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 9
+  "request_attempt": 10
 }
