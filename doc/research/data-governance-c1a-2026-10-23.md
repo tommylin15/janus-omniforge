@@ -450,3 +450,12 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 - **程式守門**：一般佇列 SELECT 由 7 天改為 **5 天**，舊 `JANUS_P02_ANALYSIS_RECOVERY` 與 `JANUS_P02_ANALYSIS_EXECUTION_REF` 啟用時直接拒絕；對 Controller persisted `pending` 的 queue occurrence，在派送前重新查 `requested_at`／`trigger_type`／`finished_at`，不存在／超齡／終態已完成則將 **occurrence** `skipped`，不派送 Worker。沒有取消任何已在執行的 Job，也沒有寫入原 57 個 PG execution status。
 - **部署證據分清新舊**：舊版原 Controller-only [#40047503576](https://github.com/tommylin15/janus-omniforge/actions/runs/40047503576) 已 `completed/success`，證明**舊 7 日映像**安全部署，而不是本次 5 日程式生效。新版需要 Python targeted tests、完整 CI 與受控 dev Controller image、Scheduler ENABLED/cron/target/readback 驗收，未有收據前標 `CODE_COMMITTED / DEPLOY_NOT_VERIFIED`。
 - **Active 工作改為 5 天防線**，不再將 41 個 Analysis／16 個 Collection 的逐筆 Core/Mart 結果對帳作為結案條件；回復剩餘工作排程遵循 [TODO](../todo.md)，安全性責任遵循 [PROJECT_RULES §1.8.1](../PROJECT_RULES.md)。
+
+## 21. P0-2 五天排除正式收尾證據（2026-10-24）
+
+**正式結案：P0-2 = CLOSED／PASS（僅新核准的 5 天派送策略）**。舊 §13–19 的原 57 UUID/30d one-shot 追查計畫已由 §20 及 [PROJECT_RULES §1.8.1](../PROJECT_RULES.md) 覆蓋，不再要求逐筆補作 Core/Mart／Cloud Run execution terminal。超過五天的 execution 保留 PG audit，不重派、不刪除、也不偽造完成狀態。
+
+- Release 首輪 [#40048915305](https://github.com/tommylin15/janus-omniforge/actions/runs/40048915305) 在 1,814 項已 PASS 時，因兩項過期 7／30 天測試假設 FAIL；調整測試後完整 [GHCR #40049195127](https://github.com/tommylin15/janus-omniforge/actions/runs/40049195127) 的 Python／Flutter、四個 GHCR build/digest 全數 PASS。
+- [Controller-only dev #40049724410](https://github.com/tommylin15/janus-omniforge/actions/runs/40049724410) completed/success：原有 `janus-batch-controller` 現役 image `sha256:ccc4decc6f38b12e0b0ed62c2f22ab3b9e82a3fad336f10912671b1a028dd0f2`，readonly canary PASS、Scheduler ENABLED，`data_mutations=0`、`queue_recovery_dispatches=0`，部署 Lease 已安全釋放。首次 [#40049612738](https://github.com/tommylin15/janus-omniforge/actions/runs/40049612738) 因並行 main push 於 lease acquire 前停止，無 GCP 修改。
+- 5 天 SELECT + persisted pending 在 dispatch 前 check、歷史恢復 env fail closed，均有 targeted [37 PASS #40048549032](https://github.com/tommylin15/janus-omniforge/actions/runs/40048549032) 與最終部署時 rollout 5 PASS。沒有以 GCP 真實 replay 超齡工作作測試，避免破壞使用者明確排除指示。
+- P0-1 自然排程與 Core/Mart 讀者／C1-A/C1-B 清理決策不因 P0-2 成功而自動結案。完整新收據見 [Operations](../spec/operations-and-testing.md)。
