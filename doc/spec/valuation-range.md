@@ -1,14 +1,14 @@
-# Janus 2.0｜第五角色 Valuation Range（估值參考區間）SPEC
+# Janus 2.0｜04 Valuation 估值參考區間功能子契約
 
-狀態：**APPROVED_DESIGN／NOT_IMPLEMENTED**（2026-10-24 使用者核准；本頁只建立工程契約，不代表資料、程式、部署或 UI 已驗收）。
+狀態：**APPROVED_DESIGN／NOT_IMPLEMENTED**（2026-10-24 最新決策：第五模型撤銷、功能併入 04；尚非資料、程式、部署或 UI 驗收）。
 權威邊界：[PROJECT_RULES](../PROJECT_RULES.md) → 本 SPEC → [WBS 工作線／依賴](../wbs.md) → [唯一 Active TODO](../todo.md) → [實機收據](operations-and-testing.md)。
-完整 AI 交接與公式決策：[Drive《第五模型：估值參考區間》](https://drive.google.com/file/d/1M7pxgkeyzK_Joi4C9Z2aTSRCgdV-u5YO/view)；[Janus 2.0 報告](https://drive.google.com/file/d/15sT38MsE96RAwD-aZnAHvOvEINtythPO/view)。Drive 是核准設計參考，GitHub `main`／runtime 才是實作與完成證據。
+已被最新決策取代的歷史 AI 指令（僅供參照公式與 UI，**不可執行第五角色開發**）：[Drive《第五模型：估值參考區間》](https://drive.google.com/file/d/1M7pxgkeyzK_Joi4C9Z2aTSRCgdV-u5YO/view)；[Janus 2.0 報告](https://drive.google.com/file/d/15sT38MsE96RAwD-aZnAHvOvEINtythPO/view)。Drive 是核准設計參考，GitHub `main`／runtime 才是實作與完成證據。
 
 ## 1. 角色與授權邊界
 
-- 第五角色改為 `valuation_range`，**取代 Event／Catalyst 第五模型訓練及模型排程**；保留公告原文、事件時點、公司行動、防重與 A-CHANGE 事實提醒，**不得以角色替換為由刪除現役 event API／資料表**。
-- 原四個研究角色 **Quant／Risk／Fundamental／Valuation（相對 PE/PB）** 保留；CEO 是整合層而非第六個模型。第 04 角色研究倍數與殘差，第 05 角色負責前台唯一「參考價格區間」呈現，不能形成兩套 canonical 價帶。
-- **首版是可重算的確定性倍數情境，不是 ML 訓練出的未來報酬／信賴區間／交易建議**。不依賴 04 Valuation 成為 DEPLOYABLE，也不以五模型同時 ACTIVE 當開工門檻。
+- 正式模型僅 Quant／Risk／Fundamental／Valuation。撤銷獨立 `valuation_range`／Event 第五模型、訓練、Registry role 和新排程；04 Valuation 接手本情境功能，保留現役 event API／資料、公告時間、公司行動、修訂去重與 A-CHANGE 提醒。
+- 04 保留 PE/PB XGBoost 倍數研究、殘差及比較，同時提供唯一「參考價格區間」。共用財報 EPS/BVPS、歷史倍數、來源時間、單位、PIT、公司行動及 publication/rollback；沒有第五組 canonical 價帶或第五個模型。CEO 仍是整合層。
+- 04 的區間子功能是可重算的確定性倍數情境，非 ML 未來報酬／信賴區間／交易建議。**不依賴 04 XGBoost 已 DEPLOYABLE**，但有自己的輸入／算式／授權／發布 gate，不是免費升級成已發布模型。
 - Research-only 材料不得直接替代正式 Core／serving 的授權、PIT、來源與可得時間；不編造 EPS、BVPS、季報或歷史倍數。新付費或擴權依 PROJECT_RULES §1.3。
 
 ## 2. 計算／資料契約（RV-01 至 RV-03）
@@ -21,9 +21,9 @@
 
 ## 3. 介接、依賴與相容（RV-04 至 RV-05）
 
-- 將 `valuation_range` 的可重算結果獨立版本化，沿現有固定 Fact Pack／Mart／API／Owner-aware UI 合理最小增量接入；前端只顯示**一條**參考價帶，並附方法、時間、來源、樣本月數、是否適用、與上次變化；不讓 LLM 或 Flutter 自產 canonical number。
-- 後端與 A-CHANGE 使用同一個 `as_of`／關鍵變化事件與版本指標；第五角色可以與 A-CHANGE 同時開發，**API/schema/文案定版與真實 UI 驗收必合流**。
-- 與現有四角色模型研究共用合格資料與因子契約，但不得修改現行 Risk ACTIVE/Registry 或先觸發四模型重訓。接入前須核對真實 serving reader、相容、保留期、rollback，若不存在具可證依賴的欄位則不假造新表。
+- 04 Valuation 以 `method_version`／`schema_version` 版本化可重算情境（**不新增模型 role key**），沿現有固定 Fact Pack／Mart／API／Owner-aware UI 合理最小增量接入；前端只顯示**一條**參考價帶，並附方法、時間、來源、樣本月數、是否適用、與上次變化；不讓 LLM 或 Flutter 自產 canonical number。
+- 後端與 A-CHANGE 使用同一個 `as_of`／關鍵變化事件與版本指標；04 區間子功能可以與 A-CHANGE 同時開發，**API/schema/文案定版與真實 UI 驗收必合流**。
+- 與 04 PE/PB 研究共用一套合格財報、倍數、因子、資料品質與發布契約，但不得修改現行 Risk ACTIVE/Registry 或先觸發四模型重訓。接入前須核對真實 serving reader、相容、保留期、rollback，若不存在具可證依賴的欄位則不假造新表。
 - 公開分析只處理合規公有行情／財務資料；Owner 私人持股、現金與成本不能混進公開區間計算。發布只面向授權目標 universe。
 
 ## 4. WBS 驗收節點（RV-06）
@@ -37,4 +37,4 @@
 | RV-05｜UI 與 A-CHANGE 整合 | UI 草圖可先行，正式接線需 RV-04 | 同一價帶、出處與狀態、30 秒理解測試、沒有 duplicated authority |
 | RV-06｜dev 有界發布驗收 | RV-01…05 完成 | Git SHA、targeted/CI、已核准 dev deployment、API/Owner 實際讀回、回滾證據；僅文件完成不得稱 PASS |
 
-本頁的 WBS 分派與整體可平行排序在 [WBS 主索引](../wbs.md)；**未完成狀態只維護於 [TODO](../todo.md)**，不要在此維護第二份進度或另立 Event 模型待辦。
+本頁 RV-01…06 **全部歸 04 Valuation 子功能**，非第五模型或獨立 publication 工作線。現有五筆 deterministic event artifact 讀端須經相容遷移與 dev 驗收，不可直接刪。整體排序在 [WBS](../wbs.md)，**唯一未完成狀態在 [TODO](../todo.md)**。
