@@ -17,7 +17,7 @@
 
 ## AI角色分工（非工具可用性閘門）
 
-舊 Sol／Luna 是歷史分工註記，不是模型選擇或前置閘門。**新工程順序以TODO為準：A-CHANGE → D07-PRE → D07 → D08；STAGE獨立收尾**（見 [TODO](todo.md)）；下表 A／B／C、WBS3/4/5/6 的已結案範圍只用於找舊設計、修復所屬模組及稽核，不能成為另列的 backlog。工程依現有能力與 PROJECT_RULES 在 main 執行，不主動建 branch/PR。
+舊 Sol／Luna 是歷史分工註記，不是模型選擇或前置閘門。**新工程順序以TODO為準：P0-1 自然排程獨立、P1 04 Valuation RV-01…06 與 D07-PRE 可平行，後續 D07 → D08；A-CHANGE 已結案**（見 [TODO](todo.md)）；下表 A／B／C、WBS3/4/5/6 的已結案範圍只用於找舊設計、修復所屬模組及稽核，不能成為另列的 backlog。工程依現有能力與 PROJECT_RULES 在 main 執行，不主動建 branch/PR。
 
 ## 多工作線協同 WBS／依賴路由（2026-10-24）
 
@@ -28,7 +28,7 @@
 | **O／WBS-3+7+8：Controller／5 天 queue（P0-2 CLOSED）／backup（P0-1 待驗）** | [資料治理](spec/data-governance.md)、[PROJECT_RULES §1.8.1](PROJECT_RULES.md)、[Controller runbook](runbook-batch-controller-dev.md) | 5 天派送守門、超齡追查排除、GHCR 完整測試與既有 dev Controller-only [#40049724410](https://github.com/tommylin15/janus-omniforge/actions/runs/40049724410) readback PASS；P0-2 已結案。P0-1 自然排程仍獨立待驗 | 新 Controller release／queue mutation 仍需互斥；保留舊 PG/GCS 歷史紀錄 |
 | **G／WBS-3+7：C0-Live→C1-A 資料治理** | [資料治理](spec/data-governance.md)、[資料保存](spec/retention-governance.md)、[研究候選與 Live](research/data-governance-c1a-2026-10-23.md) | PG/Iceberg reader/lineage 盤點可與市場 preflight／模型研究平行；逐張決策 | **C1-B DROP/DELETE 不可由文件直接放行**；需確認 active readers、backup/rebuild、owner/publication、current snapshot、回復與有界 apply 驗收 |
 | **D／WBS-3+5：研究採集、Preflight、X/Y** | [研究採集](spec/research-collection-gas-drive-colab.md)、[特徵時點](spec/model-feature-time-contract.md)、[最新版本索引](research/00-四模型最新版本索引.md)、[Preflight SOP](research/four-model-research-package-preflight-runbook.md) | 個股/市場產業收檔、查缺、PIT membership、欄位/單位 mapping 可按資料集分線；versioned release 彼此不覆蓋 | X/Y 依 frozen CURRENT/manifest/hash；產業 X 需真實歷史名冊與 crosswalk，Core/Stage writer 和清掃需避免競寫；研究資料不可默認 canonical |
-| **P／WBS-5+6：A-CHANGE／Janus 2.0 UI** | [變化判讀](spec/change-analysis.md)、[UI](ui.md)、[2.0 Drive 報告](https://drive.google.com/file/d/15sT38MsE96RAwD-aZnAHvOvEINtythPO/view) | 先驗既有 A1–A4，UI 重要性排序／簡化摘要與 RV-01/02 可以並行；可不等 ML | 後端只產出一份 versions/facts；RV-05 合流後一致 API/Owner 授權／真實 UI，不能以視覺樣稿代替讀回 |
+| **P／WBS-5+6：A-CHANGE／Janus 2.0 UI（USER_ACCEPTED／CLOSED）** | [變化判讀](spec/change-analysis.md)、[UI](ui.md)、[Operations 2026-10-24](spec/operations-and-testing.md) | A1–A4 原有事實／版本／盤前盤後與首頁／個股呈現已補事實優先／下一觀察同源，targeted tests／GHCR／dev API 100%／獨立 live 讀回 PASS；使用者 2026-10-24 明確「核對完成」 | **本工作包結案**；登入後 Owner 以 USER_ACCEPTED 收據為準，不偽稱獨立 OAuth/跨 Owner/截圖機器 PASS；04 RV-05 日後與現有 UI 合流是**獨立 Valuation 工項**，不重開 A-CHANGE |
 | **V／WBS-5+6：04 Valuation 前台情境 RV-01…06（非第五模型）** | [估值參考區間](spec/valuation-range.md)、[資料來源](spec/storage-data-and-ingestion.md)、[時間契約](spec/model-feature-time-contract.md) | RV-01 真實來源盤點、RV-02 純函式及 UI 設計可並行；**不依賴第04 Valuation XGB 可部署** | RV-03 真實可得/PIT → RV-04 相容 Mart/API → RV-05 一條價帶與 A-CHANGE 合流 → RV-06 dev/Owner/回滾驗收；不能冒稱 ML 預測 |
 | **M-Q／WBS-5+8：Quant 獨立研究** | [Quant 角色](colab-models/01-quant-xgboost.md)、[生命週期](spec/model-lifecycle.md) | 研究凍結 r1、前瞻 cohort、成熟回收可和其他模型獨立作業 | baseline/獨立 OOS/校準不足不得發布；不覆蓋別人的 frozen artifacts |
 | **M-R／WBS-5+8：Risk 現役＋研究** | [Risk model card](spec/risk-model-card.md)、[PROJECT_RULES §1.12](PROJECT_RULES.md#112-d07-risk-xgboost8-v1-正式-promotion-嚴格門檻2026-10-23-最新指令) | shadow/OOS 資料收集可與 Quant/Fundamental/Valuation 分線；正式日常 inference 維持原服務 | 嚴格來源/新成熟前瞻/獨立 OOS/PIT/action/parity/CAS/rollback 全 gate 才可切 ACTIVE；**現有 deterministic serving 不由研究者修改** |
@@ -58,7 +58,7 @@ I-事實 Pack 可先行；每角色模型 publication gate → 該角色結果�
 | 任務／WBS | 預設模型 | 必讀切片 | 條件增讀 |
 |---|---|---|---|
 | D07-PRE：Colab 採集／ChatGPT 四模型貼標與產業歷史 PIT | 依當前能力 | [Active TODO D07-PRE](todo.md)、[研究採集契約](spec/research-collection-gas-drive-colab.md)、[兩入口與產業歸屬 preflight](research/four-model-collection-label-split-v382.md) | 只在需要時讀 [時間契約](spec/model-feature-time-contract.md)；程式交付與實際資料 PIT 分別驗收，不能把產業指數當逐股名冊 |
-| A-CHANGE：站內變化判讀 | 依當前能力 | [方案A卡](execution-cards/a-change-analysis.md)、[契約](spec/change-analysis.md) | WBS-5/6增量；A1→A2→A3→A4整包驗收，不重開已結案D03 |
+| A-CHANGE：站內變化判讀 | 依當前能力 | [方案A卡](execution-cards/a-change-analysis.md)、[契約](spec/change-analysis.md) | A1→A4：已在 2026-10-24 使用者端核對完成，USER_ACCEPTED／CLOSED；後續異常需具體證據；不重開已結案D03 |
 | A：User／Admin／效能／資料營運 | 【Sol】 | [執行指令 A](codex-execution-plan.md)、[WBS 6](wbs/wbs-6-api-and-apps.md)、[WBS 7](wbs/wbs-7-security-finops.md) | 私人資料讀 4J／4R；Core query／projection 讀相應 SPEC；User／Admin UI |
 | B：specialist／cache | 【Sol】 | [執行指令 B](codex-execution-plan.md)、[Specialist Engines](wbs/wbs-5-specialist-engines.md)、[WBS 5](wbs/wbs-5-intelligence-mart.md) | 對應 runtime／retention／Admin 顯示 |
 | C：CEO／profile／User 最終整合 | 【Sol】 | [執行指令 C](codex-execution-plan.md)、[WBS 5](wbs/wbs-5-intelligence-mart.md)、[WBS 6](wbs/wbs-6-api-and-apps.md) | API／auth／User／Admin UI；重用 A 未受改動的驗收 |
