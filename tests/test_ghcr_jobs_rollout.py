@@ -739,3 +739,37 @@ def test_retired_research_get_404_and_exact_empty_list_is_safe():
     with patch.object(rollout,'job',side_effect=read), patch.object(rollout,'cloud',return_value={'nextPageToken':'next'}):
         with pytest.raises(ValueError,match='research_job_execution_listing_drift'):
             rollout.existing_jobs()
+
+
+def test_mixed_four_job_rollback_sources_keep_per_job_registry_identity():
+    request = _reversible_request()
+    request.pop("baseline_source_sha")
+    names = [name for name, _ in rollout.JOB_COMPONENT]
+    request["rollback_source_shas"] = {name: ("a" if i % 2 == 0 else "d") * 40
+                                       for i, name in enumerate(names)}
+    assert rollout.release_rollback_mode(request, "b" * 40) == "reversible_ghcr"
+    previous = {}
+    responses = []
+    for name in names:
+        old = sample()
+        ref = request["rollback_images"][name]
+        old["template"]["template"]["containers"][0]["image"] = ref
+        previous[name] = old
+        responses.append(json.dumps({"Digest": ref.rsplit("@", 1)[-1],
+                          "Labels": {"org.opencontainers.image.revision":
+                                     request["rollback_source_shas"][name]}}))
+    with patch.object(rollout, "command", side_effect=responses):
+        rollout.verify_reversible_baseline(request, previous)
+    invalid = deepcopy(request)
+    invalid["rollback_source_shas"].pop(names[0])
+    with pytest.raises(ValueError, match="reversible_ghcr_baseline_invalid"):
+        rollout.release_rollback_mode(invalid, "b" * 40)
+    invalid = deepcopy(request)
+    invalid["rollback_source_shas"][names[0]] = "b" * 40
+    with pytest.raises(ValueError, match="reversible_ghcr_baseline_invalid"):
+        rollout.release_rollback_mode(invalid, "b" * 40)
+    invalid = deepcopy(request)
+    invalid["rollback_source_shas"][names[0]] = "e" * 40
+    with patch.object(rollout, "command", side_effect=responses):
+        with pytest.raises(ValueError, match="rollback_baseline_registry_unverified"):
+            rollout.verify_reversible_baseline(invalid, previous)
