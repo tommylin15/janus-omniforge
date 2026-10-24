@@ -1,0 +1,13 @@
+{
+  "intent": "p02-controller-only-lease-fix",
+  "approved": true,
+  "source_sha": "4fbf330a600f5e4280bbf0de36cff261373daed4",
+  "release_run": 40045758731,
+  "job": "janus-batch-controller",
+  "no_analysis_replay": true,
+  "no_collection_replay": true,
+  "no_data_mutation": true,
+  "no_iam_expansion": true,
+  "no_api_traffic_change": true,
+  "purpose": "Update existing dev Controller only to pinned P0-2 lease-aware 30d exact-target queue build; verify old GHCR rollback and readiness; no queue recovery dispatch or status changes in this rollout."
+}
