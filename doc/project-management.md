@@ -1,6 +1,6 @@
 # Janus｜專案管理與文件治理
 
-更新：2026-10-19。此文件管理**唯一待辦、文件責任、驗收與重大風險決策**，不取代 [PROJECT_RULES](PROJECT_RULES.md)，也不建立第二份 TODO。Dev 是現有真實 parallel-live；本次文件作業沒有直接執行 Cloud Run、Scheduler、migration 或訓練。
+更新：2026-10-24（多線依賴管理補正）。此文件管理**唯一待辦、文件責任、驗收與重大風險決策**，不取代 [PROJECT_RULES](PROJECT_RULES.md)，也不建立第二份 TODO。Dev 是現有真實 parallel-live；本次文件作業沒有直接執行 Cloud Run、Scheduler、migration 或訓練。
 
 ## 1. 各文件只做一件事
 
@@ -20,11 +20,13 @@
 
 入口：`AGENTS.md → PROJECT_RULES → status → TODO → 指定任務卡 → 最少相關 SPEC/code/tests`。最新 runtime/code 優先於舊文件。Drive 只主動在白名單 `janusChatGPT` 內查原始設計，不能用 Drive 研究文件替換目前 GitHub/runtime 真相。
 
-## 2. 唯一施工順序與研究資料責任（2026-10-20）
+## 2. 唯一 Active TODO、多線排序與研究資料責任（2026-10-24）
 
-**A-CHANGE → D07-PRE → D07 → D08**，進度只在 [TODO](todo.md)。D01～D06、DRL-01、FINOPS-AB 不重新開啟。D07-PRE 唯一輸入為 [官方 API→Colab→Drive 月資料夾→Colab](spec/research-collection-gas-drive-colab.md)：普通股且 ETF 排除，TWSE／TPEx 各資料集研究採集門檻 70%；先看現有持股/觀察股公開欄位能否取得，歷史 PIT/24月完整度不再阻擋**第一輪採集**。正式 Core 90%/70% 不變；模型 OOS/未來洩漏防護仍獨立驗證。
-
-**舊研究退役已結案（2026-10-20）**：Cloud Run Controller 月度 retrain、手動入口、Mart 舊 fit 已移除並完成四 Jobs rollout；GCP 舊研究專屬 Job／Scheduler 和 B5～B8 BigQuery 中介實體經 [實機盤點](archive/d07-gcp-bq-retirement-live-2026-10-20.md) 查無殘留，無待刪資源，依有界驗收原則 `CLOSED`。不再作 D07 開發前置、不重啟假設性調查；正式行情、Market Screening、Owner、API、Stage48h、週 Iceberg 和備份保留。
+- **執行佇列唯一**：[TODO §1](todo.md)；**責任與先後/平行路由唯一**：[WBS 工作線矩陣](wbs.md)；**事實證據**：[Operations](spec/operations-and-testing.md)。本頁不保存第二份逐項進度。
+- P0 是 P0-2 57 筆無有效 lease 逐筆安全收斂及 P0-1 自然排程驗證；不以此全面凍結獨立 research。P1 A-CHANGE 既有工程驗收／Janus 2.0 改良、RV-01…06 Valuation Range、研究資料包 preflight/C1-A reader 盤點 **可分線**。P2 Quant/Risk/Fundamental/Valuation 依凍結資料獨立做 OOS，P3 D08 事實報告可先做，不必等五模型一起可部署。
+- **嚴格合流**：Controller/lease/retention apply 串行變更；frozen release/hash、canonical writer 和 migration 需一致；Risk §1.12 未達 gate 維持 DETERMINISTIC；公開 Fact Pack/Owner API 及 RV-05 合流測真實 UI。第五角色由 [新 SPEC](spec/valuation-range.md) 取代 Event 模型，但 event 原始事實/公告提醒保留。
+- D07-PRE 原有 21 月 OHLCV / Drive 收據與新 v3.8.4 research release 是不同版本，不互相冒充 full pass；Colab 人工啟動、可追溯增量，X/Y 與評估於現行 ChatGPT 研究流程；舊 GCP/BQ retrain 已退休，不能重啟。資料與模型 research-only 不可替代正式 PIT/source/promotion。
+- D01～D06、DRL-01、FINOPS-AB 依原有有界收據結案，不把 2.0 重新定義成其遺漏驗收；資料治理 C1-B 未取得許可不得刪表欄或自行觸發 destructive apply。
 
 ## 3. AI 作業與完成分層
 
