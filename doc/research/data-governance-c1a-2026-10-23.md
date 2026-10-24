@@ -412,3 +412,21 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 - 實際月/日 current inventory delta 已核對，不把 current bytes 直接冒充 GCS 版本化／soft-delete／計費實體空間節省。跨 bucket 實體成本下降仍未驗證。
 
 **目前判定**：P0-1 `POLICY_CONVERGED / REAL_DRY_RUN_PASS / INDEPENDENT_CRON_ENABLED / BOUNDED_APPLY_PASS`；**既有 workflow 13:30 Asia/Taipei 的首次自然 scheduled run 尚未發生，故 recurring NATURAL_TRIGGER_NOT_YET_OBSERVED**，不得冒稱已有每日穩定執行證據。治理 C1-B Mart/Stage 清理仍為 0 許可。
+
+---
+
+## 19. P0-2 57 筆無有效租約的佇列狀態收斂（2026-10-24）
+
+**原始凍結範圍**：[逐筆 57 筆唯讀 #39976413050](https://github.com/tommylin15/janus-omniforge/actions/runs/39976413050) PASS，41 `analysis/queued`、16 `collection/running`，57/57 缺有效 lease 且無 Controller 逐筆 exact occurrence；其中 14 筆 collection 有 `execution_items`（最多 125）、2 筆零明細。當時只有上游／部分資料，不構成任何成功或失敗終態收據。
+
+**最新重讀**：[PG→Mart 同 ID pseudoref #40045643780](https://github.com/tommylin15/janus-omniforge/actions/runs/40045643780) completed/success，41 筆 analysis 具有 Core-ready 上游事件，與 30 日內 `publication.mart_report_index.execution_id` 匿名交集 **0**，所以「未見已正式註冊報告」已驗證；但尚未檢驗 Core manifest bytes/snapshot 及下游其他 GCS 殘留，不能逕認全數可重派。該輪滾動 30 日非終態清單剩 55：41 analysis＋14 collection（12 有 items、2 無 items）。兩筆最舊 collection pseudoref `ebd446b690bcab42cbec3945cde8bb46`、`a402e714840ce3ff2452850474890857` 因超出最新 30 日窗口而不再列入；**不是成功或 failed 證據**，仍屬原本 57 筆凍結收斂範圍。
+
+**已實作的派送安全修正**：`jobs/ingestion-core/ingestion_core/admin_batches.py`：
+1. 一般 Controller Scheduler 工作維持最近 7 日且可處理非終態重試；NULL lease 的 `running` 僅在未開始、無 `execution_items` 等可證明無開始證據時符合自動甄選，不對 14 筆已留明細的 collection 自動補跑；其他失去 lease 的 `running` 需完整終態／artifact reconciliation。
+2. 歷史 analysis（最多 30 日）恢復需以 `JANUS_P02_ANALYSIS_RECOVERY=one-shot` 與單筆固定 MD5 匿名 target `JANUS_P02_ANALYSIS_EXECUTION_REF` 明確啟動；`status=queued`、`started_at IS NULL`、組態啟用、Core-ready manifest URI/hash/ID 與 `request_options` 相同、無 active occurrence、無有效 lease 才能準入。
+3. 一次性歷史 recovery 模式明確排除 `collection-queue`，不得同時派送其它收集；無 override 時不自動追補 7 日以外的 41 筆，防止意外大批重播。既有 worker 僅領取精確 execution UUID，PG 狀態機與 immutable Core manifest 校驗不被繞過。
+4. 依據 [Controller-safe Release #40045758731](https://github.com/tommylin15/janus-omniforge/actions/runs/40045758731) 完整 Python/Flutter/四映像、digest 與既有 Controller-only rollout 結果分別判定；未完整部署與 live readback 前不能聲稱生效。
+
+**唯讀 artifact 審計**：[第一次 #40045407460](https://github.com/tommylin15/janus-omniforge/actions/runs/40045407460) 在 GCP Cloud Run Job 失敗，獨立去識別診斷 [#40045943317](https://github.com/tommylin15/janus-omniforge/actions/runs/40045943317) 指向 image 未安裝 `google.cloud`（`ModuleNotFoundError`）；修正審計腳本為既有 `google.auth` AuthorizedSession 走唯讀 GCS JSON API，重跑 [#40046056538](https://github.com/tommylin15/janus-omniforge/actions/runs/40046056538)。本輪沒有任何盲目重派、status UPDATE、PG migration、GCS delete、IAM 擴張或新付費資源。
+
+**收斂原則**：可證明完成且原工作不再活躍時才使用可回復、有 CAS fence 的原子終態更新。Core-only 或 `execution_items` 資產存在不等同 `succeeded`；已開始但無 lease 的 collection 即使沒有物件仍不直接重跑。**P0-2 狀態：派送規則已編寫／測試，live 部署與歷史 Core artifact 恢復准入仍在驗證，57 個原始 UUID 的業務結案尚未全部完成（PARTIAL）**。
