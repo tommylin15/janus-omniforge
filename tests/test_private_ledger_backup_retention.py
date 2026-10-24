@@ -167,3 +167,17 @@ def test_preapply_mutation_blocks_all_deletes(monkeypatch,tmp_path):
 def test_api_allowlists_methods_and_does_not_print_token():
     with pytest.raises(ValueError,match="outside_allowlist"):
         policy.api("private-bearer-token","/o",method="PATCH")
+
+
+def test_one_day_scheduler_registration_probe_is_never_a_cleanup_apply():
+    """Diagnostic schedule must not touch existing dev GCP backup retention."""
+    from pathlib import Path
+    workflow=(Path(__file__).resolve().parents[1] /
+              ".github/workflows/private-ledger-backup-retention.yml").read_text()
+    assert "cron: '30 5 * * *'" in workflow
+    assert "cron: '15,25,35 7 24 10 *'" in workflow
+    assert "scheduler-trigger-probe:" in workflow
+    assert "if: github.event_name == 'schedule' && github.event.schedule == '15,25,35 7 24 10 *'" in workflow
+    assert "if: github.event_name != 'schedule' || github.event.schedule == '30 5 * * *'" in workflow
+    assert '&& "${{ github.event.schedule }}" == "30 5 * * *"' in workflow
+    assert "GCP calls=0; backup writes=0; deletions=0" in workflow
