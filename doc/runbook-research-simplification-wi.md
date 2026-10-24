@@ -1,6 +1,6 @@
 # WI｜研究精簡版本驗證與部署交接
 
-日期：2026-10-24。原清理輪次僅修改文件與程式；**後續離線測試已 PASS，dev 部署與 runtime 驗收尚未執行**。本文件保留可重跑操作指示，不建立另一份 TODO。
+日期：2026-10-24。離線測試、完整 GHCR Release、0% Candidate、匿名 OAuth/Owner/MCP 邊界均已 PASS；**現有 Dev 四 Jobs 正在受控 Rollout，API 100% 仍未切換，Runtime 功能驗收仍未執行**。本文件保留操作指示，不建立另一份 TODO。
 
 ## 已改內容
 
@@ -72,6 +72,16 @@ flutter test test/admin_overview_batch_test.dart
 7. Admin 無已退役品質卡／月度假工作，其他卡片資料索引仍正確。
 
 Workflow YAML 及變更路徑做一次靜態檢查即可，不觸發已退役稽核。失敗只修受影響範圍，不重跑全市場來源稽核。
+
+## 2026-10-24 Release 與 Dev 交接即時狀態
+
+- #40084373321 Selective CI = SUCCESS，該次只改部署 request，實際 tests skipped，不當作完整驗收。
+- #40084373317 Full Release = FAIL：1826 passed，因 CI 不包含外部 v22 frozen plan 使 2 replay 測試 FileNotFoundError；測試改為 fixture 未提供時明確 SKIPPED（資料提供時照原斷言執行），不偽稱已 replay。
+- [#40084702607](https://github.com/tommylin15/janus-omniforge/actions/runs/40084702607) Full Release = SUCCESS：1826 Python passed／2 external-only skipped／2 原排除，Flutter 及四 GHCR 影像發布、匿名 digest readback 全 PASS。其 **GHCR image source SHA 是 `cf69def50209ec590e464fcc7298ca4ece44bc6f`**。
+- [#40085057604](https://github.com/tommylin15/janus-omniforge/actions/runs/40085057604) 0% API Candidate = SUCCESS；[#40085481922](https://github.com/tommylin15/janus-omniforge/actions/runs/40085481922) OAuth／負向 auth 邊界 = SUCCESS。均不等於 canonical traffic 已更新。
+- [#40084947160](https://github.com/tommylin15/janus-omniforge/actions/runs/40084947160) 原讀取基準失敗，因舊工具硬性要求四 Jobs 同 SHA；實際 `janus-batch-controller` 為 `6891656a…`、另三個 `0ad738b1…`。已將 readback 與 Rollout／API acceptance 改為逐 Job immutable digest＋source SHA＋configuration fingerprint 驗證，不放寬真實回復 gate；[#40085455394](https://github.com/tommylin15/janus-omniforge/actions/runs/40085455394) 109 contract tests PASS。
+- [#40085438273](https://github.com/tommylin15/janus-omniforge/actions/runs/40085438273) 四 Jobs 真實回復基準讀回 SUCCESS（零 GCP writes，`source_mode=mixed`），詳見該 Run receipt。
+- [#40085601337](https://github.com/tommylin15/janus-omniforge/actions/runs/40085601337) 四 Jobs 正式 Rollout **已派送、終態尚未取得**。須先確認它是 SUCCESS、8/8 canaries、Scheduler ENABLED 及 receipt 的 rollback_available 才可進入 API 100% promote；失敗依真實 receipt 復原，不能跳過。之後做一次 Controller 舊品質批次不存在與正常批次存在的 live 功能驗收，搭配 API build-id／health／未登入拒絕及備份狀態讀回。不得把候選與測試 PASS 包裝成 Runtime 已完成。
 
 ## 3. 發布既有 dev
 
