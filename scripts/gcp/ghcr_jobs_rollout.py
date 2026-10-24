@@ -412,12 +412,22 @@ def release_rollback_mode(request, source_sha):
     if mode != "reversible_ghcr" or request.get("accept_no_old_image_rollback") is not False:
         raise ValueError("reversible_ghcr_baseline_required")
     baseline_sha = request.get("baseline_source_sha")
+    source_map = request.get("rollback_source_shas")
     expected = request.get("rollback_images")
-    if (not isinstance(baseline_sha, str)
-            or not re.fullmatch(r"[0-9a-f]{40}", baseline_sha)
-            or baseline_sha == source_sha
-            or not isinstance(expected, dict)
-            or set(expected) != {name for name, _ in JOB_COMPONENT}):
+    names = {name for name, _ in JOB_COMPONENT}
+    if not isinstance(expected, dict) or set(expected) != names:
+        raise ValueError("reversible_ghcr_baseline_invalid")
+    if source_map is None:
+        if (not isinstance(baseline_sha, str)
+                or not re.fullmatch(r"[0-9a-f]{40}", baseline_sha)
+                or baseline_sha == source_sha):
+            raise ValueError("reversible_ghcr_baseline_invalid")
+    elif (baseline_sha is not None
+          or not isinstance(source_map, dict)
+          or set(source_map) != names
+          or any(not isinstance(value, str)
+                 or not re.fullmatch(r"[0-9a-f]{40}", value)
+                 or value == source_sha for value in source_map.values())):
         raise ValueError("reversible_ghcr_baseline_invalid")
     hashes = request.get("rollback_config_hashes")
     if not isinstance(hashes, dict) or set(hashes) != set(expected):
@@ -435,8 +445,9 @@ def release_rollback_mode(request, source_sha):
 
 def verify_reversible_baseline(request, before):
     """Validate a truly retrievable, previously-serving pinned GHCR baseline."""
-    source_sha = request["baseline_source_sha"]
+    source_map = request.get("rollback_source_shas")
     for name, _ in JOB_COMPONENT:
+        source_sha = source_map[name] if source_map is not None else request["baseline_source_sha"]
         expected = request["rollback_images"][name]
         if image(before[name]) != expected:
             raise ValueError("rollback_baseline_runtime_drift")
@@ -510,7 +521,10 @@ def run(release_run, receipt):
         if rollback_mode == "reversible_ghcr":
             verify_reversible_baseline(request, full_snapshots)
             journal["rollback_baseline_verified"] = True
-            journal["rollback_baseline_sha"] = request["baseline_source_sha"]
+            if request.get("rollback_source_shas") is not None:
+                journal["rollback_baseline_shas"] = request["rollback_source_shas"]
+            else:
+                journal["rollback_baseline_sha"] = request["baseline_source_sha"]
             save()
         # Full configs stay on the runner with restrictive permissions; only
         # immutable images and hashes enter the uploaded recovery receipt.
