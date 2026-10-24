@@ -37,3 +37,11 @@ def test_mart_reader_aggregates_hide_owner_identifiers():
     assert "scope_id" not in m.MART_PROBE
     assert "requested_symbols" not in m.MART_PROBE
     assert "artifact_uri" not in m.MART_PROBE
+
+
+def test_p02_mart_pseudoref_cannot_expose_owner_or_raw_execution_uuid():
+    assert '"publication_p02_execution_refs_30d"' in m.MART_PROBE
+    assert "md5(execution_id::text)" in m.MART_PROBE
+    assert "GROUP BY 1 ORDER BY 1 LIMIT 301" in m.MART_PROBE
+    assert '300 if sec=="publication_p02_execution_refs_30d" else 50' in m.MART_PROBE
+    assert "SELECT execution_id" not in m.MART_PROBE
