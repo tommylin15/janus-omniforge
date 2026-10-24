@@ -9,5 +9,7 @@
   "no_data_mutation": true,
   "no_iam_expansion": true,
   "no_api_traffic_change": true,
-  "purpose": "Update existing dev Controller only to pinned P0-2 lease-aware 30d exact-target queue build; verify old GHCR rollback and readiness; no queue recovery dispatch or status changes in this rollout."
+  "purpose": "P0-2 exact-source Controller-only retry: approved code 4fbf... included in fully verified release request SHA 7d719... used by GHCR tag; previous preflight failed before image/PG/Scheduler mutations due incorrect tag identity.",
+  "retry_attempt": 2,
+  "release_image_sha": "7d71992a567e80252ba68049f1d6c23246f2af70"
 }
