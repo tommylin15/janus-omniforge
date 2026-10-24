@@ -1,5 +1,15 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-24｜A-CHANGE API-only 真實 dev 100% 與獨立讀回（DEPLOYED／LIVE_PASS，OWNER_UI_PARTIAL）
+
+- 原有 A1–A4 程式存在；本輪 A-CHANGE 修正 `services/api/analysis.py` confirmed／newest change 排序及 Flutter `final_changes.dart` 主訊息／next check／invalidation 同源，原有專案 Python [#40054555576](https://github.com/tommylin15/janus-omniforge/actions/runs/40054555576) 與 Flutter [#40054555582](https://github.com/tommylin15/janus-omniforge/actions/runs/40054555582) PASS。
+- 新增 API-only 明確 `traffic_validation_mode=direct`（預設保持舊 rehearsal，相容舊 release）：只在批准 request 指定時一次切換候選到 100%，若實際健康／route fail 才切回經 GHCR hash／build SHA 及 Ready 驗證的上版。完整 release 先凍結 commit `2d0e874ce3efdee03e344370d7b6bde09dc54d87`；[full GHCR #40058872816](https://github.com/tommylin15/janus-omniforge/actions/runs/40058872816) Python／Flutter／四個 image build + public digest 全 PASS；[0% candidate #40059252248](https://github.com/tommylin15/janus-omniforge/actions/runs/40059252248) Ready／固定 digest、保留舊 100%／匿名 auth PASS；[OAuth／Owner／Admin／MCP #40059387673](https://github.com/tommylin15/janus-omniforge/actions/runs/40059387673) PASS。
+- [API-only direct promotion #40059471185](https://github.com/tommylin15/janus-omniforge/actions/runs/40059471185) `completed/success`，既有 dev `janus-api` 來源 `2d0e874ce3efdee03e344370d7b6bde09dc54d87`；預先鎖定前一版 source `0ad738b1f7c3432bf6fac59ecb7d5063dce63447` 並核對候選後執行切流，不重跑舊新舊流量演練；修改 API 以外其他 Jobs、Scheduler、GCS、IAM 的行為均禁止，舊版 GHCR 固定 rollback 仍保留。
+- **獨立再驗**：[A-CHANGE readback #40059873102](https://github.com/tommylin15/janus-omniforge/actions/runs/40059873102) `completed/success`；有界 Cloud Run 服務／revision GET 確認唯一 100% live traffic、GitHub image immutable digest、`/app/build-id.txt` 完整來源 SHA、App、公開 health HTTP 200，`/api/v1/me/profile`、`/api/v1/me/today-changes`、`/api/v1/me/analysis/2330/changes` 及 `/api/v1/admin/batch-dashboard` 無登入 401／403；公開 `/api/v1/public/history/2330?limit=1&offset=0` HTTP 200 且有資料列。讀回 `gcp_mutations=0`；sanitized [artifact #12547325266](https://github.com/tommylin15/janus-omniforge/actions/runs/40059873102/artifacts/12547325266)。
+- 首次 READBACK [#40059691587](https://github.com/tommylin15/janus-omniforge/actions/runs/40059691587) 的 build-id bytes 精確比較未 strip 檔尾換行而 FAIL，第二次 [#40059741459](https://github.com/tommylin15/janus-omniforge/actions/runs/40059741459) 誤對 POST-only 管理端點 `gcs-storage/inspect` 做 GET 得 405；兩者均為新驗收程式本身的 method/格式缺陷，修正改正確 GET admin route 後 #40059873102 完成，**不視為正式 API 部署失敗，也未重新部署**。
+- **尚未驗證且不得冒稱**：實際 Owner OAuth 會話的 200 正向／本人持股與關注股所選變化列、對同符號跨 Owner 隔離、盤前／盤後／週末變化與來源晚到的真實 persisted observation，及 390px／桌面登入後 screenshot、30 秒讀懂三要點。Janus Dev Read-only v2 `janus_sources` 本輪連線回報工具內部失敗；瀏覽器 tab 也未授權給本聊天，不能把匿名 401 替代為 Owner 登入。**A-CHANGE 整包=PARTIAL**，僅 API 發布／匿名邊界／公開讀回是 `PASS`；下輪只針對真實 Owner 功能與 UI 缺口，不必重做 full Release／已通過單次切流。
+
+
 ### 2026-10-24｜A-CHANGE 今日變化優先順序／同源下一觀察（TARGETED PASS，DEV 尚未驗收）
 
 - 原始實作已存在：`packages/change_analysis.py`、`services/api/analysis.py`、`jobs/intelligence-mart/intelligence_mart/product_runtime.py`、Flutter `final_changes.dart`／`final_today_v2.dart`。本輪不重建新來源、事實批次、API 或第二套 UI。
