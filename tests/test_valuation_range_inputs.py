@@ -39,7 +39,7 @@ def financial_rows(*, share_basis="same_reported_basis"):
     for quarter in range(1, 5):
         end = date(2025, quarter * 3, calendar.monthrange(2025, quarter * 3)[1])
         rows.append({
-            "source_id": "mops", "provenance_id": "existing-financial-provenance",
+            "symbol": "2330", "source_id": "mops", "provenance_id": "existing-financial-provenance",
             "metric": "eps_single_quarter", "fiscal_year": 2025,
             "fiscal_quarter": quarter, "fiscal_period_end": end.isoformat(),
             "unit": "TWD_per_share", "period_basis": "single_quarter",
@@ -124,6 +124,25 @@ def test_not_applicable_etf_and_source_rights():
     assert from_existing_rows(**base, security_type="etf")["status"] == "not_applicable"
     assert from_existing_rows(**{**base, "rights_status": "unknown"},
                               security_type="ordinary_stock")["status"] == "blocked_rights"
+
+
+def test_cross_symbol_rows_do_not_poison_requested_price():
+    different = [{**row, "symbol": "2882"} for row in valuation_rows()]
+    result = from_existing_rows(
+        symbol="2330", market="twse", security_type="ordinary_stock",
+        is_financial=False, as_of=AS_OF, valuation_rows=different,
+        financial_rows=financial_rows(), rights_status="approved",
+    )
+    assert result["valid_month_count"] == 0
+    assert result["status"] == "limited"
+    wrong_financial = [{**row, "symbol": "2882"} for row in financial_rows()]
+    result = from_existing_rows(
+        symbol="2330", market="twse", security_type="ordinary_stock",
+        is_financial=False, as_of=AS_OF, valuation_rows=valuation_rows(),
+        financial_rows=wrong_financial, rights_status="approved",
+    )
+    assert result["status"] == "missing"
+    assert result["basis"] is None
 
 
 def test_financial_ytd_and_unknown_source_never_promoted():
