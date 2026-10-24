@@ -444,3 +444,87 @@ def test_admin_duration_uses_actual_execution_not_scheduled_slot():
     value=poll_job(session,{'job':'janus-ingestion-core','status':'running','execution':path})
     assert value['status']=='succeeded' and value['duration_seconds']==123
     assert value['start_time']=='2026-10-18T01:00:00Z'
+
+
+def test_five_day_queue_policy_limits_selection_and_disables_old_override(monkeypatch):
+    from unittest.mock import MagicMock
+    from ingestion_core.admin_batches import enqueue_queued_worker, enqueue_manual_queues
+    batch = SimpleNamespace(name="analysis-queue", job="janus-ingestion-core", manual_only=True)
+    connection = MagicMock()
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchone.side_effect = [("fresh-execution", 0), None, ("inserted",)]
+    now = datetime(2026, 10, 24, 1, tzinfo=timezone.utc)
+    result = enqueue_queued_worker(connection, batch, now, lambda *_: ())
+    assert result == "queued"
+    sql = cursor.execute.call_args_list[0].args[0]
+    assert "requested_at >= now() - interval '5 days'" in sql
+    assert "interval '7 days'" not in sql
+    assert "interval '30 days'" not in sql
+    assert "OR %s" not in sql
+    assert cursor.execute.call_args_list[0].args[1] == ("analysis",)
+    with pytest.raises(ValueError, match="historical recovery disabled"):
+        enqueue_queued_worker(connection, batch, now, lambda *_: (),
+                              historical_recovery=True,
+                              target_execution_ref="a" * 32)
+    monkeypatch.setenv("JANUS_P02_ANALYSIS_RECOVERY", "one-shot")
+    monkeypatch.setenv("JANUS_P02_ANALYSIS_EXECUTION_REF", "a" * 32)
+    with pytest.raises(ValueError, match="historical recovery disabled"):
+        enqueue_manual_queues(connection, [batch], set(), now, lambda *_: ())
+
+
+def test_persisted_queue_dispatch_requires_current_matching_execution():
+    from unittest.mock import MagicMock
+    from ingestion_core.admin_batches import queued_execution_is_fresh
+    connection = MagicMock()
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchone.side_effect = [(1,), None]
+    assert queued_execution_is_fresh(connection, "uuid", "analysis")
+    assert not queued_execution_is_fresh(connection, "uuid", "collection")
+    assert not queued_execution_is_fresh(connection, None, "analysis")
+    assert not queued_execution_is_fresh(connection, "uuid", "other")
+    assert cursor.execute.call_count == 2
+    for call in cursor.execute.call_args_list:
+        sql, params = call.args
+        assert "requested_at >= now() - interval '5 days'" in sql
+        assert "finished_at IS NULL" in sql
+        assert "SELECT 1" in sql
+        assert params[0] == "uuid"
+    assert cursor.execute.call_args_list[0].args[1][1] == "analysis"
+    assert cursor.execute.call_args_list[1].args[1][1] == "collection"
+
+
+def test_active_controller_skips_old_pending_queue_without_job_dispatch(monkeypatch):
+    from unittest.mock import MagicMock, Mock
+    from ingestion_core import batch_controller as controller
+    from ingestion_core import admin_batches
+    monkeypatch.delenv("JANUS_P02_ANALYSIS_RECOVERY", raising=False)
+    monkeypatch.delenv("JANUS_P02_ANALYSIS_EXECUTION_REF", raising=False)
+    monkeypatch.setenv("GCP_PROJECT_ID", PROJECT)
+    monkeypatch.setenv("BATCH_CONTROLLER_MODE", "active")
+    monkeypatch.setenv("BATCH_CONTROLLER_NOT_BEFORE", "2026-10-01T00:00:00Z")
+    monkeypatch.setattr(controller, "due_batches", lambda *_: [])
+    monkeypatch.setattr(controller, "scheduled_batches", lambda *_: [])
+    monkeypatch.setattr(controller, "probe_mobile_ledger_queue",
+                        lambda **_: {"pending": False})
+    monkeypatch.setattr(admin_batches, "queued_execution_is_fresh", lambda *_: False)
+    state = {"batch": "analysis-queue", "job": "janus-intelligence-mart",
+             "status": "pending", "origin": "queue",
+             "queued_execution_id": "stale-id", "dependencies": [],
+             "scheduled_at": "2026-10-15T00:00:00+00:00", "env": []}
+    connection = MagicMock()
+    connection.execute.return_value.fetchone.return_value = (True,)
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchall.side_effect = [[], [("queue/analysis/stale-id/0", state)]]
+    cursor.fetchone.return_value = None
+    record = Mock()
+    monkeypatch.setattr(controller, "record", record)
+    session = Mock()
+    result = controller.run(now=datetime(2026, 10, 24, 1, tzinfo=timezone.utc),
+                            control=SimpleNamespace(connection=connection,
+                                get_admin_setting=lambda *_: None), session=session)
+    assert result["status"] == "tick_completed"
+    excluded = [c for c in record.call_args_list if c.args[4] == "queue_request_excluded"]
+    assert len(excluded) == 1
+    assert excluded[0].args[3]["status"] == "skipped"
+    assert excluded[0].args[3]["reason"] == "queue_execution_outside_five_day_window"
+    session.post.assert_not_called()
