@@ -21,7 +21,9 @@ def test_readonly_probe_is_scoped_and_bounded():
     assert "sha256:"+"" in p.PROBE
     assert "core_snapshot_hash" in p.PROBE
     assert "core_snapshot_id" in p.PROBE
-    assert "download_as_bytes(if_generation_match=" in p.PROBE
+    assert "AuthorizedSession(credentials)" in p.PROBE
+    assert '"ifGenerationMatch":generation' in p.PROBE
+    assert "google.cloud" not in p.PROBE
     assert "r'/executions/" not in p.PROBE
     assert '"QUEUE_CONSUMER","value":"false"' in s
     assert "before!=gcp.fingerprint(gcp.job(JOB))" in s
