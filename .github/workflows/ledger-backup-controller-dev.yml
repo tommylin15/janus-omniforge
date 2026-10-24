@@ -14,7 +14,7 @@ on:
         description: Install while retaining original timer, or verify restore before handoff
         required: true
         type: choice
-        options: [install, handoff]
+        options: [install, handoff, audit]
 permissions:
   contents: read
   actions: read
@@ -46,7 +46,7 @@ jobs:
             jq -e '.intent == "dev-ledger-backup-handoff" and .approved == true and
               .environment == "dev" and (.release_run | type == "number") and
               (.release_sha | test("^[0-9a-f]{40}$")) and
-              (.phase == "install" or .phase == "handoff")' \
+              (.phase == "install" or .phase == "handoff" or .phase == "audit")' \
               ops/ledger-backup-controller-request.json >/dev/null
             release_run="$(jq -r .release_run ops/ledger-backup-controller-request.json)"
             release_sha="$(jq -r .release_sha ops/ledger-backup-controller-request.json)"
@@ -57,11 +57,12 @@ jobs:
             phase="$MANUAL_PHASE"
           fi
           [[ "$release_run" =~ ^[0-9]+$ ]]
-          [[ "$phase" == "install" || "$phase" == "handoff" ]]
+          [[ "$phase" == "install" || "$phase" == "handoff" || "$phase" == "audit" ]]
           echo "release_run=$release_run" >>"$GITHUB_OUTPUT"
           echo "release_sha=$release_sha" >>"$GITHUB_OUTPUT"
           echo "phase=$phase" >>"$GITHUB_OUTPUT"
       - name: Verify exact tested executor source
+        if: steps.request.outputs.phase != 'audit'
         env:
           RELEASE_RUN: ${{ steps.request.outputs.release_run }}
           EXPECTED_RELEASE_SHA: ${{ steps.request.outputs.release_sha }}
@@ -93,6 +94,26 @@ jobs:
           set -Eeuo pipefail
           mkdir -p "$HOME/.ssh"
           ssh-keygen -q -t rsa -b 3072 -N '' -f "$HOME/.ssh/google_compute_engine"
+      - name: Audit existing VM backup timer and five-day backup requests read only
+        if: steps.request.outputs.phase == 'audit'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud compute ssh janus-postgres-dev --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet --command='
+            set -eu
+            for unit in janus-ledger-backup-executor.timer janus-ledger-backup.timer; do
+              printf "\nTIMER=%s\n" "$unit"
+              sudo systemctl show "$unit" --no-pager -p ActiveState -p UnitFileState -p NextElapseUSecRealtime -p LastTriggerUSec || true
+            done
+            for unit in janus-ledger-backup-executor.service janus-ledger-backup.service; do
+              printf "\nSERVICE=%s\n" "$unit"
+              sudo systemctl show "$unit" --no-pager -p Result -p ExecMainStatus -p ExecMainExitTimestamp || true
+            done
+            echo "BACKUP_REQUEST_STATUS_PAST_5_DAYS"
+            sudo docker exec --user postgres janus-postgres psql -X -qAt -d janus_control -c "SELECT backup_date::text,status,coalesce(size_bytes,0),coalesce(to_char(completed_at at time zone '\''UTC'\'','\''YYYY-MM-DD HH24:MI:SS'\''),'\''NULL'\''),coalesce(error_code,'\''NONE'\'') FROM control.ledger_backup_requests WHERE backup_date >= (now() at time zone '\''Asia/Taipei'\'')::date - 5 ORDER BY backup_date DESC LIMIT 8"
+            echo "CONTROLLER_BACKUP_OCCURRENCES_PAST_5_DAYS"
+            sudo docker exec --user postgres janus-postgres psql -X -qAt -d janus_control -c "SELECT scheduled_at::text,state->>'\''batch'\'',state->>'\''status'\'' FROM control.batch_occurrences WHERE state->>'\''batch'\''='\''ledger-backup'\'' AND scheduled_at >= now()-interval '\''5 days'\'' ORDER BY scheduled_at DESC LIMIT 8"
+          '
       - name: Install local request executor without stopping original backup
         if: steps.request.outputs.phase == 'install'
         run: |
