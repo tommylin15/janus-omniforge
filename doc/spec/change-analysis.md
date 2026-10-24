@@ -1,5 +1,5 @@
 # 方案 A｜個股變化判讀、盤前與盤後
-更新：2026-10-21。使用者已選方案 A；本次為文件定版，工程尚未執行。唯一狀態見 [TODO](../todo.md)，執行見 [AI 任務卡](../execution-cards/a-change-analysis.md)。
+更新：2026-10-24。**A1–A4 原定有界工作包已 USER_ACCEPTED／CLOSED。** Python／Flutter、GHCR、dev API 100% 與獨立 live readback 已 PASS；2026-10-24 使用者回覆「核對完成」屬 Owner UI 使用者驗收，並非額外的 OAuth／跨 Owner trace／截圖機器收據。詳 [Operations](operations-and-testing.md)。下列 §2 保留 2026-10-21 開工前問題基準，不能再當尚未實作或 Active TODO；後續 04 RV 功能另見 [Valuation 規格](valuation-range.md)。
 
 ## 1. 目標與範圍
 讓小白 30 秒內回答「現在狀態、最新變化、下一個觀察點」。先用現有正式資料與規則產出事實解讀，再接 D07 合格預測。保留原四頁、持股金額與圖表，不重開 D01～D06/DRL/FINOPS。
