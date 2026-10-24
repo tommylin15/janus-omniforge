@@ -5,5 +5,7 @@
   "job": "janus-ingestion-core",
   "window_utc": "2026-10-24T00:30:00Z/2026-10-24T00:38:30Z",
   "no_payload_output": true,
-  "no_data_mutations": true
+  "no_data_mutations": true,
+  "attempt": 2,
+  "purpose": "Read only missing Python module names from preexisting failed Core probe logs; no other payload"
 }
