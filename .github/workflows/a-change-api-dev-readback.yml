@@ -1,0 +1,97 @@
+name: Janus A-CHANGE post-promotion API read-only acceptance
+on:
+  push:
+    branches: [main]
+    paths: ['ops/a-change-api-live-request.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Read exact live source, API and anonymous owner fences
+        run: |
+          python - <<'PY'
+          import json,re,subprocess,urllib.request,urllib.error
+          from pathlib import Path
+          q=json.loads(Path("ops/a-change-api-live-request.json").read_text())
+          assert q["intent"]=="a-change-api-only-postpromote-readonly"
+          assert q["scope"]=="existing-dev" and q["read_only"] is True
+          assert q["no_gcp_mutation"] is True and q["no_owner_mutation"] is True
+          assert q["no_traffic_mutation"] is True
+          assert re.fullmatch(r"[0-9a-f]{40}",q["source_sha"])
+          def cmd(args):
+              return json.loads(subprocess.run(args,check=True,timeout=70,
+                  capture_output=True,text=True).stdout)
+          gcp=["--project=gen-lang-client-0593591102",
+               "--region=us-central1","--format=json"]
+          svc=cmd(["gcloud","run","services","describe","janus-api",*gcp])
+          assert any(c.get("type")=="Ready" and c.get("status")=="True"
+                     for c in svc.get("status",{}).get("conditions",[]))
+          active=[x for x in svc.get("status",{}).get("traffic",[])
+                  if (x.get("percent") or 0)>0]
+          assert len(active)==1 and active[0]["percent"]==100
+          rev=cmd(["gcloud","run","revisions","describe",
+                   active[0]["revisionName"],*gcp])
+          image=rev["spec"]["containers"][0]["image"].removeprefix("cache.us-docker.pkg.dev/")
+          assert re.fullmatch(r"ghcr[.]io/tommylin15/janus-api@sha256:[0-9a-f]{64}",image)
+          base="https://janus-api-2oo7qbkd5q-uc.a.run.app"
+          def get(path):
+              try:
+                  with urllib.request.urlopen(
+                      urllib.request.Request(base+path,method="GET"),timeout=25) as r:
+                      return r.status,r.read(1000)
+              except urllib.error.HTTPError as e:
+                  return e.code,b""
+          assert get("/app/build-id.txt")==(200,q["source_sha"].encode())
+          for path in ("/app/","/health","/api/v1/public/health"):
+              assert get(path)[0]==200,path
+          protected=("/api/v1/me/profile",
+                     "/api/v1/me/today-changes?session=postmarket",
+                     "/api/v1/me/analysis/2330/changes",
+                     "/api/v1/admin/gcs-storage/inspect")
+          codes={}
+          for path in protected:
+              code,_=get(path)
+              assert code in (401,403),(path,code)
+              codes[path.split("?")[0]]=code
+          public_code,public_data=get("/api/v1/public/history/2330?limit=1&offset=0")
+          public_rows=None
+          if public_code==200:
+              try:
+                  value=json.loads(public_data)
+                  public_rows=bool(value.get("rows")) if isinstance(value,dict) else None
+              except (ValueError,TypeError):pass
+          result={"status":"API_LIVE_READBACK_PASS","source_sha":q["source_sha"],
+                  "promotion_run":q["promotion_run"],
+                  "active_revision":active[0]["revisionName"],
+                  "active_percent":100,"immutable_image_digest":image.rsplit("@",1)[-1],
+                  "health_and_app":True,"anonymous_owner_admin":codes,
+                  "public_stock_http":public_code,"public_rows_present":public_rows,
+                  "owner_authenticated_positive":"NOT_VERIFIED_NO_USER_SESSION",
+                  "owner_change_business_rows":"UNKNOWN",
+                  "live_390px_user_screenshot":"NOT_VERIFIED",
+                  "data_mutations":0,"gcp_mutations":0}
+          Path("a-change-api-live-readback.json").write_text(
+              json.dumps(result,ensure_ascii=False,sort_keys=True,indent=2))
+          print(json.dumps({"status":result["status"],
+              "active_percent":100,"source_sha":result["source_sha"],
+              "public_stock_http":public_code,"public_rows_present":public_rows,
+              "owner_authenticated_positive":"NOT_VERIFIED","gcp_mutations":0}))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: janus-a-change-api-dev-readback
+          path: a-change-api-live-readback.json
+          if-no-files-found: ignore
+          retention-days: 14
