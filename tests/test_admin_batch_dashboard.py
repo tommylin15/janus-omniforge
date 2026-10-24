@@ -297,14 +297,18 @@ def test_p02_dispatch_null_lease_and_historical_recovery_are_explicit():
     assert "r.analysis_execution_id=e.execution_id" in sql
     assert "AND e.finished_at IS NULL" in sql
     assert "control.batch_occurrences" in sql
-    assert params == ("analysis", False)
+    assert params == ("analysis", False, None, None)
 
     connection.reset_mock()
     cursor = connection.cursor.return_value.__enter__.return_value
     cursor.fetchone.return_value = None
+    ref = "e" * 32
     assert enqueue_queued_worker(connection, analysis, NOW, occurrence_env,
-                                 historical_recovery=True) == "queue_empty"
-    assert cursor.execute.call_args_list[0].args[1] == ("analysis",True)
+                                 historical_recovery=True,
+                                 target_execution_ref=ref) == "queue_empty"
+    assert cursor.execute.call_args_list[0].args[1] == ("analysis",True,ref,ref)
+    with pytest.raises(ValueError,match="one pseudonymous"):
+        enqueue_queued_worker(connection,analysis,NOW,occurrence_env,historical_recovery=True)
     collection = Batch("collection-queue","janus-ingestion-core",(0,),manual_only=True)
     with pytest.raises(ValueError,match="artifact-level review"):
         enqueue_queued_worker(connection,collection,NOW,occurrence_env,historical_recovery=True)
