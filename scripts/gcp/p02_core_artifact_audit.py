@@ -15,7 +15,9 @@ OUT=Path("p02-core-artifact-audit-receipt.json")
 
 PROBE=r'''
 import hashlib,json,os,re
-from google.cloud import storage
+import google.auth
+from google.auth.transport.requests import AuthorizedSession
+from urllib.parse import quote
 import psycopg
 from packages.postgres_bundle import load_postgres_bundle
 
@@ -55,13 +57,17 @@ with psycopg.connect(**fields) as c:
           FROM control.executions e
           LEFT JOIN control.core_ready_events r
             ON r.analysis_execution_id=e.execution_id
-         WHERE e.status IN ('queued','running','retrying')
-           AND e.requested_at >= now()-interval '30 days'
+         WHERE (e.status IN ('queued','running','retrying')
+               AND e.requested_at >= now()-interval '30 days')
+            OR md5(e.execution_id::text) IN (
+              'ebd446b690bcab42cbec3945cde8bb46',
+              'a402e714840ce3ff2452850474890857')
          ORDER BY e.requested_at,e.execution_id LIMIT 301
     """,(bucket,)).fetchall()
     c.execute("ROLLBACK")
 if len(rows)>300:raise RuntimeError("P02_ROW_LIMIT_EXCEEDED")
-client=storage.Client()
+credentials,_=google.auth.default(scopes=("https://www.googleapis.com/auth/cloud-platform",))
+client=AuthorizedSession(credentials)
 pat=re.compile("^gs://"+re.escape(bucket)+r"/executions/[0-9a-f-]{36}/core-snapshot\.json$")
 output=[]
 for ref,trigger,status,started,lease,retry,uri,expected_hash,expected_id,source_hash,source_id,source_uri,item_count,busy in rows:
@@ -78,13 +84,29 @@ for ref,trigger,status,started,lease,retry,uri,expected_hash,expected_id,source_
         record["result"]="CORE_READY_OPTIONS_BINDING_MISMATCH"
     else:
         name=uri.split("/",3)[3]
-        blob=client.bucket(bucket).get_blob(name)
-        if blob is None:
+        url=("https://storage.googleapis.com/storage/v1/b/"+quote(bucket,safe="")+
+             "/o/"+quote(name,safe=""))
+        meta=client.get(url,timeout=20)
+        if meta.status_code==404:
             record["result"]="MISSING_CORE_MANIFEST"
-        elif not isinstance(blob.size,int) or not 80<=blob.size<=200000:
+        elif meta.status_code!=200:
+            record["result"]="CORE_GCS_METADATA_HTTP_"+str(meta.status_code)
+        elif not str(meta.json().get("size","")).isdigit() or not (
+              80<=int(meta.json()["size"])<=200000):
             record["result"]="CORE_MANIFEST_SIZE_OUTSIDE_BOUND"
         else:
-            raw=blob.download_as_bytes(if_generation_match=int(blob.generation))
+            generation=str(meta.json().get("generation",""))
+            if not generation.isdigit():
+                record["result"]="CORE_MANIFEST_GENERATION_MISSING"
+                output.append(record)
+                continue
+            media=client.get(url,params={"alt":"media",
+                  "ifGenerationMatch":generation},timeout=25)
+            if media.status_code!=200:
+                record["result"]="CORE_GCS_MEDIA_HTTP_"+str(media.status_code)
+                output.append(record)
+                continue
+            raw=media.content
             try:
                 payload=json.loads(raw)
             except (ValueError,TypeError):
