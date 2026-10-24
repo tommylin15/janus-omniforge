@@ -143,8 +143,12 @@ def from_existing_rows(
 ) -> dict[str, Any]:
     """Adapter for validated existing Core valuation and PG serving rows."""
     metric = "pb_ratio" if is_financial else "pe_ratio"
-    observed = monthly_last_trading_observations(valuation_rows, as_of=as_of, metric=metric)
-    financial = comparable_financial_facts(financial_rows, as_of=as_of)
+    # Explicit symbol isolation even for the pure adapter, independent of
+    # the Core/PG SQL predicates used by the live reader.
+    own_valuation = [r for r in valuation_rows if str(r.get("symbol")) == symbol]
+    own_financial = [r for r in financial_rows if str(r.get("symbol")) == symbol]
+    observed = monthly_last_trading_observations(own_valuation, as_of=as_of, metric=metric)
+    financial = comparable_financial_facts(own_financial, as_of=as_of)
     result = calculate_reference_range(
         symbol=symbol, market=market, security_type=security_type,
         is_financial=is_financial, as_of=as_of.isoformat(),
