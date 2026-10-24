@@ -4,6 +4,6 @@
   "environment": "dev",
   "release_run": 38856837257,
   "release_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
-  "phase": "resume",
-  "reason": "P0-1 user-directed existing dev daily backup scheduling repair: three independent read-only audits #40073556330/#40073730552/#40074362800 confirm enabled VM executor and enabled hourly Scheduler, Controller active but ledger-backup paused=true version1; exact CAS only setting_key=batch_control:ledger-backup, updated paused=false/action=resume, no manual backup execution, no GCS delete, no IAM; next natural hourly Controller should enqueue today's current slot."
+  "phase": "audit",
+  "reason": "OPS-P0-1 bounded post-resume live read-only audit: check actual 2026-10-24 daily backup request success and immutable GCS receipt, VM executor timer, Controller occurrence, and recent Scheduler results. No backup/PG/GCS/Scheduler/IAM mutation. Follow current simplified acceptance; no natural GitHub schedule probe."
 }
