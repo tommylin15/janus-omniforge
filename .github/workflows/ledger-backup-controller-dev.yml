@@ -157,7 +157,12 @@ jobs:
           '
           echo "TODAY_EXACT_OCCURRENCES"
           gcloud compute ssh janus-postgres-dev --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet --command='sudo docker exec --user postgres janus-postgres psql -X -qAt -d janus_control -c "SELECT scheduled_at::text,state->>'\''batch'\'',state->>'\''status'\'',coalesce(state->>'\''reason'\'','\''NONE'\'') FROM control.batch_occurrences WHERE scheduled_at >= (now() AT TIME ZONE '\''Asia/Taipei'\'')::date AT TIME ZONE '\''Asia/Taipei'\'' ORDER BY scheduled_at ASC LIMIT 18"'
-          echo "NO_SCHEDULER_OR_JOB_MUTATION=true"
+          echo "LEDGER_BACKUP_PAUSE_AND_EXACT_LOCAL_DAY"
+          gcloud compute ssh janus-postgres-dev --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet --command='
+            sudo docker exec --user postgres janus-postgres psql -X -qAt -d janus_control -c "SELECT setting_key,coalesce(value_json->>'\''paused'\'','\''NULL'\''),version FROM control.admin_settings WHERE setting_key='\''batch_control:ledger-backup'\'' LIMIT 1";
+            sudo docker exec --user postgres janus-postgres psql -X -qAt -d janus_control -c "SELECT occurrence_id,scheduled_at::text,state->>'\''batch'\'',state->>'\''status'\'',coalesce(state->>'\''reason'\'','\''NONE'\'') FROM control.batch_occurrences WHERE scheduled_at>='\''2026-10-23T16:00:00+00'\''::timestamptz AND scheduled_at<'\''2026-10-24T16:00:00+00'\''::timestamptz ORDER BY scheduled_at ASC LIMIT 25"
+          '
+          echo "NO_SCHEDULER_OR_JOB_MUTATION=true
       - name: Install local request executor without stopping original backup
         if: steps.request.outputs.phase == 'install'
         run: |
