@@ -1,0 +1,46 @@
+name: Janus P0-2 Core probe diagnostic read-only
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/p02-core-diagnostics-request.json'
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: none
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Bounded failing Core probe error-class-only audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ingestion-core" AND timestamp>="2026-10-24T00:30:00Z" AND timestamp<="2026-10-24T00:38:30Z"' \
+            --project=gen-lang-client-0593591102 --limit=150 --format=json > /tmp/p02_probe_recent_logs.json
+          python - <<'PY'
+          import json,re,collections
+          data=json.load(open('/tmp/p02_probe_recent_logs.json'))
+          errors=collections.Counter()
+          hints=collections.Counter()
+          for item in data:
+              raw=item.get('textPayload') or ''
+              for klass in re.findall(r'\b([A-Za-z_]+(?:Error|Exception))\b',raw):
+                  if klass not in ('Exception',):
+                      errors[klass[:65]]+=1
+              if 'JANUS_P02_CORE_ARTIFACT_AUDIT_V1:' in raw:
+                  hints['audit_receipt_emitted']+=1
+              if 'core_snapshot' in raw:hints['core_snapshot_mentioned']+=1
+              if 'psycopg' in raw:hints['psycopg_mentioned']+=1
+              if 'storage' in raw:hints['storage_mentioned']+=1
+          print(json.dumps({'p02_logs_seen':len(data),
+                  'exception_classes':dict(errors),'hints':dict(hints)},
+                  sort_keys=True))
+          PY
