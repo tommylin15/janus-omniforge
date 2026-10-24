@@ -4,8 +4,7 @@
 
 | 工作 | 剩餘交付 | 範圍 |
 |---|---|---|
-| OPS-P0-1 備份與清理 | 確認恢復派送後能產生可用備份、清理可安全執行 | 保留真實備份故障修復；取消自然觸發等待與探針，不因 10/17 舊 run 持續追查；36h 刪除保護保留 |
-| RV-01…06 | 04 Valuation 估值情境、EPS/BVPS/PE/PB 算式、API/Mart、唯一估值卡與功能確認 | 無第五模型；按資料實際日期、單位處理，不補全歷史 PIT |
+| RV-01…06（04 Valuation） | RV-01 已完成靜態 reader 接線清冊，仍缺真實代表股票覆蓋；RV-02 已交純函式與 14 項 CI PASS；接續 RV-01 真實抽樣 → RV-03 實際資料接線 → RV-04 API/Mart → RV-05 唯一估值卡 → RV-06 Dev 驗收 | [RV-01 接線](research/valuation-rv01-serving-readers-2026-10-24.md)／[估值 SPEC](spec/valuation-range.md)；正式仍僅四模型，未部署、不補全歷史 PIT |
 | VAL-MIN30 | v25 已完成四因子 NON_PIT Ridge／XGBoost 試訓；補同窗 revenue_yoy、擴展月份與五因子比較 | 已收檔不重抓；[v25 結果](research/valuation-v25-nonpit-direct-training-2026-10-24.md) 保留，非完整 PIT 不阻擋研究 |
 | DATA-RELEASE-PREFLIGHT／FACTOR-FACTORY | 讀現有 CURRENT、必要欄位與樣本，產生 X/Y | 不重跑全期 hash／來源／產業歷史稽核；缺實際必要資料才補 |
 | D07 共用 X/Y | 日期排序、滾動特徵、X/Y 分離、必要樣本及 train/serving 一致 | 不重建首次公告精確時間、歷史名冊或全公司行動 |
@@ -13,6 +12,8 @@
 | Risk API/UI | 下一次授權啟用時完成模型載入、實際預測與顯示 | 沿已有候選；不因規則精簡自動切 ACTIVE，不強制來回回滾演練 |
 | D07-CROSS-JOB-MODEL-CACHE | 三模型具可部署版本後共用 loader/快取 | 保留版本切換與回復，不新增付費常駐服務 |
 | D08 | Fact Pack → 既有 Gateway → 報告／Owner history／UI | 事實報告不等全部模型完成；保留權限與數值正確性 |
+
+OPS-P0-1 已於 2026-10-24 有界 CLOSED／PASS：備份派送恢復、當日 Daily 已成功、GCS 36h 保護及 7 Daily／6 Monthly 安全 dry-run 通過；未重做已 PASS 的隔離還原，詳見 [Operations](spec/operations-and-testing.md)。不列 active queue，有新實際故障再立新工項。
 
 取消：歷史產業 PIT 資料補證、逐來源稽核、全歷史名冊／公司行動完整重建、強制新20日 cohort 等待、每週／每月例行模型稽核、六個月自然觀察帳本。均為 CANCELLED，不是 PASS，不交下一 AI 續做。
 
