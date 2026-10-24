@@ -96,6 +96,26 @@ def test_future_financial_fact_cannot_leak_to_asof():
     assert result["status"] == "missing"
 
 
+def test_future_fiscal_quarter_rejected_without_publication_timestamp():
+    # Input rows may lack historical publication timestamps; quarter identity
+    # alone must prevent a future fiscal quarter from entering the basis.
+    rows = [quarter(2026, q) for q in range(1, 5)]
+    result = calculate_reference_range(**data(
+        as_of="2026-08-15", financial_rows=rows
+    ))
+    assert result["status"] == "missing"
+    assert result["mid"] is None
+
+
+def test_future_financial_period_end_rejected():
+    rows = [quarter(2025, q) for q in range(1, 5)]
+    rows[-1]["fiscal_period_end"] = "2026-12-31"
+    result = calculate_reference_range(**data(
+        financial_rows=rows,
+    ))
+    assert result["status"] == "missing"
+
+
 def test_less_than_24_months_is_limited_without_price_band():
     result = calculate_reference_range(**data(multiple_rows=months(23)))
     assert result["status"] == "limited"
