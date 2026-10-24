@@ -161,6 +161,12 @@ def enqueue_queued_worker(connection, batch, now, occurrence_env, origin="queue"
               AND e.requested_at >= now() - interval '30 days'
               AND (e.requested_at >= now() - interval '7 days' OR %s)
               AND (%s::text IS NULL OR md5(e.execution_id::text)=%s)
+              AND (NOT %s OR
+                    (e.trigger_type='analysis' AND e.status='queued'
+                      AND e.started_at IS NULL))
+              AND EXISTS (SELECT 1 FROM control.collection_configs cfg
+                          WHERE cfg.config_id=e.config_id AND cfg.enabled
+                            AND (e.trigger_type='collection' OR cfg.analysis_enabled))
               AND (
                 e.status IN ('queued','retrying')
                 OR (e.status='running' AND e.claimed_until IS NOT NULL
@@ -172,14 +178,21 @@ def enqueue_queued_worker(connection, batch, now, occurrence_env, origin="queue"
               )
               AND (e.trigger_type='collection' OR EXISTS (
                    SELECT 1 FROM control.core_ready_events r
-                   WHERE r.analysis_execution_id=e.execution_id))
+                   WHERE r.analysis_execution_id=e.execution_id
+                     AND r.payload->>'coreSnapshotUri' =
+                         e.request_options->>'core_snapshot_uri'
+                     AND r.payload->>'coreSnapshotHash' =
+                         e.request_options->>'core_snapshot_hash'
+                     AND r.payload->>'coreSnapshotId' =
+                         e.request_options->>'core_snapshot_id'))
               AND NOT EXISTS (
                    SELECT 1 FROM control.batch_occurrences b
                    WHERE b.state->>'queued_execution_id'=e.execution_id::text
                      AND b.state->>'status' IN ('pending','dispatching','running','ambiguous'))
             ORDER BY e.requested_at,e.execution_id LIMIT 1""",
                        (trigger, historical_recovery,
-                        target_execution_ref, target_execution_ref))
+                        target_execution_ref, target_execution_ref,
+                        historical_recovery))
         queued = cursor.fetchone()
         if not queued:
             return "queue_empty"
