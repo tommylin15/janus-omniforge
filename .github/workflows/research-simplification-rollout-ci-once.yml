@@ -1,0 +1,26 @@
+name: One-shot mixed Job rollback contract tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/research-simplification-rollout-ci-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  rollback-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CI dependencies
+        run: |
+          python -m pip install -r requirements-dev.txt -r requirements-ci.txt
+      - name: Test existing four-Job reversible rollout and API promotion
+        run: |
+          python -m pytest -q tests/test_ghcr_jobs_rollout.py tests/test_ghcr_api_promote.py tests/test_ghcr_release_lease.py
