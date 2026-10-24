@@ -47,3 +47,12 @@ def test_single_job_lease_fence_canary_and_rollback():
                        "JANUS_P02_ANALYSIS_RECOVERY", "gcp.update(\"janus-api\"",
                        ".delete(", "DROP TABLE","ALTER ROLE"):
         assert prohibited not in s
+
+def test_controller_rollout_github_lease_permission():
+    """Git ref lease acquire needs write; no broader GCP privileges are added."""
+    workflow=(ROOT/".github/workflows/p02-controller-rollout-dev.yml").read_text()
+    permissions=workflow.split("permissions:",1)[1].split("concurrency:",1)[0]
+    assert "contents: write" in permissions  # GitHub tag lease: acquire/release
+    assert "actions: read" in permissions
+    assert "id-token: write" in permissions
+    assert "packages: write" not in permissions
