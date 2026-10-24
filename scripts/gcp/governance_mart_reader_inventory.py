@@ -46,8 +46,13 @@ def code_references():
             if not path.is_file() or path.suffix not in SUFFIXES:
                 continue
             rel = path.relative_to(ROOT)
-            # The inventory's own table-name allowlist is NOT a business reader.
-            if path.resolve() == Path(__file__).resolve():
+            # Audit scanners/probes mention every table in their own allowlists.
+            # Those references are not business reads and must never inflate
+            # the per-table direct-reader classification.
+            if path.resolve() in {
+                Path(__file__).resolve(),
+                (ROOT / "scripts/gcp/governance_c1a_live_proof.py").resolve(),
+            }:
                 continue
             if any(segment.lower() in SKIP_DIRS for segment in rel.parts):
                 continue
