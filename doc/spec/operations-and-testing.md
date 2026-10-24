@@ -3,6 +3,12 @@
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
 
+### 2026-10-24｜04 Valuation RV-03 既有資料讀取接線（CODE／CI PASS，LIVE PENDING）
+
+- `packages/valuation_range.py` 的 RV-02 現接受標示為最後交易日的真實月末觀測（保留實際交易日及月底索引；不把非交易日造為行情）。新增 `jobs/ingestion-core/ingestion_core/valuation_range_inputs.py`：有界讀現有 Core `valuation` current snapshot、`control.market_serving_recent` 財報與 `control.stock_serving_recent` 行情；財報只接受現有單季 EPS／直接 per-share BVPS，不猜股數／以 YTD 差分，不從研究 parquet 直接發布。60 月窗口，必須 24 個有效完整月；來源在既有 Control `source_is_approved` 確認，嚴格按 symbol 分離，取得 snapshot ID、真實觀測日期與缺值 reason。沒有新收檔、GCS/PG mutation、Registry/ACTIVE 變更、第五模型或額外 Scheduler；尚未接入日常 batch 自動呼叫。
+- 新增 `tests/test_valuation_range_inputs.py`，含 Core/Serving store 注入、最後交易日、資料缺月、重複衝突、來源授權、ETF、EPS 缺分母及跨符號隔離；[**CI #40097413271**](https://github.com/tommylin15/janus-omniforge/actions/runs/40097413271) **13 tests PASS**。既有 RV-02 [16 項 CI #40096160077](https://github.com/tommylin15/janus-omniforge/actions/runs/40096160077) 仍屬先前有界收據；新程式未 Release／Dev deploy。
+- 真實資料讀回嘗試：`Janus Dev Read-only v2` 對 2330 的 valuation／financials、2882 的 valuation 及來源清冊呼叫皆回 `tool failed internally`；無可用真實數值或有效股票數的證據，不能把 fake store 測試冒充 Dev。下一步應沿現有 Dev 受控讀取能力做一次代表性 readback，再決定是否需為既有正式 Serving 增加最小月末保留投影；未取得前維持 **RV-03 `PARTIAL／CODE_CI_PASS／LIVE_PENDING`**，後續 RV-04～06 亦未開始正式整合。
+
 ### 2026-10-24｜OPS-P0-1 備份真實恢復＋GCS 保留保護（BOUNDED CLOSED／PASS）
 
 - **有界結案**：最新 [備份 VM／Controller 唯讀稽核 #40095061967](https://github.com/tommylin15/janus-omniforge/actions/runs/40095061967) `completed/success`，已在現有 PostgreSQL `control.ledger_backup_requests` 讀到 **2026-10-24 Daily `succeeded`，40,587,735 bytes，完成 2026-10-24 08:32:02Z（台灣 16:32:02）**；`ledger-backup/2026-10-24/02` occurrence 是 `succeeded`，控制設定 `paused=false`／version 2。既有 `janus-ledger-backup-executor.timer` `active/enabled`、舊 timer `inactive/disabled`、Cloud Scheduler `janus-ingestion-daily` `ENABLED`，並有當日 Controller 實際成功 execution。唯讀探針無備份手動執行、PG mutation、GCS delete、Scheduler/IAM 變更。Workflow 原有漏閉合 shell 引號已修正（`e34a61f`），`audit` push 交接 `98f8dea`。
