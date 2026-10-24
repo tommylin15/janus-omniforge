@@ -8,7 +8,7 @@
   "no_new_resources": true,
   "no_iam_expansion": true,
   "job": "janus-ingestion-core",
-  "purpose": "C1-A narrow read-only Mart code reference/deployed API & Jobs GET metadata audit, no legacy 57 status scan, no runtime job executions, no data mutation or IAM/resource changes.",
+  "purpose": "C1-A bounded existing dev Core/Mart current Iceberg metadata and deployed reader logs; preserve unknown table-level business readers and independent recovery without mutation.",
   "execution_count": 1,
-  "audit_focus": "c1a-reader-dependency-get-only-20261024"
+  "audit_focus": "c1a-live-table-reader-recovery-20261024"
 }

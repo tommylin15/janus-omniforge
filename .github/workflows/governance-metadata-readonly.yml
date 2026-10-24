@@ -37,7 +37,8 @@ jobs:
           assert request.get("no_iam_expansion") is True
           assert request.get("execution_count")==1
           scope=request.get("audit_focus")
-          only=scope=="c1a-reader-dependency-get-only-20261024"
+          only=scope in ("c1a-reader-dependency-get-only-20261024",
+                         "c1a-live-table-reader-recovery-20261024")
           if not only and scope!="p02-57-no-lease-execution-evidence-20261023-retry-2":
               raise ValueError("unknown governance audit focus")
           with open(os.environ["GITHUB_OUTPUT"],"a") as output:
@@ -66,6 +67,13 @@ jobs:
           install-deps: none
           wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
           service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Run bounded Core/Mart current snapshot and GCP logging reader evidence
+        if: ${{ hashFiles('ops/governance-metadata-readonly-request.json') != '' }}
+        run: |
+          if [[ "$(python -c 'import json;print(json.load(open("ops/governance-metadata-readonly-request.json"))["audit_focus"])')" == "c1a-live-table-reader-recovery-20261024" ]]; then
+            python -m pytest -q tests/test_governance_c1a_live_proof.py
+            python scripts/gcp/governance_c1a_live_proof.py
+          fi
       - name: Recheck main reader references and deployed metadata without SQL/job execution
         run: python scripts/gcp/governance_mart_reader_inventory.py
       - name: Validate bounded evidence and explicitly preserve unknown reader status
@@ -91,7 +99,9 @@ jobs:
         if: always()
         with:
           name: janus-c1a-reader-dependency-get-only
-          path: governance-mart-reader-inventory.json
+          path: |
+            governance-mart-reader-inventory.json
+            governance-c1a-live-proof.json
           if-no-files-found: ignore
           retention-days: 14
   metadata-readback:
