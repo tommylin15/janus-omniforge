@@ -1,12 +1,13 @@
 {
   "intent": "p02-57-core-manifest-readonly",
   "scope": "existing-dev",
-  "purpose": "Exact 41 analysis +16 collection PG to immutable Core manifest checksum/snapshot verification; one bounded probe on existing ingestion dev Job; no worker dispatch and no status mutation.",
+  "purpose": "Retry bounded Core manifest and immutable hash evidence after limiting no-dependency offline tests; no job dispatch and no data mutations.",
   "read_only": true,
   "no_worker_dispatch": true,
   "no_data_mutation": true,
   "no_template_mutation": true,
   "no_iam_expansion": true,
   "no_new_resources": true,
-  "execution_count": 1
+  "execution_count": 1,
+  "audit_attempt": 2
 }
