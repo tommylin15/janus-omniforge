@@ -1,8 +1,8 @@
 # Janus 文件入口
 
-更新：2026-10-20。本頁只導航，不保存暫停、部署版本或重複待辦。
+更新：2026-10-24。本頁只導航，不保存暫停、部署版本或重複待辦。
 
-先讀 [PROJECT_RULES](PROJECT_RULES.md) → [專案管理](project-management.md) → [status](status.md) → [TODO](todo.md) → 指定一張 [AI 任務卡](execution-cards/README.md)。現行執行序列：**A-CHANGE → D07-PRE → D07 → D08**；已完成產品工作不再重開。
+先讀 [PROJECT_RULES](PROJECT_RULES.md) → [專案管理](project-management.md) → [status](status.md) → [TODO](todo.md) → 指定一張 [AI 任務卡](execution-cards/README.md)。現行**多線並行**依 [WBS 依賴矩陣](wbs.md) 與 [唯一 Active TODO §1](todo.md) 分流：P0 作業安全、P1 A-CHANGE／Janus 2.0／Valuation Range／資料可用性、P2 四模型研究、P3 D08；不是所有線都要串行等待，已完成工作不重開。
 
 文件權責、唯一待辦與**需要使用者決策的重大風險**統一見 [專案管理](project-management.md)；舊 [文件盤點](archive/documentation-review-2026-10-15.md) 轉歷史證據，不當現在的工作佇列。
 
@@ -29,10 +29,12 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 
 - `PROJECT_RULES.md`：治理、權限、驗證與文件維護規則。
 - `project-management.md`：單一執行順序、文件責任、驗收與風險決策選項。
+- `spec/valuation-range.md`：2026-10-24 核准的第五角色估值參考區間；正式定義取代 Event 模型，工程待做；[Drive AI 交接](https://drive.google.com/file/d/1M7pxgkeyzK_Joi4C9Z2aTSRCgdV-u5YO/view)。
+- `wbs.md`：多線並行、互斥資源、必要前置與合流 gate；不另建第二份 TODO。
 - `spec/data-governance.md`：正式 Canonical 保存、Scheduler 與補收政策；模型研究採集另以 `spec/research-collection-gas-drive-colab.md` 為唯一規格。
 - `status.md`：目前狀態與下一個執行序列的短入口；不是新的 source of truth。
 - `todo.md`：只保存確定要做的 active queue 與未完成 acceptance；暫不做與已接受缺口見 `parking-lot.md`。
-- `codex-execution-plan.md`：**路由 A-CHANGE → D07-PRE → D07 → D08** 的現行 AI 操作；舊 DRL／D01–D06 工程指令已封存。
+- `codex-execution-plan.md`：**按 WBS 多線依賴矩陣分派**的現行 AI 操作；舊 DRL／D01–D06 工程指令已封存。
 - `execution-cards/README.md`：現行 D07-PRE/D07/D08 路由；D01～D06 卡保留維運/歷史，不形成工作義務。
 - `spec/research-collection-gas-drive-colab.md`：**D07-PRE 唯一新版（保留既有路徑，GAS已退役）**；官方 TWSE／TPEx→Colab→Drive 月資料夾→Colab；研究普通股（ETF 排除）、各市場70%、先盤點欄位。
 - `decision-2026-10-06-bigquery-analytics-over-iceberg.md`：**已退休的歷史決策指引**，不是 active BQ 訓練或執行前置。
