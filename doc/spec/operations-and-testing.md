@@ -27,6 +27,13 @@
 
 
 
+### 2026-10-24｜OPS-P0-1 到期後首次自然排程檢查（13:45 Asia/Taipei，PARTIAL）
+
+- 排程預定 UTC 2026-10-24T05:30:00Z（Asia/Taipei 13:30）。於 13:44 與 13:45 用 GitHub REST `/repos/tommylin15/janus-omniforge/actions/runs?event=schedule&per_page=50` 唯讀重查，`total_count=18`，最新是**舊** `Private ledger daily backups - retain three` `2026-10-16T21:57:10Z`（台灣 10/17 05:57），未找到 `Janus independent Private ledger backup retention` 於今日 05:30Z 後觸發，故 `natural_schedule_run=NONE_OBSERVED`，**不得稱自然 apply PASS**。
+- 已讀回 `main` 的 `.github/workflows/private-ledger-backup-retention.yml`：`schedule: 30 5 * * *` UTC，僅 `event_name=schedule` 才自動 `mode=apply`；`ops/private-ledger-backup-retention-request.json` 仍 `approved_scheduled_apply=true`、`daily_keep=7`、`monthly_keep=6`、每輪至多刪 3 daily/1 monthly、`no_new_backup`／`no_pg_mutation`／`no_iam_expansion`。設定讀回**不等於 workflow enabled state 已確認**；本 GitHub connector 不支援 Workflow 列表/單筆 state API，故 `enabled_state=UNKNOWN`。
+- 此時距預定觸發約 15 分鐘；GitHub `schedule` 可因平台負載延遲，暫標 `PENDING_SCHEDULE_DELAY_OR_DISABLED_UNKNOWN`，**不把缺 run 當正常驗收，更不預設故障根因**。只要沒有真正自然 `schedule` run，就沒有對應的 retention GCS generation／objects／bytes 新收據；舊 dry-run、隔離 restore、有界實際 apply 的歷史證據仍有效、但不能替代今日自然驗收。
+- 既有 ChatGPT 一次性 **2026-10-24 15:00 Asia/Taipei** 唯讀複查任務已啟用；不人工推 GitHub workflow_dispatch、不觸發 GCS 刪除、不補做 backup、不修改 PG/IAM，不發出新的付費 API。未產生本次清理成本節省數字。下一次取得自然 run 後才依 receipt 調整 P0-1 終態。
+
 ### 2026-10-24｜OPS-P0-1 首次自然排程前置驗證（PARTIAL／AWAITING_SCHEDULE）
 
 - 現行 `.github/workflows/private-ledger-backup-retention.yml` 已定義每日 `30 5 * * *` UTC（台灣時間13:30），`schedule` 事件才切 `apply`；`ops/private-ledger-backup-retention-request.json` 仍為 `approved_scheduled_apply=true`、daily 保留7、monthly 保留6、每輪最多3 daily／1 monthly，沒有新備份、PG、IAM 或新資源行為。清理執行前重新掃 GCS 並比較 generation／size，失敗時 fail closed。
