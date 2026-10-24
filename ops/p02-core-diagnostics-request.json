@@ -1,0 +1,9 @@
+{
+  "intent": "p02-failed-core-probe-sanitized-log-diagnostic",
+  "scope": "existing-dev",
+  "read_only": true,
+  "job": "janus-ingestion-core",
+  "window_utc": "2026-10-24T00:30:00Z/2026-10-24T00:38:30Z",
+  "no_payload_output": true,
+  "no_data_mutations": true
+}
