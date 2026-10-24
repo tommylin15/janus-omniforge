@@ -453,6 +453,19 @@ def run(*, now=None, session=None, control=None):
                 record(connection, tick, key, {**state, "status": "skipped", "reason": "schedule_superseded"}, "schedule_superseded")
                 continue
             batch = batches[state["batch"]]
+            # A pending queue occurrence can outlive the selection window.
+            # Recheck at dispatch; never send >5-day or missing references
+            # to a worker, even for an admin-triggered pending occurrence.
+            if batch.name in {"analysis-queue", "collection-queue"}:
+                from .admin_batches import queued_execution_is_fresh
+                trigger = "analysis" if batch.name == "analysis-queue" else "collection"
+                if not queued_execution_is_fresh(
+                        connection, state.get("queued_execution_id"), trigger):
+                    record(connection, tick, key,
+                           {**state, "status": "skipped",
+                            "reason": "queue_execution_outside_five_day_window"},
+                           "queue_request_excluded")
+                    continue
             if batch.name in paused and state.get("origin") != "admin":
                 record(connection, tick, key, state, "admin_paused", update=False)
                 continue
