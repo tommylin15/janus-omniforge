@@ -8,7 +8,7 @@
   "no_new_resources": true,
   "no_iam_expansion": true,
   "job": "janus-ingestion-core",
-  "purpose": "C1-A bounded existing dev Core/Mart current Iceberg metadata and deployed reader logs; preserve unknown table-level business readers and independent recovery without mutation.",
+  "purpose": "C1-A second pass: verified existing per-table Mart retention completion receipt + Core pair exact schema, with fully bounded read-only existing dev identities; no data mutations.",
   "execution_count": 1,
   "audit_focus": "c1a-live-table-reader-recovery-20261024"
 }

@@ -92,6 +92,46 @@ try:
             item.update(status="UNKNOWN",error_class=type(e).__name__[:64],
                         independent_recovery_verified=False)
         send(item)
+    if layer=="mart":
+        # Read the most recent *existing* maintenance receipt, not table rows.
+        # A successfully committed receipt lists tables scanned before its
+        # own durable GCS readback. Absence remains UNKNOWN, never zero readers.
+        receipt={"git_sha":sha,"layer":layer,"name":"__mart_retention_receipt__",
+                 "status":"UNKNOWN","scanned_tables":[]}
+        try:
+            from ingestion_core.stage import GcsObjectStore
+            from hashlib import sha256
+            bucket=os.environ["MART_BUCKET"]
+            store=GcsObjectStore(bucket)
+            objects=store.objects("maintenance/retention/")
+            if len(objects)>500:
+                raise ValueError("retention_receipt_inventory_bound_exceeded")
+            good=[o for o in objects if o["name"].endswith(".json")
+                  and int(o["size"])<=524288
+                  and o["name"].startswith("maintenance/retention/")]
+            if good:
+                latest=max(good,key=lambda x:x["updated"])
+                payload=store.read(latest["name"])
+                if len(payload)>524288:
+                    raise ValueError("retention_receipt_size_exceeded")
+                doc=json.loads(payload)
+                if doc.get("component")!="mart-retention" or not isinstance(doc.get("tables"),list):
+                    raise ValueError("retention_receipt_schema_invalid")
+                valid=set(names["mart"])
+                scanned=[r.get("table") for r in doc["tables"] if isinstance(r,dict)]
+                if not scanned or len(scanned)!=len(set(scanned)) or not set(scanned)<=valid:
+                    raise ValueError("retention_receipt_table_scope_invalid")
+                receipt.update(status="READABLE_TABLE_SCANS",
+                    scanned_tables=sorted(scanned),
+                    retention_mode=doc.get("mode"),
+                    receipt_updated_utc=latest["updated"],
+                    receipt_sha256=sha256(payload).hexdigest(),
+                    source="existing_mart_retention_completed_artifact")
+            else:
+                receipt["status"]="NO_BOUNDED_RECEIPT_FOUND"
+        except Exception as e:
+            receipt.update(status="UNKNOWN",error_class=type(e).__name__[:64])
+        send(receipt)
 finally:
     if layer=="core" and "core" in locals() and core is not None:
         core.close()
@@ -162,9 +202,9 @@ def job_metadata(job_name, layer, sha):
             except (ValueError,IndexError):continue
             if doc.get("git_sha")==sha and doc.get("layer")==layer:
                 received.append(doc)
-        if len(received)==(len(CORE) if layer=="core" else len(MART)):break
+        if len(received)==(len(CORE) if layer=="core" else len(MART)+1):break
         time.sleep(5)
-    expected=CORE if layer=="core" else MART
+    expected=CORE if layer=="core" else MART+("__mart_retention_receipt__",)
     if len(received)!=len(expected) or {x["name"] for x in received}!=set(expected):
         raise RuntimeError("c1a_incomplete_exact_table_receipt")
     if before!=gcp.fingerprint(gcp.job(job_name)):
@@ -220,6 +260,8 @@ def log_mentions():
 def decide(core, mart, logs):
     table_evidence={}
     for entry in core["tables"]+mart["tables"]:
+        if entry["name"].startswith("__"):
+            continue
         table_evidence[entry["name"]]={
             "current_metadata":entry["status"],
             "current_snapshot_id":entry.get("current_snapshot_id"),
@@ -228,6 +270,15 @@ def decide(core, mart, logs):
             "independent_recovery_verified":False,
             "recovery_classification":"NO_INDEPENDENT_REBUILD_OR_RESTORE_RECEIPT",
             "actual_business_reader":"UNKNOWN_NO_TABLE_LEVEL_RUNTIME_TRACE"}
+    report=next((row for row in mart["tables"]
+                 if row["name"]=="__mart_retention_receipt__"),{})
+    if report.get("status")=="READABLE_TABLE_SCANS":
+        for table in report["scanned_tables"]:
+            table_evidence[table]["maintenance_scan_evidence"]={
+                "status":"CONFIRMED_RETENTION_RECEIPT",
+                "receipt_sha256":report["receipt_sha256"],
+                "checked_artifact_updated":report["receipt_updated_utc"],
+                "mode":report.get("retention_mode")}
     for row in logs:
         for table,hits in row.get("table_mentions",{}).items():
             table_evidence[table].setdefault("log_mentions",[]).append({
@@ -263,6 +314,11 @@ def main():
                              "ohlcv_only":sorted(fields_b-fields_a),
                              "same_key_value_parity":"NOT_VERIFIED_NO_ROW_SCAN",
                              "independent_rollback":"NOT_VERIFIED"}
+    if "mart" in output["table_probes"] and "tables" in output["table_probes"]["mart"]:
+        receipt=next((x for x in output["table_probes"]["mart"]["tables"]
+                      if x["name"]=="__mart_retention_receipt__"),{})
+        output["mart_retention_scan_receipt_status"]=receipt.get("status","UNKNOWN")
+        output["mart_retention_scan_tables"]=receipt.get("scanned_tables",[])
     output["status"]="METADATA_PASS_READER_AND_RECOVERY_PARTIAL" if (
         len(output.get("table_evidence",{}))==13 and
         all(x["current_metadata"]=="READABLE"
@@ -276,6 +332,9 @@ def main():
                           for x in output["logs"]),
                       "reader_usage":"UNKNOWN_UNLESS_PROVED_POSITIVE",
                       "independent_recovery":"NOT_VERIFIED",
+                      "core_pair":output.get("core_pair"),
+                      "mart_retention_scan_receipt_status":output.get("mart_retention_scan_receipt_status"),
+                      "mart_retention_scan_tables":output.get("mart_retention_scan_tables",[]),
                       "data_mutations":0,"new_resources":0},sort_keys=True))
 if __name__=="__main__":
     main()
