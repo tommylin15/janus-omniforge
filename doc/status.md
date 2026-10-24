@@ -1,6 +1,6 @@
 # Janus｜目前實作與驗收狀態
 
-更新：2026-10-24（多線文件整理；本輪未重新執行 runtime）。**此頁是現況摘要，不是第二份 TODO。** 現行工作順序與未完成驗收以 [唯一 Active TODO](todo.md) 為準；完整收據集中 [Operations](spec/operations-and-testing.md)，既往狀態見 [archive](archive/status-before-consolidation-2026-10-19.md)。
+更新：2026-10-24（多線文件整理；OPS-P0-2 已有真實 Controller-only dev rollout 收據）。**此頁是現況摘要，不是第二份 TODO。** 現行工作順序與未完成驗收以 [唯一 Active TODO](todo.md) 為準；完整收據集中 [Operations](spec/operations-and-testing.md)，既往狀態見 [archive](archive/status-before-consolidation-2026-10-19.md)。
 
 ## 2026-10-24 多工作線狀態覆蓋（較下方 10/22 歷史表更新）
 
