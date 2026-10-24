@@ -1,10 +1,10 @@
 # WI｜研究精簡版本驗證與部署交接
 
-日期：2026-10-24。離線測試、完整 GHCR Release、0% Candidate、匿名 OAuth/Owner/MCP 邊界均已 PASS；**現有 Dev 四 Jobs 正在受控 Rollout，API 100% 仍未切換，Runtime 功能驗收仍未執行**。本文件保留操作指示，不建立另一份 TODO。
+日期：2026-10-24。**研究精簡版本的離線測試、GHCR Release、四個既有 Dev Jobs、API 100% 切流及一次獨立、唯讀的有界 Runtime 驗收均已 PASS，工項 CLOSED。** 詳細執行結果與明確未驗證範圍見下節；不得用此結果代替未執行的真人 OAuth 或備份復原驗收。
 
 ## 已改內容
 
-| 對象 | 變更 | 部署前現況 |
+| 對象 | 變更 | 原始提交時的歷史狀態（非目前 Dev 狀態） |
 |---|---|---|
 | Controller `BATCHES` | 移除週六 `data-quality`；舊 pending 由現有 `schedule_superseded` 跳過 | 新程式未上線 |
 | `data_quality.run_quality` | 移除重抓財報／12月營收、Core掃描、Stage寫入、品質帳本；回 skipped | 舊映像仍可能執行舊邏輯 |
@@ -39,7 +39,7 @@
 - [Selective CI #40080225057](https://github.com/tommylin15/janus-omniforge/actions/runs/40080225057)：`controller` 99 passed，成功。
 - [離線測試 #40080225060](https://github.com/tommylin15/janus-omniforge/actions/runs/40080225060)：`ingestion-and-admin` 64 passed（1 warning）；`risk-and-mart` 77 passed（7 warnings）；`research` 19 passed；`flutter-admin` 5 passed；5 個已退役 Workflow 均無現役 `.yml` 入口。
 - Python 累計 259 test executions passed；Flutter 5 passed；無測試失敗。警告不代表 test failure，仍須以真實功能異常為修復依據。
-- 一次性離線測試 Workflow 在成功後自 `main` 刪除；保留 Actions Run 日誌作驗證依據。**下一步僅第 3 節 dev 部署與第 4 節一次功能驗收，不能提前標 PASS。**
+- 一次性離線測試 Workflow 在成功後自 `main` 刪除；保留 Actions Run 日誌作驗證依據。**後續第 3／4 節已按本輪實際收據完成有界部署驗收；保留可重跑 WI。**
 
 重跑時先安裝 repository 現有必要依賴，再執行：
 
@@ -73,7 +73,7 @@ flutter test test/admin_overview_batch_test.dart
 
 Workflow YAML 及變更路徑做一次靜態檢查即可，不觸發已退役稽核。失敗只修受影響範圍，不重跑全市場來源稽核。
 
-## 2026-10-24 Release 與 Dev 交接即時狀態
+## 2026-10-24 Release 與 Dev 交接／最終收據
 
 - #40084373321 Selective CI = SUCCESS，該次只改部署 request，實際 tests skipped，不當作完整驗收。
 - #40084373317 Full Release = FAIL：1826 passed，因 CI 不包含外部 v22 frozen plan 使 2 replay 測試 FileNotFoundError；測試改為 fixture 未提供時明確 SKIPPED（資料提供時照原斷言執行），不偽稱已 replay。
@@ -81,7 +81,11 @@ Workflow YAML 及變更路徑做一次靜態檢查即可，不觸發已退役稽
 - [#40085057604](https://github.com/tommylin15/janus-omniforge/actions/runs/40085057604) 0% API Candidate = SUCCESS；[#40085481922](https://github.com/tommylin15/janus-omniforge/actions/runs/40085481922) OAuth／負向 auth 邊界 = SUCCESS。均不等於 canonical traffic 已更新。
 - [#40084947160](https://github.com/tommylin15/janus-omniforge/actions/runs/40084947160) 原讀取基準失敗，因舊工具硬性要求四 Jobs 同 SHA；實際 `janus-batch-controller` 為 `6891656a…`、另三個 `0ad738b1…`。已將 readback 與 Rollout／API acceptance 改為逐 Job immutable digest＋source SHA＋configuration fingerprint 驗證，不放寬真實回復 gate；[#40085455394](https://github.com/tommylin15/janus-omniforge/actions/runs/40085455394) 109 contract tests PASS。
 - [#40085438273](https://github.com/tommylin15/janus-omniforge/actions/runs/40085438273) 四 Jobs 真實回復基準讀回 SUCCESS（零 GCP writes，`source_mode=mixed`），詳見該 Run receipt。
-- [#40085601337](https://github.com/tommylin15/janus-omniforge/actions/runs/40085601337) 四 Jobs 正式 Rollout **已派送、終態尚未取得**。須先確認它是 SUCCESS、8/8 canaries、Scheduler ENABLED 及 receipt 的 rollback_available 才可進入 API 100% promote；失敗依真實 receipt 復原，不能跳過。之後做一次 Controller 舊品質批次不存在與正常批次存在的 live 功能驗收，搭配 API build-id／health／未登入拒絕及備份狀態讀回。不得把候選與測試 PASS 包裝成 Runtime 已完成。
+- [#40085601337](https://github.com/tommylin15/janus-omniforge/actions/runs/40085601337) 四個既有 Dev Jobs Rollout = **SUCCESS**；Rollout 程式回傳 `{"result":"PASS"}`，Canary／回復收據以該 Run 的 artifact `ghcr-jobs-rollout-receipt` 為準。
+- [#40087061995](https://github.com/tommylin15/janus-omniforge/actions/runs/40087061995) API-only Promote = **SUCCESS**；在原有共用 release lease 下將正式 API 100% 切至 source `cf69def50209ec590e464fcc7298ca4ece44bc6f`，前版 `2d0e874ce3efdee03e344370d7b6bde09dc54d87` 保留供實際故障回復，未更新 Jobs／Scheduler／Storage／IAM。
+- [#40087520948](https://github.com/tommylin15/janus-omniforge/actions/runs/40087520948) 一次獨立 Dev Runtime 驗收 = **PASS_READ_ONLY**：API revision `janus-api-00603-vev` 100% 正式流量，health／public health／App 200，build ID 是相同 source；Owner profile 與 Admin dashboard 未登入皆 401；四個 Dev Jobs 各自 GHCR digest 及公開 registry revision label 均與新 source 相同；`janus-ingestion-daily` Scheduler ENABLED；映像相符的 `BATCHES` 程式定義不含 `data-quality`，正常 ingestion／supplement／Mart／backup／Stage 清理定義仍在。該讀回沒有 GCP 寫入、新 Job execution 或啟動全市場收檔。收據 artifact 名稱 `research-simplification-runtime-receipt`。
+- 一次性驗收探針早期兩次失敗是其腳本錯誤（漏設模組路徑、Build ID 未 strip）；第三次曾以 GET 誤探只接受 POST 的 Admin GCS inspect 而收到 HTTP 405，屬檢查方法不適用而非確定的 auth 問題。修正後本次 Run PASS；三次失敗均保留真實紀錄，不改寫為 PASS。驗收用的一次性 Workflow 完成後已刪除。
+- **有界驗收未涵蓋且不冒稱**：真人登入後 Owner 正向資料、備份內容可復原、真實舊 pending 轉終態的直接 DB 讀回、長週期模型表現、完整歷史 PIT。正常 Job canary 由前述 Rollout PASS 支援；備份可用性沿唯一 Active TODO `OPS-P0-1` 單獨追蹤，不重開已取消的研究稽核。
 
 ## 3. 發布既有 dev
 
