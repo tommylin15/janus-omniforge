@@ -40,3 +40,39 @@ def test_owner_filter_uses_one_public_read_and_tampering_fails():
     from fastapi import HTTPException
     with pytest.raises(HTTPException):
         service.today_changes('owner-a')
+
+
+def test_today_changes_prefers_confirmed_change_over_pending_event_in_same_stock():
+    from services.api.analysis import AnalysisService
+    connection = ReadConnection({'owner-a': [{'symbol': '2330', 'priority': 0}]}, [])
+    class Repository:
+        @contextmanager
+        def _connection(self):
+            yield connection
+    service = AnalysisService(Repository())
+    valid = {'identity': 'current-price', 'symbol': '2330', 'kind': 'price',
+             'state': 'new', 'changed': True, 'status': 'available',
+             'source_available_at': '2026-10-23T07:00:00Z',
+             'headline': '已確認收盤價'}
+    missing = {'identity': 'old-event', 'symbol': '2330', 'kind': 'event',
+               'state': 'pending', 'changed': False, 'status': 'missing',
+               'source_available_at': '2026-10-15T07:00:00Z',
+               'headline': '過時事件待更新'}
+    service._changes = lambda symbols, session: {
+        '2330': {'status': 'partial', 'cutoff_at': '2026-10-23T08:00:00Z',
+                 'price_date': '2026-10-23',
+                 'observations': [missing, valid]}}
+    result = service.today_changes('owner-a')
+    assert len(result['items']) == 1
+    assert result['items'][0]['identity'] == 'current-price'
+    assert result['status'] == 'partial'
+
+    # If there is genuinely no confirmed observation, do not discard the
+    # missing evidence or falsely change the view's partial status.
+    service._changes = lambda symbols, session: {
+        '2330': {'status': 'partial', 'cutoff_at': '2026-10-23T08:00:00Z',
+                 'price_date': None, 'observations': [missing]}}
+    fallback = service.today_changes('owner-a')
+    assert fallback['items'][0]['state'] == 'pending'
+    assert fallback['items'][0]['status'] == 'missing'
+    assert fallback['status'] == 'partial'
