@@ -1,15 +1,15 @@
 {
   "intent": "p02-controller-only-lease-fix",
   "approved": true,
-  "source_sha": "4fbf330a600f5e4280bbf0de36cff261373daed4",
-  "release_run": 40045758731,
+  "source_sha": "166f4d7086d9ffbaa578792e5746b89dc1d334f4",
+  "release_run": 40049195127,
   "job": "janus-batch-controller",
   "no_analysis_replay": true,
   "no_collection_replay": true,
   "no_data_mutation": true,
   "no_iam_expansion": true,
   "no_api_traffic_change": true,
-  "purpose": "P0-2 bounded Controller-only retry after correcting GitHub tag lease write scope. Exact pinned GHCR source; retain global current-main lease and Scheduler/job/readback/rollback fences; no 57-row recovery mutation.",
-  "retry_attempt": 5,
-  "release_image_sha": "7d71992a567e80252ba68049f1d6c23246f2af70"
+  "purpose": "P0-2 five-day queue cutoff Controller-only dev rollout, immutable verified GHCR digest; no recovery of old 57, no status/data mutation, safe read-only canary, Scheduler readback and rollback",
+  "retry_attempt": 6,
+  "release_image_sha": "6891656ac52e0ddc6e541229b73d88217c615ebb"
 }
