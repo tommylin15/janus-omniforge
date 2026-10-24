@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "1543057da2c5017620629df94406283ed4e2d4c8",
-  "purpose": "A-CHANGE Janus 2.0 existing dev: current factual change prioritization, headline-next-check evidence parity, owner-change safe read model, direct API-only promotion with rollback-on-failure, full Python/Flutter/GHCR immutable release, no new paid services or data mutations.",
+  "sha": "d98e3f50aa58cee7d4f577640d2c4a9d34f65362",
+  "purpose": "RESEARCH-SIMPLIFICATION 2026-10-24: ship tested removal of redundant research/source/time audits and retired workflows to existing dev. Full Python and Flutter release + immutable GHCR images only at this phase; later gated four-Jobs and API deployment with rollback and one bounded runtime acceptance. No new resources, IAM, data mutation, Risk ACTIVE or unsupported source audits.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 12
+  "request_attempt": 13
 }
