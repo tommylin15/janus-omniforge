@@ -441,3 +441,12 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 - 一次性分析恢復需**額外隔離正常 scheduled/pending Controller batch**；現行 one-shot env 即使排除 collection-queue，Controller active tick 仍可能掃描其他 pending/scheduled。**在完整 isolated one-shot acceptance 前不得啟用此 env 執行業務恢復**。發版／Code PASS 不等於 41 筆已重跑或 16 筆已結案。
 
 **最後判定：P0-2 `EVIDENCE_57_PASS / QUEUE_PATCH_TESTS_PASS / GHCR_RELEASE_PASS / DEV_CONTROLLER_DEPLOY_BLOCKED_GLOBAL_LEASE / EXECUTION_STATUS_MUTATIONS=0 / HISTORY_RECOVERY_NOT_STARTED`。** 需在無平行 main 寫入且 Global Lease 能安全取得時重試既有 Controller-only 部署與 readback，再完成單筆 isolated canary，對 16 筆逐筆進行可回復終態／續跑判定。沒有上述實機證據，不標 CLOSED。
+
+## 20. 使用者 5 天工作排除決策（2026-10-24，覆蓋 §19 的追查／恢復任務）
+
+使用者最新指示：「超過5天的全部刪掉或排除,不再追查」。採用可逆且不破壞既有資料的**排除**方案：以 `control.executions.requested_at < now() - interval '5 days'` 判定超齡，原 57 筆中的超齡 Analysis／Collection **不再逐筆追查、重派、人工恢復或要求補正終態**；該時刻仍在 5 天內的事件若影響營運才另按安全規則處理。原始 41/16 與近 30 日、7 日聚合屬歷史快照，**無法據此宣稱今天精確有幾筆超過 5 天**；不再為清點原 57 筆的超齡明細額外查詢。舊研究 §13–19 的結果保留為稽核，不再作 active 工作指示。
+
+- **不刪任何真實 PG row、execution_items、Core/Mart／GCS artifact**，不批量更新 `control.executions.status`，不捏造 `succeeded/failed`。保留工作歷史；Stage 48h、Core/Mart Iceberg 既有檔齡與保護政策互不混淆。
+- **程式守門**：一般佇列 SELECT 由 7 天改為 **5 天**，舊 `JANUS_P02_ANALYSIS_RECOVERY` 與 `JANUS_P02_ANALYSIS_EXECUTION_REF` 啟用時直接拒絕；對 Controller persisted `pending` 的 queue occurrence，在派送前重新查 `requested_at`／`trigger_type`／`finished_at`，不存在／超齡／終態已完成則將 **occurrence** `skipped`，不派送 Worker。沒有取消任何已在執行的 Job，也沒有寫入原 57 個 PG execution status。
+- **部署證據分清新舊**：舊版原 Controller-only [#40047503576](https://github.com/tommylin15/janus-omniforge/actions/runs/40047503576) 已 `completed/success`，證明**舊 7 日映像**安全部署，而不是本次 5 日程式生效。新版需要 Python targeted tests、完整 CI 與受控 dev Controller image、Scheduler ENABLED/cron/target/readback 驗收，未有收據前標 `CODE_COMMITTED / DEPLOY_NOT_VERIFIED`。
+- **Active 工作改為 5 天防線**，不再將 41 個 Analysis／16 個 Collection 的逐筆 Core/Mart 結果對帳作為結案條件；回復剩餘工作排程遵循 [TODO](../todo.md)，安全性責任遵循 [PROJECT_RULES §1.8.1](../PROJECT_RULES.md)。
