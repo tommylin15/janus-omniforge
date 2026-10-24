@@ -1,17 +1,31 @@
 # Janus — 唯一 Active TODO
 
-更新：2026-10-23。**只列尚未完成的工作與原定驗收，不收納歷史失敗、已結案工程、無具體異常的推測性追查。** 狀態以 GitHub `main`／真實 CI、deployment 與 runtime 為準；結案遵循 [PROJECT_RULES §1.1.1](PROJECT_RULES.md)。
+更新：2026-10-24（跨工作線整併）。**只列尚未完成的工作與原定驗收，不收納歷史失敗、已結案工程、無具體異常的推測性追查。** 狀態以 GitHub `main`／真實 CI、deployment 與 runtime 為準；結案遵循 [PROJECT_RULES §1.1.1](PROJECT_RULES.md)。
 
-## 1. 現行優先順序
+## 1. 現行總優先順序與唯一主待辦（2026-10-24 整併）
 
-方案A已核准；2026-10-21 使用者啟動 A1～A4 整包實作、一次集中驗收，目前工程進行中，尚未結案。後續產品順序 A-CHANGE → D07-PRE → D07 → D08；D07-PRE現有採集可獨立續作，STAGE-48H 已於 2026-10-23 CLOSED，證據見 Operations。
+**同一 Active TODO，不另建各線待辦。** [SPEC 導航](spec.md) → [WBS/工作線依賴矩陣](wbs.md) → 本頁唯一未完工清單 → [Operations](spec/operations-and-testing.md)／[研究收據](research/00-四模型最新版本索引.md)。本表是**排程排序**；不同線沒有直接依賴時即可平行。不把單一模型、整套 2.0 UI 或 C1-B 破壞性清掃作全域開工門檻。**只完成文件更新時狀態為 DOC_UPDATED，非工程完成。**
 
-| 優先 | 工作包 | 已完成 | 尚需完成 |
+| 優先/工作線 | 當前可驗證狀態（截至本次文件審閱） | 下一個可執行工項／安全限制 | 可否平行 |
 |---|---|---|---|
-| **P1** | **A-CHANGE｜事實解讀與站內盤前盤後** | 方案、X/Y/時間契約與AI卡已定版；A1～A4 已啟動整合實作 | **集中 targeted/CI、既有 dev 發布與真實 API/UI 驗收；完成前維持 IN_PROGRESS** |
-| **P1** | **D07-PRE｜Colab／Drive 資料源** | 21 個月 r1 原始行情研究准入 PASS；Drive v3.1 `CURRENT.json` + 153 個 Parquet 月分區讀回、**格式整併 CLOSED**；v3.5 長期增量／TPEx 空日解析／完整安裝格已上傳原 Drive Notebook ID，原始官方回應＋跨年度本地 15/15 PASS，讀回 SHA256 一致；舊研究 GAS/GCP/BQ 退役 | **官方／第三方補收 PARTIAL：2026-10-22 Colab 官方 264 批最新報告僅剩 TPEx 估值 7 個未達標月（2024-10、2025-01～05、2026-02），v3.5 尚待 Colab 重新執行與品質報告／Parquet 讀回**；Risk 可試訓不等於模型 promotion，歷史 PIT／公司行動與授權／模型發布仍屬 D07 gate |
-| **P2** | **D07｜五分析師建模** | Risk XGBoost8 已完成 dev 模型候選上傳／SHA驗證、Core EOD/PIT日期修復、四 Jobs 可回滾部署與 **2026-10-21 真實 shadow 日批 1,720 檔 GCS 讀回 PASS**（[#39781316641](https://github.com/tommylin15/janus-omniforge/actions/runs/39781316641)）；Quant v3.6 真資料研究試訓與 Q1–Q3 因子／切片研究已完成（`RESEARCH_EVALUATED`，非 DEPLOYABLE）；Fundamental **研究重建 CSV** 已完成 XGBoost＋5% 極端拒絕 **RC1 研究候選凍結**（47,616 筆／1,531 股、8/8 本地 PASS、UBJ SHA、僅回溯非 ACTIVE）；Valuation 仍待各自試訓 | **Risk shadow CLOSED；歷史首次 Registry／PG ACTIVE 資料面曾 PASS，但 2026-10-23 依最新嚴格 promotion gate 已受控回滾為 DETERMINISTIC**；Owner 正向 UI NOT_VERIFIED，來源訓練／保留授權、正式分市場交易日曆、公司行動／歷史 PIT／survivorship、訓練後新增且 20 交易日成熟的前瞻 cohort、獨立 OOS、Core/Mart 八因子一致性、CAS/rollback、自然日批及真人 API/UI 仍須逐項可核驗，缺一不得再 ACTIVE |
-| **P3** | **D08｜CEO／Admin／Owner 報告** | 原 Gateway 技術驗證可重用 | **有效 Fact Pack → CEO 手動請求 → Gateway／validator → immutable 報告與 Owner UI／Admin 管理驗收** |
+| **P0 O｜作業安全／57 筆 lease（P0-2）** | 57/57 原凍結無有效 lease：41 analysis queued、16 collection running；近期 30 日視窗 55 非原 57 終態。派送篩選已寫入 main；Controller 完整 live 更新、artifact 準入與 57 UUID 業務終態 **PARTIAL** | 核對 Release #40045758731 與新唯讀 GCS artifact #40046056538 的結果及 live image/Controller readback；逐筆 41 Core manifest/重派準入，16 collection items/產物做終態對帳；不盲重派、不批次 UPDATE PG、不把消失於30日視窗當完成 | **是**，不與同一 Controller rollout/queue mutation 同時改動 |
+| **P0 O｜P0-1／備份自然執行** | 分離清理策略、real dry-run、受控 apply 已有 PASS；**每日 13:30 自然排程首輪尚未有收據** | 到期後核對自然 occurrence、GCS generation/bytes 和保護引用。僅按既有保留政策，不增額外清掃 | 是，只讀不與 P0-2 Controller deployment 相撞 |
+| **P1 P｜A-CHANGE／Janus 2.0 UI** | A1–A4 部分程式已存在，集中 CI／dev／授權登入 UI 尚未逐項結案；[Drive 2.0](https://drive.google.com/file/d/15sT38MsE96RAwD-aZnAHvOvEINtythPO/view) 為新產品設計，不是已部署 | 先完成 A1–A4 現役功能的 targeted/CI/dev/API/UI 關卡；再按 2.0 重要性排序／摘要去重／下一觀察同源／圖表收斂做差異增量。不得重建已存在變化卡 | 是，與資料/研究獨立，正式 UI 接線與 RV-05 合流 |
+| **P1 V｜RV-01…06 第五角色估值參考區間** | 2026-10-24 核准 **以 Valuation Range 取代 Event 模型**；**DESIGN_APPROVED／NOT_IMPLEMENTED**。規格 [SPEC](spec/valuation-range.md)／[Drive AI 指令](https://drive.google.com/file/d/1M7pxgkeyzK_Joi4C9Z2aTSRCgdV-u5YO/view) | RV-01 來源/每股口徑 → RV-02 確定性PE/PB分位函式（可先 fixtures）→ RV-03 真實資料 → RV-04 API/Mart → RV-05 UI → RV-06 dev 驗收；不依賴第四角色 Valuation 訓練/模型上線 | 是，RV-01/02/前端設計可平行；RV-04/05/06 必合流 |
+| **P1 D｜D07-PRE／資料包／治理 C0→C1-A** | 研究資料版本與必要檔案已有部分讀回；歷史產業 PIT、真實市場/產業全期 preflight、財務單位／PIT 缺口 **PARTIAL/NOT_VERIFIED**；C1-A 有 Live metadata 與 reader 分級，**C1-B 沒有刪除許可** | 凍結研究 CURRENT/hash、全期市場/產業可觀測 preflight、分來源缺口與 PIT、補收對帳；治理獨立完成 PG/Iceberg/reader/rebuild 依賴及候選 C1-B gate，禁止先刪表欄。10/23 Drive 增量方案「不補歷史」與舊 COLLECT-GAP 的 7 月待補範圍須分清：**新重構不開全市場歷史補收**，舊已明定 7 月缺口依其現役範圍/需要個別結案或調整，不自動擴大或假裝已完成 | 是，資料 Preflight 與 C1-A 唯讀可並行；**共用 canonical writer／清理套用／release 必須互斥** |
+| **P2 M｜四模型獨立研究** | Quant r1 研究候選凍結但證據不足不可發布；Risk 最新 §1.12 DETERMINISTIC + shadow，嚴格 promotion gates 未通過；Fundamental 5% XGB RC1 僅研究凍結；Valuation 財務映射/PIT不足，均不得由研究 PASS 推導 ACTIVE | Quant 前瞻不可變 cohort／成熟回收；Risk 真正新 cohort、獨立 OOS、來源、PIT/公司行動、8因子 parity；Fundamental 原 release PIT/Y/OOS；Valuation 映射、單位、合法時間後試訓。四角色可分開執行，**不得共寫 frozen X/Y、Registry、Risk ACTIVE** | 是，分隔 version/run_id/input_hash 與 publication_allowed=false |
+| **P3 I｜D08 報告／發布整合** | Gateway 既有能力可參考，CEO/Owner 全流程驗收尚未完成 | 事實 Fact Pack 可獨立於所有模型先整合；**僅需顯示某模型時，該角色必須先過其 publication gate**。共用 immutable provenance、Owner auth 與 rollback | 產品外殼可平行，受控發布需要各自依賴完成 |
+
+### 1.1 新增／跨線但未在舊路由明列的工項
+
+- [ ] **OPS-P0-2｜57 UUID 有界收斂**：凍結 57 筆清冊；核對 [C1-A §19](research/data-governance-c1a-2026-10-23.md) 的新審計結果、GitHub Release/deploy digest/真實 Controller；對 41 analysis 逐筆查 Core manifest、publication/outbox 與恢復權；對 16 collection 查 items/上下游 GCS 成品及可恢復終態。每筆留下狀態與 rollback/fence 收據，最終符合安全規則才關閉，不把僅有派送程式當業務 CLOSED。
+- [ ] **OPS-P0-1-NATURAL｜獨立備份清理首次自然排程驗證**：於規定時間發生後查 occurrence、執行身分、objects/bytes/generation 與零異常；既有受控 apply 不重跑。
+- [ ] **GOV-C1A-READERS｜C0-Live／C1-A 最後依賴收斂**：十一張 Mart（尤其其餘十張）及 Core market_volume/ohlcv 的真實 reader、retention、snapshot、重建/回滾依賴逐項分級；只有可證無讀者、具安全替代與可回復條件才另行放行 C1-B。**目前 C1-B 可刪 table/column = 0**，不得以此項擅自 DROP。
+- [ ] **J2-UI-INCREMENT｜2.0 使用體驗增量**：A-CHANGE 原定驗收先核對；按 Drive 2.0 已確認的實際程式差異修主訊息排序、下一觀察同源、重複摘要及圖表負擔。須符合原 auth/canonical/PIT 邊界並與 RV-05 合併驗收；不開第二套 UI / Fact Pack pipeline。
+- [ ] **RV-01…RV-06｜估值參考區間**：依 [第五角色 SPEC §4](spec/valuation-range.md) 逐關完成；首版確定性情境，不訓練第五套 XGBoost、不以舊 Event 角色進 Registry。文件／來源清冊/測試/API/UI/dev readback 分層保留收據。
+- [ ] **DATA-RELEASE-PREFLIGHT｜研究版本與資料可用性**：按 [四模型最新索引](research/00-四模型最新版本索引.md) 與 [全資料包 SOP](research/four-model-research-package-preflight-runbook.md) 固定 CURRENT/Parquet SHA/row、產業 member PIT、真實 market-sector 全期涵蓋，資料不存在或授權不符只阻擋相依因子，不阻擋其他非產業候選；不要僅憑使用者報告推導程式實際 live 完成。
+
+**已完成項不重開**：STAGE-48H 原定有界範圍、舊研究 GCP/BQ 退役、D01–D06/FINOPS-AB 原有結案仍依歷史收據保留；P0-1 的自然排程觀察是尚未完成的**特定新驗收**，不是要求重新做整個清理。現有 §2–§6 為各工作線展開細節；有日期的舊研究數字是歷史截面，以上述最新 gate 與實際 runtime 覆蓋，**不得把表內的日期快照當永久當前狀態**。
 
 ## 2. A-CHANGE｜方案 A
 
@@ -69,7 +83,7 @@
 
 - [ ] **正式整合與驗收**：具來源的有效 Fact Pack → Owner 手動 request → 現有 OmniGateway／Gemini → validator → immutable GCS／PG → Owner history／UI 與 Admin 設定／權限／回滾 readback；LLM 不決定 canonical 數字或最終 publication。
 
-[D08 唯一任務卡](execution-cards/d08-ceo-admin-owner-report.md)。正式報告依賴 D07 有效模型輸出，但**已結案的 FINOPS-AB／D06／舊 B5～B8 不得成為重新施工的前置條件**。
+[D08 唯一任務卡](execution-cards/d08-ceo-admin-owner-report.md)。正式報告的**模型結論**依賴該角色 D07 有效輸出；一般事實 Fact Pack／報告不以四模型全部上線為前置，但**已結案的 FINOPS-AB／D06／舊 B5～B8 不得成為重新施工的前置條件**。
 
 ## 6. 已結案、不再列待辦
 
