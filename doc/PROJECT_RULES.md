@@ -79,6 +79,14 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - **有效租約**而非單純 `status` 決定 Stage active 引用保護：僅 `queued/running/retrying` 且 PostgreSQL `claimed_until > UTC now` 的執行與其共用原始資料受保護；`running/retrying/queued` 過期或無租約，不得讓 **48 小時已到期** Stage 永久保留。未滿 48 小時的物件仍由 TTL 保護；apply 前需重新讀取有效租約，若執行集合改變即 fail closed。此處只調整 dev Stage 的 active 判定，不修改 Core manifest／row 的有效引用政策。刪除限現役 dev Stage、既有 worker fencing／固定 GCS generation／allowlist／有界資源與失敗讀回。Hash/MD5 相同只代表疑似內容相同：有有效租約仍在引用時不得直接刪去全部副本；去重需保留代表物件與 provenance，實際可刪容量需 generation 讀回。
 - 本節是使用者明確核准的 2 天 Stage TTL 與現有 dev 範圍受控清理，**不**授權刪除 Core 現用檔、Mart、Research frozen training input 或 Private Owner 資料。
 
+### 1.8.1 Controller 工作紀錄 5 天追查與派送上限（2026-10-24 新決策）
+
+- 使用者決定：**工作 `requested_at` 距目前 UTC 超過 5×24 小時**的 `analysis`／`collection` 佇列 execution，一律**排除 P0-2 追查、人工恢復與 Controller 自動重派**；恰好 5 天內（含邊界）才可依原安全 gate 考慮派送。不再逐筆追查原凍結 57 筆中的超齡工作，也不把消失於查詢窗口當作成功／失敗。
+- 選擇可逆**邏輯排除**，不是對 `control.executions`、`execution_items`、Core/Mart／GCS 做物理刪除、批量 status UPDATE，或捏造終態。稽核歷史可保留；系統的其他資料保留／Stage 48h／Iceberg 7d 政策不受影響。
+- 一般 queue SELECT 上限收斂為 5 天；既有 `pending` queue occurrence 在真正派送前再核對 execution age/trigger/未完成狀態，超齡或無法核對就 `skipped`，不送 Worker。舊 `JANUS_P02_ANALYSIS_RECOVERY` / `JANUS_P02_ANALYSIS_EXECUTION_REF` 歷史恢復入口停用，不能繞過 5 天上限。
+- 新程式只有完成測試、實際 dev Controller rollout 和 Scheduler/current image 讀回後才可宣稱生效。已在執行中的 Cloud Run Job 不因工作年齡被直接取消；安全的在途終態由正常機制處理，不能再啟動超齡工作的恢復流程。
+- 本條覆蓋 active TODO／WBS／SPEC／P0-2 舊研究記錄的「逐筆收斂原 57 UUID」「歷史恢復最多 30 天」及「一般隊列 7 天」相反指示；歷史原始審計收據保留供稽核，不再作 active 工項。
+
 ### 1.9 D07-PRE 研究路線、資料門檻與立即退役（2026-10-20）
 
 [新研究採集與模型契約](spec/research-collection-gas-drive-colab.md) 定義官方 TWSE／TPEx→Colab→Drive 月資料夾→Colab 模型路線；GAS、Core→BQ／PyIceberg→Colab 必經出口及 Cloud Run 月度 retrain 已退役。採集不以24月歷史PIT先驗完整或GCP Core/Mart為前置。研究母體是上市／上櫃普通股（排除 ETF）；D07-PRE 每市場×資料集×月研究准入以 **TWSE 上市 ≥90%、TPEx 上櫃 ≥70%** 分別判定。第一輪月 OHLCV 先依現行普通股名冊的實際有行情股票數／名冊數，作可稽核的 PROBE 研究准入；不以歷史下市名冊尚未補全阻擋 Risk OOS。歷史 PIT／公司行動及來源授權仍標真實狀態；正式 model promotion 另依其契約判定。
