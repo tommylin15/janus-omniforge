@@ -1,0 +1,54 @@
+name: Janus P0-2 57-row Core recovery evidence readonly
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/p02-recovery-audit-request.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-p02-core-audit-readonly
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Assert read-only P0-2 contracts and exact request
+        run: |
+          set -euo pipefail
+          python -m pip install -q pytest
+          python -m pytest -q tests/test_p02_core_artifact_audit.py tests/test_admin_batch_dashboard.py
+          python - <<'PY'
+          import json
+          v=json.load(open('ops/p02-recovery-audit-request.json'))
+          assert v['intent']=='p02-57-core-manifest-readonly'
+          assert v['scope']=='existing-dev'
+          assert v['read_only'] is True
+          assert v['no_worker_dispatch'] is True
+          assert v['no_data_mutation'] is True
+          assert v['no_template_mutation'] is True
+          assert v['no_iam_expansion'] is True
+          assert v['no_new_resources'] is True
+          PY
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: none
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Bounded GCS manifest/read-only PostgreSQL crosscheck with existing dev Job
+        run: python scripts/gcp/p02_core_artifact_audit.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: janus-p02-core-evidence-readonly
+          path: p02-core-artifact-audit-receipt.json
+          if-no-files-found: ignore
+          retention-days: 14
