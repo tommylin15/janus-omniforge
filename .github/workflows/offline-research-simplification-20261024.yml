@@ -1,0 +1,103 @@
+name: One-shot research simplification offline tests (2026-10-24)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/offline-research-simplification-20261024.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ingestion-and-admin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install existing test dependencies
+        run: |
+          python -m pip install -r jobs/ingestion-core/requirements.lock
+          python -m pip install -r services/api/requirements.lock
+          python -m pip install -r requirements-dev.txt
+      - name: Test Controller, quality retirement, supplement and Admin
+        env:
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+        run: |
+          python -m pytest -q tests/test_batch_controller.py tests/test_data_quality.py tests/test_data_supplement.py tests/test_admin_batch_dashboard.py
+
+  risk-and-mart:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install existing test dependencies
+        run: |
+          python -m pip install -r jobs/intelligence-mart/requirements.lock
+          python -m pip install -r requirements-ci.txt
+          python -m pip install -r requirements-dev.txt
+      - name: Test Risk and Mart runtime
+        env:
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+        run: |
+          python -m pytest -q tests/test_risk_inputs.py tests/test_risk_active.py tests/test_risk_shadow.py tests/test_risk_feature_parity.py tests/test_risk_registry_cas.py tests/test_risk_promotion_preflight.py tests/test_intelligence_mart_runtime.py tests/test_specialist_engines.py
+
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install existing research test dependencies
+        run: |
+          python -m pip install -r requirements-research-ci.txt
+          python -m pip install -r requirements-dev.txt
+      - name: Test opt-in industry preflight
+        env:
+          PYTHONPATH: src:research/chatgpt:jobs/ingestion-core:jobs/intelligence-mart:.
+        run: python -m pytest -q tests/test_industry_membership_preflight.py
+
+  flutter-admin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Flutter Admin widget regression
+        working-directory: apps/user_app
+        run: |
+          flutter pub get
+          flutter test test/admin_overview_batch_test.dart
+
+  retired-entrypoints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify retired workflow entrypoints remain disabled
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          names = (
+              "drl01-live-continuity-audit",
+              "feature-readiness-metadata-census",
+              "full-market-inventory-readback",
+              "governance-metadata-readonly",
+              "p02-readiness-diagnostic",
+          )
+          for name in names:
+              assert not (Path('.github/workflows') / f'{name}.yml').exists(), name
+              assert (Path('.github/workflows/archive') / f'{name}.yml.disabled').exists(), name
+          print("five retired workflows disabled")
+          PY
