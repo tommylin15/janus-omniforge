@@ -231,6 +231,15 @@ def read_existing_inputs(
     observations = scan.to_arrow().to_pylist()
     if len(observations) > max_core_rows:
         raise ValueError("valuation_core_scan_truncated")
+    # Authorization is checked against the existing control-plane registry;
+    # merely being an allowlisted adapter is not publication permission.
+    if rights_status in {"approved", "allowed"}:
+        used = {
+            str(row["source_id"]) for row in (observations + financial)
+            if row.get("source_id") and row.get("provenance_id")
+        }
+        if not used or not all(control.source_is_approved(source) for source in used):
+            rights_status = "unknown"
     result = from_existing_rows(
         symbol=symbol, market=market, security_type=security_type,
         is_financial=is_financial, as_of=as_of, valuation_rows=observations,
