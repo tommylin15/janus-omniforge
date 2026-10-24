@@ -9,7 +9,7 @@
   "no_data_mutation": true,
   "no_iam_expansion": true,
   "no_api_traffic_change": true,
-  "purpose": "P0-2 existing dev Controller-only pinned GHCR rerun after prior global lease rejected stale main. Preserve full lease fencing; no CLI override, no queue dispatch/status mutation.",
-  "retry_attempt": 3,
+  "purpose": "P0-2 fourth bounded existing-dev Controller-only pinned GHCR retry during main quiet window; retain global current-main lease and all readback/rollback fences. No history replay or queue mutation.",
+  "retry_attempt": 4,
   "release_image_sha": "7d71992a567e80252ba68049f1d6c23246f2af70"
 }
