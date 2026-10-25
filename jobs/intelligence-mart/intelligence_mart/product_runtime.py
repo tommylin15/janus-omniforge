@@ -23,7 +23,8 @@ def persist_screening(connection, artifact):
                        'metrics': row['metrics'], 'cross_sectional_rank': row['cross_sectional_rank'],
                        'candidate_rank': row['candidate_rank'], 'symbol': row['symbol'],
                        'latest_trade_date': row['latest_trade_date'], 'status': row['status'],
-                       'model_quality': 'NOT_VERIFIED'}
+                       'model_quality': 'NOT_VERIFIED',
+                       'seq08_quant_rank': row.get('seq08_quant_rank')}
             hashed = content_hash(payload)
             cursor.execute('''INSERT INTO private.market_screening_product
                 (analysis_as_of,core_snapshot_id,symbol,content_hash,payload_json)
