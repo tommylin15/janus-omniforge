@@ -204,8 +204,14 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
     # Read a bounded rank produced by the public all-market Screening Job.
     # This query cannot see other Owners' private positions or transactions.
     seq08_rank = {}
-    if (publication_connection is not None and target["symbols"]
-            and os.environ.get("MART_SEQ08_MARKET_RANK", "false").lower() == "true"):
+    from .seq08_native_serving import ACTIVE_NAME as SEQ08_POINTER, validate_pointer as validate_seq08
+    try:
+        seq08_active = validate_seq08(json.loads(store.read(SEQ08_POINTER))) is not None
+    except (FileNotFoundError, HTTPError) as error:
+        if isinstance(error, HTTPError) and error.code != 404:
+            raise
+        seq08_active = False
+    if publication_connection is not None and target["symbols"] and seq08_active:
         with publication_connection.transaction(), publication_connection.cursor() as cursor:
             cursor.execute("""
                 SELECT symbol, payload_json->'seq08_quant_rank'
