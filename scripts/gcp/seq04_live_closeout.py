@@ -169,6 +169,88 @@ def private_retention_apply(token):
                              for k in ("daily","weekly","monthly")},
             "pg_latest_retention_rows": [x.rsplit("|",1)[-1] for x in pg[:8]]}
 
+
+def catalog_current_pointer_readback(token):
+    """Read current PostgreSQL SqlCatalog pointers, then actual GCS metadata."""
+    import re
+    from urllib.parse import urlsplit
+    from ingestion_core.stage import GcsObjectStore
+    from seq04_immediate_readonly import api_json, BASE
+    from urllib.parse import quote
+    output={"status":"NOT_VERIFIED","by_role":{role:{"pointers":0,"readable":0,"current_snapshot_valid":0,
+                    "empty_snapshot":0,"failed":0} for role in ("core","mart","private")},
+            "private_names_exported":0}
+    try:
+        dbnames=vm_query("SELECT datname FROM pg_database WHERE datallowconn AND NOT datistemplate ORDER BY datname")
+        dbnames=[d for d in dbnames if re.fullmatch(r"[a-z][a-z0-9_]{0,40}",d)][:8]
+        found=0
+        total=0
+        for db in dbnames:
+            remote=("sudo docker exec --user postgres janus-postgres psql -X -qAt "
+                    "-v ON_ERROR_STOP=1 -d "+shlex.quote(db)+" -c ")
+            inspect_sql=("SELECT table_schema FROM information_schema.tables "
+                         "WHERE table_name='iceberg_tables' ORDER BY table_schema LIMIT 3")
+            command=["gcloud","compute","ssh","janus-postgres-dev",
+                     "--project="+PROJECT,"--zone=us-central1-a","--tunnel-through-iap","--quiet",
+                     "--command="+remote+shlex.quote(inspect_sql)]
+            proc=subprocess.run(command,capture_output=True,text=True,timeout=100,check=False)
+            if proc.returncode:
+                continue
+            schemas=[x.strip() for x in proc.stdout.splitlines()
+                     if re.fullmatch(r"[a-z][a-z0-9_]{0,40}",x.strip())]
+            for schema in schemas:
+                found += 1
+                sql=("SELECT metadata_location FROM "+schema+
+                     ".iceberg_tables WHERE metadata_location IS NOT NULL ORDER BY metadata_location LIMIT 81")
+                command[-1]="--command="+remote+shlex.quote(sql)
+                p=subprocess.run(command,capture_output=True,text=True,timeout=100,check=False)
+                if p.returncode:
+                    continue
+                entries=[x.strip() for x in p.stdout.splitlines() if x.strip()]
+                if len(entries)>80:
+                    raise RuntimeError("catalog_pointer_scope_exceeds_80")
+                total += len(entries)
+                for uri in entries:
+                    u=urlsplit(uri)
+                    role=next((r for r in output["by_role"] if u.scheme=="gs" and
+                               u.netloc==BUCKETS[r]),None)
+                    if role is None:
+                        continue
+                    row=output["by_role"][role]
+                    row["pointers"]+=1
+                    try:
+                        object_name=u.path.lstrip("/")
+                        meta=api_json(token, BASE+"/b/"+quote(u.netloc,safe="")+
+                                      "/o/"+quote(object_name,safe=""))
+                        if int(meta.get("size",0))>2*1024*1024:
+                            raise ValueError("metadata_over_budget")
+                        store=GcsObjectStore(u.netloc)
+                        store._token=lambda:token
+                        doc=json.loads(store.read(object_name))
+                        if "format-version" not in doc or "table-uuid" not in doc:
+                            raise ValueError("iceberg_metadata_invalid")
+                        row["readable"]+=1
+                        current=doc.get("current-snapshot-id")
+                        if current is None or current==-1:
+                            row["empty_snapshot"]+=1
+                        elif any(x.get("snapshot-id")==current for x in doc.get("snapshots",[])):
+                            row["current_snapshot_valid"]+=1
+                        else:
+                            raise ValueError("current_snapshot_not_in_metadata")
+                    except (ValueError,KeyError,TypeError,HTTPError,RuntimeError):
+                        row["failed"]+=1
+        output["catalog_db_count"]=len(dbnames)
+        output["catalog_table_count"]=found
+        output["pointer_rows_seen"]=total
+        valid=sum(v["pointers"] for v in output["by_role"].values())
+        output["status"]=("PASS" if found and valid and
+                          all(v["failed"]==0 for v in output["by_role"].values()) and
+                          all(v["pointers"]>0 for v in output["by_role"].values()) else
+                          "PARTIAL_CATALOG_SCOPE_OR_POINTER")
+    except Exception as error:
+        output["status"]="BLOCKED_CATALOG_"+type(error).__name__.upper()
+    return output
+
 def main():
     request=json.loads(Path("ops/seq04-live-closeout-request.json").read_text())
     if not (
@@ -194,7 +276,7 @@ def main():
              "iceberg":{"status":"NOT_ATTEMPTED"}, "pg":{"status":"NOT_ATTEMPTED"}}
     token=get_token()
     receipt["pg"]=controller_pg_readback()
-    receipt["iceberg"]=iceberg_buckets(token)
+    receipt["iceberg"]={"catalog":catalog_current_pointer_readback(token),\n                         "gcs_metadata_only":iceberg_buckets(token)}
     emit(receipt)
     for name, fn in (("stage",stage_apply),("private_retention",private_retention_apply)):
         if phase not in ("all",name if name=="stage" else "private"):
