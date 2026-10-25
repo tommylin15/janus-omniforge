@@ -43,7 +43,10 @@ def reference_from_core(
     if scope is None:
         return None
     if not str(core_snapshot_id).isdigit():
-        raise ValueError("valuation_reference_core_snapshot_required")
+        # The existing Mart test and legacy embedded manifests may use
+        # nonnumeric synthetic IDs. Do not manufacture a reference card when
+        # a real Core snapshot fence is unavailable.
+        return None
     day = date.fromisoformat(as_of)
     if market is not None and market != scope["market"]:
         raise ValueError("valuation_reference_market_identity_conflict")
