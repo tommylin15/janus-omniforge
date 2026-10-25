@@ -18,6 +18,6 @@
     "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:86b999bdf7a0350a01728cf8864a073f6c76c13a3c0ff982e975e030a747f0a0",
     "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:50536c3ac7cccf2e426149e78c5a2bd4411f2e2ba6f3f0a23b983e03123090fc"
   },
-  "purpose": "SEQ-04 same existing Scheduler controlled cutover with approved current IAM, change to schedule-only Cloud Scheduler REST PATCH (updateMask=schedule), no HTTP target/OAuth service account changes. Selective CI #40162566821 SUCCESS with focused patch tests. All existing fixed-digest release/jobs/API gates retained; acquire global writer lease; drain Jobs; pause then patch then verify before resume; old hourly cron reversible rollback. No new resources, IAM, forced cancels or additional target.",
-  "attempt": 5
+  "purpose": "SEQ-04: Owner completed narrowly scoped IAM grant roles/iam.serviceAccountUser to serviceAccount:janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com on only target janus-ingestion-scheduler@gen-lang-client-0593591102.iam.gserviceaccount.com; Cloud Shell grant + policy readback confirmed 2026-10-25 12:55 Asia/Taipei. Prior CI IAM diagnostic #40163099454: update GRANTED, actAs NOT_GRANTED before grant; run exact fenced schedule-only REST PATCH with all existing same-source release, image, job, API, terminal and rollback gates. One existing Scheduler only; no new service, IAM changes, data deletion, or forced Job cancellation. Need live verified 30 */2 * * * Asia/Taipei ENABLED and unchanged target.",
+  "attempt": 6
 }
