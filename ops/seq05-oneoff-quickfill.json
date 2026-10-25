@@ -20,5 +20,7 @@
     "finmind",
     "yahoo-finance"
   ],
-  "classification": "research_reference_only"
+  "classification": "research_reference_only",
+  "preflight_retry": 1,
+  "previous_workflow": "40172011410"
 }
