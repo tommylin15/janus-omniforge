@@ -1,13 +1,23 @@
 # Janus 最新驗收證據索引
 
-### 2026-10-25｜SEQ-04 Scheduler 拒絕根因：target SA actAs 權限（PARTIAL／BLOCKED）
+
+### 2026-10-25｜SEQ-04 單一Scheduler兩小時切換成功（DEPLOY PASS／LIVE PARTIAL）
+
+- 使用者於Cloud Shell只對既有 `janus-ingestion-scheduler@gen-lang-client-0593591102.iam.gserviceaccount.com` 設定 `roles/iam.serviceAccountUser`，member為 `janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com`；由Owner畫面顯示 `add-iam-policy-binding` 與 `get-iam-policy` 綁定讀回成功。專案層級 `cloudscheduler.jobs.update` 已於先前授權；不新增新的Scheduler、Cloud Run Job或Service Account。
+- [受控Scheduler切換 #40163729460](https://github.com/tommylin15/janus-omniforge/actions/runs/40163729460) `completed/success`，原本Writer lease、在途Job terminal fence、pause→schedule-only PATCH→resume及rollback已沿用。封存receipt：`phase=PASS`、`previous_cron=30 * * * *`、`new_cron=30 */2 * * *`、`scheduler_enabled=true`、`target_identity_unchanged=true`、`gcp_new_resources=0`、`target_sha256=5b647622b2abbcecbbb1e74e0e9134ac60155d41a0f209115ceae0271aa4b3ea`。目的來源SHA固定 `032871a38b1dffd11c7bf0cc833563c0c3091841`，上游GHCR Release／四Job／API無須重部署。
+- [獨立GCP只讀回驗 #40163927739](https://github.com/tommylin15/janus-omniforge/actions/runs/40163927739) `completed/success`，live `janus-ingestion-daily` 為 `30 */2 * * *`、`Asia/Taipei`、`ENABLED`，HTTP target hash與原基準相同；由`janus-ci`執行 `testIamPermissions` 兩項 `cloudscheduler.jobs.update` 及指定target SA `iam.serviceAccounts.actAs` 均 `GRANTED`。讀取最近15筆Controller executions皆終態，但最後一筆為UTC `2026-10-25T04:30:01`（台灣12:30），仍屬切換前、**不可當新兩小時自然觸發PASS**。
+- **待驗而非失敗**：下一次預定自然tick 2026-10-25 14:30 Asia/Taipei（UTC06:30），需讀回新Controller execution及任務分派/收據；SEQ-04 WI其餘已指定的有界Stage48h dry-run/有界apply與generation bytes、GCS/Iceberg current、Owner snapshot及UI、備份保留與Admin視圖，依實際runtime證據分別完成。暫不宣稱SEQ-01～04整體CLOSED，亦不新增第二排程、額外自然等待期或假收據。
+- **權限收尾提醒**：現有target SA資源綁定Service Account User具 `actAs` 能力，超出本次僅修改cron；若未來不再由CI更新此Scheduler，應由使用者核准後評估撤銷。撤銷不影響已成功的cron設定，但未授權前不自行修改IAM。
+
+
+### 2026-10-25｜SEQ-04 歷史拒絕根因：target SA actAs 權限（已解除，見上方成功收據）
 
 - 維持同一現役 `janus-ingestion-daily`、Asia/Taipei／`30 * * * *`／ENABLED。Scheduler 更新已改 `jobs.patch?updateMask=schedule`，不重送原 HTTP target/OAuth SA；對應測試 [#40162566821](https://github.com/tommylin15/janus-omniforge/actions/runs/40162566821) SUCCESS。受控部署 [#40162679929](https://github.com/tommylin15/janus-omniforge/actions/runs/40162679929) 收據 `reason=seq04_scheduler_update_permission_denied`、`phase=ROLLED_BACK`、原每小時 cron 恢復、無新資源。
 - GCP唯讀稽核 [#40163099454](https://github.com/tommylin15/janus-omniforge/actions/runs/40163099454) SUCCESS：Cloud Audit Log 對最近四次 `CloudScheduler.UpdateJob` 均為 403，呼叫者確定是 `janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com`，且從 CI 本身執行 `testIamPermissions`：`cloudscheduler.jobs.update=GRANTED`；對 `janus-ingestion-scheduler@gen-lang-client-0593591102.iam.gserviceaccount.com` 的 `iam.serviceAccounts.actAs=NOT_GRANTED`。不再將此誤列為 Scheduler Update 權限未傳播；也不能把尚未核准的 actAs 當成已授權。
 - **唯一解除入口**：由使用者明確同意後，僅在上述指定 `janus-ingestion-scheduler` Service Account 資源上給 `janus-ci` 所需 actAs；不在整個 GCP 專案授權 Service Account User。取得權限後透過原本帶 Writer lease、drain/pause/recovery 的 SEQ-04 workflow 重跑一次，讀回 cron／target／identity／ENABLED 及下一次自然 occurrence。未成功前 SEQ-04 維持 PARTIAL。
 
 
-### 2026-10-25｜SEQ-04 現有 Dev Scheduler 兩小時切換受權限阻擋（DEPLOY=PARTIAL）
+### 2026-10-25｜SEQ-04 歷史切換失敗及rollback（已由上方成功部署覆蓋）
 
 - **已通過的上游**：GHCR 全量 Release [#40154638538](https://github.com/tommylin15/janus-omniforge/actions/runs/40154638538)、四個現役 Dev Jobs 同源固定映像及 8/8 Canary [#40155713885](https://github.com/tommylin15/janus-omniforge/actions/runs/40155713885)、API 100% Promotion [#40157972457](https://github.com/tommylin15/janus-omniforge/actions/runs/40157972457) 均 SUCCESS；PG migration 069／既有 VM executor install [#40155184201](https://github.com/tommylin15/janus-omniforge/actions/runs/40155184201) SUCCESS，PG 隔離還原 [#40155337207](https://github.com/tommylin15/janus-omniforge/actions/runs/40155337207) SUCCESS。上述不能等同於全系統 live／GCS／Owner UI PASS。
 - **首次失敗**：[ #40158518968](https://github.com/tommylin15/janus-omniforge/actions/runs/40158518968) 的正式 receipt 為 `phase=ROLLED_BACK`、`reason=execution_not_terminal`、`previous_cron=restored_cron=30 * * * *`、`scheduler_enabled=true`、`gcp_new_resources=0`；未強制取消在途 Job。後續全頁唯讀診斷 [#40159481533](https://github.com/tommylin15/janus-omniforge/actions/runs/40159481533) SUCCESS，四個現役 Job 共檢查 1,819 筆執行，未終態 0；已退役 research Job 無執行、無寫入。
