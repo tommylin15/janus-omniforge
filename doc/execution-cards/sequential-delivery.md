@@ -175,13 +175,13 @@ SEQ-01→02→03 依序完成設計／開發／離線測試後交SEQ-04集中部
 
 | 階段 | 建議 AI | 直接執行指示／交付 |
 |---|---|---|
-| 文件設計 | GPT-6 Astra | 鎖定SEQ-05…07來源SHA、四artifact、API/schema、前端與rollback；列2330、2882、既有Owner持股／觀察股的一次有界產品驗收，重用SEQ-04仍有效的排程／備份證據。 交付：更新對應SPEC的契約、輸入輸出、接受條件與回復界線。 |
-| 程式開發 | GPT-6.1 Sol | 僅修整合與發布失敗；若改程式，重跑受影響測試與所需Release gate，不新增獨立workflow／排程。 交付：最小程式差異、必要migration／測試來源與操作文件。 |
+| 文件設計 | GPT-6 Astra | 鎖定SEQ-05…07來源SHA、四角色五份新版UBJ、API/schema與前端；直接替換舊模型，不以舊模型相容／模型切回作 gate；列2330、2882、既有Owner持股／觀察股的一次有界產品驗收，重用SEQ-04仍有效的排程／備份證據。 交付：更新對應SPEC的契約、輸入輸出、接受條件與回復界線。 |
+| 程式開發 | GPT-6.1 Sol | 直接替換 Risk8→Risk12、Quant→XGB15、Fundamental→XGB15含5%拒絕、Valuation→v26 PE/PB雙頭；以真UBJ校驗+create-only匯入先行，補新版X與正式推論，不保留舊模型相容或模型回復。若改程式重跑受影響測試及Release gate，不新增獨立workflow／排程。 交付：最小程式差異、必要migration／測試來源與操作文件。 |
 | 測試驗收 | GPT-6.1 Sol；模型／數值爭議用Astra | 部署前同SHA必要Release／auth gate；部署後讀真四模型→Fact Pack→唯一估值卡→報告→Ownerhistory／快照→UI。驗證缺值／partial與版本對應，CEO按需一次。必要真人畫面無可用session時列精確待驗，不用負向401冒充成功登入。 正式發布四角色各有真實artifact版本、正式serving狀態與非fixture輸出；任一仍research-only／baseline替代即不算四模型上線完成。 交付：真實指令、SHA、結果、未驗點；不得省略失敗。 |
-| 部署 | GPT-6.1 Sol | 既有Dev固定digest候選→受控Jobs→API一次100%→固定前端，保留上一可用版本；實際失敗才rollback。四模型發布與Risk狀態只按本次授權／證據變更，不藉研究線暗改。 交付：實際image／版本與讀回，或指定集中部署的待辦引用。 |
+| 部署 | GPT-6.1 Sol | 既有Dev固定digest候選→受控Jobs→API一次100%→固定前端。四模型直接使用本次核准新版，不要求保留或復原舊模型；保留 API/Auth/資料完整性與佈版鎖定、流量安全 gate。Registry／PG 狀態仍依實際模型與推論證據切換，不把舊研究封包政策誤當未授權。 交付：實際image／版本與讀回，或指定集中部署的待辦引用。 |
 
 退出條件：SEQ-05…08原定條件PASS，產品整條路線可用；不等待後面研究改善。
-失敗處理：只修本項具體失敗；涉及金額／Owner／清理安全不得降低assert。部署失敗沿既有runbook恢復已知可用版本，保留失敗與回復證據。缺權限／artifact標明BLOCKED及所需輸入，不造PASS。
+失敗處理：只修本項具體失敗；金額／Owner／Auth／清理安全不得降低assert。新模型不可用時標示 PARTIAL／BLOCKED，不退回舊模型預測；API／資料系統故障仍按既有安全停損與可重建機制處理，不能假稱新版發布成功。
 
 
 ## 分析Mart／報告增量的共同必讀

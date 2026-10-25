@@ -22,6 +22,16 @@
 Quant／Risk／Fundamental／Valuation全部納入本版正式serving與發布、報告、UI；以既有可發布artifact接線，真實缺檔明列，不能用baseline／research-only冒充正式ML。研究調校、全面研究資料重整與後續VAL-MIN30改善延至約2027年第一季的第二版，由使用者重新啟動；不自動排程，不將其作本版上線前置。必要特徵／數值一致性、安全與實際推論驗收保留。
 正式上線模式沿既有Dev個人真實服務，不自動新增GCP production環境、付費資源、權限或交易操作。舊研究卡的訓練／月評估指示依此暫緩。
 
+## 0.3 SEQ-08 新版四模型直接替換（2026-10-25 使用者覆蓋決策）
+
+使用者已批准 Quant／Risk／Fundamental／Valuation 四模型正式發布，**不需再次徵詢人工發布授權**；原研究封包的 `publication_allowed=false` 保留為歷史研究執行狀態，不是本輪尚未授權。
+
+**模型層直接替換，不負擔舊模型相容與舊模型恢復：** 新 Risk12 直接取代 Risk8，Quant15、Fundamental15、Valuation v26 PE+PB 直接進正式 serving；不必保留舊 8 因子 reader、deterministic specialist baseline、缺失指標的虛構相容值、舊模型版本切回或舊模型回復驗收。這是模型替換範圍，不授權刪 Owner 原始資料、Core current、其他現役資產或使 API/Auth/資料系統失去必要操作安全。舊研究材料可原樣封存，不要求為本次新上線重建。
+
+**仍須驗證新版自身是否可用：** 五份真實 UBJ（四角色，Valuation 雙頭）及 SHA256、固定特徵個數／順序／單位、前處理、Risk RMS20 非負輸出、Fundamental 5% 拒絕政策、Valuation 真實 Core MOPS 映射、非 fixture 推論；欠缺資料就顯示 missing／partial，不拿舊模型填補。未通過前不得將 Registry、API、UI 稱為四模型 ACTIVE。Dev 既有服務的安全發布 gate、image/digest 鎖定、API/Auth/Owner 隔離與防止資料損壞仍須遵守；它們不等於保留「舊模型切回」功能。
+
+本條覆蓋 SEQ-06／07／08、active SPEC／WI 中所有以舊模型相容、保留 deterministic 推論、恢復舊模型為**上線前置**的相反指示，其他未衝突的 Release 機制不變。SEQ-08 的實作與 Live 完成狀態仍按實際 commit／CI／GCS／Registry／Dev runtime 讀回判定。
+
 ## 1. 權威與事實判定
 
 ### 1.1 目前實作／完成狀態
