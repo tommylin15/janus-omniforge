@@ -7,6 +7,6 @@
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "SEQ-04 guarded 0%-traffic API candidate from exact successful GHCR Release #40154638538 after migration069 and VM install #40155184201. No current traffic or Job changes; next auth boundary and four-Job controlled rollout.",
-  "request_attempt": 10
+  "purpose": "SEQ-04 retry same already-verified 0% API Candidate, prior #40155314045 was cleanly BLOCKED by current-main lease race (gcp_writes=0). Isolated PG restore #40155337207 PASS and VM installation #40155184201 PASS. Latest main source request only; no GCP mutation outside candidate, canonical traffic remains unchanged.",
+  "request_attempt": 11
 }
