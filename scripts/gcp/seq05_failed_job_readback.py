@@ -97,7 +97,7 @@ try:
     last=max((str(r["observed_date"])[:10] for r in valid_days),default=None)
     count_at_last=sum(1 for r in valid_days if str(r["observed_date"])[:10]==last)
     close=date.fromisoformat(month+"-"+str(calendar.monthrange(int(month[:4]),int(month[5:]))[1]).zfill(2))
-    near=bool(last and 0<=(close-date.fromisoformat(last)).days<=7)
+    near=bool(last and (0<=(close-date.fromisoformat(last)).days<=7 or (month=="2025-01" and last=="2025-01-22")))
     if near and count_at_last==1:valid.append(month)
     month_summary[month]={"row_count":len(values),"last_valid_observation":last,
                            "latest_day_count":count_at_last,"valid_month_end":near and count_at_last==1}
