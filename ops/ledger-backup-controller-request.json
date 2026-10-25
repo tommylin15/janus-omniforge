@@ -5,5 +5,5 @@
   "release_run": 40154638538,
   "release_sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
   "phase": "reconcile",
-  "reason": "One-shot SEQ-04 explicit bounded recovery: 2026-10-19 weekly copy from original successful immutable daily, and exact 2026-10-25 00:30 completed/retained occurrence state CAS; no new backup, Scheduler or Job mutation."
+  "reason": "SEQ04 bounded one-shot weekly+occurrence reconcile retry after missing pytest preflight only; previous run #40175288842 made zero GCP mutations."
 }
