@@ -34,6 +34,11 @@ class Store:
         return True
 
 
+class FakeNativeSession(Session):
+    def _model(self, head):
+        return head
+
+
 def base_rows(complete=True, abstain=False):
     roles = {}
     for role, order in [
@@ -81,7 +86,7 @@ def test_missing_registry_returns_all_four_missing_with_no_legacy_risk():
 def test_five_heads_predictions_nonnegative_rms_double_valuation_and_cache():
     store=Store()
     store.data[ACTIVE_NAME] = canonical(expected_pointer())
-    first=Session(store,"mart",loader=lambda raw,order:object(),
+    first=FakeNativeSession(store,"mart",loader=lambda raw,order:object(),
                   predictor=fake_predict).run(base_rows())
     role=first["rows"][0]["roles"]
     assert role["quant"]["prediction"] == 0.73
@@ -90,7 +95,7 @@ def test_five_heads_predictions_nonnegative_rms_double_valuation_and_cache():
     assert role["valuation"]["prediction"] == {"log_pe":1.6,"log_pb":1.6}
     assert all(r["status"]=="ACTIVE_PREDICTED" for r in role.values())
     assert len(store.created) == 5
-    second=Session(store,"mart",loader=lambda *_:pytest.fail("cache missed"),
+    second=FakeNativeSession(store,"mart",loader=lambda *_:pytest.fail("cache missed"),
                    predictor=lambda *_:pytest.fail("cache missed")).run(base_rows())
     assert all(r["status"]=="ACTIVE_CACHED" for r in second["rows"][0]["roles"].values())
     assert len(second["rows"]) == 1 and second["rows"][0]["symbol"] == "2330"
@@ -99,7 +104,7 @@ def test_five_heads_predictions_nonnegative_rms_double_valuation_and_cache():
 def test_rank_missing_does_not_generate_quant_probability_and_fund_policy_abstains():
     store=Store()
     store.data[ACTIVE_NAME]=canonical(expected_pointer())
-    result=Session(store,"mart",loader=lambda *_:None,
+    result=FakeNativeSession(store,"mart",loader=lambda *_:None,
                    predictor=fake_predict).run(base_rows(complete=False,abstain=True))
     status=result["rows"][0]["roles"]
     assert status["quant"]["prediction"] is None
