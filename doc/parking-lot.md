@@ -9,6 +9,23 @@
 
 這不是 active backlog。只有使用者日後明確決定「要做」，項目才重新移回 [`todo.md`](todo.md) 並取得明確順序與 acceptance；不得因本文件存在就自行開工。
 
+
+<a id="future-stages"></a>
+
+## 未來分期規劃與 AI 交接（2026-10-25）
+
+[完整適度性／工具比較／效益排序／WBS](future-development-stages.md)與[四階段 AI 指示](future-development-stages.md#ai-handoff)已整合。以下全部為 **PLANNED／NOT_STARTED**，不是第二條 Active queue；本次只授權文件整合及提交。
+
+| 暫定規劃 ID | 獨立上線切片 | 啟動條件 |
+|---|---|---|
+| PLAN-01 | 私人研究假設、證據與報告變化關聯 | SEQ-08結清後，由使用者指定 |
+| PLAN-02 | 私人曝險與唯讀交易情境 | 完整估值／現金契約可用，另行啟動 |
+| PLAN-03 | 精選外部資訊；03A站內、03B可選單一站外摘要分開發布 | 具體資訊缺口；03B另需通道／收件範圍授權 |
+| PLAN-04 | 單一產業關係與領先指標 | 有研究問題與可維護來源，無增益可暫緩 |
+| PLAN-05 | 四模型第二版，Quant→Risk→Fundamental→Valuation逐項改善 | 約2027 Q1明確啟動；沿下方第二版邊界 |
+
+PLAN-05不依賴PLAN-01～04；屆時可依效益由使用者重排，但仍只啟動唯一TODO中的指定項。已有A-CHANGE與SEQ-05～08能力不重做；不新增第五模型、全歷史稽核或盤中串流。詳細文件只保存設計與交接，本檔仍是未啟動狀態的唯一入口。
+
 ## 2026-10-10｜CI/CD 已接受的加強驗收豁免（不列待辦）
 
 使用者決定目前個人使用的 Janus dev 不必追加四項加強／歷史相容性驗收，均記為 **`WAIVED_BY_OWNER`（範圍決策 PASS、實測未執行）**，不影響本次已實測通過的 GitHub Actions → GHCR → Cloud Run 新版 CI/CD 結案，也不得未經重新排程自行執行：
