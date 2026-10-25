@@ -13,7 +13,7 @@
 | SEQ-02 持股、買賣與觀察設定快照 | UB-03、4J／4R 的本次增量 | DOC／CODE／OFFLINE_PASS（220 Python、270 API、Flutter User PASS）；live/部署交 SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-02) |
 | SEQ-03 日週月備份、保留清理與回復範圍 | UB-04（不是重開 OPS-P0-1） | DOC／CODE／OFFLINE_PASS（234 Python；API270、Mart247、Ingestion209）／LIVE與DEPLOY交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-03) |
 | SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | **DEPLOY_PASS／IMMEDIATE_READONLY_PASS／LIVE_PARTIAL**：四Jobs8/8 #40155713885、API100% #40157972457、PG隔離還原 #40155337207、兩小時Scheduler #40163729460與實機獨立讀回 #40163927739 PASS；備份executor及Controller audit #40164713512 PASS；#40165435450 Stage完整dry-run452筆／過期候選220筆／42,538,112 bytes、有效lease17，無刪除；Private GCS保留dry-run8 daily/2 monthly/0 weekly、計畫刪1份daily；Core/Mart/Private Iceberg metadata有界GET PASS，current catalog pointer尚未驗；2330與2882公開資料及Auth負向PASS。發現舊ingestion多筆FAILED及00:30備份occurrence RUNNING、備份8筆retention_status=pending。Stage/retention實際有界apply、真正current pointer、Owner/Admin正向登入與新cron首次自然tick仍未證實。 | 同SEQ-04有界後續驗收與保留實刪 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
-| SEQ-05 Valuation 真資料、唯一估值卡契約 | RV-01…06、UB-02 的 Valuation 子功能 | **DOC_REVIEWED／LIVE_INPUTS_READ_WITH_GAPS／CODE_PARTIAL／OFFLINE_CI_PASS／DEPLOY_DEFERRED_TO_SEQ-08**：#40166649960既有Dev兩股唯讀PASS，但2330僅12個月末PE且缺連續四季EPS、2882僅1個月末PB且缺BVPS，均不可產價帶；月數缺值診斷修復及單一卡片投影與tests已提交，正式分類／有界資料補足／Mart→Fact Pack→API→UI尚未完成 | 仍需本項資料與後端接線；集中部署SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-05) |
+| SEQ-05 Valuation 真資料、唯一估值卡契約 | RV-01…06、UB-02 的 Valuation 子功能 | **DOC_REVIEWED／MART_FACT_PACK_API_CODE_COMMITTED／OFFLINE_PASS／LIVE_DATA_PARTIAL／DEPLOY_DEFERRED_TO_SEQ-08**：#40166649960真實2330/2882取樣可讀、價帶皆null；本輪兩檔固定分類與Core→Mart分析輸入→immutable Fact Pack→授權API已提交，同版分析CI #40168671019 224 passed；DRL定向CI #40168872520 79 passed。歷史PE/PB有界來源補收 #40168576937/#40168701666 遭映像fence擋下，指定live immutable digest修正後 #40168882776 尚在執行，結果未驗；2330四季同口徑EPS／2882直接BVPS尚缺，UI及A-CHANGE交SEQ-07。 | 本項真實資料缺口補足與來源讀回；發布整合SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-05) |
 | SEQ-06 四模型正式上線模式、版本與共用快取 | UB-02、D07 serving、Risk API/UI、D07-CROSS-JOB-MODEL-CACHE；FACTOR-FACTORY／X/Y 僅必要 serving 一致性 | 按四模型可發布前提設計；實際接線狀態逐角色確認 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-06) |
 | SEQ-07 分析報告、Owner history 與 UI 完整接線 | UB-02、D08、RV-05 合流 | 既有 Fact Pack／Gateway 可沿用；完整整合待做 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-07) |
 | SEQ-08 四分析師到報告 UI 集中發布驗收 | UB-02 完成 gate、RV-06、D08 發布 | 未執行；依賴SEQ-05…07 | 本項集中部署 | [四階段指示](execution-cards/sequential-delivery.md#seq-08) |
@@ -30,13 +30,15 @@
 - SEQ-04結清SEQ-01…04；SEQ-08結清SEQ-05…08。測試驗收分部署前離線／Release與部署後真實驗收，不能在未部署時假稱live PASS。
 - 記錄格式：`任務｜文件設計狀態｜程式狀態｜測試狀態（offline/live）｜部署狀態｜SHA/證據｜下一階段`。只在此維護active狀態；Operations保存收據。
 
-### SEQ-05 四階段紀錄（2026-10-25，真資料收據與離線開發）
+### SEQ-05 四階段紀錄（2026-10-25，本輪有界後端接線）
 
-`SEQ-05｜文件設計=REVIEWED／規格與差異回寫｜程式=PARTIAL（RV-02月末樣本缺值診斷修復、RV-04單一卡片嚴格投影模組與targeted tests；批次producer／正式分類／API／UI未接）｜測試=RV-03既有Dev唯讀 #40166649960 INPUTS_READ_WITH_GAPS、OFFLINE_CI #40167057471 PASS（216 passed／1 warning）｜部署=DEFERRED_TO_SEQ-08｜本項剩餘=有界EPS/BVPS/PE/PB補足與Fact Pack／API接線，不升級狀態PASS。`
+`SEQ-05｜DOC=REVIEWED（[Valuation SPEC](spec/valuation-range.md)）／CODE=MART_FACT_PACK_API_COMMITTED（兩股限定分類、Core快照Valuation計算、既有immutable specialist_product中唯一card、Owner認證唯讀API；UI未接）／OFFLINE=PASS（分析產品 [#40168671019](https://github.com/tommylin15/janus-omniforge/actions/runs/40168671019) 224 passed／1 warning；DRL-01 [#40168872520](https://github.com/tommylin15/janus-omniforge/actions/runs/40168872520) 79 passed）／LIVE_DATA=PARTIAL（唯讀取樣 #40166649960；有界補收 #40168882776 執行中，禁止預判結果）／DEPLOY=DEFERRED_TO_SEQ-08／唯一下一入口=SEQ-05 真實補收結果讀回及 EPS/BVPS 必要缺口，不另開模型、排程或新付費資源。`
 
-[真實Dev讀回 #40166649960](https://github.com/tommylin15/janus-omniforge/actions/runs/40166649960)：2330 Core245筆/financial54筆，獨立可觀測月末PE=12、缺四季單季EPS；2882 Core18筆/financial35筆，可觀測月末PB=1、缺正BVPS。兩檔皆`status=missing`、`lower/mid/upper=null`，`janus-ingestion-core`模板不變、資料異動0。現有探針對普通股與金融業採顯式symbol設定，正式industry/security-type讀端仍須驗證；此收據不能冒稱估值價格可發布。
+既有 Dev 唯讀[#40166649960](https://github.com/tommylin15/janus-omniforge/actions/runs/40166649960)：2330 Core估值245、Serving財務54、有效PE月末12，缺四季同口徑單季EPS；2882 Core估值18、Serving財務35、有效PB月末1，缺可比正BVPS；價格區間均null。此次兩股受控分類為TWSE官方2330半導體業／2882金融保險業，不能推廣到其他股號；第三方來源未經Control審核不得正式發價。API未發布，Flutter及A-CHANGE整合留SEQ-07。
 
-本輪最小diff範圍：`packages/valuation_range.py`、`tests/test_valuation_range_inputs.py`、`packages/valuation_reference.py`、`tests/test_valuation_reference.py`、`.github/workflows/analysis-product-ci.yml`、`doc/spec/valuation-range.md`；未修改existing four model Registry、Owner private資料、GCP Scheduler或既有API。詳見[Valuation SPEC 的SEQ-05接手與最小補資料路徑](spec/valuation-range.md#seq-05-部署前差異與真實樣本收據2026-10-25)。
+來源補收用既有 `scripts/gcp/drl01_valuation_2y.py`、`.github/workflows/drl-01-valuation-history.yml`，兩個12月切片共24個月（2024-10～2026-09）及精確immutable image digest，限定2330／2882。[#40168576937](https://github.com/tommylin15/janus-omniforge/actions/runs/40168576937) 及 [#40168701666](https://github.com/tommylin15/janus-omniforge/actions/runs/40168701666) 為`BLOCKED_IMAGE_SHA_MISMATCH`，未開始Core補收；[#40168882776](https://github.com/tommylin15/janus-omniforge/actions/runs/40168882776) 為後續版本與digest固定的唯一新嘗試，需以它的最終slice、Core寫入、失敗明細及有效月末數作結論，不能由CI或發送成功推斷實刪/實收。歷史PE/PB補收不會產生EPS或BVPS，這兩項仍是明確未解前置。
+
+本次無新GCP Job/Scheduler、無第五模型、無Owner mutation、無Registry ACTIVE變更，API/Mart尚未集中部署；舊Event/五項deterministic內容沿既有相容契約保留。詳細code與資料接手見 [SEQ-05 SPEC](spec/valuation-range.md#seq-05-第二輪限定兩檔批次與服務端接線2026-10-25)。
 
 ### SEQ-04 四階段紀錄（2026-10-25，進行中）
 
