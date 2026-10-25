@@ -94,7 +94,7 @@ def comparable_valuation_features(observation):
 def validated_inputs(datasets, symbol, as_of, snapshot, *, preserve_financial_basis=False):
     """Reuse source validation, with availability and every timestamp fenced before features."""
     cutoff = analysis_cutoff(date.fromisoformat(as_of))
-    scoped = {name: [r for r in rows if not r.get("symbol") or r.get("symbol") == symbol]
+    scoped = {name: [r for r in rows if name == "benchmark" or not r.get("symbol") or r.get("symbol") == symbol]
               for name, rows in datasets.items()}
     selected = _research_rows(scoped, date.fromisoformat(as_of), preserve_financial_basis=preserve_financial_basis)
     valid, rejected, _ = validate_evidence(

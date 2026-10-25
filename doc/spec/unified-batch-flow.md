@@ -94,3 +94,7 @@ Private snapshot 是 current Iceberg table 的資料列，不是舊 Iceberg snap
 - 主要風險：兩小時跨階段延遲、未部署混合版本、來源延遲、備份 executable 未同步、週／月副本尚未形成、模型 artifact 尚未正式接入。
 - 回復：保存切換前 cron／image digest／VM scripts；先停止新入口再恢復舊版，不能雙 Scheduler 並行；不刪現有備份或私人快照。
 - 本輪不執行測試、CI、部署、migration 或 live 驗收。後續唯一操作入口：[AI交接 WI](../runbook-unified-batch-ai.md)；全部剩餘工作在 [TODO](../todo.md)。
+
+## 分析輸入與報告減頻（2026-10-25）
+
+依[分析Mart契約](analyst-input-mart.md)：EOD／每日事實與私人PnL照常；深度因子只服務持股∪觀察股。新增execution內分析輸入artifact，完整事實報告採首次／每7日新資料／財務或模型變更／相對上次報告價格變動5%，CEO仍按需。不新增Scheduler或GitHub業務cron。已寫程式不代表四ML接線／UI或實機驗收完成。

@@ -27,3 +27,5 @@
 - 已結案：[完成索引](wbs/completed-index.md)。
 
 舊WBS的parallel／第五模型／週月研究稽核／完整PIT等待等相反指示不適用。C1-A、P0-2、OPS-P0-1、A-CHANGE、D01～D06、FINOPS-AB及研究精簡不重開；暫不做事項只留Parking Lot。
+
+分析Mart／頻率增量歸原SEQ-01／05／06／07／08，責任與四階段見[新WI](runbook-analyst-input-mart-ai.md)，不增加獨立批次、工作線或模型調校。

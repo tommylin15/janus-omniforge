@@ -102,7 +102,7 @@ def clean_specialist_artifacts(store, *, apply, now, active_executions=frozenset
         else:
             retired.add(execution_id)
             candidates.update(name for name in by_name if name.startswith(prefix) and name.rsplit("/", 1)[-1] in {
-                "specialist-manifest.json", "specialist-targets.json", "screening.json",
+                "specialist-manifest.json", "specialist-targets.json", "analyst-inputs.json", "screening.json",
                 "market-membership.json", "oos-evaluation.json"})
     # OOS training models are in memory, not persisted weights. Only the newest retained OOS result is used.
     evaluated = sorted((doc["analysis_as_of"], doc.get("retention_created_at", ""), doc["execution_id"], doc["evaluation"]["artifact_uri"])
@@ -124,7 +124,7 @@ def clean_specialist_artifacts(store, *, apply, now, active_executions=frozenset
     for execution_id in retired:
         for name in by_name:
             if name.startswith(f"executions/{execution_id}/") and name.rsplit("/", 1)[-1] in {
-                "specialist-manifest.json", "specialist-targets.json", "screening.json", "market-membership.json"}:
+                "specialist-manifest.json", "specialist-targets.json", "analyst-inputs.json", "screening.json", "market-membership.json"}:
                 live.discard(name)
                 candidates.add(name)
     for item in objects:
@@ -133,6 +133,10 @@ def clean_specialist_artifacts(store, *, apply, now, active_executions=frozenset
                 and datetime.fromisoformat(item["updated"].replace("Z", "+00:00")) < now - timedelta(days=90):
             if not name.startswith("executions/") or name.split("/")[1] not in active_executions:
                 candidates.add(name)
+        if (name.startswith("executions/") and name.endswith("/analyst-inputs.json")
+                and name not in live and name.split("/")[1] not in active_executions
+                and datetime.fromisoformat(item["updated"].replace("Z", "+00:00")) < now - timedelta(days=7)):
+            candidates.add(name)
         if name.startswith("specialists/") and name not in live:
             # Completed superseded outputs can be removed immediately; unfinished outputs get seven days.
             referenced = any(ref["artifact_uri"] == f"gs://{store.bucket}/{name}"

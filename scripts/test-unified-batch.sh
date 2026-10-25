@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 export PYTHONPATH=".:jobs/ingestion-core:jobs/intelligence-mart${PYTHONPATH:+:${PYTHONPATH}}"
 python -m pytest -q \
+  tests/test_analyst_input_mart.py \
   tests/test_unified_batch_flow.py \
   tests/test_batch_controller.py \
   tests/test_admin_batch_dashboard.py \

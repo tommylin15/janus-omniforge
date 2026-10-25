@@ -17,7 +17,7 @@ def revenue_months(today):
     if today.day <= 10:
         latest = latest.replace(day=1)-timedelta(days=1)
     n = latest.year*12+latest.month-1
-    return {(i//12,i%12+1) for i in range(n-12,n+1)}
+    return {(i//12,i%12+1) for i in range(n-14,n+1)}
 
 
 def claim(connection):
@@ -106,7 +106,7 @@ def supplement_one(control, core, writer, projection, request, *, today, fetch):
                 receipt['datasets'][dataset] = {'status':'not_applicable'}
                 continue
             target = 'financials' if dataset in {'eps','revenue'} else dataset
-            start = today-timedelta(days=400 if dataset=='ohlcv' else 450 if dataset=='revenue' else 760)
+            start = today-timedelta(days=400 if dataset=='ohlcv' else 550 if dataset=='revenue' else 760)
             try:
                 source = 'finmind' if provider else 'yahoo-finance'
                 if not control.source_is_approved(source):
@@ -123,11 +123,11 @@ def supplement_one(control, core, writer, projection, request, *, today, fetch):
                 if dataset=='revenue':
                     periods = {(int(r['fiscal_year']),int(r['fiscal_month'])) for r in existing
                         if str(r.get('metric','')).startswith('monthly_revenue') and r.get('period_basis')=='monthly'
-                        and r.get('unit')=='TWD_thousands' and r.get('value') is not None and r.get('fiscal_month')}
+                        and r.get('unit') in {'TWD','TWD_thousands'} and r.get('value') is not None and r.get('fiscal_month')}
                     if revenue_months(today)<=periods:
                         publish_rows(core,projection,target,[r for r in existing
-                            if str(r.get('metric','')).startswith('monthly_revenue') and r.get('unit')=='TWD_thousands'])
-                        receipt['datasets'][dataset] = {'status':'ready','rows':13,'reused':True}
+                            if str(r.get('metric','')).startswith('monthly_revenue') and r.get('unit') in {'TWD','TWD_thousands'}])
+                        receipt['datasets'][dataset] = {'status':'ready','rows':15,'reused':True}
                         continue
                 url = ('https://api.finmindtrade.com/api/v4/data?'+urlencode({'dataset':provider,
                     'data_id':symbol,'start_date':start.isoformat(),'end_date':today.isoformat()}) if provider else
@@ -152,7 +152,7 @@ def supplement_one(control, core, writer, projection, request, *, today, fetch):
                 if target=='financials':
                     known = {(int(r['fiscal_year']),int(r.get('fiscal_month') or r['fiscal_quarter'])) for r in existing
                         if r.get('value') is not None and r.get('provenance_id') and
-                        (str(r.get('metric','')).startswith('monthly_revenue') and r.get('unit')=='TWD_thousands'
+                        (str(r.get('metric','')).startswith('monthly_revenue') and r.get('unit') in {'TWD','TWD_thousands'}
                          if dataset=='revenue' else r.get('metric')=='eps_single_quarter' and r.get('period_basis')=='single_quarter' and r.get('unit')=='TWD_per_share')}
                     rows = [r for r in rows if (r['fiscal_year'],r.get('fiscal_month') or r['fiscal_quarter']) not in known]
                 else:
@@ -179,7 +179,7 @@ def supplement_one(control, core, writer, projection, request, *, today, fetch):
                 if target=='financials':
                     metric = 'monthly_revenue' if dataset=='revenue' else 'eps_single_quarter'
                     persisted = [r for r in persisted if str(r.get('metric','')).startswith(metric)
-                        and r.get('unit')==('TWD_thousands' if dataset=='revenue' else 'TWD_per_share')]
+                        and r.get('unit') in ({'TWD','TWD_thousands'} if dataset=='revenue' else {'TWD_per_share'})]
                 if not still_wanted(control.connection,request):
                     receipt['cancelled'] = True
                     break

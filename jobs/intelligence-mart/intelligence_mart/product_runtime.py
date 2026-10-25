@@ -49,6 +49,23 @@ def persist_products(connection, manifest, store, bucket):
         if 'sha256:' + sha256(raw).hexdigest() != ref['artifact_hash']:
             raise ValueError('change facts byte hash mismatch')
         change_facts = json.loads(raw)
+    analyst_rows = {}
+    if manifest.get("analyst_inputs"):
+        ref = manifest["analyst_inputs"]
+        expected = f'gs://{bucket}/executions/{manifest["execution_id"]}/analyst-inputs.json'
+        if ref["artifact_uri"] != expected:
+            raise ValueError("analyst input outside execution")
+        raw = store.read(expected[len(f"gs://{bucket}/"):])
+        if "sha256:" + sha256(raw).hexdigest() != ref["artifact_hash"]:
+            raise ValueError("analyst input hash mismatch")
+        document = json.loads(raw)
+        if (document.get("analysis_as_of") != manifest["analysis_as_of"]
+                or document.get("core_snapshot_id") != manifest["core_snapshot_id"]):
+            raise ValueError("analyst input identity mismatch")
+        for item in document["rows"]:
+            if item["symbol"] in analyst_rows:
+                raise ValueError("duplicate analyst symbol")
+            analyst_rows[item["symbol"]] = item
     risk_rows = {}
     if manifest.get("risk_active"):
         from .risk_active import validate_risk_active_artifact
@@ -111,6 +128,20 @@ def persist_products(connection, manifest, store, bucket):
                             previous.get('change_analysis', {}).get(session, {}).get('observations', []),
                             symbol=symbol, cutoff_at=view['cutoff_at'])}
                 payload['content_hash'] = content_hash({k: v for k, v in payload.items() if k != 'content_hash'})
+            if symbol in analyst_rows:
+                cursor.execute("""SELECT payload_json FROM private.specialist_product
+                    WHERE symbol=%s AND analysis_as_of<=%s AND execution_id<>%s
+                    ORDER BY analysis_as_of DESC,created_at DESC LIMIT 1""",
+                    (symbol, manifest["analysis_as_of"], manifest["execution_id"]))
+                prior = cursor.fetchone()
+                previous = prior[0] if prior else None
+                if previous and previous["content_hash"] != content_hash(
+                        {k: v for k, v in previous.items() if k != "content_hash"}):
+                    raise ValueError("previous analyst product hash mismatch")
+                payload["analyst_inputs"] = analyst_rows[symbol]
+                from packages.stock_report_policy import attach_stock_report
+                attach_stock_report(payload, analyst_rows[symbol], previous)
+                payload["content_hash"] = content_hash({k: v for k, v in payload.items() if k != "content_hash"})
             cursor.execute("""INSERT INTO private.specialist_product
                 (execution_id,symbol,analysis_as_of,content_hash,payload_json)
                 VALUES (%s,%s,%s,%s,%s::jsonb) ON CONFLICT DO NOTHING""",

@@ -4,7 +4,10 @@ import ast, hashlib, json, re, sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
-import factor_factory_v1 as legacy
+if __package__:
+    from . import factor_factory_v1 as legacy
+else:  # Preserve standalone Colab/script entrypoints.
+    import factor_factory_v1 as legacy
 
 VERSION = '3.8.2'
 KEY = ['market', 'symbol']

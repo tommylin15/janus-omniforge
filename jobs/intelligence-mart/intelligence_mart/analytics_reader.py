@@ -89,7 +89,7 @@ class IcebergSnapshotReader:
             ):
                 raise ValueError("Core manifest datasets must be arrays")
             selected = set(requested_symbols)
-            embedded = {name: [row for row in rows if not row.get("symbol") or row["symbol"] in selected]
+            embedded = {name: [row for row in rows if name == "benchmark" or not row.get("symbol") or row["symbol"] in selected]
                         for name, rows in embedded.items()}
             if sum(map(len, embedded.values())) > row_limit:
                 raise ValueError("Core snapshot row limit exceeded")
@@ -121,7 +121,7 @@ class IcebergSnapshotReader:
             dataset_id = str(identifier).split(".", 1)[1][:-3].replace("_", "-")
             table = self.catalog.load_table(identifier)
             field_names = {field.name for field in table.schema().fields}
-            filter_ = In("symbol", set(requested_symbols)) if requested_symbols and "symbol" in field_names else None
+            filter_ = In("symbol", set(requested_symbols)) if requested_symbols and "symbol" in field_names and dataset_id != "benchmark" else None
             if identifier in self.date_bounds:
                 column, start, end = self.date_bounds[identifier]
                 from datetime import date

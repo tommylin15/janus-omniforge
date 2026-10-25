@@ -1,6 +1,6 @@
 # Janus 目前狀態
 
-更新：2026-10-25（Asia/Taipei）。本輪為文件排序與AI交接整理，沒有執行測試、部署、migration或Registry變更。
+更新：2026-10-25（Asia/Taipei）。本輪新增分析Mart、15月營收補收與週期事實報告程式／AI交接。沒有執行測試、部署、migration或Registry變更。
 
 統一批次主要程式已於 [77b5565](https://github.com/tommylin15/janus-omniforge/commit/77b5565f2b23c5023c9128121a9dfad05ed58376) 提交main，該版仍未測試／部署／驗收。新兩小時Scheduler與VM保留政策未由本輪切換；四模型正式上線也尚未由本輪完成。
 
@@ -18,3 +18,5 @@ OPS-P0-1 已於2026-10-24有界結案；當日Daily 40,587,735 bytes、唯讀 [#
 RV-02純函式與RV-03 adapter已有既有CI收據；RV-03真實2330／2882覆蓋仍待驗，RV-04…06尚未完整接線／發布，現併SEQ-05／08。詳見 [Valuation SPEC](spec/valuation-range.md)。
 
 P0-2、C1-A、A-CHANGE、D01～D06、FINOPS-AB及研究精簡保持既有結案；取消項不變PASS。實際證據查 [Operations](spec/operations-and-testing.md)，不以本文件取代runtime。
+
+新增[分析Mart](spec/analyst-input-mart.md)為CODE／DOC；真實因子覆蓋未知，四模型feature schema／Valuation mapping／完整API UI仍按SEQ-06…08處理，非四模型已上線。

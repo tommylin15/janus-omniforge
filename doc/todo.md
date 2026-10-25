@@ -1,6 +1,6 @@
 # Janus — 唯一 Active TODO
 
-更新：2026-10-25（Asia/Taipei）。本次只整理文件、commit／push，沒有執行開發、測試、部署、migration或模型啟用。
+更新：2026-10-25（Asia/Taipei）。本次新增分析輸入Mart／營收15月補收／週期事實報告程式與文件；未執行測試、部署、migration或模型啟用。
 
 ## 唯一順序線
 
@@ -37,3 +37,15 @@ Quant、Risk、Fundamental、Valuation **全部列入本次正式serving／版�
 C1-A、P0-2、OPS-P0-1、A-CHANGE、D01～D06、FINOPS-AB、研究稽核精簡保持既有有界結案。新備份政策驗收歸SEQ-03／04，不把歷史故障重開。
 取消：逐來源稽核、全歷史PIT／名冊／公司行動重建、自然長期觀察、新20日cohort等待、例行週月模型稽核、第五模型、舊GAS/BQ/月度重訓。
 暫不做：C1-B實體刪表欄、新付費來源／資源、production環境建立／IAM擴張、站外推播及其他 [Parking Lot](parking-lot.md)。本次「正式上線模式」指既有Dev個人真實服務中的四模型正式運作，不自動授權新建GCP production環境。
+
+## 2026-10-25 分析因子與報告頻率增量（併原順序）
+
+[分析Mart SPEC](spec/analyst-input-mart.md)／[AI驗測WI](runbook-analyst-input-mart-ai.md)。本次CODE／DOC已交付，TEST／LIVE／UI均NOT_VERIFIED，不新增SEQ編號。
+
+| 原項 | 增量與仍未完成條件 |
+|---|---|
+| SEQ-01 | 15月營收缺口補收、TWD／千元共用；深度target掃描與共用benchmark；離線與既有Job驗測待做 |
+| SEQ-05 | 補真實EPS／BVPS與估值有效月；不因新Mart而捏造已足量 |
+| SEQ-06 | Core→analysis artifact已寫；四模型真artifact feature schema、Valuation會計mapping與正式推論接線待完成；必要train/serving parity本版做、調校留Q1 |
+| SEQ-07 | 新增週期＋資料變更事實報告及重用狀態；四ML結果、Owner history／API／UI完整接線與日期語意待驗；CEO仍按需 |
+| SEQ-08 | 集中驗2330／2882及既有持股觀察股的真實因子覆蓋→模型→報告UI，不能以新程式存在稱PASS |

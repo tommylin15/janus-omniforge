@@ -1,5 +1,7 @@
 # D07｜四模型角色、X/Y 與估值區間情境
 
+> 2026-10-25：四模型本版正式上線依SEQ-06…08；分析因子與報告頻率見[分析Mart](analyst-input-mart.md)。新reference X契約不是發布artifact schema的替代品；Valuation mapping及真實覆蓋須驗，調校留2027 Q1。
+
 > 2026-10-24 批次與快照改以 [統一流程](unified-batch-flow.md) 為準。四模型按可發布規劃，既有artifact/Registry真實狀態不改判；訓練仍外部執行、無週月例行模型稽核、無GitHub業務cron。本輪未測試／部署。
 更新：2026-10-24（撤銷第五模型；04 Valuation 統合研究及前台估值區間）。方案 A 先交付事實解讀；模型設計已整理，不代表訓練/驗證/上線。狀態只看 [TODO](../todo.md)，資料窗口與前處理唯一契約見 [因子與時間](model-feature-time-contract.md)，研究來源見 [Colab/Drive](research-collection-gas-drive-colab.md)。
 

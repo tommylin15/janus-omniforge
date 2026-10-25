@@ -131,7 +131,7 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
         refs = [saved["target_snapshot"], *saved["specialists"],
                 *([saved["evaluation"]] if "evaluation" in saved else []),
                 *([saved["reconciliation"]] if "reconciliation" in saved else [])]
-        refs.extend(saved[key] for key in ("screening", "market_membership", "change_facts", "risk_active", "risk_quality") if saved.get(key))
+        refs.extend(saved[key] for key in ("screening", "market_membership", "change_facts", "risk_active", "risk_quality", "analyst_inputs") if saved.get(key))
         for ref in refs:
             name = ref["artifact_uri"].split(f"gs://{bucket}/", 1)[1]
             from hashlib import sha256
@@ -166,7 +166,7 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
         market_symbols = set(membership["symbols"])
         market_ref = _write_immutable_json(
             store, bucket, f"executions/{execution.execution_id}/market-membership.json", membership)
-        symbols = tuple(sorted(market_symbols | set(target["symbols"])))
+        symbols = tuple(target["symbols"])  # Daily full-market screening owns its separate scan.
     if reader_factory is not None and catalog_factory is not None:
         raise ValueError("reader_factory and catalog_factory are mutually exclusive")
     if reader_factory is not None:
@@ -175,31 +175,33 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
         reader = IcebergSnapshotReader(catalog_factory())
     else:
         reader = iceberg_snapshot_reader_from_environment()
+    from .analyst_inputs import bounded_inputs, build as build_analyst_inputs
+    if isinstance(reader, IcebergSnapshotReader):
+        reader.date_bounds.update(bounded_inputs(core, as_of))
     try:
         required = {name for names in DEPENDENCIES.values() for name in names}
         inputs = dict(core, iceberg_tables={name: fence for name, fence in core.get("iceberg_tables", {}).items()
                                            if name.split(".", 1)[1][:-3].replace("_", "-") in required})
         if "datasets" in core:
             inputs["datasets"] = {name: rows for name, rows in core["datasets"].items() if name in required}
-        snapshot_read = reader.read(
-            inputs,
-            symbols,
-            core_snapshot_id=execution.core_snapshot_id,
-            row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "250000")),
-        )
+        if symbols:
+            snapshot_read = reader.read(
+                inputs, symbols, core_snapshot_id=execution.core_snapshot_id,
+                row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "250000")))
+        else:
+            from .analytics_reader import AnalyticsSnapshot
+            snapshot_read = AnalyticsSnapshot(execution.core_snapshot_id, {}, {"total_rows": 0, "rows_by_dataset": {}})
     finally:
         reader.close()
     if snapshot_read.core_snapshot_id != execution.core_snapshot_id:
         raise RuntimeError("analytics reader returned a different Core snapshot")
     datasets = snapshot_read.datasets
     input_telemetry = snapshot_read.telemetry
-    if deep_coverage:
-        screen = []
-        screen_ref = None
-    else:
-        screen = screening(datasets, market_symbols, as_of, execution.core_snapshot_id)
-        screen_ref = _write_immutable_json(
-            store, bucket, f"executions/{execution.execution_id}/screening.json", screen)
+    # Public screening is owned by market_screening.run_daily, not this target-only scan.
+    screen, screen_ref = [], None
+    analyst_inputs = build_analyst_inputs(datasets, target["symbols"], as_of, execution.core_snapshot_id)
+    analyst_ref = _write_immutable_json(
+        store, bucket, f"executions/{execution.execution_id}/analyst-inputs.json", analyst_inputs)
 
     # The pinned GCS registry is the only model activation gate in the Mart.
     from .risk_active import load_active_pointer, materialize_active_predictions
@@ -307,7 +309,7 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 "screening_output_hash": screen_ref["artifact_hash"] if screen_ref else None,
                 "screening_quality": screening_quality(screen) if screen else None,
                 "specialist_status": "partial" if any(r["status"] != "ready" for r in references) else "ready",
-                "specialists": references, "change_facts": change_ref,
+                "specialists": references, "change_facts": change_ref, "analyst_inputs": analyst_ref,
                 "risk_active": risk_active_ref,
                 "risk_quality": risk_quality_ref,
                 "source_core_manifest_hash": execution.request_options["core_snapshot_hash"],
