@@ -1,6 +1,15 @@
 # Janus 最新驗收證據索引
 
 
+### SEQ-04 本週 weekly 補建及舊備份 occurrence 修復（2026-10-25 16:08 Asia/Taipei；PASS）
+
+- **本週不可變 weekly=PASS**：[GitHub #40175398373](https://github.com/tommylin15/janus-omniforge/actions/runs/40175398373) `completed/success`；12項相關測試通過，透過既有WIF、固定GCS source generation與目的 `ifGenerationMatch=0`，將已成功的 `2026-10-19` daily 備份建立為 `weekly/2026-10-19.dump`。**新建1份、30,872,328 bytes**；新週副本逐位元SHA-256與PG `control.ledger_backup_requests` 原daily大小／checksum完全一致，目的generation `1792915700206005`。未新建daily或執行pg_dump、不覆寫或刪除任何備份。此為**2026-10-19週的真實副本**，不是預先製造下一週 `2026-10-26` 的備份；下週自然首次成功仍獨立待驗。
+- **舊00:30 occurrence=PASS**：同run只對 `ledger-backup/2026-10-25/00` 作一次CAS，預先核對原 `running`、本日 `control.ledger_backup_requests` status `succeeded`、retention `succeeded`、有效size/SHA/completed；`cas_updates=1`，同交易補寫 `control.batch_event_outbox` **1筆事件**，實際PG回讀 `status=succeeded`。不是靠另一筆02:30的成功冒充00:30，也沒有重跑備份。
+- 失敗嘗試 [#40175288842](https://github.com/tommylin15/janus-omniforge/actions/runs/40175288842) 原因是該Runner未裝pytest，**未進入任何GCP寫入**；修正測試環境後 #40175398373 PASS。由於本次有條件修復已驗PASS，該舊pending occurrence與本週缺失的weekly副本**不得再列為active blocker**。
+- 邊界：保留單一兩小時Scheduler、既有VM executor及Dev Jobs，沒有新GCP資源、沒有Owner資料修改、沒有GCS刪除。本輪後SEQ-04仍只因**2026-10-26 02:30首次新版自然 ingestion→Core→screening**和 **2026-10-26新週自然首次備份**以及需本人授權的Owner/Admin正向UI驗收而保留 `LIVE_PARTIAL`；未到期時點不得造PASS。
+
+
+
 
 ### SEQ-04 Runtime 有界實作收尾收據（2026-10-25 15:35 Asia/Taipei）
 
