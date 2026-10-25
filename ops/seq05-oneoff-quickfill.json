@@ -1,0 +1,24 @@
+{
+  "intent": "seq05-single-finmind-yahoo-stage-core-research",
+  "approved": true,
+  "symbols": [
+    "2882"
+  ],
+  "datasets": [
+    "valuation",
+    "financials"
+  ],
+  "pb_window": [
+    "2025-10",
+    "2026-08"
+  ],
+  "one_execution": true,
+  "new_resources": false,
+  "no_job_template_mutation": true,
+  "program": "scripts/gcp/seq05_oneoff_core.py",
+  "source_set": [
+    "finmind",
+    "yahoo-finance"
+  ],
+  "classification": "research_reference_only"
+}
