@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parents[1] / "jobs/intelligence-mart"))
 
 from intelligence_mart.analyst_inputs import latest_eligible_market_session
-from intelligence_mart.market_screening import rank_features
+from intelligence_mart.market_screening import rank_features, eligible_screening_market_date
 
 
 def test_last_observed_trading_session_on_long_weekend():
@@ -63,3 +63,12 @@ def test_holiday_rank_fails_closed_when_cohort_incomplete_or_old():
     assert all(r["seq08_quant_rank"] is None for r in
                rank_features([sample(i, "twse", "2026-10-22", i) for i in range(101)],
                              "2026-10-31"))
+
+
+def test_screening_accepts_recent_market_day_but_not_missing_or_stale():
+    assert eligible_screening_market_date("2026-10-25", "2026-10-22")
+    assert eligible_screening_market_date("2026-10-22", "2026-10-22")
+    assert not eligible_screening_market_date("2026-10-25", "2026-10-26")
+    assert not eligible_screening_market_date("2026-10-31", "2026-10-22")
+    assert not eligible_screening_market_date("2026-10-25", None)
+    assert not eligible_screening_market_date("2026-10-25", "invalid")
