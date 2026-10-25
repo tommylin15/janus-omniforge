@@ -124,3 +124,10 @@ def test_seq05_user_approved_simple_eps_sum_uses_existing_real_core_style_finmin
 def test_existing_approved_yahoo_fallback_is_usable_in_research_scope():
     result = _card(_datasets(source="yahoo-finance"))
     assert result["status"] == "available"
+
+
+def test_real_core_uppercase_twse_rows_are_accepted():
+    data = _datasets()
+    for row in data["valuation"]:
+        row["market"] = "TWSE"
+    assert _card(data, market="TWSE")["status"] == "available"
