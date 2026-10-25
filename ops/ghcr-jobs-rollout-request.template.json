@@ -6,12 +6,12 @@
   "release_run": "38153154441",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "0ad738b1f7c3432bf6fac59ecb7d5063dce63447",
+  "baseline_source_sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:2c61164a8da4d8eb743f9fa27f074798a2cbc24bb3650bc4f77ea0e9bd7be1b1",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:2c61164a8da4d8eb743f9fa27f074798a2cbc24bb3650bc4f77ea0e9bd7be1b1",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:e4f48f93e060dbe484b785845f0698cc381d1c2ad92dc61951358327a597128e",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:61934fff9ff1f95974f8e7d5ee61e6fc1e584ac497aca5c0f2c8ccb130246fc9"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:6c36cb26e64398ca07b981d9b13563c2864457066fa0e25929eb48cfb04ff15d",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:6c36cb26e64398ca07b981d9b13563c2864457066fa0e25929eb48cfb04ff15d",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:86b999bdf7a0350a01728cf8864a073f6c76c13a3c0ff982e975e030a747f0a0",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:50536c3ac7cccf2e426149e78c5a2bd4411f2e2ba6f3f0a23b983e03123090fc"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
@@ -20,7 +20,7 @@
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
   "request_attempt": 0,
-  "safety": "INERT approved=false, no auth_boundary_run. Mirrors 2026-10-23 verified current four Jobs source 0ad738b1... after #39909889109 8/8 PASS. For any later release, re-read live Jobs source/images/config, choose a new release SHA, require exact independent full release and same-source candidate/auth evidence. Never auto-approve.",
+  "safety": "INERT approved=false; mirrors SEQ-04 validated current four Dev Jobs from #40155713885, version 032871a3. Future requests need fresh actual live rollback and full gate, no automatic approval.",
   "auth_boundary_run": "",
   "automated_oauth_requirement": "For a new release, require its own same-source authenticated candidate boundary run. Manual user OAuth consent is not an ordinary release gate."
 }
