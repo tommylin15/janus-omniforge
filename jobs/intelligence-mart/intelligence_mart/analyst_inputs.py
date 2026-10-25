@@ -5,7 +5,12 @@ from datetime import date, timedelta
 
 from .specialists import digest, number, validated_inputs
 
-VERSION = "analyst-inputs-v1"
+VERSION = "analyst-inputs-v2-seq08"
+QUANT15 = ("ret5","ret20","ret60","ma20_distance","ma60_distance","vol20","vol60","drawdown60","volume_ratio20","log_turnover20","market_code","ret10","ret120","bollinger_z20","ret20_market_rank")
+RISK12 = ("vol20","vol60","drawdown60","abs_return5","volume_ratio20","atr14_pct","abs_overnight_gap5","log_turnover20","downside_vol20","worst_daily_ret20","amihud_illiquidity","drawdown_from_high120")
+FUND15 = ("yoy_m","yoy_3m","yoy_change1","growth_acceleration","mom_m","log_revenue","season_sin","season_cos","revenue_vol3","market_code","revenue_sum6m","revenue_mean12m","revenue_growth_6m","base_log_twd","base_to_recent_log")
+SEQ08_FEATURE_VERSION = {"quant":"quant-xgb15-factor-factory-v1","risk":"risk-xgb12-original-factory-v1","fundamental":"fundamental-rc1-xgb15-v1"}
+FUND_ABSTAIN = {"base_twd_below":3266999.83471632,"mean12_over_base_above":3.1528768314559463,"absolute_yoy_above":246.93646766061153}
 ROLES = ("quant", "risk", "fundamental", "valuation")
 
 
@@ -53,13 +58,12 @@ def _features(order, values, *, input_as_of, version, reasons=()):
             "reasons": list(reasons), "publication_authority": False}
 
 
-def build(datasets, symbols, as_of, snapshot):
+def build(datasets, symbols, as_of, snapshot, *, market_rank=None):
     """Materialize reference feature contracts; model schemas must be matched before serving."""
     import pandas as pd
     from research.chatgpt import janus_precision as precision
-    from research.colab.risk_pilot import make_risk_panel
-    from research.colab.risk_v1 import V1_FEATURES, add_v1_features
-    from .risk_shadow import _eligible_price_rows, FEATURE_VERSION as RISK_FEATURE_VERSION
+    from .risk_shadow import _eligible_price_rows
+    import math
 
     date.fromisoformat(as_of)
     result = []
@@ -85,27 +89,39 @@ def build(datasets, symbols, as_of, snapshot):
                 str(r["trade_date"])[:10] for r in datasets.get("benchmark", [])
                 if r.get("benchmark_id") == benchmark_id and r.get("trade_date")
                 and str(r["trade_date"])[:10] <= as_of})
-            for role, order, version in (
-                ("quant", precision.QUANT, "janus-precision-" + precision.VERSION),
-                ("risk", V1_FEATURES, RISK_FEATURE_VERSION)):
-                values, reasons = {}, []
-                try:
-                    if role == "quant":
-                        frame, _, _ = precision.daily(prices, sessions={market: sessions})
+            daily_values, day_reasons = {}, []
+            try:
+                # Original research factor factory is shared by Quant15 and Risk12.
+                frame, _, _ = precision.daily(prices, sessions={market: sessions})
+                current = frame.loc[frame.trade_date.eq(pd.Timestamp(as_of))]
+                if len(current) == 1:
+                    daily_values = current.iloc[0].to_dict()
+                else:
+                    day_reasons.append("no_current_trade_observation")
+            except (ValueError, KeyError):
+                day_reasons.append("invalid_or_incomplete_price_window")
+            for role, order in (("quant", QUANT15), ("risk", RISK12)):
+                values = dict(daily_values)
+                reasons = list(day_reasons)
+                if role == "quant":
+                    # Factory.rank(pct=True) is all-market, same-day; running it on
+                    # one Owner's stock silently gives 1.0. Never expose that value.
+                    values["ret20_market_rank"] = None
+                    info = (market_rank or {}).get(symbol)
+                    if (isinstance(info, dict) and info.get("market") == market
+                            and info.get("analysis_as_of") == as_of
+                            and str(info.get("core_snapshot_id")) == str(snapshot)
+                            and info.get("source") == "full_market_core_same_day_pct_rank"
+                            and isinstance(info.get("cohort_size"), int)
+                            and info["cohort_size"] >= 100):
+                        values["ret20_market_rank"] = info.get("value")
                     else:
-                        frame = add_v1_features(make_risk_panel(prices, market_sessions={market: sessions}))
-                    current = frame.loc[frame.trade_date.eq(pd.Timestamp(as_of))]
-                    if len(current) == 1:
-                        values = current.iloc[0].to_dict()
-                    else:
-                        reasons.append("no_current_trade_observation")
-                except ValueError:
-                    reasons.append("invalid_or_incomplete_price_window")
-                roles[role] = _features(order, values, input_as_of=latest_day, version=version, reasons=reasons)
-        for role, order, version in (("quant", precision.QUANT, "janus-precision-" + precision.VERSION),
-                                     ("risk", V1_FEATURES, RISK_FEATURE_VERSION)):
-            roles.setdefault(role, _features(order, {}, input_as_of=None, version=version,
-                                             reasons=["no_accepted_ohlcv"]))
+                        reasons.append("full_market_same_day_percent_rank_missing")
+                roles[role] = _features(order, values, input_as_of=latest_day,
+                                         version=SEQ08_FEATURE_VERSION[role], reasons=reasons)
+        for role, order in (("quant", QUANT15), ("risk", RISK12)):
+            roles.setdefault(role, _features(order, {}, input_as_of=None,
+                       version=SEQ08_FEATURE_VERSION[role], reasons=["no_accepted_ohlcv"]))
         revenues = revenue_rows(valid.get("financials", []), symbol, market) if market else []
         fund_values, period, reasons = {}, None, []
         if revenues:
@@ -113,12 +129,38 @@ def build(datasets, symbols, as_of, snapshot):
                 frame, _ = precision.monthly(pd.DataFrame(revenues))
                 last = frame.sort_values("fiscal_month").iloc[-1]
                 fund_values, period = last.to_dict(), str(last.fiscal_month)
-            except ValueError:
+                previous_month = str(pd.Period(period, freq="M") - 11)
+                prior = frame.loc[frame.fiscal_month.eq(previous_month)]
+                base = number(prior.iloc[0].revenue_twd) if len(prior) == 1 else None
+                mean12 = number(fund_values.get("revenue_mean12m"))
+                # 5%-policy X values must use research's previous-year base.
+                if base is not None and base > 0 and mean12 is not None and mean12 > 0:
+                    fund_values["base_log_twd"] = math.log1p(base)
+                    fund_values["base_to_recent_log"] = max(-16., min(16., math.log(max(mean12, 1.) / max(base, 1.))))
+                    fund_values["_research_base_twd"] = base
+                else:
+                    reasons.append("prior_year_target_base_missing")
+            except (ValueError, KeyError, TypeError, OverflowError):
                 reasons.append("invalid_revenue_window")
         else:
             reasons.append("monthly_revenue_or_market_missing")
-        roles["fundamental"] = _features(precision.FUND, fund_values, input_as_of=period,
-                                         version="janus-precision-" + precision.VERSION, reasons=reasons)
+        roles["fundamental"] = _features(FUND15, fund_values, input_as_of=period,
+                                         version=SEQ08_FEATURE_VERSION["fundamental"], reasons=reasons)
+        base_twd = number(fund_values.get("_research_base_twd"))
+        mean12 = number(fund_values.get("revenue_mean12m"))
+        yoy = number(fund_values.get("yoy_m"))
+        abstain = []
+        if base_twd is None or base_twd <= 0 or mean12 is None or yoy is None:
+            abstain.append("BASE_OR_MONTHLY_INPUT_MISSING")
+        else:
+            if base_twd <= FUND_ABSTAIN["base_twd_below"]:
+                abstain.append("LOW_BASE_TWD")
+            if mean12 / base_twd >= FUND_ABSTAIN["mean12_over_base_above"]:
+                abstain.append("UNSTABLE_BASE_RATIO")
+            if abs(yoy) >= FUND_ABSTAIN["absolute_yoy_above"]:
+                abstain.append("EXTREME_YOY")
+        roles["fundamental"]["abstention_reasons"] = abstain
+        roles["fundamental"]["abstention_policy_version"] = "fundamental-rc1-xonly-5pct-v1"
         # Accounting basis must match the published model. Never substitute debt/equity for debt/assets,
         # infer ROE from a different quarter, or feed PE/PB (the target) back into model X.
         from .valuation_ml_mapping import build_v26_features
