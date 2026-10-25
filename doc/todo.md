@@ -1,6 +1,6 @@
 # Janus — 唯一 Active TODO
 
-更新：2026-10-25（Asia/Taipei）。SEQ-01～03 DOC／CODE／OFFLINE_PASS；SEQ-04 Release、四Job 8/8、API100%、PG migration069/VM及隔離還原、單一兩小時Scheduler部署與獨立讀回PASS。立即有界Dev唯讀驗收：備份VM／Controller #40164713512 PASS、Stage48h完整dry-run #40165435450 PASS、Private備份保留dry-run PASS、2330/2882 Public API及Core/Mart/Private GCS metadata讀回PASS；資料實刪、Iceberg current catalog pointer、Owner/Admin正向登入與新版02:30 ingestion成功仍NOT_VERIFIED；14:30新cron自然Controller execution已於#40170098722確認PASS，SEQ-04 整體LIVE_PARTIAL。
+更新：2026-10-25（Asia/Taipei）。SEQ-01～03 DOC／CODE／OFFLINE_PASS；SEQ-04 Release、四Job 8/8、API100%、PG migration069/VM及隔離還原、單一兩小時Scheduler部署與獨立讀回PASS。立即有界Dev唯讀驗收：備份VM／Controller #40164713512 PASS、Stage48h完整dry-run #40165435450 PASS、Private備份保留dry-run PASS、2330/2882 Public API及Core/Mart/Private GCS metadata讀回PASS；Stage48h實刪223物件／42,540,741 bytes（#40172644132，generation/bytes讀回PASS）；Private retention apply、Iceberg current catalog pointer、Owner/Admin正向登入與新版02:30 ingestion成功仍NOT_VERIFIED；14:30新cron自然Controller execution已於#40170098722確認PASS，SEQ-04 整體LIVE_PARTIAL。
 
 ## 唯一順序線
 
@@ -12,7 +12,7 @@
 | SEQ-01 收取、清理與市場分析總控 | UB-01 | DOC／CODE／完整離線217 PASS／Flutter7 PASS；live與部署交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-01) |
 | SEQ-02 持股、買賣與觀察設定快照 | UB-03、4J／4R 的本次增量 | DOC／CODE／OFFLINE_PASS（220 Python、270 API、Flutter User PASS）；live/部署交 SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-02) |
 | SEQ-03 日週月備份、保留清理與回復範圍 | UB-04（不是重開 OPS-P0-1） | DOC／CODE／OFFLINE_PASS（234 Python；API270、Mart247、Ingestion209）／LIVE與DEPLOY交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-03) |
-| SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | **DEPLOY_PASS／IMMEDIATE_READONLY_PASS／LIVE_PARTIAL**：四Jobs8/8 #40155713885、API100% #40157972457、PG隔離還原 #40155337207、兩小時Scheduler #40163729460與實機獨立讀回 #40163927739 PASS；備份executor及Controller audit #40164713512 PASS；#40165435450 Stage完整dry-run452筆／過期候選220筆／42,538,112 bytes、有效lease17，無刪除；Private GCS保留dry-run8 daily/2 monthly/0 weekly、計畫刪1份daily；Core/Mart/Private Iceberg metadata有界GET PASS，current catalog pointer尚未驗；2330與2882公開資料及Auth負向PASS。發現舊ingestion多筆FAILED及00:30備份occurrence RUNNING、備份8筆retention_status=pending。Stage/retention實際有界apply、真正current pointer、Owner/Admin正向登入與新版02:30市場收取成功仍未證實；14:30自然Controller於#40170098722已SUCCEEDED。 | 同SEQ-04有界後續驗收與保留實刪 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
+| SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | **DEPLOY_PASS／IMMEDIATE_READONLY_PASS／LIVE_PARTIAL**：四Jobs8/8 #40155713885、API100% #40157972457、PG隔離還原 #40155337207、兩小時Scheduler #40163729460與實機獨立讀回 #40163927739 PASS；備份executor及Controller audit #40164713512 PASS；#40165435450 Stage完整dry-run452筆／過期候選220筆／42,538,112 bytes、有效lease17，無刪除；Private GCS保留dry-run8 daily/2 monthly/0 weekly、計畫刪1份daily；Core/Mart/Private Iceberg metadata有界GET PASS，current catalog pointer尚未驗；2330與2882公開資料及Auth負向PASS。發現舊ingestion多筆FAILED及00:30備份occurrence RUNNING、備份8筆retention_status=pending。Stage實際有界apply已PASS（223件／42,540,741 bytes，#40172644132）；Private retention實際apply、真正current pointer、Owner/Admin正向登入與新版02:30市場收取成功仍未證實；14:30自然Controller於#40170098722已SUCCEEDED。 | 同SEQ-04有界後續驗收與保留實刪 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
 | SEQ-05 Valuation 真資料、唯一估值卡契約 | RV-01…06、UB-02 Valuation 子功能 | **LIVE_CORE_ONEOFF_PASS／DOC_CODE_COMMITTED／OFFLINE_PASS／MART_API_LIVE_PENDING／DEPLOY_SEQ-08**：#40172093172真正透過既有Dev Job完成FinMind 2882 PB 2025-10至2026-08共11月11筆、Yahoo 2026Q2 BVPS=69.37 1筆，Stage→Core讀回11/11月、獨立#40172603358讀回兩股24/24有效月及BVPS=69.37，0來源失敗。2330既有FinMind四季EPS直接相加=86.28元，Mart程式標記research approximation。#40172051959分析測試226 passed，FinMind/Yahoo均標為approved_fallback。一次性工作已封存，#40172457154重觸發安全跳過0 mutation；Mart/Fact Pack/API最新版程式未部署，未有新版live報告價帶 | 唯一下一工程入口SEQ-06四模型正式serving、版本及共用快取；其後SEQ-07報告／Owner history／UI接線；最後SEQ-08集中部署Mart／Fact Pack／API／前端及認證讀回。SEQ-05部署仍交SEQ-08；不得重收11個月或重派一次性請求 | [四階段指示](execution-cards/sequential-delivery.md#seq-05) |
 | SEQ-06 四模型正式上線模式、版本與共用快取 | UB-02、D07 serving、Risk API/UI、D07-CROSS-JOB-MODEL-CACHE；FACTOR-FACTORY／X/Y 僅必要 serving 一致性 | 按四模型可發布前提設計；實際接線狀態逐角色確認 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-06) |
 | SEQ-07 分析報告、Owner history 與 UI 完整接線 | UB-02、D08、RV-05 合流 | 既有 Fact Pack／Gateway 可沿用；完整整合待做 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-07) |
@@ -39,6 +39,12 @@
 封存 `ops/seq05-oneoff-quickfill.json` 為 `approved=false/closed_after_success=true`，再由[Noop #40172457154](https://github.com/tommylin15/janus-omniforge/actions/runs/40172457154)讀回 `SKIPPED_ALREADY_COMPLETED/data_mutations=0`。禁止將此一次性工作設為常態排程，或再次重派。獨立二次Dev Core唯讀 [#40172603358](https://github.com/tommylin15/janus-omniforge/actions/runs/40172603358) 終態SUCCESS：2330有效月24、2882有效月24、2882 BVPS=69.37(TWD_per_share)與source=yahoo-finance實際讀回，Core雙表snapshots分別3874132956674698219／6504132269236397893。不是Mart正式發布驗收。
 
 **完成範圍**：兩股估值所需原始資料已具備研究路徑；**未完成**：新的Mart materialization、Fact Pack寫入、API正向登入及前台顯示未部署或驗收，仍依SEQ-08；不能把已進Core直接當成已進Mart。下個工程入口先完成SEQ-06四模型正式serving與離線契約，再完成SEQ-07報告／Owner history／UI；其後在SEQ-08受控部署Mart+API及兩股真實讀回。SEQ-05不再研究補抓來源。詳見[Valuation SPEC](spec/valuation-range.md)。
+
+### SEQ-04 有界實刪新收據（2026-10-25）
+
+- **Stage 48h = LIVE_APPLY_PASS**：[#40172644132](https://github.com/tommylin15/janus-omniforge/actions/runs/40172644132)，原有`janus-ingestion-core` Job execution `janus-ingestion-core-9dd52`。實際 `604 → 381` 件，`73,943,009 → 31,402,268 bytes`，計畫／實刪均223件／42,540,741 bytes，generation-fenced worker與獨立GCS清冊讀回吻合；非dry-run或推算。此次僅Dev Stage，無Core/Mart/Private刪除。
+- **Private仍依獨立結果判定**：同run Private備份8 daily／2 monthly／0 weekly、計畫刪1 daily，VM退出1且沒有實刪讀回，該run整體`failure`；不能改稱`PASS`，修正後只需執行Private，不重派Stage。其他current pointer／真正Owner與Admin登入／2026-10-26 02:30新版收取依原定收據判定。
+- **SEQ-04 尚未整體CLOSED**：已通過Scheduler部署／14:30自然Controller tick及Stage實刪；未成功的Private／catalog／必要資料鏈保持單項待驗。詳細見[Operations](spec/operations-and-testing.md)。
 
 ### SEQ-04 四階段紀錄（2026-10-25，進行中）
 
