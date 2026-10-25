@@ -3,7 +3,7 @@
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
 
-狀態：**PARTIAL／RV-01_STATIC_MAPPED／RV-02_CODE_CI_PASS／RV-03_CODE_CI_PASS_LIVE_PENDING／RV-04…06_NOT_IMPLEMENTED**（2026-10-24：第五模型撤銷、功能併入 04；已開始程式，仍未接真實資料、API、UI 或部署）。
+狀態：**PARTIAL／RV-01_STATIC_MAPPED／RV-02_CODE_CI_PASS／RV-03_LIVE_INPUTS_READ_WITH_GAPS／RV-04_PROJECTION_CODE_CI_PENDING／RV-05…06_NOT_IMPLEMENTED**（2026-10-24：第五模型撤銷、功能併入 04；已開始程式，仍未接真實資料、API、UI 或部署）。
 權威邊界：[PROJECT_RULES](../PROJECT_RULES.md) → 本 SPEC → [WBS 工作線／依賴](../wbs.md) → [唯一 Active TODO](../todo.md) → [實機收據](operations-and-testing.md)。
 已被最新決策取代的歷史 AI 指令（僅供參照公式與 UI，**不可執行第五角色開發**）：[Drive《第五模型：估值參考區間》](https://drive.google.com/file/d/1M7pxgkeyzK_Joi4C9Z2aTSRCgdV-u5YO/view)；[Janus 2.0 報告](https://drive.google.com/file/d/15sT38MsE96RAwD-aZnAHvOvEINtythPO/view)。Drive 是核准設計參考，GitHub `main`／runtime 才是實作與完成證據。
 
@@ -15,6 +15,22 @@
 - Research-only 材料不得直接替代正式 Core／serving 的授權、PIT、來源與可得時間；不編造 EPS、BVPS、季報或歷史倍數。新付費或擴權依 PROJECT_RULES §1.3。
 
 RV-01 已完成 [現役 reader 靜態清冊](../research/valuation-rv01-serving-readers-2026-10-24.md)，真實樣本／BVPS 來源覆蓋仍待補。RV-02 已新增 [純函式](../../packages/valuation_range.py) 及 [16 項測試](../../tests/test_valuation_range.py)，[CI #40096160077](https://github.com/tommylin15/janus-omniforge/actions/runs/40096160077) PASS（已補未來財報季度／period end 排除）；RV-02 目前是內部計算，不代表下列完整介接回傳欄位或發布已完成。RV-03 已新增 [既有 Core/Serving 唯讀接線](../../jobs/ingestion-core/ingestion_core/valuation_range_inputs.py)，及 [13 項 targeted tests](../../tests/test_valuation_range_inputs.py)，[CI #40097413271](https://github.com/tommylin15/janus-omniforge/actions/runs/40097413271) PASS：保留 Core 最後交易日原始日期、只取完整月份與 60 月窗口、從既有 Serving 讀單季 EPS／BVPS、沿用 Control 來源授權；不新增研究補收或每日 Job。直接 Dev 真資料讀回未完成（現有 Janus readonly connector 內部錯誤），還不能判定個股有效覆蓋或宣稱每日運作。
+
+## SEQ-05 部署前差異與真實樣本收據（2026-10-25）
+
+- **權威依據**：GitHub `main` 上 `packages/valuation_range.py`（RV-02）、`jobs/ingestion-core/ingestion_core/valuation_range_inputs.py`（RV-03）、`jobs/intelligence-mart/intelligence_mart/product_runtime.py`（目前既有 Fact Pack／私人產品）、`services/api/analysis.py`（現有已驗 hash 的產品讀端）。`publication.stock_valuation_five_year` 的「兩年每日分布」不是本功能需要的「60個月逐月月末」，禁止沿用它直接冒充24個月。
+- **真正 Dev 取樣已執行**：[`#40166649960`](https://github.com/tommylin15/janus-omniforge/actions/runs/40166649960)，source SHA `8081010afeb07b010baf2605968825036733187c`；沿用既有 `janus-ingestion-core` 的一次唯讀 override，PG Serving／Core 讀取成功、Job 範本指紋不變、資料異動0、Core current snapshot `6880250134433223964`。取樣資料截至2026-10-24，對象限2330與2882；沒有長期覆蓋結論。
+- **2330**：245筆Core估值／54筆Serving financial；實際可見月末 PE 共12個（2025-10至2026-09）；原始函式在EPS缺失時提早返回`valid_month_count=0`，但`month_end_observation_dates`清楚顯示12個。單季同口徑四季 EPS 不足，`status=missing`／`four_quarter_eps_missing`，`lower/mid/upper=null`。
+- **2882**：18筆Core估值／35筆Serving financial；實際月末 PB 共1個（2026-09）。可用正BVPS缺失，`status=missing`／`bvps_missing`，`lower/mid/upper=null`。兩檔 source authorization 的本次探針結果為true，但不能取代未來其他來源的授權；兩檔「普通股／是否金融業」在診斷腳本由顯式股票代碼配置，**尚未由正式分類reader逐筆獨立驗證**，不得視為發布gate PASS。
+- **缺值診斷修復**：`packages/valuation_range.py` 已改為即使 EPS/BVPS 缺失，也先計算實際有效月末倍數個數；缺值的價格仍必須是null，`tests/test_valuation_range_inputs.py` 增加回歸。這是修改後待同版CI確認的CODE，不回溯改寫上述live收據。
+- **RV-04 單一卡片投影元件**：新增`packages/valuation_reference.py:project_reference_card`（`valuation-reference-card.v1`）及`tests/test_valuation_reference.py`；只轉換經 RV-02/RV-03 驗證且鎖定 `symbol/as_of/core_snapshot_id` 的一份結果。只有 `available` 且24個月／普通股／來源核准／正財務基礎／有序正區間才保留價格；其他狀態數值一律null。它不是第二個估值公式，也不會寫新Canonical、Registry、服務或排程。**尚未接入批次的真實producer、現有唯一Fact Pack／API及Flutter，RV-04/05整體仍PARTIAL。**
+
+### SEQ-05 剩餘最小開發與驗收路徑
+
+1. **有界資料修補（不是全市場回填）**：從已核准／授權且來源可重用的TWSE／MOPS及合格第三方，先針對2330補連續四季可比較、同每股與報表口徑的單季EPS；針對2882補有實際股數基準、TWD/share且已公告的正BVPS。直接核對現有Core／Serving是否本來就有可用原始事實，避免重抓；不得從權益總額猜BVPS、不得把YTD欄位當單季。對倍數資料只補至實際有效月末至少24個月所需的最小歷史缺口；本次已知2330缺至少12個、2882缺至少23個（是否能補足仍unknown）。如授權或欄位口徑不合，維持missing／blocked。
+2. **正式資料分類與端到端**：以既有stock identity/industry reader核對`security_type`與`is_financial`，使用現有已確認snapshot及真實財報／月末倍數在批次產生獨立版本化、可讀回的單一卡片；同一`as_of`／`core_snapshot_id`掛入既有Fact Pack，現有API只能讀已發布投影，禁止 request-time Iceberg掃描。需要新增 schema/migration 僅在無法沿用現有`private.specialist_product.payload_json`時才提出。
+3. **UI 與A-CHANGE交接**：保留`valuation`一個角色，只呈現一條下中上參考價帶及方法、日期、有效月份、缺值與上次變化；無價格時簡短顯示「資料尚不足」，不產生合理價、交易訊號或AI自算數值。與SEQ-07共用UI與改變提醒的final contract。
+4. **離線與上線分界**：按同SHA CI確認RV-02/03/04 targeted tests、負向來源／分類／Owner安全與舊Event讀端相容；2330／2882本次readback是`LIVE_INPUTS_READ_WITH_GAPS`而不是可發布區間驗收。`SEQ-05 DEPLOY=DEFERRED_TO_SEQ-08`，不在本項另開Scheduler、DB、模型role或直接切正式API。
 
 ## 2. 計算／資料契約（RV-01 至 RV-03）
 
