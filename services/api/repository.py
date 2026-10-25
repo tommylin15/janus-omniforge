@@ -831,6 +831,7 @@ class PostgresWorkspaceRepository:
                    VALUES(%s,%s,%s,%s,%s)""",
                 (user_id, value.expected_version + 1, value.amount, anchor, key),
             )
+            self._change(connection,user_id,self._next_change_version(connection,user_id),'cash-position',user_id,None)
             return self._cash_position_in_tx(connection, user_id)
 
     def broker_profile(self, user_id: UUID) -> dict[str, Any]:
@@ -1147,6 +1148,7 @@ class PostgresWorkspaceRepository:
         *,
         succeeded: bool,
         processed_ledger_version: int | None = None,
+        processed_change_version: int | None = None,
         error_code: str | None = None,
         safe_message: str | None = None,
     ) -> dict[str, Any] | None:
@@ -1170,11 +1172,21 @@ class PostgresWorkspaceRepository:
                        WHERE request_id=%s AND lease_token=%s""",
                     (request_id, lease_token),
                 ).fetchone()
-                if version and int(version["requested_ledger_version"]) > int(processed_ledger_version):
+                changed_during_run = False
+                if processed_change_version is not None:
+                    current_owner = connection.execute(
+                        "SELECT change_version FROM private.users WHERE user_id=("
+                        "SELECT user_id FROM private.recalculation_requests WHERE request_id=%s)",
+                        (request_id,),
+                    ).fetchone()
+                    changed_during_run = bool(
+                        current_owner and int(current_owner["change_version"]) > int(processed_change_version)
+                    )
+                if (version and int(version["requested_ledger_version"]) > int(processed_ledger_version)) or changed_during_run:
                     row = connection.execute(
                         """UPDATE private.recalculation_requests
                            SET status='QUEUED',lease_token=NULL,worker_execution=NULL,worker_task_index=NULL,
-                               error_code=NULL,safe_message='交易版本已更新，重新排隊計算',updated_at=now()
+                               error_code=NULL,safe_message='私人資料版本已更新，重新排隊計算',updated_at=now()
                            WHERE request_id=%s AND lease_token=%s
                            RETURNING *""",
                         (request_id, lease_token),
@@ -1427,6 +1439,14 @@ class PostgresWorkspaceRepository:
             return [dict(row) for row in connection.execute(
                 "SELECT * FROM private.watchlist WHERE user_id=%s ORDER BY updated_at,symbol", (user_id,)
             ).fetchall()]
+
+    def workspace_change_version(self, user_id: UUID) -> int:
+        """Owner mutation watermark for a consistent snapshot/version fence."""
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT change_version FROM private.users WHERE user_id=%s", (user_id,),
+            ).fetchone()
+            return int(row["change_version"]) if row else 0
 
     def investment_profile_for_pipeline(self, user_id: UUID) -> dict[str, Any] | None:
         with self._connection() as connection:

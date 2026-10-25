@@ -142,6 +142,48 @@ def test_checkpoint_advances_only_after_all_private_writes():
     assert failed_repo.advanced==[]
 
 
+def test_seq02_workspace_snapshot_deduplicates_and_versions_owner_inputs():
+    import json
+    class VersionedRepository(Repository):
+        change_version=9
+        cash_version=1
+        def workspace_change_version(self,owner):
+            assert owner==USER
+            return self.change_version
+        def cash_position(self,owner):
+            return {"cash_status":"available","cash_balance":Decimal("3200"),
+                    "cash_version":self.cash_version,"currency":"TWD",
+                    "anchor_ledger_version":1,"current_ledger_version":1}
+        def broker_profile(self,owner):
+            return {"version":2,"minimum_fee":Decimal("20"),
+                    "fee_discount_multiplier":Decimal("0.4"),
+                    "idempotency_key":"must-not-be-copied"}
+    class CapturingStore(Store):
+        def __init__(self):
+            super().__init__()
+            self.snapshots=[]
+        def upsert(self,table,rows):
+            super().upsert(table,rows)
+            if table=="workspace_snapshots":
+                self.snapshots.extend(rows)
+    repo,store=VersionedRepository(),CapturingStore()
+    pipeline=PrivatePipeline(repo,store,lambda symbols,when:{"2330":Decimal("12")})
+    first=pipeline.run_user(USER,date(2026,10,23))
+    second=pipeline.run_user(USER,date(2026,10,23))
+    assert first["change_version"]==second["change_version"]==9
+    assert store.snapshots[0]["snapshot_id"]==store.snapshots[1]["snapshot_id"]
+    payload=json.loads(store.snapshots[0]["payload"])
+    assert payload["cash"]["cash_version"]==1
+    assert payload["broker_profile"]["version"]==2
+    assert payload["change_version"]==9
+    assert "ledger" not in payload and "idempotency_key" not in store.snapshots[0]["payload"]
+    repo.change_version=10
+    repo.cash_version=2
+    pipeline.run_user(USER,date(2026,10,23))
+    assert store.snapshots[-1]["snapshot_id"]!=store.snapshots[0]["snapshot_id"]
+    assert all(s["user_id"]==str(USER) for s in store.snapshots)
+
+
 def test_run_user_cancellation_stops_before_private_mart_write():
     repo,store=Repository(),Store()
     pipeline=PrivatePipeline(repo,store,lambda symbols,when:{"2330":Decimal("12")})

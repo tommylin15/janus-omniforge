@@ -60,8 +60,10 @@ Cloud Scheduler `30 */2 * * *`，`Asia/Taipei`，唯一目標既有 `janus-batch
 ## 4. 私人操作與 UI 快照
 
 買賣記帳不是券商下單。交易、修正、沖銷、觀察股增刪與設定先由既有 Owner API 原子保存及版本化，UI 立即讀回；MCP 保持唯讀。
-Private pipeline 保存其實際使用的 ledger_version／watchlist／profile／positions／risk 輸入與結果組合為 `private.workspace_snapshots`，schema v1，owner＋內容 hash 去重。
-此快照是分析實際輸入，不宣稱不同 SQL 讀取構成同一 DB transaction。變動中的資料由既有 change queue 再重算。
+Private pipeline 將實際讀取的 ledger_version、owner change_version、完整 watchlist 狀態／版本、投資設定與版本、現金餘額／cash_version／ledger anchor、券商費率設定版本（不含冪等鍵）、positions／risk 輸入與結果保存為 `private.workspace_snapshots` 的 schema v1 payload；同 owner＋相同輸入／行情日期／版本產生相同內容雜湊 ID。新增欄位是 payload JSON 的相容性擴充，不變更既有 Iceberg top-level schema，也不複製全交易史。
+此快照記錄分析實際使用的非原子多次 PostgreSQL 讀取，**不是**同一 DB transaction。先捕捉 owner change_version，背景 worker 發布時比較目前 change_version 與這次計算版本；若期間發生交易、現金、觀察／排序或設定變更，即保留舊快照但重新排隊，不冒充最新完整結果。既有 change queue／scheduled full pipeline 負責恢復與最終收斂；同 Owner 已有進行中的 request 只併入，不多開 Job。
+交易／沖銷／更正、watchlist 增刪／排序、現金覆寫、券商與投資設定先持久化版本，再以 BackgroundTasks 嘗試觸發 owner-only Private 重算。觸發失敗不回滾已提交的 Owner 寫入，但 UI 須顯示待更新／失敗並保留上次成功值。快照 ID 不含執行時鐘；時間性只透過 valuation_date 與來源行情／版本表達。
+`GET /api/v1/me/workspace-snapshots?valuation_date=YYYY-MM-DD` 僅從認證身份取得 Owner，日期必填，至多掃描 200 筆並給 `may_be_truncated`，不可接受 caller 指定 user_id；單一查詢並非歷史全量／時間排序保證。私人 bucket、快取、log 不可外洩 Owner 資料。
 既有 ledger_events、watchlist_events、profile revisions 保留逐次操作；快照不取代事件帳、不額外寫一份全量交易歷史。
 公開 target snapshot 只有去識別股票集合；私人數量、成本、交易與設定不得進公開 bucket、模型 cache 或一般 log。
 UI 顯示資料日期、分析日期、更新中／部分成功及上次成功內容；新交易與舊 valuation_version 不可呈現同一最新完整狀態。Admin 顯示三大組與實際子工作、下一 due 和失敗原因。

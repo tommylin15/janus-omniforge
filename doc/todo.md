@@ -10,7 +10,7 @@
 | 順序／任務 | 整併舊項 | 目前基線 | 部署歸屬 | AI 指示 |
 |---|---|---|---|---|
 | SEQ-01 收取、清理與市場分析總控 | UB-01 | DOC／CODE／完整離線217 PASS／Flutter7 PASS；live與部署交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-01) |
-| SEQ-02 持股、買賣與觀察設定快照 | UB-03、4J／4R 的本次增量 | 已有快照與 API，完整語意／UI 待補驗 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-02) |
+| SEQ-02 持股、買賣與觀察設定快照 | UB-03、4J／4R 的本次增量 | DOC/CODE 提交候選；CI 與離線測試待讀回，live/部署交 SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-02) |
 | SEQ-03 日週月備份、保留清理與回復範圍 | UB-04（不是重開 OPS-P0-1） | 已有 VM／migration069／保留程式，未測試／部署 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-03) |
 | SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | 未執行 | 本項集中部署 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
 | SEQ-05 Valuation 真資料、唯一估值卡契約 | RV-01…06、UB-02 的 Valuation 子功能 | RV-02／03 有既有 CI；RV-03 live 待驗，RV-04…06 待開發 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-05) |
@@ -25,6 +25,12 @@
 - 每次只執行使用者指定任務／階段；未指定階段時按該任務四階段指示完成可做範圍。遇跨任務集中部署，將部署及live驗收記為 `DEFERRED_TO_SEQ-04/08`，不是PASS；其餘前置交付完成即可往下一順序準備，不造成循環等待。
 - SEQ-04結清SEQ-01…04；SEQ-08結清SEQ-05…08。測試驗收分部署前離線／Release與部署後真實驗收，不能在未部署時假稱live PASS。
 - 記錄格式：`任務｜文件設計狀態｜程式狀態｜測試狀態（offline/live）｜部署狀態｜SHA/證據｜下一階段`。只在此維護active狀態；Operations保存收據。
+
+### SEQ-02 四階段紀錄（2026-10-25）
+
+`SEQ-02｜文件設計=CONTRACT_UPDATED｜程式開發=COMMITTED_CANDIDATE（同版 SHA 以 Git 提交為準）｜測試驗收=CI_PENDING／LIVE_DEFERRED_TO_SEQ-04｜部署=DEFERRED_TO_SEQ-04｜下一入口=待 CI PASS 後 SEQ-03／文件設計`。
+
+對照 main 程式確認：交易帳本／修正／沖銷和原有 Private Pipeline、工作區快照／Owner API 已存在。本輪補現金 change_log、觀察清單增刪／排序及現金／券商／投資設定的重算觸發、工作區 payload 的 cash/broker/change 版本、背景 worker 對並行 owner change_version 的完成 fencing，以及 Flutter 關注頁操作後提示。未改 canonical 帳本、成本法、私人資料授權、GCP 排程或 migration；workspace_snapshots 僅 payload 相容擴充。實際 CI、測試數與 SHA 必須在收據讀回後補記；同一任務仍需 SEQ-04 的 Dev Owner／API／UI 讀回才能 CLOSED。
 
 ### SEQ-01 四階段紀錄（2026-10-25）
 

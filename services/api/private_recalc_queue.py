@@ -151,6 +151,9 @@ def run_queue_worker(repository: Any, pipeline: Any) -> dict[str, Any]:
                 lease,
                 succeeded=True,
                 processed_ledger_version=int(computed["ledger_version"]),
+                processed_change_version=(
+                    int(computed["change_version"]) if computed.get("change_version") is not None else None
+                ),
             )
             if result and result.get("status") == "SUCCEEDED":
                 succeeded += 1

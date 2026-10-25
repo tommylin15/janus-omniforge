@@ -167,6 +167,48 @@ def test_new_follow_wakes_shared_stock_queue_and_dispatch_failure_does_not_undo_
     assert response.status_code==201 and response.json()['symbol']=='6488'
 
 
+def test_seq02_owner_setting_mutations_schedule_private_snapshots():
+    recalculator=Recalculator()
+    api,repo,_=client(private_recalculator=recalculator)
+    repo.unfollow=lambda owner,symbol,key: repo.calls.append(("unfollow",owner,symbol,key))
+    repo.reorder=lambda owner,symbols,expected,key: [{"symbol":symbol,"version":expected+1} for symbol in symbols]
+    followed=api.post("/api/v1/me/watchlist",headers={**auth(),"Idempotency-Key":"seq02-follow"},
+                      json={"symbol":"2330"})
+    assert followed.status_code==201
+    removed=api.delete("/api/v1/me/watchlist/2330",
+                       headers={**auth(),"Idempotency-Key":"seq02-remove"})
+    assert removed.status_code==204
+    ordered=api.put("/api/v1/me/watchlist/order",
+                    headers={**auth(),"Idempotency-Key":"seq02-order"},
+                    json={"symbols":["2330"],"expected_version":1})
+    assert ordered.status_code==200
+    profile=api.put("/api/v1/me/investment-profile",
+                    headers={**auth(),"Idempotency-Key":"seq02-profile"},
+                    json={"risk_tolerance":"moderate","investment_horizon":"long",
+                          "primary_goal":"growth","minimum_cash_ratio":"0.15",
+                          "ai_context_opt_in":False,"expected_version":0})
+    assert profile.status_code==200
+    assert recalculator.calls==[USER_ID]*4
+
+
+def test_seq02_workspace_snapshot_api_enforces_owner_date_and_bound():
+    api,_,store=client()
+    captured=[]
+    def rows(table,owner,limit,filters):
+        captured.append((table,owner,limit,filters))
+        return [{"snapshot_id":"sha256:test","user_id":str(owner),
+                 "valuation_date":filters["valuation_date"]}]
+    store.rows=rows
+    route="/api/v1/me/workspace-snapshots"
+    assert api.get(route+"?valuation_date=2026-10-25").status_code==401
+    assert api.get(route,headers=auth()).status_code==422
+    assert api.get(route+"?valuation_date=bogus",headers=auth()).status_code==422
+    ok=api.get(route+"?valuation_date=2026-10-25",headers=auth())
+    assert ok.status_code==200 and len(ok.json()["items"])==1
+    assert ok.json()["limit"]==200 and ok.json()["may_be_truncated"] is False
+    assert captured==[("workspace_snapshots",USER_ID,200,{"valuation_date":"2026-10-25"})]
+
+
 def test_health_is_public_and_private_routes_require_bearer():
     api,_,_=client()
     assert api.get("/health").json()=={"status":"ok"}

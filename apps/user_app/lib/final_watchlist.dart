@@ -152,6 +152,11 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
         if (target?.trim().isNotEmpty == true) 'target_price': target!.trim(),
       });
       reload();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('關注已保存，分析快照將於背景更新')),
+        );
+      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -178,6 +183,11 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
         'expected_version': version,
       });
       reload();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('排序已保存，分析快照將於背景更新')),
+        );
+      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -284,6 +294,11 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                           '/api/v1/me/watchlist/${Uri.encodeComponent(symbol)}',
                         );
                         reload();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('關注已移除，分析快照將於背景更新')),
+                          );
+                        }
                       } catch (_) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(

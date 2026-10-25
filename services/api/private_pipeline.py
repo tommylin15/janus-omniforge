@@ -345,9 +345,25 @@ class PrivatePipeline:
         return self.valuation_date_resolver()
 
     def _prepare_user(self, user_id: Any, valuation_date: date) -> dict[str, Any]:
+        # Capture watermark before reading owner inputs. Any subsequent edit
+        # requeues the owner instead of publishing an outdated version as latest.
+        version_reader=getattr(self.repository,"workspace_change_version",None)
+        change_version=version_reader(user_id) if version_reader else None
         ledger=self.repository.ledger_for_pipeline(user_id)
         watchlist=self.repository.watchlist_for_pipeline(user_id)
         profile=self.repository.investment_profile_for_pipeline(user_id)
+        cash_reader=getattr(self.repository,"cash_position",None)
+        raw_cash=cash_reader(user_id) if cash_reader else None
+        cash=({field:raw_cash.get(field) for field in (
+            "cash_status","cash_balance","cash_version","currency",
+            "anchor_ledger_version","current_ledger_version") if field in raw_cash}
+            if raw_cash else None)
+        broker_reader=getattr(self.repository,"broker_profile",None)
+        raw_broker=broker_reader(user_id) if broker_reader else None
+        broker=({field:raw_broker.get(field) for field in (
+            "version","fee_discount_multiplier","minimum_fee",
+            "cash_strategy","currency","rule_version") if field in raw_broker}
+            if raw_broker else None)
         symbols={row["symbol"] for row in ledger}
         identity_reader=getattr(self.repository,"stock_identities",None)
         identities=identity_reader(symbols) if identity_reader else {}
@@ -360,8 +376,9 @@ class PrivatePipeline:
             "user_id": str(user_id), "valuation_date": valuation_date.isoformat(),
             "ledger":ledger,
             "ledger_version":max((int(row.get("ledger_version",0)) for row in ledger),default=0),
+            "change_version":change_version,
             "watchlist":watchlist,
-            "profile":profile,
+            "profile":profile,"cash":cash,"broker_profile":broker,
             "marts":marts,
             "risk":risk,
         }
@@ -391,7 +408,9 @@ class PrivatePipeline:
             "schema_version": "1", "user_id": prepared["user_id"],
             "valuation_date": prepared["valuation_date"],
             "ledger_version": prepared["ledger_version"],
+            "change_version": prepared["change_version"],
             "watchlist": prepared["watchlist"], "profile": prepared["profile"],
+            "cash": prepared["cash"], "broker_profile": prepared["broker_profile"],
             "positions": prepared["marts"]["mart_user_positions"], "risk": prepared["risk"],
         }
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
@@ -432,6 +451,8 @@ class PrivatePipeline:
             "status":"updated",
             "valuation_date":resolved.isoformat(),
             "ledger_version":prepared["ledger_version"],
+            **({"change_version":prepared["change_version"]}
+               if prepared["change_version"] is not None else {}),
         }
 
     def run(self, valuation_date: date | None = None, limit: int = 500) -> int:

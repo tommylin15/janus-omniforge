@@ -832,9 +832,11 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             str(row["cash_balance"]) if row["cash_balance"] is not None else None})
 
     @private.put("/cash-position")
-    def save_cash_position(value: CashPositionIn, current: AuthenticatedUser = Depends(user),
+    def save_cash_position(value: CashPositionIn, background_tasks: BackgroundTasks,
+                           current: AuthenticatedUser = Depends(user),
                            idempotency_key: str = Depends(key)):
         row = repository.set_cash_position(current.user_id, value, idempotency_key)
+        background_tasks.add_task(recalculate_private_mart_safely, current.user_id)
         return jsonable_encoder({**row, "cash_balance":
             str(row["cash_balance"]) if row["cash_balance"] is not None else None})
 
@@ -843,15 +845,20 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return jsonable_encoder(repository.broker_profile(current.user_id))
 
     @private.put("/broker-profile")
-    def save_broker_profile(value: BrokerProfileIn, current: AuthenticatedUser = Depends(user),
+    def save_broker_profile(value: BrokerProfileIn, background_tasks: BackgroundTasks,
+                            current: AuthenticatedUser = Depends(user),
                             idempotency_key: str = Depends(key)):
-        return jsonable_encoder(repository.save_broker_profile(current.user_id,value,idempotency_key))
+        result = repository.save_broker_profile(current.user_id,value,idempotency_key)
+        background_tasks.add_task(recalculate_private_mart_safely, current.user_id)
+        return jsonable_encoder(result)
 
     @private.put("/investment-profile", response_model=InvestmentProfileOut)
-    def update_investment_profile(value: InvestmentProfileIn, current: AuthenticatedUser = Depends(user),
+    def update_investment_profile(value: InvestmentProfileIn, background_tasks: BackgroundTasks,
+                                  current: AuthenticatedUser = Depends(user),
                                   idempotency_key: str = Depends(key)):
         result=repository.save_investment_profile(current.user_id,value,idempotency_key)
         store.upsert("investment_profile_revisions",[{"user_id":current.user_id,**result}])
+        background_tasks.add_task(recalculate_private_mart_safely, current.user_id)
         return jsonable_encoder(result)
 
     @private.get("/ai-sources")
@@ -1271,17 +1278,22 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def follow(value:WatchlistIn,background_tasks:BackgroundTasks,current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
         result = repository.follow(current.user_id,value,idempotency_key)
         background_tasks.add_task(supplement_stocks_safely)
+        background_tasks.add_task(recalculate_private_mart_safely, current.user_id)
         return jsonable_encoder(result)
 
     @private.delete("/watchlist/{symbol}",status_code=204)
     def unfollow(symbol:str,background_tasks:BackgroundTasks,current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
         repository.unfollow(current.user_id,symbol,idempotency_key)
         background_tasks.add_task(supplement_stocks_safely)
+        background_tasks.add_task(recalculate_private_mart_safely, current.user_id)
         return Response(status_code=204)
 
     @private.put("/watchlist/order")
-    def reorder(value:WatchlistOrderIn,current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
-        return jsonable_encoder(repository.reorder(current.user_id,value.symbols,value.expected_version,idempotency_key))
+    def reorder(value:WatchlistOrderIn,background_tasks:BackgroundTasks,
+                current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
+        result=repository.reorder(current.user_id,value.symbols,value.expected_version,idempotency_key)
+        background_tasks.add_task(recalculate_private_mart_safely, current.user_id)
+        return jsonable_encoder(result)
 
     @private.get("/export")
     def export(current:AuthenticatedUser=Depends(user)):
