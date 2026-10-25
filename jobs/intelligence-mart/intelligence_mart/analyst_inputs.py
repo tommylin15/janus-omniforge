@@ -58,6 +58,27 @@ def _features(order, values, *, input_as_of, version, reasons=()):
             "reasons": list(reasons), "publication_authority": False}
 
 
+
+def latest_eligible_market_session(latest_trade_date, sessions, analysis_as_of, *, max_age_days=7):
+    """Allow a market holiday without treating a halted/stale symbol as fresh.
+
+    Exact last observed Core session must equal the stock's latest bar. A newer
+    benchmark session blocks stale individual stocks; no forward filling.
+    """
+    if not latest_trade_date or not sessions:
+        return None
+    try:
+        cutoff = date.fromisoformat(analysis_as_of)
+        actual = date.fromisoformat(str(latest_trade_date)[:10])
+        observed = max(date.fromisoformat(str(day)[:10]) for day in sessions)
+    except (ValueError, TypeError):
+        return None
+    if actual != observed:
+        return None
+    age = (cutoff - actual).days
+    return actual.isoformat() if 0 <= age <= max_age_days else None
+
+
 def build(datasets, symbols, as_of, snapshot, *, market_rank=None):
     """Materialize reference feature contracts; model schemas must be matched before serving."""
     import pandas as pd
@@ -92,12 +113,16 @@ def build(datasets, symbols, as_of, snapshot, *, market_rank=None):
             daily_values, day_reasons = {}, []
             try:
                 # Original research factor factory is shared by Quant15 and Risk12.
-                frame, _, _ = precision.daily(prices, sessions={market: sessions})
-                current = frame.loc[frame.trade_date.eq(pd.Timestamp(as_of))]
-                if len(current) == 1:
-                    daily_values = current.iloc[0].to_dict()
+                market_day = latest_eligible_market_session(latest_day, sessions, as_of)
+                if market_day is None:
+                    day_reasons.append("latest_market_session_missing_or_stale")
                 else:
-                    day_reasons.append("no_current_trade_observation")
+                    frame, _, _ = precision.daily(prices, sessions={market: sessions})
+                    current = frame.loc[frame.trade_date.eq(pd.Timestamp(market_day))]
+                    if len(current) == 1:
+                        daily_values = current.iloc[0].to_dict()
+                    else:
+                        day_reasons.append("no_eligible_trade_observation")
             except (ValueError, KeyError):
                 day_reasons.append("invalid_or_incomplete_price_window")
             for role, order in (("quant", QUANT15), ("risk", RISK12)):
@@ -110,6 +135,7 @@ def build(datasets, symbols, as_of, snapshot, *, market_rank=None):
                     info = (market_rank or {}).get(symbol)
                     if (isinstance(info, dict) and info.get("market") == market
                             and info.get("analysis_as_of") == as_of
+                            and info.get("source_trade_date") == latest_day
                             and str(info.get("core_snapshot_id")) == str(snapshot)
                             and info.get("source") == "full_market_core_same_day_pct_rank"
                             and isinstance(info.get("cohort_size"), int)
