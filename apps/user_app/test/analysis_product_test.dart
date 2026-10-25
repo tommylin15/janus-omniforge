@@ -15,16 +15,7 @@ class AnalysisApi extends Api {
         'profiles': [],
         'capabilities': [],
         'executions': [],
-        'stock_report': {
-        'report_as_of': '2026-10-10', 'policy_version': 'stock-report-weekly-change-v1',
-        'generation_reason': 'first_report',
-        'inputs_as_of': {'quant': '2026-10-10'},
-        'serving_roles': [{'role': 'quant', 'status': 'MISSING_OR_INACTIVE_ARTIFACT',
-                            'model_version': null, 'prediction': null}],
-        'input_gaps': {'quant': ['ret5']},
-      },
-      'stock_report_refresh': {'generated': false, 'checked_as_of': '2026-10-11'},
-      'specialists': []
+        'specialists': []
       };
     if (path.endsWith('/reports')) return {'status': 'waiting', 'items': []};
     if (path.endsWith('/ceo'))
@@ -39,6 +30,15 @@ class AnalysisApi extends Api {
     return {
       'analysis_as_of': '2026-10-11',
       'freshness': 'current',
+      'stock_report': {
+        'report_as_of': '2026-10-10', 'policy_version': 'stock-report-weekly-change-v1',
+        'generation_reason': 'first_report',
+        'inputs_as_of': {'quant': '2026-10-10'},
+        'serving_roles': [{'role': 'quant', 'status': 'MISSING_OR_INACTIVE_ARTIFACT',
+                            'model_version': null, 'prediction': null}],
+        'input_gaps': {'quant': ['ret5']},
+      },
+      'stock_report_refresh': {'generated': false, 'checked_as_of': '2026-10-11'},
       'specialists': [
         {
           'role': 'quant',
