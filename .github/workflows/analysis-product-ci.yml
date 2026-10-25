@@ -10,6 +10,10 @@ on:
       - 'tests/test_valuation_range.py'
       - 'tests/test_valuation_range_inputs.py'
       - 'tests/test_valuation_reference.py'
+      - 'tests/test_seq05_valuation_mart.py'
+      - 'jobs/intelligence-mart/intelligence_mart/valuation_reference.py'
+      - 'jobs/intelligence-mart/intelligence_mart/analyst_inputs.py'
+      - 'services/api/app.py'
       - 'services/api/analysis.py'
       - 'jobs/intelligence-mart/intelligence_mart/product_runtime.py'
       - 'jobs/intelligence-mart/intelligence_mart/specialists.py'
@@ -65,6 +69,7 @@ jobs:
           python -m pytest -q tests/test_analysis_product.py tests/test_analysis_api.py
           tests/test_valuation_range.py tests/test_valuation_range_inputs.py
           tests/test_valuation_reference.py
+          tests/test_seq05_valuation_mart.py
           tests/test_risk_api_baseline_serving.py
           tests/test_analysis_postgres.py tests/test_mart_provider_routing.py
           tests/test_market_screening.py tests/test_b4_deep_coverage.py
