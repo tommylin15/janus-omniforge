@@ -18,6 +18,23 @@ SCHEMA_VERSION = "valuation-range.v1"
 MIN_MONTHS = 24
 WINDOW_MONTHS = 60
 
+# TWSE explicitly identified 2025-01-22 as the final January trading
+# session, with no trading 2025-01-23..2025-02-02. An arbitrary 7-calendar-day
+# rule would incorrectly exclude this observed official monthly close.
+# Scope is exact date + exchange; all other months retain the strict bound.
+# https://eshop.twse.com.tw/en/news/detail/8a82e9e69471d3e8019495d5d9dd0018
+VERIFIED_EXTENDED_MONTH_END = {("twse", date(2025, 1, 31)): date(2025, 1, 22)}
+
+
+def is_verified_month_final_session(day: date, end: date, *, market: str) -> bool:
+    return bool(
+        day <= end and (
+            0 <= (end - day).days <= 7 or
+            VERIFIED_EXTENDED_MONTH_END.get((market, end)) == day
+        )
+    )
+
+
 
 def _positive(value: Any) -> Decimal | None:
     try:
@@ -203,7 +220,7 @@ def calculate_reference_range(
             # RV-03 stores the actual final trading date, not a fictitious
             # calendar-end quote. The adapter proves source + proximity.
             if (row.get("month_end_date") != end.isoformat()
-                    or not 0 <= (end - day).days <= 7):
+                    or not is_verified_month_final_session(day, end, market=market)):
                 continue
         elif day != end:
             continue
