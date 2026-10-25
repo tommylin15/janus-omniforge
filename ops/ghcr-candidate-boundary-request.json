@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "cf69def50209ec590e464fcc7298ca4ece44bc6f",
+  "sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "RESEARCH-SIMPLIFICATION existing dev candidate #40085057604 PASS; anonymous Google OAuth metadata, PKCE, private Owner/Admin/MCP negative boundary and candidate build-id read-only. No API traffic/GCP Job changes.",
-  "request_attempt": 7
+  "purpose": "SEQ-04 verify successful fixed-digest 0%-traffic candidate #40155492159 against exact Release #40154638538; read-only OAuth/PKCE/Owner/Admin/MCP anonymous-negative contracts and build SHA, no API promotion, no GCP writes.",
+  "request_attempt": 8
 }
