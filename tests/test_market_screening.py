@@ -89,21 +89,43 @@ def test_reuse_precedes_read_canary_failure_is_audited_and_tampering_fails(monke
                             store_factory=Store, reader_factory=factory)
 
 
-def test_eod_batch_dependency_and_date_override():
+def test_preopen_batch_runs_full_screening_after_ingestion():
     from ingestion_core.batch_controller import due_batches, occurrence_env
-    now = datetime(2026, 10, 7, 8, 30, tzinfo=timezone.utc)
+    # Wednesday 04:30 Taipei (prior trading session certified by 02:30).
+    now = datetime(2026, 10, 6, 20, 30, tzinfo=timezone.utc)
     rows = [r for r in due_batches(now) if r[1].name == "market-screening"]
-    morning = next(r for r in rows if r[0] == "market-screening/2026-10-07/08")
-    assert morning[3] == ["ingestion/2026-10-07/06"]
-    assert dict(occurrence_env(morning[1], morning[2]))["SCREENING_DATE"] == ""
-    eod = next(r for r in rows if r[0] == "market-screening/2026-10-07/16")
-    assert eod[3] == ["ingestion/2026-10-07/14"]
-    env = dict(occurrence_env(eod[1], eod[2]))
-    assert env["SCREENING_DATE"] == "2026-10-07" and env["MART_OOS_EVALUATION"] == "false"
+    assert len(rows) == 1
+    early = rows[0]
+    assert early[0] == "market-screening/2026-10-07/04"
+    assert early[3] == ["ingestion/2026-10-07/02"]
+    env = dict(occurrence_env(early[1], early[2]))
+    assert env["SCREENING_DATE"] == "latest"
+    assert env["MART_OOS_EVALUATION"] == "false"
     assert env["MART_RISK_SHADOW_ENABLED"] == "false"
     assert env["MART_AI_ENABLED"] == "false"
     assert not any(r[1].name == "data-supplement" for r in due_batches(now))
-    assert not any(r[1].name == "market-screening" for r in due_batches(now.replace(day=10)))
+    assert not any(r[1].name == "market-screening" for r in due_batches(
+        datetime(2026, 10, 9, 20, 30, tzinfo=timezone.utc)))
+
+
+def test_preopen_screening_uses_actual_core_as_of_and_rejects_wrong_forced_date(monkeypatch):
+    from intelligence_mart.market_screening import run_daily
+    from unittest.mock import Mock
+    monkeypatch.setenv("GCP_PROJECT_ID", "gen-lang-client-0593591102")
+    monkeypatch.setenv("MART_BUCKET", "gen-lang-client-0593591102-dev-mart")
+    monkeypatch.setenv("SCREENING_DATE", "latest")
+    monkeypatch.setattr("ingestion_core.stage.GcsObjectStore", lambda bucket: object())
+    certified = {"analysisAsOf": "2026-10-16", "executionId": "real-source"}
+    monkeypatch.setattr("intelligence_mart.specialist_runtime.latest_training_input",
+                        lambda *_: certified)
+    invoke = Mock(return_value={"status": "succeeded"})
+    monkeypatch.setattr("intelligence_mart.specialist_runtime._run_event", invoke)
+    assert run_daily()["status"] == "succeeded"
+    assert invoke.call_args.args[:2] == (certified, "market-screening")
+    monkeypatch.setenv("SCREENING_DATE", "2026-10-19")
+    with pytest.raises(ValueError, match="snapshot not ready"):
+        run_daily()
+
 
 
 def test_full_market_reader_covers_all_chunks_and_ranks_globally():
