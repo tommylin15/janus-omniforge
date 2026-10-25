@@ -1,5 +1,12 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-25 SEQ-08 首次真 Mart 驗收失敗與安全收斂
+
+- 首次受控 Live Mart run [#40194391101](https://github.com/tommylin15/janus-omniforge/actions/runs/40194391101) = **FAILURE**；僅有 `tests/test_seq08_real_mart_acceptance.py` 2 passed，operator 回報 `RuntimeError`，不可將此 Workflow 判為實際 ML 推論 PASS。
+- 受控**唯讀**後驗 [#40194848340](https://github.com/tommylin15/janus-omniforge/actions/runs/40194848340) = SUCCESS：下載前輪失敗 receipt，`prior_phase=PREFLIGHT`、`prior_dispatch_maybe=false`、`operation_exists=false`；既有 Cloud Run Mart 最新十筆 execution 均為以前例行工作（最新 created UTC 12:31:50，早於12:44此次嘗試）；`lease_status=ABSENT`。**可證前輪未派送一筆本次 Mart Job**，現役五頭 GCS ACTIVE／API100不受此預處理失敗影響。
+- 修正 `scripts/gcp/seq08_real_mart_acceptance.py`：在取得全域 lease 前即記階段；dispatch POST 前把結果標成可能不明並保留 lease，避免網路中斷時盲目二次派送；失敗只輸出受控代碼與階段。新版重試必須以新的 GitHub main HEAD 觸發、在取得 lease 前不再插入其他 commit；不推論上輪 RuntimeError 根因為已證實的 source drift。
+- 正式 2330／2882／Owner、`four-model-serving.json`／PG／登入 UI 的 Live 驗收在取得新執行收據前仍為 **PENDING**。
+
 ## 2026-10-25｜SEQ-08 集中發布：已驗證 GCS ACTIVE + Dev Jobs + API 100%／Live 待驗
 
 | Gate | 最新收據 | 判定 |
