@@ -4,6 +4,6 @@
   "environment": "dev",
   "release_run": 40154638538,
   "release_sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
-  "phase": "audit",
-  "reason": "SEQ-04 2026-10-25 after Stage/Private apply: single current read-only audit of exact 00:30 ledger-backup occurrence, existing PG succeeded backup, VM executor and timer before bounded repair; no mutation."
+  "phase": "reconcile",
+  "reason": "One-shot SEQ-04 explicit bounded recovery: 2026-10-19 weekly copy from original successful immutable daily, and exact 2026-10-25 00:30 completed/retained occurrence state CAS; no new backup, Scheduler or Job mutation."
 }
