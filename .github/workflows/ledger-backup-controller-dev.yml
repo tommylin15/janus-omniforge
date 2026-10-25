@@ -270,6 +270,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m py_compile scripts/gcp/seq04_backup_weekly_reconcile.py
+          python -m pip install -q pytest
           python -m pytest -q tests/test_private_ledger_backup_retention.py
           python scripts/gcp/seq04_backup_weekly_reconcile.py
       - uses: actions/upload-artifact@v4
