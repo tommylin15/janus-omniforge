@@ -6,8 +6,10 @@ on:
       - 'ops/seq06-four-model-registry-probe.json'
       - '.github/workflows/seq06-four-model-registry-probe.yml'
       - 'ops/seq08-model-import-request.json'
+      - 'ops/seq08-model-activation-request.json'
 permissions:
   contents: write
+  actions: read
   id-token: write
 concurrency:
   group: janus-dev-runtime-writers
@@ -80,5 +82,52 @@ jobs:
         with:
           name: seq08-five-head-gcs-import
           path: /tmp/seq08-candidate-import-receipt.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Same existing Dev workflow; no new Workflow, Scheduler, bucket or Cloud Run resource.
+  # This job only runs for an explicit operator commit; all other pushes are read-only.
+  seq08-model-activation:
+    needs: inventory
+    if: "${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'ops(seq08): activate five models') }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONPATH: "jobs/intelligence-mart:."
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install exact model load tools
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check 'xgboost==3.1.3' 'pytest>=8,<9'
+      - name: Offline gate tests before any model activation
+        run: python -m pytest -q tests/test_seq08_registry_activate.py tests/test_seq08_native_serving.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Create only approved five-head Dev ACTIVE pointer and read back
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py acquire
+          python scripts/gcp/ghcr_release_lease.py assert
+          if python scripts/gcp/seq08_activate_registry.py --apply --receipt /tmp/seq08-model-activation.json; then
+            python scripts/gcp/ghcr_release_lease.py assert
+            python scripts/gcp/ghcr_release_lease.py release --safe-to-release
+          else
+            echo 'SEQ-08 activation blocked; lease retained pending verification of pointer state' >&2
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: seq08-five-head-active-registry-receipt
+          path: /tmp/seq08-model-activation.json
           if-no-files-found: ignore
           retention-days: 14
