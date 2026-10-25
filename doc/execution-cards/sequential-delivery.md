@@ -106,7 +106,7 @@ SEQ-01→02→03 依序完成設計／開發／離線測試後交SEQ-04集中部
 | 文件設計 | GPT-6 Astra | 彙總 SEQ-01…03 同一來源 SHA、變更／migration／VM／Job／API／前端清單，按 WI 定義回復基準及一次有界 live 範圍；不重做已通過且仍適用的離線測試。 交付：更新對應SPEC的契約、輸入輸出、接受條件與回復界線。 |
 | 程式開發 | GPT-6.1 Sol | 只修合流發現的具體問題與部署腳本缺口，不在發版途中加入新功能；同版 source／digest 與 schema 前後相容。 交付：最小程式差異、必要migration／測試來源與操作文件。 |
 | 測試驗收 | GPT-6.1 Sol；模型／數值爭議用Astra | 部署前取得同 SHA 必要 Release／auth gates；部署後一次驗證收取→Core→市場產物、Owner快照、日週月備份與隔離還原、清理保護、Admin，以及一個新 Scheduler occurrence。四模型／完整新報告尚由 SEQ-05…08 完成，不冒稱此處已驗全產品。 交付：真實指令、SHA、結果、未驗點；不得省略失敗。 |
-| 部署 | GPT-6.1 Sol | 按 WI B 執行既有 Dev：保存舊設定→暫停單一 Scheduler／在途作業正常終態→migration069→VM→四 Jobs／API／必要前端→cron 30 */2 * * *、Asia/Taipei→讀回並恢復。失敗依 WI D 回復。GitHub 僅 CI／Release，無日常業務批次。 交付：實際image／版本與讀回，或指定集中部署的待辦引用。 |
+| 部署 | GPT-6.1 Sol | 按 WI B 執行既有 Dev：保存舊設定→暫停單一 Scheduler／在途作業正常終態→migration069→VM→四 Jobs／API／必要前端→cron 30 */2 * * *、Asia/Taipei→讀回並恢復。新 due 為 daily 00:30 PG備份、02:30 ingestion、平日04:30 market-screening、06:30 private；週六22:30維護仍在，02:30收取必對應上一完成交易日、04:30 screening 必消費實際 Core ready 日期。需驗新 slot、相依及舊 pending superseded；失敗依 WI D 回復。GitHub 僅 CI／Release，無日常業務批次。 交付：實際image／版本與讀回，或指定集中部署的待辦引用。 |
 
 退出條件：SEQ-01…04 原定有界條件 PASS；排程真實讀回，無需數週自然觀察。
 失敗處理：只修本項具體失敗；涉及金額／Owner／清理安全不得降低assert。部署失敗沿既有runbook恢復已知可用版本，保留失敗與回復證據。缺權限／artifact標明BLOCKED及所需輸入，不造PASS。
