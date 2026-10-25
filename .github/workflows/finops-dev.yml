@@ -58,7 +58,7 @@ jobs:
           if [[ -n "${{ github.event.inputs.operation }}" ]]; then
             echo "operation=${{ github.event.inputs.operation }}" >> "$GITHUB_OUTPUT"
           else
-            changed=$(git diff --name-only HEAD~1 HEAD -- ops/finops-*.json ops/stage48-api-live-readback.json 2>/dev/null || echo "")
+            changed=$(git diff --name-only HEAD~1 HEAD -- ops/finops-*.json ops/stage48-api-live-readback.json ops/seq04-live-closeout-request.json 2>/dev/null || echo "")
             case "$changed" in
               *gcs-storage-footprint*) echo "operation=gcs-storage-footprint" >> "$GITHUB_OUTPUT" ;;
               *stage-trace*) echo "operation=stage-retention-trace" >> "$GITHUB_OUTPUT" ;;
