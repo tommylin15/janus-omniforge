@@ -193,7 +193,7 @@ jobs:
                 < /tmp/janus-069_backup_retention_status.sql
               sudo docker exec --user postgres janus-postgres \
                 psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d janus_control \
-                -c "SELECT version FROM control.schema_migrations WHERE version='\''069_backup_retention_status'\''"
+                -c "SELECT version FROM control.schema_migrations WHERE version='\''069_backup_retention_status'\''" | grep -Fx 069_backup_retention_status
             '
           echo 'SEQ04_MIGRATION069=APPLIED_AND_VERSION_READ_BACK' >> "$GITHUB_STEP_SUMMARY"
       - name: Install local request executor without stopping original backup
