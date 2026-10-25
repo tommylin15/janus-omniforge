@@ -18,7 +18,7 @@ MAX_CORE_ROWS = 4000
 MAX_FINANCIAL_ROWS = 300
 MAX_MONTH_END_GAP_DAYS = 7
 AUTHORIZED_MULTIPLE_SOURCES = frozenset({"twse", "tpex", "finmind"})
-AUTHORIZED_EPS_SOURCES = frozenset({"mops", "yahoo-finance"})
+AUTHORIZED_EPS_SOURCES = frozenset({"mops", "yahoo-finance", "finmind"})
 
 
 def _date(value: Any) -> date | None:
