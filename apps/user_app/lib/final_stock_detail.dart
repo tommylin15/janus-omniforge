@@ -805,8 +805,12 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
               ),
             if (!nonEquity && baselineRoles.any((item) => fvMap(item)['role'] == 'risk')) ...[
               RiskSignalCard(
-                specialist: fvMap(baselineRoles.firstWhere(
-                  (item) => fvMap(item)['role'] == 'risk')),
+                specialist: {
+                  ...fvMap(baselineRoles.firstWhere(
+                    (item) => fvMap(item)['role'] == 'risk')),
+                  'seq08_native_model': fvMap(
+                    fvMap(baseline['four_model_serving'])['risk']),
+                },
                 freshness: fvText(baseline['freshness'], missing: 'unavailable'),
               ),
             ],
