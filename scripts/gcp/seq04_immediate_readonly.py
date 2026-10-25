@@ -141,6 +141,16 @@ def iceberg_buckets(token: str) -> dict:
                          "private_names_exported": 0}
     return out
 
+def backup_retention_dry_run(token: str) -> dict:
+    import private_ledger_backup_retention as retention
+    cfg = json.loads(Path("ops/private-ledger-backup-retention-request.json").read_text())
+    retention.OUT = Path("/tmp/seq04-private-retention-dry-run.json")
+    receipt = retention.run(mode="dry-run", request=cfg, token=token)
+    return {key: receipt[key] for key in (
+        "status", "mode", "policy", "count_before", "bytes_before",
+        "planned_deletes", "protected_count", "monthly_status",
+        "daily_latest_age_hours", "actual_deletes", "actual_deleted_bytes")}
+
 def http_status(path: str, method="GET") -> tuple[int, bytes]:
     data = b"{}" if method == "POST" else None
     req = Request(PUBLIC + path, method=method, data=data,
@@ -197,6 +207,12 @@ def controller_pg_readback() -> dict:
         "to_char(scheduled_at AT TIME ZONE 'Asia/Taipei', 'YYYY-MM-DD HH24:MI') "
         "FROM control.batch_occurrences WHERE scheduled_at >= now()-interval '36 hours' "
         "ORDER BY scheduled_at DESC LIMIT 24",
+      "recent_ingestion_errors":
+        "SELECT to_char(scheduled_at AT TIME ZONE 'Asia/Taipei','YYYY-MM-DD HH24:MI') || '|' || "
+        "coalesce(state->>'status','?') || '|' || "
+        "coalesce(state->>'error_code',state->>'reason',state->>'failure_reason','UNKNOWN') "
+        "FROM control.batch_occurrences WHERE state->>'batch'='ingestion' "
+        "AND scheduled_at >= now()-interval '3 days' ORDER BY scheduled_at DESC LIMIT 10",
       "backup_requests":
         "SELECT backup_date::text || '|' || status || '|' || "
         "coalesce(retention_status,'?') || '|' || "
@@ -222,6 +238,7 @@ def main():
       "iceberg_gcs": {"status": "NOT_STARTED"},
       "serving": {"status": "NOT_STARTED"},
       "pg": {"status": "NOT_STARTED"},
+      "retention": {"status": "NOT_STARTED"},
     }
     try:
         token = get_token()
@@ -238,6 +255,10 @@ def main():
             output["iceberg_gcs"] = iceberg_buckets(token)
         except Exception as error:
             output["iceberg_gcs"] = {"status": "BLOCKED_" + status_error(error)}
+        try:
+            output["retention"] = backup_retention_dry_run(token)
+        except Exception as error:
+            output["retention"] = {"status": "BLOCKED_" + status_error(error), "gcs_deletions": 0}
     try:
         output["pg"] = controller_pg_readback()
     except Exception as error:
