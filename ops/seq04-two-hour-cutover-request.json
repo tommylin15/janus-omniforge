@@ -18,5 +18,6 @@
     "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:86b999bdf7a0350a01728cf8864a073f6c76c13a3c0ff982e975e030a747f0a0",
     "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:50536c3ac7cccf2e426149e78c5a2bd4411f2e2ba6f3f0a23b983e03123090fc"
   },
-  "purpose": "SEQ-04 approved existing Dev single Scheduler cadence change after release #40154638538 PASS, four Jobs 8/8 #40155713885 PASS, API 100% #40157972457 PASS, PG migration and isolated restore PASS. Preserve immutable target/identity and old hourly cron rollback; no new schedule, service, IAM, resource, or data mutation. Trigger no business batch outside existing Scheduler."
+  "purpose": "SEQ-04 single diagnosed retry only: #40158287292 rejected one GCloud scheduler update; safe rollback receipt confirmed hourly cron ENABLED with unchanged target and no new resources. Classify next update response as permission, argument, or unknown without printing stderr. Same exact Release/Jobs/API success gates and old cron rollback; do not repeat if permission denied.",
+  "attempt": 2
 }
