@@ -185,14 +185,6 @@ def calculate_reference_range(
         record.update(status="blocked_rights", excluded_reasons=["source_rights_not_approved"])
         return record
 
-    basis, financial_period, basis_status, reasons = _basis(
-        financial_rows, as_of=cutoff, method=method)
-    record["financial_period"] = financial_period
-    if basis_status != "available":
-        record.update(status=basis_status, excluded_reasons=reasons)
-        return record
-    record["basis"] = str(basis)
-
     # 60 calendar months including the as-of month; only exact month-end rows.
     cutoff_month = cutoff.year * 12 + cutoff.month
     monthly: dict[int, list[Decimal]] = {}
@@ -220,6 +212,14 @@ def calculate_reference_range(
     values = sorted(series[0] for series in monthly.values()
                     if len(series) == 1)
     record["valid_month_count"] = len(values)
+    basis, financial_period, basis_status, reasons = _basis(
+        financial_rows, as_of=cutoff, method=method)
+    record["financial_period"] = financial_period
+    if basis_status != "available":
+        record.update(status=basis_status, excluded_reasons=reasons)
+        return record
+    record["basis"] = str(basis)
+
     if len(values) < MIN_MONTHS:
         record.update(status="limited", excluded_reasons=["insufficient_month_end_multiples"])
         return record
