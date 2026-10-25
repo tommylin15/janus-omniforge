@@ -1,6 +1,6 @@
 # Janus — 唯一 Active TODO
 
-更新：2026-10-25（Asia/Taipei）。SEQ-01、SEQ-02 設計／程式／離線 CI 已通過；SEQ-03 文件／程式／離線CI已通過（#40152197002，來源246aaac）；實際Dev隔離還原與有界清理留SEQ-04。集中部署留SEQ-04，尚未進行migration、Scheduler切換或live還原。
+更新：2026-10-25（Asia/Taipei）。SEQ-01～03 DOC／CODE／OFFLINE_PASS；SEQ-04 PG migration069＋VM executor＋PG隔離還原 PASS、四Job Release／8次canary PASS、API 100% PASS。唯一原有 Cloud Scheduler 兩小時切換在 #40159576001 因缺少 update 權限被拒，原每小時 cron 已安全回復；後續 live 清理／Owner UI／自然 Controller occurrence 仍未全部驗證。
 
 ## 唯一順序線
 
@@ -12,7 +12,7 @@
 | SEQ-01 收取、清理與市場分析總控 | UB-01 | DOC／CODE／完整離線217 PASS／Flutter7 PASS；live與部署交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-01) |
 | SEQ-02 持股、買賣與觀察設定快照 | UB-03、4J／4R 的本次增量 | DOC／CODE／OFFLINE_PASS（220 Python、270 API、Flutter User PASS）；live/部署交 SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-02) |
 | SEQ-03 日週月備份、保留清理與回復範圍 | UB-04（不是重開 OPS-P0-1） | DOC／CODE／OFFLINE_PASS（234 Python；API270、Mart247、Ingestion209）／LIVE與DEPLOY交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-03) |
-| SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | DOC已補部署／rollback gate；CODE修正週六時間邊界及00:30測試；離線CI #40154394943 PASS；唯讀Jobs基線 #40154546569 PASS；VM audit #40154527268首輪SSH失敗，Release #40154638538已觸發、結論待驗；Dev migration／切換／還原尚未執行 | 本項集中部署 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
+| SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | **PARTIAL／IAM_BLOCKED**：PG migration069／VM／隔離還原 PASS（#40155184201／#40155337207）；全Release PASS（#40154638538）、四Jobs同SHA 8/8 PASS（#40155713885）、API 100% PASS（#40157972457）。現有唯一Scheduler改兩小時被 `cloudscheduler.jobs.update` 權限阻擋（#40159576001）；現況 `30 * * * *`／ENABLED，回復PASS；Owner UI、自然occurrence、GCS／retention live仍部分未驗。 | 本項集中部署；僅剩Scheduler權限及live驗收 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
 | SEQ-05 Valuation 真資料、唯一估值卡契約 | RV-01…06、UB-02 的 Valuation 子功能 | RV-02／03 有既有 CI；RV-03 live 待驗，RV-04…06 待開發 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-05) |
 | SEQ-06 四模型正式上線模式、版本與共用快取 | UB-02、D07 serving、Risk API/UI、D07-CROSS-JOB-MODEL-CACHE；FACTOR-FACTORY／X/Y 僅必要 serving 一致性 | 按四模型可發布前提設計；實際接線狀態逐角色確認 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-06) |
 | SEQ-07 分析報告、Owner history 與 UI 完整接線 | UB-02、D08、RV-05 合流 | 既有 Fact Pack／Gateway 可沿用；完整整合待做 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-07) |
@@ -20,7 +20,7 @@
 
 ### SEQ-04 時段變更決策（2026-10-25；待本項集中部署）
 
-使用者指定：台北時間每日00:30 PG備份、每日02:30 ingestion、週一至五04:30 market-screening、週一至五06:30 private；原業務多時段由上述單時段取代。Cloud Scheduler仍使用同一 `30 */2 * * *`，Stage每日22:30／週六Iceberg22:30／待辦式mobile-ledger不變。02:30收取前一已完成交易日、04:30全市場screening依實際Core日期而非當天未開盤日；週六維護須讀實際EOD receipt。現已修改Controller／screening／targeted tests／SPEC／WI；未切GCP Scheduler、未更新VM／Job、未migration或執行live。部署及Runtime驗收仍歸SEQ-04；現有SEQ-03交付與順序不因此跳過。
+使用者指定：台北時間每日00:30 PG備份、每日02:30 ingestion、週一至五04:30 market-screening、週一至五06:30 private，Stage每日22:30／週六Iceberg22:30／mobile-ledger依既有條件。**程式契約已部署**，但實際Cloud Scheduler仍為原每小時 `30 * * * *`／ENABLED，尚未成為單一兩小時 `30 */2 * * *`。由於回復已確認、沒有建立第二Scheduler，系統維持可用的原排程；不得把本段規劃當成已切換。失敗與唯一解除入口見本節SEQ-04記錄及Operations。
 
 ## 階段狀態與接手規則
 
@@ -32,9 +32,9 @@
 
 ### SEQ-04 四階段紀錄（2026-10-25，進行中）
 
-`SEQ-04｜文件設計=REVIEWED／部署閘門與合流差異已回寫WI｜程式開發=COMMITTED（a282cde／396d197）｜測試驗收=OFFLINE_PASS（CI #40154394943）／FULL_RELEASE_IN_PROGRESS（#40154638538）／LIVE_NOT_VERIFIED｜部署=NOT_STARTED｜唯一下一入口=SEQ-04／migration及集中切換前置門檻`。
+`SEQ-04｜文件設計=REVIEWED／CONTRACT_UPDATED｜程式開發=COMMITTED（controller修正、migration069／VM、四Job/API及Scheduler專用fenced腳本）｜測試驗收=RELEASE_PASS #40154638538／JOBS_8_OF_8_PASS #40155713885／PG_ISOLATED_RESTORE_PASS #40155337207／SCHEDULER_CUTOVER_FAIL #40159576001｜部署=PARTIAL／IAM_BLOCKED｜唯一下一入口=SEQ-04／授權既有Scheduler更新權限→單一兩小時切換→有界live讀回`。
 
-整合差異：週六Core ready查詢 `datetime.min.time` 未呼叫造成TypeError、舊PG備份測試仍要求02:30，均已修正並由新CI驗證。唯讀四Jobs基線 [#40154546569](https://github.com/tommylin15/janus-omniforge/actions/runs/40154546569) PASS，現役四Jobs為同一先前來源 `cf69def50209ec590e464fcc7298ca4ece44bc6f`，immutable rollback digest及config hash已取回；尚未修改Cloud Run。唯讀[VM／Scheduler audit #40154527268](https://github.com/tommylin15/janus-omniforge/actions/runs/40154527268)讀回 `janus-ingestion-daily` 仍 `30 * * * *`／Asia/Taipei／ENABLED；VM前段部分收據讀回後遇SSH `Permission denied (publickey)`，首輪FAIL，重試尚未有成功收據。PG migration069、VM新腳本、Scheduler、Jobs、API、隔離還原及GCS/retention apply均不得捏造PASS，仍需依SEQ-04 WI照順序進行。正式Release只發佈映像，不自動變更現有GCP。
+收據判定：修正週六Core ready時間型別與00:30備份測試後，完整Release及VM migration／備份執行器更新、PG隔離還原、四Job固定映像8/8 canary、API Promotion 100%已通過。切換曾因未終態執行在 #40158518968 安全回復；後續 #40159481533 全頁唯讀審核四Job共1819個 execution 全部終態。再切換 #40159576001 在 `gcloud scheduler jobs update http` 收到 `seq04_scheduler_update_permission_denied`，receipt=`ROLLED_BACK`、cron=`30 * * * *`／ENABLED、無新增資源。Google官方所需permission為 `cloudscheduler.jobs.update`；需另取得明確IAM授權／使用已合法授權的身分，未授權前不擴權或重試。詳細收據見 [Operations](spec/operations-and-testing.md)。
 
 ### SEQ-03 四階段紀錄（2026-10-25）
 
