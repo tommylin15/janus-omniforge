@@ -1,0 +1,74 @@
+name: SEQ-04 Scheduler denied-update diagnosis (read-only)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/seq04-scheduler-denial-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Read exact Scheduler and bounded audit-log denial evidence
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          PROJECT=gen-lang-client-0593591102
+          gcloud scheduler jobs describe janus-ingestion-daily \
+            --project="$PROJECT" --location=us-central1 --format=json \
+            > /tmp/seq04-scheduler-readback.json
+          if gcloud logging read \
+            'protoPayload.serviceName="cloudscheduler.googleapis.com" AND protoPayload.status.code=7 AND timestamp>="2026-10-25T03:00:00Z"' \
+            --project="$PROJECT" --limit=40 --format=json \
+            > /tmp/seq04-denials.json 2>/dev/null; then
+            export SEQ04_LOG_RESULT=READABLE
+          else
+            export SEQ04_LOG_RESULT=BLOCKED
+            printf '[]\n' > /tmp/seq04-denials.json
+          fi
+          python - <<'PY'
+          import json, os
+          job=json.load(open('/tmp/seq04-scheduler-readback.json'))
+          entries=json.load(open('/tmp/seq04-denials.json'))
+          results=[]
+          for item in entries:
+              payload=item.get('protoPayload') or {}
+              auth=payload.get('authorizationInfo') or []
+              denied=[{'permission':str(a.get('permission',''))[:90],
+                       'granted':a.get('granted')}
+                       for a in auth if a.get('granted') is False]
+              results.append({
+                  'time':item.get('timestamp'),
+                  'method':str(payload.get('methodName',''))[:130],
+                  'principal':str((payload.get('authenticationInfo') or {}).get('principalEmail',''))[:125],
+                  'status_code':(payload.get('status') or {}).get('code'),
+                  'denied_permissions':denied[:12]
+              })
+          oauth=(job.get('httpTarget') or {}).get('oauthToken') or {}
+          oidc=(job.get('httpTarget') or {}).get('oidcToken') or {}
+          print(json.dumps({'seq04_denial_diagnostic':{
+              'audit_query':os.environ['SEQ04_LOG_RESULT'],
+              'entry_count':len(entries),
+              'most_recent_denials':results[:20],
+              'scheduler_name':job.get('name'),
+              'schedule':job.get('schedule'),
+              'time_zone':job.get('timeZone'),
+              'state':job.get('state'),
+              'target_service_account':oauth.get('serviceAccountEmail') or oidc.get('serviceAccountEmail'),
+              'gcp_writes':0,
+          }},sort_keys=True))
+          PY
