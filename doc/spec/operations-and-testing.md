@@ -1,5 +1,13 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-25｜SEQ-02 持股／買賣／觀察設定快照（DOC／CODE／OFFLINE_PASS；DEV LIVE DEFERRED）
+
+- **GitHub 版本**：[功能 commit `72361a2`](https://github.com/tommylin15/janus-omniforge/commit/72361a2910d43eca06f6ef9aaaee220553a40c1e)、[相容修正 `9f0cd44`](https://github.com/tommylin15/janus-omniforge/commit/9f0cd4477d0f6cb1fe653b23979e8fd76c6672fe)。核對 PrivatePipeline、Iceberg workspace_snapshots、Owner API、PG ledger/watchlist/cash/profile、重算 worker、Flutter 關注頁及原有測試。保持原始買賣/修正/沖銷與 private.current_positions 權威不變，不建立券商下單能力。
+- **本輪差異修正**：現金覆寫寫入 change log；watchlist 增刪/排序、cash/broker/investment profile 寫入後以既有 Owner 重算佇列觸發；快照 v1 JSON payload 擴充 cash_version、broker_profile version 與 owner change_version（仍 owner＋內容 hash 去重，不複製完整交易史）；worker 在計算期間有新 owner 異動時重新排隊；Flutter 關注動作顯示背景更新提示。舊 schema v1 輸入仍可讀，未新增 migration、IAM、Scheduler 或 GCP paid resource。快照多次讀取不是單一 PG transaction。
+- **CI 失敗與修正**：[第一次 CI #40151028971](https://github.com/tommylin15/janus-omniforge/actions/runs/40151028971) 的完整離線 Python 為 **219 PASS、1 FAIL**，舊 `test_private_snapshot_records_inputs_without_copying_transaction_history` 直接傳入沒有新增選填版本欄位的 prepared，觸發 KeyError。修正後保留缺欄位為 null 的相容輸入，不移除 owner/version assert。
+- **實際通過收據**：[CI #40151187692](https://github.com/tommylin15/janus-omniforge/actions/runs/40151187692) `completed/success`，`seq01-offline` 執行 `bash scripts/test-unified-batch.sh` 得 **220 passed／9 non-fatal warnings**（含 shell 語法），API selective **270 passed**。首次功能 commit 的 [Flutter User App #40151028800](https://github.com/tommylin15/janus-omniforge/actions/runs/40151028800) `completed/success`（含 Flutter analyze/test）；Python-only 相容修正不影響該前端來源。不同 suite 不合併成單一整體測試數字。
+- **交接與邊界**：SEQ-02 的文件、程式、離線驗收可交接；**部署、live Owner A/B 隔離／登入正向、workspace snapshot 實際 Iceberg table 建立/讀回、即時交易→快照與 UI 一致、missing/stale/partial 和帳號刪除的實機驗證，仍 `DEFERRED_TO_SEQ-04`**。部署屬 SEQ-04 同 SHA 集中任務，不將 source CI 當成 runtime PASS；唯一下一入口 **SEQ-03／文件設計**。
+
 ### 2026-10-25｜SEQ-01 統一收取／市場總控（DOC／CODE／FULL_OFFLINE_PASS／FLUTTER_PASS；DEPLOY_DEFERRED）
 
 - **變更來源**：初始 `main` `73ba5e037a0089d215bf36a391063cec2ddc15e6`；修正來源失敗不被空 `failures` 隱藏、Mart queue `retrying/failed/partial` 不假報 succeeded、最長8次 claim／900秒、不將深度 target 掃描當全市場 screening，對應修正15月營收與已退役排程測試。程式與測試提交：[268a916](https://github.com/tommylin15/janus-omniforge/commit/268a916b8fa65e5d10792776646b24b7a6ee0d78)、[7ab83e0](https://github.com/tommylin15/janus-omniforge/commit/7ab83e0aab287d10240efe84e4570cc5ff9eec57)。沒有更動Scheduler／IAM／VM／Registry或建立新Job。

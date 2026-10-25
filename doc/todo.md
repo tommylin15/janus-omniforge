@@ -1,6 +1,6 @@
 # Janus — 唯一 Active TODO
 
-更新：2026-10-25（Asia/Taipei）。SEQ-01 設計／程式／完整離線 Python／Flutter Admin 已執行並通過；部署前階段可交接。部署、migration、Scheduler 切換、live 與模型啟用均未執行。
+更新：2026-10-25（Asia/Taipei）。SEQ-01、SEQ-02 設計／程式／離線 CI 已通過並可交接；統一批次集中部署留 SEQ-04。部署、migration、Scheduler 切換、live 與模型啟用均未因本次工作執行。
 
 ## 唯一順序線
 
@@ -10,7 +10,7 @@
 | 順序／任務 | 整併舊項 | 目前基線 | 部署歸屬 | AI 指示 |
 |---|---|---|---|---|
 | SEQ-01 收取、清理與市場分析總控 | UB-01 | DOC／CODE／完整離線217 PASS／Flutter7 PASS；live與部署交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-01) |
-| SEQ-02 持股、買賣與觀察設定快照 | UB-03、4J／4R 的本次增量 | DOC/CODE 提交候選；CI 與離線測試待讀回，live/部署交 SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-02) |
+| SEQ-02 持股、買賣與觀察設定快照 | UB-03、4J／4R 的本次增量 | DOC／CODE／OFFLINE_PASS（220 Python、270 API、Flutter User PASS）；live/部署交 SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-02) |
 | SEQ-03 日週月備份、保留清理與回復範圍 | UB-04（不是重開 OPS-P0-1） | 已有 VM／migration069／保留程式，未測試／部署 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-03) |
 | SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | 未執行 | 本項集中部署 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
 | SEQ-05 Valuation 真資料、唯一估值卡契約 | RV-01…06、UB-02 的 Valuation 子功能 | RV-02／03 有既有 CI；RV-03 live 待驗，RV-04…06 待開發 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-05) |
@@ -28,9 +28,9 @@
 
 ### SEQ-02 四階段紀錄（2026-10-25）
 
-`SEQ-02｜文件設計=CONTRACT_UPDATED｜程式開發=COMMITTED_CANDIDATE（同版 SHA 以 Git 提交為準）｜測試驗收=CI_PENDING／LIVE_DEFERRED_TO_SEQ-04｜部署=DEFERRED_TO_SEQ-04｜下一入口=待 CI PASS 後 SEQ-03／文件設計`。
+`SEQ-02｜文件設計=REVIEWED／CONTRACT_UPDATED｜程式開發=COMMITTED（功能 72361a2910d43eca06f6ef9aaaee220553a40c1e；相容修正 9f0cd4477d0f6cb1fe653b23979e8fd76c6672fe）｜測試驗收=OFFLINE_PASS（220 Python／9 non-fatal warnings；API 270；Flutter User PASS）／LIVE_DEFERRED_TO_SEQ-04｜部署=DEFERRED_TO_SEQ-04｜證據=CI #40151187692 SUCCESS、Flutter #40151028800 SUCCESS；失敗 #40151028971 已修復｜唯一下一入口=SEQ-03／文件設計`。
 
-對照 main 程式確認：交易帳本／修正／沖銷和原有 Private Pipeline、工作區快照／Owner API 已存在。本輪補現金 change_log、觀察清單增刪／排序及現金／券商／投資設定的重算觸發、工作區 payload 的 cash/broker/change 版本、背景 worker 對並行 owner change_version 的完成 fencing，以及 Flutter 關注頁操作後提示。未改 canonical 帳本、成本法、私人資料授權、GCP 排程或 migration；workspace_snapshots 僅 payload 相容擴充。實際 CI、測試數與 SHA 必須在收據讀回後補記；同一任務仍需 SEQ-04 的 Dev Owner／API／UI 讀回才能 CLOSED。
+對照 main 程式確認：交易帳本／修正／沖銷和原有 Private Pipeline、工作區快照／Owner API 已存在。本輪補現金 change_log、觀察清單增刪／排序及現金／券商／投資設定的重算觸發、工作區 payload 的 cash/broker/change 版本、背景 worker 對並行 owner change_version 的完成 fencing，以及 Flutter 關注頁操作後提示。未改 canonical 帳本、成本法、私人資料授權、GCP 排程或 migration；workspace_snapshots 僅 payload 相容擴充。原始 CI #40151028971 的完整離線測試因舊 fixture 未含新版選填 payload 欄位而 219 PASS／1 FAIL；修復後同 SHA `9f0cd44` 的 CI #40151187692 為 `completed/success`，`bash scripts/test-unified-batch.sh` 220 PASS／9 non-fatal warnings，API selective 270 PASS；Flutter User 全流程 #40151028800 `completed/success`（含 Flutter analyze 與 test，來源為功能 commit `72361a2`，後續修正僅 Python 快照選填欄位）。不同測試集不加總。SEQ-02 文件／程式／離線階段可交接 SEQ-03；本任務仍需 SEQ-04 的 Dev Owner／API／UI 讀回才能整項 CLOSED。
 
 ### SEQ-01 四階段紀錄（2026-10-25）
 
