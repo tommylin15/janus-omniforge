@@ -42,7 +42,7 @@ jobs:
           if-no-files-found: ignore
 
   seq08-candidate-import:
-    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'ops(seq08): import verified five model candidates')
+    if: "${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'ops(seq08): import verified five model candidates') }}"
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: dev
