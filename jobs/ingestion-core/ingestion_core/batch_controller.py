@@ -35,14 +35,14 @@ class Batch:
 
 
 BATCHES = (
-    Batch("ledger-backup", "janus-batch-controller", (2,)),
-    Batch("ingestion", "janus-ingestion-core", (6, 14), env=(("JANUS_UNIFIED_COLLECTION", "true"), ("INGESTION_DATASETS", ""), ("INGESTION_DATE", ""), ("JANUS_DATA_SUPPLEMENT_MODE", ""), ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
-    Batch("market-screening", "janus-intelligence-mart", (8, 16), tuple(range(5)), ("ingestion",),
+    Batch("ledger-backup", "janus-batch-controller", (0,)),
+    Batch("ingestion", "janus-ingestion-core", (2,), env=(("JANUS_UNIFIED_COLLECTION", "true"), ("INGESTION_DATASETS", ""), ("INGESTION_DATE", ""), ("JANUS_DATA_SUPPLEMENT_MODE", ""), ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
+    Batch("market-screening", "janus-intelligence-mart", (4,), tuple(range(5)), ("ingestion",),
           (("MART_OPERATION", "market-cycle"), ("QUEUE_EXECUTION_ID", ""), ("MART_OOS_EVALUATION", "false"),
            ("MART_AI_ENABLED", "false"), ("MART_RISK_SHADOW_ENABLED", "false")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
-    Batch("private", "janus-private-pipeline", (10, 18, 22), tuple(range(5)),
-          ("market-screening",), independent_hours=(22,)),
+    Batch("private", "janus-private-pipeline", (6,), tuple(range(5)),
+          ("market-screening",)),
     # Independent daily 48h Stage TTL: reuse existing ingestion Job, not weekly Iceberg scans.
     Batch("stage-cleanup", "janus-ingestion-core", (22,),
           env=(("ICEBERG_MAINTENANCE_MODE", "stage-only-apply"),
@@ -193,12 +193,8 @@ def due_batches(now: datetime, batches=None):
 
 
 def prioritize_nightly_private(pending, now: datetime):
-    """Try today's real EOD Private slot before any delayed afternoon slot.
-
-    This only changes iteration order; the durable occurrence and Cloud Run
-    execution fences still decide if dispatch is allowed.
-    """
-    night_key = f"private/{now.astimezone(ZoneInfo('Asia/Taipei')).date().isoformat()}/22"
+    """Prioritize the current 06:30 private slot over any retired pending slots."""
+    night_key = f"private/{now.astimezone(ZoneInfo('Asia/Taipei')).date().isoformat()}/06"
     return sorted(pending, key=lambda row: 0 if row[0] == night_key else 1)
 
 
@@ -303,10 +299,10 @@ def occurrence_env(batch, slot: datetime) -> tuple[tuple[str, str], ...]:
     if batch.job == "janus-ingestion-core":
         values.setdefault("JANUS_UNIFIED_COLLECTION", "false")
     if batch.name == "market-screening":
-        values["SCREENING_DATE"] = slot.date().isoformat() if slot.hour >= 14 else ""
-    if batch.name == "ingestion" and slot.hour == 14 and slot.minute == 30:
-        values["INGESTION_DATE"] = slot.date().isoformat()
-        # Collect the configured market datasets, including actual OHLCV, before Mart.
+        # Before market open, use the certified latest completed trading day.
+        values["SCREENING_DATE"] = "latest"
+    # At 02:30 leave INGESTION_DATE empty: ingestion resolves the previous
+    # completed session including weekends and holiday overrides.
     return tuple(sorted(values.items()))
 
 
@@ -503,14 +499,14 @@ def run(*, now=None, session=None, control=None):
                     statuses = dict(cursor.fetchall())
                 cursor.execute("SELECT 1 FROM control.batch_occurrences WHERE state->>'job'=%s AND state->>'status' IN ('dispatching','running','ambiguous') LIMIT 1", (batch.job,))
                 busy = cursor.fetchone() is not None
-            # If the afternoon upstream has already failed, its dependent
-            # daytime private occurrence cannot become runnable. Close this
-            # stale pending record; the independent 22:30 slot is its bounded
-            # recovery path, not a fake success for the afternoon run.
+            # If the 04:30 upstream failed or was skipped (holiday), the
+            # dependent 06:30 private batch cannot run; do not strand pending rows.
             if batch.name == "private" and state.get("status") == "pending" and any(
-                    statuses.get(dependency) == "failed" for dependency in dependencies):
+                    statuses.get(dependency) in {"failed", "skipped"} for dependency in dependencies):
+                reason = ("upstream_market_skipped" if any(statuses.get(dep) == "skipped" for dep in dependencies)
+                          else "upstream_ingestion_failed")
                 record(connection, tick, key,
-                       {**state, "status": "skipped", "reason": "upstream_ingestion_failed"},
+                       {**state, "status": "skipped", "reason": reason},
                        "private_upstream_failed")
                 continue
             if any(statuses.get(dependency) != "succeeded" for dependency in dependencies):
