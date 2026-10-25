@@ -8,6 +8,7 @@ on:
       - 'ops/seq08-model-import-request.json'
       - 'ops/seq08-model-activation-request.json'
       - 'ops/seq08-live-acceptance-request.json'
+      - 'ops/seq08-product-readback-request.json'
 permissions:
   contents: write
   actions: read
@@ -166,5 +167,33 @@ jobs:
         with:
           name: seq08-real-mart-execution-receipt
           path: /tmp/seq08-real-mart.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Explicit exact previous execution receipt: no additional model/Job/PG writes.
+  seq08-product-readback:
+    needs: inventory
+    if: "${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'ops(seq08): read back exact real Mart product') }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Verify read-only result contract without Dev mutation
+        run: python -m pytest -q tests/test_seq08_product_readback.py
+      - name: Read exact completed Dev Mart execution and its five-head artifacts
+        run: python scripts/gcp/seq08_product_readback.py --receipt /tmp/seq08-real-product-readback.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: seq08-exact-real-product-readback
+          path: /tmp/seq08-real-product-readback.json
           if-no-files-found: ignore
           retention-days: 14
