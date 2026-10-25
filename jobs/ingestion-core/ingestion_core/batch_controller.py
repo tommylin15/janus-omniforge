@@ -114,7 +114,7 @@ def weekly_eod_core_evidence(connection, scheduled_at: datetime):
                   AND state->>'status'='succeeded'
                   AND scheduled_at >= %s AND scheduled_at <= %s
                 ORDER BY scheduled_at DESC LIMIT 32""",
-            (datetime.combine(first_day, datetime.min.time, tzinfo=ZoneInfo("Asia/Taipei")),
+            (datetime.combine(first_day, datetime.min.time(), tzinfo=ZoneInfo("Asia/Taipei")),
              scheduled_at),
         )
         ingestions = cursor.fetchall()
