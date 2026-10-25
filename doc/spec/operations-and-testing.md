@@ -1,6 +1,15 @@
 # Janus 最新驗收證據索引
 
 
+
+### SEQ-04 Runtime 有界實作收尾收據（2026-10-25 15:35 Asia/Taipei）
+
+- **Stage 48h實刪與讀回 PASS**：[finops #40172644132](https://github.com/tommylin15/janus-omniforge/actions/runs/40172644132)；實刪223件／42,540,741 bytes、Stage完整庫存604→381件及73,943,009→31,402,268 bytes，與generation-fenced計畫完全一致。獨立後驗[read-only #40173298619](https://github.com/tommylin15/janus-omniforge/actions/runs/40173298619) 再取得381件／31,402,268 bytes、到期候選0件／0 bytes，確定不是只有Workflow宣稱成功。
+- **Private daily retention實刪／PG終態 PASS**：[finops #40173273728](https://github.com/tommylin15/janus-omniforge/actions/runs/40173273728)，獨立`phase=private`（**Stage不重派**）、38項受影響回歸測試與release lease gate通過；以現役VM executor既有程式先dry-run後generation條件受控apply，精確刪除**daily1份／26,044,882 bytes**，daily8→7、275,489,335→249,444,453 bytes；monthly2份／417,396 bytes不刪，weekly原有0份不捏造創建。10/25 `control.ledger_backup_requests` backup `succeeded`、retention狀態**`succeeded`**（同run apply後SQL讀回）；其餘較舊7筆retention `pending` 是歷史待整理狀態，不改寫成成功。
+- **PostgreSQL current catalog→GCS metadata實際讀回 PASS**：同[run #40173273728](https://github.com/tommylin15/janus-omniforge/actions/runs/40173273728) 以PG SqlCatalog metadata_location為起點，逐筆對應GCS當前metadata及current snapshot；Core20/20 valid、Mart22/22 readable（18有current snapshot、4張合法空表）、Private34/34 valid，**合計76/76、failed=0**，`private_names_exported=0`。這項與先前隨機GCS metadata GET不同，已正式證實catalog current pointer。
+- **調整不重做的已驗項**：唯一Scheduler `30 */2 * * *` Asia/Taipei與14:30自然Controller execution #40170098722 PASS；四個既有Jobs/API/migration069/VM與PG隔離還原沿之前證據。此次新增GCP資源0、Scheduler改動0、Owner mutation0、Stage只執行一次、Private單獨重試直到有精確收據。
+- **限定例外，不得偷換FULL_PASS**：首次改版後**2026-10-26 02:30**自然ingestion→Core ready→screening尚未發生，屆時單次查對不延伸成多日觀察；原weekly歷史副本0份，下一個有效週副本創建仍待下次排程並讀回；10/25舊00:30 `ledger-backup` occurrence仍標running，雖02:30同日有另一筆succeeded，不作無證據終態修復；Owner／Admin正向登入與workspace快照／UI `AUTH_REQUIRED／NOT_VERIFIED`，匿名401不替代。**本次現在可做的有界清理與catalog項已`PASS`；SEQ-04原定完整產品／下一自然時點及授權條件維持`LIVE_PARTIAL`，不虛報`FULL_CLOSED/PASS`，亦不阻塞SEQ-05等獨立工程。**
+
 ### SEQ-04 Stage 48h 真實刪除／generation 讀回（2026-10-25；PASS）
 
 - [有界實際執行 #40172644132](https://github.com/tommylin15/janus-omniforge/actions/runs/40172644132)：`38 passed` 的受影響回歸測試與 release lease gate PASS；以既有 `janus-ingestion-core` 單次 `stage-only-apply`（execution `janus-ingestion-core-9dd52`、Cloud Run operation `22100366-9310-4635-9a79-c909b0de9425`）真實清理。完整Stage inventory **604物件／73,943,009 bytes**；當下有效PG lease數0，dry-run計畫**223物件／42,540,741 bytes**；generation-fenced Worker terminal success，重新完整列舉 **381物件／31,402,268 bytes**，實際減少 **223物件／42,540,741 bytes**，與計畫完全一致，**Stage 48h apply + bytes/readback=PASS**。前次 #40165435450 的候選220件是較早時點，不再拿它當實刪數字。
