@@ -20,5 +20,6 @@
       12
     ]
   ],
-  "deployed_sha": "a3769bc05bb4555b4dc440c75bb157213c0a8874"
+  "deployed_sha": "a3769bc05bb4555b4dc440c75bb157213c0a8874",
+  "diagnostic_retry": 1
 }
