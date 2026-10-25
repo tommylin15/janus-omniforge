@@ -56,10 +56,12 @@ def test_eps_history_keeps_latest_12_explicit_quarters_and_rejects_wrong_identit
             parse_eps_history(bad,'1513','TWSE',received_at=RECEIVED)
 
 
-def test_revenue_due_window_has_13_months_and_rolls_after_due_date():
-    assert len(revenue_months(date(2026,10,10)))==13
-    assert max(revenue_months(date(2026,10,10)))==(2026,8)
-    assert max(revenue_months(date(2026,10,11)))==(2026,9)
+def test_revenue_due_window_has_15_months_and_rolls_after_due_date():
+    before_due = revenue_months(date(2026,10,10))
+    after_due = revenue_months(date(2026,10,11))
+    assert len(before_due) == len(after_due) == 15
+    assert min(before_due) == (2025, 6) and max(before_due) == (2026, 8)
+    assert min(after_due) == (2025, 7) and max(after_due) == (2026, 9)
 
 
 def test_finmind_profile_uses_approved_source_and_keeps_negative_pe_nullable():

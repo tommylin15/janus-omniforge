@@ -12,7 +12,8 @@ def run():
     supplement = run_backfill(incremental=True)
     # Historical coverage is not a release gate. Real source failures remain visible.
     collection = run_scheduled_collection()
-    failed = bool(supplement.get("failures")) or collection.get("status") != "succeeded"
+    failed = (bool(supplement.get("failures")) or supplement.get("status") in {"failed", "retrying"}
+              or collection.get("status") != "succeeded")
     failed = failed or (demand is not None and demand.get("status") in {"partial", "failed", "retrying"})
     return {"component": "ingestion-core", "operation": "unified-collection",
             "status": "partial" if failed else collection.get("status", "unknown"),

@@ -50,6 +50,13 @@ Cloud Scheduler `30 */2 * * *`，`Asia/Taipei`，唯一目標既有 `janus-batch
 6. Quant、Risk、Fundamental、Valuation 為四模型。Event 是公告事實及舊資料相容欄位，不新增第五模型或新排程。訓練留 Colab，日常只 inference；不自動重訓／切 Registry。
 7. Fact Pack／確定性卡片先落地；CEO 長文沿既有 Gateway 按需產出、保存 Owner history，無每兩小時 LLM 全市場報告。缺模型 artifact 必須顯示 unavailable，不能以 baseline 冒充已發布 ML。
 
+### SEQ-01：狀態與回復邊界（2026-10-25）
+
+- **輸入與順序**：Controller僅在 `Asia/Taipei` 偶數小時 `:30` 建立到期 occurrence，沿 `not_before`、dependency、持久狀態、busy/lease fence 控制派送。06:30／14:30 的同一 ingestion Worker 先處理 demand 股票補缺與有界來源增量，再執行 Stage→Core／Serving→ready；市場分析上午消化 queue，下午另做 EOD screening（同日行情未 ready 不造成功）。超過五日的手動 queue 不恢復。
+- **來源與輸出狀態**：十五個完整營收月是 target；既有 Core 的 TWD 與 TWD_thousands 等值重用，衝突維持 missing。來源增量 `status=partial` 且 `failures=[]` 僅代表研究 coverage 部分，不單獨阻擋收取；明確 `failed/retrying`、非空 `failures`、demand 實際失敗或正常收取非成功，必回傳 `partial` 並使 ingestion Job 非零結束，不得被後續成功掩蓋。
+- **分析總控**：同一 Mart Job 最多 claim 8 次且開始下一次前檢查900秒；`claimed=false, status=idle` 是正常 queue 空；已 claim 的 `retrying/failed/partial` 停止本輪 drain，保留原狀態並令 Job 非零結束。個別角色資料不足應在報告的 `specialist_status` 留 `partial/missing`，不混同工作執行失敗，亦不假稱四模型 ACTIVE。
+- **清理與恢復**：Stage 每日48h有效租約與固定 generation 是獨立工作，週六 Iceberg compaction→Mart→Core 不替代 Stage 清理。失敗時保留 execution／occurrence 與已落地 artifact，不盲重派 ambiguity；SEQ-04 保存舊 Scheduler／images／VM 設定後統一部署及 live 讀回。離線只驗時間、重複、限額、例外與部分失敗；絕不以 fixture 冒充真實 GCP 驗收。
+
 ## 4. 私人操作與 UI 快照
 
 買賣記帳不是券商下單。交易、修正、沖銷、觀察股增刪與設定先由既有 Owner API 原子保存及版本化，UI 立即讀回；MCP 保持唯讀。

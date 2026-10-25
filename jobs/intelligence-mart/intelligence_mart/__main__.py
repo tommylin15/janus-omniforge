@@ -59,6 +59,8 @@ def main():
         else:
             raise ValueError("unsupported Mart operation")
         result = operation()
+        if result.get("status") in {"failed", "retrying", "partial"}:
+            raise RuntimeError("Mart operation did not complete successfully")
         result["duration_ms"] = round((monotonic() - started) * 1000)
         print(json.dumps(result, sort_keys=True))
     except Exception as error:

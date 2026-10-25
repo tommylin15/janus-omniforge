@@ -1,4 +1,4 @@
-"""Offline coverage for the unified flow; intentionally not run by the authoring turn."""
+"""Offline regression coverage for the unified flow."""
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import Mock
@@ -27,6 +27,9 @@ def test_collection_finishes_canonical_after_supplement(monkeypatch):
     assert order == ["demand","supplement","core"]
     monkeypatch.setattr(data_supplement, "run_backfill", lambda **k: {"failures":[{"dataset":"financials"}]})
     assert unified_collection.run()["status"] == "partial"
+    # Explicit provider failure cannot be hidden by an empty failures array.
+    monkeypatch.setattr(data_supplement, "run_backfill", lambda **k: {"status":"failed", "failures":[]})
+    assert unified_collection.run()["status"] == "partial"
 
 
 def test_market_cycle_bounds_queue_without_claiming_empty_success_as_report(monkeypatch):
@@ -41,6 +44,39 @@ def test_market_cycle_bounds_queue_without_claiming_empty_success_as_report(monk
     assert len(result["analyses"]) == 1
     assert queue.call_count == 2
     screen.assert_called_once()
+    assert result["status"] == "succeeded"
+
+
+def test_market_cycle_preserves_non_successful_claim_and_stops_bounded_drain(monkeypatch):
+    from intelligence_mart import market_cycle, runtime
+    monkeypatch.delenv("SCREENING_DATE", raising=False)
+    queue = Mock(side_effect=[{"claimed": True, "status": "retrying", "reports": 0},
+                              {"claimed": True, "status": "succeeded"}])
+    monkeypatch.setattr(runtime, "run_queued_analysis", queue)
+    result = market_cycle.run()
+    assert result["status"] == "partial"
+    assert len(result["analyses"]) == 1
+    queue.assert_called_once()
+
+
+def test_market_cycle_rejects_unclaimed_non_idle_response(monkeypatch):
+    from intelligence_mart import market_cycle, runtime
+    monkeypatch.delenv("SCREENING_DATE", raising=False)
+    monkeypatch.setattr(runtime, "run_queued_analysis",
+                        Mock(return_value={"claimed": False, "status": "failed"}))
+    with pytest.raises(RuntimeError, match="unclaimed non-idle"):
+        market_cycle.run()
+
+
+def test_market_cycle_never_claims_more_than_eight(monkeypatch):
+    from intelligence_mart import market_cycle, runtime
+    monkeypatch.delenv("SCREENING_DATE", raising=False)
+    queue = Mock(return_value={"claimed": True, "status": "succeeded"})
+    monkeypatch.setattr(runtime, "run_queued_analysis", queue)
+    result = market_cycle.run()
+    assert result["status"] == "succeeded"
+    assert len(result["analyses"]) == 8
+    assert queue.call_count == 8
 
 
 def test_private_snapshot_records_inputs_without_copying_transaction_history():
