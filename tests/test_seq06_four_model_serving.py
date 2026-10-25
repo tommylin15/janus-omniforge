@@ -187,6 +187,7 @@ def test_bounded_cache_cleanup_preserves_registry_and_model_bytes():
         "executions/old/four-model-serving.json": old,
         "executions/live/four-model-serving.json": old}
     store = Store()
+    store.bucket = "mart"
     store.objects = lambda _: [{"name": name, "size": len(name),
                 "generation": str(i + 1), "updated": modified}
                for i, (name, modified) in enumerate(keys.items())]
