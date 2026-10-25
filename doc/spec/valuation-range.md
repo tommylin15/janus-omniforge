@@ -3,7 +3,7 @@
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
 
-狀態：**PARTIAL／RV-01_STATIC_MAPPED／RV-02_CODE_CI_PASS／RV-03_LIVE_INPUTS_READ_WITH_GAPS／RV-04_PROJECTION_CODE_CI_PASS／RV-05…06_NOT_IMPLEMENTED**（2026-10-24：第五模型撤銷、功能併入 04；已開始程式，仍未接真實資料、API、UI 或部署）。
+狀態：**PARTIAL／RV-01_STATIC_MAPPED／RV-02_CODE_CI_PASS／RV-03_LIVE_INPUTS_READ_WITH_GAPS／RV-04_MART_FACT_PACK_API_OFFLINE_PASS／RV-05_UI_PENDING／RV-06_DEPLOY_DEFERRED**（2026-10-25：兩檔真實來源已取樣；Mart／Fact Pack／API 程式接線完成、離線 CI 通過；UI 及 live 發布未執行）。
 權威邊界：[PROJECT_RULES](../PROJECT_RULES.md) → 本 SPEC → [WBS 工作線／依賴](../wbs.md) → [唯一 Active TODO](../todo.md) → [實機收據](operations-and-testing.md)。
 已被最新決策取代的歷史 AI 指令（僅供參照公式與 UI，**不可執行第五角色開發**）：[Drive《第五模型：估值參考區間》](https://drive.google.com/file/d/1M7pxgkeyzK_Joi4C9Z2aTSRCgdV-u5YO/view)；[Janus 2.0 報告](https://drive.google.com/file/d/15sT38MsE96RAwD-aZnAHvOvEINtythPO/view)。Drive 是核准設計參考，GitHub `main`／runtime 才是實作與完成證據。
 
@@ -14,7 +14,7 @@
 - 04 的區間子功能是可重算的確定性倍數情境，非 ML 未來報酬／信賴區間／交易建議。**不依賴 04 XGBoost 已 DEPLOYABLE**，但有自己的輸入／算式／授權／發布 gate，不是免費升級成已發布模型。
 - Research-only 材料不得直接替代正式 Core／serving 的授權、PIT、來源與可得時間；不編造 EPS、BVPS、季報或歷史倍數。新付費或擴權依 PROJECT_RULES §1.3。
 
-RV-01 已完成 [現役 reader 靜態清冊](../research/valuation-rv01-serving-readers-2026-10-24.md)，真實樣本／BVPS 來源覆蓋仍待補。RV-02 已新增 [純函式](../../packages/valuation_range.py) 及 [16 項測試](../../tests/test_valuation_range.py)，[CI #40096160077](https://github.com/tommylin15/janus-omniforge/actions/runs/40096160077) PASS（已補未來財報季度／period end 排除）；RV-02 目前是內部計算，不代表下列完整介接回傳欄位或發布已完成。RV-03 已新增 [既有 Core/Serving 唯讀接線](../../jobs/ingestion-core/ingestion_core/valuation_range_inputs.py)，及 [13 項 targeted tests](../../tests/test_valuation_range_inputs.py)，[CI #40097413271](https://github.com/tommylin15/janus-omniforge/actions/runs/40097413271) PASS：保留 Core 最後交易日原始日期、只取完整月份與 60 月窗口、從既有 Serving 讀單季 EPS／BVPS、沿用 Control 來源授權；不新增研究補收或每日 Job。直接 Dev 真資料讀回未完成（現有 Janus readonly connector 內部錯誤），還不能判定個股有效覆蓋或宣稱每日運作。
+RV-01 已完成 [現役 reader 靜態清冊](../research/valuation-rv01-serving-readers-2026-10-24.md)，真實樣本／BVPS 來源覆蓋仍待補。RV-02 已新增 [純函式](../../packages/valuation_range.py) 及 [16 項測試](../../tests/test_valuation_range.py)，[CI #40096160077](https://github.com/tommylin15/janus-omniforge/actions/runs/40096160077) PASS（已補未來財報季度／period end 排除）；RV-02 目前是內部計算，不代表下列完整介接回傳欄位或發布已完成。RV-03 已新增 [既有 Core/Serving 唯讀接線](../../jobs/ingestion-core/ingestion_core/valuation_range_inputs.py)，及 [13 項 targeted tests](../../tests/test_valuation_range_inputs.py)，[CI #40097413271](https://github.com/tommylin15/janus-omniforge/actions/runs/40097413271) PASS：保留 Core 最後交易日原始日期、只取完整月份與 60 月窗口、從既有 Serving 讀單季 EPS／BVPS、沿用 Control 來源授權；不新增研究補收或每日 Job。直接 Dev 取樣見下方 #40166649960；兩檔都缺正式價帶條件，不能宣稱每日上線。
 
 ## SEQ-05 部署前差異與真實樣本收據（2026-10-25）
 
@@ -23,7 +23,19 @@ RV-01 已完成 [現役 reader 靜態清冊](../research/valuation-rv01-serving-
 - **2330**：245筆Core估值／54筆Serving financial；實際可見月末 PE 共12個（2025-10至2026-09）；原始函式在EPS缺失時提早返回`valid_month_count=0`，但`month_end_observation_dates`清楚顯示12個。單季同口徑四季 EPS 不足，`status=missing`／`four_quarter_eps_missing`，`lower/mid/upper=null`。
 - **2882**：18筆Core估值／35筆Serving financial；實際月末 PB 共1個（2026-09）。可用正BVPS缺失，`status=missing`／`bvps_missing`，`lower/mid/upper=null`。兩檔 source authorization 的本次探針結果為true，但不能取代未來其他來源的授權；兩檔「普通股／是否金融業」在診斷腳本由顯式股票代碼配置，**尚未由正式分類reader逐筆獨立驗證**，不得視為發布gate PASS。
 - **缺值診斷修復**：`packages/valuation_range.py` 已改為即使 EPS/BVPS 缺失，也先計算實際有效月末倍數個數；缺值的價格仍必須是null，`tests/test_valuation_range_inputs.py` 增加回歸。這項修改已由新CI #40167057471驗證，不回溯改寫上述live收據。
-- **RV-04 單一卡片投影元件**：新增`packages/valuation_reference.py:project_reference_card`（`valuation-reference-card.v1`）及`tests/test_valuation_reference.py`；[同版CI #40167057471](https://github.com/tommylin15/janus-omniforge/actions/runs/40167057471) 216 passed／1 warning。只轉換經 RV-02/RV-03 驗證且鎖定 `symbol/as_of/core_snapshot_id` 的一份結果。只有 `available` 且24個月／普通股／來源核准／正財務基礎／有序正區間才保留價格；其他狀態數值一律null。它不是第二個估值公式，也不會寫新Canonical、Registry、服務或排程。**尚未接入批次的真實producer、現有唯一Fact Pack／API及Flutter，RV-04/05整體仍PARTIAL。**
+- **RV-04 單一卡片投影元件**：新增`packages/valuation_reference.py:project_reference_card`（`valuation-reference-card.v1`）及`tests/test_valuation_reference.py`；[同版CI #40167057471](https://github.com/tommylin15/janus-omniforge/actions/runs/40167057471) 216 passed／1 warning。只轉換經 RV-02/RV-03 驗證且鎖定 `symbol/as_of/core_snapshot_id` 的一份結果。只有 `available` 且24個月／普通股／來源核准／正財務基礎／有序正區間才保留價格；其他狀態數值一律null。它不是第二個估值公式，也不會寫新Canonical、Registry、服務或排程。**此段為最初RV-04純投影階段收據；後續已接入兩檔 Mart／Fact Pack／API 程式，但未部署，Flutter留SEQ-07，整體仍PARTIAL。**
+
+### SEQ-05 第二輪｜限定兩檔批次與服務端接線（2026-10-25）
+
+**已提交程式，尚未部署：**
+
+- [`intelligence_mart/valuation_reference.py`](../../jobs/intelligence-mart/intelligence_mart/valuation_reference.py) 只對 TWSE 官方分類可核實的 2330（半導體業、非金融）與 2882（金融保險業）啟動估值子功能，來源為臺灣證交所 [2330](https://www.twse.com.tw/pdf/ch/2330_ch.pdf)／[2882](https://www.twse.com.tw/pdf/ch/2882_ch.pdf) 公司資料。不是依股號推斷，也不自動放寬到其它股票；超出兩檔的正式產業分類reader仍需獨立驗證。只有 official `twse/tpex/mops` 走本次靜態批准來源；第三方須日後另接既有Control live approval，不在此憑來源字串自行准予發價。
+- [`analyst_inputs.py`](../../jobs/intelligence-mart/intelligence_mart/analyst_inputs.py) 從同一固定 Core snapshot 的 `financials/valuation/ohlcv` 現有 Mart 資料集呼叫 RV-02/03，輸出 `valuation_reference`（`available/missing/limited/blocked`、真月末樣本數、輸入Hash、來源snapshot、方法版本）；**無每次API請求掃Iceberg、無私人持股資料、無新增模型角色**。
+- [`product_runtime.py`](../../jobs/intelligence-mart/intelligence_mart/product_runtime.py) 驗證 `symbol/as_of/core_snapshot_id` 與 card 負向門檻後，附加於既有 immutable `private.specialist_product.payload_json` Fact Pack，沿用原 `content_hash`；不新增表、migration或第二套canonical price。
+- [`analysis.py`](../../services/api/analysis.py) 讀回已保存產品時驗證 card 與產品身份；[使用者 API](../../services/api/app.py) 新增需登入 `GET /api/v1/me/analysis/{symbol}/valuation-reference`，只從既有 Fact Pack 回傳唯一價帶／缺值；沒有已發布卡就回 `missing` + null，而不是計算任何參考價格。Flutter 卡片與 A-CHANGE 顯示合流交 SEQ-07／08。
+- **離線證據**：[分析產品整合CI #40168671019](https://github.com/tommylin15/janus-omniforge/actions/runs/40168671019) 224 passed／1 warning；[DRL-01 專項CI #40168872520](https://github.com/tommylin15/janus-omniforge/actions/runs/40168872520) 79 passed。包含缺 EPS/BVPS、24月不足、非核准來源、跨symbol/snapshot防護與匿名API401。最新 `main` 的其他變動仍須以各自同SHA CI 結果判斷。
+- **來源補收**：沿用既有 `.github/workflows/drl-01-valuation-history.yml`（非新Scheduler／Job），請求 `ops/seq05-valuation-history-request.json` 精確限定2330、2882、2024-10～2026-09兩個12月slice與現有Dev immutable digest；第一輪 [#40168576937](https://github.com/tommylin15/janus-omniforge/actions/runs/40168576937) 遭 tag SHA fence 擋下（0 slices），經獨立 image 讀回後以實際digest再發送 [#40168882776](https://github.com/tommylin15/janus-omniforge/actions/runs/40168882776)。**即使 workflow 成功，也須檢查 `data_collection` 產物與每檔月份數；資料尚無最後收據前維持 `COLLECTION_NOT_VERIFIED`。**
+- **仍缺**：2330 真實連續四季、同股數與報表基準的單季 EPS；2882 正BVPS直接數值與股數基準，皆未完成可用資料補足。PE/PB歷史來源補收與EPS/BVPS相互獨立，不以後者存在、研究倍數profile或測試fixture冒充可用價帶。現行正式模型仍是四個，Event僅保留相容。
 
 ### SEQ-05 剩餘最小開發與驗收路徑
 
