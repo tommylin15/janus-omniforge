@@ -1,0 +1,10 @@
+{
+  "intent": "seq08-import-five-candidates",
+  "source_bundle_drive_id": "1hcysaHpaExtgB-OqFfWu3i3qNBSe7Gz1",
+  "source_bundle_sha256": "91df593d9d13cad1858017f989e568c82ece99ca80fa900c6443073a342545a8",
+  "scope": "existing-dev-mart-create-only",
+  "registry_mutations": false,
+  "model_promotion": false,
+  "apply": false,
+  "attempt": 0
+}

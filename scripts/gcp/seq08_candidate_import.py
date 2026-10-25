@@ -22,6 +22,8 @@ EXPECTED = {
 }
 MAX_MODEL_BYTES = 20 * 1024 * 1024
 COMMITTED_FEATURES = {
+    "quant": ["ret5","ret20","ret60","ma20_distance","ma60_distance","vol20","vol60","drawdown60","volume_ratio20","log_turnover20","market_code","ret10","ret120","bollinger_z20","ret20_market_rank"],
+    "fundamental": ["yoy_m","yoy_3m","yoy_change1","growth_acceleration","mom_m","log_revenue","season_sin","season_cos","revenue_vol3","market_code","revenue_sum6m","revenue_mean12m","revenue_growth_6m","base_log_twd","base_to_recent_log"],
     "risk": [
         "vol20", "vol60", "drawdown60", "abs_return5", "volume_ratio20",
         "atr14_pct", "abs_overnight_gap5", "log_turnover20", "downside_vol20",
