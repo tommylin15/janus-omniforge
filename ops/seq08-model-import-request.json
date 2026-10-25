@@ -5,6 +5,8 @@
   "scope": "existing-dev-mart-create-only",
   "registry_mutations": false,
   "model_promotion": false,
-  "apply": false,
-  "attempt": 0
+  "apply": true,
+  "attempt": 1,
+  "approved_model_publication": true,
+  "no_new_paid_resources": true
 }
