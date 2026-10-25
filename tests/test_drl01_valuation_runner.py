@@ -86,3 +86,13 @@ def test_seq05_two_stock_scope_and_month_slices_are_strict(tmp_path):
         path.write_text(json.dumps({**request, **mutation}))
         with pytest.raises(ValueError, match="invalid_seq05_valuation_scope"):
             runner.checked(str(path))
+
+
+def test_valuation_only_release_does_not_require_unrelated_12_quarter_financial_history():
+    from ingestion_core.data_supplement import _supplement_is_partial
+    incomplete = [{"history_complete": False}]
+    assert _supplement_is_partial(valuation_only=True, failures=[], coverage=incomplete) is False
+    assert _supplement_is_partial(valuation_only=False, failures=[], coverage=incomplete) is True
+    assert _supplement_is_partial(
+        valuation_only=True, failures=[{"dataset": "valuation", "period": "2025-01"}],
+        coverage=incomplete) is True
