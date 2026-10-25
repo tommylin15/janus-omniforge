@@ -128,12 +128,12 @@ def private_retention_apply(token):
         "JANUS_BACKUP_RETENTION_SCHEDULED_APPLY=true "
         "PYTHONPATH=/var/lib/janus python3 -c " +
         shlex.quote(
-          "import json,subprocess; import ledger_backup_executor as b; "
-          "day=b.sql(\"SELECT backup_date::text FROM control.ledger_backup_requests "
+          "import json,subprocess,runpy; b=runpy.run_path('/var/lib/janus/ledger-backup-executor.py'); "
+          "day=b['sql'](\"SELECT backup_date::text FROM control.ledger_backup_requests "
           "WHERE status='succeeded' AND coalesce(retention_status,'pending') <> 'succeeded' "
           "ORDER BY backup_date DESC LIMIT 1\"); "
           "assert day and len(day)==10, 'no_pending_successful_backup'; "
-          "print('VM_RETENTION_RESULT='+json.dumps({'backup_date':day,'status':b.retain(day)}))"
+          "print('VM_RETENTION_RESULT='+json.dumps({'backup_date':day,'status':b['retain'](day)}))"
         )
     )
     p = subprocess.run(["gcloud","compute","ssh","janus-postgres-dev",
