@@ -2,15 +2,15 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "cf69def50209ec590e464fcc7298ca4ece44bc6f",
-  "release_run": "40084702607",
+  "sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
+  "release_run": "40154638538",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:ccc4decc6f38b12e0b0ed62c2f22ab3b9e82a3fad336f10912671b1a028dd0f2",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:2c61164a8da4d8eb743f9fa27f074798a2cbc24bb3650bc4f77ea0e9bd7be1b1",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:e4f48f93e060dbe484b785845f0698cc381d1c2ad92dc61951358327a597128e",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:61934fff9ff1f95974f8e7d5ee61e6fc1e584ac497aca5c0f2c8ccb130246fc9"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:0a95124204d0d86514fb0117c5ba8f0c652dd5c91a6ee9f4ca3c7367f62af9d0",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:0a95124204d0d86514fb0117c5ba8f0c652dd5c91a6ee9f4ca3c7367f62af9d0",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:2f482cdf5b68f0c0e543933aca3f0c50f5469027ff92bbc27ba90168d1a9403e",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:8476899a7cc56f7f5dbc148f66c8a5389e354cbf8335e476ff1f8cb9deeb5e9d"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
@@ -18,15 +18,15 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "auth_boundary_run": "40085481922",
-  "request_attempt": 54,
-  "safety": "ADMIN-SIMPLIFY source 0ad738b1... full GHCR Release #39907341839 PASS; 0% API Candidate #39908830013 PASS; read-only OAuth/Owner/Admin/MCP boundary #39909168202 PASS; exact real four-Jobs rollback baseline #39909440092 PASS, previous source 6739c18c..., mutable active Job state rechecked under global lease. Existing dev jobs only, scheduler/execution fence and two real canaries per Job; reversible GHCR, no new resources or standalone model activation.",
-  "authorization": "User requested Dev deployment and one bounded runtime functionality acceptance after audit simplification offline tests. Existing Dev four Jobs only; rollback per actual current Job images/config, no new paid services.",
+  "auth_boundary_run": "40155621627",
+  "request_attempt": 55,
+  "safety": "Source/release/auth/immutable baseline and rollback receipts from actual GitHub/GCP evidence, no new resource or IAM. Natural schedule remains existing hourly during guarded rollout; after runtime gates switch the SAME Scheduler to two-hour schedule.",
+  "authorization": "Owner requested SEQ-04 centralized existing dev deployment and two-hour cutover. Same existing four Jobs; old pinned images/config kept for rollback; no new resources, no model publication.",
   "rollback_source_shas": {
-    "janus-batch-controller": "6891656ac52e0ddc6e541229b73d88217c615ebb",
-    "janus-ingestion-core": "0ad738b1f7c3432bf6fac59ecb7d5063dce63447",
-    "janus-intelligence-mart": "0ad738b1f7c3432bf6fac59ecb7d5063dce63447",
-    "janus-private-pipeline": "0ad738b1f7c3432bf6fac59ecb7d5063dce63447"
+    "janus-batch-controller": "cf69def50209ec590e464fcc7298ca4ece44bc6f",
+    "janus-ingestion-core": "cf69def50209ec590e464fcc7298ca4ece44bc6f",
+    "janus-intelligence-mart": "cf69def50209ec590e464fcc7298ca4ece44bc6f",
+    "janus-private-pipeline": "cf69def50209ec590e464fcc7298ca4ece44bc6f"
   },
-  "purpose": "RESEARCH-SIMPLIFICATION: Release #40084702607, 0% Candidate #40085057604, auth-boundary #40085481922 all PASS; mixed per-Job existing-dev rollback baseline #40085438273 PASS (no writes), regression #40085455394 109 PASS. Update only the existing four Dev Jobs to immutable GHCR images with owner lease, scheduler/execution fence, per-Job complete config fingerprint and two canaries each. No added resource, IAM, user data mutation, Risk ACTIVE or API traffic change."
+  "purpose": "SEQ-04 same-SHA full Release #40154638538 PASS, API Candidate #40155492159 0% PASS, Auth Boundary #40155621627 PASS, VM migration069/install #40155184201 PASS, isolated backup restore #40155337207 PASS. Four existing Dev Jobs only, exact #40154546569 rollback pinned-image and config-hash baseline, Scheduler fence, 8 bounded canaries, safe reversal; hourly cron adjustment is later independent cutover gate."
 }
