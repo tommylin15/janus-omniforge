@@ -88,3 +88,18 @@ def test_d04_access_preflight_only_tests_permissions_without_granting_them():
     for step in steps:
         for embedded in re.findall(r"python - <<'PY'\n(.*?)\nPY", step.get('run', ''), re.S):
             ast.parse(embedded)
+
+
+def test_vm_immutable_daily_collision_and_weekly_monthly_reuse_contract():
+    """Same-date objects must match source; later days keep the first period archive."""
+    src = (Path(__file__).parents[1] / 'scripts/gcp/ledger-durability-dev.sh').read_text()
+    assert 'ifGenerationMatch' in src and '"0"' in src
+    assert 'print("EXISTS")' in src and 'print("CREATED")' in src
+    assert "open(os.environ['GCS_FILE'], 'wb')" in src  # actual download only
+    assert "daily immutable collision or readback mismatch" in src
+    assert "existing period archive invalid" in src
+    assert 'weekly_state="${period_state}"' in src
+    assert 'monthly_state="${period_state}"' in src
+    assert 'pg_restore --list' in src
+    assert 'cmp "${temporary}/period.dump"' in src
+    assert src.index("daily immutable collision or readback mismatch") < src.index('for period in')

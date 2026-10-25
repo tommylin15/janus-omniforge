@@ -11,6 +11,7 @@ python -m pytest -q \
   tests/test_controller_ledger_backup.py \
   tests/test_ledger_backup_retention.py \
   tests/test_private_ledger_backup_retention.py \
+  tests/test_ledger_restore_verify.py \
   tests/test_private_pipeline.py \
   tests/test_private_pipeline_scheduler.py \
   tests/test_user_api.py \

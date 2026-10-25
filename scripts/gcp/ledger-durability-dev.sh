@@ -104,10 +104,10 @@ if operation == "upload":
                     method="POST", data=source.read(), content_type="application/octet-stream")
     except HTTPError as error:
         if error.code != 412: raise
-        # Verify/receipt the immutable existing bytes, not a newer local dump.
-        url = f"https://storage.googleapis.com/download/storage/v1/b/{quote(bucket, safe='')}/o/{quote(name, safe='')}?alt=media"
-        with request(url) as response, open(os.environ['GCS_FILE'], 'wb') as target:
-            target.write(response.read())
+        # Collision: do not mutate the source dump; verify against stored bytes.
+        print("EXISTS")
+    else:
+        print("CREATED")
 elif operation == "download":
     url = f"https://storage.googleapis.com/download/storage/v1/b/{quote(bucket, safe='')}/o/{quote(name, safe='')}?alt=media"
     with request(url) as response, open(os.environ["GCS_FILE"], "wb") as target:
@@ -129,7 +129,7 @@ PY
 }
 
 vm_backup() {
-  local temporary day month week bytes digest
+  local temporary day month week bytes digest daily_state period_state weekly_state monthly_state
   exec 9>/var/lib/janus/ledger-backup.lock
   flock -w 30 9 || fail 'another backup is active'
   temporary="$(mktemp -d /tmp/janus-ledger-backup.XXXXXX)"
@@ -138,22 +138,36 @@ vm_backup() {
   [[ "${day}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || fail 'invalid backup date'
   docker exec --user postgres janus-postgres \
     pg_dump --format=custom --compress=9 --no-owner --no-acl --dbname=janus_control >"${temporary}/ledger.dump"
-  gcs_object upload "${prefix}/daily/${day}.dump" "${temporary}/ledger.dump"
+  daily_state="$(gcs_object upload "${prefix}/daily/${day}.dump" "${temporary}/ledger.dump")"
+  [[ "${daily_state}" == CREATED || "${daily_state}" == EXISTS ]] || fail 'daily upload result unknown'
   gcs_object download "${prefix}/daily/${day}.dump" "${temporary}/readback.dump"
-  cmp "${temporary}/ledger.dump" "${temporary}/readback.dump" || fail 'backup readback mismatch'
+  # If the same date was backed up before, an immutable collision must not
+  # silently rewrite the local file and masquerade as a fresh backup.
+  cmp "${temporary}/ledger.dump" "${temporary}/readback.dump" || fail 'daily immutable collision or readback mismatch'
   bytes="$(stat -c %s "${temporary}/ledger.dump")"
   digest="$(sha256sum "${temporary}/ledger.dump" | cut -d' ' -f1)"
   week="$(date -u -d "${day} -$(( $(date -u -d "${day}" +%u) - 1 )) days" +%F)"
   # Separate files: an immutable existing period object must not replace daily bytes.
   for period in "weekly/${week}" "monthly/${month}"; do
     cp "${temporary}/ledger.dump" "${temporary}/period.dump"
-    gcs_object upload "${prefix}/${period}.dump" "${temporary}/period.dump"
+    period_state="$(gcs_object upload "${prefix}/${period}.dump" "${temporary}/period.dump")"
+    [[ "${period_state}" == CREATED || "${period_state}" == EXISTS ]] || fail 'period upload result unknown'
     gcs_object download "${prefix}/${period}.dump" "${temporary}/period-readback.dump"
-    cmp "${temporary}/period.dump" "${temporary}/period-readback.dump" || fail 'period backup readback mismatch'
+    if [[ "${period_state}" == CREATED ]]; then
+      cmp "${temporary}/period.dump" "${temporary}/period-readback.dump" || fail 'new period backup readback mismatch'
+    else
+      # A later day's dump MUST NOT replace the first successful weekly/monthly
+      # copy. Validate the existing immutable archive without treating it as
+      # bit-identical to this day's (different) dump.
+      [[ "$(stat -c %s "${temporary}/period-readback.dump")" -ge 1024 ]] || fail 'existing period backup too small'
+      docker exec -i --user postgres janus-postgres pg_restore --list \
+        <"${temporary}/period-readback.dump" >/dev/null 2>&1 || fail 'existing period archive invalid'
+    fi
+    if [[ "${period}" == weekly/* ]]; then weekly_state="${period_state}"; else monthly_state="${period_state}"; fi
   done
   # Retention is controller-fenced separately after successful backup readback.
-  printf '{"backup_id":"%s","bytes":%s,"sha256":"sha256:%s","projected_retention_bytes":%s}\n' \
-    "${day}" "${bytes}" "${digest}" "$((bytes * 17))"
+  printf '{"backup_id":"%s","bytes":%s,"sha256":"sha256:%s","projected_retention_bytes":%s,"daily_object":"%s","weekly_object":"%s","monthly_object":"%s"}\n' \
+    "${day}" "${bytes}" "${digest}" "$((bytes * 17))" "${daily_state}" "${weekly_state}" "${monthly_state}"
 }
 
 vm_restore_verify() {

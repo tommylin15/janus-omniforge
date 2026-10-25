@@ -18,7 +18,22 @@ CHECKS = """SELECT json_build_object(
  'correction_links_valid',NOT EXISTS(
    SELECT 1 FROM private.ledger_events e LEFT JOIN private.ledger_events original
      ON original.event_id=COALESCE(e.reverses_event_id,e.replaces_event_id)
-   WHERE e.event_action<>'ORIGINAL' AND (original.event_id IS NULL OR original.user_id<>e.user_id))
+   WHERE e.event_action<>'ORIGINAL' AND (original.event_id IS NULL OR original.user_id<>e.user_id)),
+ 'watchlist_owner_valid',NOT EXISTS(
+   SELECT 1 FROM private.watchlist w LEFT JOIN private.users u USING(user_id) WHERE u.user_id IS NULL),
+ 'profile_owner_valid',NOT EXISTS(
+   SELECT 1 FROM private.investment_profiles p LEFT JOIN private.users u USING(user_id) WHERE u.user_id IS NULL),
+ 'broker_owner_valid',NOT EXISTS(
+   SELECT 1 FROM private.broker_profile_revisions b LEFT JOIN private.users u USING(user_id) WHERE u.user_id IS NULL),
+ 'cash_owner_anchor_valid',NOT EXISTS(
+   SELECT 1 FROM private.cash_balance_snapshots c LEFT JOIN private.users u USING(user_id)
+   WHERE u.user_id IS NULL OR c.anchor_ledger_version > u.ledger_version),
+ 'notes_owner_valid',NOT EXISTS(
+   SELECT 1 FROM private.note_index n LEFT JOIN private.users u USING(user_id) WHERE u.user_id IS NULL),
+ 'watchlist_count',(SELECT count(*) FROM private.watchlist),
+ 'cash_snapshot_count',(SELECT count(*) FROM private.cash_balance_snapshots),
+ 'broker_revision_count',(SELECT count(*) FROM private.broker_profile_revisions),
+ 'investment_profile_count',(SELECT count(*) FROM private.investment_profiles)
 );"""
 
 
@@ -53,10 +68,19 @@ def verify(path):
         result = json.loads(command(['psql', '-XqAt', '-U', 'postgres', '-d', database,
                                      '-v', 'ON_ERROR_STOP=1', '-c', CHECKS]))
         if (not all(result.get(key) is True for key in
-                    ('owner_boundary_valid', 'latest_versions_valid', 'correction_links_valid'))
+                    ('owner_boundary_valid', 'latest_versions_valid', 'correction_links_valid',
+                     'watchlist_owner_valid', 'profile_owner_valid', 'broker_owner_valid',
+                     'cash_owner_anchor_valid', 'notes_owner_valid'))
                 or result.get('owners', 0) < 1 or result.get('ledger_events', 0) < 1):
             raise RuntimeError('isolated_restore_integrity_failed')
-        return {'restore': 'PASS', 'checks': result, 'original_database_unchanged': True}
+        # A logical PG restore cannot attest GCS/Iceberg or external note/model artifacts.
+        return {'restore': 'PASS', 'verified_scope': 'postgresql_only',
+                'gcs_iceberg_files_verified': False,
+                'external_readback_required': [
+                    'private_workspace_snapshots', 'private_note_artifacts',
+                    'core_and_mart_current_files', 'model_artifacts_and_reports'
+                ],
+                'checks': result, 'original_database_unchanged': True}
     finally:
         if created:
             command(['dropdb', '--if-exists', '--force', '-U', 'postgres', '--', database])
