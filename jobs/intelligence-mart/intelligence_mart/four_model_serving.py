@@ -31,6 +31,11 @@ UNITS = {
     "mom_m": "percentage_points", "log_revenue": "log1p_TWD",
     "season_sin": "unitless", "season_cos": "unitless",
     "revenue_vol3": "std_log1p_TWD",
+    # Frozen v26 model uses cumulative income and balance-sheet snapshot values.
+    "roe_proxy": "cumulative_net_income_over_equity_ratio",
+    "debt_ratio": "liabilities_over_assets_ratio",
+    "log_total_assets": "natural_log_TWD",
+    "revenue_yoy": "cumulative_same_quarter_revenue_yoy_ratio",
 }
 MAX_MODEL_BYTES = 20 * 1024 * 1024
 MAX_TARGETS = 250

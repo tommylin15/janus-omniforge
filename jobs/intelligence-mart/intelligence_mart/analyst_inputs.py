@@ -121,9 +121,9 @@ def build(datasets, symbols, as_of, snapshot):
                                          version="janus-precision-" + precision.VERSION, reasons=reasons)
         # Accounting basis must match the published model. Never substitute debt/equity for debt/assets,
         # infer ROE from a different quarter, or feed PE/PB (the target) back into model X.
-        roles["valuation"] = _features(precision.VAL,
-            {"market_code": {"twse": 0., "tpex": 1.}.get(market)}, input_as_of=None,
-            version="valuation-mapping-pending", reasons=["model_accounting_mapping_required"])
+        from .valuation_ml_mapping import build_v26_features
+        roles["valuation"] = build_v26_features(
+            valid.get("financials", []), symbol=symbol, market=market, as_of=as_of)
         financial_identity = [{"fiscal_year": r.get("fiscal_year"), "fiscal_quarter": r.get("fiscal_quarter"),
             "fiscal_month": r.get("fiscal_month"), "metric": r.get("metric"), "value": r.get("value"),
             "unit": r.get("unit"), "period_basis": r.get("period_basis"), "report_scope": r.get("report_scope")}
