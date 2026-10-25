@@ -2,8 +2,8 @@
   "intent": "dev-ledger-backup-handoff",
   "approved": true,
   "environment": "dev",
-  "release_run": 38856837257,
-  "release_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
-  "phase": "audit",
-  "reason": "SEQ-04 2026-10-25 deployment preflight read-only baseline: current Scheduler target/cron, Controller occurrences, PG backup VM executor timers and receipts. No GCP writes, no backup restore, no GCS deletion, no role or production change."
+  "release_run": 40154638538,
+  "release_sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
+  "phase": "install",
+  "reason": "SEQ-04 guarded Dev migration069 and VM executor/restore/retention script update after full Release #40154638538 SUCCESS, exact script sources, VM audit #40154527268 attempt2 SUCCESS and immutable four-Job baseline #40154546569 PASS. Fence one existing Scheduler and live Jobs then restore original hourly cron. Existing VM only, no new resources/IAM, no GCS deletion or live restore."
 }
