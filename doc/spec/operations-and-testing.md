@@ -1,5 +1,21 @@
 # Janus 最新驗收證據索引
 
+## 2026-10-25｜SEQ-08 集中發布：已驗證 GCS ACTIVE + Dev Jobs + API 100%／Live 待驗
+
+| Gate | 最新收據 | 判定 |
+|---|---|---|
+| 真模型 GCS 五頭候選匯入 | [#40182200560](https://github.com/tommylin15/janus-omniforge/actions/runs/40182200560) | create-only + SHA 回讀 PASS；五份XGBoost UBJ |
+| 同版 Release | [#40184318031](https://github.com/tommylin15/janus-omniforge/actions/runs/40184318031) | 固定 app SHA `a2881c5c2532beb5570e29a1fda4472c7bb0d448`，完整 Release PASS |
+| API candidate / Auth | [#40184723596](https://github.com/tommylin15/janus-omniforge/actions/runs/40184723596)、[#40184856961](https://github.com/tommylin15/janus-omniforge/actions/runs/40184856961) | 0%/OAuth負向邊界 PASS；非 Owner 真人登入證明 |
+| 四 Dev Jobs | [#40184957380](https://github.com/tommylin15/janus-omniforge/actions/runs/40184957380) | controlled Jobs rollout `phase=PASS`，四 Job 各2次 canary |
+| Dev API 100% | [#40192646498](https://github.com/tommylin15/janus-omniforge/actions/runs/40192646498) | existing API-only bounded workflow `PASS_API_ONLY_100_PERCENT`；基本build SHA、health、未登入拒絕；未改Jobs/Owner/Registry |
+| Registry 變更前讀回 | [#40193222840](https://github.com/tommylin15/janus-omniforge/actions/runs/40193222840) | 舊Risk DETERMINISTIC，其餘舊pointer缺失，SEQ08 原子pointer缺失；沒有冒充 ACTIVE |
+| 新版五頭正式 Registry | [#40193843435](https://github.com/tommylin15/janus-omniforge/actions/runs/40193843435) | `CREATE_ONLY_ACTIVE_SHA_READBACK_PASS`，five_head_sha_verified=5；單一 `models/registry/seq08-four-models-active.json`，SHA `2d00df0e8f5685db59ba7b3695ca412b440a366a99cd753c15e9b42aa60427b0`；Owner/PG/其他模型候選變更0 |
+| 真 Core Mart 一次工作 | [#40194391101](https://github.com/tommylin15/janus-omniforge/actions/runs/40194391101) | 一次既有 Mart `deep-coverage` 受控真資料驗收已啟動；**終態未知／LIVE_PENDING** |
+| 2330、2882、Owner 正向／UI | — | **NOT_VERIFIED**；不得用模型ACTIVE或匿名負向401冒充正向產品驗收 |
+
+此表是 2026-10-25 SEQ-08 比本檔較早的 preflight 敘述更新的**實際狀態**。五頭模型直接替換，未保留舊模型預測相容；API 基礎設施故障安全回復仍照既有 runbook。不重訓、不重派補財報、不新增付費GCP／排程。**退出條件尚缺**：非fixture五頭對正式 Mart X 的真實可用率、`four-model-serving.json` 與 PG 產品投影對照、2330／2882與 Owner 本人報告／歷史／UI 正向讀回及缺值理由，必須按一次有界結果如實判定 partial/pass。
+
 ### SEQ-06 四模型 user-approved 真 Artifact／GCS 指標核對（2026-10-25；LOCAL_RELOAD_PASS／GCS_NOT_ACTIVE）
 
 - **核准**：使用者在2026-10-25明確核准 Quant、Risk、Fundamental、Valuation 四模型發布，已解除人工 publication approval；並未授權捏造缺值或以未驗收推論宣稱ACTIVE。未新開付費 API、模型或GCP資源。
