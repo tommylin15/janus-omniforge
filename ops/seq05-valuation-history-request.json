@@ -1,6 +1,6 @@
 {
   "intent": "seq05-two-stock-bounded-valuation",
-  "approved": true,
+  "approved": false,
   "no_new_provider": true,
   "no_owner_mutation": true,
   "no_job_template_mutation": true,
@@ -21,5 +21,7 @@
     ]
   ],
   "deployed_sha": "a3769bc05bb4555b4dc440c75bb157213c0a8874",
-  "live_image_digest": "sha256:6c36cb26e64398ca07b981d9b13563c2864457066fa0e25929eb48cfb04ff15d"
+  "live_image_digest": "sha256:6c36cb26e64398ca07b981d9b13563c2864457066fa0e25929eb48cfb04ff15d",
+  "closed_after_failed_job": true,
+  "closed_reason": "2026-10-25 Core readback confirms first 12 months were committed; do not replay the old two-slice request. Remaining 2882 2025-10..2026-08 awaits fixed runtime and bounded request."
 }
