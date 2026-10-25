@@ -27,17 +27,17 @@ Cloud Scheduler `30 */2 * * *`，`Asia/Taipei`，唯一目標既有 `janus-batch
 
 | 工作組／實際 batch | Due | 內容與依賴 |
 |---|---|---|
-| 市場收取 `ingestion` | 每日 06:30、14:30 | 缺口／增量財務補收 → 正常收取 → Stage → Core → Serving／ready event；同 Worker 順序完成 |
-| 市場分析 `market-screening` | 週一至五 08:30、16:30 | 依同日最近 ingestion；早上只處理分析 queue，下午加全市場 screening；四角色、Fact Pack、產品投影共用原 Mart |
-| 私人資料 `private` | 週一至五 10:30、18:30、22:30 | 前兩次依市場分析；22:30獨立補償，只用實際可用行情；事件、持股／損益、觀察設定與輸入快照 |
+| 市場收取 `ingestion` | 每日 02:30 | 缺口／增量財務補收 → 正常收取 → Stage → Core → Serving／ready event；同 Worker 順序完成 |
+| 市場分析 `market-screening` | 週一至五 04:30 | 依當日02:30收取成功及實際Core ready資料日期；單次執行全市場screening與有界分析queue，不把凌晨日曆日當已完成交易日；四角色與Fact Pack沿原Mart |
+| 私人資料 `private` | 週一至五 06:30 | 依當日04:30市場分析；上游失敗或休市跳過時記錄skipped，不假造最新值；個人異動仍由即時/`mobile-ledger`處理 |
 | 即時異動補償 `mobile-ledger` | 每個偶數小時 :30，有待處理資料才跑 | 既有 durable queue；User App 寫入與既有即時重算不等待 cron |
-| 私人備份 `ledger-backup` | 每日 02:30 | Controller request → 既有 PG VM dump → daily／weekly／monthly 不可變副本與讀回 → 同執行器保留清理 |
+| 私人備份 `ledger-backup` | 每日 00:30 | Controller request → 既有 PG VM dump → daily／weekly／monthly 不可變副本與讀回 → 同執行器保留清理 |
 | Stage 清理 `stage-cleanup` | 每日 22:30 | 48h TTL；有效租約、固定 generation |
 | Iceberg 維護 | 週六 22:30 | compaction → Mart cleanup → Core cleanup；依終態跨 tick，不承諾同日完 |
 | 手動 collection／analysis queue | 每 tick 有工作才派送 | 保留五天窗口、lease、指定 execution，不重放超齡歷史 |
 
 刪除獨立 data-supplement 與 mart 定時定義，不刪其 API／手動能力。三個 Iceberg 子步驟保留，因 writer 與讀者依賴不能安全硬合併成一次刪除。
-正常盤後預期 14:30 收取、16:30 分析、18:30 私人更新；上游過慢會順延。來源未公布／缺值顯示 partial，不為準時補造數字。
+每日預期 00:30 PostgreSQL備份、02:30上一已完成交易日增量收取、平日04:30全市場分析、06:30私人更新；上游延遲須按依賴順延／跳過，資料缺值顯示partial，不為準時補造數字。週六02:30可收週五EOD，週維護以實際Core ready日期與收據驗證，不能沿用舊14:30身份。
 日曆依既有 holiday_overrides；週末仍允許財務增量、私人事件補償、備份／清理。
 
 ## 3. 收取、清理與資料路線
@@ -52,7 +52,7 @@ Cloud Scheduler `30 */2 * * *`，`Asia/Taipei`，唯一目標既有 `janus-batch
 
 ### SEQ-01：狀態與回復邊界（2026-10-25）
 
-- **輸入與順序**：Controller僅在 `Asia/Taipei` 偶數小時 `:30` 建立到期 occurrence，沿 `not_before`、dependency、持久狀態、busy/lease fence 控制派送。06:30／14:30 的同一 ingestion Worker 先處理 demand 股票補缺與有界來源增量，再執行 Stage→Core／Serving→ready；市場分析上午消化 queue，下午另做 EOD screening（同日行情未 ready 不造成功）。超過五日的手動 queue 不恢復。
+- **輸入與順序**：Controller僅在 `Asia/Taipei` 偶數小時 `:30` 建立到期 occurrence，沿 `not_before`、dependency、持久狀態、busy/lease fence 控制派送。02:30 的同一 ingestion Worker 先處理 demand 股票補缺與有界來源增量，再執行 Stage→Core／Serving→ready；04:30 市場分析一次完成 EOD screening 與有界 queue，使用最近實際可驗Core交易日（不可硬填當天未開市行情），無可用收據時維持未就緒。超過五日的手動 queue 不恢復。
 - **來源與輸出狀態**：十五個完整營收月是 target；既有 Core 的 TWD 與 TWD_thousands 等值重用，衝突維持 missing。來源增量 `status=partial` 且 `failures=[]` 僅代表研究 coverage 部分，不單獨阻擋收取；明確 `failed/retrying`、非空 `failures`、demand 實際失敗或正常收取非成功，必回傳 `partial` 並使 ingestion Job 非零結束，不得被後續成功掩蓋。
 - **分析總控**：同一 Mart Job 最多 claim 8 次且開始下一次前檢查900秒；`claimed=false, status=idle` 是正常 queue 空；已 claim 的 `retrying/failed/partial` 停止本輪 drain，保留原狀態並令 Job 非零結束。個別角色資料不足應在報告的 `specialist_status` 留 `partial/missing`，不混同工作執行失敗，亦不假稱四模型 ACTIVE。
 - **清理與恢復**：Stage 每日48h有效租約與固定 generation 是獨立工作，週六 Iceberg compaction→Mart→Core 不替代 Stage 清理。失敗時保留 execution／occurrence 與已落地 artifact，不盲重派 ambiguity；SEQ-04 保存舊 Scheduler／images／VM 設定後統一部署及 live 讀回。離線只驗時間、重複、限額、例外與部分失敗；絕不以 fixture 冒充真實 GCP 驗收。
