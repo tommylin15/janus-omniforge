@@ -2,7 +2,7 @@
 
 > 2026-10-25操作路由：依[唯一TODO](todo.md)與[SEQ四階段AI卡](execution-cards/sequential-delivery.md)逐項啟動。本WI是共用程序，不是額外待辦或自動開工授權。SEQ-04執行基礎批次／快照／備份的部署驗收；C節四模型、完整報告與產品UI條件由SEQ-05…07準備後在SEQ-08執行。不得在SEQ-04冒稱四模型產品已驗。四模型本版全部正式上線，研究調校延至2027 Q1。
 
-本輪狀態：文件／程式交付；以下命令**尚未執行**。不要引用舊PASS替本輪背書。
+目前SEQ-01離線狀態：已於來源 `4241bf40b94b5a75ffee235b9ef0b52b5eb5a271` 的[GitHub CI #40148605544](https://github.com/tommylin15/janus-omniforge/actions/runs/40148605544) 真實執行 A節的完整 Python／Shell 腳本（217 passed，9 non-fatal warnings）與 Flutter Admin targeted（7 passed）；Controller CI另99 passed。以下 A節命令保留作為可重跑指示；B～D節部署／migration／真實Dev及Scheduler驗收**尚未執行**，由SEQ-04辦理。
 你是接手的Janus工程AI。直接在 `tommylin15/janus-omniforge main` 完成有界測試→必要修正→部署→runtime驗收，不新增branch／PR，不新增付費資源／IAM。先讀PROJECT_RULES、統一批次SPEC與本文件；使用 recovering-stuck-ci-deploys。
 此WI描述後續任務，不代表本輪已觸發或授權跳過任何真實權限阻擋。
 

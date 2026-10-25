@@ -1,6 +1,6 @@
 # Janus — 唯一 Active TODO
 
-更新：2026-10-25（Asia/Taipei）。SEQ-01 設計、程式與選擇性 GitHub CI 已執行；完整離線腳本／Flutter targeted 未執行。部署、migration、Scheduler 切換、live 與模型啟用均未執行。
+更新：2026-10-25（Asia/Taipei）。SEQ-01 設計／程式／完整離線 Python／Flutter Admin 已執行並通過；部署前階段可交接。部署、migration、Scheduler 切換、live 與模型啟用均未執行。
 
 ## 唯一順序線
 
@@ -9,7 +9,7 @@
 
 | 順序／任務 | 整併舊項 | 目前基線 | 部署歸屬 | AI 指示 |
 |---|---|---|---|---|
-| SEQ-01 收取、清理與市場分析總控 | UB-01 | DOC／CODE已提交；selective CI PASS；完整離線與Flutter仍未驗，live交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-01) |
+| SEQ-01 收取、清理與市場分析總控 | UB-01 | DOC／CODE／完整離線217 PASS／Flutter7 PASS；live與部署交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-01) |
 | SEQ-02 持股、買賣與觀察設定快照 | UB-03、4J／4R 的本次增量 | 已有快照與 API，完整語意／UI 待補驗 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-02) |
 | SEQ-03 日週月備份、保留清理與回復範圍 | UB-04（不是重開 OPS-P0-1） | 已有 VM／migration069／保留程式，未測試／部署 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-03) |
 | SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | 未執行 | 本項集中部署 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
@@ -20,7 +20,7 @@
 
 ## 階段狀態與接手規則
 
-- SEQ-01 已依使用者授權開工；本輪修正來源失敗與 Mart queue 狀態，並使舊測試遵守現行 EOD／target-only 契約，未重建 Controller／Scheduler。已取得本版選擇性 CI 成功收據；完整離線腳本及 Flutter Admin targeted 仍待驗，前置完成後才進 SEQ-02。
+- SEQ-01 已依使用者授權開工；本輪修正來源失敗與 Mart queue 狀態，並使舊測試遵守現行 EOD／target-only 契約，未重建 Controller／Scheduler。已取得完整離線腳本及 Flutter Admin targeted 的同版 CI SUCCESS 收據；離線階段可交接SEQ-02，待SEQ-04執行集中部署與live。
 - 本次文件整理完成，不等於每個任務的設計已審定或工程完成。上表基線來自 main 已提交程式／既有文件收據，沒有新的runtime驗收。
 - 每次只執行使用者指定任務／階段；未指定階段時按該任務四階段指示完成可做範圍。遇跨任務集中部署，將部署及live驗收記為 `DEFERRED_TO_SEQ-04/08`，不是PASS；其餘前置交付完成即可往下一順序準備，不造成循環等待。
 - SEQ-04結清SEQ-01…04；SEQ-08結清SEQ-05…08。測試驗收分部署前離線／Release與部署後真實驗收，不能在未部署時假稱live PASS。
@@ -28,9 +28,9 @@
 
 ### SEQ-01 四階段紀錄（2026-10-25）
 
-`SEQ-01｜文件設計=REVIEWED／CONTRACT_UPDATED｜程式開發=COMMITTED（7ab83e0aab287d10240efe84e4570cc5ff9eec57）｜測試驗收=SELECTIVE_CI_PASS／FULL_OFFLINE_AND_FLUTTER_NOT_VERIFIED／LIVE_DEFERRED_TO_SEQ-04｜部署=DEFERRED_TO_SEQ-04｜證據=CI #40147914267 SUCCESS；首次 #40147708243 FAILURE 已修復｜唯一下一入口=SEQ-01／補做完整離線腳本與 Flutter Admin targeted tests；PASS 後 SEQ-02／文件設計`。
+`SEQ-01｜文件設計=REVIEWED／CONTRACT_UPDATED｜程式開發=COMMITTED（7ab83e0aab287d10240efe84e4570cc5ff9eec57；CI整合4241bf40b94b5a75ffee235b9ef0b52b5eb5a271）｜測試驗收=OFFLINE_PASS（Python217、Flutter7、Controller99；9項non-fatal warnings）／LIVE_DEFERRED_TO_SEQ-04｜部署=DEFERRED_TO_SEQ-04｜證據=CI #40148605544 SUCCESS（原 #40147708243 FAILURE→#40147914267 SUCCESS）｜唯一下一入口=SEQ-02／文件設計`。
 
-仍須於具備依賴的同版 checkout 執行 `bash scripts/test-unified-batch.sh`（含15月收入窗口、真正來源失敗、queue partial/idle、8 claim／900秒、Stage 48h／lease與既有測試），以及 `cd apps/user_app && flutter test test/admin_batch_dashboard_test.dart test/admin_overview_batch_test.dart`。GitHub selective CI 已有實際 PASS，但未執行整支腳本與Flutter，不可冒稱全部離線驗收完成；新時段、migration、Dev Runtime／Scheduler 實機驗收由SEQ-04負責。證據摘要見[Operations](spec/operations-and-testing.md)。
+已於 GitHub Actions #40148605544、來源SHA `4241bf40b94b5a75ffee235b9ef0b52b5eb5a271` 執行 `bash scripts/test-unified-batch.sh`（217 passed、9 non-fatal warnings，含 `bash -n`）及 `cd apps/user_app && flutter test test/admin_batch_dashboard_test.dart test/admin_overview_batch_test.dart`（7 passed），另 Controller CI 99 passed。SEQ-01 文件／開發／離線階段已具交接條件；新時段、migration、Dev Runtime／Scheduler 實機驗收依SEQ-04部署後確認，不冒稱live PASS。證據摘要見[Operations](spec/operations-and-testing.md)。
 
 ## 四模型正式上線與第二版邊界
 
@@ -50,7 +50,7 @@ C1-A、P0-2、OPS-P0-1、A-CHANGE、D01～D06、FINOPS-AB、研究稽核精簡�
 
 | 原項 | 增量與仍未完成條件 |
 |---|---|
-| SEQ-01 | 15月營收缺口補收、TWD／千元共用；深度target掃描與共用benchmark；離線與既有Job驗測待做 |
+| SEQ-01 | 15月營收缺口補收、TWD／千元共用；深度target掃描與共用benchmark；離線測試已過，既有Dev Job與真資料讀回由SEQ-04驗測 |
 | SEQ-05 | 補真實EPS／BVPS與估值有效月；不因新Mart而捏造已足量 |
 | SEQ-06 | Core→analysis artifact已寫；四模型真artifact feature schema、Valuation會計mapping與正式推論接線待完成；必要train/serving parity本版做、調校留Q1 |
 | SEQ-07 | 新增週期＋資料變更事實報告及重用狀態；四ML結果、Owner history／API／UI完整接線與日期語意待驗；CEO仍按需 |

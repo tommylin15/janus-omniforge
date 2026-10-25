@@ -1,6 +1,6 @@
 # 單一路線：逐項 AI 執行指示
 
-更新：2026-10-25。工作順序與狀態只看 [TODO](../todo.md)，本檔只保存操作指示。SEQ-01 已由使用者指定開工並取得部分離線 CI 證據；完整離線腳本與 Flutter 尚待執行，集中部署仍交SEQ-04。SEQ-02…08須按使用者後續指定及前置條件開始。
+更新：2026-10-25。工作順序與狀態只看 [TODO](../todo.md)，本檔只保存操作指示。SEQ-01 已完成文件、程式及完整離線 CI（Python217／Flutter7／Controller99 PASS；[收據 #40148605544](https://github.com/tommylin15/janus-omniforge/actions/runs/40148605544)）；集中部署與真實Dev驗收仍交SEQ-04。唯一下一入口為SEQ-02文件設計，SEQ-02…08依使用者後續指定及前置條件開始。
 
 ## 建議模型
 

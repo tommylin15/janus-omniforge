@@ -1,11 +1,12 @@
 # Janus 最新驗收證據索引
 
-### 2026-10-25｜SEQ-01 統一收取／市場總控（DOC／CODE／SELECTIVE_CI_PASS；FULL_OFFLINE_PENDING；DEPLOY_DEFERRED）
+### 2026-10-25｜SEQ-01 統一收取／市場總控（DOC／CODE／FULL_OFFLINE_PASS／FLUTTER_PASS；DEPLOY_DEFERRED）
 
 - **變更來源**：初始 `main` `73ba5e037a0089d215bf36a391063cec2ddc15e6`；修正來源失敗不被空 `failures` 隱藏、Mart queue `retrying/failed/partial` 不假報 succeeded、最長8次 claim／900秒、不將深度 target 掃描當全市場 screening，對應修正15月營收與已退役排程測試。程式與測試提交：[268a916](https://github.com/tommylin15/janus-omniforge/commit/268a916b8fa65e5d10792776646b24b7a6ee0d78)、[7ab83e0](https://github.com/tommylin15/janus-omniforge/commit/7ab83e0aab287d10240efe84e4570cc5ff9eec57)。沒有更動Scheduler／IAM／VM／Registry或建立新Job。
 - **失敗收據（保留）**：[selective CI #40147708243](https://github.com/tommylin15/janus-omniforge/actions/runs/40147708243) `completed/failure`：ingestion **209 PASS**、API **16 PASS**；Mart **245 PASS／2 FAIL**。失敗是舊測試要求已退役 `data-supplement` 依賴、及 target-only specialist runtime 仍期望篩選數1；因現行資料鏈分離，改測試的有效期望，不恢復已退役路線。
 - **修正後收據**：[selective CI #40147914267](https://github.com/tommylin15/janus-omniforge/actions/runs/40147914267)，完整來源 `7ab83e0aab287d10240efe84e4570cc5ff9eec57`，`completed/success`：API **9 PASS**、Mart **48 PASS**。兩次CI覆蓋範圍不同，不加總成完整測試集或Release gate。
-- **未驗／後續**：`bash scripts/test-unified-batch.sh` 並未整支執行，Flutter Admin兩個 targeted tests 也未執行；離線卡退出條件仍 `PARTIAL`。唯一下一入口為 **SEQ-01 補完這兩組離線測試**，通過後才進SEQ-02。部署／Dev Scheduler兩小時切換、migration、live occurrence與Stage清理實刪全部 **DEFERRED_TO_SEQ-04／NOT_VERIFIED**。保留既有真實Dev與舊image，不將本版source-only/CI當作部署完成。
+- **SEQ-01 完整離線收據**：[CI #40148605544](https://github.com/tommylin15/janus-omniforge/actions/runs/40148605544)，完整來源 `4241bf40b94b5a75ffee235b9ef0b52b5eb5a271`（此版更新既有選擇性CI，未修改已測業務邏輯）：`completed/success`。`seq01-offline` 實跑 `bash scripts/test-unified-batch.sh`，Python **217 passed／9 non-fatal warnings**（包括 shell `bash -n` PASS）；`seq01-flutter-admin` 實跑兩支 Admin Flutter tests **7 passed**；同次 `tests(controller)` **99 passed**。這些是實際 CI 日誌結果，非與先前 selective CI 加總而來。
+- **未驗／下一入口**：SEQ-01 文件設計、程式開發、離線測試 **可交接**；唯一下一入口為 **SEQ-02 文件設計**。SEQ-01 的集中部署／Dev Scheduler兩小時切換、migration、live occurrence與Stage清理實刪全部 **DEFERRED_TO_SEQ-04／NOT_VERIFIED**。保留既有真實Dev與舊image，不以 source／CI 當作新版 live acceptance。
 
 
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
