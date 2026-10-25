@@ -780,6 +780,20 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         symbol = public.require_enabled_symbol(symbol)
         return jsonable_encoder(analysis_service.baseline(symbol, execution_id))
 
+    @private.get("/analysis/{symbol}/valuation-reference")
+    def valuation_reference(symbol: str, current: AuthenticatedUser = Depends(user)):
+        # A read-only projection of the same immutable, validated Fact Pack.
+        # Never fetch Core/Iceberg or calculate a price during API requests.
+        symbol = public.require_enabled_symbol(symbol)
+        product = analysis_service.baseline(symbol)
+        reference = product.get("valuation_reference")
+        if reference is None:
+            return {"schema_version": "valuation-reference-card.v1",
+                    "symbol": symbol, "as_of": product.get("analysis_as_of"),
+                    "status": "missing", "lower": None, "mid": None, "upper": None,
+                    "excluded_reasons": ["valuation_reference_not_published"]}
+        return jsonable_encoder(reference)
+
     @private.get("/analysis/{symbol}/ceo")
     def ceo_history(symbol: str, limit: int = Query(10, ge=1, le=20),
                     current: AuthenticatedUser = Depends(user)):
