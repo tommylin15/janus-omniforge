@@ -78,6 +78,29 @@ def persist_products(connection, manifest, store, bucket):
             raise ValueError("Risk ACTIVE prediction byte hash mismatch")
         risk_rows = validate_risk_active_artifact(json.loads(raw), manifest)
 
+    # Non-Risk ML is independent of the five deterministic compatibility roles.
+    model_rows = {}
+    if manifest.get("four_model_serving"):
+        from .four_model_serving import fingerprint
+        ref = manifest["four_model_serving"]
+        expected = f'gs://{bucket}/executions/{manifest["execution_id"]}/four-model-serving.json'
+        if ref["artifact_uri"] != expected:
+            raise ValueError("four-model serving artifact outside execution")
+        raw = store.read(expected[len(f"gs://{bucket}/"):])
+        if "sha256:" + sha256(raw).hexdigest() != ref["artifact_hash"]:
+            raise ValueError("four-model serving byte hash mismatch")
+        document = json.loads(raw)
+        if (document.get("analysis_as_of") != manifest["analysis_as_of"]
+                or document.get("core_snapshot_id") != manifest["core_snapshot_id"]
+                or document.get("output_hash") != fingerprint(
+                    {k: v for k, v in document.items() if k != "output_hash"})
+                or document.get("owner_fields_exposed") is not False):
+            raise ValueError("four-model serving identity mismatch")
+        for item in document["rows"]:
+            if item["symbol"] in model_rows:
+                raise ValueError("duplicate model serving symbol")
+            model_rows[item["symbol"]] = item["roles"]
+
     for symbol in sorted({r["symbol"] for r in manifest["specialists"]}):
         artifacts = []
         for ref in manifest["specialists"]:
@@ -91,6 +114,10 @@ def persist_products(connection, manifest, store, bucket):
                 raise ValueError("product artifact byte hash mismatch")
             artifacts.append(json.loads(raw))
         payload = baseline_projection(manifest, artifacts)
+        if symbol in model_rows:
+            payload["four_model_serving"] = model_rows[symbol]
+            payload["content_hash"] = content_hash(
+                {k: v for k, v in payload.items() if k != "content_hash"})
         if symbol in risk_rows:
             # Persist original deterministic baseline and the candidate
             # separately. The API dynamically gates exposure against the

@@ -63,3 +63,12 @@ D08只讀已驗證Fact Pack，LLM無canonical/publication權；A模板解讀不�
 ## 7. 資料量、部署與成效閉環
 各角色試點/成熟研究的年數與標籤數、Colab八階段、GCS候選/registry、日週批次、成熟結果與36月回饋保存，統一見[模型生命週期](model-lifecycle.md)。建議量不是已收量，也不是所有功能共同硬門檻；21月OHLCV可先Risk PROBE，基本面/事件按原生獨立期數判斷。實作指令見[生命週期AI卡](../archive/document-cleanup-2026-10-25/execution-cards/d07-model-lifecycle.md)。
 
+
+## SEQ-06 實作增量（2026-10-25；離線開發，部署交 SEQ-08）
+
+- 正式公開深度推論母體為既有 held∪watchlisted 的去 Owner 化股票集合，上限每次 250 檔；不得帶入持股成本／數量／現金。既有 event 仍屬相容 deterministic artifact；CEO 非模型。
+- Risk 已有獨立 `risk-models/registry/risk-active.json`、固定 XGBoost 8 特徵及 PostgreSQL ACTIVE 切換，保留不變；其他三角色使用既有 Mart bucket 下 `models/registry/{role}-active.json`，唯一允許 ACTIVE 指向 `models/candidates/{role}/.../*.json|*.ubj`，並要求 role、source SHA、model SHA256、feature_order／units／version、原生模型格式、identity preprocessing、output name/unit、VALIDATED gate 同時匹配。此接線**不建立／promote Registry 指標**，現有 GCS 是否有三份 ACTIVE 指標或可發布真模型仍待 SEQ-08 讀回。
+- 新 `four-model-serving.json` 為與 deterministic 五角色分開的不可變 execution 產物，product JSONB 增量鍵 `four_model_serving` 不覆寫 legacy specialists 或 Risk overlay；未 ACTIVE／輸入缺欄時只有 status、null prediction。Valuation 實際五因子 accounting mapping 未具可比 Core 映射前一律禁止捏造模型推論；其唯一確定性價帶仍由 SEQ-05 獨立計算。
+- 真實模型以 SHA256 單次 GCS download，在單一 execution RAM 重用、同角色批量 predict；跨 Job 不假設共享記憶，使用由公開 `symbol/role/model SHA/feature order/input_as_of/真實 X` 導出的不可變 GCS cache。cache identity／輸出 hash 不符拒絕；升版、特徵或值變更自然失效。新 cache 留在現有 Mart bucket，不新增服務或逐股 Cloud Run Job；保留與清理依現有產物治理，SEQ-08 需讀回。
+- 支援的非 Risk output 明訂 Quant `p_up_20d`（0..1），Fundamental `next_month_revenue_yoy_pct`（百分點），Valuation `log_pe` 或 `log_pb`（自然對數倍數）；這只是 loader 可理解的輸出格式，不代表四角色已有合格模型或 Valuation 已同時具 PE/PB 兩頭。任何不同 training preprocessing、schema、單位或缺乏正式 artifact 為 BLOCKED，不能用 baseline 冒充正式推論。
+- 離線回歸見 `tests/test_seq06_four_model_serving.py`；部署／Registry activation／GCS真artifact／PG API 正向／登入 UI 與回退驗收全部交 SEQ-08。使用者已決定研究調校至 2027 Q1，本輪不重訓。

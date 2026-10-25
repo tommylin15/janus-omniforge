@@ -132,6 +132,8 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 *([saved["evaluation"]] if "evaluation" in saved else []),
                 *([saved["reconciliation"]] if "reconciliation" in saved else [])]
         refs.extend(saved[key] for key in ("screening", "market_membership", "change_facts", "risk_active", "risk_quality", "analyst_inputs") if saved.get(key))
+        if saved.get("four_model_serving"):
+            refs.append(saved["four_model_serving"])
         for ref in refs:
             name = ref["artifact_uri"].split(f"gs://{bucket}/", 1)[1]
             from hashlib import sha256
@@ -230,6 +232,11 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 core_manifest_hash=execution.request_options["core_snapshot_hash"],
                 active_pointer=risk_pointer)
 
+    from .four_model_serving import materialize_four_model_serving
+    four_model_ref = materialize_four_model_serving(
+        store, bucket, analyst_inputs, execution.execution_id,
+        risk_active=risk_active_ref is not None)
+
     references = []
     computed_specialists = 0
     reused_specialists = 0
@@ -310,7 +317,7 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 "screening_quality": screening_quality(screen) if screen else None,
                 "specialist_status": "partial" if any(r["status"] != "ready" for r in references) else "ready",
                 "specialists": references, "change_facts": change_ref, "analyst_inputs": analyst_ref,
-                "risk_active": risk_active_ref,
+                "risk_active": risk_active_ref, "four_model_serving": four_model_ref,
                 "risk_quality": risk_quality_ref,
                 "source_core_manifest_hash": execution.request_options["core_snapshot_hash"],
                 "llm_api_tokens": 0, "ceo_triggered": False,
