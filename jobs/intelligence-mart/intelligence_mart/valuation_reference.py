@@ -99,13 +99,13 @@ def reference_from_core(
         # a real Core snapshot fence is unavailable.
         return None
     day = date.fromisoformat(as_of)
-    if market is not None and market != scope["market"]:
+    if market is not None and str(market).lower() != scope["market"]:
         raise ValueError("valuation_reference_market_identity_conflict")
     valuation = [row for row in datasets.get("valuation", ()) if str(row.get("symbol")) == symbol]
     financial = [row for row in datasets.get("financials", ()) if str(row.get("symbol")) == symbol]
     quotes = [row for row in datasets.get("ohlcv", ()) if str(row.get("symbol")) == symbol]
     if any(
-        row.get("market") not in (None, "", scope["market"])
+        str(row.get("market") or "").lower() not in ("", scope["market"])
         for row in (*valuation, *financial, *quotes)
     ):
         raise ValueError("valuation_reference_core_market_conflict")
