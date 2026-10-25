@@ -171,6 +171,12 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
           if (const {'ACTIVE_PREDICTED', 'ACTIVE_CACHED'}.contains(fvMap(item)['status']) &&
               fvMap(item)['prediction'] is num)
             Text('模型原始輸出 ${fvText(fvMap(item)['output_name'])}: ${fvMap(item)['prediction']}'),
+          if (const {'ACTIVE_PREDICTED', 'ACTIVE_CACHED'}.contains(fvMap(item)['status']) &&
+              fvMap(item)['prediction'] is Map)
+            Text('估值模型雙頭原始輸出 · log PE: ' +
+              fvText(fvMap(fvMap(item)['prediction'])['log_pe']) +
+              ' · log PB: ' + fvText(fvMap(fvMap(item)['prediction'])['log_pb']),
+              style: const TextStyle(color: fvMuted, fontSize: 12)),
         ],
       ],
       const Text('缺少正式模型時保留缺值；價格／估值不由 App 重新計算。',
