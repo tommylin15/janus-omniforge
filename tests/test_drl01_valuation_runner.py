@@ -59,5 +59,28 @@ def test_cloud_run_override_path_is_execution_scoped():
     assert 'report["status"] = "FAILED_JOB_EXECUTION"' in text
     assert 'report["blocked_operation"] = name' in text
     assert "valuation_execution_failed_check_terminal_logs_before_retry" in text
-    assert 'report["slices"][-1].get("two_year_ready")==12' in text
+    assert 'report["slices"][-1].get("two_year_ready") == 2*len(symbols)' in text
     assert 'and not any(s["valuation_failures"]' not in text
+
+
+def test_seq05_two_stock_scope_and_month_slices_are_strict(tmp_path):
+    runner = script()
+    request = {
+        "intent": "seq05-two-stock-bounded-valuation",
+        "approved": True, "no_new_provider": True,
+        "no_owner_mutation": True, "no_job_template_mutation": True,
+        "symbols": ["2330", "2882"],
+        "target_start": "2024-10", "target_end": "2026-09",
+        "offsets": [[13, 12], [1, 12]],
+        "deployed_sha": "a" * 40,
+    }
+    path = tmp_path / "seq05.json"
+    path.write_text(json.dumps(request))
+    assert runner.checked(str(path)) == request
+    for mutation in ({"symbols": ["2330", "2882", "2317"]},
+                     {"target_start": "2021-01"},
+                     {"offsets": [[24, 1], [0, 24]]},
+                     {"no_job_template_mutation": False}):
+        path.write_text(json.dumps({**request, **mutation}))
+        with pytest.raises(ValueError, match="invalid_seq05_valuation_scope"):
+            runner.checked(str(path))
