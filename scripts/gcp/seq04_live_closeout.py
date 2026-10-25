@@ -276,7 +276,8 @@ def main():
              "iceberg":{"status":"NOT_ATTEMPTED"}, "pg":{"status":"NOT_ATTEMPTED"}}
     token=get_token()
     receipt["pg"]=controller_pg_readback()
-    receipt["iceberg"]={"catalog":catalog_current_pointer_readback(token),\n                         "gcs_metadata_only":iceberg_buckets(token)}
+    receipt["iceberg"]={"catalog":catalog_current_pointer_readback(token),
+                         "gcs_metadata_only":iceberg_buckets(token)}
     emit(receipt)
     for name, fn in (("stage",stage_apply),("private_retention",private_retention_apply)):
         if phase not in ("all",name if name=="stage" else "private"):
