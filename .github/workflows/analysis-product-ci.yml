@@ -14,6 +14,10 @@ on:
       - 'tests/test_seq06_four_model_serving.py'
       - 'tests/test_seq08_candidate_import.py'
       - 'tests/test_seq08_drive_import_dev.py'
+      - 'tests/test_seq08_native_serving.py'
+      - 'jobs/intelligence-mart/intelligence_mart/seq08_native_serving.py'
+      - 'jobs/intelligence-mart/intelligence_mart/market_screening.py'
+      - 'jobs/intelligence-mart/intelligence_mart/specialist_runtime.py'
       - 'scripts/gcp/seq08_drive_import_dev.py'
       - 'scripts/gcp/seq08_candidate_import.py'
       - 'jobs/intelligence-mart/intelligence_mart/four_model_serving.py'
@@ -80,6 +84,7 @@ jobs:
           tests/test_seq06_four_model_serving.py
           tests/test_seq08_candidate_import.py
           tests/test_seq08_drive_import_dev.py
+          tests/test_seq08_native_serving.py
           tests/test_risk_api_baseline_serving.py
           tests/test_analysis_postgres.py tests/test_mart_provider_routing.py
           tests/test_market_screening.py tests/test_b4_deep_coverage.py
