@@ -124,3 +124,14 @@ def test_iso_week_boundary_uses_monday_and_calendar_month():
         assert computed == expected
         assert date.fromisoformat(computed).isoweekday() == 1
         assert day[:7] in {'2026-12', '2027-01'}
+
+def test_seq04_vm_executor_install_requires_verified_additive_migration_069():
+    workflow = (Path(__file__).parents[1] / '.github/workflows/ledger-backup-controller-dev.yml').read_text()
+    migration = (Path(__file__).parents[1] / 'infra/postgres/migrations/069_backup_retention_status.sql').read_text()
+    assert 'ADD COLUMN IF NOT EXISTS retention_status' in migration
+    assert 'ADD COLUMN IF NOT EXISTS retention_receipt' in migration
+    assert 'Apply additive SEQ-04 migration069 before installing updated VM executor' in workflow
+    assert 'infra/postgres/migrations/069_backup_retention_status.sql' in workflow
+    assert 'grep -Fx 069_backup_retention_status' in workflow
+    assert workflow.index('Apply additive SEQ-04 migration069') < workflow.index('Install local request executor without stopping original backup')
+    assert workflow.index('SEQ04_MIGRATION069=APPLIED_AND_VERSION_READ_BACK') < workflow.index('Install local request executor without stopping original backup')
