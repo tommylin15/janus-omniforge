@@ -1,0 +1,38 @@
+name: SEQ-06 four-model GCS registry exact read-only inventory
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/seq06-four-model-registry-probe.json'
+      - '.github/workflows/seq06-four-model-registry-probe.yml'
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate bounded no-write request
+        run: |
+          jq -e '.intent=="seq06-four-model-registry-readonly" and .approval_date=="2026-10-25" and .read_only==true and .no_gcp_mutation==true' ops/seq06-four-model-registry-probe.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read 4 exact pointers and check pointed model bytes without any writes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/gcp/seq06_registry_probe.py | tee /tmp/seq06-registry-probe.json
+      - name: Preserve bounded audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seq06-four-model-registry-readonly
+          path: /tmp/seq06-registry-probe.json
+          retention-days: 14
+          if-no-files-found: ignore

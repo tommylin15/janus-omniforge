@@ -1,0 +1,7 @@
+{
+  "intent": "seq06-four-model-registry-readonly",
+  "approval_date": "2026-10-25",
+  "read_only": true,
+  "no_gcp_mutation": true,
+  "scope": "four exact dev GCS Registry pointers and pointed blobs"
+}
