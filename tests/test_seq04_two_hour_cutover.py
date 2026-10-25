@@ -100,3 +100,17 @@ def test_workflow_is_explicit_and_has_single_global_mutex():
     assert "ops/seq04-two-hour-cutover-request.json" in text
     assert "seq04_two_hour_cutover.py --receipt" in text
     assert "actions/upload-artifact@v4" in text
+
+
+def test_scheduler_update_diagnostics_are_safely_classified(monkeypatch):
+    from types import SimpleNamespace
+    import pytest
+    def denied(args, **kwargs):
+        assert args[:5] == ["gcloud", "scheduler", "jobs", "update", "http"]
+        assert "--schedule=30 */2 * * *" in args
+        assert kwargs["capture_output"] is True
+        return SimpleNamespace(returncode=1, stdout="", stderr="PERMISSION_DENIED for secret resource")
+    monkeypatch.setattr(cutover.subprocess, "run", denied)
+    with pytest.raises(ValueError, match="seq04_scheduler_update_permission_denied") as error:
+        cutover.change_schedule(cutover.NEW)
+    assert "secret" not in str(error.value)
