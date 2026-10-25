@@ -21,6 +21,8 @@ jobs:
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       needed: ${{ steps.plan.outputs.needed }}
+      seq01_offline_needed: ${{ steps.seq01.outputs.offline_needed }}
+      seq01_flutter_needed: ${{ steps.seq01.outputs.flutter_needed }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,6 +34,58 @@ jobs:
         env:
           CI_BASE: ${{ github.event.before }}
         run: python scripts/gcp/cicd-v2.py ci-plan --sha "$GITHUB_SHA" --base "$CI_BASE" --output ci-plan.json
+      - id: seq01
+        name: Plan unified-flow regression gates
+        env:
+          CI_BASE: ${{ github.event.before }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+
+          base = os.environ.get("CI_BASE", "")
+          head = os.environ["GITHUB_SHA"]
+          if re.fullmatch(r"[0-9a-f]{40}", base) and base != "0" * 40:
+              paths = subprocess.check_output(
+                  ["git", "diff", "--name-only", base, head], text=True
+              ).splitlines()
+          else:
+              # Manual dispatch or absent baseline: validate both contracts.
+              paths = [".github/workflows/ci-v2.yml"]
+          gate = ".github/workflows/ci-v2.yml" in paths
+          offline_tests = {
+              "tests/test_analyst_input_mart.py",
+              "tests/test_stock_supplement.py",
+              "tests/test_unified_batch_flow.py",
+              "tests/test_batch_controller.py",
+              "tests/test_admin_batch_dashboard.py",
+              "tests/test_controller_ledger_backup.py",
+              "tests/test_ledger_backup_retention.py",
+              "tests/test_private_ledger_backup_retention.py",
+              "tests/test_private_pipeline.py",
+              "tests/test_private_pipeline_scheduler.py",
+              "tests/test_user_api.py",
+              "tests/test_public_mart_api.py",
+              "tests/test_specialist_engines.py",
+          }
+          offline = gate or any(
+              p in offline_tests
+              or p == "scripts/test-unified-batch.sh"
+              or p.startswith(("jobs/ingestion-core/", "jobs/intelligence-mart/",
+                               "services/api/", "scripts/gcp/ledger-",
+                               "scripts/gcp/private_ledger_backup_retention"))
+              for p in paths
+          )
+          flutter = gate or any(
+              p.startswith("apps/user_app/")
+              or p == "tests/test_unified_batch_flow.py"
+              for p in paths
+          )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"offline_needed={str(offline).lower()}\n")
+              out.write(f"flutter_needed={str(flutter).lower()}\n")
+          PY
 
   tests:
     needs: plan
@@ -64,3 +118,51 @@ jobs:
               subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', requirement], check=True)
           subprocess.run([sys.executable, '-m', 'pytest', '-q', *target['tests']], check=True)
           PY
+
+  seq01-offline:
+    needs: plan
+    if: needs.plan.outputs.seq01_offline_needed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            jobs/ingestion-core/requirements.lock
+            jobs/intelligence-mart/requirements.lock
+            services/api/requirements.lock
+      - name: Install offline test dependencies
+        run: |
+          python -m pip install -r requirements-dev.txt
+          python -m pip install -r jobs/ingestion-core/requirements.lock
+          python -m pip install -r jobs/intelligence-mart/requirements.lock
+          python -m pip install -r services/api/requirements.lock
+      - name: SEQ-01 full offline Python and shell regressions
+        run: bash scripts/test-unified-batch.sh
+
+  seq01-flutter-admin:
+    needs: plan
+    if: needs.plan.outputs.seq01_flutter_needed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/user_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Janus branding test assets
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pil
+          python3 tool/generate_brand_assets.py
+      - run: flutter pub get
+      - name: SEQ-01 targeted Flutter Admin regressions
+        run: flutter test test/admin_batch_dashboard_test.dart test/admin_overview_batch_test.dart
