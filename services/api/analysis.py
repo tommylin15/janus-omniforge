@@ -164,6 +164,12 @@ class AnalysisService:
                 value.pop("risk_first_release_candidate")
                 value["content_hash"] = content_hash(
                     {k: v for k, v in value.items() if k != "content_hash"})
+        reference = value.get("valuation_reference")
+        if reference is not None:
+            from packages.valuation_reference import validate_published_card
+            validate_published_card(
+                reference, symbol=symbol, as_of=value["analysis_as_of"],
+                core_snapshot_id=str(value["core_snapshot_id"]))
         with self.repository._connection() as connection:
             market = connection.execute('''SELECT payload_json,content_hash FROM private.market_screening_product
                 WHERE symbol=%s AND analysis_as_of=%s AND core_snapshot_id=%s''',
