@@ -106,13 +106,18 @@ def execute(receipt_file):
                "llm_calls": 0, "new_resources": 0}
     def save():
         receipt_file.write_text(json.dumps(receipt, sort_keys=True))
+    receipt["phase"] = "LEASE_ACQUIRE"
     save()
     jobs.command(LEASE + ["acquire"])
     safe = False
     dispatched = False
     try:
         jobs.command(LEASE + ["assert"])
+        receipt["phase"] = "WAITING_FOR_TERMINAL_FENCE"
+        save()
         jobs.wait_for_terminal_executions(timeout=720)
+        receipt["phase"] = "JOB_CONFIG_READBACK"
+        save()
         target = accepted_job()  # verify unchanged source/image/config under lease
         container = target["template"]["template"]["containers"][0]
         command = container.get("command")
@@ -126,13 +131,15 @@ def execute(receipt_file):
             {"name": "MART_PRODUCT_PROJECTION", "value": "true"}]}
         if container.get("name"):
             override["name"] = container["name"]
-        receipt["phase"] = "DISPATCH_REQUESTED"
+        receipt["phase"] = "DISPATCH_REQUESTED_OUTCOME_UNKNOWN"
         save()
+        # Mark the POST ambiguous *before* sending it; network failure can
+        # occur after Cloud Run accepted the execution. Never auto-redispatch.
+        dispatched = True
         operation = jobs.cloud(f"{jobs.ROOT}/jobs/{JOB}:run",
             {"etag": target["etag"], "overrides": {
                 "taskCount": 1, "timeout": "1200s", "containerOverrides": [override]}},
             "POST")
-        dispatched = True
         operation_name = operation.get("name", "")
         if not operation_name.startswith(f"{jobs.ROOT}/operations/"):
             raise ValueError("unknown_mart_execution_operation")
@@ -175,7 +182,9 @@ def diagnose_prior():
         raise ValueError("prior_receipt_download_unavailable")
     data = json.loads((directory / "seq08-real-mart.json").read_text())
     phase = str(data.get("phase", "UNKNOWN"))
-    if phase not in {"PREFLIGHT", "DISPATCH_REQUESTED", "WAITING_FOR_REAL_DEV_JOB",
+    if phase not in {"PREFLIGHT", "LEASE_ACQUIRE", "WAITING_FOR_TERMINAL_FENCE",
+                     "JOB_CONFIG_READBACK", "DISPATCH_REQUESTED",
+                     "DISPATCH_REQUESTED_OUTCOME_UNKNOWN", "WAITING_FOR_REAL_DEV_JOB",
                      "REAL_JOB_PASS_PRODUCT_CONTENT_READBACK_PENDING"}:
         raise ValueError("prior_receipt_phase_unknown")
     executions = jobs.cloud(f"{jobs.ROOT}/jobs/{JOB}/executions?pageSize=10")
@@ -193,7 +202,9 @@ def diagnose_prior():
             state = json.loads(lease.stdout).get("status", "UNKNOWN")
         except ValueError:
             pass
-    output = {"prior_phase": phase, "prior_dispatch_maybe": phase != "PREFLIGHT",
+    output = {"prior_phase": phase, "prior_dispatch_maybe": phase in {"DISPATCH_REQUESTED",
+                   "DISPATCH_REQUESTED_OUTCOME_UNKNOWN", "WAITING_FOR_REAL_DEV_JOB",
+                   "REAL_JOB_PASS_PRODUCT_CONTENT_READBACK_PENDING"},
               "operation_exists": bool(data.get("operation")),
               "prior_operation": data.get("operation"),
               "latest_job_executions": names, "lease_status": state,
@@ -223,8 +234,21 @@ def main():
             "job": JOB, "source_sha": SOURCE}))
         return 0
     except Exception as error:
-        print(json.dumps({"result": "BLOCKED_OR_FAILED",
-            "reason": str(error) if isinstance(error, ValueError) else type(error).__name__}))
+        try:
+            phase = json.loads(args.receipt.read_text()).get("phase", "BEFORE_RECEIPT")
+        except (ValueError, OSError, TypeError):
+            phase = "BEFORE_RECEIPT"
+        # Only machine-coded, non-sensitive cause strings are allowed in logs.
+        import re
+        code = str(error)
+        if not re.fullmatch(r"[a-z][a-z0-9_]{3,110}", code):
+            code = type(error).__name__
+        print(json.dumps({"result": "BLOCKED_OR_FAILED", "stage": phase,
+                          "reason": code,
+                          "may_have_dispatched": phase in {
+                              "DISPATCH_REQUESTED_OUTCOME_UNKNOWN",
+                              "WAITING_FOR_REAL_DEV_JOB",
+                              "REAL_JOB_PASS_PRODUCT_CONTENT_READBACK_PENDING"}}))
         return 78
 
 
