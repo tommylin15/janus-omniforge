@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "cf69def50209ec590e464fcc7298ca4ece44bc6f",
+  "sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
   "digest": "",
-  "release_run": "40084702607",
+  "release_run": "40154638538",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "RESEARCH-SIMPLIFICATION full GHCR release #40084702607 verified; 0%-traffic existing janus-api Candidate and exact build-id/health/auth negatives only; no other Cloud Run Job/API canonical route mutation.",
-  "request_attempt": 9
+  "purpose": "SEQ-04 guarded 0%-traffic API candidate from exact successful GHCR Release #40154638538 after migration069 and VM install #40155184201. No current traffic or Job changes; next auth boundary and four-Job controlled rollout.",
+  "request_attempt": 10
 }
