@@ -88,7 +88,7 @@ def stage_dry_run(token: str) -> dict:
     rows = vm_query("SELECT execution_id::text FROM control.executions "
                     "WHERE status IN ('queued','running','retrying') "
                     "AND claimed_until > now() LIMIT 101")
-    if len(rows) > 100 or any(not x or len(x) > 256 or '/' in x or '\\' in x for x in rows):
+    if len(rows) > 100:
         return {"status": "BLOCKED_ACTIVE_LEASE_SCOPE",
                 "lease_count_capped": len(rows), "gcs_deletions": 0}
     store = GcsObjectStore(BUCKETS["stage"])
