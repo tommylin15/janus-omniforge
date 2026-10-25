@@ -73,6 +73,7 @@ def test_seq05_two_stock_scope_and_month_slices_are_strict(tmp_path):
         "target_start": "2024-10", "target_end": "2026-09",
         "offsets": [[13, 12], [1, 12]],
         "deployed_sha": "a" * 40,
+        "live_image_digest": "sha256:" + "b" * 64,
     }
     path = tmp_path / "seq05.json"
     path.write_text(json.dumps(request))
@@ -80,7 +81,8 @@ def test_seq05_two_stock_scope_and_month_slices_are_strict(tmp_path):
     for mutation in ({"symbols": ["2330", "2882", "2317"]},
                      {"target_start": "2021-01"},
                      {"offsets": [[24, 1], [0, 24]]},
-                     {"no_job_template_mutation": False}):
+                     {"no_job_template_mutation": False},
+                     {"live_image_digest": "unknown"}):
         path.write_text(json.dumps({**request, **mutation}))
         with pytest.raises(ValueError, match="invalid_seq05_valuation_scope"):
             runner.checked(str(path))
