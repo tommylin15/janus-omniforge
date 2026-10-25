@@ -102,3 +102,60 @@ def project_reference_card(
         "is_ml_forecast": False,
         "is_trading_signal": False,
     }
+
+
+def validate_published_card(
+    card: Mapping[str, Any], *, symbol: str, as_of: str,
+    core_snapshot_id: str,
+) -> dict[str, Any]:
+    """Reject cross-symbol, stale-shape or falsely complete Mart/API cards.
+
+    This is a validation of one materialized card, not a way to recompute its
+    numbers from LLM narrative, stock prices or UI data.
+    """
+    if (not isinstance(card, Mapping) or card.get("schema_version") != CARD_VERSION
+            or card.get("role") != "valuation" or card.get("symbol") != symbol
+            or card.get("as_of") != as_of
+            or str(card.get("core_snapshot_id")) != str(core_snapshot_id)
+            or card.get("method_version") != METHOD_VERSION
+            or card.get("window_months") != WINDOW_MONTHS
+            or card.get("minimum_valid_months") != MIN_MONTHS
+            or card.get("is_ml_forecast") is not False
+            or card.get("is_trading_signal") is not False):
+        raise ValueError("valuation_reference_published_identity_invalid")
+    try:
+        date.fromisoformat(as_of)
+        stamp = card.get("price_as_of")
+        if stamp is not None and date.fromisoformat(stamp) > date.fromisoformat(as_of):
+            raise ValueError()
+    except (TypeError, ValueError):
+        raise ValueError("valuation_reference_published_date_invalid") from None
+    months = card.get("valid_month_count")
+    if (isinstance(months, bool) or not isinstance(months, int)
+            or not 0 <= months <= WINDOW_MONTHS):
+        raise ValueError("valuation_reference_published_month_count_invalid")
+    if (not isinstance(card.get("input_hash"), str)
+            or len(card["input_hash"]) != 64
+            or any(c not in "0123456789abcdef" for c in card["input_hash"])):
+        raise ValueError("valuation_reference_published_hash_invalid")
+    refs = card.get("input_refs")
+    if (not isinstance(refs, Mapping)
+            or str(refs.get("core_snapshot_id")) != str(core_snapshot_id)):
+        raise ValueError("valuation_reference_published_source_snapshot_invalid")
+    status = card.get("status")
+    if status not in STATUSES:
+        raise ValueError("valuation_reference_published_status_invalid")
+    prices = (card.get("lower"), card.get("mid"), card.get("upper"))
+    if status == "available":
+        numeric = tuple(_positive(value) for value in prices)
+        if (months < MIN_MONTHS or any(value is None for value in numeric)
+                or not numeric[0] <= numeric[1] <= numeric[2]):
+            raise ValueError("valuation_reference_published_price_invalid")
+    elif any(card.get(key) is not None for key in (
+        "lower", "mid", "upper", "price_gap_to_reference_mid_pct"
+    )):
+        raise ValueError("valuation_reference_published_missing_price_invalid")
+    classification = card.get("classification")
+    if not isinstance(classification, Mapping) or classification.get("scope") != "seq05-two-stock-only":
+        raise ValueError("valuation_reference_published_classification_missing")
+    return dict(card)
