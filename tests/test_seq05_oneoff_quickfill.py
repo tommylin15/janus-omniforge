@@ -15,7 +15,7 @@ def helpers():
     source = ast.parse(path.read_text())
     chosen = [n for n in source.body if isinstance(n, ast.FunctionDef)
               and n.name in {"positive", "extract_finmind_pb", "extract_yahoo_bvps"}]
-    namespace = {"date":date,"AS_OF":date(2026,10,24), "MONTHS":tuple(
+    namespace = {"date":date,"AS_OF":date(2026,10,24), "MARKET":"TWSE", "MONTHS":tuple(
         f"{y}-{m:02d}" for y in (2025,2026) for m in range(1,13)
         if "2025-10"<=f"{y}-{m:02d}"<="2026-08"),"Decimal":Decimal,
         "InvalidOperation":InvalidOperation, "defaultdict":defaultdict,
