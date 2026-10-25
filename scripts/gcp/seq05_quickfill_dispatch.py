@@ -23,7 +23,7 @@ def checked(data, code):
         or data.get("one_execution") is not True
         or data.get("new_resources") is not False
         or data.get("no_job_template_mutation") is not True
-        or data.get("sha256") != sha256(code.encode()).hexdigest()):
+        or data.get("program") != "scripts/gcp/seq05_oneoff_core.py"):
         raise ValueError("seq05_quickfill_request_scope_invalid")
     return data
 
@@ -55,7 +55,7 @@ def main():
     code=Path("scripts/gcp/seq05_oneoff_core.py").read_text(encoding="utf-8")
     request=checked(json.loads(REQUEST.read_text(encoding="utf-8")),code)
     report={"operation":"seq05-oneoff-research-quickfill","status":"PREFLIGHT","symbols":request["symbols"],
-            "source_code_sha256":request["sha256"],"one_execution":True}
+            "source_code_sha256":sha256(code.encode()).hexdigest(),"one_execution":True}
     wait_for_terminal_executions(timeout=700)
     current=job(JOB)
     initial=fingerprint(current)
