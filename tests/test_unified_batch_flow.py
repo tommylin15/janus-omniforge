@@ -16,6 +16,27 @@ def test_every_scheduled_slot_aligns_with_two_hour_tick():
         assert "\n  schedule:" not in path.read_text()
 
 
+
+def test_seq04_four_main_slots_once_per_taipei_day():
+    from datetime import datetime, timezone
+    from ingestion_core.batch_controller import due_batches
+    # Tuesday 06:30 Taipei; do not restore retired multi-run business slots.
+    rows = due_batches(datetime(2026, 10, 19, 22, 30, tzinfo=timezone.utc))
+    main = [(key, dependencies) for key, batch, _, dependencies in rows
+            if batch.name in {"ledger-backup", "ingestion", "market-screening", "private"}]
+    assert main == [
+        ("ledger-backup/2026-10-20/00", []),
+        ("ingestion/2026-10-20/02", []),
+        ("market-screening/2026-10-20/04", ["ingestion/2026-10-20/02"]),
+        ("private/2026-10-20/06", ["market-screening/2026-10-20/04"]),
+    ]
+    # Before the first slot, even the backup is not prematurely due.
+    assert not [row for row in due_batches(
+        datetime(2026, 10, 19, 16, 29, tzinfo=timezone.utc))
+        if row[1].name in {"ledger-backup", "ingestion", "market-screening", "private"}]
+
+
+
 def test_collection_finishes_canonical_after_supplement(monkeypatch):
     from ingestion_core import unified_collection, data_supplement, stock_supplement, __main__
     order = []
