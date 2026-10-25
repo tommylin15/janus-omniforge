@@ -18,6 +18,6 @@
     "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:86b999bdf7a0350a01728cf8864a073f6c76c13a3c0ff982e975e030a747f0a0",
     "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:50536c3ac7cccf2e426149e78c5a2bd4411f2e2ba6f3f0a23b983e03123090fc"
   },
-  "purpose": "SEQ-04 authorized 2026-10-25 controlled retry after project owner Cloud Shell readback confirms binding projects/gen-lang-client-0593591102/roles/janusSchedulerUpdate -> serviceAccount:janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com. Prior #40159576001 returned permission_denied and ROLLED_BACK old hourly cron ENABLED. Keep single original scheduler, no forced execution cancellation, no new resources, 600-second natural terminal fencing, fixed digest gates, preserve old cron rollback. Require target/identity readback and SUCCESS receipt.",
-  "attempt": 4
+  "purpose": "SEQ-04 same existing Scheduler controlled cutover with approved current IAM, change to schedule-only Cloud Scheduler REST PATCH (updateMask=schedule), no HTTP target/OAuth service account changes. Selective CI #40162566821 SUCCESS with focused patch tests. All existing fixed-digest release/jobs/API gates retained; acquire global writer lease; drain Jobs; pause then patch then verify before resume; old hourly cron reversible rollback. No new resources, IAM, forced cancels or additional target.",
+  "attempt": 5
 }
