@@ -136,3 +136,16 @@ def test_change_reads_bind_owner_and_validate_session_without_dispatch():
     assert api.get('/api/v1/me/analysis/2330/changes', headers=auth()).status_code == 200
     assert service.calls[-1] == ('changes', '2330', 'postmarket')
     assert api.get('/api/v1/me/today-changes?session=intraday', headers=auth()).status_code == 422
+
+
+def test_seq05_valuation_reference_requires_authenticated_read_only_fact_pack():
+    api, service = client()
+    route = '/api/v1/me/analysis/2330/valuation-reference'
+    assert api.get(route).status_code == 401
+    response = api.get(route, headers=auth())
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "missing"
+    assert payload["excluded_reasons"] == ["valuation_reference_not_published"]
+    assert payload["lower"] is payload["mid"] is payload["upper"] is None
+    assert service.calls == [('baseline', '2330', None)]
