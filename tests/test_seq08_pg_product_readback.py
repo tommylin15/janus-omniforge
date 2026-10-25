@@ -43,3 +43,13 @@ def test_exact_cloud_run_log_identity():
         probe.parse_log(logs+logs[1:],x)
     assert "SELECT" in probe.PROBE and "READ ONLY" in probe.PROBE
     assert "positions" not in probe.PROBE
+
+
+def test_public_two_stock_inline_probe_compiles_and_is_cache_only():
+    compile(probe.PROBE,"<dev_mart_sql_and_public_probe>","exec")
+    assert "independent_of_owner_portfolio" in probe.PROBE
+    assert '("2330","2882")' in probe.PROBE
+    assert "gcs_persistent_writes" in probe.PROBE
+    assert "class LocalOnlyCache" in probe.PROBE
+    assert "self.backing.create" not in probe.PROBE
+    assert "SET TRANSACTION READ ONLY" in probe.PROBE
