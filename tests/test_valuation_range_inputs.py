@@ -301,3 +301,29 @@ def test_invalid_scope_never_queries_core():
             security_type="ordinary_stock", is_financial=False,
             rights_status="approved", max_core_rows=5000,
         )
+
+
+def test_verified_2025_lunar_new_year_last_session_counts_without_general_gap_relaxation():
+    raw = valuation_rows()
+    raw[3]["observed_date"] = "2025-01-22"
+    twse = monthly_last_trading_observations(
+        raw, as_of=AS_OF, metric="pe_ratio", market="twse")
+    assert len(twse) == 24
+    assert twse[3]["observed_date"] == "2025-01-22"
+    assert twse[3]["month_end_date"] == "2025-01-31"
+    original = from_existing_rows(
+        symbol="2330", market="twse", security_type="ordinary_stock",
+        is_financial=False, as_of=AS_OF, valuation_rows=raw,
+        financial_rows=financial_rows(), rights_status="approved")
+    assert original["status"] == "available"
+    assert original["valid_month_count"] == 24
+
+    # No blanket 9-day acceptance: Jan 21 (or unknown exchange) is not
+    # a verified final trading session.
+    raw[3]["observed_date"] = "2025-01-21"
+    assert len(monthly_last_trading_observations(
+        raw, as_of=AS_OF, metric="pe_ratio", market="twse")) == 23
+    raw[3]["observed_date"] = "2025-01-22"
+    assert len(monthly_last_trading_observations(
+        raw, as_of=AS_OF, metric="pe_ratio", market="tpex")) == 23
+
