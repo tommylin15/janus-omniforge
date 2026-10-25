@@ -25,7 +25,8 @@ class RiskSignalCard extends StatelessWidget {
         (serving['model_version'] ?? '').toString().startsWith('risk-xgb12-') &&
         serving['input_as_of'] != null;
     final stale = freshness == 'stale';
-    final double? ratio = validated ? predicted / recent : null;
+    final double? ratio = validated && recent != null && recent > 0
+        ? predicted! / recent : null;
     final increasing = ratio != null && ratio >= 1.20;
     final easing = ratio != null && ratio <= 0.80;
     final state = stale ? '資料已過期' : !validated ? '模型尚待驗證'
