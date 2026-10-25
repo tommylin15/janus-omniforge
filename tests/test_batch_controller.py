@@ -142,7 +142,11 @@ def test_current_private_slot_prioritized_over_retired_pending():
     assert prioritize_nightly_private(rows, now)[0][0] == "private/2026-10-15/06"
 
 
-def test_live_tick_closes_private_when_early_market_failed(monkeypatch):
+@pytest.mark.parametrize("upstream_status, expected_reason", [
+    ("failed", "upstream_ingestion_failed"),
+    ("skipped", "upstream_market_skipped"),
+])
+def test_live_tick_closes_private_when_early_market_failed_or_skipped(monkeypatch, upstream_status, expected_reason):
     from unittest.mock import MagicMock, Mock
     from ingestion_core import batch_controller as controller
     monkeypatch.setenv("GCP_PROJECT_ID", PROJECT)
@@ -158,7 +162,7 @@ def test_live_tick_closes_private_when_early_market_failed(monkeypatch):
     db.execute.return_value.fetchone.return_value = (True,)
     cursor = db.cursor.return_value.__enter__.return_value
     cursor.fetchall.side_effect = [[], [(day, state)],
-                                   [("market-screening/2026-10-15/04", "failed")]]
+                                   [("market-screening/2026-10-15/04", upstream_status)]]
     cursor.fetchone.return_value = None
     session = Mock()
     record = Mock()
@@ -171,7 +175,7 @@ def test_live_tick_closes_private_when_early_market_failed(monkeypatch):
     skipped = next(call.args[3] for call in record.call_args_list
                    if call.args[2] == day and call.args[4] == "private_upstream_failed")
     assert skipped["status"] == "skipped"
-    assert skipped["reason"] == "upstream_ingestion_failed"
+    assert skipped["reason"] == expected_reason
 
 
 
