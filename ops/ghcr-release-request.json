@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "feffe95da7086c5fb8c0b32302e35a872862dc93",
-  "purpose": "SEQ-08 revised true-five-head nontrading-day Quant/Risk feature freshness and same-session full-market rank. Offline PostgreSQL/product #40204115801 PASS; selective #40204374888 PASS. New exact-GitHub-run full Python+Flutter tests, four GHCR images; Dev GCP unchanged until candidate/jobs/API gates. Final release HEAD identified by this ops commit, no model artifact retraining or registry rewrite.",
+  "sha": "91bab6d685cea365f550b6c7603fa97f0109cb1d",
+  "purpose": "SEQ-08 final consolidated Release: includes latest eligible stock/market session Quant/Risk reader AND full-market Screening same-asof weekend guard, with 7-day maximum freshness and >=100 same-market cohort; test #40215226660 requested. Supersedes interim release #40214963397 which did not include final screening gate and is NOT authorized for Dev rollout. Full Python/Flutter GHCR publish on this request commit only; no GCP writes until subsequent controlled staging.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 19
+  "request_attempt": 20
 }
