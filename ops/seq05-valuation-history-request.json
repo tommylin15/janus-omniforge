@@ -21,5 +21,5 @@
     ]
   ],
   "deployed_sha": "a3769bc05bb4555b4dc440c75bb157213c0a8874",
-  "diagnostic_retry": 1
+  "live_image_digest": "sha256:6c36cb26e64398ca07b981d9b13563c2864457066fa0e25929eb48cfb04ff15d"
 }
