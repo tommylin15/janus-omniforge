@@ -96,3 +96,18 @@ def test_valuation_only_release_does_not_require_unrelated_12_quarter_financial_
     assert _supplement_is_partial(
         valuation_only=True, failures=[{"dataset": "valuation", "period": "2025-01"}],
         coverage=incomplete) is True
+
+
+def test_consumed_seq05_request_is_noop_before_cloud_calls(tmp_path, capsys, monkeypatch):
+    runner = script()
+    def forbidden(*args, **kwargs):
+        raise AssertionError("consumed request must not touch Cloud Run")
+    monkeypatch.setattr(runner, "job", forbidden)
+    path = tmp_path / "consumed.json"
+    path.write_text(json.dumps({
+        "intent": "seq05-two-stock-bounded-valuation",
+        "approved": False, "closed_after_failed_job": True,
+        "symbols": ["2330", "2882"],
+    }))
+    assert runner.run(str(path)) is None
+    assert "SKIPPED_ALREADY_PARTIALLY_COMMITTED" in capsys.readouterr().out
