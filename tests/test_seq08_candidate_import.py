@@ -60,14 +60,14 @@ def test_missing_head_and_changed_source_fail_closed(tmp_path):
     manifest, expected = fixture(tmp_path)
     (tmp_path / "risk.ubj").write_bytes(b"other")
     with pytest.raises(ValueError, match="SHA256"):
-        verify(manifest, tmp_path, expected=expected, loader=lambda _: Model(12))
+        verify(manifest, tmp_path, expected=expected, loader=lambda raw: Model(expected[raw.decode()][2]))
 
 
 def test_bad_preprocessing_feature_order_or_dimension_fail(tmp_path):
     manifest, expected = fixture(tmp_path)
     manifest["risk"]["feature_order"].reverse()
     with pytest.raises(ValueError, match="feature order"):
-        verify(manifest, tmp_path, expected=expected, loader=lambda _: Model(12))
+        verify(manifest, tmp_path, expected=expected, loader=lambda raw: Model(expected[raw.decode()][2]))
     manifest, expected = fixture(tmp_path)
     manifest["quant"]["preprocessing"] = "standard_scaler"
     with pytest.raises(ValueError, match="preprocessing"):
