@@ -42,14 +42,14 @@
 
 ### SEQ-04 四階段紀錄（2026-10-25，進行中）
 
-`SEQ-04｜DOC=REVIEWED／CODE=COMMITTED／RELEASE_AND_SCHEDULER_DEPLOY=PASS（#40163729460、#40163927739）／IMMEDIATE_BOUNDED_READONLY=PASS（備份#40164713512、Stage／GCS／API／PG／Private retention #40165435450）／LIVE=PARTIAL（Stage及retention apply / 新版02:30 ingestion / owner正向 / catalog current pointer 均未驗；14:30 Controller自然tick已PASS #40170098722）｜唯一下一入口=SEQ-04／收斂已證實的有界apply與下一自然tick，不阻塞可獨立進行的SEQ-05前期設計或開發`。
+`SEQ-04｜DOC=REVIEWED／CODE=COMMITTED／RELEASE_AND_SCHEDULER_DEPLOY=PASS（#40163729460、#40163927739）／IMMEDIATE_BOUNDED_READONLY=PASS（備份#40164713512、Stage／GCS／API／PG／Private retention #40165435450）／LIVE=PARTIAL（Stage及retention apply / 新版02:30 ingestion / owner正向 / catalog current pointer 均未驗；14:30 Controller自然tick已PASS #40170098722）｜唯一下一入口=SEQ-04／有界Stage及Private retention apply與讀回、Iceberg current pointer、備份occurrence與新版02:30收取資料鏈；14:30自然Controller tick已PASS，不需再等自然tick，亦不阻塞SEQ-05`。
 
 收據判定：Release、migration069／VM、PG隔離還原、四Job 8/8、API 100% 已通過。歷史切換 #40162679929 `permission_denied` 及回復，之後 #40163099454 精確查出 target SA actAs NOT_GRANTED；使用者於Cloud Shell僅授權 `janus-ci` 對指定 `janus-ingestion-scheduler` SA 的 `roles/iam.serviceAccountUser` 並讀回。重新觸發 [#40163729460](https://github.com/tommylin15/janus-omniforge/actions/runs/40163729460) 最終SUCCESS，receipt: `phase=PASS`、`previous_cron=30 * * * *`、`new_cron=30 */2 * * *`、`scheduler_enabled=true`、`target_identity_unchanged=true`、`gcp_new_resources=0`；獨立GCP [#40163927739](https://github.com/tommylin15/janus-omniforge/actions/runs/40163927739) 再讀到同值、target hash一致、IAM update/actAs=GRANTED。14:30自然tick已由#40170098722的Scheduler執行紀錄（HTTP200）、Cloud Run REST最新Controller execution（created UTC06:30:00；start UTC06:30:16；complete UTC06:31:52，CONDITION_SUCCEEDED）證實PASS。首次gcloud list未顯示新execution，已交叉改用Cloud Run REST確認。新版02:30 ingestion需等2026-10-26 02:30 Asia/Taipei自然收取完成後讀回，不能用今天舊版失敗或Controller成功代替。其餘有界驗收維持NOT_VERIFIED，不增添獨立排程。
 
 ### SEQ-04 新兩小時自然Controller收據（2026-10-25 14:30 台北；PASS）
 
 - [GitHub唯讀 #40170098722](https://github.com/tommylin15/janus-omniforge/actions/runs/40170098722) completed/success；Scheduler `lastAttemptTime=2026-10-25T06:30:00.865962Z`、cron=`30 */2 * * *`、Asia/Taipei、ENABLED；Cloud Scheduler execution log 06:30 HTTP 200；Cloud Run V2 REST `janus-batch-controller` execution create UTC06:30:00.943455、start UTC06:30:16.601901、complete UTC06:31:52.439218、Completed=CONDITION_SUCCEEDED。首次CLI listing漏新紀錄，交叉用v2 REST得到完整收據。**自然Controller tick=PASS；不是新版市場收取成功的證據**。
-- 下一個新版02:30 ingestion自然時點為2026-10-26 02:30（台灣時間）；驗收需讀新occurrence狀態、actual Cloud Run Job與Core data date／artifact，不使用10/25舊失敗推論新版。無須等待24h才能推進其他工作。
+- 下一個新版02:30 ingestion自然時點為2026-10-26 02:30（台灣時間）；驗收需讀新occurrence狀態、actual Cloud Run Job與Core data date／artifact，不使用10/25舊失敗推論新版。無須等待24h才能推進其他工作。整體結案判定：**SEQ-04=LIVE_PARTIAL／NOT_CLOSED**；部署與自然Controller tick可獨立標PASS，但必須保留實際未執行的清理apply／現役catalog與資料鏈驗收。Owner／Admin無登入憑證時為`AUTH_REQUIRED／NOT_VERIFIED`，不得拿匿名401作正向驗收。
 
 ### SEQ-04 即時有界驗收收據（2026-10-25；不等於全系統live PASS）
 
