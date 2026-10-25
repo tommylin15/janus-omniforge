@@ -1,10 +1,10 @@
 # Janus 目前狀態
 
-更新：2026-10-25（Asia/Taipei）。SEQ-01 已完成程式與契約修正；同來源 `4241bf40b94b5a75ffee235b9ef0b52b5eb5a271` 的 [CI #40148605544](https://github.com/tommylin15/janus-omniforge/actions/runs/40148605544) `completed/success`：完整 Python 217 passed／9 non-fatal warnings、Flutter Admin 7 passed、Controller 99 passed（含 shell syntax）。離線階段可交接；部署、migration、Scheduler 切換、live、Registry 均未變更。
+更新：2026-10-25（Asia/Taipei）。SEQ-01／SEQ-02／SEQ-03 已完成文件、程式與離線 CI 可交接：SEQ-01 [#40148605544](https://github.com/tommylin15/janus-omniforge/actions/runs/40148605544)；SEQ-02 [#40151187692](https://github.com/tommylin15/janus-omniforge/actions/runs/40151187692)；SEQ-03 [#40152197002](https://github.com/tommylin15/janus-omniforge/actions/runs/40152197002)。以上舊收據不涵蓋後續新時段修改。
 
-統一批次主要程式歷史基線 [77b5565](https://github.com/tommylin15/janus-omniforge/commit/77b5565f2b23c5023c9128121a9dfad05ed58376)，SEQ-01 修正提交 `268a916`、`7ab83e0`，測試CI整合提交 `4241bf4`。上述 CI 僅證明離線契約，不是新版已在Dev部署；兩小時Scheduler與VM保留政策待SEQ-04切換，四模型上線仍由SEQ-06～08處理。
+SEQ-04 最新使用者批准時段：每日00:30 PostgreSQL備份、每日02:30市場收取、平日04:30全市場分析、平日06:30私人更新（Asia/Taipei）。同一每兩小時 `30 */2 * * *` Cloud Scheduler、Stage每日22:30／Iceberg週六22:30不變。Controller／screening／測試／SPEC／WI已提交main；本次變更離線 CI 尚待新來源結果。02:30以前一完成交易日為輸入，04:30使用實際最新Core資料日期；週六維護查實際02:30 Core ready收據。此為待部署版本，**未修改 Dev Scheduler、Jobs、VM、migration 或live**，不宣稱新時段生效。
 
-**下一個唯一入口：SEQ-02／文件設計**。SEQ-01 現在是 OFFLINE_PASS／DEPLOY_DEFERRED_TO_SEQ-04。接著依 [TODO](todo.md) 順序到SEQ-08，完整操作見 [AI卡](execution-cards/sequential-delivery.md)。四模型正式serving／報告UI納入本版，研究調校延至2027年第一季由使用者重新啟動，不形成發布前置。
+**唯一下一入口：SEQ-04／部署前同SHA測試與發版設計**，依[AI執行卡](execution-cards/sequential-delivery.md#seq-04)及[統一批次WI](runbook-unified-batch-ai.md)核對排程、備份、還原、既有Worker digest與回滾，再一次集中切換並讀回。四模型正式 serving 另歸SEQ-05～08。
 
 ## 沿用的歷史基線
 
