@@ -15,8 +15,18 @@ class AnalysisApi extends Api {
         'profiles': [],
         'capabilities': [],
         'executions': [],
-        'specialists': []
+        'stock_report': {
+        'report_as_of': '2026-10-10', 'policy_version': 'stock-report-weekly-change-v1',
+        'generation_reason': 'first_report',
+        'inputs_as_of': {'quant': '2026-10-10'},
+        'serving_roles': [{'role': 'quant', 'status': 'MISSING_OR_INACTIVE_ARTIFACT',
+                            'model_version': null, 'prediction': null}],
+        'input_gaps': {'quant': ['ret5']},
+      },
+      'stock_report_refresh': {'generated': false, 'checked_as_of': '2026-10-11'},
+      'specialists': []
       };
+    if (path.endsWith('/reports')) return {'status': 'waiting', 'items': []};
     if (path.endsWith('/ceo'))
       return {
         'items': active
@@ -58,6 +68,9 @@ void main() {
                 child: FinalAnalysisPanel(api, '2330')))));
     await tester.pumpAndSettle();
     expect(find.text('真實基準；模型品質尚未驗證'), findsOneWidget);
+    expect(find.textContaining('報告資料日 2026-10-10'), findsOneWidget);
+    expect(find.textContaining('沿用上次成功報告'), findsOneWidget);
+    expect(find.textContaining('模型狀態 MISSING_OR_INACTIVE_ARTIFACT'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, '分析'), findsNothing);
     expect(api.posts, isEmpty);
     expect(tester.takeException(), isNull);

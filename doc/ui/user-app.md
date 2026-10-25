@@ -292,3 +292,7 @@ Janus User App 不提供 Chat／Ask Janus／provider／runtime／MCP／Skills／
 
 - 本年已實現損益應在持股參考市值的數值同行（右側次要欄）；次列僅當日損益與未實現損益。保留萬元／小數一位與狀態語意。
 - 對正式核實的 00719B、00697B 等 TPEx 債券 ETF，QuoteRouter._due 不可再限制 TWSE-only，須允許 TPEX／OTC／TPEX_UNVERIFIED 候選交由 MIS 嚴格核實回應之 exact `otc_` exchange+symbol；unknown／disabled 不可嘗試。當日無成交價或有效前收盤仍維持待行情，不造假。
+
+## SEQ-07 分析區增量（2026-10-25）
+
+個股 Advanced 維持原有主畫面與四頁順序。新增「週期／異動事實報告」閱讀卡：`report_as_of`、`checked_as_of`、各角色 `input_as_of`、`serving_roles` 版本／狀態／缺值與 `stock_report_refresh.generated` 明示新產或沿用。單一估值卡只顯示後端已發布數值，不由 Flutter 估算。本人持股／啟用觀察股歷史報告可展開；無授權／API 錯誤不隱藏已可讀最新 Fact Pack；CEO history／手動 Request 保持不自動觸發。事件是相容事實，不是第五模型。SEQ-08 前不得稱登入後的實機呈現已驗收。

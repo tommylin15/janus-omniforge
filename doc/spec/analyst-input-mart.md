@@ -58,3 +58,11 @@
 風險：資料缺口仍可能存在、模型schema可能不同、舊五角色API尚相容；用missing／model_compatible未驗狀態表達。沒有新資源或IAM；原部署限制不變。回復固定舊image即可，新增payload欄位可由舊reader忽略；不得刪Owner資料。
 
 實作界限：本輪已接分析X artifact、15月補收及deterministic stock_report週期；四模型正式推論、Valuation會計mapping、各模型dirty-input推論快取與UI呈現仍歸SEQ-06／07。頻率表是這些任務的契約，不表示所有ML執行節奏已上線。新報告保留每角色原model_status，不用規則報告冒充四ML報告。
+
+## SEQ-07｜產品報告與 Owner history 接線（2026-10-25）
+
+- Stage／Core 的最新行情與財務日分開保存；SEQ-05 Valuation 唯一區間只由後端 `valuation_reference` 驗證後供 API/UI 顯示。SEQ-06 推論存入 execution `four-model-serving.json`，Mart 將版本化結果投影至 `private.specialist_product.payload_json.four_model_serving`；Risk ACTIVE 仍依獨立 runtime gate，不由報告自行升格。
+- `stock_report` 為同一既有 PG 不可變 product row 的資料欄位；新一期不同輸入、模型版本、財務內容或價格變動達 5% 等沿既有 policy 生成，未達門檻重用原報告 hash／`report_as_of`。新增 `serving_roles` 如實列出正式模型 status／version／prediction 或缺值，不能將 deterministic `roles` 當成正式 ML。
+- 新增 authenticated `GET /api/v1/me/analysis/{symbol}/reports?limit=10`：只允許本人現有持股或啟用觀察股；Owner ID 由驗證 token 決定，不接受前端指定。依 PG 已保存資料有界讀最多 200 筆、按 `report_hash` 去重，逐份驗 hash；不掃 Core、Job、不呼叫 LLM、不寫回；無授權回 404。已出清不在現有 watchlist 的歷史股票仍可查原有 CEO owner history／帳本，不因本新入口改變原讀權。
+- `GET /api/v1/me/analysis/{symbol}` 給最新 report／refresh／serving 與唯一估值卡；既有 `.../ceo` 與按需 request／不可變歷史獨立。Flutter 深入分析區顯示報告日、各角色 input date、缺值、版本、重用原因；手機可展開本人歷史報告。歷史 API 失效只影響歷史，不阻斷最新產品報告；任何 GET 都不派送 LLM。
+- 這是同一既有 PG JSONB/API/Flutter read path，無 schema migration、bucket、Scheduler、額外付費服務。尚未完成 Dev 部署、Owner session/真實 Mart 與 CEO Gateway live 驗收者均交 SEQ-08，不在本卡誤記 PASS。舊 API 與 report 原字段維持相容，回復既有固定 digest image。

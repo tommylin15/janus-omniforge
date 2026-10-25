@@ -32,7 +32,8 @@ class FinalAnalysisPanel extends StatefulWidget {
 class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
     with WidgetsBindingObserver {
   Map<String, dynamic> baseline = {}, capability = {};
-  List<dynamic> history = [];
+  List<dynamic> history = [], reportHistory = [];
+  String reportHistoryStatus = 'waiting';
   Timer? poll;
   bool loading = true, busy = false, foreground = true;
   String? error;
@@ -52,6 +53,8 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
       final results = await Future.wait([
         widget.api.get(path),
         widget.api.get('$path/ceo'),
+        widget.api.get('$path/reports').catchError((_) => <String, dynamic>{
+          'status': 'unavailable', 'items': []}),
       ]).timeout(const Duration(seconds: 20));
       if (!mounted) return;
       final ceo = fvMap(results[1]);
@@ -59,6 +62,8 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
         baseline = fvMap(results[0]);
         capability = fvMap(ceo['capability']);
         history = fvRows(ceo['items']);
+        reportHistory = fvRows(fvMap(results[2])['items']);
+        reportHistoryStatus = fvText(fvMap(results[2])['status']);
         error = null;
       });
       schedulePoll();
@@ -126,6 +131,45 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
     super.dispose();
   }
 
+  Widget _stockReport(Map<String, dynamic> saved) {
+    final report = fvMap(saved);
+    if (report.isEmpty) return fvBoundedState('個股週期報告尚未就緒');
+    final inputDates = fvMap(report['inputs_as_of']);
+    final statuses = fvRows(report['serving_roles']);
+    final gaps = fvMap(report['input_gaps']);
+    final reason = const {
+      'first_report': '首次報告', 'model_changed': '模型版本更新',
+      'financial_changed': '財務資料變更', 'price_move_5pct': '價格異動',
+      'weekly_new_inputs': '每週資料更新', 'policy_changed': '政策版本更新',
+      'on_demand': '手動重新產生'
+    }[report['generation_reason']] ?? '已保存版本';
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('事實報告 · $reason',
+          style: const TextStyle(fontWeight: FontWeight.w800)),
+      Text('報告資料日 ${fvText(report['report_as_of'])} · 版本 ${fvText(report['policy_version'])}',
+          style: const TextStyle(color: fvMuted, fontSize: 12)),
+      const Text('報告是後端確定性事實摘要，不是 CEO 或四模型預測驗證。',
+          style: TextStyle(color: fvMuted, fontSize: 12)),
+      for (final role in const ['quant', 'risk', 'fundamental', 'valuation']) ...[
+        const SizedBox(height: 6),
+        Text('${legacy.uiLabel(role)} · 輸入日 ${fvText(inputDates[role])}',
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        if (fvRows(gaps[role]).isNotEmpty)
+          Text('輸入缺口：${fvRows(gaps[role]).join('、')}',
+              style: const TextStyle(color: Colors.orange, fontSize: 12)),
+        for (final item in statuses.where((x) => fvMap(x)['role'] == role)) ...[
+          Text('模型狀態 ${fvText(fvMap(item)['status'])} · ${fvText(fvMap(item)['model_version'])}',
+              style: const TextStyle(color: fvMuted, fontSize: 12)),
+          if (const {'ACTIVE_PREDICTED', 'ACTIVE_CACHED'}.contains(fvMap(item)['status']) &&
+              fvMap(item)['prediction'] is num)
+            Text('模型原始輸出 ${fvText(fvMap(item)['output_name'])}: ${fvMap(item)['prediction']}'),
+        ],
+      ],
+      const Text('缺少正式模型時保留缺值；價格／估值不由 App 重新計算。',
+          style: TextStyle(color: fvMuted, fontSize: 12)),
+    ]);
+  }
+
   Widget report(Map<String, dynamic> request) {
     final saved = fvMap(request['report_json']);
     final output = fvMap(saved['output']);
@@ -170,7 +214,7 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
     final active =
         history.isNotEmpty && analysisActive(fvMap(history.first)['status']);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      fvSectionTitle(context, '五分析師基準'),
+      fvSectionTitle(context, '四模型／事件相容基準'),
       if (loading)
         fvBoundedState('分析資料載入中')
       else if (roles.isEmpty)
@@ -206,6 +250,31 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
       ] else if (roles.isNotEmpty)
         const Text('同日市場比較尚不可用；不以個人關注名單代替市場排名。',
             style: TextStyle(color: fvMuted, fontSize: 12)),
+      fvSectionTitle(context, '週期／異動事實報告'),
+      fvPanel(child: _stockReport(fvMap(baseline['stock_report']))),
+      if (fvMap(baseline['stock_report_refresh']).isNotEmpty)
+        Text('檢查資料日 ${fvText(fvMap(baseline['stock_report_refresh'])['checked_as_of'])} · ${fvMap(baseline['stock_report_refresh'])['generated'] == true ? '已更新' : '沿用上次成功報告'}',
+            style: const TextStyle(color: fvMuted, fontSize: 12)),
+      if (fvMap(baseline['valuation_reference']).isNotEmpty) ...[
+        fvSectionTitle(context, '唯一估值參考區間'),
+        fvPanel(child: Text(
+            fvMap(baseline['valuation_reference'])['status'] == 'available'
+                ? '下緣 ${fvText(fvMap(baseline['valuation_reference'])['lower'])} · 中位 ${fvText(fvMap(baseline['valuation_reference'])['mid'])} · 上緣 ${fvText(fvMap(baseline['valuation_reference'])['upper'])}'
+                : '估值區間尚不完整；不補造參考價')),
+      ],
+      if (reportHistoryStatus == 'unavailable')
+        const Text('本人歷史報告目前無法讀取；不影響最新事實報告',
+            style: TextStyle(color: Colors.orange)),
+      if (reportHistory.where((row) =>
+            fvMap(fvMap(row)['report'])['report_hash'] !=
+              fvMap(baseline['stock_report'])['report_hash']).isNotEmpty)
+        ExpansionTile(title: const Text('本人歷史事實報告'), children: [
+          for (final row in reportHistory)
+            if (fvMap(fvMap(row)['report'])['report_hash'] !=
+                fvMap(baseline['stock_report'])['report_hash'])
+              Padding(padding: const EdgeInsets.all(12),
+                  child: _stockReport(fvMap(fvMap(row)['report']))),
+        ]),
       fvSectionTitle(context, 'On-demand CEO'),
       if (history.isEmpty)
         fvBoundedState('尚無 CEO 分析；開頁不會自動呼叫 LLM')
