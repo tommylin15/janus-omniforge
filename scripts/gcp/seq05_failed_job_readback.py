@@ -41,6 +41,41 @@ try:
        LessThanOrEqual("observed_date",date(2026,9,30))),
      selected_fields=selection,limit=8001).to_arrow().to_pylist()
  if len(rows)>8000:raise RuntimeError("bounded_valuation_scan_limit")
+ # Confirm whether Core already holds usable direct-reported quarterly EPS or
+ # BVPS before authorizing any new source fetch. Read-only, two exact symbols.
+ financial=core.catalog.load_table(core.table_identifier("financials"))
+ financial_snapshot=financial.current_snapshot()
+ if financial_snapshot is None:raise RuntimeError("financial_core_snapshot_missing")
+ fincols={f.name for f in financial.schema().fields}
+ wanted=("symbol","metric","period_basis","fiscal_year","fiscal_quarter",
+         "fiscal_period_end","period_end","unit","share_basis","share_basis_status",
+         "report_scope","source_id","provenance_id","statement_type","value")
+ selected=tuple(k for k in wanted if k in fincols)
+ finrows=financial.scan(snapshot_id=financial_snapshot.snapshot_id,
+     row_filter=In("symbol",["2330","2882"]),selected_fields=selected,
+     limit=2501).to_arrow().to_pylist()
+ if len(finrows)>2500:raise RuntimeError("bounded_financial_core_scan_limit")
+ out["financial_core_snapshot_id"]=str(financial_snapshot.snapshot_id)
+ out["financial_core_rows_scanned"]=len(finrows)
+ out["financial_core"]=[]
+ for code in ("2330","2882"):
+  own=[r for r in finrows if str(r.get("symbol"))==code]
+  metric_counts=Counter(str(r.get("metric")) for r in own)
+  candidates=[]
+  for r in own:
+   label=str(r.get("metric",""))
+   if ("eps" in label.lower() or "earningspershare" in label.lower()
+       or "每股盈餘" in label or "bvps" in label.lower()
+       or "book_value_per_share" in label.lower() or "每股淨值" in label):
+    candidates.append({"metric":label,"fiscal_year":r.get("fiscal_year"),
+     "fiscal_quarter":r.get("fiscal_quarter"),"period_basis":r.get("period_basis"),
+     "unit":r.get("unit"),"has_share_basis":bool(r.get("share_basis")),
+     "share_basis_status":r.get("share_basis_status"),
+     "report_scope":r.get("report_scope"),"source_id":r.get("source_id"),
+     "value":str(r.get("value"))[:35]})
+  out["financial_core"].append({"symbol":code,"row_count":len(own),
+     "source_ids":sorted({str(r.get("source_id")) for r in own if r.get("source_id")}),
+     "metric_counts":dict(metric_counts),"candidates":candidates[:120]})
  with control.connection.cursor() as cur:
   for symbol in ("2330","2882"):
    cur.execute("""SELECT payload_json,source_id,provenance_id
