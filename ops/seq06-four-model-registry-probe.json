@@ -3,6 +3,6 @@
   "approval_date": "2026-10-25",
   "read_only": true,
   "no_gcp_mutation": true,
-  "scope": "four exact dev GCS Registry pointers and pointed blobs",
-  "audit_attempt": 2
+  "scope": "SEQ-06 legacy four pointers AND SEQ-08 atomic five-head active pointer; exact GCS model checks only",
+  "audit_attempt": 3
 }
