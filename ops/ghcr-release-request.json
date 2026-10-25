@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
   "sha": "0389054dba3f339cde29add2d587e623694f4a0d",
-  "purpose": "SEQ-08 latest main new five-head serving plus Flutter Risk12 source and Valuation PE/PB presentation. Previous GHCR release #40183497135 passed for prior SHA only; repeat full Python Flutter GHCR gates at this source SHA. No API traffic change, no Job rollout, no Registry promotion in Release.",
+  "purpose": "SEQ-08 direct-five-head latest code and Flutter risk/Val UI integration full Release. Prior #40184001239 FAILED due Flutter unnecessary_non_null_assertion; source now fixed. Single full-test Python Flutter GHCR publish at new SHA; no GCP mutation, Registry promotion or API traffic.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 17
+  "request_attempt": 18
 }
