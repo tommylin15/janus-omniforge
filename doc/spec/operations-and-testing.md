@@ -1,5 +1,14 @@
 # Janus 最新驗收證據索引
 
+## 2026-10-25 SEQ-08 真實 Mart 讀回與非交易日根因／離線修復
+
+- **固定前輪線上映像**：`a2881c5c2532beb5570e29a1fda4472c7bb0d448`；五真 UBJ GCS/Registry ACTIVE [#40193843435](https://github.com/tommylin15/janus-omniforge/actions/runs/40193843435) PASS、四既有 Dev Jobs [#40184957380](https://github.com/tommylin15/janus-omniforge/actions/runs/40184957380) PASS、API100 [#40192646498](https://github.com/tommylin15/janus-omniforge/actions/runs/40192646498) PASS。
+- **真正 Dev Mart 工作**：[ #40195093746](https://github.com/tommylin15/janus-omniforge/actions/runs/40195093746) `REAL_JOB_PASS_PRODUCT_CONTENT_READBACK_PENDING`、Cloud Run execution `janus-intelligence-mart-fqxjb`、Mart execution `ab806a93-c2d6-46da-ab54-74056bc3cd26`。
+- **產物精確唯讀**：[ #40202862020](https://github.com/tommylin15/janus-omniforge/actions/runs/40202862020) = `READBACK_PASS`，Core snapshot `sha256:52256efff0dfef6c26441c47854625306dd4c439389d709c98a1f374c2d7acc7`，`analysis_as_of=2026-10-25`；目標8股（已去識別不輸出Owner組合），Quant 0/8、Risk 0/8、Fundamental 2/8、Valuation PE+PB 4/8。2330、2882均**不在該次私有target union**，不能擅自加入Owner資料；PG `private.specialist_product` 的SQL讀回、Owner本人報告/歷史/UI仍 `NOT_VERIFIED`。
+- **日期與原因二次唯讀**：[ #40203590101](https://github.com/tommylin15/janus-omniforge/actions/runs/40203590101) = SUCCESS；八股 `latest_trade_date=2026-10-22`，與週日 `analysis_as_of=2026-10-25` 不同，Risk `no_current_trade_observation` 8/8，Quant 同因且 `full_market_same_day_percent_rank_missing` 8/8。Fundamental 六股缺基期/足月因子，其中二股無有效月營收或market；Valuation四股 `missing_unambiguous_comparable_mops_quarters`。這是已觀察的特徵及來源不足，不是模型重新訓練的證據。
+- **CODE 已修正但尚未發布**：`analyst_inputs.latest_eligible_market_session()` 只認至多7天、價格最新日必須等於已觀測市場最新日，不能以分析當日為非交易日而令全角色X空白，也不能將停牌／過期數據視為新值；`market_screening.market_features/rank_features` 依合格市場日計算 Quant15 `ret20_market_rank`，至少100檔完整同市場群組、原百分比tie邏輯與原 `analysis_as_of`、Core snapshot 保持；明示 `source_trade_date`，不使用Owner8檔本身排名。額外 `tests/test_seq08_market_sessions.py`。截至本筆線上仍舊 `a2881c5c...`，修正版 commit `be4c8073af289029cf1a65846b68df8244930eb1`，尚未 Release／Deploy。Selective [#40204115769](https://github.com/tommylin15/janus-omniforge/actions/runs/40204115769) PASS，PostgreSQL/product CI [#40204115801](https://github.com/tommylin15/janus-omniforge/actions/runs/40204115801) PASS。
+- **SEQ-08 唯一後續工程**：修正版同SHA Release＋Dev Jobs/API受控部署→新市場日期/新 Core snapshot 真實 Screening 完整 cohort → 有界Mart/PG/報告讀回，不能改寫已存在immutable 10/25 市場排名；2330/2882應走獨立公共資料驗收，Owner正向登入無授權session則列實際缺口。無舊模型相容/回復前置，不問第二次人工發布授權；整體目前為 `LIVE_PARTIAL`，不是 CLOSED。
+
 ### 2026-10-25 SEQ-08 首次真 Mart 驗收失敗與安全收斂
 
 - 首次受控 Live Mart run [#40194391101](https://github.com/tommylin15/janus-omniforge/actions/runs/40194391101) = **FAILURE**；僅有 `tests/test_seq08_real_mart_acceptance.py` 2 passed，operator 回報 `RuntimeError`，不可將此 Workflow 判為實際 ML 推論 PASS。
