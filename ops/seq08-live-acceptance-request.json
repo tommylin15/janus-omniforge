@@ -1,0 +1,18 @@
+{
+  "intent": "seq08-bounded-real-mart-acceptance",
+  "approved": true,
+  "scope": "existing-dev-one-intelligence-mart-job",
+  "source_sha": "a2881c5c2532beb5570e29a1fda4472c7bb0d448",
+  "release_run": "40184318031",
+  "jobs_run": "40184957380",
+  "api_run": "40192646498",
+  "registry_run": "40193843435",
+  "mart_operation": "deep-coverage",
+  "job_runs_allowed": 1,
+  "training_allowed": false,
+  "llm_allowed": false,
+  "owner_ledger_writes_allowed": false,
+  "new_resources_allowed": false,
+  "purpose": "SEQ-08: run exactly one bounded existing Dev intelligence-mart Deep Coverage with real Core source after all five XGBoost candidates and atomic Registry ACTIVE verified. Do not train, call LLM, change Scheduler, provision resources, or modify Owner ledger. It may append immutable derived Mart artifacts/PG product rows. Capture actual execution receipt; model prediction coverage and 2330/2882/Owner UI remain separate validation.",
+  "attempt": 1
+}
