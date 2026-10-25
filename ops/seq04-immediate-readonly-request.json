@@ -6,5 +6,6 @@
   "no_owner_data_mutation": true,
   "no_job_dispatch": true,
   "no_stage_apply": true,
-  "release_source_sha": "032871a38b1dffd11c7bf0cc833563c0c3091841"
+  "release_source_sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
+  "audit_attempt": 2
 }
