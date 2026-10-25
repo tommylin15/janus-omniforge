@@ -13,7 +13,7 @@ from .facts import _change, canonical_json
 from .runtime import _fenced_core_manifest, _write_immutable_json
 from .specialists import digest, number, price_series, screening, screening_quality, validated_inputs
 
-VERSION = "market-screening-v2-full-market"
+VERSION = "market-screening-v3-holiday-snapshot"
 TABLES = ("core.ohlcv_v1", "core.benchmark_v1", "core.valuation_v1")
 # Keep every field used by source/PIT validation; omit heavy payloads and unrelated features.
 COMMON = ("symbol", "source_id", "provenance_id", "observed_at", "trade_date", "quality_flag",
@@ -200,6 +200,24 @@ def read_market_chunks(reader, inputs, symbols, as_of, snapshot, *, risk_model=N
     return rank_features(rows, as_of), telemetry
 
 
+
+
+def eligible_screening_market_date(analysis_as_of, latest_market_date, *, max_age_days=7):
+    """One complete prior market session may back a later calendar analysis day.
+
+    Never turn an empty/all-stale market snapshot into an EOD success.
+    The rank function still requires a >=100-symbol same-market cohort.
+    """
+    if not latest_market_date:
+        return False
+    try:
+        days = (date.fromisoformat(analysis_as_of)
+                - date.fromisoformat(str(latest_market_date))).days
+    except (TypeError, ValueError):
+        return False
+    return 0 <= days <= max_age_days
+
+
 def screening_processor(execution, connection, *, store_factory=None, reader_factory=None,
                         candidate_factory=None, risk_model_factory=None):
     from .specialist_runtime import load_market_membership
@@ -305,8 +323,9 @@ def screening_processor(execution, connection, *, store_factory=None, reader_fac
                     "specialist_count": 0, "llm_api_tokens": 0, "ceo_triggered": False,
                     "risk_shadow": shadow_reference,
                     "publication_authority": False}
-        if artifact["quality"]["latest_market_date"] != as_of:
-            raise ValueError("EOD canonical input not ready for screening date")
+        if not eligible_screening_market_date(
+                as_of, artifact["quality"]["latest_market_date"]):
+            raise ValueError("EOD canonical input missing or beyond last eligible market session")
         artifact["output_hash"] = digest(artifact)
         ref = _write_immutable_json(store, bucket, name, artifact)
         if store.read(name) != canonical_json(artifact):
