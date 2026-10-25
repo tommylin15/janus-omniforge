@@ -201,7 +201,27 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
     input_telemetry = snapshot_read.telemetry
     # Public screening is owned by market_screening.run_daily, not this target-only scan.
     screen, screen_ref = [], None
-    analyst_inputs = build_analyst_inputs(datasets, target["symbols"], as_of, execution.core_snapshot_id)
+    # Read a bounded rank produced by the public all-market Screening Job.
+    # This query cannot see other Owners' private positions or transactions.
+    seq08_rank = {}
+    if (publication_connection is not None and target["symbols"]
+            and os.environ.get("MART_SEQ08_MARKET_RANK", "false").lower() == "true"):
+        with publication_connection.transaction(), publication_connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT symbol, payload_json->'seq08_quant_rank'
+                FROM private.market_screening_product
+                WHERE analysis_as_of=%s AND core_snapshot_id=%s
+                  AND symbol=ANY(%s)
+                LIMIT 250
+            """, (as_of, execution.core_snapshot_id, list(target["symbols"])))
+            for symbol, metadata in cursor.fetchall():
+                if isinstance(metadata, str):
+                    metadata = json.loads(metadata)
+                if isinstance(metadata, dict):
+                    seq08_rank[str(symbol)] = metadata
+    analyst_inputs = build_analyst_inputs(
+        datasets, target["symbols"], as_of, execution.core_snapshot_id,
+        market_rank=seq08_rank)
     analyst_ref = _write_immutable_json(
         store, bucket, f"executions/{execution.execution_id}/analyst-inputs.json", analyst_inputs)
 
