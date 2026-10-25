@@ -4,6 +4,6 @@
   "environment": "dev",
   "release_run": 40154638538,
   "release_sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
-  "phase": "reconcile",
-  "reason": "SEQ04 bounded one-shot weekly+occurrence reconcile retry after missing pytest preflight only; previous run #40175288842 made zero GCP mutations."
+  "phase": "audit",
+  "reason": "SEQ-04 2026-10-25 weekly/2026-10-19 immutable backfill and exact 00:30 occurrence CAS completed PASS in #40175398373; restore pre-existing read-only audit phase. Independent terminal PG occurrence check only; no further backup or GCS writes."
 }
