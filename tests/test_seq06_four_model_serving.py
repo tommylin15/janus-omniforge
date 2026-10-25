@@ -128,7 +128,9 @@ def test_rejects_cache_tampering_and_owner_free_result():
     store, _ = setup()
     a = ServingSession(store, "mart", loader=lambda *_: 1,
                        predictor=lambda *_: [0.6]).run(inputs([row("2330")]))
-    assert "owner" not in json.dumps(a).lower()
+    assert a["owner_fields_exposed"] is False
+    assert all(set(item) == {"symbol", "roles"} for item in a["rows"])
+    assert not any("owner" in key.lower() for item in a["rows"] for key in item["roles"])
     name = next(k for k in store.data if k.startswith("models/inference-cache/"))
     cached = json.loads(store.data[name])
     cached["value"] = 0.9
