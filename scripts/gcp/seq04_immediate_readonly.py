@@ -222,6 +222,10 @@ def controller_pg_readback() -> dict:
     for label, sql in queries.items():
         try:
             rows = vm_query(sql)
+            if label == "recent_ingestion_errors":
+                rows = [row if re.fullmatch(r"[0-9 :\-]{16}\|[a-z_-]{1,24}\|[A-Za-z0-9_:\-]{1,80}",row)
+                        else (row.split("|")[0] + "|UNCLASSIFIED" if "|" in row else "UNCLASSIFIED")
+                        for row in rows]
             result[label] = {"status": "PASS", "count": len(rows),
                              "rows": rows}
         except Exception as error:
