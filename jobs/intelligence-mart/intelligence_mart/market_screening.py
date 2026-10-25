@@ -69,6 +69,22 @@ def market_features(datasets, symbols, as_of, snapshot, *, rank=True):
         row["valuation_as_of"] = str(latest.get("observed_date", latest.get("trade_date"))) if latest else None
         for key in ("pe_ratio", "pb_ratio", "dividend_yield_percent"):
             row["metrics"][key] = number(latest.get(key))
+        # SEQ08 Quant15 training used same-market / same-day pct_rank(ret20).
+        # Only calculate if the last 21 *market* sessions are all observed for
+        # this ordinary symbol; do not substitute nth stock row after a halt.
+        accepted_markets = {str(r.get("market", "")).lower() for r in valid.get("ohlcv", [])
+                            if r.get("market")}
+        accepted_market = next(iter(accepted_markets)) if len(accepted_markets) == 1 else None
+        sessions_21 = list(benchmark)[-21:]
+        research_ret20 = None
+        if (accepted_market in ("twse", "tpex") and len(sessions_21) == 21
+                and sessions_21[-1] == as_of and all(day in prices for day in sessions_21)):
+            start, end = prices[sessions_21[0]], prices[sessions_21[-1]]
+            if start > 0 and end > 0:
+                research_ret20 = end / start - 1
+        row["seq08_quant_rank_input"] = {
+            "market": accepted_market, "ret20": research_ret20,
+            "core_snapshot_id": str(snapshot), "analysis_as_of": as_of}
         row["input_hash"] = digest(evidence)
         row["engine_version"] = VERSION
         row["missing_metrics"] = sorted(k for k, v in row["metrics"].items() if v is None)
@@ -78,6 +94,33 @@ def market_features(datasets, symbols, as_of, snapshot, *, rank=True):
 
 
 def rank_features(output, as_of):
+    # Research factory rank(method='average', pct=True) is per-market, per-day;
+    # compute AFTER all chunks are joined, never rank Owner target subset.
+    cohorts = {}
+    for row in output:
+        item = row.get("seq08_quant_rank_input") or {}
+        value = number(item.get("ret20"))
+        if (row.get("latest_trade_date") == as_of
+                and item.get("analysis_as_of") == as_of
+                and item.get("market") in ("twse", "tpex") and value is not None):
+            cohorts.setdefault(item["market"], []).append((row["symbol"], value))
+    for row in output:
+        item = row.pop("seq08_quant_rank_input", {})
+        cohort = cohorts.get(item.get("market"), [])
+        value = number(item.get("ret20"))
+        if (value is None or len(cohort) < 100
+                or row.get("latest_trade_date") != as_of):
+            row["seq08_quant_rank"] = None
+            continue
+        below = sum(v < value for _, v in cohort)
+        ties = sum(v == value for _, v in cohort)
+        percentile = (below + (ties + 1) / 2) / len(cohort)
+        row["seq08_quant_rank"] = {
+            "market": item["market"], "value": percentile,
+            "cohort_size": len(cohort),
+            "analysis_as_of": as_of,
+            "core_snapshot_id": str(item["core_snapshot_id"]),
+            "source": "full_market_core_same_day_pct_rank"}
     # Stable descending rank, with symbol resolving ties; missing values remain unranked.
     for key in ("return_20d_percent", "relative_strength_20d_percent", "turnover_20d_mean_twd"):
         ranked = sorted((r for r in output if r["metrics"][key] is not None and r["latest_trade_date"] == as_of),
