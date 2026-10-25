@@ -99,6 +99,31 @@ def test_existing_core_financials_produce_range_without_fetch():
     assert len(result["month_end_observation_dates"]) == 24
 
 
+def test_missing_financial_denominator_still_reports_real_month_coverage():
+    # Live RV-03 found a real independent PE/PB coverage gap even without
+    # approved TTM EPS/BVPS. Diagnostic month counts must not be zeroed.
+    ordinary = from_existing_rows(
+        symbol="2330", market="twse", security_type="ordinary_stock",
+        is_financial=False, as_of=AS_OF, valuation_rows=valuation_rows(),
+        financial_rows=[], rights_status="approved",
+    )
+    assert ordinary["status"] == "missing"
+    assert ordinary["excluded_reasons"] == ["four_quarter_eps_missing"]
+    assert ordinary["valid_month_count"] == 24
+    assert ordinary["lower"] is ordinary["mid"] is ordinary["upper"] is None
+
+    one_month_bank_rows = [{**row, "symbol": "2882"} for row in valuation_rows()[-1:]]
+    bank = from_existing_rows(
+        symbol="2882", market="twse", security_type="ordinary_stock",
+        is_financial=True, as_of=AS_OF, valuation_rows=one_month_bank_rows,
+        financial_rows=[], rights_status="approved",
+    )
+    assert bank["status"] == "missing"
+    assert bank["excluded_reasons"] == ["bvps_missing"]
+    assert bank["valid_month_count"] == 1
+    assert bank["mid"] is None
+
+
 def test_missing_share_basis_is_not_guessed_and_financial_needs_bvps():
     result = from_existing_rows(
         symbol="2330", market="twse", security_type="ordinary_stock",
