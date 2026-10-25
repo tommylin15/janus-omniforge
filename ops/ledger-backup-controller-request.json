@@ -5,5 +5,5 @@
   "release_run": 40154638538,
   "release_sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
   "phase": "audit",
-  "reason": "SEQ-04 immediate bounded Dev backup and Controller occurrence read-only acceptance after Scheduler cutover #40163729460 PASS, no backup dispatch, GCS mutation, PG write or restoration. Check existing VM timer, retention backup rows, scheduler and persisted Controller occurrences."
+  "reason": "SEQ-04 2026-10-25 after Stage/Private apply: single current read-only audit of exact 00:30 ledger-backup occurrence, existing PG succeeded backup, VM executor and timer before bounded repair; no mutation."
 }
