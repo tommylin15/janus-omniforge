@@ -37,7 +37,7 @@ def simple_reported_eps(rows: list[dict[str, Any]], *, as_of: date) -> list[dict
     label and avoid assuming financial basis comparison or fabricating values.
     Existing Core source receipts are used; no additional issuer download.
     """
-    by_quarter: dict[tuple[int, int], set[Decimal]] = {}
+    by_quarter: dict[tuple[int, int], dict[Decimal, str]] = {}
     for row in rows:
         if (row.get("symbol") != "2330" or row.get("source_id") != "finmind"
                 or row.get("metric") != "EPS" or not row.get("provenance_id")):
@@ -55,7 +55,7 @@ def simple_reported_eps(rows: list[dict[str, Any]], *, as_of: date) -> list[dict
                 continue
         except (ValueError, KeyError, TypeError, InvalidOperation):
             continue
-        by_quarter.setdefault((y, q), set()).add(value)
+        by_quarter.setdefault((y, q), {})[value] = str(row['provenance_id'])
     ordered = sorted(by_quarter, reverse=True)
     if len(ordered) < 4:
         return []
@@ -74,7 +74,7 @@ def simple_reported_eps(rows: list[dict[str, Any]], *, as_of: date) -> list[dict
         "share_basis": "unadjusted_reported_quarterly_simple_sum",
         "report_scope": "FinMind_single_quarter_reported",
         "source_id": "finmind",
-        "provenance_id": "existing_core_finmind",
+        "provenance_id": next(iter(by_quarter[y, q].values())),
     } for y, q in sorted(chosen)]
 
 
