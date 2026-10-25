@@ -78,3 +78,42 @@ jobs:
               'gcp_writes':0,
           }},sort_keys=True))
           PY
+
+      - name: Check effective CI Scheduler update and target actAs permissions (read-only)
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          from urllib.error import HTTPError
+          from urllib.request import Request, urlopen
+          token=subprocess.check_output(
+              ['gcloud','auth','print-access-token'], text=True).strip()
+          project='gen-lang-client-0593591102'
+          sa='janus-ingestion-scheduler@'+project+'.iam.gserviceaccount.com'
+          checks={
+              'scheduler_project_update':(
+                  'https://cloudresourcemanager.googleapis.com/v3/projects/'+project+':testIamPermissions',
+                  'cloudscheduler.jobs.update'),
+              'target_service_account_act_as':(
+                  'https://iam.googleapis.com/v1/projects/'+project+'/serviceAccounts/'+sa+':testIamPermissions',
+                  'iam.serviceAccounts.actAs')
+          }
+          out={}
+          for label,(url,permission) in checks.items():
+              req=Request(url,
+                          data=json.dumps({'permissions':[permission]}).encode('utf-8'),
+                          method='POST',
+                          headers={'Authorization':'Bearer '+token,
+                                   'Content-Type':'application/json'})
+              try:
+                  with urlopen(req,timeout=30) as response:
+                      result=json.load(response)
+                  out[label]='GRANTED' if permission in result.get('permissions',[]) else 'NOT_GRANTED'
+              except HTTPError as err:
+                  out[label]='HTTP_'+str(err.code)
+              except (OSError, ValueError):
+                  out[label]='UNKNOWN'
+          print(json.dumps({'seq04_effective_iam':out,'gcp_writes':0},
+                           sort_keys=True))
+          PY
