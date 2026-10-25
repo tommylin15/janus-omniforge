@@ -113,8 +113,17 @@ def run(path: str):
     save(report)
     current = job(JOB)
     if not job_digest_matches(request["deployed_sha"], current):
+        # Safe diagnostics: image digest/tag only, no service identity,
+        # environment variables or credentials.
+        from ghcr_jobs_rollout import image
+        report["actual_job_image"] = image(current)
+        report["requested_image_sha"] = request["deployed_sha"]
         report["status"] = "BLOCKED_IMAGE_SHA_MISMATCH"
         save(report)
+        print(json.dumps({"status": report["status"],
+                          "actual_job_image": report["actual_job_image"],
+                          "requested_image_sha": report["requested_image_sha"]},
+                         sort_keys=True), flush=True)
         raise RuntimeError(report["status"])
     container = current["template"]["template"]["containers"][0]
     if container.get("command") not in (None, [], ["python"]):
