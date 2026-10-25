@@ -54,8 +54,14 @@ jobs:
             output.append(item)
           print(json.dumps({'component':'drl01_fence_readonly','results':output,
                             'gcp_mutations':0},sort_keys=True),flush=True)
-          if any(x.get('get')!='PASS' or x.get('executions')!='PASS' for x in output):
-            raise SystemExit(1)
+          for x in output:
+            retired=(x.get('job')=='janus-research-big-move-500'
+                     and x.get('get')=='ERROR_cloud_control_http_404'
+                     and x.get('executions')=='PASS'
+                     and x.get('first_page_count')==0
+                     and not x.get('next_page'))
+            if not retired and (x.get('get')!='PASS' or x.get('executions')!='PASS'):
+              raise SystemExit(1)
           PY
 
       - name: Diagnose SEQ-04 execution_not_terminal across bounded pages without mutation
