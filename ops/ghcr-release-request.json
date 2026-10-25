@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "8c289c5c85babae049f49977d257e9b1c36c5cf7",
-  "purpose": "RESEARCH-SIMPLIFICATION 2026-10-24 retry after #40084373317: original full release 1826 tests passed and 2 v22 historical external-fixture tests failed due absent untracked tests/input/frozen_plan_v22.json; fix preserves assertions and marks missing external replay SKIPPED. Full Python/Flutter/GHCR release; no GCP changes until subsequent gated jobs/API rollout. No IAM, resource additions, data mutations or Risk ACTIVE.",
+  "sha": "0389054dba3f339cde29add2d587e623694f4a0d",
+  "purpose": "SEQ-04 centralized Dev batch source-only full Release after SEQ-01..03 integration; 00:30 PG backup, 02:30 ingestion, weekday 04:30 screening, 06:30 private, Saturday 22:30 maintenance; two specific regression fixes and #40154394943 offline PASS. Publish immutable GHCR images for same-SHA guarded deployment. No GCP mutation in release, no IAM/resource changes.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 14
+  "request_attempt": 15
 }
