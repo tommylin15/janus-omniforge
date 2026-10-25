@@ -374,7 +374,7 @@ jobs:
       id-token: write
     env:
       GH_TOKEN: ${{ github.token }}
-      PYTHONPATH: 'jobs/ingestion-core:.'
+      PYTHONPATH: 'jobs/ingestion-core:jobs/intelligence-mart:.'
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-janus
