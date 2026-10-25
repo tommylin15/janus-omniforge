@@ -10,7 +10,8 @@ from ingestion_core.ledger_backup import poll_backup
 def test_backup_has_one_controller_occurrence_and_missing_receipt_is_ambiguous():
     rows = [row for row in due_batches(datetime(2026, 10, 14, tzinfo=timezone.utc))
             if row[1].name == 'ledger-backup']
-    assert len(rows) == 1 and rows[0][2].hour == 2
+    assert len(rows) == 1 and rows[0][2].hour == 0 and rows[0][2].minute == 30
+    assert rows[0][0] == 'ledger-backup/2026-10-14/00'
     class Cursor:
         def __enter__(self): return self
         def __exit__(self, *_): pass
