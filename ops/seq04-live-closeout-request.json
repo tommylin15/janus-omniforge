@@ -1,0 +1,15 @@
+{
+  "intent": "seq04-existing-dev-bounded-closeout",
+  "project": "gen-lang-client-0593591102",
+  "approved": true,
+  "no_new_gcp_resources": true,
+  "no_scheduler_changes": true,
+  "no_owner_mutation": true,
+  "stage_max_objects": 6000,
+  "stage_max_bytes": 268435456,
+  "private_daily_cap": 3,
+  "private_weekly_cap": 1,
+  "private_monthly_cap": 1,
+  "phase": "all",
+  "attempt": 1
+}
