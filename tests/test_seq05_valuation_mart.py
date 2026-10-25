@@ -96,3 +96,26 @@ def test_snapshot_mismatch_or_price_on_missing_rejected_before_api():
     with pytest.raises(ValueError, match="missing_price_invalid"):
         validate_published_card(card, symbol="2330", as_of=AS_OF,
                                 core_snapshot_id=SNAPSHOT)
+
+from decimal import Decimal
+
+
+def test_seq05_user_approved_simple_eps_sum_uses_existing_real_core_style_finmind():
+    data = _datasets(include_financial=False)
+    for year, quarter, eps in (
+        (2025, 3, "17.44"), (2025, 4, "19.51"),
+        (2026, 1, "22.08"), (2026, 2, "27.25"),
+    ):
+        data["financials"].append({
+            "symbol": "2330", "source_id": "finmind",
+            "provenance_id": "finmind-core-existing",
+            "metric": "EPS", "value": eps,
+            "fiscal_year": year, "fiscal_quarter": quarter,
+            "availability_at": "2026-07-20T00:00:00Z",
+        })
+    card = _card(data)
+    assert card["status"] == "available"
+    assert card["research_approximation"] is True
+    assert card["eps_aggregation"] == "last_four_reported_quarters_simple_sum"
+    assert len(card["eps_quarter_values"]) == 4
+    assert sum(Decimal(x["value"]) for x in card["eps_quarter_values"]) == Decimal("86.28")
