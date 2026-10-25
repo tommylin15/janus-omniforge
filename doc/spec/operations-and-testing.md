@@ -1,5 +1,13 @@
 # Janus 最新驗收證據索引
 
+### SEQ-07 分析報告、Owner history 與 UI 程式／離線驗收（2026-10-25；OFFLINE_PASS／LIVE_DEFERRED）
+
+- **source SHA**：[f9ace32b795e6c1895901e7750f18be2f57da575](https://github.com/tommylin15/janus-omniforge/commit/f9ace32b795e6c1895901e7750f18be2f57da575)。程式包含固定四角色ML serving→既有Mart product JSONB／週期事實報告、Owner token 綁定的不可變歷史讀取 API `/api/v1/me/analysis/{symbol}/reports`、唯一 Valuation 卡及 Flutter Advanced 分析/歷史；CEO按需維持手動；Gateway／CEO history讀取失敗，UI 不阻斷已保存事實卡。
+- **離線真實CI收據**：[Python #40175446096](https://github.com/tommylin15/janus-omniforge/actions/runs/40175446096) `completed/success`，275 passed／7 skipped／2 warnings（含 SEQ-07 Owner history 單元測試）；[最新選擇性Python #40175926343](https://github.com/tommylin15/janus-omniforge/actions/runs/40175926343) `completed/success`，272 passed／7 skipped／2 warnings；[Flutter / Web PWA #40175926335](https://github.com/tommylin15/janus-omniforge/actions/runs/40175926335) `completed/success`，widget tests＋Web build＋PWA assets PASS。
+- **保留失敗與修復**：Flutter #40175446120 初始測試 fixture 誤放 admin mock，#40175734768／#40175871947 受頁面增加內容後 test button offscreen（800×600）影響；已修正 fixture、測試 scroll-to-visible，以及新增 CEO 不可用但事實報告可用案例，最新CI成功。此為離線測試修復，不代表真實登入或 Gateway 端到端已驗證。
+- **部署界限**：依 SEQ-07 卡四階段，集中部署留給 SEQ-08；本次無 GCP rollout、migration、新表、新排程、新服務、registry ACTIVE 切換、模型訓練、Owner 真實資料寫入及付費 LLM 呼叫。下個入口固定 SHA／artifact／digest 受控部署及 2330、2882、Owner 持股／觀察、分析／估值卡／報告歷史／Gateway（既有授權）實際讀回；Quant/Fundamental/Valuation 正式 artifact／Valuation accounting mapping 欠缺驗收，不得因UI能顯示狀態而稱四模型完成。
+
+
 
 ### SEQ-04 本週 weekly 補建及舊備份 occurrence 修復（2026-10-25 16:08 Asia/Taipei；PASS）
 
