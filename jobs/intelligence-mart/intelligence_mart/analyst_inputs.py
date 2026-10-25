@@ -129,11 +129,22 @@ def build(datasets, symbols, as_of, snapshot):
             "unit": r.get("unit"), "period_basis": r.get("period_basis"), "report_scope": r.get("report_scope")}
             for r in valid.get("financials", [])]
         financial_identity.sort(key=lambda x: str(sorted(x.items())))
-        result.append({"symbol": symbol, "market": market, "analysis_as_of": as_of,
+        item = {"symbol": symbol, "market": market, "analysis_as_of": as_of,
             "latest_trade_date": latest_day, "latest_close": latest_close,
             "roles": roles, "financial_input_hash": digest(financial_identity),
             "revenue_month_count": len(revenues),
-            "rejected_input_count": len(rejected) + len(excluded)})
+            "rejected_input_count": len(rejected) + len(excluded)}
+        # The two scope-reviewed Valuation reference cases reuse this already
+        # snapshot-fenced Core input. The official price-reference function
+        # emits null prices when four-quarter EPS/BVPS or 24 months are missing.
+        from .valuation_reference import reference_from_core
+        reference = reference_from_core(
+            valid, symbol=symbol, as_of=as_of, core_snapshot_id=str(snapshot),
+            market=market, latest_close=latest_close,
+            latest_trade_date=latest_day)
+        if reference is not None:
+            item["valuation_reference"] = reference
+        result.append(item)
     artifact = {"artifact_kind": "mart_analyst_inputs_v1", "schema_version": VERSION,
         "analysis_as_of": as_of, "core_snapshot_id": snapshot, "rows": result,
         "calendar_basis": "OBSERVED_CORE_BENCHMARK_AND_TARGET_SESSIONS",
