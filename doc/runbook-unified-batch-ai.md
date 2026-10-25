@@ -17,7 +17,7 @@
 
 必要案例：
 - 偶數小時:30、台北/UTC換日、週末／假日；舊supplement/mart pending被superseded；不重派running／ambiguous。
-- 私人10／18依市場分析、22獨立補償；原始交易／觀察設定即時讀回。
+- 私人平日06:30依04:30市場分析；失敗或休市跳過不假冒成功；原始交易／觀察設定仍即時讀回，`mobile-ledger`按待辦補償。
 - 收取順序為補缺→正常Core ready；真實source failure為partial/failed，既有歷史coverage不足不成額外稽核gate。
 - market-cycle無每股Job、最多8次queue claim且900秒後不再開始下一項；子步驟本身的HTTP／DB timeout仍有效。未處理完的queue保持待辦，不能聲稱queue已清空。
 - Snapshot同owner同內容同ID，不複製全交易歷史；`GET /api/v1/me/workspace-snapshots?valuation_date=YYYY-MM-DD` 必須認證，A不得讀B，查詢日期必要、最多200筆並標明可能截斷。
@@ -60,7 +60,7 @@
 這是一次部署，不是GitHub備份批次。原direct backup timer應維持退役；若仍active，確認既有Controller backup路徑後停用舊timer，不能兩套同跑。
 8. 更新既有ingestion、Mart、Private與Controller到同SHA的image；API也須更新以提供Owner snapshot讀取與Admin節奏。沿既有Job CPU／記憶體／並行上限，不為新流程提高資源。
 9. Controller `FINOPS_WEEKLY_MAINTENANCE=true`、`BATCH_CONTROLLER_NOT_BEFORE=<本次切換UTC>`；worker不把 `JANUS_UNIFIED_COLLECTION` 固定在Job全域，透過Controller execution override限定一般收取。
-10. 用既有部署lease修改同一Scheduler：
+10. 在SEQ-04集中切換前核對新版每日00:30備份、02:30市場收取、平日04:30全市場screening、06:30私人更新；`SCREENING_DATE=latest`應讀實際Core資料日，02:30 ingestion不強迫當日尚未開盤EOD。週六22:30維護讀取02:30完成的Core ready收據，並確認舊pending不重派。使用既有部署lease修改同一Scheduler：
 ```bash
 gcloud scheduler jobs update http janus-ingestion-daily \
   --project=gen-lang-client-0593591102 --location=us-central1 \
