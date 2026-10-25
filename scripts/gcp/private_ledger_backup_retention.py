@@ -120,11 +120,11 @@ def inventory(token, kind: str) -> list[dict]:
         date_name = match.group(1)
         try:
             calendar_key = datetime.fromisoformat(date_name + ("-01" if kind == "monthly" else ""))
-            if kind == "weekly" and calendar_key.isoweekday() != 1:
-                raise ValueError("retention_weekly_key_not_monday")
             datetime.fromisoformat(obj["timeCreated"].replace("Z", "+00:00"))
         except (TypeError, ValueError, KeyError):
             raise ValueError("retention_date_metadata_invalid") from None
+        if kind == "weekly" and calendar_key.isoweekday() != 1:
+            raise ValueError("retention_weekly_key_not_monday")
     return sorted(result, key=lambda r: r["name"], reverse=True)
 
 
