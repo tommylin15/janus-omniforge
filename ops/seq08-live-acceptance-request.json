@@ -14,7 +14,15 @@
   "owner_ledger_writes_allowed": false,
   "new_resources_allowed": false,
   "purpose": "SEQ-08: run exactly one bounded existing Dev intelligence-mart Deep Coverage with real Core source after all five XGBoost candidates and atomic Registry ACTIVE verified. Do not train, call LLM, change Scheduler, provision resources, or modify Owner ledger. It may append immutable derived Mart artifacts/PG product rows. Capture actual execution receipt; model prediction coverage and 2330/2882/Owner UI remain separate validation.",
-  "attempt": 1,
+  "attempt": 2,
   "diagnostic_attempt": 1,
-  "diagnostic_scope": "READ_ONLY_PRIOR_RECEIPT_AND_EXISTING_DEV_JOB_EXECUTIONS_NO_DISPATCH"
+  "diagnostic_scope": "READ_ONLY_PRIOR_RECEIPT_AND_EXISTING_DEV_JOB_EXECUTIONS_NO_DISPATCH",
+  "retry_after": {
+    "prior_run": "40194391101",
+    "read_only_diagnostic_run": "40194848340",
+    "prior_dispatch_maybe": false,
+    "prior_phase": "PREFLIGHT",
+    "lease_status": "ABSENT",
+    "retry_constraint": "exactly_one_new_dispatch_if_preflight_passes"
+  }
 }
