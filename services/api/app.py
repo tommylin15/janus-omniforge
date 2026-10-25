@@ -794,6 +794,12 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                     "excluded_reasons": ["valuation_reference_not_published"]}
         return jsonable_encoder(reference)
 
+    @private.get("/analysis/{symbol}/reports")
+    def stock_report_history(symbol: str, limit: int = Query(10, ge=1, le=20),
+                             current: AuthenticatedUser = Depends(user)):
+        symbol = public.require_enabled_symbol(symbol)
+        return jsonable_encoder(analysis_service.stock_report_history(current.user_id, symbol, limit))
+
     @private.get("/analysis/{symbol}/ceo")
     def ceo_history(symbol: str, limit: int = Query(10, ge=1, le=20),
                     current: AuthenticatedUser = Depends(user)):

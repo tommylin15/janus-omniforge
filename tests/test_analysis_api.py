@@ -52,6 +52,10 @@ class Service:
     def history(self, owner, symbol, limit):
         self.calls.append(('history', owner, symbol, limit))
         return []
+    def stock_report_history(self, owner, symbol, limit):
+        self.calls.append(('stock_report_history', owner, symbol, limit))
+        return {'schema_version': 'owner-stock-report-history.v1', 'symbol': symbol,
+                'status': 'waiting', 'items': []}
     def enqueue(self, owner, symbol, profile, key):
         self.calls.append(('enqueue', owner, symbol, profile, key))
         return {'request_id': str(REQUEST), 'status': 'QUEUED'}
@@ -149,3 +153,15 @@ def test_seq05_valuation_reference_requires_authenticated_read_only_fact_pack():
     assert payload["excluded_reasons"] == ["valuation_reference_not_published"]
     assert payload["lower"] is payload["mid"] is payload["upper"] is None
     assert service.calls == [('baseline', '2330', None)]
+
+
+def test_seq07_owner_report_history_auth_limit_and_no_dispatch():
+    api, service = client()
+    route = '/api/v1/me/analysis/2330/reports'
+    assert api.get(route).status_code == 401
+    assert api.get(route + '?limit=21', headers=auth()).status_code == 422
+    response = api.get(route + '?limit=5&owner_id=attacker', headers=auth('b'))
+    assert response.status_code == 200
+    assert response.json()['items'] == []
+    assert service.calls == [('stock_report_history', OWNER_B, '2330', 5)]
+    assert all(call[0] != 'enqueue' for call in service.calls)

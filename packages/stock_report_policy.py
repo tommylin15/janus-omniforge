@@ -45,13 +45,29 @@ def attach_stock_report(payload, analyst, previous_payload=None, *, force=False)
         if previous.get("symbol") != payload["symbol"]:
             raise ValueError("previous stock report symbol mismatch")
     specialists = [s for s in payload["specialists"] if s["role"] in ROLES]
-    model_signature = content_hash([{
-        "role": s["role"], "model_version": s.get("model_version"), "feature_version": s.get("feature_version"),
-        "model_status": s.get("model_status")} for s in sorted(specialists, key=lambda x: x["role"])])
+    # Versioned ML serving is separate from deterministic compatibility roles.
+    # Never infer an ACTIVE ML result from a baseline or the presence of a report.
+    serving = payload.get("four_model_serving") or {}
+    serving_roles = [{
+        "role": role, "status": (serving.get(role) or {}).get("status", "NOT_VERIFIED"),
+        "model_version": (serving.get(role) or {}).get("model_version"),
+        "model_sha256": (serving.get(role) or {}).get("model_sha256"),
+        "output_name": (serving.get(role) or {}).get("output_name"),
+        "prediction": (serving.get(role) or {}).get("prediction"),
+        "input_as_of": (serving.get(role) or {}).get("input_as_of"),
+    } for role in ROLES]
+    model_signature = content_hash({
+        "baseline": [{"role": s["role"], "model_version": s.get("model_version"),
+                      "feature_version": s.get("feature_version"),
+                      "model_status": s.get("model_status")}
+                     for s in sorted(specialists, key=lambda x: x["role"])],
+        "serving": [{k: r[k] for k in ("role", "status", "model_version", "model_sha256", "output_name")}
+                    for r in serving_roles]})
     current = {"analysis_as_of": payload["analysis_as_of"], "latest_close": analyst.get("latest_close"),
         "financial_input_hash": analyst["financial_input_hash"], "model_signature": model_signature,
         "input_signature": content_hash({"roles": analyst["roles"], "latest_close": analyst.get("latest_close"),
-                                         "financial_input_hash": analyst["financial_input_hash"]})}
+                                         "financial_input_hash": analyst["financial_input_hash"],
+                                         "serving": serving_roles})}
     due, reason = report_decision(current, previous, force=force)
     if due:
         report = {"schema_version": "stock-report.v1", "policy_version": VERSION,
@@ -64,6 +80,7 @@ def attach_stock_report(payload, analyst, previous_payload=None, *, force=False)
             "roles": [{k: s.get(k) for k in ("role", "model_version", "model_status", "status",
                                             "metrics", "missing_data", "plain_language")} for s in specialists],
             "input_gaps": {r: analyst["roles"][r]["missing_features"] for r in ROLES},
+            "serving_roles": serving_roles,
             "model_readiness": "USE_ROLE_STATUS_NOT_IMPLIED_BY_REPORT", "llm_api_tokens": 0}
         report["report_hash"] = content_hash(report)
     else:

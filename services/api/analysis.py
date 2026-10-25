@@ -199,6 +199,49 @@ class AnalysisService:
                 "profile_approved": bool(profile and profile["approved"]),
                 "profile_version": profile["version"] if profile else None}
 
+    def stock_report_history(self, user_id, symbol, limit=10):
+        """Bounded immutable deterministic history for an owner's current universe.
+
+        The report is public-market-only; token-bound membership controls this
+        history index. Reused reports are deduplicated by immutable report hash.
+        No report-generation work, LLM call or owner selector occurs here.
+        """
+        with self.repository._connection() as connection:
+            member = connection.execute("""SELECT (
+                EXISTS(SELECT 1 FROM private.current_positions
+                       WHERE user_id=%s AND symbol=%s AND shares>0)
+                OR EXISTS(SELECT 1 FROM private.watchlist
+                          WHERE user_id=%s AND symbol=%s AND active)
+                ) AS allowed""", (user_id, symbol, user_id, symbol)).fetchone()
+            if not member or not member["allowed"]:
+                raise NotFoundError("owner stock report history not found")
+            rows = connection.execute("""SELECT analysis_as_of,
+                payload_json->'stock_report' AS stock_report,
+                payload_json->'stock_report_refresh' AS refresh
+                FROM private.specialist_product
+                WHERE symbol=%s AND payload_json ? 'stock_report'
+                ORDER BY analysis_as_of DESC, created_at DESC LIMIT %s""",
+                (symbol, min(200, limit * 10))).fetchall()
+        seen = set()
+        items = []
+        for row in rows:
+            report = row["stock_report"]
+            if (not isinstance(report, dict) or report.get("symbol") != symbol
+                    or report.get("report_hash") != content_hash(
+                        {k: v for k, v in report.items() if k != "report_hash"})):
+                raise HTTPException(503, "個股報告驗證失敗")
+            digest = report["report_hash"]
+            if digest in seen:
+                continue
+            seen.add(digest)
+            items.append({"report": report, "source_analysis_as_of": row["analysis_as_of"],
+                          "refresh": row["refresh"]})
+            if len(items) >= limit:
+                break
+        return {"schema_version": "owner-stock-report-history.v1",
+                "symbol": symbol, "status": "available" if items else "waiting",
+                "items": items}
+
     def history(self, user_id, symbol, limit=10):
         with self.repository._connection() as connection:
             rows = connection.execute("""SELECT request_id,symbol,status,profile_id,profile_version,
