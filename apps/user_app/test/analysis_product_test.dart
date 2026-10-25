@@ -98,6 +98,8 @@ void main() {
             body: SingleChildScrollView(
                 child: FinalAnalysisPanel(api, '2330')))));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.widgetWithText(FilledButton, '分析'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '分析'));
     await tester.pumpAndSettle();
     expect(api.posts, ['/api/v1/me/analysis/2330/ceo']);
