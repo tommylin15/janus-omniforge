@@ -1,6 +1,6 @@
 # Janus — 唯一 Active TODO
 
-更新：2026-10-25（Asia/Taipei）。本次新增分析輸入Mart／營收15月補收／週期事實報告程式與文件；未執行測試、部署、migration或模型啟用。
+更新：2026-10-25（Asia/Taipei）。SEQ-01 設計、程式與選擇性 GitHub CI 已執行；完整離線腳本／Flutter targeted 未執行。部署、migration、Scheduler 切換、live 與模型啟用均未執行。
 
 ## 唯一順序線
 
@@ -9,7 +9,7 @@
 
 | 順序／任務 | 整併舊項 | 目前基線 | 部署歸屬 | AI 指示 |
 |---|---|---|---|---|
-| SEQ-01 收取、清理與市場分析總控 | UB-01 | 設計與程式差異修正已提交；離線 CI 待讀回，live 未驗 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-01) |
+| SEQ-01 收取、清理與市場分析總控 | UB-01 | DOC／CODE已提交；selective CI PASS；完整離線與Flutter仍未驗，live交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-01) |
 | SEQ-02 持股、買賣與觀察設定快照 | UB-03、4J／4R 的本次增量 | 已有快照與 API，完整語意／UI 待補驗 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-02) |
 | SEQ-03 日週月備份、保留清理與回復範圍 | UB-04（不是重開 OPS-P0-1） | 已有 VM／migration069／保留程式，未測試／部署 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-03) |
 | SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | 未執行 | 本項集中部署 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
@@ -20,7 +20,7 @@
 
 ## 階段狀態與接手規則
 
-- SEQ-01 已由使用者指定開工；本輪修正來源失敗與 Mart queue 狀態，不重寫既有 Controller／新建定時器。離線 CI 收據未取得前仍須驗證，下一順序待本項離線證據收斂。
+- SEQ-01 已依使用者授權開工；本輪修正來源失敗與 Mart queue 狀態，並使舊測試遵守現行 EOD／target-only 契約，未重建 Controller／Scheduler。已取得本版選擇性 CI 成功收據；完整離線腳本及 Flutter Admin targeted 仍待驗，前置完成後才進 SEQ-02。
 - 本次文件整理完成，不等於每個任務的設計已審定或工程完成。上表基線來自 main 已提交程式／既有文件收據，沒有新的runtime驗收。
 - 每次只執行使用者指定任務／階段；未指定階段時按該任務四階段指示完成可做範圍。遇跨任務集中部署，將部署及live驗收記為 `DEFERRED_TO_SEQ-04/08`，不是PASS；其餘前置交付完成即可往下一順序準備，不造成循環等待。
 - SEQ-04結清SEQ-01…04；SEQ-08結清SEQ-05…08。測試驗收分部署前離線／Release與部署後真實驗收，不能在未部署時假稱live PASS。
@@ -28,9 +28,9 @@
 
 ### SEQ-01 四階段紀錄（2026-10-25）
 
-`SEQ-01｜文件設計=CODE_REVIEWED／契約已補｜程式開發=CHANGES_COMMITTED｜測試驗收=OFFLINE_CI_PENDING／LIVE_DEFERRED_TO_SEQ-04｜部署=DEFERRED_TO_SEQ-04｜基線=73ba5e037a0089d215bf36a391063cec2ddc15e6、目標本次提交｜唯一下一入口=確認SEQ-01同SHA離線CI結果，通過後SEQ-02／文件設計`。
+`SEQ-01｜文件設計=REVIEWED／CONTRACT_UPDATED｜程式開發=COMMITTED（7ab83e0aab287d10240efe84e4570cc5ff9eec57）｜測試驗收=SELECTIVE_CI_PASS／FULL_OFFLINE_AND_FLUTTER_NOT_VERIFIED／LIVE_DEFERRED_TO_SEQ-04｜部署=DEFERRED_TO_SEQ-04｜證據=CI #40147914267 SUCCESS；首次 #40147708243 FAILURE 已修復｜唯一下一入口=SEQ-01／補做完整離線腳本與 Flutter Admin targeted tests；PASS 後 SEQ-02／文件設計`。
 
-驗收至少涵蓋 `scripts/test-unified-batch.sh`（含15月收入窗口、真正來源失敗、queue partial/idle、8 claim／900秒、Stage 48h／lease與既有測試）及兩個Flutter Admin targeted tests。GitHub selective CI 的範圍不能冒稱全部上述驗證；新時段、migration、Dev Runtime／Scheduler 實機驗收均由SEQ-04負責。證據摘要見[Operations](spec/operations-and-testing.md)。
+仍須於具備依賴的同版 checkout 執行 `bash scripts/test-unified-batch.sh`（含15月收入窗口、真正來源失敗、queue partial/idle、8 claim／900秒、Stage 48h／lease與既有測試），以及 `cd apps/user_app && flutter test test/admin_batch_dashboard_test.dart test/admin_overview_batch_test.dart`。GitHub selective CI 已有實際 PASS，但未執行整支腳本與Flutter，不可冒稱全部離線驗收完成；新時段、migration、Dev Runtime／Scheduler 實機驗收由SEQ-04負責。證據摘要見[Operations](spec/operations-and-testing.md)。
 
 ## 四模型正式上線與第二版邊界
 

@@ -1,10 +1,10 @@
 # Janus 目前狀態
 
-更新：2026-10-25（Asia/Taipei）。SEQ-01已依現役程式補齊狀態契約、差異修正與targeted測試來源；離線CI待讀回，無部署、migration、Scheduler切換、live或Registry變更。
+更新：2026-10-25（Asia/Taipei）。SEQ-01 已完成靜態差異修正與契約補充；同程式 SHA 7ab83e0 的 selective CI #40147914267 SUCCESS。完整離線腳本及 Flutter Admin 測試未執行；無部署、migration、Scheduler 切換、live 或 Registry 變更。
 
 統一批次主要程式已於 [77b5565](https://github.com/tommylin15/janus-omniforge/commit/77b5565f2b23c5023c9128121a9dfad05ed58376) 提交main，該版仍未測試／部署／驗收。新兩小時Scheduler與VM保留政策未由本輪切換；四模型正式上線也尚未由本輪完成。
 
-**下一個唯一入口：SEQ-01／同SHA離線CI讀回**；通過後轉 **SEQ-02／文件設計**。接著依 [TODO](todo.md) 順序到SEQ-08，完整操作見 [AI卡](execution-cards/sequential-delivery.md)。四模型正式serving／報告UI納入本版，研究調校延至2027年第一季由使用者重新啟動，不形成發布前置。
+**下一個唯一入口：SEQ-01／完整離線腳本與 Flutter Admin targeted 測試**；通過後轉 **SEQ-02／文件設計**。接著依 [TODO](todo.md) 順序到SEQ-08，完整操作見 [AI卡](execution-cards/sequential-delivery.md)。四模型正式serving／報告UI納入本版，研究調校延至2027年第一季由使用者重新啟動，不形成發布前置。
 
 ## 沿用的歷史基線
 

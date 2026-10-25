@@ -1,6 +1,6 @@
 # 統一批次與資料快照契約
 
-更新：2026-10-24。狀態：CODE／文件交付；TEST、DEPLOY、LIVE ACCEPTANCE 均 NOT VERIFIED。
+更新：2026-10-25。狀態：SEQ-01 CODE／DOC與 selective CI PASS；完整離線與 Flutter tests 未驗；DEPLOY、LIVE ACCEPTANCE 均 NOT VERIFIED。此狀態不涵蓋尚未開工的SEQ-02…08。
 本文件是批次時段、端到端依賴與備份政策的唯一入口，覆蓋舊每日時段與 GitHub 備份 cron。四個模型按可發布設計；這不是目前 Registry、模型效用或 runtime 已通過的宣告。
 
 ## 1. 決策與兩方案
@@ -100,7 +100,7 @@ Private snapshot 是 current Iceberg table 的資料列，不是舊 Iceberg snap
 - 實作以既有入口與環境參數為主，無新增 IAM／付費 runtime；新 schedule 需部署後才生效。
 - 主要風險：兩小時跨階段延遲、未部署混合版本、來源延遲、備份 executable 未同步、週／月副本尚未形成、模型 artifact 尚未正式接入。
 - 回復：保存切換前 cron／image digest／VM scripts；先停止新入口再恢復舊版，不能雙 Scheduler 並行；不刪現有備份或私人快照。
-- 本輪不執行測試、CI、部署、migration 或 live 驗收。後續唯一操作入口：[AI交接 WI](../runbook-unified-batch-ai.md)；全部剩餘工作在 [TODO](../todo.md)。
+- SEQ-01 已執行選擇性 GitHub CI（詳見[Operations](operations-and-testing.md)）；完整離線腳本、Flutter targeted、Release、部署、migration 或 live 驗收尚未執行。後續唯一操作入口依 [TODO](../todo.md) 與 [AI交接 WI](../runbook-unified-batch-ai.md)。
 
 ## 分析輸入與報告減頻（2026-10-25）
 
