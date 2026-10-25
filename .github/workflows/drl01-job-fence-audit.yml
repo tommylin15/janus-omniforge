@@ -57,3 +57,72 @@ jobs:
           if any(x.get('get')!='PASS' or x.get('executions')!='PASS' for x in output):
             raise SystemExit(1)
           PY
+
+      - name: Diagnose SEQ-04 execution_not_terminal across bounded pages without mutation
+        env:
+          PYTHONPATH: scripts/gcp
+        run: |
+          python - <<'PY'
+          import json,re
+          from urllib.parse import quote
+          from ghcr_jobs_rollout import cloud,ROOT,terminal
+          from ghcr_job_cutover_guard import REQUIRED_JOBS
+          report=[]
+          for name in REQUIRED_JOBS:
+            path=f"{ROOT}/jobs/{name}/executions?pageSize=100"
+            pages=0
+            seen=set()
+            unsettled=[]
+            total=0
+            status="PASS"
+            while path and pages<25:
+              try:
+                data=cloud(path)
+              except RuntimeError as exc:
+                error=str(exc)
+                if name=="janus-research-big-move-500" and pages==0 and error=="cloud_control_http_404":
+                  try:
+                    cloud(f"{ROOT}/jobs/{name}")
+                  except RuntimeError as absent:
+                    if str(absent)=="cloud_control_http_404":
+                      status="RETIRED_404_CONFIRMED"
+                      break
+                  status="BLOCKED_RESEARCH_IDENTITY"
+                  break
+                status=error if re.fullmatch(r"cloud_control_http_[0-9]{3}",error) else "BLOCKED_CLOUD_READ"
+                break
+              pages+=1
+              items=data.get("executions",[])
+              total+=len(items)
+              for execution in items:
+                if terminal(execution):
+                  continue
+                safe_name=execution.get("name","").rsplit("/",1)[-1]
+                conditions=[{"type":x.get("type"),"state":x.get("state"),
+                             "reason":x.get("executionReason")}
+                            for x in execution.get("conditions",[]) if x.get("type")=="Completed"]
+                if len(unsettled)<20:
+                  unsettled.append({"execution":safe_name,
+                    "created":execution.get("createTime"),
+                    "started":execution.get("startTime"),
+                    "completed":execution.get("completionTime"),
+                    "running_count":execution.get("runningCount",0),
+                    "reconciling":execution.get("reconciling",False),
+                    "conditions":conditions})
+              token=data.get("nextPageToken")
+              if token:
+                if token in seen:
+                  status="BLOCKED_PAGINATION_LOOP"
+                  break
+                seen.add(token)
+                path=f"{ROOT}/jobs/{name}/executions?pageSize=100&pageToken={quote(token,safe='')}"
+              else:
+                path=None
+            if path and status=="PASS":
+              status="BLOCKED_PAGE_LIMIT"
+            report.append({"job":name,"pages":pages,"count":total,
+                           "status":status,"unsettled_sample":unsettled,
+                           "unsettled_sample_limit":20})
+          print(json.dumps({"scope":"SEQ-04 readonly execution fence","gcp_writes":0,
+                            "results":report},sort_keys=True))
+          PY
