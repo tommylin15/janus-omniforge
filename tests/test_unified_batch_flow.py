@@ -79,6 +79,18 @@ def test_market_cycle_never_claims_more_than_eight(monkeypatch):
     assert queue.call_count == 8
 
 
+def test_market_cycle_does_not_start_new_claim_at_900_second_deadline(monkeypatch):
+    from intelligence_mart import market_cycle, runtime
+    monkeypatch.delenv("SCREENING_DATE", raising=False)
+    monkeypatch.setattr(market_cycle, "monotonic", Mock(side_effect=[0, 900]))
+    claim = Mock()
+    monkeypatch.setattr(runtime, "run_queued_analysis", claim)
+    result = market_cycle.run()
+    assert result["status"] == "succeeded"
+    assert result["analyses"] == []
+    claim.assert_not_called()
+
+
 def test_private_snapshot_records_inputs_without_copying_transaction_history():
     from services.api.private_pipeline import PrivatePipeline
     store = Mock()

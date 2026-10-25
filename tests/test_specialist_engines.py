@@ -509,7 +509,7 @@ def test_runtime_watch_only_held_only_overlap_off_market_and_exit(monkeypatch):
     )
     first = run("ex1")
     assert first["specialist_count"] == 10
-    assert first["screening_count"] == 1
+    assert first["screening_count"] == 0  # full-market screening runs separately
     assert first["publishable"] == 0
     assert first["model_training"] == "external_colab_only"
     assert "evaluation_output_hash" not in first
@@ -518,6 +518,7 @@ def test_runtime_watch_only_held_only_overlap_off_market_and_exit(monkeypatch):
     assert run("ex1") == {k: v for k, v in first.items() if k != "artifact_hash"}
     saved = json.loads(stores["mart"].read("executions/ex1/specialist-manifest.json"))
     assert saved["input_telemetry"]["source"] == "injected-test"
+    assert saved["screening"] is None
     assert "user_id" not in json.dumps(saved)
     assert {r["symbol"] for r in saved["specialists"]} == {"2330", "off-market"}
     members.pop()

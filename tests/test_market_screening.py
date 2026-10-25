@@ -92,12 +92,17 @@ def test_reuse_precedes_read_canary_failure_is_audited_and_tampering_fails(monke
 def test_eod_batch_dependency_and_date_override():
     from ingestion_core.batch_controller import due_batches, occurrence_env
     now = datetime(2026, 10, 7, 8, 30, tzinfo=timezone.utc)
-    row = next(r for r in due_batches(now) if r[1].name == "market-screening")
-    assert row[3] == ["ingestion/2026-10-07/14", "data-supplement/2026-10-07/08"]
-    env = dict(occurrence_env(row[1], row[2]))
+    rows = [r for r in due_batches(now) if r[1].name == "market-screening"]
+    morning = next(r for r in rows if r[0] == "market-screening/2026-10-07/08")
+    assert morning[3] == ["ingestion/2026-10-07/06"]
+    assert dict(occurrence_env(morning[1], morning[2]))["SCREENING_DATE"] == ""
+    eod = next(r for r in rows if r[0] == "market-screening/2026-10-07/16")
+    assert eod[3] == ["ingestion/2026-10-07/14"]
+    env = dict(occurrence_env(eod[1], eod[2]))
     assert env["SCREENING_DATE"] == "2026-10-07" and env["MART_OOS_EVALUATION"] == "false"
-    assert env["MART_RISK_SHADOW_ENABLED"] == "true"
+    assert env["MART_RISK_SHADOW_ENABLED"] == "false"
     assert env["MART_AI_ENABLED"] == "false"
+    assert not any(r[1].name == "data-supplement" for r in due_batches(now))
     assert not any(r[1].name == "market-screening" for r in due_batches(now.replace(day=10)))
 
 
