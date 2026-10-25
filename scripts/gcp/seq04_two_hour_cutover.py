@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import ghcr_api_promote as api
@@ -63,11 +64,31 @@ def invariant(before, after):
 
 
 def change_schedule(cron):
-    jobs.command([
-        "gcloud", "scheduler", "jobs", "update", "http",
-        "janus-ingestion-daily", "--project=gen-lang-client-0593591102",
-        "--location=us-central1", f"--schedule={cron}",
-        "--time-zone=Asia/Taipei", "--quiet"])
+    # Preserve stdout/stderr in memory; expose ONLY a closed error classification.
+    # The actual GCloud error might include a resource URL or sensitive payload.
+    args = ["gcloud", "scheduler", "jobs", "update", "http",
+            "janus-ingestion-daily", "--project=gen-lang-client-0593591102",
+            "--location=us-central1", f"--schedule={cron}",
+            "--time-zone=Asia/Taipei", "--quiet"]
+    result = subprocess.run(args, capture_output=True, text=True, timeout=120,
+                            check=False)
+    if result.returncode:
+        message = result.stderr.lower()
+        category = (
+            "permission_denied" if ("permission_denied" in message
+                                   or "permission denied" in message
+                                   or "does not have permission" in message
+                                   or "403" in message)
+            else "invalid_argument" if ("invalid_argument" in message
+                                         or "invalid value" in message
+                                         or "400" in message)
+            else "cli_argument" if ("unrecognized arguments" in message
+                                    or "unrecognized argument" in message)
+            else "not_found" if ("not_found" in message
+                                 or "not found" in message
+                                 or "404" in message)
+            else "unknown")
+        raise ValueError("seq04_scheduler_update_" + category)
 
 
 def run(receipt):
