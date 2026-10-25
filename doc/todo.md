@@ -36,7 +36,7 @@
 
 原失敗[#40168882776](https://github.com/tommylin15/janus-omniforge/actions/runs/40168882776)是Cloud Run Job `janus-ingestion-core-tsrqq`，exit1與應用RUNTIMEERROR。新[唯讀 #40169833008](https://github.com/tommylin15/janus-omniforge/actions/runs/40169833008)證實第一slice兩股各+228筆已寫入Core（2330 245→473；2882 18→246），來源`twse`，Core snapshot `3646694772256767088`，Job樣板指紋未變；原兩段請求現已`approved=false`並由[#40170642020](https://github.com/tommylin15/janus-omniforge/actions/runs/40170642020)證實跳過（0 mutation）。不得重跑已寫入的2024-10～2025-09。原runtime根因未有逐行堆疊，但程式確有估值-only被完整財報coverage誤判partial的漏洞，已修正常來源失敗仍須保留partial。
 
-[第二次Core財報唯讀 #40170316886](https://github.com/tommylin15/janus-omniforge/actions/runs/40170316886)：2330金融事實542筆、2882 37筆。2330 MOPS與FinMind有EPS，但Q4為累計年度、既有share_basis多unknown/重複且FinMind單位未明，不能直接變成連續四季同口徑單季EPS；2882未讀到可用BVPS。TWSE官方2025-01-22封關月末（1/23～2/2無交易）經有界例外修正後，2330有效PE由23預期24；2882現12預期13，僅2882的2025-10～2026-08 11個月PB需補。此為改版前資料與新版程式的推算，尚非新版runtime PASS。
+[第二次Core財報唯讀 #40170316886](https://github.com/tommylin15/janus-omniforge/actions/runs/40170316886)：2330財務資料542筆、2882 37筆。2330 MOPS與FinMind有EPS，但Q4為累計年度、既有share_basis多unknown/重複且FinMind單位未明，不能直接變成連續四季同口徑單季EPS；2882未讀到可用BVPS。TWSE官方2025-01-22封關月末（1/23～2/2無交易）經有界例外修正後，2330有效PE由23預期24；2882現12預期13，僅2882的2025-10～2026-08 11個月PB需補。此為改版前資料與新版程式的推算，尚非新版runtime PASS。
 
 後續先確認現有image具修復後才可發送**新的**2882-only一次性指定月份請求；來源值候選為台積電四季官方`diluted EPS`與國泰金控FY25普通股BVPS，先完成Control source authorization及Stage/Core實際讀回。未經核准不以網頁數字生成canonical；缺值`lower/mid/upper=null`。任務不新增第五Registry、Scheduler、GCP付費資源，不調整Owner資料。完整交接與來源網址集中在[Valuation SPEC](spec/valuation-range.md)。
 
