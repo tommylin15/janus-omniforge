@@ -1,6 +1,6 @@
 {
   "intent": "seq05-single-finmind-yahoo-stage-core-research",
-  "approved": true,
+  "approved": false,
   "symbols": [
     "2882"
   ],
@@ -22,5 +22,14 @@
   ],
   "classification": "research_reference_only",
   "preflight_retry": 1,
-  "previous_workflow": "40172011410"
+  "previous_workflow": "40172011410",
+  "closed_after_success": true,
+  "closed_run": "40172093172",
+  "closed_execution": "janus-ingestion-core-lwwg5",
+  "closed_result": {
+    "pb_core_rows_inserted": 11,
+    "bvps_core_rows_inserted": 1,
+    "pb_months_verified": 11,
+    "report_status": "CORE_INPUTS_COMPLETE"
+  }
 }
