@@ -254,6 +254,18 @@ def parse_valuation_month(raw, symbol, year, month, expected_name):
     return values
 
 
+def _supplement_is_partial(*, valuation_only, failures, coverage):
+    """Only price-source failures block the valuation-only collection.
+
+    The 12-quarter/revenue/121-price history requirement belongs to the
+    general fundamental/price supplement, not to a PE/PB-only request.
+    """
+    return bool(failures) or (
+        not valuation_only and
+        not all(row["history_complete"] for row in coverage.values())
+    )
+
+
 def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=False):
     if sum(bool(flag) for flag in (incremental, valuation_only, fundamental_only)) > 1:
         raise ValueError("supplement mode flags are mutually exclusive")
@@ -538,7 +550,8 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
         ready["featureVersion"] = "2"
         publish_ready = ready if not incremental or summary["core_created"] or summary["core_updated"] else None
         completed, analysis = control.complete_collection(execution.execution_id, publish_ready,
-            partial=bool(summary["failures"]) or not all(row["history_complete"] for row in coverage.values()))
+            partial=_supplement_is_partial(
+                valuation_only=valuation_only, failures=summary["failures"], coverage=coverage))
         collection_finished = True
         if not summary["failures"]:
             writer.mark_core_committed(execution.execution_id, stage_results=stage_results)
