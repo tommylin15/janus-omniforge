@@ -1,0 +1,18 @@
+{
+  "intent": "seq04-dev-existing-weekly-backfill-and-occurrence-cas",
+  "approved": true,
+  "project": "gen-lang-client-0593591102",
+  "week": "2026-10-19",
+  "source_day": "2026-10-19",
+  "occurrence_id": "ledger-backup/2026-10-25/00",
+  "backup_date": "2026-10-25",
+  "if_generation_match_zero": true,
+  "max_weekly_objects_created": 1,
+  "max_source_bytes": 67108864,
+  "no_backup_execution": true,
+  "no_scheduler_or_job_changes": true,
+  "no_owner_mutation": true,
+  "no_gcs_deletion": true,
+  "no_new_resources": true,
+  "attempt": 1
+}
