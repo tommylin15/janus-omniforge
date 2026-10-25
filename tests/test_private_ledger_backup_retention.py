@@ -175,3 +175,14 @@ def test_weekly_keeps_four_and_deletes_at_most_one():
     result = policy.plan(daily, monthly, weekly=weekly, now=NOW)
     assert len(result["protected"]["weekly"]) == 4
     assert [r["name"] for r in result["expired"]["weekly"]] == [weekly[4]["name"]]
+
+
+def test_weekly_non_monday_name_is_fail_closed(monkeypatch):
+    # The period key is the Monday of the ISO week, including year boundaries.
+    rows = [backup("weekly", "2027-01-01")]
+    monkeypatch.setattr(policy, "api", lambda *a, **k: {"items": rows})
+    with pytest.raises(ValueError, match="weekly_key_not_monday"):
+        policy.inventory("redacted-token", "weekly")
+    monkeypatch.setattr(policy, "api", lambda *a, **k: {"items": [
+        backup("weekly", "2026-12-28")]})
+    assert len(policy.inventory("redacted-token", "weekly")) == 1

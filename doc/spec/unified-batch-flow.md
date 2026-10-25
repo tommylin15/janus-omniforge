@@ -82,8 +82,20 @@ Private snapshot 是 current Iceberg table 的資料列，不是舊 Iceberg snap
 
 週／月副本是日備份的位元副本，不再 dump 三次；名稱為週一 YYYY-MM-DD、月份 YYYY-MM。週／月既有物件不可覆寫。
 每日最多刪3份 daily、1份 weekly、1份 monthly；固定 generation、清理前重讀、清理後數量／bytes 讀回，失敗保留 partial 收據並於下一次成功日備份後重新評估清理。
-每日備份成功與 retention 成功分開記錄；清理失敗不能將可用備份改成 failed，也不能宣稱整輪成功。
+每日備份成功與 retention 成功分開記錄；清理失敗不能將可用備份改成 failed，也不能宣稱整輪成功。同日期 daily 若碰到既有不可變物件，須和新 dump 位元一致才可接受，**不覆寫新來源或回報新的備份成果**；週／月鍵首次成功建立即固定，不得以後續日期的不同 dump 覆寫既有 period。既有 period 必須可讀且具合法 PG archive 格式；保留 `CREATED/EXISTS` 回報。
 注意：PG dump 不含 GCS／Iceberg data files；這不是完整 lakehouse 歷史備份。Core／公開 Mart 沿可重建路徑，模型 artifact 及私人不可重建內容沿原保留政策。舊 catalog dump 不保證可指回已刪除的 Iceberg 舊檔；還原必須依交接 WI 驗證目前資料可讀，不能以 pg_restore 成功宣稱全系統已恢復。
+### SEQ-03 回復分層契約
+
+| 持久資料 | 本版備份或重建方式 | 保護與實際回復邊界 |
+|---|---|---|
+| PostgreSQL `private.users`、`ledger_events`、`cash_balance_snapshots`、`watchlist`、`investment_profiles`、`broker_profile_revisions`、`note_index`、控制表 | VM `pg_dump -Fc` 一次，daily7／weekly4／monthly6 不可變副本 | 隔離 DB `pg_restore` 後核對 Owner、ledger_version、沖銷關聯、現金 anchor、watchlist／設定孤兒引用與各類計數；不恢復覆寫 live DB |
+| Private `workspace_snapshots` 的 Iceberg rows／GCS 物件及私人筆記原始 artifact | 保留目前 GCS／Iceberg 檔與其引用；**不是 PG dump 的一部分，亦無獨立 GCS 複本保證** | catalog 指標必須對應仍存在且可讀的 Private 現役檔；若缺少，PG 還原只算部分成功，無法用 PG dump 修回 |
+| Core／公開 Mart current Iceberg data／metadata | 現役 current snapshot 與已存在的資料處理／補收路徑；非 current 依既有政策清理 | 可按可用來源有條件重建，**不保證全歷史完整重建**；PG catalog dump 不得被當作物件備份 |
+| Quant／Risk／Fundamental／Valuation 的正式模型 artifact 與報告 | 保護現有 ACTIVE／rollback 及正式報告產物；必要時由合法的原有輸入重算 | 原 artifact／報告若 GCS 遺失，不能只靠 PG 復原；須讀回 GCS 物件與實際可載入版本，缺檔列 BLOCKED |
+| Stage payload、manifest、quarantine | 48h TTL；有效租約保護後以現有來源有條件重收 | 不納入長期備份；過期實刪後不假稱能靠 PG dump 完整重播 |
+
+上述矩陣界定備份的**保護範圍，不是宣告每一類已有冗餘異地備份**。對 Private GCS、模型及報告這些不能單由 PG 復原的內容，SEQ-04 必須列物件／catalog 的有界讀回清單及成功／缺口；若使用者未授權新增費用或副本，不新增儲存資源，也不把依賴缺口包裝成 full restore。資料遭刪除時不得盲目重建、覆寫 current 或 Owner 帳本。
+
 備份既有 bucket／VM／prefix 不變；不新增付費資源或擴大 IAM。現有 VM 沒有 prefix delete 權限則標 BLOCKED，不自動 grant。
 
 ## 6. 外部作法融入（2026-10-24 查閱）

@@ -1,6 +1,6 @@
 # 公開資料保存與刪除治理
 
-> 2026-10-24：排程與私人備份改依 [統一批次§5](unified-batch-flow.md)：7 daily／4 weekly／6 monthly，由GCP既有VM執行；無GitHub cron。其他TTL與安全護欄維持本文。新程式未驗收。
+> 2026-10-25（SEQ-03）：依 [統一批次§5](unified-batch-flow.md) 的目標政策為7 daily／4 weekly／6 monthly，由既有 GCP VM 執行；無GitHub業務cron。Stage48h／Iceberg current-only＋7天 orphan 不變。部署與live一律交SEQ-04，不把source修改誤作已生效。
 
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
@@ -45,7 +45,7 @@
 
 ## 3. 排程／執行與恢復
 
-Cloud Scheduler → 既有 Controller 是唯一業務定時入口。**Stage-only cleanup 每日 18:30（Asia/Taipei）由既有 `janus-ingestion-core` 執行，`ICEBERG_MAINTENANCE_MODE=stage-only-apply`，48 小時已到期且無 active execution 引用才刪除；此工作不載入 Iceberg catalog，也不修改 Core／Mart／Private。**當 `FINOPS_WEEKLY_MAINTENANCE=true`，**每週六23:30 due**：`iceberg-compaction → mart-cleanup → core-cleanup`，其餘 due 不因此變成週批；實際相依跨小時執行。false 的 legacy daily due 不是核准目標，需讀實際 deployed env/自然 occurrence 驗證。
+新契約以 Cloud Scheduler **每兩小時 :30（Asia/Taipei）** 進既有 Controller；**Stage-only cleanup 每日 22:30** 由既有 `janus-ingestion-core` 執行，`ICEBERG_MAINTENANCE_MODE=stage-only-apply`，僅對 Stage 48h 到期且無有效租約引用做 generation-fenced 清理，不觸及 Core／Mart／Private。**每週六 22:30 due** 依序啟動 `iceberg-compaction → mart-cleanup → core-cleanup`，相依子步驟可跨 tick。**私人備份每日02:30** 由 Controller 建立請求、既有 PG VM executor 領取，先完成 daily／weekly／monthly 副本讀回再做有界 retention。現有 Dev 是否已切換須由 SEQ-04 實際讀回 Scheduler／Job env／VM timer；此處是目標規格，不當成已部署證據。
 
 Mart `MART_OPERATION=retention`、`MART_RETENTION_MODE=dry-run|apply`，Core `ICEBERG_MAINTENANCE_MODE=retention-dry-run|retention-apply`；步驟為 current Core readback → compact → Mart retirement/cleanup → Core row/Stage（再次確保到期）/snapshot expiration/orphan cleanup → 按資料集分列 planned/actual objects、bytes、失敗、active bytes 與 current readback。不可在 source/writer/job 終態未知時盲目重送 apply。操作詳見 [總控 Runbook](../runbook-batch-controller-dev.md)，證據放 [operations](operations-and-testing.md)。
 

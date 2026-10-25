@@ -24,7 +24,18 @@
 - 備份daily7／weekly4／monthly6；ISO跨年週一命名、每月首個成功副本不可覆寫；副本碰撞不可改寫daily dump及其hash。
 - 清理最新daily超36h／generation drift／未知檔名／權限不足時不得刪；刪除上限3/1/1；備份成功、清理失敗分開。
 - migration069重跑安全；Private新表沿既有Iceberg自建schema，須確認pipeline有既有create table能力，不自動grant。
+- SEQ-03：VM新dump與既有daily同名但位元不同時fail closed；同一ISO週跨年（2026-12-31、2027-01-01）的週一鍵應為2026-12-28，月鍵分別為2026-12／2027-01。週／月已存在時只驗既有合法archive，不拿後續daily替換。
+- SEQ-03：隔離PG還原僅標 `postgresql_only`，需讀回ledger／watchlist／投資設定／broker revisions／cash anchor／note_index Owner關聯；GCS／Iceberg files 一律標尚待驗，不以隔離PG成功冒充湖倉／完整Owner恢復。
 - 四模型各自真實artifact／版本／feature順序／輸出；Event舊相容欄不被算成第五模型。若仍只有baseline，明列UB-02未完成，不宣稱四ML已上線。
+
+### SEQ-03 → SEQ-04 隔離還原／有界清理接手清單
+
+1. 保留來源 SHA、上一可用 VM `ledger-durability`／executor／retention／restore scripts、Controller digest、Scheduler與timer設定。先migration069，再更新既有VM，最後同版Controller；確認舊 direct timer 退役且僅 executor timer active。
+2. 讀回一個Controller實際backup request，daily 原檔與SHA256／bytes、週一鍵與月鍵、`CREATED/EXISTS` 及 immutable object generation；週／月缺少時只如實標數量，不虛構副本。確認最新 daily 距執行時間不超過36h。
+3. `bash /var/lib/janus/ledger-durability vm-restore-verify YYYY-MM-DD` 僅對已在 `control.ledger_backup_requests` 成功且checksum吻合的daily作隔離資料庫還原。核對 `owners`、`ledger_events`、`latest_versions_valid`、`correction_links_valid`、`watchlist_owner_valid`、`profile_owner_valid`、`broker_owner_valid`、`cash_owner_anchor_valid`、`notes_owner_valid` 以及aggregate count；結果只代表 `postgresql_only`。還原完自動刪**本次新建的隔離DB**，不修改 live。
+4. 對同版仍可讀的Private workspace snapshot（至少一個合法 Owner 透過既有認證查詢）、現役 Private Iceberg data／metadata、notes artifact 引用、Core／Mart current pointer、正式模型／報告 artifact 做**有界唯讀**存在性和可讀性核對；無授權Owner session時把使用者視角標待驗，不能以匿名401當成功。未有獨立副本的GCS類型標明仍依賴現有bucket，缺檔不能宣稱恢復完成。
+5. 保留清理：先dry-run→同清冊預刪再讀→固定generation受控apply；未知檔名、週鍵非星期一、latest daily>36h、generation drift即不刪。每run最多daily3／weekly1／monthly1，讀回實際件數／bytes；備份成功／清理失敗分別留收據。Stage48h及Iceberg current-only／7天orphan用既有防護，不在此擴大刪除。
+6. 只有上述實際檢查與 Scheduler `30 */2 * * *`（Asia/Taipei）讀回成功才結清SEQ-03的live交接；`pg_restore`成功但GCS缺檔只能記PG層PASS／系統層PARTIAL。失敗依D節回原image與單一入口，不回滾Owner原始帳本。
 
 ## B. 部署前準備（不用 GitHub 業務批次）
 

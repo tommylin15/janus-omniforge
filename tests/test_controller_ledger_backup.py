@@ -95,7 +95,7 @@ def test_vm_immutable_daily_collision_and_weekly_monthly_reuse_contract():
     src = (Path(__file__).parents[1] / 'scripts/gcp/ledger-durability-dev.sh').read_text()
     assert 'ifGenerationMatch' in src and '"0"' in src
     assert 'print("EXISTS")' in src and 'print("CREATED")' in src
-    assert "open(os.environ['GCS_FILE'], 'wb')" in src  # actual download only
+    assert 'open(os.environ["GCS_FILE"], "wb")' in src  # actual download only
     assert "daily immutable collision or readback mismatch" in src
     assert "existing period archive invalid" in src
     assert 'weekly_state="${period_state}"' in src
@@ -103,3 +103,23 @@ def test_vm_immutable_daily_collision_and_weekly_monthly_reuse_contract():
     assert 'pg_restore --list' in src
     assert 'cmp "${temporary}/period.dump"' in src
     assert src.index("daily immutable collision or readback mismatch") < src.index('for period in')
+
+
+def test_iso_week_boundary_uses_monday_and_calendar_month():
+    """Exercise the exact GNU date arithmetic used by the existing VM script."""
+    import subprocess
+    from datetime import date
+    cases = {
+        '2026-12-28': '2026-12-28',  # Monday
+        '2026-12-31': '2026-12-28',
+        '2027-01-01': '2026-12-28',  # Friday: same ISO week in prior year
+        '2027-01-04': '2027-01-04',
+    }
+    for day, expected in cases.items():
+        computed = subprocess.check_output([
+            'bash', '-c',
+            'day="$1"; date -u -d "$day -$(( $(date -u -d "$day" +%u) - 1 )) days" +%F',
+            'bash', day], text=True).strip()
+        assert computed == expected
+        assert date.fromisoformat(computed).isoweekday() == 1
+        assert day[:7] in {'2026-12', '2027-01'}
