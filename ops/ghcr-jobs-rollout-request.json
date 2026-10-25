@@ -2,15 +2,15 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
-  "release_run": "40154638538",
+  "sha": "a2881c5c2532beb5570e29a1fda4472c7bb0d448",
+  "release_run": "40184318031",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:0a95124204d0d86514fb0117c5ba8f0c652dd5c91a6ee9f4ca3c7367f62af9d0",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:0a95124204d0d86514fb0117c5ba8f0c652dd5c91a6ee9f4ca3c7367f62af9d0",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:2f482cdf5b68f0c0e543933aca3f0c50f5469027ff92bbc27ba90168d1a9403e",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:8476899a7cc56f7f5dbc148f66c8a5389e354cbf8335e476ff1f8cb9deeb5e9d"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:6c36cb26e64398ca07b981d9b13563c2864457066fa0e25929eb48cfb04ff15d",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:6c36cb26e64398ca07b981d9b13563c2864457066fa0e25929eb48cfb04ff15d",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:86b999bdf7a0350a01728cf8864a073f6c76c13a3c0ff982e975e030a747f0a0",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:50536c3ac7cccf2e426149e78c5a2bd4411f2e2ba6f3f0a23b983e03123090fc"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
@@ -18,15 +18,15 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "auth_boundary_run": "40155621627",
-  "request_attempt": 55,
+  "auth_boundary_run": "40184856961",
+  "request_attempt": 56,
   "safety": "Source/release/auth/immutable baseline and rollback receipts from actual GitHub/GCP evidence, no new resource or IAM. Natural schedule remains existing hourly during guarded rollout; after runtime gates switch the SAME Scheduler to two-hour schedule.",
-  "authorization": "Owner requested SEQ-04 centralized existing dev deployment and two-hour cutover. Same existing four Jobs; old pinned images/config kept for rollback; no new resources, no model publication.",
+  "authorization": "User approved all four new models and direct replacement, no legacy model compatibility or manual reapproval. Existing Dev four Jobs only; rollback images retained for infrastructure safety, not old model restoration.",
   "rollback_source_shas": {
-    "janus-batch-controller": "cf69def50209ec590e464fcc7298ca4ece44bc6f",
-    "janus-ingestion-core": "cf69def50209ec590e464fcc7298ca4ece44bc6f",
-    "janus-intelligence-mart": "cf69def50209ec590e464fcc7298ca4ece44bc6f",
-    "janus-private-pipeline": "cf69def50209ec590e464fcc7298ca4ece44bc6f"
+    "janus-batch-controller": "032871a38b1dffd11c7bf0cc833563c0c3091841",
+    "janus-ingestion-core": "032871a38b1dffd11c7bf0cc833563c0c3091841",
+    "janus-intelligence-mart": "032871a38b1dffd11c7bf0cc833563c0c3091841",
+    "janus-private-pipeline": "032871a38b1dffd11c7bf0cc833563c0c3091841"
   },
-  "purpose": "SEQ-04 same-SHA full Release #40154638538 PASS, API Candidate #40155492159 0% PASS, Auth Boundary #40155621627 PASS, VM migration069/install #40155184201 PASS, isolated backup restore #40155337207 PASS. Four existing Dev Jobs only, exact #40154546569 rollback pinned-image and config-hash baseline, Scheduler fence, 8 bounded canaries, safe reversal; hourly cron adjustment is later independent cutover gate."
+  "purpose": "SEQ-08 same-SHA Release #40184318031 PASS; API 0% candidate #40184723596 PASS; auth boundary #40184856961 PASS; exact current four Jobs baseline #40184101302 SUCCESS. Publish fixed a2881c5c digest to existing Dev Jobs with scheduler/lease gate; no added jobs, billing/IAM, backup or old model fallback. Registry separate."
 }
