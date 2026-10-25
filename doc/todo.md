@@ -1,6 +1,6 @@
 # Janus — 唯一 Active TODO
 
-更新：2026-10-25（Asia/Taipei）。SEQ-01～03 DOC／CODE／OFFLINE_PASS；SEQ-04 PG migration069＋VM executor＋PG隔離還原 PASS、四Job Release／8次canary PASS、API 100% PASS。唯一原有 Cloud Scheduler 兩小時切換在 #40159576001 因缺少 update 權限被拒，原每小時 cron 已安全回復；後續 live 清理／Owner UI／自然 Controller occurrence 仍未全部驗證。
+更新：2026-10-25（Asia/Taipei）。SEQ-01～03 DOC／CODE／OFFLINE_PASS；SEQ-04 PG migration069＋VM executor＋PG隔離還原、四Job Release／8/8 canary、API 100% PASS。兩小時 Scheduler 切換仍 PARTIAL：#40162679929 schedule-only PATCH遭拒並回復每小時；#40163099454 確認 target SA 的 actAs NOT_GRANTED，待使用者核准最小授權；live自然occurrence等未全部驗證。
 
 ## 唯一順序線
 
@@ -12,7 +12,7 @@
 | SEQ-01 收取、清理與市場分析總控 | UB-01 | DOC／CODE／完整離線217 PASS／Flutter7 PASS；live與部署交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-01) |
 | SEQ-02 持股、買賣與觀察設定快照 | UB-03、4J／4R 的本次增量 | DOC／CODE／OFFLINE_PASS（220 Python、270 API、Flutter User PASS）；live/部署交 SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-02) |
 | SEQ-03 日週月備份、保留清理與回復範圍 | UB-04（不是重開 OPS-P0-1） | DOC／CODE／OFFLINE_PASS（234 Python；API270、Mart247、Ingestion209）／LIVE與DEPLOY交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-03) |
-| SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | **PARTIAL／IAM_BLOCKED**：PG migration069／VM／隔離還原 PASS（#40155184201／#40155337207）；全Release PASS（#40154638538）、四Jobs同SHA 8/8 PASS（#40155713885）、API 100% PASS（#40157972457）。現有唯一Scheduler改兩小時被 `cloudscheduler.jobs.update` 權限阻擋（#40159576001）；現況 `30 * * * *`／ENABLED，回復PASS；Owner UI、自然occurrence、GCS／retention live仍部分未驗。 | 本項集中部署；僅剩Scheduler權限及live驗收 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
+| SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | **PARTIAL／IAM_ACTAS_BLOCKED**：Release #40154638538、四Jobs 8/8 #40155713885、API100% #40157972457、PG隔離還原 #40155337207 PASS。Scheduler 欄位限定 PATCH 仍被拒 #40162679929，原每小時 `30 * * * *`／ENABLED 安全回復。唯讀IAM #40163099454：`cloudscheduler.jobs.update=GRANTED`，對 `janus-ingestion-scheduler@...` 的 `iam.serviceAccounts.actAs=NOT_GRANTED`。需使用者明確核准目標SA範圍最小授權後重試；自然occurrence、Owner UI與部分live尚未驗。 | 同一Dev Scheduler切換與live驗收 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
 | SEQ-05 Valuation 真資料、唯一估值卡契約 | RV-01…06、UB-02 的 Valuation 子功能 | RV-02／03 有既有 CI；RV-03 live 待驗，RV-04…06 待開發 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-05) |
 | SEQ-06 四模型正式上線模式、版本與共用快取 | UB-02、D07 serving、Risk API/UI、D07-CROSS-JOB-MODEL-CACHE；FACTOR-FACTORY／X/Y 僅必要 serving 一致性 | 按四模型可發布前提設計；實際接線狀態逐角色確認 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-06) |
 | SEQ-07 分析報告、Owner history 與 UI 完整接線 | UB-02、D08、RV-05 合流 | 既有 Fact Pack／Gateway 可沿用；完整整合待做 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-07) |
@@ -32,9 +32,9 @@
 
 ### SEQ-04 四階段紀錄（2026-10-25，進行中）
 
-`SEQ-04｜文件設計=REVIEWED／CONTRACT_UPDATED｜程式開發=COMMITTED（controller修正、migration069／VM、四Job/API及Scheduler專用fenced腳本）｜測試驗收=RELEASE_PASS #40154638538／JOBS_8_OF_8_PASS #40155713885／PG_ISOLATED_RESTORE_PASS #40155337207／SCHEDULER_CUTOVER_FAIL #40159576001｜部署=PARTIAL／IAM_BLOCKED｜唯一下一入口=SEQ-04／授權既有Scheduler更新權限→單一兩小時切換→有界live讀回`。
+`SEQ-04｜文件設計=REVIEWED／CONTRACT_UPDATED｜程式開發=COMMITTED（Scheduler schedule-only PATCH與新增權限診斷）｜測試驗收=CI_PASS #40162566821／JOBS_8_OF_8_PASS #40155713885／PG_RESTORE_PASS #40155337207／IAM_READONLY #40163099454｜部署=PARTIAL／IAM_ACTAS_BLOCKED｜唯一下一入口=SEQ-04／授權指定 target SA 的 actAs → 既有fenced workflow重試 → 新cron與自然occurrence讀回`。
 
-收據判定：修正週六Core ready時間型別與00:30備份測試後，完整Release及VM migration／備份執行器更新、PG隔離還原、四Job固定映像8/8 canary、API Promotion 100%已通過。切換曾因未終態執行在 #40158518968 安全回復；後續 #40159481533 全頁唯讀審核四Job共1819個 execution 全部終態。再切換 #40159576001 在 `gcloud scheduler jobs update http` 收到 `seq04_scheduler_update_permission_denied`，receipt=`ROLLED_BACK`、cron=`30 * * * *`／ENABLED、無新增資源。Google官方所需permission為 `cloudscheduler.jobs.update`；需另取得明確IAM授權／使用已合法授權的身分，未授權前不擴權或重試。詳細收據見 [Operations](spec/operations-and-testing.md)。
+收據判定：Release、migration 069／VM、PG隔離還原、四Job 8/8、API 100% 已通過。切換 #40162679929 使用 Schedule-only PATCH（`updateMask=schedule`）後仍被 403 拒絕，receipt 為 `ROLLED_BACK`，原cron `30 * * * *`／ENABLED，target hash 不變；唯讀 [#40163099454](https://github.com/tommylin15/janus-omniforge/actions/runs/40163099454) 從CI實際身分查到 Scheduler update=GRANTED、對附帶的 `janus-ingestion-scheduler@gen-lang-client-0593591102.iam.gserviceaccount.com` 之 actAs=NOT_GRANTED，確定非缺少 Scheduler update。需取得使用者明確授權，才能對**指定SA單一資源**附加最小 actAs 權限；不授予整個專案，不能未授權重試或宣稱SEQ04完成。
 
 ### SEQ-03 四階段紀錄（2026-10-25）
 
