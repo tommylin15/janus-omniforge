@@ -77,8 +77,12 @@ def market_features(datasets, symbols, as_of, snapshot, *, rank=True):
         accepted_market = next(iter(accepted_markets)) if len(accepted_markets) == 1 else None
         sessions_21 = list(benchmark)[-21:]
         research_ret20 = None
+        last_trade = str(row.get("latest_trade_date") or "")
+        freshness = ((date.fromisoformat(as_of) - date.fromisoformat(last_trade)).days
+                     if last_trade else -1)
         if (accepted_market in ("twse", "tpex") and len(sessions_21) == 21
-                and sessions_21[-1] == as_of and all(day in prices for day in sessions_21)):
+                and sessions_21[-1] == last_trade and 0 <= freshness <= 7
+                and all(day in prices for day in sessions_21)):
             start, end = prices[sessions_21[0]], prices[sessions_21[-1]]
             if start > 0 and end > 0:
                 research_ret20 = end / start - 1
@@ -96,11 +100,27 @@ def market_features(datasets, symbols, as_of, snapshot, *, rank=True):
 def rank_features(output, as_of):
     # Research factory rank(method='average', pct=True) is per-market, per-day;
     # compute AFTER all chunks are joined, never rank Owner target subset.
+    # Trading holidays use the latest *observed* market session, not the
+    # calendar analysis date. Distinct trade sessions never enter one cohort.
+    sessions = {}
+    cutoff = date.fromisoformat(as_of)
+    for row in output:
+        item = row.get("seq08_quant_rank_input") or {}
+        market = item.get("market")
+        day = row.get("latest_trade_date")
+        if (market in ("twse", "tpex") and item.get("analysis_as_of") == as_of
+                and isinstance(day, str)):
+            try:
+                age = (cutoff - date.fromisoformat(day)).days
+            except ValueError:
+                continue
+            if 0 <= age <= 7:
+                sessions[market] = max(sessions.get(market, ""), day)
     cohorts = {}
     for row in output:
         item = row.get("seq08_quant_rank_input") or {}
         value = number(item.get("ret20"))
-        if (row.get("latest_trade_date") == as_of
+        if (row.get("latest_trade_date") == sessions.get(item.get("market"))
                 and item.get("analysis_as_of") == as_of
                 and item.get("market") in ("twse", "tpex") and value is not None):
             cohorts.setdefault(item["market"], []).append((row["symbol"], value))
@@ -109,7 +129,7 @@ def rank_features(output, as_of):
         cohort = cohorts.get(item.get("market"), [])
         value = number(item.get("ret20"))
         if (value is None or len(cohort) < 100
-                or row.get("latest_trade_date") != as_of):
+                or row.get("latest_trade_date") != sessions.get(item.get("market"))):
             row["seq08_quant_rank"] = None
             continue
         below = sum(v < value for _, v in cohort)
@@ -119,6 +139,7 @@ def rank_features(output, as_of):
             "market": item["market"], "value": percentile,
             "cohort_size": len(cohort),
             "analysis_as_of": as_of,
+            "source_trade_date": sessions[item["market"]],
             "core_snapshot_id": str(item["core_snapshot_id"]),
             "source": "full_market_core_same_day_pct_rank"}
     # Stable descending rank, with symbol resolving ties; missing values remain unranked.
