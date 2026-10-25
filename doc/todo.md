@@ -12,7 +12,7 @@
 | SEQ-01 收取、清理與市場分析總控 | UB-01 | DOC／CODE／完整離線217 PASS／Flutter7 PASS；live與部署交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-01) |
 | SEQ-02 持股、買賣與觀察設定快照 | UB-03、4J／4R 的本次增量 | DOC／CODE／OFFLINE_PASS（220 Python、270 API、Flutter User PASS）；live/部署交 SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-02) |
 | SEQ-03 日週月備份、保留清理與回復範圍 | UB-04（不是重開 OPS-P0-1） | DOC／CODE／OFFLINE_PASS（234 Python；API270、Mart247、Ingestion209）／LIVE與DEPLOY交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-03) |
-| SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | 新00:30/02:30/04:30/06:30時段DOC／CODE已修改，離線CI待驗；Dev部署與切換未執行 | 本項集中部署 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
+| SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | DOC已補部署／rollback gate；CODE修正週六時間邊界及00:30測試；離線CI #40154394943 PASS；唯讀Jobs基線 #40154546569 PASS；VM audit #40154527268首輪SSH失敗，Release #40154638538已觸發、結論待驗；Dev migration／切換／還原尚未執行 | 本項集中部署 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
 | SEQ-05 Valuation 真資料、唯一估值卡契約 | RV-01…06、UB-02 的 Valuation 子功能 | RV-02／03 有既有 CI；RV-03 live 待驗，RV-04…06 待開發 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-05) |
 | SEQ-06 四模型正式上線模式、版本與共用快取 | UB-02、D07 serving、Risk API/UI、D07-CROSS-JOB-MODEL-CACHE；FACTOR-FACTORY／X/Y 僅必要 serving 一致性 | 按四模型可發布前提設計；實際接線狀態逐角色確認 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-06) |
 | SEQ-07 分析報告、Owner history 與 UI 完整接線 | UB-02、D08、RV-05 合流 | 既有 Fact Pack／Gateway 可沿用；完整整合待做 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-07) |
@@ -29,6 +29,12 @@
 - 每次只執行使用者指定任務／階段；未指定階段時按該任務四階段指示完成可做範圍。遇跨任務集中部署，將部署及live驗收記為 `DEFERRED_TO_SEQ-04/08`，不是PASS；其餘前置交付完成即可往下一順序準備，不造成循環等待。
 - SEQ-04結清SEQ-01…04；SEQ-08結清SEQ-05…08。測試驗收分部署前離線／Release與部署後真實驗收，不能在未部署時假稱live PASS。
 - 記錄格式：`任務｜文件設計狀態｜程式狀態｜測試狀態（offline/live）｜部署狀態｜SHA/證據｜下一階段`。只在此維護active狀態；Operations保存收據。
+
+### SEQ-04 四階段紀錄（2026-10-25，進行中）
+
+`SEQ-04｜文件設計=REVIEWED／部署閘門與合流差異已回寫WI｜程式開發=COMMITTED（a282cde／396d197）｜測試驗收=OFFLINE_PASS（CI #40154394943）／FULL_RELEASE_IN_PROGRESS（#40154638538）／LIVE_NOT_VERIFIED｜部署=NOT_STARTED｜唯一下一入口=SEQ-04／migration及集中切換前置門檻`。
+
+整合差異：週六Core ready查詢 `datetime.min.time` 未呼叫造成TypeError、舊PG備份測試仍要求02:30，均已修正並由新CI驗證。唯讀四Jobs基線 [#40154546569](https://github.com/tommylin15/janus-omniforge/actions/runs/40154546569) PASS，現役四Jobs為同一先前來源 `cf69def50209ec590e464fcc7298ca4ece44bc6f`，immutable rollback digest及config hash已取回；尚未修改Cloud Run。唯讀[VM／Scheduler audit #40154527268](https://github.com/tommylin15/janus-omniforge/actions/runs/40154527268)讀回 `janus-ingestion-daily` 仍 `30 * * * *`／Asia/Taipei／ENABLED；VM前段部分收據讀回後遇SSH `Permission denied (publickey)`，首輪FAIL，重試尚未有成功收據。PG migration069、VM新腳本、Scheduler、Jobs、API、隔離還原及GCS/retention apply均不得捏造PASS，仍需依SEQ-04 WI照順序進行。正式Release只發佈映像，不自動變更現有GCP。
 
 ### SEQ-03 四階段紀錄（2026-10-25）
 
