@@ -117,3 +117,43 @@ jobs:
           print(json.dumps({'seq04_effective_iam':out,'gcp_writes':0},
                            sort_keys=True))
           PY
+
+      - name: Read back successful SEQ-04 single Scheduler after cutover
+        env:
+          PYTHONPATH: scripts/gcp
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          from ghcr_jobs_rollout import cloud, ROOT, scheduler
+          live=scheduler()
+          target=live.get("httpTarget",{})
+          h=hashlib.sha256(json.dumps(target,sort_keys=True).encode()).hexdigest()
+          required="5b647622b2abbcecbbb1e74e0e9134ac60155d41a0f209115ceae0271aa4b3ea"
+          ok=(live.get("name")=="projects/gen-lang-client-0593591102/locations/us-central1/jobs/janus-ingestion-daily"
+              and live.get("schedule")=="30 */2 * * *"
+              and live.get("timeZone")=="Asia/Taipei"
+              and live.get("state")=="ENABLED" and h==required)
+          runs=cloud(f"{ROOT}/jobs/janus-batch-controller/executions?pageSize=15")
+          values=[]
+          for e in runs.get("executions",[])[:15]:
+              values.append({"execution":e.get("name","").rsplit("/",1)[-1],
+                             "created":e.get("createTime"),
+                             "started":e.get("startTime"),
+                             "completed":e.get("completionTime"),
+                             "terminal":any(c.get("type")=="Completed"
+                                and c.get("state") in ("CONDITION_SUCCEEDED","CONDITION_FAILED")
+                                for c in e.get("conditions",[]))})
+          print(json.dumps({"seq04_postcutover_readback":{
+              "scheduler_status":"PASS" if ok else "FAIL",
+              "scheduler_name":live.get("name"),
+              "schedule":live.get("schedule"),
+              "time_zone":live.get("timeZone"),
+              "state":live.get("state"),
+              "target_hash_unchanged":h==required,
+              "controller_recent_executions":values,
+              "controller_executions_next_page":bool(runs.get("nextPageToken")),
+              "natural_two_hour_tick":"NOT_VERIFIED_UNTIL_NEXT_SCHEDULED_TICK",
+              "gcp_writes":0}},sort_keys=True))
+          if not ok:
+              raise SystemExit("seq04_scheduler_postcutover_readback_failed")
+          PY
