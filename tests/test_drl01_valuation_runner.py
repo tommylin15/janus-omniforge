@@ -90,7 +90,7 @@ def test_seq05_two_stock_scope_and_month_slices_are_strict(tmp_path):
 
 def test_valuation_only_release_does_not_require_unrelated_12_quarter_financial_history():
     from ingestion_core.data_supplement import _supplement_is_partial
-    incomplete = [{"history_complete": False}]
+    incomplete = {"2330": {"history_complete": False}}
     assert _supplement_is_partial(valuation_only=True, failures=[], coverage=incomplete) is False
     assert _supplement_is_partial(valuation_only=False, failures=[], coverage=incomplete) is True
     assert _supplement_is_partial(
