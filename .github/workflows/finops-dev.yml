@@ -406,7 +406,7 @@ jobs:
               'attempt':x.get('attempt'),
           }
           assert x['phase'] in ('readback','stage','private','all')
-          assert isinstance(x['attempt'],int) and 1 <= x['attempt'] <= 4
+          assert isinstance(x['attempt'],int) and 1 <= x['attempt'] <= 5
           PY
       - name: Refuse mutation while release lease requires recovery
         run: |
