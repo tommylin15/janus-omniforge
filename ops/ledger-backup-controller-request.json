@@ -4,6 +4,6 @@
   "environment": "dev",
   "release_run": 40154638538,
   "release_sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
-  "phase": "handoff",
-  "reason": "SEQ-04 guarded Dev PG-only isolated restore verification from latest immutable succeeded daily backup after migration069+VM executor install #40155184201 PASS. Verify bytes and Owner relations without touching live DB or deleting GCS; old direct timer remains disabled, existing executor timer only."
+  "phase": "audit",
+  "reason": "SEQ-04 immediate bounded Dev backup and Controller occurrence read-only acceptance after Scheduler cutover #40163729460 PASS, no backup dispatch, GCS mutation, PG write or restoration. Check existing VM timer, retention backup rows, scheduler and persisted Controller occurrences."
 }
