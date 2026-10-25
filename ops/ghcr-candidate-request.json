@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
+  "sha": "a2881c5c2532beb5570e29a1fda4472c7bb0d448",
   "digest": "",
-  "release_run": "40154638538",
+  "release_run": "40184318031",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "SEQ-04 retry same already-verified 0% API Candidate, prior #40155314045 was cleanly BLOCKED by current-main lease race (gcp_writes=0). Isolated PG restore #40155337207 PASS and VM installation #40155184201 PASS. Latest main source request only; no GCP mutation outside candidate, canonical traffic remains unchanged.",
-  "request_attempt": 11
+  "purpose": "SEQ-08 full release #40184318031 PASS. Exact SHA a2881c5c includes native four-model five-head serving + new Flutter risk/Val UI. Deploy existing Dev API 0% fixed digest candidate only; no traffic switch, no Job mutation, no model registry promotion.",
+  "request_attempt": 12
 }
