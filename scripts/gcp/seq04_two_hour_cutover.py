@@ -6,7 +6,9 @@ import argparse
 import hashlib
 import json
 import re
-import subprocess
+from urllib.error import HTTPError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 from pathlib import Path
 
 import ghcr_api_promote as api
@@ -64,32 +66,34 @@ def invariant(before, after):
 
 
 def change_schedule(cron):
-    # Preserve stdout/stderr in memory; expose ONLY a closed error classification.
-    # The actual GCloud error might include a resource URL or sensitive payload.
-    args = ["gcloud", "scheduler", "jobs", "update", "http",
-            "janus-ingestion-daily", "--project=gen-lang-client-0593591102",
-            "--location=us-central1", f"--schedule={cron}",
-            "--time-zone=Asia/Taipei", "--quiet"]
-    result = subprocess.run(args, capture_output=True, text=True, timeout=120,
-                            check=False)
-    if result.returncode:
-        message = result.stderr.lower()
-        category = (
-            "permission_denied" if ("permission_denied" in message
-                                   or "permission denied" in message
-                                   or "does not have permission" in message
-                                   or "403" in message)
-            else "invalid_argument" if ("invalid_argument" in message
-                                         or "invalid value" in message
-                                         or "400" in message)
-            else "cli_argument" if ("unrecognized arguments" in message
-                                    or "unrecognized argument" in message)
-            else "not_found" if ("not_found" in message
-                                 or "not found" in message
-                                 or "404" in message)
-            else "unknown")
-        raise ValueError("seq04_scheduler_update_" + category)
-
+    """PATCH only the cron field, without re-sending the authenticated target."""
+    if cron not in (OLD, NEW):
+        raise ValueError("seq04_scheduler_update_unapproved_schedule")
+    resource = ("projects/gen-lang-client-0593591102/locations/"
+                "us-central1/jobs/janus-ingestion-daily")
+    url = ("https://cloudscheduler.googleapis.com/v1/" + resource
+           + "?" + urlencode({"updateMask": "schedule"}))
+    token = jobs.command(["gcloud", "auth", "print-access-token"]).strip()
+    if not token:
+        raise ValueError("seq04_scheduler_update_auth_unavailable")
+    request = Request(
+        url, method="PATCH",
+        data=json.dumps({"name": resource, "schedule": cron}).encode("utf-8"),
+        headers={"Authorization": "Bearer " + token,
+                 "Content-Type": "application/json"})
+    try:
+        with urlopen(request, timeout=60) as response:
+            result = json.load(response)
+    except HTTPError as error:
+        category = ("permission_denied" if error.code in (401, 403)
+                    else "invalid_argument" if error.code == 400
+                    else "not_found" if error.code == 404
+                    else "http_unexpected")
+        raise ValueError("seq04_scheduler_update_" + category) from None
+    except (TimeoutError, OSError, ValueError):
+        raise ValueError("seq04_scheduler_update_response_unknown") from None
+    if result.get("name") != resource or result.get("schedule") != cron:
+        raise ValueError("seq04_scheduler_update_response_mismatch")
 
 def run(receipt):
     proof = {"phase": "PREFLIGHT", "gcp_new_resources": 0,
