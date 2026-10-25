@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import json
 import os
 import re
@@ -96,12 +96,12 @@ def effective_batches():
 
 
 def weekly_eod_core_evidence(connection, scheduled_at: datetime):
-    """Pair a real recent completed EOD occurrence with an immutable Core ready receipt.
+    """Require a recent immutable Core receipt from a completed pre-open ingestion.
 
-    PostgreSQL bounded read only: an absent/read-denied/invalid receipt blocks
-    dispatch. This does not perform storage mutation or fabricate a source day.
+    The Saturday 02:30 collection covers Friday's last completed session,
+    so the occurrence date and actual Core analysis date must not be conflated.
+    Missing receipts fail closed without deleting any current Iceberg files.
     """
-    import re
     local_day = scheduled_at.astimezone(ZoneInfo("Asia/Taipei")).date()
     first_day = local_day - timedelta(days=8)
     if local_day.weekday() != 5:
@@ -112,37 +112,42 @@ def weekly_eod_core_evidence(connection, scheduled_at: datetime):
                  FROM control.batch_occurrences
                 WHERE state->>'batch'='ingestion'
                   AND state->>'status'='succeeded'
-                  AND scheduled_at >= %s AND scheduled_at < %s
+                  AND scheduled_at >= %s AND scheduled_at <= %s
                 ORDER BY scheduled_at DESC LIMIT 32""",
-            (datetime.combine(first_day, datetime.min.time(), tzinfo=ZoneInfo("Asia/Taipei")),
-             datetime.combine(local_day, datetime.min.time(), tzinfo=ZoneInfo("Asia/Taipei"))),
+            (datetime.combine(first_day, datetime.min.time, tzinfo=ZoneInfo("Asia/Taipei")),
+             scheduled_at),
         )
         ingestions = cursor.fetchall()
-    eligible = []
-    for key, dt in ingestions:
-        if dt.tzinfo is None:
+    for key, slot in ingestions:
+        if slot.tzinfo is None:
             raise RuntimeError("weekly EOD timestamp lacks timezone")
-        day = dt.astimezone(ZoneInfo("Asia/Taipei")).date()
-        if key == f"ingestion/{day.isoformat()}/14" and day.weekday() < 5:
-            eligible.append((key, day))
-    if not eligible:
-        return None
-    key, day = max(eligible, key=lambda item: item[1])
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """SELECT payload->>'coreSnapshotId',payload->>'coreSnapshotUri',payload->>'analysisAsOf'
-                 FROM control.core_ready_events
-                WHERE payload->>'analysisAsOf'=%s
-                ORDER BY created_at DESC LIMIT 32""", (day.isoformat(),),
-        )
-        receipts = cursor.fetchall()
-    for snapshot_id, uri, as_of in receipts:
-        if (as_of == day.isoformat()
-                and isinstance(snapshot_id, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", snapshot_id)
-                and isinstance(uri, str) and re.fullmatch(
-                    r"gs://[a-z0-9][a-z0-9._-]{2,220}/executions/[A-Za-z0-9._-]+/core-snapshot[.]json", uri)):
-            return {"source_occurrence": key, "source_date": day.isoformat(),
-                    "core_snapshot_id": snapshot_id, "core_snapshot_uri": uri}
+        day = slot.astimezone(ZoneInfo("Asia/Taipei")).date()
+        if key != f"ingestion/{day.isoformat()}/02":
+            continue
+        # Match a real receipt written after this scheduled collection began,
+        # rather than guessing that analysisAsOf equals the calendar day.
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """SELECT payload->>'coreSnapshotId',payload->>'coreSnapshotUri',payload->>'analysisAsOf'
+                     FROM control.core_ready_events
+                    WHERE created_at >= %s AND created_at <= %s
+                      AND payload->>'analysisAsOf' < %s
+                    ORDER BY created_at DESC LIMIT 32""",
+                (slot, scheduled_at, day.isoformat()),
+            )
+            receipts = cursor.fetchall()
+        for snapshot_id, uri, as_of in receipts:
+            try:
+                source_day = date.fromisoformat(as_of)
+            except (TypeError, ValueError):
+                continue
+            if not (0 < (day - source_day).days <= 8):
+                continue
+            if (isinstance(snapshot_id, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", snapshot_id)
+                    and isinstance(uri, str) and re.fullmatch(
+                        r"gs://[a-z0-9][a-z0-9._-]{2,220}/executions/[A-Za-z0-9._-]+/core-snapshot[.]json", uri)):
+                return {"source_occurrence": key, "source_date": source_day.isoformat(),
+                        "core_snapshot_id": snapshot_id, "core_snapshot_uri": uri}
     return None
 
 
