@@ -44,7 +44,7 @@ Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當�
 ## 5. 獨立模型研究資料與生命週期
 
 [Colab/Drive唯一研究契約](research-collection-gas-drive-colab.md)：官方TWSE/TPEx→人工Colab→私有Drive每月資料夾→Colab模型。GAS/ZIP路線已退役；歷史普通股母體、來源權利、研究70%與正式模型PIT/OOS分別驗證。
-[模型生命週期](model-lifecycle.md)是新模型業務candidate/回饋保存與日週月批次的**待實作目標**。不把第3節現行09:00 mart當盤前分析；規劃08:30盤前、盤後接16:30 screening、週回收及月評估需A-CHANGE/D07實作及驗收，不能因文件寫入聲稱已啟用。
+[模型生命週期](model-lifecycle.md)是新模型業務candidate/回饋保存與日週月批次的**待實作目標**。不把歷史第3節09:00 Mart視為新批次；SEQ-04目標為02:30收取→平日04:30 screening→06:30私人更新，實際切流與驗收仍以統一批次SPEC及Runtime為準；取消的例行週月模型稽核／重訓不復活。
 新模型/feedback prefix須分類保護，避免舊Mart90日/三代/7日清理誤刪；新回饋熱讀365日/精簡歷史36月詳見生命週期，**不改既有Stage/Core/Private TTL，也不授權本輪執行刪除**。
 
 ## 6. 舊模型研究排程已退役
