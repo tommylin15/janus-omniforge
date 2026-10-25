@@ -1,5 +1,12 @@
 # Janus 最新驗收證據索引
 
+### SEQ-04 14:30 新兩小時自然Controller交叉讀回（2026-10-25；PASS）
+
+- [GitHub Read-only #40169964904](https://github.com/tommylin15/janus-omniforge/actions/runs/40169964904) GCP Scheduler `lastAttemptTime=2026-10-25T06:30:00.865962Z` 且Scheduler executions 06:30有兩筆INFO，但首次CLI executions list未找到新Controller，當時仍標NOT_VERIFIED，未用trigger取代產物。
+- [雙路交叉讀回 #40170098722](https://github.com/tommylin15/janus-omniforge/actions/runs/40170098722) completed/success；Scheduler `30 */2 * * *`、Asia/Taipei、ENABLED、14:30自然Attempt；Scheduler execution日誌HTTP 200；Cloud Run V2 REST `janus-batch-controller` execution create UTC `2026-10-25T06:30:00.943455Z`、start `06:30:16.601901Z`、complete `06:31:52.439218Z`，`Completed=CONDITION_SUCCEEDED`。故 **自然Controller tick=PASS**，CLI首輪因列表形態未顯示而漏判，保留此交叉證據。
+- **不延伸為市場收取成功**：下一個新版每日02:30 ingestion自然時點為2026-10-26 02:30 Asia/Taipei，需另以Controller occurrence→Cloud Run ingestion execution→Stage/Core日期與產物讀回判斷；2026-10-25 02:30為較早歷史failed，不能當新版結果。Stage/Private有界apply、Iceberg current pointer、Owner/Admin正向仍各自待驗；整體SEQ-04保持LIVE_PARTIAL。
+
+
 此頁保留最新有界收據；未完成工作與 SEQ-05 最新紀錄只維護於 [TODO](../todo.md)。本輪僅整理文件，未做新的 runtime 驗收。
 
 
