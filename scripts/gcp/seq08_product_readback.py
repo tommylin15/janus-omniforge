@@ -32,7 +32,7 @@ def require_request(data):
     if data != {
         "intent": "seq08-exact-real-mart-product-readonly",
         "source_sha": SOURCE, "successful_mart_run": RUN,
-        "symbols": list(SAMPLES), "read_only": True,
+        "symbols": list(SAMPLES), "diagnostic_attempt": 2, "read_only": True,
         "no_gcp_mutation": True, "no_owner_mutation": True,
         "no_new_resources": True
     }:
@@ -130,6 +130,26 @@ def readback(execution_id, cloud_execution):
             or inputs.get("output_hash") != output.get("source_analyst_input_hash")
             or inputs.get("core_snapshot_id") != output["core_snapshot_id"]):
         raise ValueError("live_model_features_hash_mismatch")
+    # Private-safe diagnostic: aggregate missing feature names and dates only.
+    # Do not output held/watchlisted symbol union or any source financial amounts.
+    input_by_symbol = {item["symbol"]: item for item in inputs.get("rows", [])}
+    if len(input_by_symbol) != len(inputs.get("rows", [])):
+        raise ValueError("duplicate_analyst_input_symbol")
+    reasons = {role: Counter() for role in EXPECTED_ROLES}
+    missing = {role: Counter() for role in EXPECTED_ROLES}
+    input_dates = {role: Counter() for role in EXPECTED_ROLES}
+    latest_trades = Counter()
+    rejected_counts = Counter()
+    for raw in inputs.get("rows", []):
+        latest_trades[str(raw.get("latest_trade_date"))] += 1
+        rejected_counts[str(raw.get("rejected_input_count"))] += 1
+        for role in EXPECTED_ROLES:
+            row = raw.get("roles", {}).get(role, {})
+            for cause in row.get("reasons", []):
+                reasons[role][str(cause)] += 1
+            for feature in row.get("missing_features", []):
+                missing[role][str(feature)] += 1
+            input_dates[role][str(row.get("input_as_of"))] += 1
     counts = {role: Counter() for role in EXPECTED_ROLES}
     sampled = {code: {"present": False} for code in SAMPLES}
     target = set()
@@ -166,6 +186,13 @@ def readback(execution_id, cloud_execution):
             "model_artifact_sha256": output_hash,
             "target_symbol_count": len(target),
             "model_status_counts": {k: dict(v) for k,v in counts.items()},
+            "input_diagnostics": {
+                "missing_features": {k: dict(v) for k,v in missing.items()},
+                "reasons": {k: dict(v) for k,v in reasons.items()},
+                "input_as_of": {k: dict(v) for k,v in input_dates.items()},
+                "latest_trade_dates": dict(latest_trades),
+                "rejected_input_counts": dict(rejected_counts),
+            },
             "samples": sampled, "owner_login_ui": "NOT_VERIFIED",
             "pg_product_readback": "NOT_VERIFIED",
             "gcp_mutations": 0}
