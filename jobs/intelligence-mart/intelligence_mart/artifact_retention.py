@@ -133,6 +133,15 @@ def clean_specialist_artifacts(store, *, apply, now, active_executions=frozenset
                 and datetime.fromisoformat(item["updated"].replace("Z", "+00:00")) < now - timedelta(days=90):
             if not name.startswith("executions/") or name.split("/")[1] not in active_executions:
                 candidates.add(name)
+        # SEQ-06: only derived public prediction caches expire. Immutable model
+        # candidates and ACTIVE registry pointers are never cleanup candidates.
+        if (name.startswith("models/inference-cache/v1/")
+                and datetime.fromisoformat(item["updated"].replace("Z", "+00:00")) < now - timedelta(days=7)):
+            candidates.add(name)
+        if (name.startswith("executions/") and name.endswith("/four-model-serving.json")
+                and name not in live and name.split("/")[1] not in active_executions
+                and datetime.fromisoformat(item["updated"].replace("Z", "+00:00")) < now - timedelta(days=7)):
+            candidates.add(name)
         if (name.startswith("executions/") and name.endswith("/analyst-inputs.json")
                 and name not in live and name.split("/")[1] not in active_executions
                 and datetime.fromisoformat(item["updated"].replace("Z", "+00:00")) < now - timedelta(days=7)):

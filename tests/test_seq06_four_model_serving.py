@@ -142,3 +142,76 @@ def test_rejects_cache_tampering_and_owner_free_result():
 def test_target_bound_and_no_owner_fields_from_input():
     with pytest.raises(ValueError, match="250"):
         ServingSession(Store(), "mart").run(inputs([row(str(n)) for n in range(251)]))
+
+
+def test_real_native_xgboost_bytes_and_feature_name_parity():
+    xgb = pytest.importorskip("xgboost")
+    import numpy as np
+    order = ["ret5", "market_code"]
+    matrix = xgb.DMatrix(np.array([[0.1, 0], [0.5, 1], [-0.2, 0]], dtype=float),
+                         label=np.array([0., 1., 0.]), feature_names=order)
+    model = xgb.train({"objective": "binary:logistic", "max_depth": 2, "nthread": 1},
+                      matrix, num_boost_round=2)
+    raw = bytes(model.save_raw(raw_format="json"))
+    store = Store()
+    ptr = pointer(raw=raw)
+    store.data["models/registry/quant-active.json"] = canonical(ptr)
+    store.data[ptr["model_gcs_uri"][len("gs://mart/"):]] = raw
+    item = row("2330")
+    first = ServingSession(store, "mart").run(inputs([item]))
+    value = first["rows"][0]["roles"]["quant"]["prediction"]
+    expected = float(model.predict(xgb.DMatrix(np.array([[0.2, 0.]], dtype=float),
+                                           feature_names=order))[0])
+    assert value == pytest.approx(expected)
+    assert 0 <= value <= 1
+    assert ServingSession(store, "mart").run(inputs([item]))["rows"][0]["roles"]["quant"]["status"] == "ACTIVE_CACHED"
+    model.feature_names = ["market_code", "ret5"]
+    wrong = bytes(model.save_raw(raw_format="json"))
+    bad = pointer(raw=wrong)
+    store.data["models/registry/quant-active.json"] = canonical(bad)
+    store.data[bad["model_gcs_uri"][len("gs://mart/"):]] = wrong
+    with pytest.raises(ValueError, match="feature names"):
+        ServingSession(store, "mart").run(inputs([item]))
+
+
+def test_bounded_cache_cleanup_preserves_registry_and_model_bytes():
+    from datetime import datetime, timezone
+    from intelligence_mart.artifact_retention import clean_specialist_artifacts
+    now = datetime(2026, 10, 25, tzinfo=timezone.utc)
+    old = "2026-10-01T00:00:00Z"
+    new = "2026-10-24T00:00:00Z"
+    keys = {"models/inference-cache/v1/quant/expired.json": old,
+        "models/inference-cache/v1/quant/fresh.json": new,
+        "models/candidates/quant/m1/model.json": old,
+        "models/registry/quant-active.json": old,
+        "executions/old/four-model-serving.json": old,
+        "executions/live/four-model-serving.json": old}
+    store = Store()
+    store.objects = lambda _: [{"name": name, "size": len(name),
+                "generation": str(i + 1), "updated": modified}
+               for i, (name, modified) in enumerate(keys.items())]
+    deletes = []
+    store.delete = lambda name, *, generation: deletes.append((name, generation))
+    plan = clean_specialist_artifacts(store, apply=False, now=now,
+                                      active_executions=frozenset({"live"}))
+    assert plan["planned_objects"] == 2 and deletes == []
+    actual = clean_specialist_artifacts(store, apply=True, now=now,
+                                        active_executions=frozenset({"live"}))
+    assert actual["deleted_objects"] == 2
+    assert {name for name, _ in deletes} == {
+        "models/inference-cache/v1/quant/expired.json",
+        "executions/old/four-model-serving.json"}
+    assert all(generation.isdigit() for _, generation in deletes)
+
+
+def test_validly_hashed_out_of_range_cache_is_rejected():
+    store, ptr = setup()
+    session = ServingSession(store, "mart", loader=lambda *_: 1, predictor=lambda *_: [0.4])
+    session.run(inputs([row("2330")]))
+    name = next(k for k in store.data if k.startswith("models/inference-cache/"))
+    cached = json.loads(store.data[name])
+    cached["value"] = 2.0
+    cached["output_hash"] = fingerprint({k: v for k, v in cached.items() if k != "output_hash"})
+    store.data[name] = canonical(cached)
+    with pytest.raises(ValueError, match="cached probability"):
+        ServingSession(store, "mart").run(inputs([row("2330")]))

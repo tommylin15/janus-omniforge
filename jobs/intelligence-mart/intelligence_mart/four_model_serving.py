@@ -187,6 +187,8 @@ class ServingSession:
                 or fingerprint({k: v for k, v in item.items() if k != "output_hash"}) != item.get("output_hash")
                 or self._value(item.get("value")) is None):
             raise ValueError("cross-job inference cache identity mismatch")
+        if pointer["output_name"] == "p_up_20d" and not 0 <= item["value"] <= 1:
+            raise ValueError("invalid cached probability")
         return identity, name, item["value"]
 
     def _save(self, name, identity, role, row, pointer, value):

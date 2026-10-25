@@ -72,3 +72,5 @@ D08只讀已驗證Fact Pack，LLM無canonical/publication權；A模板解讀不�
 - 真實模型以 SHA256 單次 GCS download，在單一 execution RAM 重用、同角色批量 predict；跨 Job 不假設共享記憶，使用由公開 `symbol/role/model SHA/feature order/input_as_of/真實 X` 導出的不可變 GCS cache。cache identity／輸出 hash 不符拒絕；升版、特徵或值變更自然失效。新 cache 留在現有 Mart bucket，不新增服務或逐股 Cloud Run Job；保留與清理依現有產物治理，SEQ-08 需讀回。
 - 支援的非 Risk output 明訂 Quant `p_up_20d`（0..1），Fundamental `next_month_revenue_yoy_pct`（百分點），Valuation `log_pe` 或 `log_pb`（自然對數倍數）；這只是 loader 可理解的輸出格式，不代表四角色已有合格模型或 Valuation 已同時具 PE/PB 兩頭。任何不同 training preprocessing、schema、單位或缺乏正式 artifact 為 BLOCKED，不能用 baseline 冒充正式推論。
 - 離線回歸見 `tests/test_seq06_four_model_serving.py`；部署／Registry activation／GCS真artifact／PG API 正向／登入 UI 與回退驗收全部交 SEQ-08。使用者已決定研究調校至 2027 Q1，本輪不重訓。
+
+- 新跨 Job 推論快取僅為可重算派生物，沿用現有 Mart retention 路徑，在 `models/inference-cache/v1/` 超過 7 天才列入有界 generation-delete；已保留或 active execution 的 `four-model-serving.json` 不清，未被保留且逾 7 天者可清。**永不以此規則清除** `models/registry/` 或 `models/candidates/`，亦不修改現役 Risk/舊 API 回退。
