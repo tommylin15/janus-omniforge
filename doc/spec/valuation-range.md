@@ -25,6 +25,14 @@ RV-01 已完成 [現役 reader 靜態清冊](../research/valuation-rv01-serving-
 - **缺值診斷修復**：`packages/valuation_range.py` 已改為即使 EPS/BVPS 缺失，也先計算實際有效月末倍數個數；缺值的價格仍必須是null，`tests/test_valuation_range_inputs.py` 增加回歸。這項修改已由新CI #40167057471驗證，不回溯改寫上述live收據。
 - **RV-04 單一卡片投影元件**：新增`packages/valuation_reference.py:project_reference_card`（`valuation-reference-card.v1`）及`tests/test_valuation_reference.py`；[同版CI #40167057471](https://github.com/tommylin15/janus-omniforge/actions/runs/40167057471) 216 passed／1 warning。只轉換經 RV-02/RV-03 驗證且鎖定 `symbol/as_of/core_snapshot_id` 的一份結果。只有 `available` 且24個月／普通股／來源核准／正財務基礎／有序正區間才保留價格；其他狀態數值一律null。它不是第二個估值公式，也不會寫新Canonical、Registry、服務或排程。**此段為最初RV-04純投影階段收據；後續已接入兩檔 Mart／Fact Pack／API 程式，但未部署，Flutter留SEQ-07，整體仍PARTIAL。**
 
+### SEQ-05 最新｜一次性第三方研究補入與直接加總（2026-10-25）
+
+- **使用者已明確選擇簡化口徑**：本版先以現有FinMind Core四季原始單季EPS直接加總，不再為2330逐季調整股票股數。2025Q3 17.44 + 2025Q4 19.51 + 2026Q1 22.08 + 2026Q2 27.25 = **TTM EPS 86.28 元**。這是研究用 `last_four_reported_quarters_simple_sum`，來源FinMind（四季EPS股數口徑可能不同），不是發行人稀釋EPS或法定TTM財報數字；不得用它宣稱正式稀釋EPS相等。資料原已在Core，不需重抓2330財報。實作 `intelligence_mart/valuation_reference.py:simple_reported_eps` 限2330這筆研究範圍。
+- **真實一次性補收已PASS**：[GitHub #40172093172](https://github.com/tommylin15/janus-omniforge/actions/runs/40172093172)，既有Dev Job `janus-ingestion-core-lwwg5`，Stage→Core寫入**FinMind TaiwanStockPER/PBR共11筆**（2882，2025-10至2026-08，每月最後交易日），及**Yahoo 2882 2026Q2已公告BVPS=69.37元1筆**（`TWD_per_share`），皆有Stage原始回應、Core source_id／provenance、獨立snapshot與寫入讀回。估值Core snapshot `3874132956674698219`，財務Core snapshot `6504132269236397893`；指定缺漏月份讀回**11/11**、`source_errors=[]`、`status=CORE_INPUTS_COMPLETE`；Job範本不變、新服務／排程0、Owner變更0。來源屬既有核准fallback `finmind`／`yahoo-finance`，在Mart `facts.py` 明確標成 `approved_fallback` 而非官方。
+- **不可再派送**：這是一輪Dev研究補資料，不是新常態資料來源。單次請求 `ops/seq05-oneoff-quickfill.json` 已設 `approved=false, closed_after_success=true`，派送程式遇封存請求則回 `SKIPPED_ALREADY_COMPLETED/data_mutations=0`；若需後續更新應由正常批次或新的有界工作定義，不重複執行同一Job。
+- **功能狀態分界**：輸入資料補齊及程式碼 `Core→Mart analyst_inputs→specialist_product→authenticated API` 已可供下版批次消費，**但這不等於 Mart 成品已在現有 Dev runtime 發布**。目前沒有新的正式 Fact Pack 成品／API正向登入讀回；仍依 SEQ-08 做受控發布及Mart/Fact Pack/API live readback，Flutter/A-CHANGE依SEQ-07。直到正式Mart寫入驗證前，`Valuation full LIVE=PARTIAL`，不能把offline 86.28或69.37直接當成已上線的價帶。
+- **驗測**：簡化研究EPS與來源回歸CI [#40172051959](https://github.com/tommylin15/janus-omniforge/actions/runs/40172051959) 226 passed／1 warning；一次性雲端Job前置單測3 passed並由#40172093172產生實際Core收據。FinMind免費授權限非商業使用並需標示來源；若日後轉商業產品，需重新檢查或更換來源，不能視為無條件商業授權。
+
 ### SEQ-05 第二輪｜限定兩檔批次與服務端接線（2026-10-25）
 
 **已提交程式，尚未部署：**
