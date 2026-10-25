@@ -10,7 +10,7 @@
   "allow_legacy_forward_only": false,
   "auth_boundary_run": "40155621627",
   "api_image": "ghcr.io/tommylin15/janus-api@sha256:266913747ce9ba3834183af8168826342b4a9fdadc406f697a996b67595b6944",
-  "purpose": "SEQ-04 user-authorized existing-dev API only: full GHCR Release #40154638538 PASS, 0% API candidate #40155492159 PASS, auth boundary #40155621627 PASS, four Jobs #40155713885 PASS 8/8; previous actual 100% API revision janus-api-00603-vev GHCR cf69def5 and immutable 7a4c41... from #40087061995, reconfirmed candidate preflight. Switch direct once to verified candidate, read back health/build-id and existing anonymous owner boundaries. Preserve old GHCR revision for rollback on failure. No other Scheduler/Job/Iceberg/data/IAM changes.",
-  "request_attempt": 7,
+  "purpose": "SEQ-04 user-authorized existing-dev API only: full GHCR Release #40154638538 PASS, 0% API candidate #40155492159 PASS, auth boundary #40155621627 PASS, four Jobs #40155713885 PASS 8/8; previous actual 100% API revision janus-api-00603-vev GHCR cf69def5 and immutable 7a4c41... from #40087061995, reconfirmed candidate preflight. Switch direct once to verified candidate, read back health/build-id and existing anonymous owner boundaries. Preserve old GHCR revision for rollback on failure. No other Scheduler/Job/Iceberg/data/IAM changes. Retry after inert future template misalignment found in #40157848778; templates now synchronized to current live 032871a3 Jobs and cf69def5 API rollback. Prior run blocked at offline test with zero traffic mutation.",
+  "request_attempt": 8,
   "traffic_validation_mode": "direct"
 }
