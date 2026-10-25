@@ -8,6 +8,15 @@
 你是接手的Janus工程AI。直接在 `tommylin15/janus-omniforge main` 完成有界測試→必要修正→部署→runtime驗收，不新增branch／PR，不新增付費資源／IAM。先讀PROJECT_RULES、統一批次SPEC與本文件；使用 recovering-stuck-ci-deploys。
 此WI描述後續任務，不代表本輪已觸發或授權跳過任何真實權限阻擋。
 
+## SEQ-04｜本次集中部署設計與前置差異檢查（2026-10-25）
+
+- 合流基線：SEQ-01來源 `4241bf40b94b5a75ffee235b9ef0b52b5eb5a271`、SEQ-02來源 `9f0cd4477d0f6cb1fe653b23979e8fd76c6672fe`、SEQ-03來源 `246aaac277e5baab1ccfb5eb9c753fbf6cb61570` 均有既有離線成功收據。新時段另有 main 更新；上線不可只部署前三個來源SHA，必須以本次完整 Release 的同一新SHA及固定 digest 為準。
+- 部署前差異已定位：舊程式在週六 EOD 收據查核使用未呼叫的 `datetime.min.time`，在 `a282cde8809253415e15f1dd5b729874fa912ebd` 修正；舊備份測試還斷言02:30，在 `396d197a7e04e907e3b5cccc5961a68a69410d8f` 改驗00:30、唯一occurrence。原CI [#40152753966](https://github.com/tommylin15/janus-omniforge/actions/runs/40152753966) 234 PASS／2 FAIL，新CI [#40154394943](https://github.com/tommylin15/janus-omniforge/actions/runs/40154394943) 的離線與受影響API job PASS。這些不是正式Release或live PASS。
+- 時段鎖定：Asia/Taipei每日00:30 PG備份、02:30 收取上一已完成交易日、平日04:30以實際Core ready日期 screening、平日06:30私人更新；22:30 Stage TTL、週六22:30 Iceberg維護及待辦 mobile-ledger 沿既有模式。Cloud Scheduler 僅更新原 `janus-ingestion-daily` 的 `30 */2 * * *`，絕不可新增第二組入口。
+- 變更清單：套用 `infra/postgres/migrations/069_backup_retention_status.sql` 後更新既有VM executor、restore、retention，接著以單一ReleaseSHA的不可變digest更新四Jobs與API／必要前端。先核對舊VM腳本、兩個timer狀態、Scheduler原cron／target／identity、四Jobs images與config hash、API 100% revision、在途作業。這些live基線取得之前不可宣稱安全切換；已有推送唯讀稽核要求，需以其實際Actions結果回填。
+- 有界runtime驗收只涵蓋一個新Scheduler tick、一個最新可用收取→Core→screening、一個已授權Owner snapshot/API、一次備份daily與週月存在性核對、隔離PG restore、retention dry-run／有界apply、Admin及migration重跑。GCS／Iceberg仍須獨立可讀檢查；PG隔離還原不能冒稱完整Owner／Lakehouse還原。四模型完整發布與產品UI結案仍屬SEQ-05～08。
+- 安全切換：先保存baseline再暫停唯一Scheduler，僅在Job安全終態及完整Release/auth gates後套migration→VM→四Jobs/API→cron→resume；不得以partial gate放行。失敗只對本次有問題的層依D節回復**同一**Scheduler及原image／VM設定；Owner帳本、current Iceberg、正式備份不可因回復被覆寫／刪除。
+
 ## A. 固定版本與離線測試
 
 1. `git fetch origin main`，記錄 `git rev-parse origin/main`、工作目錄差異；不要覆蓋別人的變更。
