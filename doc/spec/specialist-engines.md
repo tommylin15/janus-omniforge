@@ -74,3 +74,9 @@ D08只讀已驗證Fact Pack，LLM無canonical/publication權；A模板解讀不�
 - 離線回歸見 `tests/test_seq06_four_model_serving.py`；部署／Registry activation／GCS真artifact／PG API 正向／登入 UI 與回退驗收全部交 SEQ-08。使用者已決定研究調校至 2027 Q1，本輪不重訓。
 
 - 新跨 Job 推論快取僅為可重算派生物，沿用現有 Mart retention 路徑，在 `models/inference-cache/v1/` 超過 7 天才列入有界 generation-delete；已保留或 active execution 的 `four-model-serving.json` 不清，未被保留且逾 7 天者可清。**永不以此規則清除** `models/registry/` 或 `models/candidates/`，亦不修改現役 Risk/舊 API 回退。
+
+## 2026-10-25｜四模型核准發布與模型權重實測（SEQ-06補充）
+
+使用者已明確核准四模型全部發布；原研究包 `publication_allowed=false` 係舊執行狀態，保留歷史紀錄，不再視為本輪人工授權未取得。已從Drive `janusChatGPT` 實讀真模型：Quant15、Risk12、Fundamental15、Valuation PE/PB 兩頭，均能原生 XGBoost 載入；Quant與Valuation向量重播精確一致。正式dev [GCS讀回 #40177858431](https://github.com/tommylin15/janus-omniforge/actions/runs/40177858431)：Risk `DETERMINISTIC`、Quant/Fundamental/Valuation pointer 均不存在。部署和引入正式候選模型全部於 SEQ-08，不得把本次本地ZIP當GCS ACTIVE。
+
+Valuation v26 的五個真X按**研究相同計算**映射到 Core XBRL：`roe_proxy=net_income_year_to_date/total_equity_snapshot`（本期累計淨利比期末權益，非一般年化ROE）、`debt_ratio=total_liabilities_snapshot/total_assets_snapshot`、`log_total_assets=ln(total_assets_snapshot[TWD])`、`revenue_yoy=revenue_year_to_date[YQ]/revenue_year_to_date[(Y-1)Q]-1`、`market_code=0/1`（TWSE/TPEx）。只取MOPS合併報表、同季指定科目、來源日期不晚於分析日，歧義/缺財報保留null。正式Core貨幣已TWD，與研究MOPS仟元乘1000轉換後一致，**不得對Core再次乘1000**。實作 `jobs/intelligence-mart/intelligence_mart/valuation_ml_mapping.py`、測試 `tests/test_valuation_ml_mapping.py`；所有輸入的實際Core覆蓋與ML訓練對照於SEQ-08判定。研究五因子為NON_PIT限制需揭露，不冒稱超額報酬或合理價的驗證。

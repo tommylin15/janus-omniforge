@@ -1,5 +1,14 @@
 # Janus 最新驗收證據索引
 
+### SEQ-06 四模型 user-approved 真 Artifact／GCS 指標核對（2026-10-25；LOCAL_RELOAD_PASS／GCS_NOT_ACTIVE）
+
+- **核准**：使用者在2026-10-25明確核准 Quant、Risk、Fundamental、Valuation 四模型發布，已解除人工 publication approval；並未授權捏造缺值或以未驗收推論宣稱ACTIVE。未新開付費 API、模型或GCP資源。
+- **真模型下載／本地重載**：Quant XGB15 SHA `3fb509cb7ca8aa5e4a0ec3ca9139a1d355995478a624e1043853f59500cbffe9`，8 test vectors 誤差0；Risk XGB12研究 refit SHA `e00d302b082fb135991dc4e6f146cf4b9b7dbb56311daae27539564a629e05eb`，12X原生重載（缺訓練 test vector 與終版全歷史模型）；Fundamental RC1 XGB15 SHA `05fa3167f10c650389c4e481c3e3a7de8a2b70f9133ad867f0404c3eb9758b0c`，原生重載、研究5% abstention另需serving；Valuation v26 PE SHA `56060b37fb1c18efa9ba3e5c7352b10eca12c8d13990bc6031cdfad15d3bc610`、PB `c0984c82039307788e2af4c962a5e7376bdd2b29a30cecfcff557a91811ffe7a`，各5個固定向量誤差0。來源均為Drive唯一根`janusChatGPT`，暫存封包未上傳GCS，不是 ACTIVE 指標。
+- **real dev Registry readback**：[GCS exact pointer audit #40177858431](https://github.com/tommylin15/janus-omniforge/actions/runs/40177858431) `completed/success`、gcs_writes=0：Risk `DETERMINISTIC`（**目前沒有Risk XGBoost ACTIVE**）；Quant/Fundamental/Valuation均 `POINTER_MISSING`（非PermissionDenied）。前一 #40177726233 將 missing 泛化成 READ_ERROR，已改明確分類並獨立重跑。無上傳、無CAS或PG mutation。
+- **Valuation accounting code**：[d15e4d70](https://github.com/tommylin15/janus-omniforge/commit/d15e4d70af9d0238822918698be3f0ea9efaa8f6) 對正式 XBRL Core 指標 `total_assets_snapshot`／`total_liabilities_snapshot`／`total_equity_snapshot`／`net_income_year_to_date`／`revenue_year_to_date` 建立真MOPS consolidated同季+去年相同季度、TWD、日期檢查及衝突拒絕；產出 `roe_proxy`、`debt_ratio`、`log_total_assets`、`revenue_yoy`、`market_code`。研究資料把資產仟元轉元，Core原本已是元，不重乘1000。schema code／target tests [CI #40177556379](https://github.com/tommylin15/janus-omniforge/actions/runs/40177556379) success、[分析產品PG契約 #40177556535](https://github.com/tommylin15/janus-omniforge/actions/runs/40177556535) success；**Mart 真實五欄覆蓋未部署驗收**。
+- **服務阻礙，須於SEQ-08排除**：Risk目前8X常數與Registry pin須增量支援12X及四新X，不能直接替換；Quant 目前11X／候選15X，缺新增欄；Fundamental目前9X／候選RC1 15X + 5%拒絕預測gate，沒有條件仍輸出null；Valuation雖映射五因子，現役單頭`valuation-active.json`不能同時發布PE/PB兩頭，且需以真Core資料驗收口徑。GCS候選應以create-only導入與SHA讀回再做必要serving修改、CI、API／Flutter＋rollback及Registry原子切換；不做無界調參重訓或新增自動排程。
+
+
 
 ### SEQ-04 Owner／Admin 真實登入後 UI 正向驗收（2026-10-25；USER_SCREENSHOT_PASS）
 
