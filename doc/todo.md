@@ -32,7 +32,7 @@
 
 ### SEQ-05 四階段紀錄（2026-10-25，第四輪：一次性第三方補資料）
 
-`SEQ-05｜DOC=UPDATED／CODE=Core補資料/簡化EPS及Mart→Fact Pack→API COMMITTED／OFFLINE=PASS（[分析CI #40172051959](https://github.com/tommylin15/janus-omniforge/actions/runs/40172051959) 226 passed／1 warning）／LIVE_CORE=PASS（[有界一筆Job #40172093172](https://github.com/tommylin15/janus-omniforge/actions/runs/40172093172)，FinMind PB 11筆、Yahoo BVPS 1筆，Core月份11/11讀回、source_errors=[]）／MART_AND_API_LIVE=NOT_DEPLOYED／DEPLOY=DEFERRED_TO_SEQ-08／唯一下一入口=SEQ-08依既有統一部署程序發布Valuation接線，驗收真實Mart/Fact Pack/API 2330和2882同版估值卡及登入讀端；Flutter/A-CHANGE歸SEQ-07。`
+`SEQ-05｜DOC=UPDATED／CODE=Core補資料/簡化EPS及Mart→Fact Pack→API COMMITTED／OFFLINE=PASS（[分析CI #40172724791](https://github.com/tommylin15/janus-omniforge/actions/runs/40172724791) 227 passed／1 warning）／LIVE_CORE=PASS（[有界一筆Job #40172093172](https://github.com/tommylin15/janus-omniforge/actions/runs/40172093172)，FinMind PB 11筆、Yahoo BVPS 1筆，Core月份11/11讀回、source_errors=[]）／MART_AND_API_LIVE=NOT_DEPLOYED／DEPLOY=DEFERRED_TO_SEQ-08／唯一下一入口=SEQ-08依既有統一部署程序發布Valuation接線，驗收真實Mart/Fact Pack/API 2330和2882同版估值卡及登入讀端；Flutter/A-CHANGE歸SEQ-07。`
 
 使用者要求「補資料不用太嚴謹，直接做加總」：2330以既有FinMind Core 2025Q3 17.44 + 2025Q4 19.51 + 2026Q1 22.08 + 2026Q2 27.25 = **86.28 TWD/share**，只作`last_four_reported_quarters_simple_sum`研究參考，不宣稱配股調整後、稀釋EPS或法定四季合計。這四筆原本已在Core，沒有重新寫入。2882 Yahoo來源（`https://tw.stock.yahoo.com/quote/2882.TW/profile`）公開2026Q2 BVPS=69.37 元，已隨來源原始回應透過 Stage 入 Core；FinMind `TaiwanStockPER` 2025-10至2026-08 11個月PB最後交易日共11筆已實際入 Core。實際source ID為`finmind`和`yahoo-finance`、角色為核准fallback，不冒充官方來源。Core估值snapshot=3874132956674698219、財務snapshot=6504132269236397893。唯一Dev Job execution `janus-ingestion-core-lwwg5`，GCP範本未變、未增費服務與Scheduler、Owner資料未異動。正常既有Stage 48h清理政策不變。
 
