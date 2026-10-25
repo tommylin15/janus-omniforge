@@ -9,6 +9,7 @@ on:
       - 'ops/seq08-model-activation-request.json'
       - 'ops/seq08-live-acceptance-request.json'
       - 'ops/seq08-product-readback-request.json'
+      - 'ops/seq08-pg-readback-request.json'
 permissions:
   contents: write
   actions: read
@@ -197,3 +198,32 @@ jobs:
           path: /tmp/seq08-real-product-readback.json
           if-no-files-found: ignore
           retention-days: 14
+
+  # Read-only SQL by bounded one-shot probe in already deployed Dev Mart Job.
+  # This does NOT serve anonymous Owner data or create a permanent Job/Scheduler.
+  seq08-pg-product-readback:
+    needs: inventory
+    if: "${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'ops(seq08): verify exact PostgreSQL product projection') }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Restrict PG probe to exact one read-only task
+        run: python -m pytest -q tests/test_seq08_pg_product_readback.py
+      - name: Verify deployed job immutable digest
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: One existing Mart Job read-only SQL and sanitized receipt
+        run: python scripts/gcp/seq08_pg_product_readback.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: seq08-exact-pg-product-readback
+          path: /tmp/seq08-pg-product-proof.json
+          retention-days: 14
+          if-no-files-found: ignore
