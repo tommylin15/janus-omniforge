@@ -9,5 +9,6 @@
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
-  "no_new_resources": true
+  "no_new_resources": true,
+  "diagnostic_attempt": 2
 }
