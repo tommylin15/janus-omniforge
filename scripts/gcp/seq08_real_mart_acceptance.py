@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import time
@@ -26,6 +27,8 @@ BUCKET = "gen-lang-client-0593591102-dev-mart"
 
 
 def authorize():
+    if os.environ.get("GITHUB_RUN_ATTEMPT", "1") != "1":
+        raise ValueError("seq08_real_mart_workflow_rerun_forbidden")
     request = json.loads(Path("ops/seq08-live-acceptance-request.json").read_text())
     if (request.get("intent") != "seq08-bounded-real-mart-acceptance"
             or request.get("approved") is not True
