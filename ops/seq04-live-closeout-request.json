@@ -10,6 +10,6 @@
   "private_daily_cap": 3,
   "private_weekly_cap": 1,
   "private_monthly_cap": 1,
-  "phase": "all",
-  "attempt": 3
+  "phase": "private",
+  "attempt": 4
 }
