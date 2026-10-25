@@ -205,37 +205,12 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
     analyst_ref = _write_immutable_json(
         store, bucket, f"executions/{execution.execution_id}/analyst-inputs.json", analyst_inputs)
 
-    # The pinned GCS registry is the only model activation gate in the Mart.
-    from .risk_active import load_active_pointer, materialize_active_predictions
-    risk_pointer = load_active_pointer(store, bucket=bucket)
+    # SEQ08 serves Risk12, Quant15, Fundamental15 and Valuation PE/PB.
+    # A missing new Registry pointer returns missing statuses, not Risk8.
     risk_active_ref = None
     risk_quality_ref = None
-    if risk_pointer is not None:
-        from .risk_inputs import read_risk_ohlcv
-        ordinary = set(market_symbols) if not deep_coverage else set(
-            load_market_membership(publication_connection, as_of)["symbols"])
-        scoped = tuple(sorted(set(target["symbols"]) & ordinary))
-        if scoped:
-            if catalog_factory is None:
-                from .storage import sql_catalog_from_environment
-                risk_catalog_factory = sql_catalog_from_environment
-            else:
-                risk_catalog_factory = catalog_factory
-            risk_rows, scan_receipt = read_risk_ohlcv(
-                core, as_of, scoped, execution.core_snapshot_id,
-                catalog_factory=risk_catalog_factory)
-            # Prediction validates its own input; no duplicate quality artifact.
-            risk_active_ref = materialize_active_predictions(
-                store, bucket=bucket, rows=risk_rows,
-                targets=target["symbols"], ordinary_symbols=ordinary,
-                as_of=as_of, core_snapshot_id=execution.core_snapshot_id,
-                core_manifest_hash=execution.request_options["core_snapshot_hash"],
-                active_pointer=risk_pointer)
-
-    from .four_model_serving import materialize_four_model_serving
-    four_model_ref = materialize_four_model_serving(
-        store, bucket, analyst_inputs, execution.execution_id,
-        risk_active=risk_active_ref is not None)
+    from .seq08_native_serving import materialize
+    four_model_ref = materialize(store, bucket, analyst_inputs, execution.execution_id)
 
     references = []
     computed_specialists = 0
