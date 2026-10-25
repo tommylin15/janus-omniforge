@@ -89,6 +89,14 @@
 - **權限收尾提醒**：現有target SA資源綁定Service Account User具 `actAs` 能力，超出本次僅修改cron；若未來不再由CI更新此Scheduler，應由使用者核准後評估撤銷。撤銷不影響已成功的cron設定，但未授權前不自行修改IAM。
 
 
+## 2026-10-25｜SEQ-08 直接替換模型：GCS import preflight 工程收據（尚未部署）
+
+- **使用者核准：** Quant／Risk／Fundamental／Valuation 四角色直接使用新版，無須再次人工發布授權。舊 Risk8、舊 deterministic 推論、既有不存在的模型不再作相容／模型回復前置；本決策與資料／Auth／API 安全防護分離，見 [PROJECT_RULES §0.3](../PROJECT_RULES.md)。
+- **版本與代碼：** 原始整合 commit [810b0fb6](https://github.com/tommylin15/janus-omniforge/commit/810b0fb6a7b49e99f8d12813093855e37ac81ca7)，修測試後同版 HEAD [e415048c](https://github.com/tommylin15/janus-omniforge/commit/e415048cf97d5a89aaacde40ebcf7759451887da)。新增 `scripts/gcp/seq08_candidate_import.py` 對五份新 UBJ 固定 SHA256、12／15／15／5／5 維度、已知 Risk／Val 特徵順序、來源位置、preprocessing與型態做預檢；`--apply` 只上傳既有 Dev Mart GCS `models/candidates/` 的 create-only 物件並下載讀回，**不觸碰任何 ACTIVE pointer、Risk PG、API 流量或 Owner 資料**。新增四組單元測試、接入既有分析CI，不增加 workflow、Job、Scheduler 或付費服務。
+- **CI 結果：** [Selective #40179984749](https://github.com/tommylin15/janus-omniforge/actions/runs/40179984749) completed/success；[Analysis/Postgres #40179984775](https://github.com/tommylin15/janus-omniforge/actions/runs/40179984775) completed/success，均為 SHA `e415048cf97d5a89aaacde40ebcf7759451887da`。前兩輪 [#40179732146](https://github.com/tommylin15/janus-omniforge/actions/runs/40179732146)／[#40179899825](https://github.com/tommylin15/janus-omniforge/actions/runs/40179899825) 新fixture錯誤已修；歷史失敗未偽裝PASS。
+- **刻意未宣稱：** 本次執行環境尚無五份可讀的真實 UBJ 檔案／相應本地 manifest 可用於上述 CLI，未執行 `--apply`、無任何GCS candidate create-only readback；Risk仍由最近 [#40177858431](https://github.com/tommylin15/janus-omniforge/actions/runs/40177858431) 實測為 DETERMINISTIC，Quant／Fundamental／Valuation ACTIVE pointer 不存在。Risk12／Quant15／Fund15 abstention／Valuation v26 PE+PB 的新正式 serving reader、PG/Registry與一次產品鏈完整 live 尚未完成；不能把 CI PASS 說成四模型上線。
+- **繼續同一 SEQ-08，不新增序號：** 補足五權重之有界可讀輸入及原研究 schema→候選import真hash讀回→新版特徵與五頭推論→固定SHA Release／Dev Job/API/Flutter→2330／2882／既有Owner有界正向驗收。Dev既有業務兩小時排程不重建。
+
 ## 歷史收據
 
 - [截至 2026-10-25 整理前的完整收據](../archive/document-cleanup-2026-10-25/operations-and-testing.md)：保留歷次失敗、恢復、來源 SHA 與範圍，不改判歷史結果。
