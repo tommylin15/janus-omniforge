@@ -36,7 +36,11 @@ def main():
         read = cloud("cat", uri)
         if read.returncode:
             message = read.stderr.decode("utf-8", "replace").lower()
-            state = "POINTER_MISSING" if "not found" in message or "404" in message else "READ_ERROR"
+            missing = any(phrase in message for phrase in (
+                "not found", "404", "no urls matched", "matched no objects",
+                "no objects matched", "not exist", "does not exist"))
+            denied = any(phrase in message for phrase in ("403", "permission", "access denied"))
+            state = "POINTER_MISSING" if missing else ("ACCESS_DENIED" if denied else "READ_ERROR")
             output["roles"][role] = {"status": state, "model_active": "NOT_VERIFIED"}
             continue
         try:
