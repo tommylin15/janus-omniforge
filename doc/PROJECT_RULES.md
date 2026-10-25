@@ -6,7 +6,7 @@
 
 依 [研究精簡政策](spec/research-simplification.md) 執行：取消獨立資料稽核、逐來源補證、全歷史 PIT／時間校準、例行品質重抓與前瞻成熟等待門檻。既有日期／單位／來源欄位可沿用，不做額外追溯工程。只保留直接影響功能、模型答案正確性與資料安全的檢查。本條覆蓋本文件其他章節及所有舊 SPEC／WBS／TODO／Drive 相反指示；取消不等於驗證通過。
 
-原始研究清理只修改文件與程式，其後已於 2026-10-24 完成離線測試、完整 Release、四個既有 Dev Jobs 更新、API 100% 切流與一次獨立唯讀 Runtime 驗收；本工項有界 CLOSED／PASS，詳細來源與未驗證事項見 [WI](runbook-research-simplification-wi.md)。不擴充為歷史來源稽核；個別備份可用性仍依 Active TODO 的 OPS-P0-1 判定。
+原始研究清理只修改文件與程式，其後已於 2026-10-24 完成離線測試、完整 Release、四個既有 Dev Jobs 更新、API 100% 切流與一次獨立唯讀 Runtime 驗收；本工項有界 CLOSED／PASS，詳細來源與未驗證事項見 [WI](runbook-research-simplification-wi.md)。不擴充為歷史來源稽核；OPS-P0-1 已另有有界結案收據；新備份政策依 Active TODO 的 SEQ-03／04 判定。
 
 ## 0.1 統一批次（2026-10-24 最新決策）
 
@@ -15,6 +15,12 @@
 四模型按可發布設計，不因這項前提捏造 Registry ACTIVE／模型效用／runtime PASS。保留現有 Event 相容讀取，不設第五模型。
 本輪使用者明確要求先文件再程式，**不執行測試或驗收**；測試、CI、部署、migration與live acceptance交接其他AI，不以未執行稱完成。
 本條覆蓋下面與舊各領域文件相反的時段／保留數量；Stage48h、Core current-only／7日orphan、Owner保護與已取消稽核不變。
+
+## 0.2 單一路線與四模型本版上線（2026-10-25）
+
+本次只更新文件、commit／push後停止。後續由使用者逐條指定 [TODO](todo.md) 的SEQ-01→08；每項分文件設計、程式開發、測試驗收、部署，AI指示與建議模型見 [任務卡](execution-cards/sequential-delivery.md)。本條覆蓋舊多線並行分派，不自行開工。
+Quant／Risk／Fundamental／Valuation全部納入本版正式serving與發布、報告、UI；以既有可發布artifact接線，真實缺檔明列，不能用baseline／research-only冒充正式ML。研究調校、全面研究資料重整與後續VAL-MIN30改善延至約2027年第一季的第二版，由使用者重新啟動；不自動排程，不將其作本版上線前置。必要特徵／數值一致性、安全與實際推論驗收保留。
+正式上線模式沿既有Dev個人真實服務，不自動新增GCP production環境、付費資源、權限或交易操作。舊研究卡的訓練／月評估指示依此暫緩。
 
 ## 1. 權威與事實判定
 
@@ -160,7 +166,7 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 
 ### 4.1 全市場及批次總控（2026-10-13 最新決策）
 
-**全市場與總控契約（2026-10-14 coverage 更新）：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。實作／切換依最新 status 與 runtime evidence 分項判定；授權及暫停範圍只由當次使用者指令與 active TODO 決定。 [全市場／總控契約](spec/full-market-batch-policy.md) 定義分母、快照、即時操作與遷移驗收；[2026-10-13 歷史批次盤點](archive/batch-inventory-2026-10-13.md) 只供追溯，**現況**以 [治理總入口](spec/data-governance.md) 與 Controller/runtime 認定。交易入帳／試算及報價按需刷新不等定時批次，背景工作共用 request／fence。此決策取代舊 Liquid 500 admission，保留 50 筆關注 quota、來源與金額／模型品質約束。
+**全市場與總控契約（2026-10-14 coverage 更新）：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次與備份清理由 Cloud Scheduler／既有 GCP 執行路徑總控；GitHub Actions 不保留任何業務定時排程，只作版本管理、CI／Release。實作／切換依最新 status 與 runtime evidence 分項判定；授權及暫停範圍只由當次使用者指令與 active TODO 決定。 [全市場／總控契約](spec/full-market-batch-policy.md) 定義分母、快照、即時操作與遷移驗收；[2026-10-13 歷史批次盤點](archive/batch-inventory-2026-10-13.md) 只供追溯，**現況**以 [治理總入口](spec/data-governance.md) 與 Controller/runtime 認定。交易入帳／試算及報價按需刷新不等定時批次，背景工作共用 request／fence。此決策取代舊 Liquid 500 admission，保留 50 筆關注 quota、來源與金額／模型品質約束。
 
 ## 5. 最小文件讀取
 

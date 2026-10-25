@@ -1,16 +1,20 @@
 # Janus 目前狀態
 
+更新：2026-10-25（Asia/Taipei）。本輪為文件排序與AI交接整理，沒有執行測試、部署、migration或Registry變更。
+
+統一批次主要程式已於 [77b5565](https://github.com/tommylin15/janus-omniforge/commit/77b5565f2b23c5023c9128121a9dfad05ed58376) 提交main，該版仍未測試／部署／驗收。新兩小時Scheduler與VM保留政策未由本輪切換；四模型正式上線也尚未由本輪完成。
+
+**下一個唯一入口：SEQ-01／文件設計**。接著依 [TODO](todo.md) 順序到SEQ-08，完整操作見 [AI卡](execution-cards/sequential-delivery.md)。四模型正式serving／報告UI納入本版，研究調校延至2027年第一季由使用者重新啟動，不形成發布前置。
+
+## 沿用的歷史基線
+
 更新：2026-10-24。**研究稽核精簡已 CLOSED／PASS（有界 Dev 驗收）**。已完成離線測試、GHCR Release、四個既有 Dev Jobs Rollout、API 100% 切流，以及一次獨立唯讀 Runtime 讀回。正式 API source：`cf69def50209ec590e464fcc7298ca4ece44bc6f`；Scheduler ENABLED，退役 `data-quality` 不在新版批次定義。
 
 驗收：[完整 Release #40084702607](https://github.com/tommylin15/janus-omniforge/actions/runs/40084702607)／[Jobs #40085601337](https://github.com/tommylin15/janus-omniforge/actions/runs/40085601337)／[API #40087061995](https://github.com/tommylin15/janus-omniforge/actions/runs/40087061995)／[Runtime #40087520948](https://github.com/tommylin15/janus-omniforge/actions/runs/40087520948)。完整界限見 [結案 WI](runbook-research-simplification-wi.md)，不可冒稱真人登入、舊 pending DB 終態或備份復原已驗證。
 
-下一步只依 [唯一 Active TODO](todo.md) 與 [WBS](wbs.md) 排序，分線執行：
 
-- **P0：OPS-P0-1 已結案**：2026-10-24 Daily 40,587,735 bytes 由既有 Controller/VM executor 成功產生；[即時唯讀 #40095061967](https://github.com/tommylin15/janus-omniforge/actions/runs/40095061967) 及 [GCS 安全 dry-run #40095324398](https://github.com/tommylin15/janus-omniforge/actions/runs/40095324398) PASS：最新備份 4.25h、36h gate 通過、7 Daily/2 Monthly 受保護、刪除 0。之前獨立還原 PASS 沿用，不宣稱已對 10/24 新檔重新 restore。取消自然 GitHub 排程追查。
-- **P1：RV-01～06、VAL-MIN30**：已建 [RV-01 現役 reader 清冊](research/valuation-rv01-serving-readers-2026-10-24.md)（靜態對應 PASS／真實代表股票覆蓋待驗）；已新增 `packages/valuation_range.py` 的 RV-02 估值分位與純函式，16 項 targeted tests [最新 CI #40096160077](https://github.com/tommylin15/janus-omniforge/actions/runs/40096160077) PASS。RV-03 已將既有 Core 60 月內 PE/PB 最後交易日觀測與 PostgreSQL Serving EPS／BVPS、行情接上 RV-02 內部函式；[新 13 項 targeted CI #40097413271](https://github.com/tommylin15/janus-omniforge/actions/runs/40097413271) PASS。**尚無 Dev 端真實資料抽樣收據**（Janus 唯讀查詢通道本輪內部失敗），故 RV-03 狀態 `CODE_CI_PASS／LIVE_PENDING`；不假稱已接每日執行，下一步在既有 Dev 讀真實代表股票後再進 RV-04 API/Mart、RV-05 單一 UI、RV-06 Dev 驗收。尚未部署 Valuation。VAL-MIN30 研究可獨立持續。
-- **P1/P2：DATA-RELEASE-PREFLIGHT／FACTOR-FACTORY → D07 X/Y → Quant、Risk、Fundamental、Valuation 四模型研究**；Risk ACTIVE 不因精簡而自動啟用。
-- **P3：D08**：沿用 Fact Pack 與 Gateway 做報告／Owner history／UI，可先開發，不等所有模型；共用模型快取待三模型可部署後處理。
+OPS-P0-1 已於2026-10-24有界結案；當日Daily 40,587,735 bytes、唯讀 [#40095061967](https://github.com/tommylin15/janus-omniforge/actions/runs/40095061967) 與dry-run [#40095324398](https://github.com/tommylin15/janus-omniforge/actions/runs/40095324398)通過，歷史隔離還原沿用，不宣稱10/24新檔已重做restore。SEQ-03／04驗新版7/4/6政策，不重開舊故障。
 
-已結案不重開：P0-2、C1-A、A-CHANGE、D01～D06、研究精簡。逐來源稽核、全歷史 PIT、週月模型稽核、長期自然觀察已 CANCELLED（不是 PASS）。C1-B 真實資料刪除未授權。
+RV-02純函式與RV-03 adapter已有既有CI收據；RV-03真實2330／2882覆蓋仍待驗，RV-04…06尚未完整接線／發布，現併SEQ-05／08。詳見 [Valuation SPEC](spec/valuation-range.md)。
 
-**備份結案界限**：最新 GCS generation/size 與保護計畫已驗收，歷史隔離還原 PASS；本次沒有對 10/24 新版執行逐 byte checksum/獨立 restore，不冒稱該項實測。A-CHANGE 使用者驗收為其獨立結案證據。完整證據索引：[Operations](spec/operations-and-testing.md)。
+P0-2、C1-A、A-CHANGE、D01～D06、FINOPS-AB及研究精簡保持既有結案；取消項不變PASS。實際證據查 [Operations](spec/operations-and-testing.md)，不以本文件取代runtime。

@@ -3,7 +3,7 @@
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
 
-更新：2026-10-24（多線依賴管理補正）。此文件管理**唯一待辦、文件責任、驗收與重大風險決策**，不取代 [PROJECT_RULES](PROJECT_RULES.md)，也不建立第二份 TODO。Dev 是現有真實 parallel-live；研究精簡版於 2026-10-24 已完成既有四個 Jobs、API 100% 切流與有界 Runtime 驗收（詳見 [結案 WI](runbook-research-simplification-wi.md)）。本次文件同步不執行 Cloud Run、Scheduler、migration 或訓練。
+更新：2026-10-25（單一路線與四模型正式上線）。此文件管理**唯一待辦、文件責任、驗收與重大風險決策**，不取代 [PROJECT_RULES](PROJECT_RULES.md)，也不建立第二份 TODO。Dev 是現有真實 parallel-live；研究精簡版於 2026-10-24 已完成既有四個 Jobs、API 100% 切流與有界 Runtime 驗收（詳見 [結案 WI](runbook-research-simplification-wi.md)）。本次文件同步不執行 Cloud Run、Scheduler、migration 或訓練。
 
 ## 1. 各文件只做一件事
 
@@ -23,13 +23,13 @@
 
 入口：`AGENTS.md → PROJECT_RULES → status → TODO → 指定任務卡 → 最少相關 SPEC/code/tests`。最新 runtime/code 優先於舊文件。Drive 只主動在白名單 `janusChatGPT` 內查原始設計，不能用 Drive 研究文件替換目前 GitHub/runtime 真相。
 
-## 2. 唯一 Active TODO、多線排序與研究資料責任（2026-10-24）
+## 2. 唯一順序與責任（2026-10-25）
 
-- **執行佇列唯一**：[TODO §1](todo.md)；**責任與先後/平行路由唯一**：[WBS 工作線矩陣](wbs.md)；**事實證據**：[Operations](spec/operations-and-testing.md)。本頁不保存第二份逐項進度。
-- **P0 只剩 OPS-P0-1 的新備份可用性與清理安全收尾**，不再等待自然排程探針。P0-2、C1-A、A-CHANGE、研究精簡發版已結案，不佔 active queue。**P1** RV-01…06（04 Valuation 倍數參考區間）、VAL-MIN30、研究資料包 preflight 可平行；**P2** 共用 X/Y 與 Quant／Risk／Fundamental／Valuation 四模型研究；**P3** D08 事實報告可先行，不等模型全部完成。依 [唯一 TODO](todo.md) 判定實際工作範圍。
-- **嚴格合流**：Controller/lease/retention apply 串行變更；frozen release/hash、canonical writer 和 migration 需一致；Risk §1.12 未達 gate 維持 DETERMINISTIC；公開 Fact Pack/Owner API 及 RV-05 合流測真實 UI。第四個模型 04 Valuation 依 [估值區間 SPEC](spec/valuation-range.md) 增加可重算倍數情境；獨立第五模型已撤銷，Event 保留原始事實／公告提醒。
-- D07-PRE 原有 21 月 OHLCV / Drive 收據與新 v3.8.4 research release 是不同版本，不互相冒充 full pass；Colab 人工啟動、可追溯增量，X/Y 與評估於現行 ChatGPT 研究流程；舊 GCP/BQ retrain 已退休，不能重啟。資料與模型 research-only 不可替代正式 PIT/source/promotion。
-- D01～D06、DRL-01、FINOPS-AB 依原有有界收據結案，不把 2.0 重新定義成其遺漏驗收；資料治理 C1-B 未取得許可不得刪表欄或自行觸發 destructive apply。
+- 唯一工作線是 [TODO](todo.md) 的SEQ-01→08；[WBS](wbs.md)只對照責任，[AI卡](execution-cards/sequential-delivery.md)提供每項四階段指示與模型建議。
+- SEQ-01…03完成設計／開發／離線驗證後，由SEQ-04集中部署與live；SEQ-05…07同理由SEQ-08結清。不以未部署卡片阻塞其集中部署準備，也不提前宣稱完成。
+- 四模型本版全部正式serving／報告／UI，採既有可發布artifact；研究調校、全面研究資料改善移至[2027 Q1](parking-lot.md#v2-2027-q1)。必要推論特徵一致性仍在SEQ-06。
+- OPS-P0-1及其餘已結案項不再分派。共享writer／migration／發版仍按既有lease串行；不新增業務Cron，GitHub只做CI／Release。
+- 本輪僅更新文件並提交，開發、測試與部署留待使用者逐項啟動。
 
 ## 3. AI 作業與完成分層
 
@@ -56,7 +56,7 @@
 | **R4 資料帶往 Colab 的 training-use／Owner 安全** | **只允許合規公開研究特徵、短效／最小權限，不帶 Owner/secret** | 新來源/第三方外部訓練授權不足時評估合約或替代合法來源 | 缺授權就不送 Colab，不補造 |
 | **R5 FINOPS 實際刪除和成本節省未清楚核實** | **唯讀原已執行 Job receipts 算 objects/bytes，不能拿候選數當實刪** | 真實 I/O／費用仍過高時另決定有界優化／必要 BQ 前處理 | 已結案 scope 不重跑 destructive cleanup |
 
-**R1 已定案 A（人工執行 Colab）**，本階段不追求免費版無人值守能力，不把它當 D07-PRE 阻擋；只要求可人工操作且有不可變結果及 Janus 驗收收據。**R2／R3 尚未選定擴大資料取得或歷史版次建置**；先按現有資料做有界、合法研究並精確盤點，再由使用者選擇是否補全，不能自動批准新增付費、不可逆資料操作或 IAM 擴張。嚴格 PIT 模型 promotion 的未通過條件仍不放寬。
+**R1 已定案 A（人工執行 Colab）**，本階段不追求免費版無人值守能力，不把它當 D07-PRE 阻擋；只要求可人工操作且有不可變結果及 Janus 驗收收據。**R2／R3 尚未選定擴大資料取得或歷史版次建置**；先按現有資料做有界、合法研究並精確盤點，再由使用者選擇是否補全，不能自動批准新增付費、不可逆資料操作或 IAM 擴張。基本防洩漏、特徵一致性與真實載入保留；不得恢復已取消的全歷史PIT或新cohort等待門檻。
 
 ## 5. 封存與防止文件重新膨脹
 

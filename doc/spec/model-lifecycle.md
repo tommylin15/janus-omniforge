@@ -1,4 +1,6 @@
-# D07｜五分析師完整模型生命週期
+# 四模型正式服務與研究生命週期
+
+> 2026-10-25最新決策：Quant／Risk／Fundamental／Valuation本版全部正式上線，依[SEQ-06／08](../execution-cards/sequential-delivery.md)接線／驗收／發布；共用快取本版完成，不等待再次訓練。下文歷史研究、試訓、月評估及第五角色敘述不構成當前任務，研究調校／全面資料改善延至[2027 Q1第二版](../parking-lot.md#v2-2027-q1)。實際artifact／Registry仍以證據判定，不因規劃改判ACTIVE。
 
 > 2026-10-24 批次與快照改以 [統一流程](unified-batch-flow.md) 為準。四模型按可發布規劃，既有artifact/Registry真實狀態不改判；訓練仍外部執行、無週月例行模型稽核、無GitHub業務cron。本輪未測試／部署。
 

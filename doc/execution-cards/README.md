@@ -1,38 +1,17 @@
-# D01～D08 獨立 AI 任務卡索引
+# AI 任務卡入口
 
-更新：2026-10-24。任務卡只保存**如何操作／驗收**，唯一 active queue 在 [TODO](../todo.md)，已結案卡片不重新形成待辦。
+更新：2026-10-25。唯一 active queue：[TODO](../todo.md)；唯一現行逐項指令：[SEQ-01…08四階段任務卡](sequential-delivery.md)。每項都有文件設計、程式開發、測試驗收、部署及建議AI模型。
 
-| 工作包 | 執行卡 | WBS 責任 |
-|---|---|---|
-| **OPS-P0-1** | [Controller Runbook](../runbook-batch-controller-dev.md)、[唯一 TODO](../todo.md) | WBS-3/7/8；新備份可讀及清理安全；P0-2 已結案，不重開自然觀察 |
-| **GOV-C1A-READERS（已結案）** | [治理契約](../spec/data-governance.md)、[C1-A](../research/data-governance-c1a-2026-10-23.md) | 歷史定位，C1-B 物理刪除未授權；不列待辦 |
-| **RV-01…06／Janus 2.0** | [04 Valuation 區間子功能正式 SPEC](../spec/valuation-range.md)、[WBS 合流](../wbs.md) | WBS-5/6；不建立第五模型；Event／A-CHANGE 事實與提醒保留 |
-| A-CHANGE（USER_ACCEPTED／CLOSED） | [方案A歷史卡](a-change-analysis.md) | WBS-5/6；僅有具體新異常才修復，不重開整包 |
-| D01 | [持股交易／完整估值](d01-holdings-trading-valuation.md) | WBS 4J／6（必要時 4R） |
-| D02 | [全市場／首屏快照／效能](d02-full-market-snapshot-performance.md) | WBS 3／6 |
-| D03 | [四頁 UI／通用圖表／視覺收斂](d03-four-page-charts-visual.md) | WBS-6-USER-FINAL-VISUAL-CONVERGENCE（非 AI） |
-| D04 | [Scheduler 總控／備份交接](d04-controller-backup-handoff.md) | WBS 3／7 |
-| D05 | [產品集中發布／完整 dev 驗收](d05-integrated-release-dev.md) | WBS 8／CI-CD |
-| **D07-PRE（唯一研究入口）** | [Colab／Drive 月資料夾 研究規格](../spec/research-collection-gas-drive-colab.md) | 研究普通股、分市場70%、欄位盤點；舊研究退役已結案，不作前置 |
-| D06（已併 FINOPS-AB 結案） | [歷史清理任務卡](d06-iceberg-retention-io.md) | 只供歷史／故障定位，不執行獨立工項 |
-| D07 | [四模型研究（歷史五角色卡僅作操作參考）](d07-specialist-b9-oos.md) | WBS-5-MART-SPECIALIST-ENGINES；研究範圍依唯一 TODO／新政策 |
-| D08 | [CEO／Admin／正式 Owner 報告](d08-ceo-admin-owner-report.md) | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE |
+先讀AGENTS／PROJECT_RULES，再按使用者指定SEQ-ID與階段開工；任務卡存在不是自動執行授權。本輪文件提交後停止。
 
-使用時先讀 [AGENTS](../../AGENTS.md) → [PROJECT_RULES](../PROJECT_RULES.md) → [TODO](../todo.md) 確認指定 Dxx 的授權與 active acceptance，再讀**該一張**任務卡與最小受影響 code/spec/UI；若未授權，卡片存在不代表可啟動。本索引不標 PASS／PARTIAL，真實狀態在 [status](../status.md)，唯一未完成清單在 [TODO](../todo.md)。
+| 舊卡／ID | 現行去向 |
+|---|---|
+| UB-01／03／04／05 | SEQ-01…04 |
+| RV-01…06 | SEQ-05，發布合流SEQ-08 |
+| UB-02／D07 serving／跨Job快取 | SEQ-06 |
+| [D08報告卡](d08-ceo-admin-owner-report.md) | SEQ-07，發布合流SEQ-08；僅讀仍適用細節 |
+| D07-PRE／X/Y／因子工廠 | 上線必要一致性SEQ-06；全面研究改善移第二版 |
+| [D07研究卡](d07-specialist-b9-oos.md)、[模型生命週期卡](d07-model-lifecycle.md) | [2027 Q1第二版](../parking-lot.md#v2-2027-q1)，不自動執行 |
+| [A-CHANGE](a-change-analysis.md)、D01～D06、OPS-P0-1、C1-A | 已結案歷史參考，無新異常不重開 |
 
-工程卡統一包含：責任、依賴、最小必讀、工程入口、前置讀回、執行程序、專屬驗收、安全界線、失敗恢復、相同格式的 CI／dev 真實證據與 AI 交接報告。
-
-目前範例：「接續 D07-PRE，採 官方 API→Colab→Drive 月資料夾→Colab；不使用舊 Core/BQ／Cloud Run 訓練路徑，正式 Janus 服務不受影響。」
-
-
-## D01～D06 已結案的 UI／資料指令（歷史索引）
-
-[TODO](../todo.md)確認範圍 → [AI總指令](../codex-execution-plan.md)第1節選卡。DRL-01 及 D02/D03 的原業務驗收已按使用者接受範圍結案，舊 UI 資料工作單僅供新缺陷追溯，**不恢復原 DRL 任務**。
-**UI實際長相看[A第5節](../ui/visual-first-four-pages.md)**，含手機／桌面位置、尺寸、字級、按鈕、缺值樣式；資料→計算→UI→驗收看[B工單](../ui/visual-first-delivery.md)。不另建 DRL 卡或 queue，D07/PRE 與 D08 依現行 TODO，不重新驗已接受的真人 PASS。
-
-## 方案 A 新入口
-[A-CHANGE AI卡](a-change-analysis.md)：事實解讀→變化狀態→盤前盤後→UI集中驗收；[D07卡](d07-specialist-b9-oos.md)負責X/Y/模型；不重開D01～D06。
-
-
-D07詳細操作：[Colab採集/清洗/貼標/訓練→GCS→日週批次→月評估](d07-model-lifecycle.md)，沿原D07卡/WBS，不是新queue。
-
+[統一批次WI](../runbook-unified-batch-ai.md)是SEQ-01…04與08的技術程序，不是額外工作線。舊卡中多線並行、第五模型或已取消稽核門檻不覆蓋現行規則。

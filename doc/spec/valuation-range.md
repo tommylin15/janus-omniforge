@@ -33,6 +33,8 @@ RV-01 已完成 [現役 reader 靜態清冊](../research/valuation-rv01-serving-
 
 ## 4. WBS 驗收節點（RV-06）
 
+2026-10-25：以下是內部技術依賴，舊「可平行」不是分派指示。執行順序統一為SEQ-05開發、SEQ-07報告UI合流、SEQ-08集中發布；四階段與模型建議見[AI卡](../execution-cards/sequential-delivery.md)。
+
 | 工作項 | 可平行與先後 | 交付證據／完成定義 |
 |---|---|---|
 | RV-01｜口徑與實際來源覆蓋 | 可立即與 UI、模型研究平行 | EPS/BVPS/PE/PB 的實際 reader、來源授權、時間、缺值與適用性逐檔/抽樣清冊 |

@@ -1,40 +1,12 @@
 # Janus｜接手 AI 的唯一工程路由
 
-> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+更新：2026-10-25。唯一順序是 [TODO](todo.md) 的 SEQ-01→08；原多線分派與舊OPS-P0-1待辦已取代。四個模型全部本版正式上線，調校留2027年第一季。
 
+1. 讀 [AGENTS](../AGENTS.md) → [PROJECT_RULES](PROJECT_RULES.md) → [TODO](todo.md)。
+2. 選使用者指定的 SEQ-ID／階段，讀 [逐項AI指示](execution-cards/sequential-delivery.md) 的共同指令與該任務卡。
+3. 按文件設計、程式開發、測試驗收、部署完成指定範圍；每卡已標建議模型、必要來源、具體交付、依賴、退出條件與失敗處理。
+4. SEQ-04集中部署基礎批次；SEQ-08集中發布四模型及報告UI。兩次集中部署各有真實live驗收，不為每個前置任務各發一次版。
+5. [統一批次WI](runbook-unified-batch-ai.md)保留可執行測試／migration／VM／Scheduler程序；其C節四模型／完整報告條件歸SEQ-08，基礎條件歸SEQ-04，不能混稱已完成。
+6. 只在TODO維護階段進度，Operations記必要收據。遠端長任務只剩等待時依PROJECT_RULES交連結停止，不能盲目重送。
 
-更新：2026-10-24。本檔只定義 **如何接手與跨元件協作**；**做什麼／何時做／哪些未完成**一律看 [唯一 TODO](todo.md)，不在這裡開第二份 queue。舊 D01～D06／DRL-01 操作命令完整存 [歷史指令](archive/codex-execution-plan-before-consolidation-2026-10-19.md)，不再向其他 AI 發出「恢復舊任務」指令。
-
-## 1. 啟動與責任
-
-依序讀 [AGENTS](../AGENTS.md) → [PROJECT_RULES](PROJECT_RULES.md) → [專案管理](project-management.md) → [WBS 多線依賴](wbs.md) → [唯一 TODO](todo.md) → **當次工作線對應 SPEC／任務卡**。其他 SPEC/UI/WBS 只在直接影響時讀；任何舊截面或 Drive 文件不得覆蓋目前 main／runtime。未有當次權限不能推進新付費 API、大幅 IAM 或破壞性操作。
-
-| 現行工作包 | AI 必讀操作卡 | 必要契約／成果 |
-|---|---|---|
-| **OPS-P0-1 備份與清理** | [Controller Runbook](runbook-batch-controller-dev.md)、[唯一 TODO](todo.md) | 只確認新備份實際可用與清理安全；有真故障才修，保留 36h 刪除保護，不重開自然排程探針 |
-| **RV-01…RV-06／Janus 2.0** | [Valuation Range SPEC](spec/valuation-range.md)、[WBS 合流圖](wbs.md) | 04 Valuation 子功能的可重算 PE/PB 參考區間、共用 Fact Pack/Owner UI；不建立第五個模型或 Registry role |
-| **D07-PRE** | [新研究採集契約](spec/research-collection-gas-drive-colab.md) | [D07 研究操作卡（舊五角色描述僅供參考）](execution-cards/d07-specialist-b9-oos.md)、[資料治理](spec/data-governance.md)；先完成公開欄位可得性與缺值盤點、Colab 月資料夾／manifest／品質讀回，再做 Colab OOS |
-| **D07** | [D07 研究操作卡（舊五角色描述僅供參考）](execution-cards/d07-specialist-b9-oos.md) | [Specialist SPEC](spec/specialist-engines.md)、[WBS-5](wbs/wbs-5-specialist-engines.md)；Colab 模型 fit/OOS、Janus Registry／推論及各角色 Promotion Gate 獨立驗證 |
-| **D08** | [D08 CEO 卡](execution-cards/d08-ceo-admin-owner-report.md) | [AI/Mart SPEC](spec/intelligence-and-governance.md)、[Admin UI](ui/admin.md)；Validated Fact Pack/Owner/報告 |
-| **已結案 D01～D06／DRL-01／Admin v2** | [歷史任務卡索引](execution-cards/README.md)＋[結案](wbs/completed-index.md) | **不重啟**歷史 gate；若新缺陷實際影響正在開發的 D07/D08，按該工項修復 |
-
-## 2. D07-PRE／D07：舊研究退役已結案，新研究路線分離
-
-- **舊研究執行器退役已 CLOSED（2026-10-20）**：Controller `specialist-retrain`、手動舊 workflow/request、Mart fit、獨立研究 Job/Scheduler 與 B5～B8 中介 BQ 實體依原定範圍已完成程式退役、部署及實機查核；詳見 [結案收據](archive/d07-gcp-bq-retirement-live-2026-10-20.md)。不再分派清理工項，不為假設性未知資源新增追查。
-- 新研究唯一輸入：[官方 TWSE／TPEx → Colab → 私有 Drive 月資料夾 → Colab 人工建模](spec/research-collection-gas-drive-colab.md)，普通股母體排除 ETF，TWSE／TPEx 各 dataset 最低 70%。先盤點現有公開欄位可得性與缺值，不用舊 Core frozen Parquet、BQ SQL 或完整歷史 PIT census 才能開始抓資料。研究時點欄位仍保留供後續標籤，正式 OOS/promotion 要防 future leakage。
-- 現行四個獨立研究角色 Quant／Risk／Fundamental／Valuation 依現有資料與 baseline 研究。獨立第五模型已撤銷；`valuation_range` 是 04 Valuation 的確定性估值情境**子功能**，Event 只保留現役事實解析及提醒。研究可使用現有歷史時間切分而不等待新 cohort／全歷史 PIT；必要防洩漏與實際發布檢查仍保留。Janus Mart 不再訓練新模型。
-- **保留正式服務**：Core/EOD／Screening、Private Owner、持股 ETF 行情、API、週 Iceberg 清理、Stage 48h 及備份。正式 Core 90%/70% 品質規範不被研究 70% 改掉。現役共用 BQ/Job 只有在確認其他服務不使用後才能刪。
-- 已結案的舊研究僅保留必要 audit 收據；不得重新成為 D07-PRE／D07 的前置工作。**Colab 資料讀取驗收歸 D07-PRE；四個研究角色 fit／OOS／promotion 歸 D07，第五估值情境 RV-01…06 獨立驗收**，不得重複派工。
-
-## 3. 最小工程閉環與合併驗收
-
-一次指定工作包內：核對 `main` 最新 SHA／相同部署 lease／真實 runtime → 讀最少必要 code/schema/SPEC → 修改並補 tests → targeted tests/CI → 必要 migration、候選、0%/正式 dev、自然／手動 Job → Core/Mart/PG/API/Owner 資料／安全／UI readback → 若失敗修正或可逆 rollback → 保存完整 SHA、test/run ID、image digest、期限、來源與失敗原因於 [Operations](spec/operations-and-testing.md)，只在 [TODO](todo.md) 更動該工項狀態。**文件-only 僅可報 DOC_UPDATED**，無證據維持 PARTIAL/BLOCKED。
-
-每日業務批次只走 [唯一 Controller](runbook-batch-controller-dev.md)；Cloud Scheduler、storage 保護／GCS generation／Owner 私有資料沿原治理。使用 GHCR Release → Cloud Run 候選 → 正式發佈/回滾，不因文件整理新增 scheduler、另一套 Core、model publisher、CI workflow 或免費額度未知的計費資源。
-
-## 4. 本輪報告格式
-
-每次回報列：`work_package`、`main/commit SHA`、變動檔案與安全界線、targeted tests／CI、deploy digest／migration、自然/手動 occurrence 和資料期間、canonical/Owner/模型品質 readback、實測 vs 缺失、rollback、`PASS/PARTIAL/NOT_VERIFIED/BLOCKED` 和下一個唯一入口。對被合併／豁免工作只能連到 archive，不用不同 WBS 重新排出第二張 TODO。
-
-## 方案 A 與模型資料入口（2026-10-21）
-[變化判讀SPEC](spec/change-analysis.md) → [A-CHANGE AI卡](execution-cards/a-change-analysis.md)；[五分析師模型/X/Y](spec/specialist-engines.md) → [時間窗口與前處理](spec/model-feature-time-contract.md) → [D07 AI卡](execution-cards/d07-specialist-b9-oos.md)。唯一工作順序與驗收仍見[TODO](todo.md)。
+本輪只提交文件，後續由使用者逐條啟動，不自動開始SEQ-01或觸發CI／部署。四模型研究調校、全面研究資料重整與VAL-MIN30後續改善見 [第二版暫緩項](parking-lot.md#v2-2027-q1)，不列當前工程債。

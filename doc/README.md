@@ -5,9 +5,9 @@
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
 
-更新：2026-10-24。本頁只導航，不保存暫停、部署版本或重複待辦。
+更新：2026-10-25。本頁只導航，不保存暫停、部署版本或重複待辦。
 
-先讀 [PROJECT_RULES](PROJECT_RULES.md) → [專案管理](project-management.md) → [status](status.md) → [TODO](todo.md) → 指定一張 [AI 任務卡](execution-cards/README.md)。現行**多線並行**依 [WBS 依賴矩陣](wbs.md) 與 [唯一 Active TODO §1](todo.md) 分流：P0 OPS-P0-1 備份可用性、P1 Janus 2.0／04 Valuation 估值區間功能／研究資料可用性、P2 四模型研究、P3 D08；不是所有線都要串行等待，已完成工作不重開。
+先讀 [PROJECT_RULES](PROJECT_RULES.md) → [status](status.md) → [唯一TODO](todo.md) → [SEQ逐項AI指示](execution-cards/sequential-delivery.md)。現行只有 **SEQ-01→08一條順序線**；每項分文件設計、程式開發、測試驗收、部署。四模型本版正式上線；研究調校留2027年第一季，已結案項不重開。
 
 文件權責、唯一待辦與**需要使用者決策的重大風險**統一見 [專案管理](project-management.md)；舊 [文件盤點](archive/documentation-review-2026-10-15.md) 轉歷史證據，不當現在的工作佇列。
 
@@ -35,12 +35,12 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `PROJECT_RULES.md`：治理、權限、驗證與文件維護規則。
 - `project-management.md`：單一執行順序、文件責任、驗收與風險決策選項。
 - `spec/valuation-range.md`：2026-10-24 最新決策改為 **04 Valuation 估值區間子契約**，第五模型已撤銷、工程待做；舊 Drive AI 交接屬歷史參考；[Drive AI 交接](https://drive.google.com/file/d/1M7pxgkeyzK_Joi4C9Z2aTSRCgdV-u5YO/view)。
-- `wbs.md`：多線並行、互斥資源、必要前置與合流 gate；不另建第二份 TODO。
+- `wbs.md`：單一路線責任、必要前置與集中部署；不另建第二份 TODO。
 - `spec/data-governance.md`：正式 Canonical 保存、Scheduler 與補收政策；模型研究採集另以 `spec/research-collection-gas-drive-colab.md` 為唯一規格。
 - `status.md`：目前狀態與下一個執行序列的短入口；不是新的 source of truth。
 - `todo.md`：只保存確定要做的 active queue 與未完成 acceptance；暫不做與已接受缺口見 `parking-lot.md`。
-- `codex-execution-plan.md`：**按 WBS 多線依賴矩陣分派**的現行 AI 操作；舊 DRL／D01–D06 工程指令已封存。
-- `execution-cards/README.md`：現行 D07-PRE/D07/D08 路由；D01～D06 卡保留維運/歷史，不形成工作義務。
+- `codex-execution-plan.md`：**按SEQ-01→08順序分派**的現行 AI 操作；舊 DRL／D01–D06 工程指令已封存。
+- `execution-cards/README.md`：現行SEQ四階段操作路由；D01～D06 卡保留維運/歷史，不形成工作義務。
 - `spec/research-collection-gas-drive-colab.md`：**D07-PRE 唯一新版（保留既有路徑，GAS已退役）**；官方 TWSE／TPEx→Colab→Drive 月資料夾→Colab；研究普通股（ETF 排除）、各市場70%、先盤點欄位。
 - `decision-2026-10-06-bigquery-analytics-over-iceberg.md`：**已退休的歷史決策指引**，不是 active BQ 訓練或執行前置。
 - `future-market-alerts.md`：使用者指定獨立保存的未來預警增補；狀態由 `parking-lot.md` 管理，不是 active scope。
@@ -81,7 +81,7 @@ Operations只保存當前適用摘要／歷史連結，不無限追加。原2296
 [變化判讀SPEC](spec/change-analysis.md) → [A-CHANGE AI卡](execution-cards/a-change-analysis.md)；[四模型角色/X/Y](spec/specialist-engines.md) → [時間窗口與前處理](spec/model-feature-time-contract.md) → [D07 AI卡](execution-cards/d07-specialist-b9-oos.md)。唯一工作順序與驗收仍見[TODO](todo.md)。
 
 
-模型週期補充：[資料量→Colab→GCS→日週分析→每月有效性](spec/model-lifecycle.md)，[完整AI指令](execution-cards/d07-model-lifecycle.md)。這是D07同一工作包的交付，不新增獨立模型訓練服務。
+模型生命週期細節見 [模型契約](spec/model-lifecycle.md)；舊日週分析／月評估研究指令不作本次待辦，第二版另行啟動。
 
 
 ## 四模型收檔／貼標／訓練目前唯一版本入口
@@ -95,4 +95,4 @@ Operations只保存當前適用摘要／歷史連結，不無限追加。原2296
 - [Fundamental 營運｜XGBoost 操作與開發指令](colab-models/03-fundamental-xgboost.md)
 - [Valuation 估值｜XGBoost 操作與開發指令](colab-models/04-valuation-xgboost.md)
 
-2026-10-23 最新決策：Drive 已有 Quant、Fundamental、Valuation 三份 Notebook，優先於 ChatGPT 可用研究/Python 環境試訓，Colab 為可選備援。三模型各自完成實際 OOS、模型/資料合法性、GCS 候選/受控發布條件後，才連同既有 Risk v1 一次優化四模型跨 Job 載入快取。不同 Cloud Run Job execution 不共享 RAM；先量測 GCS 單次下載+execution 記憶體快取與 image layer 的成本/效能，不新增付費常駐服務。來源入口、順序和驗收以 [模型生命週期](spec/model-lifecycle.md)、[D07 AI卡](execution-cards/d07-model-lifecycle.md) 與 [唯一 TODO](todo.md) 為準；Notebook 存在不代表模型已訓練或發布。
+2026-10-25：四模型全部以本版正式上線為目標，採現有可發布artifact；必要serving／快取／報告／UI接線依SEQ-06…08。上述研究Notebook保留，調校與全面研究資料改善移至 [2027 Q1第二版](parking-lot.md#v2-2027-q1)，不是本次發布前置。模型檔存在不等於已上線，實際狀態依runtime證據。

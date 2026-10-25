@@ -1,12 +1,15 @@
-# D07｜Colab開發、GCS模型發布、日週推論及月評估 — AI操作指令
+# D07｜研究生命週期操作參考（暫緩）
+
+> 2026-10-25：本卡不是現行開工指令。四模型正式上線、必要特徵一致性與快取依[SEQ-06／08](sequential-delivery.md)；本卡研究調校延至[2027 Q1第二版](../parking-lot.md#v2-2027-q1)，由使用者重新啟動。舊第五角色／月評估／先重訓等相反指示已失效，不得整包照跑。
 
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](../spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
 更新：2026-10-23。本輪寫入三模型 ChatGPT 試訓及四模型快取決策；後續使用者要求執行時，依[TODO](../todo.md)完成同一D07工作包，不創第二套queue。
 必讀：AGENTS/PROJECT_RULES、[模型生命週期](../spec/model-lifecycle.md)、[X/Y](../spec/specialist-engines.md)、[因子時間](../spec/model-feature-time-contract.md)、[D07卡](d07-specialist-b9-oos.md)、[Colab README](../../research/colab/README.md)。程序/資料量以生命週期SPEC為唯一權威。
 
-## 1. 整包AI指令（可複製）
-> 執行D07模型生命週期。核對main及現有Risk/Colab/Controller，按doc/spec/model-lifecycle.md完成共用採集清洗/as-of/label/features→五角色baseline/challenger→OOS→immutable candidate bundle→GCS上傳與讀回→Mart驗證/shadow/registry→深度股票批次推論與站內模板報告→成熟outcome回收與每月評估。先Risk後Quant，其他角色依資料量及標籤，rules也是合法交付。Risk 既有模型不動，三個未發布角色優先由 ChatGPT 研究環境試訓（Colab 可選）；GCS只存artifact，既有Controller/Mart執行分析，不新增每股Job、不恢復Cloud Run訓練器。新流程工程、model promotion及月評估證據分開；每階段可續跑，整包集中必要驗收，不在每股/每角色任意停等。新付費/重大擴權/大量不可逆刪除依PROJECT_RULES處理，OAuth由本人授權。
+## 1. 現行AI入口
+
+先看[唯一TODO](../todo.md)與[SEQ四階段AI指令](sequential-delivery.md)。本版採既有可發布artifact，四角色正式serving不能用rules／baseline替代完成；不執行本卡後續研究cells或新增週月評估。下列技術細節只供第二版重新核定範圍時參考。
 
 ## 2. 共用Colab入口必須交付的cells
 C0掛Drive/checkout固定Git SHA/安裝鎖定依賴→C1選role/start/end/cutoff/cohort→C2採集與resume→C3清洗/品質→C4features/as-of→C5labels/maturity→C6time folds/preprocessor/train→C7OOS/evaluation/model card→C8export→C9候選上傳/readback。

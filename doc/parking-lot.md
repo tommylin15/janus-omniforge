@@ -3,7 +3,7 @@
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
 
-更新：2026-10-05
+更新：2026-10-25
 
 用途：保存目前**不做**、不計入專案未完成度、也不應阻塞 foreground／completion 的構想、未來可能需求與已接受缺口。
 
@@ -163,3 +163,16 @@ Supply-chain ontology、Source Matrix、seed graph、signal contract、Pilot mea
 ## 2026-10-15 唯讀交易情境影響（未排程）
 
 可研究在既有試算加交易後權重／現金影響；先證完整估值與cash來源，缺分母不算。非自動下單，不擴張D01本輪驗收。設計見 [系統補強](spec/system-development-contract.md)。
+
+<a id="v2-2027-q1"></a>
+
+## 第二版｜預計2027年第一季再啟動
+
+2026-10-25使用者決定：四模型本版先全部正式上線，其他研究調校約明年第一季再做。以下為DEFERRED，不是active queue、不設自動提醒／重訓／業務排程；屆時使用者指定才移回TODO並訂順序。
+
+| 保留項目／舊ID | 文件設計（GPT-6 Astra） | 程式開發（GPT-6.1 Sol） | 測試驗收（GPT-6.1 Sol；研究解讀Astra） | 部署（GPT-6.1 Sol） |
+|---|---|---|---|---|
+| 研究資料整理：DATA-RELEASE-PREFLIGHT／FACTOR-FACTORY／D07-PRE／X/Y | 讀實際CURRENT／最新版本索引，界定新增因子與缺資料；本版必要serving一致性已歸SEQ-06，不重做 | 只補新實驗必要清洗／貼標／續跑Notebook；不全市場無界補收 | 有界驗排序、窗口、label、split與resume，保留真實結果 | 發布研究Notebook／manifest到既有repo／janusChatGPT；無Cloud Run／Registry部署 |
+| Quant／Risk／Fundamental／Valuation調校與VAL-MIN30後續改善 | 先讀現有metrics與baseline；按Quant→Risk→Fundamental→Valuation順序，各限定一輪假設與停止條件 | 沿同套模型流程補必要因子／參數／切片；Risk不另開v2模型，第二版指改善階段 | 固定時間切分比較baseline，報適用指標、樣本數與限制；未改善亦可結案；已完成v25/v26不重跑 | 先交研究artifact／報告；是否替換正式模型須另獲當次指示，再沿既有受控發布與回復程序 |
+
+AI啟動指示（本次不要執行）：先確認使用者已啟動第二版，讀PROJECT_RULES與此表，將確定範圍移回唯一TODO；按四階段操作，不重開取消的逐來源稽核／全歷史PIT／新cohort等待／例行週月評估。未授權前只保留規劃。
