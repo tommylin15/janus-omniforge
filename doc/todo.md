@@ -1,6 +1,6 @@
 # Janus — 唯一 Active TODO
 
-更新：2026-10-25（Asia/Taipei）。SEQ-01～03 DOC／CODE／OFFLINE_PASS；SEQ-04 PG migration069＋VM executor＋PG隔離還原、四Job Release／8/8 canary、API 100% PASS。原有唯一Scheduler已成功從每小時改為每兩小時：部署 #40163729460 PASS、獨立GCP讀回 #40163927739 PASS，cron=`30 */2 * * *`／Asia/Taipei／ENABLED、target/identity未變、新資源0；自然新排程tick及Stage／Owner／GCS等有界live尚未完成，SEQ-04整體PARTIAL。
+更新：2026-10-25（Asia/Taipei）。SEQ-01～03 DOC／CODE／OFFLINE_PASS；SEQ-04 Release、四Job 8/8、API100%、PG migration069/VM及隔離還原、單一兩小時Scheduler部署與獨立讀回PASS。立即有界Dev唯讀驗收：備份VM／Controller #40164713512 PASS、Stage48h完整dry-run #40165435450 PASS、Private備份保留dry-run PASS、2330/2882 Public API及Core/Mart/Private GCS metadata讀回PASS；資料實刪、Iceberg current catalog pointer、Owner/Admin正向登入、新cron自然tick仍NOT_VERIFIED，SEQ-04 整體LIVE_PARTIAL。
 
 ## 唯一順序線
 
@@ -12,7 +12,7 @@
 | SEQ-01 收取、清理與市場分析總控 | UB-01 | DOC／CODE／完整離線217 PASS／Flutter7 PASS；live與部署交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-01) |
 | SEQ-02 持股、買賣與觀察設定快照 | UB-03、4J／4R 的本次增量 | DOC／CODE／OFFLINE_PASS（220 Python、270 API、Flutter User PASS）；live/部署交 SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-02) |
 | SEQ-03 日週月備份、保留清理與回復範圍 | UB-04（不是重開 OPS-P0-1） | DOC／CODE／OFFLINE_PASS（234 Python；API270、Mart247、Ingestion209）／LIVE與DEPLOY交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-03) |
-| SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | **DEPLOY_PASS／LIVE_PARTIAL**：Release #40154638538、四Jobs 8/8 #40155713885、API100% #40157972457、PG隔離還原 #40155337207 PASS；同一Scheduler兩小時切換 #40163729460 PASS，獨立GCP讀回 #40163927739 PASS（`30 */2 * * *`／Asia/Taipei／ENABLED；target SHA256未變；update及actAs權限均GRANTED）。切換後自然Controller occurrence、Stage 48h dry-run/有界apply及實際bytes、Private Owner/Iceberg/GCS／Admin UI仍按原WI待驗，不能冒稱全量PASS。 | 本項：有界Dev自然與資料鏈驗收 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
+| SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | **DEPLOY_PASS／IMMEDIATE_READONLY_PASS／LIVE_PARTIAL**：四Jobs8/8 #40155713885、API100% #40157972457、PG隔離還原 #40155337207、兩小時Scheduler #40163729460與實機獨立讀回 #40163927739 PASS；備份executor及Controller audit #40164713512 PASS；#40165435450 Stage完整dry-run452筆／過期候選220筆／42,538,112 bytes、有效lease17，無刪除；Private GCS保留dry-run8 daily/2 monthly/0 weekly、計畫刪1份daily；Core/Mart/Private Iceberg metadata有界GET PASS，current catalog pointer尚未驗；2330與2882公開資料及Auth負向PASS。發現舊ingestion多筆FAILED及00:30備份occurrence RUNNING、備份8筆retention_status=pending。Stage/retention實際有界apply、真正current pointer、Owner/Admin正向登入與新cron首次自然tick仍未證實。 | 同SEQ-04有界後續驗收與保留實刪 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
 | SEQ-05 Valuation 真資料、唯一估值卡契約 | RV-01…06、UB-02 的 Valuation 子功能 | RV-02／03 有既有 CI；RV-03 live 待驗，RV-04…06 待開發 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-05) |
 | SEQ-06 四模型正式上線模式、版本與共用快取 | UB-02、D07 serving、Risk API/UI、D07-CROSS-JOB-MODEL-CACHE；FACTOR-FACTORY／X/Y 僅必要 serving 一致性 | 按四模型可發布前提設計；實際接線狀態逐角色確認 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-06) |
 | SEQ-07 分析報告、Owner history 與 UI 完整接線 | UB-02、D08、RV-05 合流 | 既有 Fact Pack／Gateway 可沿用；完整整合待做 | SEQ-08 | [四階段指示](execution-cards/sequential-delivery.md#seq-07) |
@@ -32,9 +32,16 @@
 
 ### SEQ-04 四階段紀錄（2026-10-25，進行中）
 
-`SEQ-04｜文件設計=REVIEWED／CONTRACT_UPDATED｜程式開發=COMMITTED｜測試驗收=CI_PASS #40162566821／Release #40154638538／JOBS_8_OF_8_PASS #40155713885／API_PROMOTE #40157972457／PG_RESTORE #40155337207／SCHEDULER_DEPLOY #40163729460／INDEPENDENT_READBACK #40163927739｜部署=PASS／LIVE=PARTIAL｜唯一下一入口=SEQ-04／新兩小時cron首次自然tick與原定有界data/owner/backup/retention/Admin驗收`。
+`SEQ-04｜DOC=REVIEWED／CODE=COMMITTED／RELEASE_AND_SCHEDULER_DEPLOY=PASS（#40163729460、#40163927739）／IMMEDIATE_BOUNDED_READONLY=PASS（備份#40164713512、Stage／GCS／API／PG／Private retention #40165435450）／LIVE=PARTIAL（Stage及retention apply / 新cron自然tick / owner正向 / catalog current pointer 均未驗）｜唯一下一入口=SEQ-04／收斂已證實的有界apply與下一自然tick，不阻塞可獨立進行的SEQ-05前期設計或開發`。
 
 收據判定：Release、migration069／VM、PG隔離還原、四Job 8/8、API 100% 已通過。歷史切換 #40162679929 `permission_denied` 及回復，之後 #40163099454 精確查出 target SA actAs NOT_GRANTED；使用者於Cloud Shell僅授權 `janus-ci` 對指定 `janus-ingestion-scheduler` SA 的 `roles/iam.serviceAccountUser` 並讀回。重新觸發 [#40163729460](https://github.com/tommylin15/janus-omniforge/actions/runs/40163729460) 最終SUCCESS，receipt: `phase=PASS`、`previous_cron=30 * * * *`、`new_cron=30 */2 * * *`、`scheduler_enabled=true`、`target_identity_unchanged=true`、`gcp_new_resources=0`；獨立GCP [#40163927739](https://github.com/tommylin15/janus-omniforge/actions/runs/40163927739) 再讀到同值、target hash一致、IAM update/actAs=GRANTED。最近15次Controller均終態，但全部為切換前記錄，不是新自然tick。剩餘有界驗收維持NOT_VERIFIED，不增添獨立排程。
+
+### SEQ-04 即時有界驗收收據（2026-10-25；不等於全系統live PASS）
+
+- [備份／Controller #40164713512](https://github.com/tommylin15/janus-omniforge/actions/runs/40164713512) workflow SUCCESS。executor timer active/enabled、舊direct timer inactive/disabled；最近六筆每日備份succeeded，2026-10-25最新備份40,595,834 bytes。Control中同日ledger-backup 00:30 occurrence仍running、02:30另一筆succeeded；每日備份狀態與排程occurrence不可混為同一PASS。
+- [完整有界唯讀 #40165435450](https://github.com/tommylin15/janus-omniforge/actions/runs/40165435450) workflow SUCCESS，分項：Stage 48h依PG有效lease17及完整GCS inventory452物件得到 `PASS_DRY_RUN`、計畫220物件／42,538,112 bytes、held_active_objects0，實刪0；Private備份retention `DRY_RUN_PASS`：8 daily／2 monthly／0 weekly，計畫刪1 daily、其餘0；最近8份PG daily均succeeded，但8筆retention_status為pending，**不能算清理已apply**。23xx/28xx公共OHLCV各有真資料；API buildSHA/health 200，Owner/Admin未登入皆401；Core/Mart/Private bucket之Iceberg metadata文件各可讀，但沒有驗證PG catalog指到的current snapshot。兩個較大bucket只完成有界metadata樣本，不能冒充完整bucket inventory。
+- Live發現：2026-10-25 02:30、07:30 ingestion occurrence為FAILED，歷史failed收據橫跨SEQ04部署前（不能直接證明目前新版失敗）；12:31 analysis-queue仍標running。需以原工作ID／live lease／Job執行收據核對，不大量重派、不刪記錄、不當作已成功。
+- 仍未驗：Stage按原worker fence有界generation刪除與bytes讀回；Private每日retention實際apply／週副本創建及PG欄位轉終態；Iceberg catalog current pointer；Owner／Admin真正登入與snapshot/UI一致性；首次新版Scheduler自然tick及新版02:30 ingestion鏈。既有GCP兩小時配置仍PASS，不重新建Scheduler，不等一整天才開始其它獨立工作。
 
 ### SEQ-03 四階段紀錄（2026-10-25）
 
