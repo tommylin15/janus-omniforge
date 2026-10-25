@@ -12,7 +12,7 @@ from decimal import Decimal, InvalidOperation
 from calendar import monthrange
 from typing import Any, Mapping, Sequence
 
-from packages.valuation_range import calculate_reference_range
+from packages.valuation_range import calculate_reference_range, is_verified_month_final_session
 
 MAX_CORE_ROWS = 4000
 MAX_FINANCIAL_ROWS = 300
@@ -42,7 +42,8 @@ def _window_start(as_of: date) -> date:
 
 
 def monthly_last_trading_observations(
-    rows: Sequence[Mapping[str, Any]], *, as_of: date, metric: str
+    rows: Sequence[Mapping[str, Any]], *, as_of: date, metric: str,
+    market: str = "unknown"
 ) -> list[dict[str, Any]]:
     """Extract observed, month-final trading quotes without inventing dates.
 
@@ -75,7 +76,7 @@ def monthly_last_trading_observations(
         if month_end > as_of:
             continue
         observed = max(per_day)
-        if (month_end - observed).days > MAX_MONTH_END_GAP_DAYS:
+        if not is_verified_month_final_session(observed, month_end, market=market):
             continue
         values = per_day[observed]
         if len(values) != 1:
@@ -147,7 +148,8 @@ def from_existing_rows(
     # the Core/PG SQL predicates used by the live reader.
     own_valuation = [r for r in valuation_rows if str(r.get("symbol")) == symbol]
     own_financial = [r for r in financial_rows if str(r.get("symbol")) == symbol]
-    observed = monthly_last_trading_observations(own_valuation, as_of=as_of, metric=metric)
+    observed = monthly_last_trading_observations(
+        own_valuation, as_of=as_of, metric=metric, market=market)
     financial = comparable_financial_facts(own_financial, as_of=as_of)
     result = calculate_reference_range(
         symbol=symbol, market=market, security_type=security_type,
