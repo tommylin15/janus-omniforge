@@ -1,0 +1,10 @@
+{
+  "intent": "seq04-immediate-bounded-read-only",
+  "project": "gen-lang-client-0593591102",
+  "allow_bounded_stage_plan": true,
+  "no_gcp_mutation": true,
+  "no_owner_data_mutation": true,
+  "no_job_dispatch": true,
+  "no_stage_apply": true,
+  "release_source_sha": "032871a38b1dffd11c7bf0cc833563c0c3091841"
+}
