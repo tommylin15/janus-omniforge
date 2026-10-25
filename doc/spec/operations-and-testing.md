@@ -1,5 +1,11 @@
 # Janus 最新驗收證據索引
 
+
+### SEQ-04 Stage 48h 真實刪除／generation 讀回（2026-10-25；PASS）
+
+- [有界實際執行 #40172644132](https://github.com/tommylin15/janus-omniforge/actions/runs/40172644132)：`38 passed` 的受影響回歸測試與 release lease gate PASS；以既有 `janus-ingestion-core` 單次 `stage-only-apply`（execution `janus-ingestion-core-9dd52`、Cloud Run operation `22100366-9310-4635-9a79-c909b0de9425`）真實清理。完整Stage inventory **604物件／73,943,009 bytes**；當下有效PG lease數0，dry-run計畫**223物件／42,540,741 bytes**；generation-fenced Worker terminal success，重新完整列舉 **381物件／31,402,268 bytes**，實際減少 **223物件／42,540,741 bytes**，與計畫完全一致，**Stage 48h apply + bytes/readback=PASS**。前次 #40165435450 的候選220件是較早時點，不再拿它當實刪數字。
+- 該workflow整體 `failure` 不代表Stage失敗：Private備份 retention 當時dry-run仍有8 daily／2 monthly／0 weekly，計畫刪1 daily；獨立VM調用exit 1，`BLOCKED_VM_RETENTION_EXECUTION`，**Private實刪在該run未獲成功讀回**。後續只修Private，絕不重派本次已成功Stage作業；此行保留為歷史單項收據，後續Private若成功另附新run。
+
 ### SEQ-04 14:30 新兩小時自然Controller交叉讀回（2026-10-25；PASS）
 
 - [GitHub Read-only #40169964904](https://github.com/tommylin15/janus-omniforge/actions/runs/40169964904) GCP Scheduler `lastAttemptTime=2026-10-25T06:30:00.865962Z` 且Scheduler executions 06:30有兩筆INFO，但首次CLI executions list未找到新Controller，當時仍標NOT_VERIFIED，未用trigger取代產物。
