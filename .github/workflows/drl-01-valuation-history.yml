@@ -4,6 +4,9 @@ on:
     workflows: ['Janus GHCR operations']
     types: [completed]
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['ops/seq05-valuation-history-request.json']
 permissions:
   contents: read
   id-token: write
@@ -13,11 +16,12 @@ concurrency:
 jobs:
   verify:
     if: >-
-      github.event_name == 'workflow_run' &&
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' &&
       github.event.workflow_run.id == 39050535449 &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.head_sha == '43471a65ca930835a09f139d3bd9813128cd4234'
+      github.event.workflow_run.head_sha == '43471a65ca930835a09f139d3bd9813128cd4234')
     runs-on: ubuntu-latest
     environment: dev
     timeout-minutes: 200
@@ -30,9 +34,16 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
       - run: python -m py_compile scripts/gcp/drl01_valuation_2y.py
       - run: sudo apt-get update -qq && sudo apt-get install -y skopeo
-      - run: python scripts/gcp/drl01_valuation_2y.py ops/drl-01-valuation-history-request.json
+      - name: Execute existing bounded valuation source collection
         env:
           PYTHONPATH: .
+        run: |
+          set -Eeuo pipefail
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            python scripts/gcp/drl01_valuation_2y.py ops/seq05-valuation-history-request.json
+          else
+            python scripts/gcp/drl01_valuation_2y.py ops/drl-01-valuation-history-request.json
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
