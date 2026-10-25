@@ -1,5 +1,12 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-25｜SEQ-04 Scheduler 拒絕根因：target SA actAs 權限（PARTIAL／BLOCKED）
+
+- 維持同一現役 `janus-ingestion-daily`、Asia/Taipei／`30 * * * *`／ENABLED。Scheduler 更新已改 `jobs.patch?updateMask=schedule`，不重送原 HTTP target/OAuth SA；對應測試 [#40162566821](https://github.com/tommylin15/janus-omniforge/actions/runs/40162566821) SUCCESS。受控部署 [#40162679929](https://github.com/tommylin15/janus-omniforge/actions/runs/40162679929) 收據 `reason=seq04_scheduler_update_permission_denied`、`phase=ROLLED_BACK`、原每小時 cron 恢復、無新資源。
+- GCP唯讀稽核 [#40163099454](https://github.com/tommylin15/janus-omniforge/actions/runs/40163099454) SUCCESS：Cloud Audit Log 對最近四次 `CloudScheduler.UpdateJob` 均為 403，呼叫者確定是 `janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com`，且從 CI 本身執行 `testIamPermissions`：`cloudscheduler.jobs.update=GRANTED`；對 `janus-ingestion-scheduler@gen-lang-client-0593591102.iam.gserviceaccount.com` 的 `iam.serviceAccounts.actAs=NOT_GRANTED`。不再將此誤列為 Scheduler Update 權限未傳播；也不能把尚未核准的 actAs 當成已授權。
+- **唯一解除入口**：由使用者明確同意後，僅在上述指定 `janus-ingestion-scheduler` Service Account 資源上給 `janus-ci` 所需 actAs；不在整個 GCP 專案授權 Service Account User。取得權限後透過原本帶 Writer lease、drain/pause/recovery 的 SEQ-04 workflow 重跑一次，讀回 cron／target／identity／ENABLED 及下一次自然 occurrence。未成功前 SEQ-04 維持 PARTIAL。
+
+
 ### 2026-10-25｜SEQ-04 現有 Dev Scheduler 兩小時切換受權限阻擋（DEPLOY=PARTIAL）
 
 - **已通過的上游**：GHCR 全量 Release [#40154638538](https://github.com/tommylin15/janus-omniforge/actions/runs/40154638538)、四個現役 Dev Jobs 同源固定映像及 8/8 Canary [#40155713885](https://github.com/tommylin15/janus-omniforge/actions/runs/40155713885)、API 100% Promotion [#40157972457](https://github.com/tommylin15/janus-omniforge/actions/runs/40157972457) 均 SUCCESS；PG migration 069／既有 VM executor install [#40155184201](https://github.com/tommylin15/janus-omniforge/actions/runs/40155184201) SUCCESS，PG 隔離還原 [#40155337207](https://github.com/tommylin15/janus-omniforge/actions/runs/40155337207) SUCCESS。上述不能等同於全系統 live／GCS／Owner UI PASS。
