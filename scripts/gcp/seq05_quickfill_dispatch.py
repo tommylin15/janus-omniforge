@@ -53,7 +53,15 @@ def read_log(execution):
 
 def main():
     code=Path("scripts/gcp/seq05_oneoff_core.py").read_text(encoding="utf-8")
-    request=checked(json.loads(REQUEST.read_text(encoding="utf-8")),code)
+    raw_request=json.loads(REQUEST.read_text(encoding="utf-8"))
+    if (raw_request.get("intent")=="seq05-single-finmind-yahoo-stage-core-research"
+            and raw_request.get("approved") is False
+            and raw_request.get("closed_after_success") is True):
+        print(json.dumps({"operation":"seq05-oneoff-research-quickfill",
+                          "status":"SKIPPED_ALREADY_COMPLETED","data_mutations":0},
+                         sort_keys=True),flush=True)
+        return
+    request=checked(raw_request,code)
     report={"operation":"seq05-oneoff-research-quickfill","status":"PREFLIGHT","symbols":request["symbols"],
             "source_code_sha256":sha256(code.encode()).hexdigest(),"one_execution":True}
     wait_for_terminal_executions(timeout=700)
