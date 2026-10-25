@@ -1,0 +1,50 @@
+name: SEQ-04 immediate bounded Stage PG GCS and serving readback
+on:
+  push:
+    branches: [main]
+    paths: ['ops/seq04-immediate-readonly-request.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  accept:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: test
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Validate authorized bounded zero-write scope
+        run: |
+          python -m py_compile scripts/gcp/seq04_immediate_readonly.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path('ops/seq04-immediate-readonly-request.json').read_text())
+          assert x == {
+              'intent':'seq04-immediate-bounded-read-only',
+              'project':'gen-lang-client-0593591102',
+              'allow_bounded_stage_plan':True,
+              'no_gcp_mutation':True,
+              'no_owner_data_mutation':True,
+              'no_job_dispatch':True,
+              'no_stage_apply':True,
+              'release_source_sha':'032871a38b1dffd11c7bf0cc833563c0c3091841',
+          }
+          PY
+      - name: Inspect real Stage retention plan and live PG GCS serving with no mutation
+        env:
+          PYTHONPATH: jobs/ingestion-core:.
+        run: python scripts/gcp/seq04_immediate_readonly.py
+      - name: Retain bounded machine readable evidence even after partial read
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seq04-immediate-readonly-evidence
+          path: /tmp/seq04-immediate-readonly.json
+          retention-days: 14
+          if-no-files-found: ignore
