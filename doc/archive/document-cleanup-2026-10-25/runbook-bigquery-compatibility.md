@@ -1,13 +1,15 @@
+> **歷史封存｜2026-10-25**：本文件保存當時設計或收據，不是現行執行指令；完成／取消不互相改判。現行工作以 [唯一 TODO](../../todo.md) 為準。
+
 # B2 BigQuery compatibility probe
 
-> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](../../spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
 
 狀態：B2 compatibility CLOSED / PASS；shared catalog mapping、native decimal/schema evolution、真實 Core partition pruning 已通過。Workload canary/default cutover 仍待後續驗收；PyIceberg 維持預設。
 
 ## 既有 dev 資源
 
-使用既有 dev project `gen-lang-client-0593591102`、region `us-central1`、dataset `janus_analytics_dev`、connection `janus_core_probe`，只讀 dev-core bucket。資源／IAM 與 bounded live compare 的實際建立、授權及 readback 證據見 [B2 bounded checkpoint](archive/group-b-b2-bounded-compatibility-evidence-2026-10-07.md)。執行前應重新 readback table metadata mapping／region／expiration；不得自行啟用新 API、擴 IAM 或遷移 canonical catalog。
+使用既有 dev project `gen-lang-client-0593591102`、region `us-central1`、dataset `janus_analytics_dev`、connection `janus_core_probe`，只讀 dev-core bucket。資源／IAM 與 bounded live compare 的實際建立、授權及 readback 證據見 [B2 bounded checkpoint](../group-b-b2-bounded-compatibility-evidence-2026-10-07.md)。執行前應重新 readback table metadata mapping／region／expiration；不得自行啟用新 API、擴 IAM 或遷移 canonical catalog。
 
 目前使用者核准的策略：unknown estimate 保留 null；整次 execution 上限 1 GiB（1,073,741,824 bytes），每 query 只使用剩餘 budget，timeout 上限 60 秒。Snapshot／fidelity／cutover gates 保留。
 
@@ -17,7 +19,7 @@
 
 本機既有 principal 完成 register，復用 `janus_core_dev`（primary location US、storage region us-central1、end-user credentials），本輪沒有修改 IAM。Live readback 修正舊暫停文件的 catalog 未建立說法。
 
-三張固定 B0 metadata URI 在 `b2_core_fixed_20261007` 的 catalog mapping 精確相等；dev-mart acceptance table 的 native DECIMAL(20,4)/add-column/null 通過；真實 ohlcv 窄／寬日期 processed bytes 為 42,678/1,602,600，query 前後 pointer 相同。9 jobs 共 60 MiB billed bytes，immutable GCS evidence readback PASS。完整 evidence 見 [B2 結案](archive/group-b-b2-closure-2026-10-07.md)。
+三張固定 B0 metadata URI 在 `b2_core_fixed_20261007` 的 catalog mapping 精確相等；dev-mart acceptance table 的 native DECIMAL(20,4)/add-column/null 通過；真實 ohlcv 窄／寬日期 processed bytes 為 42,678/1,602,600，query 前後 pointer 相同。9 jobs 共 60 MiB billed bytes，immutable GCS evidence readback PASS。完整 evidence 見 [B2 結案](../group-b-b2-closure-2026-10-07.md)。
 
 可重跑完整驗收（既有 dev 授權與 credentials；本機 Windows 使用 gcloud.cmd）：
 

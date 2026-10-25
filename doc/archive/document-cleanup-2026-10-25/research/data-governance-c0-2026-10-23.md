@@ -1,4 +1,6 @@
-> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+> **歷史封存｜2026-10-25**：本文件保存當時設計或收據，不是現行執行指令；完成／取消不互相改判。現行工作以 [唯一 TODO](../../../todo.md) 為準。
+
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../../../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
 
 # C0 清掃前證據盤點｜2026-10-23
 
@@ -11,13 +13,13 @@
 - Drive 規劃：[Janus_Data_Governance_Plan_20261023.md](https://drive.google.com/file/d/1TjHit4zEI9j99JSiaYT4WhxZYLdSH24b/view)；已讀，內含原 17 sheets 與 Sheet 11–14 的整理、Q01–Q10 修訂版，但它本身已標明未跑 Live。
 - 原 `Janus_Data_Governance_Audit_2026-10-23.xlsx`：本輪 Drive 與可用檔案搜尋未找到原始活頁簿，**Sheet 11–14 原格值未逐格驗算**；目前以治理方案對該四表的引述為替代，標記 `DOCUMENT_SECONDARY`，待原檔可讀後複核。
 - `Janus_Dev_Read_only_v2.janus_sources` 本輪回傳內部錯誤；未取得來源清單，更無 catalog/PG SQL 讀權；GCP 現有連線並未提供通用 Cloud SQL／Iceberg／GCS inventory 查詢。不可把「工具失敗」寫成「環境為空」。
-- 權威：[`doc/PROJECT_RULES.md`](../PROJECT_RULES.md)；尤其 §1.8 的 dev Stage 48h、§1.6 current-only Iceberg，以及 §1.12 Risk promotion 嚴格 gate。Risk promotion 不在本次治理範圍，亦不得把先前 ACTIVE 歷史狀態當目前 ACTIVE。
+- 權威：[`doc/PROJECT_RULES.md`](../../../PROJECT_RULES.md)；尤其 §1.8 的 dev Stage 48h、§1.6 current-only Iceberg，以及 §1.12 Risk promotion 嚴格 gate。Risk promotion 不在本次治理範圍，亦不得把先前 ACTIVE 歷史狀態當目前 ACTIVE。
 
 **狀態標籤**：`CODE_CONFIRMED`（程式／migration 定義）、`DESIGN_DOCUMENTED`（Drive 計畫）、`LIVE_CONFIRMED`（需真實 catalog/SQL/GCS/Scheduler 回傳）、`UNKNOWN`（未取得證據）、`RETIRE_CANDIDATE`（僅候選）。
 
 ## 1. Core Iceberg 程式定義清冊（均 CODE_CONFIRMED、Live UNKNOWN）
 
-定義：[`packages/duckdb_query/iceberg.py`](../../packages/duckdb_query/iceberg.py)，`DuckDBIcebergCore.IDENTIFIERS`、`TABLE_NAMES`、`PARTITIONS`。名稱是程式預期，**不是 catalog 讀回確認**。
+定義：[`packages/duckdb_query/iceberg.py`](../../../../packages/duckdb_query/iceberg.py)，`DuckDBIcebergCore.IDENTIFIERS`、`TABLE_NAMES`、`PARTITIONS`。名稱是程式預期，**不是 catalog 讀回確認**。
 
 | Identifier | 程式 natural key | partition（新增資料） | 初始分類 |
 |---|---|---|---|
@@ -35,7 +37,7 @@
 
 ## 2. Mart Iceberg 程式定義清冊（11 個歷史維護 handle，不是 11 張已存表）
 
-證據：[`jobs/intelligence-mart/intelligence_mart/storage.py`](../../jobs/intelligence-mart/intelligence_mart/storage.py) 的 `MART_TABLES` 與 `MartMaintenanceStore`，程式註明「historical tables; no legacy analysis writer」。
+證據：[`jobs/intelligence-mart/intelligence_mart/storage.py`](../../../../jobs/intelligence-mart/intelligence_mart/storage.py) 的 `MART_TABLES` 與 `MartMaintenanceStore`，程式註明「historical tables; no legacy analysis writer」。
 
 | 預期名稱 | 初始分類 | C1 前不可省的依賴 |
 |---|---|---|
@@ -86,10 +88,10 @@
 
 | 資產族 | 程式證據 | 保護／判定 |
 |---|---|---|
-| Stage raw/sidecar/manifest/quarantine/commit marker | [`stage.py`](../../jobs/ingestion-core/ingestion_core/stage.py)、[`retention.py`](../../jobs/ingestion-core/ingestion_core/retention.py) | dev Stage `gen-lang-client-0593591102-dev-stage` 48h，依有效 lease／generation 鎖與讀回；C0 不實刪 |
-| Core Iceberg warehouse/snapshot | `CORE_BUCKET`、`ICEBERG_WAREHOUSE` in [`__main__.py`](../../jobs/ingestion-core/ingestion_core/__main__.py) | live bucket 名、object count/bytes/snapshots UNKNOWN |
-| GCS screening / risk-shadow artifact | [`market_screening.py`](../../jobs/intelligence-mart/intelligence_mart/market_screening.py)、Risk runtime/治理方案 | KEEP；publication/模型證據不可因為可重建就直接移除 |
-| 研究 Parquet/CURRENT manifest/Y | [`janus_precision.py`](../../research/chatgpt/janus_precision.py)、[治理方案](https://drive.google.com/file/d/1TjHit4zEI9j99JSiaYT4WhxZYLdSH24b/view) | RESEARCH，與正式 Core/Mart 分離；快照/hash 固定，label 尚未成熟不可補 0 |
+| Stage raw/sidecar/manifest/quarantine/commit marker | [`stage.py`](../../../../jobs/ingestion-core/ingestion_core/stage.py)、[`retention.py`](../../../../jobs/ingestion-core/ingestion_core/retention.py) | dev Stage `gen-lang-client-0593591102-dev-stage` 48h，依有效 lease／generation 鎖與讀回；C0 不實刪 |
+| Core Iceberg warehouse/snapshot | `CORE_BUCKET`、`ICEBERG_WAREHOUSE` in [`__main__.py`](../../../../jobs/ingestion-core/ingestion_core/__main__.py) | live bucket 名、object count/bytes/snapshots UNKNOWN |
+| GCS screening / risk-shadow artifact | [`market_screening.py`](../../../../jobs/intelligence-mart/intelligence_mart/market_screening.py)、Risk runtime/治理方案 | KEEP；publication/模型證據不可因為可重建就直接移除 |
+| 研究 Parquet/CURRENT manifest/Y | [`janus_precision.py`](../../../../research/chatgpt/janus_precision.py)、[治理方案](https://drive.google.com/file/d/1TjHit4zEI9j99JSiaYT4WhxZYLdSH24b/view) | RESEARCH，與正式 Core/Mart 分離；快照/hash 固定，label 尚未成熟不可補 0 |
 | 排程／工作執行 | `control.collection_configs/executions/batch_occurrences` migration；`__main__.py` | 只確認程式入口；Cloud Scheduler 的 job names、state、最近30日執行需真實讀回，UNKNOWN |
 
 ## 5. 已追溯的讀寫依賴矩陣（程式證據，不代表 Live 30日使用）
@@ -97,8 +99,8 @@
 | 上游 | writer / process | 下游讀者／責任 | 類型 |
 |---|---|---|---|
 | TWSE/TPEx 等外部資料 | `ingestion_core.__main__` → Stage → `DuckDBIcebergCore.write` | Core 九個 dataset | 已確認程式路徑 |
-| `market-volume` 正式批次 | [`__main__.py`](../../jobs/ingestion-core/ingestion_core/__main__.py) 先 `core.write(core_dataset_id)`、後於 540–576 行 `core.write('ohlcv')` | `core.market_volume_v1`、`core.ohlcv_v1` | **有雙寫路徑，內容是否冗餘待值級比較** |
-| `core.ohlcv_v1` | Iceberg pinned snapshot | [`risk_inputs.py`](../../jobs/intelligence-mart/intelligence_mart/risk_inputs.py)、[`market_screening.py`](../../jobs/intelligence-mart/intelligence_mart/market_screening.py) | Risk、screening 正式讀者 |
+| `market-volume` 正式批次 | [`__main__.py`](../../../../jobs/ingestion-core/ingestion_core/__main__.py) 先 `core.write(core_dataset_id)`、後於 540–576 行 `core.write('ohlcv')` | `core.market_volume_v1`、`core.ohlcv_v1` | **有雙寫路徑，內容是否冗餘待值級比較** |
+| `core.ohlcv_v1` | Iceberg pinned snapshot | [`risk_inputs.py`](../../../../jobs/intelligence-mart/intelligence_mart/risk_inputs.py)、[`market_screening.py`](../../../../jobs/intelligence-mart/intelligence_mart/market_screening.py) | Risk、screening 正式讀者 |
 | `core.benchmark_v1` / `core.valuation_v1` | Iceberg | `market_screening.py` 的 `TABLES` | screening 欄位投影 |
 | Core market/financial 等 | serving projection | `control.market_serving_recent` → `publication.market_serving_recent` | SQL view 不是重複實體 |
 | Core ready event | `control.core_ready_events` | Mart 分析事件／outbox | operational state，不是無用資料副本 |
@@ -108,7 +110,7 @@
 
 ## 6. 四模型 X 席位與不可刪的非 X 資料
 
-本輪核對 [`research/chatgpt/janus_precision.py`](../../research/chatgpt/janus_precision.py) 行 11–18：**34 個有序 X 席位、按名稱去重 27**（模型研究 contract，不代表四模型全部已部署）。
+本輪核對 [`research/chatgpt/janus_precision.py`](../../../../research/chatgpt/janus_precision.py) 行 11–18：**34 個有序 X 席位、按名稱去重 27**（模型研究 contract，不代表四模型全部已部署）。
 
 - **Risk（8）**：`vol20, vol60, drawdown60, abs_return5, volume_ratio20, atr14_pct, abs_overnight_gap5, log_turnover20`
 - **Quant（11）**：`ret5, ret20, ret60, ma20_distance, ma60_distance, vol20, vol60, drawdown60, volume_ratio20, log_turnover20, market_code`
@@ -117,7 +119,7 @@
 
 **保護分類**：`MODEL_X`（上述按模型/順序/版本）；`RAW`（OHLCV、原始財務、來源口徑/單位）；`FEATURE_CANDIDATE`（非入模候選）；`LABEL_Y`（forward、成熟日、狀態）；`CONTEXT`（市場/產業/事件）；`QUALITY`（缺值、coverage、eligibility）；`PIT`（published/available/observed/version 時間）；`PROVENANCE`（source、execution、hash、as-of）。這些類別不在34席位內也必須保留。
 
-同義/單位不是同值：`drawdown60 / drawdown_from_high60`、`turnover_log20 / log_turnover20`、`dollar_liquidity / turnover` 只列 ALIAS_CANDIDATE；`mean_reversion5=-ret5` 在 factory 直接定義；`yoy_m` 與 `revenue_yoy` 可能百分點/比例尺度差異；`vol20/60` 與 realized/std 等不可僅憑名稱合併；`valuation_Y` 不可由同日 PE/PB 衍生 X 洩漏。證據參見 [`factor_factory_v1.py`](../../research/chatgpt/factor_factory_v1.py)、治理方案。
+同義/單位不是同值：`drawdown60 / drawdown_from_high60`、`turnover_log20 / log_turnover20`、`dollar_liquidity / turnover` 只列 ALIAS_CANDIDATE；`mean_reversion5=-ret5` 在 factory 直接定義；`yoy_m` 與 `revenue_yoy` 可能百分點/比例尺度差異；`vol20/60` 與 realized/std 等不可僅憑名稱合併；`valuation_Y` 不可由同日 PE/PB 衍生 X 洩漏。證據參見 [`factor_factory_v1.py`](../../../../research/chatgpt/factor_factory_v1.py)、治理方案。
 
 ## 7. 清掃候選分級與當前 C1 gate
 
@@ -256,9 +258,9 @@
 
 本輪重點補充：
 - \`ingestion_core.__main__\` 的 \`market-volume → ohlcv\` 是**全量官方批次先寫**和**通過 OHLCV DQ 後另寫**的兩種責任；不應視作完全相同數值的無效副本。詳見 C1A-01 同鍵/欄位/品質/來源/讀者比對 gate。
-- [\`jobs/intelligence-mart/intelligence_mart/retention.py\`](../../jobs/intelligence-mart/intelligence_mart/retention.py) 會巡查這 11 個歷史 Mart identifier 是否存在，存在時可能執行過期列維護；\`MART_TABLES\` 沒有 legacy writer 不等於無操作依賴。
-- [\`infra/postgres/migrations/018_mart_publication.sql\`](../../infra/postgres/migrations/018_mart_publication.sql) 定義 \`publication.mart_report_index.table_identifier = 'mart.mart_scoped_analysis_v1'\` 的 CHECK（**靜態 migration 定義，Live applied 尚未知**）；此 Mart identifier 特別標 \`KEEP_DEPENDENCY_PENDING\`，先驗 PG 實際約束和發布/舊 reader，再談退役。
-- 已有 [\`.github/workflows/finops-dev.yml\`](../../.github/workflows/finops-dev.yml) 的 \`gcs-storage-footprint/core-reference-audit/runtime-references/iceberg-readback\` **唯讀診斷選項**，但不同 script 的操作界線各異；本輪沒有 dispatch 或 rerun 任何工作，不能因此冒稱取得今日 catalog/GCS 或 Scheduler 清冊。
+- [\`jobs/intelligence-mart/intelligence_mart/retention.py\`](../../../../jobs/intelligence-mart/intelligence_mart/retention.py) 會巡查這 11 個歷史 Mart identifier 是否存在，存在時可能執行過期列維護；\`MART_TABLES\` 沒有 legacy writer 不等於無操作依賴。
+- [\`infra/postgres/migrations/018_mart_publication.sql\`](../../../../infra/postgres/migrations/018_mart_publication.sql) 定義 \`publication.mart_report_index.table_identifier = 'mart.mart_scoped_analysis_v1'\` 的 CHECK（**靜態 migration 定義，Live applied 尚未知**）；此 Mart identifier 特別標 \`KEEP_DEPENDENCY_PENDING\`，先驗 PG 實際約束和發布/舊 reader，再談退役。
+- 已有 [\`.github/workflows/finops-dev.yml\`](../../../../.github/workflows/finops-dev.yml) 的 \`gcs-storage-footprint/core-reference-audit/runtime-references/iceberg-readback\` **唯讀診斷選項**，但不同 script 的操作界線各異；本輪沒有 dispatch 或 rerun 任何工作，不能因此冒稱取得今日 catalog/GCS 或 Scheduler 清冊。
 - \`janus_precision.py\` 研究契約 \`VERSION=3.8.2\` 的 **34 ordered X slots／27 distinct names**，不是 7 個可刪重複欄；factory 中 \`dollar_liquidity=turnover\`、\`mean_reversion5=-ret5\`、\`revenue_yoy=revenue_growth_12m\` 僅**同研究 panel 的公式關係**，不能直接移植成跨 Core/PG/模型的 Drop 權。RAW/Y/QUALITY/CONTEXT/PIT/PROVENANCE 同樣保護。
 
 **本輪沒有新的 current-live 直接 SQL/GCS/Scheduler 回傳。** 已知歷史 GCS / Risk receipt 見 §12；原 Excel Sheet 11–14 仍未逐格取得。C1 的 11 Mart、Core 雙寫、Alias 等現在仍只是候選；**經批准可實刪實體 = 0 項**。若缺少 PG catalog/constraint、Iceberg snapshot、GCS current generation、最近30日 reader/Job 與獨立回復證據，**不可執行 C1-B**。
@@ -308,8 +310,8 @@
 
 ### 14.3 即時讀取能力與可接受收據門檻
 
-- 有現成 [Core metadata census workflow](../../.github/workflows/archive/feature-readiness-metadata-census.yml.disabled)，可以讀取 **Core 的 schema、current snapshot、row count/partition**，但它執行既有 dev Job 並讀回 logs；本輪 **沒有 dispatch / rerun**，而且即使執行也**不能得到 Mart 和 PG 完整清冊**。
-- [FinOps `iceberg-readback` 工作](../../.github/workflows/finops-dev.yml) 的實作是 **Scheduler/四個 Cloud Run Job/進行中 execution 列舉**，**並非 Iceberg SQL catalog 掃描**。不得以其成功代替 `L02-CATALOG`。
+- 有現成 [Core metadata census workflow](../../../../.github/workflows/archive/feature-readiness-metadata-census.yml.disabled)，可以讀取 **Core 的 schema、current snapshot、row count/partition**，但它執行既有 dev Job 並讀回 logs；本輪 **沒有 dispatch / rerun**，而且即使執行也**不能得到 Mart 和 PG 完整清冊**。
+- [FinOps `iceberg-readback` 工作](../../../../.github/workflows/finops-dev.yml) 的實作是 **Scheduler/四個 Cloud Run Job/進行中 execution 列舉**，**並非 Iceberg SQL catalog 掃描**。不得以其成功代替 `L02-CATALOG`。
 - 目前已連線的 GCP plugin 僅提供 IAM roles/deny policies，沒有 PostgreSQL arbitrary SELECT 或 Iceberg metadata API；Browser tab read 在本輪回報 `Browser access requires the originating browser context`；`Janus Dev Read-only v2` 的 `janus_sources` 再次回報 `The tool failed internally`。**這些均是查詢通道限制，不證明 DB 不存在、IAM 真的被拒絕或資料壞掉。**
 - **須新增的不是資料或服務，而是由既有授權唯讀通道輸出一份 bounded PG+Iceberg metadata receipt：** as-of UTC/role/project/environment/Git SHA、PG schema/table/view/field/key/index/migration 查詢結果，`catalog.iceberg_tables` 的 `catalog_name='janus'` core/mart entries，逐表最新 schema/spec/current snapshot/summary row count，查詢錯誤/欄位無權限清楚標註。先固定 current catalog table list，再與這兩份 10/17–10/18 歷史收據比對差異；不得用舊 snapshot 補當前值。
 - 直到 **兩層現時清冊都讀回並可驗證**，C1A-01/02/03 仍不可准許物理清掃；**經核准可刪項目 = 0**。下一輪才可以在舊 C1-A 矩陣內按資產逐項升級 `LIVE_CONFIRMED`。
@@ -320,9 +322,9 @@
 
 用戶授權「沒有就加上去」，採取**不開放任意 SQL、不新增付費資源、不擴張 IAM**的最小工程方案。本階段新增三項工程資產：
 
-- [\`.github/workflows/archive/governance-metadata-readonly.yml.disabled\`](../../.github/workflows/archive/governance-metadata-readonly.yml.disabled)：push 指定治理 request 或手動 workflow_dispatch；使用既有 dev WIF 和 CI 身分，不暴露 secret。
-- [\`scripts/gcp/governance_metadata_readonly.py\`](../../scripts/gcp/governance_metadata_readonly.py)：固定有界查詢，在現有 \`janus-ingestion-core\` Job 以單次 Python override（不改 Job template）取得 PostgreSQL \`pg_catalog\`、\`information_schema\`、\`control.schema_migrations\`、\`catalog.iceberg_tables\`（core+mart）和 PyIceberg current metadata。每段 \`BEGIN READ ONLY\`、statement_timeout 10s；不做 table.scan/資料列讀取；私人資料只讀 schema metadata；結果按 section/chunk 保留 JSON 收據、SQLSTATE / error class，不印敏感 error/Secrets。
-- [\`tests/test_governance_metadata_readonly.py\`](../../tests/test_governance_metadata_readonly.py) 與 [\`ops/governance-metadata-readonly-request.json\`](../../ops/governance-metadata-readonly-request.json)：固定審查範圍、不可變資料和離線 guard。ChatGPT 可透過 GitHub 已授權 connector 更新受控 request 觸發一次 metadata scan，再透過同一 GitHub connector 讀回 Action log/Artifact。**此入口是 GitHub mediated，不是 ChatGPT 直接連 Cloud SQL 的 SQL connector**。
+- [\`.github/workflows/archive/governance-metadata-readonly.yml.disabled\`](../../../../.github/workflows/archive/governance-metadata-readonly.yml.disabled)：push 指定治理 request 或手動 workflow_dispatch；使用既有 dev WIF 和 CI 身分，不暴露 secret。
+- [\`scripts/gcp/governance_metadata_readonly.py\`](../../../../scripts/gcp/governance_metadata_readonly.py)：固定有界查詢，在現有 \`janus-ingestion-core\` Job 以單次 Python override（不改 Job template）取得 PostgreSQL \`pg_catalog\`、\`information_schema\`、\`control.schema_migrations\`、\`catalog.iceberg_tables\`（core+mart）和 PyIceberg current metadata。每段 \`BEGIN READ ONLY\`、statement_timeout 10s；不做 table.scan/資料列讀取；私人資料只讀 schema metadata；結果按 section/chunk 保留 JSON 收據、SQLSTATE / error class，不印敏感 error/Secrets。
+- [\`tests/test_governance_metadata_readonly.py\`](../../../../tests/test_governance_metadata_readonly.py) 與 [\`ops/governance-metadata-readonly-request.json\`](../../../../ops/governance-metadata-readonly-request.json)：固定審查範圍、不可變資料和離線 guard。ChatGPT 可透過 GitHub 已授權 connector 更新受控 request 觸發一次 metadata scan，再透過同一 GitHub connector 讀回 Action log/Artifact。**此入口是 GitHub mediated，不是 ChatGPT 直接連 Cloud SQL 的 SQL connector**。
 
 正式執行現場 **Run #39948922788**：[GitHub Actions](https://github.com/tommylin15/janus-omniforge/actions/runs/39948922788)。**第一次收據尚待實際 job 終態與 JSON 驗證；本節記錄程式提交與 dispatch，不代替 Live PASS。** 如需此入口獲得所有 metadata，仍受既有資料庫角色的 schema visibility、Iceberg storage 讀權限制；不足時輸出 \`PARTIAL\` / \`BLOCKED\`，**不得自動 GRANT 或調整 IAM**。
 
@@ -378,7 +380,7 @@
 
 ### 16.3 身分／查詢通道判定及最小補驗方向
 
-首次查詢明確說明**PostgreSQL \`pg_catalog\`／Iceberg catalog SELECT 權限已足夠**，毋須增大 Core 身分授權；Mart GCS metadata 存取遭遇 \`PermissionError\`，不建議立即提升 ingestion SA IAM 權限。改由既有 \`janus-intelligence-mart\` dev Job 身分讀取 Mart Iceberg metadata，不改 Cloud Run Job template、不加 IAM、不新增資源；此替代方式已加入同一個 [治理 Workflow](../../.github/workflows/archive/governance-metadata-readonly.yml.disabled)，第二輪 [#39949570989](https://github.com/tommylin15/janus-omniforge/actions/runs/39949570989) 的終態和收據應另行補登，不得由本節推定 PASS。
+首次查詢明確說明**PostgreSQL \`pg_catalog\`／Iceberg catalog SELECT 權限已足夠**，毋須增大 Core 身分授權；Mart GCS metadata 存取遭遇 \`PermissionError\`，不建議立即提升 ingestion SA IAM 權限。改由既有 \`janus-intelligence-mart\` dev Job 身分讀取 Mart Iceberg metadata，不改 Cloud Run Job template、不加 IAM、不新增資源；此替代方式已加入同一個 [治理 Workflow](../../../../.github/workflows/archive/governance-metadata-readonly.yml.disabled)，第二輪 [#39949570989](https://github.com/tommylin15/janus-omniforge/actions/runs/39949570989) 的終態和收據應另行補登，不得由本節推定 PASS。
 
 ---
 
@@ -408,7 +410,7 @@
 - \`C0-L02\` **Live catalog enumeration + all Core/Mart current schema/partition/snapshot metadata 已取得**（九張 Core、十一張 Mart）。其中兩表無 snapshot；不得解釋為不存在或 rowcount=0。
 - \`C0-L01\` PG catalog metadata、columns/types、constraint/index names、migration ledger **已實讀**；剩餘是當前 migration 名稱 drift、Role 限制下 information_schema 可見性與特定 constraint 定義內容核對。
 - \`C0-L03\` 30 日 writer/reader/Cloud Scheduler/Cloud Run 使用證據和 \`C0-L04\` GCS today prefix/lease、\`C0-L05\` 四模型真實 X values/PIT 仍需分開驗證；**C0 全部不是 FULL PASS，C1-B 無實刪授權**。
-- 執行流程已改成 Core role 與 Mart role 各查可讀資產後 cross-validate（[治理 Workflow](../../.github/workflows/archive/governance-metadata-readonly.yml.disabled)）；新版 [#39950278408](https://github.com/tommylin15/janus-omniforge/actions/runs/39950278408) 首次整合結果仍需讀回，未達成前不能提前寫 \`WORKFLOW_PASS\`。
+- 執行流程已改成 Core role 與 Mart role 各查可讀資產後 cross-validate（[治理 Workflow](../../../../.github/workflows/archive/governance-metadata-readonly.yml.disabled)）；新版 [#39950278408](https://github.com/tommylin15/janus-omniforge/actions/runs/39950278408) 首次整合結果仍需讀回，未達成前不能提前寫 \`WORKFLOW_PASS\`。
 
 ---
 

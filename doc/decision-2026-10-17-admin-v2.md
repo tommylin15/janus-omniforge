@@ -100,5 +100,5 @@
 - **唯一 queue／順序／狀態：**[TODO](todo.md) 的 `ADMIN-V2`。
 - **UI 結構／操作／狀態語意：**[Admin UI](ui/admin.md)。
 - **工程與驗收邊界：**[WBS-6](wbs/wbs-6-api-and-apps.md)。
-- **五角色／CEO 既有工作包：**[D07](execution-cards/d07-specialist-b9-oos.md)、[D08](execution-cards/d08-ceo-admin-owner-report.md)。
+- **五角色／CEO 既有工作包：**[D07](archive/document-cleanup-2026-10-25/execution-cards/d07-specialist-b9-oos.md)、[D08](archive/document-cleanup-2026-10-25/execution-cards/d08-ceo-admin-owner-report.md)。
 - D01～D06 原卡片維持原樣，不因本設計修改其 status／gate／承諾；待實作時只在 ADMIN-V2 的 acceptance 記錄 Admin 整合證據。

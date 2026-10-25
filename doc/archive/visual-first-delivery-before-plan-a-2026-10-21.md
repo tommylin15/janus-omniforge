@@ -184,7 +184,7 @@ Header與持股先顯，歷史圖按需載入；刷新保留上次成功值＋�
 
 ### 首頁與個股設計的責任交接（2026-10-16）
 
-呈現規格只維護在[四頁正式UI規格](../ui/visual-first-four-pages.md)，不在工單複製另一個版型；AI步驟在[D03卡](../execution-cards/d03-four-page-charts-visual.md)，快照步驟在[D02卡](../execution-cards/d02-full-market-snapshot-performance.md)，DRL資料修復在[總指令第7節](../codex-execution-plan.md)。TODO為唯一狀態與恢復入口。
+呈現規格只維護在[四頁正式UI規格](../ui/visual-first-four-pages.md)，不在工單複製另一個版型；AI步驟在[D03卡](document-cleanup-2026-10-25/execution-cards/d03-four-page-charts-visual.md)，快照步驟在[D02卡](document-cleanup-2026-10-25/execution-cards/d02-full-market-snapshot-performance.md)，DRL資料修復在[總指令第7節](../codex-execution-plan.md)。TODO為唯一狀態與恢復入口。
 
 | 交付 | 既有工項 | 驗收焦點 |
 |---|---|---|

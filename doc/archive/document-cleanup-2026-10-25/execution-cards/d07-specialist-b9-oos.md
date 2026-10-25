@@ -1,11 +1,13 @@
+> **歷史封存｜2026-10-25**：本文件保存當時設計或收據，不是現行執行指令；完成／取消不互相改判。現行工作以 [唯一 TODO](../../../todo.md) 為準。
+
 # D07｜因子、四模型與現役舊 event 事實相容 — 唯一 AI 卡
-更新：2026-10-21。狀態/授權只看[TODO](../todo.md)，本輪文件更新不啟動訓練或部署。
+更新：2026-10-21。狀態/授權只看[TODO](../../../todo.md)，本輪文件更新不啟動訓練或部署。
 
 ## 可複製指令
 > 執行D07。先讀AGENTS.md、doc/PROJECT_RULES.md、doc/todo.md、本卡、doc/spec/specialist-engines.md、doc/spec/model-feature-time-contract.md及研究採集SPEC。核對main與現有Risk Ridge實作，先建共享清洗/as-of/交易日/公司行動/滾動X/成熟Y，再Risk→Quant；Fundamental/Valuation依資料期數，Event 僅保留事實／A-CHANGE rules，不再訓練第五模型；04 Valuation 共用 PE/PB 研究及估值區間情境的資料與發布治理。人工Colab訓練與時間外評估，Janus只做受控匯入/推論/rollback。不要每日重抓歷史或每日重訓，不恢復GAS/BQ/Cloud Run訓練路線。逐角色獨立baseline/challenger與promotion，未驗證模型不輸出機率，不阻擋方案A有效事實。完成本包tests/CI、必要dev整合與真實推論/Admin readback後結案。
 
 ## 最小來源
-[四模型角色/X/Y](../spec/specialist-engines.md)、[窗口與前處理](../spec/model-feature-time-contract.md)、[採集](../spec/research-collection-gas-drive-colab.md)、[WBS](../wbs/wbs-5-specialist-engines.md)、[Colab README](../../research/colab/README.md)。
+[四模型角色/X/Y](../../../spec/specialist-engines.md)、[窗口與前處理](../../../spec/model-feature-time-contract.md)、[採集](../../../spec/research-collection-gas-drive-colab.md)、[WBS](../../../wbs/wbs-5-specialist-engines.md)、[Colab README](../../../../research/colab/README.md)。
 程式入口research/colab/risk_pilot.py、run_risk_folder_pilot.py、monthly_folder_io.py、collect_tw_equities.py；正式specialists.py/specialist_runtime.py、packages/analysis_product.py及相關tests。開工核對目前路由，不照舊snapshot猜功能。
 
 ## 執行順序
@@ -26,5 +28,5 @@
 
 
 ## 完整模型週期交付
-執行D07時一併讀[生命週期SPEC](../spec/model-lifecycle.md)及[Colab→GCS→批次→月評估AI卡](d07-model-lifecycle.md)。以既有同一工作包完成notebook/資料清洗貼標、各角色訓練、candidate/registry/shadow、日週批次與成熟結果回收，不另立五套queue。資料量不足照SPEC列實收/建議差距；允許rules交付，不冒稱ML發布。
+執行D07時一併讀[生命週期SPEC](../../../spec/model-lifecycle.md)及[Colab→GCS→批次→月評估AI卡](d07-model-lifecycle.md)。以既有同一工作包完成notebook/資料清洗貼標、各角色訓練、candidate/registry/shadow、日週批次與成熟結果回收，不另立五套queue。資料量不足照SPEC列實收/建議差距；允許rules交付，不冒稱ML發布。
 

@@ -1,4 +1,6 @@
-> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
+> **歷史封存｜2026-10-25**：本文件保存當時設計或收據，不是現行執行指令；完成／取消不互相改判。現行工作以 [唯一 TODO](../../../todo.md) 為準。
+
+> **2026-10-24 政策更新**：研究數字與歷史結論保留；本文舊有逐來源／全歷史 PIT 補證、精確時間校準及新前瞻成熟等待不再是工作或發布前置。取消例行稽核，依 [研究精簡政策](../../../spec/research-simplification.md) 按需評估；不把取消視為 PASS。
 
 # Janus／OmniForge 資料治理 C1-A 準備與 C0-Live 補驗並行計畫｜2026-10-23
 
@@ -10,14 +12,14 @@
 
 | 對象 | 唯讀證據 | 信心／限制 |
 |---|---|---|
-| 工程政策 | [PROJECT_RULES](../PROJECT_RULES.md) §1.6、§1.8、§1.12 | CODE_RULE；Stage 48h、Iceberg current-only、Risk rollback 狀態須遵守當時和後續實際讀回 |
-| Iceberg Core 定義 | [DuckDBIcebergCore](../../packages/duckdb_query/iceberg.py) 的 \`IDENTIFIERS\`、\`PARTITIONS\` | CODE_CONFIRMED；九個定義不等於 Live 九張 |
-| Mart 歷史 handle | [storage.py](../../jobs/intelligence-mart/intelligence_mart/storage.py) 的 \`MART_TABLES\`、\`MartMaintenanceStore\` | CODE_CONFIRMED；十一個定義不等於 Live 十一張 |
-| Mart 可達維護路徑 | [Mart retention](../../jobs/intelligence-mart/intelligence_mart/retention.py) \`run()\`、\`table_exists\`、\`table.delete(expired)\` | CODE_CONFIRMED：現存表可能受 retention 寫入；無舊 analysis writer **不代表表可 DROP** |
-| PG 發布契約 | [Migration 018](../../infra/postgres/migrations/018_mart_publication.sql) 中 \`publication.mart_report_index.table_identifier\` = \`mart.mart_scoped_analysis_v1\` 的 CHECK | CODE_CONFIRMED、LIVE migration applied UNKNOWN；這是**硬依賴候選**，必須禁止盲刪 |
-| 雙寫路徑 | [ingestion_core.__main__](../../jobs/ingestion-core/ingestion_core/__main__.py) 約 508 與 540–584 行 | CODE_CONFIRMED：先寫 market-volume 全官方批次，投影並 DQ 後再寫 ohlcv |
-| Core 被讀取 | [risk_inputs.py](../../jobs/intelligence-mart/intelligence_mart/risk_inputs.py) \`core.ohlcv_v1\`、[market_screening.py](../../jobs/intelligence-mart/intelligence_mart/market_screening.py) \`core.ohlcv_v1/core.benchmark_v1/core.valuation_v1\` | CODE_CONFIRMED；但 30 日 runtime usage 未查 |
-| 四模型 X contract | [janus_precision.py](../../research/chatgpt/janus_precision.py) \`VERSION='3.8.2'\` | CODE_CONFIRMED：8+11+10+5=34 席位、27 unique；非四模型皆已啟用的證據 |
+| 工程政策 | [PROJECT_RULES](../../../PROJECT_RULES.md) §1.6、§1.8、§1.12 | CODE_RULE；Stage 48h、Iceberg current-only、Risk rollback 狀態須遵守當時和後續實際讀回 |
+| Iceberg Core 定義 | [DuckDBIcebergCore](../../../../packages/duckdb_query/iceberg.py) 的 \`IDENTIFIERS\`、\`PARTITIONS\` | CODE_CONFIRMED；九個定義不等於 Live 九張 |
+| Mart 歷史 handle | [storage.py](../../../../jobs/intelligence-mart/intelligence_mart/storage.py) 的 \`MART_TABLES\`、\`MartMaintenanceStore\` | CODE_CONFIRMED；十一個定義不等於 Live 十一張 |
+| Mart 可達維護路徑 | [Mart retention](../../../../jobs/intelligence-mart/intelligence_mart/retention.py) \`run()\`、\`table_exists\`、\`table.delete(expired)\` | CODE_CONFIRMED：現存表可能受 retention 寫入；無舊 analysis writer **不代表表可 DROP** |
+| PG 發布契約 | [Migration 018](../../../../infra/postgres/migrations/018_mart_publication.sql) 中 \`publication.mart_report_index.table_identifier\` = \`mart.mart_scoped_analysis_v1\` 的 CHECK | CODE_CONFIRMED、LIVE migration applied UNKNOWN；這是**硬依賴候選**，必須禁止盲刪 |
+| 雙寫路徑 | [ingestion_core.__main__](../../../../jobs/ingestion-core/ingestion_core/__main__.py) 約 508 與 540–584 行 | CODE_CONFIRMED：先寫 market-volume 全官方批次，投影並 DQ 後再寫 ohlcv |
+| Core 被讀取 | [risk_inputs.py](../../../../jobs/intelligence-mart/intelligence_mart/risk_inputs.py) \`core.ohlcv_v1\`、[market_screening.py](../../../../jobs/intelligence-mart/intelligence_mart/market_screening.py) \`core.ohlcv_v1/core.benchmark_v1/core.valuation_v1\` | CODE_CONFIRMED；但 30 日 runtime usage 未查 |
+| 四模型 X contract | [janus_precision.py](../../../../research/chatgpt/janus_precision.py) \`VERSION='3.8.2'\` | CODE_CONFIRMED：8+11+10+5=34 席位、27 unique；非四模型皆已啟用的證據 |
 | GCS 歷史觀測 | [FinOps #39552667601](https://github.com/tommylin15/janus-omniforge/actions/runs/39552667601)，2026-10-21 05:59:59 UTC，job 119065218667 | HISTORICAL_RUNTIME_RECEIPT：6 buckets、7156 objects、782661499 current bytes + 2749618 noncurrent bytes，**不得當成今日值** |
 | Risk 變更歷史 | [rollback #39938087196](https://github.com/tommylin15/janus-omniforge/actions/runs/39938087196)，2026-10-23 10:19 UTC | HISTORICAL_RUNTIME_RECEIPT：GCS / PG DETERMINISTIC 讀回 PASS；早期 ACTIVE 不能覆蓋較新回滾 |
 
@@ -90,7 +92,7 @@
 | **L04-GCS** | 限已確認 dev 六桶，metadata-only 列舉前綴、version/generation/updated/size、Stage 的 48h + valid lease join；不 GET private rows | prefix/objects/bytes、Stage 候選 + held-by-active-lease、manifest/current metadata refs；不把 age 7d 充當 TTL 48h | P1 |
 | **L05-X** | 核對 pin 住的研究 release manifest / Core snapshot / 實際 X column contract；只做必要有界數量/缺值/單位檢查 | 34 slots／27 names、schema order、model-input nonnull 與 PIT 隔離、X/Y/context/quality/provenance 資產清冊 | P1 |
 
-**已核對現有只讀工具而不觸發：** [\`.github/workflows/finops-dev.yml\`](../../.github/workflows/finops-dev.yml) 有 \`workflow_dispatch\` 的 \`gcs-storage-footprint\`、\`core-reference-audit\`、\`runtime-references\`、\`iceberg-readback\` 等工作選項；其具體 SQL/Job 行為以主線 script 和 \`ops/finops-*.json\` request 為準，其中某些會執行既有 dev Job 以取得有界 reference。**本輪未 dispatch 工作流**；不得只因工作流名稱含 \`readback\` 就認定無額外變更、沒有成本，或保證能拿到完整 PG catalog。當前工具只提供 GitHub 收據讀取，無直接 PostgreSQL/GCS/Scheduler generic read API；缺資料者原樣 \`BLOCKED\`。
+**已核對現有只讀工具而不觸發：** [\`.github/workflows/finops-dev.yml\`](../../../../.github/workflows/finops-dev.yml) 有 \`workflow_dispatch\` 的 \`gcs-storage-footprint\`、\`core-reference-audit\`、\`runtime-references\`、\`iceberg-readback\` 等工作選項；其具體 SQL/Job 行為以主線 script 和 \`ops/finops-*.json\` request 為準，其中某些會執行既有 dev Job 以取得有界 reference。**本輪未 dispatch 工作流**；不得只因工作流名稱含 \`readback\` 就認定無額外變更、沒有成本，或保證能拿到完整 PG catalog。當前工具只提供 GitHub 收據讀取，無直接 PostgreSQL/GCS/Scheduler generic read API；缺資料者原樣 \`BLOCKED\`。
 
 可直接用於下一個有權唯讀環境的 metadata SQL **模板**（**未執行**；使用者/連線與 schema 以當前實際環境為準；每段必須設有小時間限制）：
 
@@ -166,7 +168,7 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 | **C1A-04 四模型因子** | 九個 Core 表當時 schema 包含 \`financials.published_at/availability_at/version_at/source_document_sha256\`，並非「未使用的普通因子」；34 slots 仍依 3.8.2 研究 contract | \`HISTORICAL_PIT_COLUMNS_OBSERVED\`、\`MODEL_LIVE_UNKNOWN\` | \`KEEP\` PIT/RAW/QUALITY/Y/CONTEXT/PROVENANCE；可刪欄 = 0 |
 | **C1A-05 PG** | Risk DETERMINISTIC 10/23 舊收據與 migration 靜態定義已存在，但**沒有** PG schema/table/field constraints 即時通盤查詢 | \`HISTORICAL_PARTIAL\` | \`KEEP_UNTIL_CURRENT_PG_CENSUS\` |
 
-**另有重要操作修正：** 倉庫 [\`.github/workflows/finops-dev.yml\`](../../.github/workflows/finops-dev.yml) 中的 \`iceberg-readback\` 分支實際僅讀 Scheduler、Cloud Run Job configuration 與 nonterminal executions，**不含 PG catalog/Core/Mart schema**；不能把該入口的 PASS 當成 PG/Iceberg 清冊。有一條 [\`feature-readiness-metadata-census.yml\`](../../.github/workflows/archive/feature-readiness-metadata-census.yml.disabled) 可取得 Core 及 bounded row scan，但會以 override args 啟動現有 dev Job 且未涵蓋 Mart/PG 全量，因此**本輪未 rerun/dispatch**；不擅自以採集/寫入工作流替代唯讀盤點。
+**另有重要操作修正：** 倉庫 [\`.github/workflows/finops-dev.yml\`](../../../../.github/workflows/finops-dev.yml) 中的 \`iceberg-readback\` 分支實際僅讀 Scheduler、Cloud Run Job configuration 與 nonterminal executions，**不含 PG catalog/Core/Mart schema**；不能把該入口的 PASS 當成 PG/Iceberg 清冊。有一條 [\`feature-readiness-metadata-census.yml\`](../../../../.github/workflows/archive/feature-readiness-metadata-census.yml.disabled) 可取得 Core 及 bounded row scan，但會以 override args 啟動現有 dev Job 且未涵蓋 Mart/PG 全量，因此**本輪未 rerun/dispatch**；不擅自以採集/寫入工作流替代唯讀盤點。
 
 ### 9.1 目前 C1-A 最後必要的當前收據
 
@@ -451,16 +453,16 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 - **不刪任何真實 PG row、execution_items、Core/Mart／GCS artifact**，不批量更新 `control.executions.status`，不捏造 `succeeded/failed`。保留工作歷史；Stage 48h、Core/Mart Iceberg 既有檔齡與保護政策互不混淆。
 - **程式守門**：一般佇列 SELECT 由 7 天改為 **5 天**，舊 `JANUS_P02_ANALYSIS_RECOVERY` 與 `JANUS_P02_ANALYSIS_EXECUTION_REF` 啟用時直接拒絕；對 Controller persisted `pending` 的 queue occurrence，在派送前重新查 `requested_at`／`trigger_type`／`finished_at`，不存在／超齡／終態已完成則將 **occurrence** `skipped`，不派送 Worker。沒有取消任何已在執行的 Job，也沒有寫入原 57 個 PG execution status。
 - **部署證據分清新舊**：舊版原 Controller-only [#40047503576](https://github.com/tommylin15/janus-omniforge/actions/runs/40047503576) 已 `completed/success`，證明**舊 7 日映像**安全部署，而不是本次 5 日程式生效。新版需要 Python targeted tests、完整 CI 與受控 dev Controller image、Scheduler ENABLED/cron/target/readback 驗收，未有收據前標 `CODE_COMMITTED / DEPLOY_NOT_VERIFIED`。
-- **Active 工作改為 5 天防線**，不再將 41 個 Analysis／16 個 Collection 的逐筆 Core/Mart 結果對帳作為結案條件；回復剩餘工作排程遵循 [TODO](../todo.md)，安全性責任遵循 [PROJECT_RULES §1.8.1](../PROJECT_RULES.md)。
+- **Active 工作改為 5 天防線**，不再將 41 個 Analysis／16 個 Collection 的逐筆 Core/Mart 結果對帳作為結案條件；回復剩餘工作排程遵循 [TODO](../../../todo.md)，安全性責任遵循 [PROJECT_RULES §1.8.1](../../../PROJECT_RULES.md)。
 
 ## 21. P0-2 五天排除正式收尾證據（2026-10-24）
 
-**正式結案：P0-2 = CLOSED／PASS（僅新核准的 5 天派送策略）**。舊 §13–19 的原 57 UUID/30d one-shot 追查計畫已由 §20 及 [PROJECT_RULES §1.8.1](../PROJECT_RULES.md) 覆蓋，不再要求逐筆補作 Core/Mart／Cloud Run execution terminal。超過五天的 execution 保留 PG audit，不重派、不刪除、也不偽造完成狀態。
+**正式結案：P0-2 = CLOSED／PASS（僅新核准的 5 天派送策略）**。舊 §13–19 的原 57 UUID/30d one-shot 追查計畫已由 §20 及 [PROJECT_RULES §1.8.1](../../../PROJECT_RULES.md) 覆蓋，不再要求逐筆補作 Core/Mart／Cloud Run execution terminal。超過五天的 execution 保留 PG audit，不重派、不刪除、也不偽造完成狀態。
 
 - Release 首輪 [#40048915305](https://github.com/tommylin15/janus-omniforge/actions/runs/40048915305) 在 1,814 項已 PASS 時，因兩項過期 7／30 天測試假設 FAIL；調整測試後完整 [GHCR #40049195127](https://github.com/tommylin15/janus-omniforge/actions/runs/40049195127) 的 Python／Flutter、四個 GHCR build/digest 全數 PASS。
 - [Controller-only dev #40049724410](https://github.com/tommylin15/janus-omniforge/actions/runs/40049724410) completed/success：原有 `janus-batch-controller` 現役 image `sha256:ccc4decc6f38b12e0b0ed62c2f22ab3b9e82a3fad336f10912671b1a028dd0f2`，readonly canary PASS、Scheduler ENABLED，`data_mutations=0`、`queue_recovery_dispatches=0`，部署 Lease 已安全釋放。首次 [#40049612738](https://github.com/tommylin15/janus-omniforge/actions/runs/40049612738) 因並行 main push 於 lease acquire 前停止，無 GCP 修改。
 - 5 天 SELECT + persisted pending 在 dispatch 前 check、歷史恢復 env fail closed，均有 targeted [37 PASS #40048549032](https://github.com/tommylin15/janus-omniforge/actions/runs/40048549032) 與最終部署時 rollout 5 PASS。沒有以 GCP 真實 replay 超齡工作作測試，避免破壞使用者明確排除指示。
-- P0-1 自然排程與 Core/Mart 讀者／C1-A/C1-B 清理決策不因 P0-2 成功而自動結案。完整新收據見 [Operations](../spec/operations-and-testing.md)。
+- P0-1 自然排程與 Core/Mart 讀者／C1-A/C1-B 清理決策不因 P0-2 成功而自動結案。完整新收據見 [Operations](../../../spec/operations-and-testing.md)。
 
 ## 22. C1-A 現役讀者與部署 metadata 有界補驗（2026-10-24）
 
@@ -468,7 +470,7 @@ B3. 每次將 receipt 連結、UTC、角色、安全範圍、Git SHA 與差異/�
 
 - **十張 Mart 候選：** 每張僅 1 個 `DECLARATION_ONLY` 來源（`jobs/intelligence-mart/intelligence_mart/storage.py` 的 table handle）；不是十張各一個現役業務 reader，亦不是零讀者證據。掃描器正式回報 `actual_per_table_reader_usage=UNKNOWN_NO_TABLE_LEVEL_RUNTIME_TRACE`。現有 `retention.py` 仍有動態 table_exists/scan 維護入口，這次沒有查明各表最近 30 日的 table-level caller，**九張 retire candidate 仍禁刪**。
 - **現役資源 GET 讀回：** `janus-api`（image SHA256 `9e6bbccab1a77c126f7b8d771e2434d53b86285b42715991f4db7db1e78f8a7f`，generation 600）、`janus-intelligence-mart`（`e4f48f93e060dbe484b785845f0698cc381d1c2ad92dc61951358327a597128e`，generation 290）、`janus-ingestion-core`（`2c61164a8da4d8eb743f9fa27f074798a2cbc24bb3650bc4f77ea0e9bd7be1b1`，generation 363）；三者 `READABLE`。映像 metadata 不等於能證實各 table 的 SQL query trace。
-- **維持 C1-A 決策：** `mart_scoped_analysis_v1=KEEP`、`mart_risk_portfolio_v1=KEEP_PROTECTED_PENDING`、其餘九張 `RETIRE_CANDIDATE/UNKNOWN_READERS`；`core.market_volume_v1` 與 `core.ohlcv_v1` 的表級實際讀者、欄位口徑／同鍵合併／回切證據仍不充分，保留現役兩表。只在找到可靠的實際讀者觀測與重建／回切證據後，才可提出另案的 C1-B 建議；**未批准任何 DROP/DELETE/停寫**。完整新收據索引 [Operations](../spec/operations-and-testing.md)。
+- **維持 C1-A 決策：** `mart_scoped_analysis_v1=KEEP`、`mart_risk_portfolio_v1=KEEP_PROTECTED_PENDING`、其餘九張 `RETIRE_CANDIDATE/UNKNOWN_READERS`；`core.market_volume_v1` 與 `core.ohlcv_v1` 的表級實際讀者、欄位口徑／同鍵合併／回切證據仍不充分，保留現役兩表。只在找到可靠的實際讀者觀測與重建／回切證據後，才可提出另案的 C1-B 建議；**未批准任何 DROP/DELETE/停寫**。完整新收據索引 [Operations](../../../spec/operations-and-testing.md)。
 
 ## 23. C1-A Core／Mart 實際 metadata、逐表讀者與回復證據（2026-10-24）
 

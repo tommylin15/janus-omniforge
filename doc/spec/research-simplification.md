@@ -27,4 +27,4 @@
 
 Risk 取消歷史稽核的無條件封鎖，但保留真實技術檢查輸入及可回復切換；本輪不啟用 ACTIVE。獨立 promotion 掃描 CLI 退役，不再列舉／下載歷史 shadow 資料。
 
-驗證與 AI 工作指示見 [WI](../runbook-research-simplification-wi.md)。舊文件若保留歷史背景，其要求不得重新啟動已取消工作；本政策優先。
+驗證與 AI 工作指示見 [WI](../archive/document-cleanup-2026-10-25/runbook-research-simplification-wi.md)。舊文件若保留歷史背景，其要求不得重新啟動已取消工作；本政策優先。

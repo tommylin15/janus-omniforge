@@ -7,7 +7,7 @@
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
 更新：2026-10-23。原模型生命週期與 Colab 規格保留，新增 ChatGPT 三角色試訓與四角色跨 Job 快取的延後整併決策。
-**本文件是開發/營運目標，非已部署能力或已實收資料。** 模型/X/Y見[Specialist](specialist-engines.md)，精確時間/公式見[Feature契約](model-feature-time-contract.md)；不複製另一套公式。狀態唯一見[TODO](../todo.md)，操作與AI指令見[完整開發卡](../execution-cards/d07-model-lifecycle.md)。
+**本文件是開發/營運目標，非已部署能力或已實收資料。** 模型/X/Y見[Specialist](specialist-engines.md)，精確時間/公式見[Feature契約](model-feature-time-contract.md)；不複製另一套公式。狀態唯一見[TODO](../todo.md)，操作與AI指令見[完整開發卡](../archive/document-cleanup-2026-10-25/execution-cards/d07-model-lifecycle.md)。
 
 **本輪交付決策（2026-10-22）**：前四角色各自獨立 XGBoost Notebook；共用 Python 模組，不共用一份必須依序執行的訓練 Notebook。操作／AI 指令：[Quant 趨勢](../colab-models/01-quant-xgboost.md)、[Risk 風險](../colab-models/02-risk-xgboost.md)、[Fundamental 營運](../colab-models/03-fundamental-xgboost.md)、[Valuation 估值](../colab-models/04-valuation-xgboost.md)。Event 暫另議。本次僅文件完成，訓練與發布狀態仍依 TODO／實際收據。
 
@@ -27,7 +27,7 @@
 4. **跨 Job 快取並非共享 RAM**：不同 Cloud Run Job execution 不能保證保留前次 RAM、容器或 /tmp。先比較 A) 既有 GCS immutable artifact、每次 execution 單次下載+SHA驗證+in-process cache（低成本基線），B) 經 CI 綁定 image digest/model hash 的 image layer 內封裝模型（若實測較快且版本/回滾可控），C) 其他**已核准、成本確認**的共享快取方案。不得把 GCS 本身或容器暫存誤稱跨 execution 共享記憶體，也不新增 Redis/Vertex Endpoint/VM/常駐服務或付費額度，除非先取得使用者授權。
 5. **統一驗收與回退**：同 target union、Core snapshot、as-of、X、版本下，比較改造前後模型讀取時間、load/predict/批次總耗時、GCS GET/bytes、CPU/RAM 峰值、成本估算；要求 fixed vectors、實際 dev 日批結果一致，驗壞 hash、cache invalidation、並發、Owner 隔離、ETF N/A、rollback。效益不明顯就維持 GCS+每Job單次載入基線；完成原定驗收才結案，不因假設性風險無限延長。
 
-執行步驟與 AI 指令見 [D07 模型生命週期卡](../execution-cards/d07-model-lifecycle.md)；三個角色的具體公式仍以各自模型文件為準。本項在原 D07 內，不另開 WBS 或增加 D08 工作。
+執行步驟與 AI 指令見 [D07 模型生命週期卡](../archive/document-cleanup-2026-10-25/execution-cards/d07-model-lifecycle.md)；三個角色的具體公式仍以各自模型文件為準。本項在原 D07 內，不另開 WBS 或增加 D08 工作。
 
 ## 1. 現況、架構與責任
 以下早期基線保留作背景；新訓練輸入以 `JanusDataset_v3_202610/canonical/CURRENT.json` 指定 Parquet release 為準，Risk 既有 XGBoost8 參照專用模型卡／重訓手冊。早期查證基準 main 530a93030f478a91b33256ce98be6e55115a779c：

@@ -1,10 +1,12 @@
+> **歷史封存｜2026-10-25**：本文件保存當時設計或收據，不是現行執行指令；完成／取消不互相改判。現行工作以 [唯一 TODO](../../todo.md) 為準。
+
 # Dev Pilot Operational Evidence Ledger
 
 更新：2026-09-26
 
 用途：為 `WBS-8-DEV-PILOT-RUN` 的六個 calendar months evidence window 保存小型、可持續追加的 operational checkpoint。`pilot_started_at=2026-09-24T15:29:19Z`。本檔不是新的 implementation source of truth；目前實作與完成狀態仍以 GitHub `main`、實際 GCP dev runtime、tests／CI／deployment／integration evidence 為準。資料不足時一律記為 `unknown`／`not observed`，不得用文件推測成功。
 
-完整歷史 implementation／test／deployment ledger 仍保留於 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。由於該檔已很大，GitHub connector 無法安全做 server-side patch 時，不以整檔覆寫方式追加 checkpoint；本檔專門保存 Pilot evidence window 的新增 bounded checkpoint，並由 [`status.md`](status.md) 提供目前狀態入口。
+完整歷史 implementation／test／deployment ledger 仍保留於 [`spec/operations-and-testing.md`](../../spec/operations-and-testing.md)。由於該檔已很大，GitHub connector 無法安全做 server-side patch 時，不以整檔覆寫方式追加 checkpoint；本檔專門保存 Pilot evidence window 的新增 bounded checkpoint，並由 [`status.md`](../../status.md) 提供目前狀態入口。
 
 ## Checkpoint 001 — 2026-09-26
 
@@ -46,7 +48,7 @@
 - 自然 Scheduler post-repair recovery：**尚未由後續自然 execution 證明**；下一次可用的自然 Scheduler execution 應另作獨立 evidence slice，不能由本次 bounded acceptance 代替。
 - Post-start analysis、backup／restore delta、outcome、usefulness、cost、security／privacy：本 checkpoint 沒有新增可宣稱 evidence；維持 `not observed`，待後續真實事件累積。
 
-相關程序與 calendar repair 細節見 [`runbook-pilot-calendar-repair.md`](runbook-pilot-calendar-repair.md)；parallel-live dev 操作語意見 [`runbook-parallel-live-dev.md`](runbook-parallel-live-dev.md)。
+相關程序與 calendar repair 細節見 [`runbook-pilot-calendar-repair.md`](../../runbook-pilot-calendar-repair.md)；parallel-live dev 操作語意見 [`runbook-parallel-live-dev.md`](../../runbook-parallel-live-dev.md)。
 
 ## Checkpoint 002 — 2026-09-26
 
@@ -82,7 +84,7 @@
 - 驗證結果：兩個 legacy regional trigger names／IDs 仍 absent，canonical acceptance push 沒有把它們重新建立。
 - `janus-ingestion-core`：`Ready=True`，image digest `sha256:8009ae8eb017a463ea1f145942f2de910b64dc0e48234d0c8c8431c03fd6f9d8`。
 - `janus-intelligence-mart`：`Ready=True`，image digest `sha256:d0d5100085fe2f30e4b87891f0e264327cf244f46685826aa180252b39d9c456`。
-- 一次性 cleanup workflow／request 後續已從 `main` 移除，避免留下額外 mutation surface；正式 closure evidence 見 [`deployment-controller-consolidation-2026-09-26.md`](archive/deployment-controller-consolidation-2026-09-26.md)。
+- 一次性 cleanup workflow／request 後續已從 `main` 移除，避免留下額外 mutation surface；正式 closure evidence 見 [`deployment-controller-consolidation-2026-09-26.md`](../deployment-controller-consolidation-2026-09-26.md)。
 
 ### Checkpoint 判定
 

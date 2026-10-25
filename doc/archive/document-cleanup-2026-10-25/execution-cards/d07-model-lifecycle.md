@@ -1,15 +1,17 @@
+> **歷史封存｜2026-10-25**：本文件保存當時設計或收據，不是現行執行指令；完成／取消不互相改判。現行工作以 [唯一 TODO](../../../todo.md) 為準。
+
 # D07｜研究生命週期操作參考（暫緩）
 
-> 2026-10-25：本卡不是現行開工指令。四模型正式上線、必要特徵一致性與快取依[SEQ-06／08](sequential-delivery.md)；本卡研究調校延至[2027 Q1第二版](../parking-lot.md#v2-2027-q1)，由使用者重新啟動。舊第五角色／月評估／先重訓等相反指示已失效，不得整包照跑。
+> 2026-10-25：本卡不是現行開工指令。四模型正式上線、必要特徵一致性與快取依[SEQ-06／08](../../../execution-cards/sequential-delivery.md)；本卡研究調校延至[2027 Q1第二版](../../../parking-lot.md#v2-2027-q1)，由使用者重新啟動。舊第五角色／月評估／先重訓等相反指示已失效，不得整包照跑。
 
-> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](../spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
+> **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](../../../spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
-更新：2026-10-23。本輪寫入三模型 ChatGPT 試訓及四模型快取決策；後續使用者要求執行時，依[TODO](../todo.md)完成同一D07工作包，不創第二套queue。
-必讀：AGENTS/PROJECT_RULES、[模型生命週期](../spec/model-lifecycle.md)、[X/Y](../spec/specialist-engines.md)、[因子時間](../spec/model-feature-time-contract.md)、[D07卡](d07-specialist-b9-oos.md)、[Colab README](../../research/colab/README.md)。程序/資料量以生命週期SPEC為唯一權威。
+更新：2026-10-23。本輪寫入三模型 ChatGPT 試訓及四模型快取決策；後續使用者要求執行時，依[TODO](../../../todo.md)完成同一D07工作包，不創第二套queue。
+必讀：AGENTS/PROJECT_RULES、[模型生命週期](../../../spec/model-lifecycle.md)、[X/Y](../../../spec/specialist-engines.md)、[因子時間](../../../spec/model-feature-time-contract.md)、[D07卡](d07-specialist-b9-oos.md)、[Colab README](../../../../research/colab/README.md)。程序/資料量以生命週期SPEC為唯一權威。
 
 ## 1. 現行AI入口
 
-先看[唯一TODO](../todo.md)與[SEQ四階段AI指令](sequential-delivery.md)。本版採既有可發布artifact，四角色正式serving不能用rules／baseline替代完成；不執行本卡後續研究cells或新增週月評估。下列技術細節只供第二版重新核定範圍時參考。
+先看[唯一TODO](../../../todo.md)與[SEQ四階段AI指令](../../../execution-cards/sequential-delivery.md)。本版採既有可發布artifact，四角色正式serving不能用rules／baseline替代完成；不執行本卡後續研究cells或新增週月評估。下列技術細節只供第二版重新核定範圍時參考。
 
 ## 2. 共用Colab入口必須交付的cells
 C0掛Drive/checkout固定Git SHA/安裝鎖定依賴→C1選role/start/end/cutoff/cohort→C2採集與resume→C3清洗/品質→C4features/as-of→C5labels/maturity→C6time folds/preprocessor/train→C7OOS/evaluation/model card→C8export→C9候選上傳/readback。
@@ -33,10 +35,10 @@ drive.mount('/content/drive')
 
 | 角色 | 獨立開發文件／AI指令 | Notebook交付名稱 |
 |---|---|---|
-| Quant | [趨勢建模](../colab-models/01-quant-xgboost.md) | `01_Quant趨勢_XGBoost.ipynb` |
-| Risk | [波動建模](../colab-models/02-risk-xgboost.md) | `02_Risk風險_XGBoost.ipynb` |
-| Fundamental | [營運建模](../colab-models/03-fundamental-xgboost.md) | `03_Fundamental營運_XGBoost.ipynb` |
-| Valuation | [估值建模](../colab-models/04-valuation-xgboost.md) | `04_Valuation估值_XGBoost.ipynb` |
+| Quant | [趨勢建模](../../../colab-models/01-quant-xgboost.md) | `01_Quant趨勢_XGBoost.ipynb` |
+| Risk | [波動建模](../../../colab-models/02-risk-xgboost.md) | `02_Risk風險_XGBoost.ipynb` |
+| Fundamental | [營運建模](../../../colab-models/03-fundamental-xgboost.md) | `03_Fundamental營運_XGBoost.ipynb` |
+| Valuation | [估值建模](../../../colab-models/04-valuation-xgboost.md) | `04_Valuation估值_XGBoost.ipynb` |
 
 四份皆只讀 `JanusDataset_v3_202610/canonical/CURRENT.json` 指定的Parquet release，共用Python模組但可各自Run all；不要求先執行另一模型。新版訓練不得使用上節舊r1 CLI作主要入口，舊命令只供歷史試點重現。Risk沿用既有XGBoost8／八因子，不接手現行部署工項；其他角色以XGBoost為challenger且保留baseline。Event／新聞與人工標註另討論；不在本輪建立第五份Notebook。
 

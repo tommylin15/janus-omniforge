@@ -26,7 +26,7 @@
 D07-PRE 檢查真實 API 月檔／覆蓋與來源授權（舊GCP/BQ退役已結案，不重驗）；D07 驗 Colab OOS→Janus registry；D08 驗個股/CEO/Admin/Owner UI。各段 `DOC_UPDATED`、`DEPLOYED`、`OOS_VALIDATED`、`RUNTIME_REMOVED` 不得混為同一個 PASS。
 
 ## 方案 A 與 D07 交付責任（2026-10-21）
-A-CHANGE由WBS-5負責事實/狀態/盤前盤後facts，WBS-6負責API/UI，依[方案卡](../execution-cards/a-change-analysis.md)集中驗收。A不等D07。
+A-CHANGE由WBS-5負責事實/狀態/盤前盤後facts，WBS-6負責API/UI，依[方案卡](../archive/document-cleanup-2026-10-25/execution-cards/a-change-analysis.md)集中驗收。A不等D07。
 D07唯一模型/X/Y表在[Specialist SPEC](../spec/specialist-engines.md)，窗口/清洗在[時間契約](../spec/model-feature-time-contract.md)，不在WBS複製公式。
 | 切片 | 責任/相依 | 驗收 |
 |---|---|---|
@@ -37,5 +37,5 @@ D07唯一模型/X/Y表在[Specialist SPEC](../spec/specialist-engines.md)，窗�
 
 
 ## D07模型生命週期責任（2026-10-21）
-沿原FEATURE/MODEL/SERVE三切片：FEATURE含Colab採集清洗貼標與各角色建議資料量；MODEL含notebook/OOS/export；SERVE含GCS candidate/registry/shadow、日週推論、outcome與每月評估/retention分類。唯一契約[模型週期](../spec/model-lifecycle.md)、操作[AI卡](../execution-cards/d07-model-lifecycle.md)。日常事實報告UI由A-CHANGE、手動CEO由D08，不重複派工；自然長horizon outcome到期前只標pending，不拖延已完成管線驗收。
+沿原FEATURE/MODEL/SERVE三切片：FEATURE含Colab採集清洗貼標與各角色建議資料量；MODEL含notebook/OOS/export；SERVE含GCS candidate/registry/shadow、日週推論、outcome與每月評估/retention分類。唯一契約[模型週期](../spec/model-lifecycle.md)、操作[AI卡](../archive/document-cleanup-2026-10-25/execution-cards/d07-model-lifecycle.md)。日常事實報告UI由A-CHANGE、手動CEO由D08，不重複派工；自然長horizon outcome到期前只標pending，不拖延已完成管線驗收。
 

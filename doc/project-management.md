@@ -3,7 +3,7 @@
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
 
-更新：2026-10-25（單一路線與四模型正式上線）。此文件管理**唯一待辦、文件責任、驗收與重大風險決策**，不取代 [PROJECT_RULES](PROJECT_RULES.md)，也不建立第二份 TODO。Dev 是現有真實 parallel-live；研究精簡版於 2026-10-24 已完成既有四個 Jobs、API 100% 切流與有界 Runtime 驗收（詳見 [結案 WI](runbook-research-simplification-wi.md)）。本次文件同步不執行 Cloud Run、Scheduler、migration 或訓練。
+更新：2026-10-25（單一路線與四模型正式上線）。此文件管理**唯一待辦、文件責任、驗收與重大風險決策**，不取代 [PROJECT_RULES](PROJECT_RULES.md)，也不建立第二份 TODO。Dev 是現有真實 parallel-live；研究精簡版於 2026-10-24 已完成既有四個 Jobs、API 100% 切流與有界 Runtime 驗收（詳見 [結案 WI](archive/document-cleanup-2026-10-25/runbook-research-simplification-wi.md)）。本次文件同步不執行 Cloud Run、Scheduler、migration 或訓練。
 
 ## 1. 各文件只做一件事
 
@@ -17,7 +17,7 @@
 | [SPEC](spec.md)／[UI](ui.md) | 合法資料、API、source/PIT/retention、產品與畫面；correct | 當前進度與逐次 release |
 | [AI 指令](codex-execution-plan.md)／[任務卡](execution-cards/README.md) | 如何執行、tests/CI、deploy、失敗復原；how | 自動執行授權或另一組優先序 |
 | [Runbook](runbook-batch-controller-dev.md) | 現有 Job／Scheduler／資料修復安全操作 | 歷史 Cron 當最新設定 |
-| [Operations](spec/operations-and-testing.md)／[Pilot](pilot-operational-evidence.md) | 時間戳、SHA、真實證據及未驗點 | 設計與執行佇列 |
+| [Operations](spec/operations-and-testing.md)／[Pilot](archive/document-cleanup-2026-10-25/pilot-operational-evidence.md) | 時間戳、SHA、真實證據及未驗點 | 設計與執行佇列 |
 | [Archive](archive/README.md) | 舊版、已結案與被取代的完整原文 | 目前需執行的命令 |
 | [Parking Lot](parking-lot.md) | 暫緩、未核准、production-only／構想 | 當前必做任務 |
 

@@ -51,7 +51,7 @@ Mart `MART_OPERATION=retention`、`MART_RETENTION_MODE=dry-run|apply`，Core `IC
 
 ## 4. 已退休說明
 
-2026-10-15～16 的小於1MiB專案限定清理、24h/named snapshot、完整外部研究 fence、每日23:30的版本**只屬歷史 checkpoint**，不再放在現役操作步驟。舊 scope／receipt 查 [FINOPS-AB 卡](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) 及 [D06 卡](../execution-cards/d06-iceberg-retention-io.md)。Stage 2 天期限及每日獨立清理依 2026-10-19 使用者最新明確核准；其他大量刪除、Core/Mart TTL 改動或第二套 Scheduler 仍不在本次範圍。
+2026-10-15～16 的小於1MiB專案限定清理、24h/named snapshot、完整外部研究 fence、每日23:30的版本**只屬歷史 checkpoint**，不再放在現役操作步驟。舊 scope／receipt 查 [FINOPS-AB 卡](../archive/document-cleanup-2026-10-25/execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) 及 [D06 卡](../archive/document-cleanup-2026-10-25/execution-cards/d06-iceberg-retention-io.md)。Stage 2 天期限及每日獨立清理依 2026-10-19 使用者最新明確核准；其他大量刪除、Core/Mart TTL 改動或第二套 Scheduler 仍不在本次範圍。
 
 
 ## 5. 新模型與回饋資料（D07待實作契約）

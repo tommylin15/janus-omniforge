@@ -1,6 +1,6 @@
 # 單一路線：逐項 AI 執行指示
 
-更新：2026-10-25。工作順序與狀態只看 [TODO](../todo.md)，本檔只保存操作指示。SEQ-01 已完成文件、程式及完整離線 CI（Python217／Flutter7／Controller99 PASS；[收據 #40148605544](https://github.com/tommylin15/janus-omniforge/actions/runs/40148605544)）；集中部署與真實Dev驗收仍交SEQ-04。唯一下一入口為SEQ-02文件設計，SEQ-02…08依使用者後續指定及前置條件開始。
+更新：2026-10-25。工作順序、階段狀態與下一入口只看 [TODO](../todo.md)，本檔只保存操作指示，不重複保存容易過期的執行進度。
 
 ## 建議模型
 
@@ -153,7 +153,7 @@ SEQ-01→02→03 依序完成設計／開發／離線測試後交SEQ-04集中部
 
 整併來源：UB-02、D08、RV-05 合流。負責角色：全端／產品工程。
 前置：SEQ-06 的可交接階段完成；集中部署項須其前置任務的離線／Release證據齊備。
-必讀：[execution-cards/d08-ceo-admin-owner-report.md](../execution-cards/d08-ceo-admin-owner-report.md)、[spec/unified-batch-flow.md](../spec/unified-batch-flow.md)、[ui/user-app.md](../ui/user-app.md)、[ui/reference/user-app-final/README.md](../ui/reference/user-app-final/README.md)。程式入口從上述SPEC／WI的已確認路徑定位，勿猜不存在的命令。
+必讀：[execution-cards/d08-ceo-admin-owner-report.md](../archive/document-cleanup-2026-10-25/execution-cards/d08-ceo-admin-owner-report.md)、[spec/unified-batch-flow.md](../spec/unified-batch-flow.md)、[ui/user-app.md](../ui/user-app.md)、[ui/reference/user-app-final/README.md](../ui/reference/user-app-final/README.md)。程式入口從上述SPEC／WI的已確認路徑定位，勿猜不存在的命令。
 
 | 階段 | 建議 AI | 直接執行指示／交付 |
 |---|---|---|

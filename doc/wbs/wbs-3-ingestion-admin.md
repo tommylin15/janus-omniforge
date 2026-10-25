@@ -116,7 +116,7 @@
 
 ### 3.10A `WBS-3-INGESTION-FINOPS-AB`（2026-10-18 優先施作）
 
-唯一執行順序與狀態以 [TODO FINOPS-AB/C](../todo.md) 為準；接手 AI **必須先讀** [CPU／I/O／Iceberg 工程指令卡](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) §0–§3、[WBS-7](wbs-7-security-finops.md) 與 [Batch Controller Runbook](../runbook-batch-controller-dev.md)。本項是已核准的 A＋B 成本優化，不取代 DRL-01 的資料品質修復、D06 歷史證據，也不延後上市櫃交易日行情及 Private Mart。
+唯一執行順序與狀態以 [TODO FINOPS-AB/C](../todo.md) 為準；接手 AI **必須先讀** [CPU／I/O／Iceberg 工程指令卡](../archive/document-cleanup-2026-10-25/execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) §0–§3、[WBS-7](wbs-7-security-finops.md) 與 [Batch Controller Runbook](../runbook-batch-controller-dev.md)。本項是已核准的 A＋B 成本優化，不取代 DRL-01 的資料品質修復、D06 歷史證據，也不延後上市櫃交易日行情及 Private Mart。
 
 - **A：**收斂三項重型維護為每週六 23:30 邏輯時段；因週六常休市，必須讀最近成功有效 EOD Core Snapshot 與受控依賴，不能只加 weekdays；無工作要有可追蹤終態、週日跨日恢復與未決工作不重派。
 - **B：**`data_supplement.py` 的 financials/valuation/ohlcv/benchmark 讀取依明確日期、範圍與必要欄位縮限；`packages/duckdb_query/iceberg.py` 按 dataset／日期合併安全提交，省重複 catalog/manifest/planner 掃描；`iceberg_maintenance.py` 以 dirty-partition 與 protected refs 觸發 bounded compaction。不得刪失官方 EPS/營收歷史版本、修訂、PIT、來源授權與 Owner/Research 引用。

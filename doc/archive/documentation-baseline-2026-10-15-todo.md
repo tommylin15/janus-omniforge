@@ -110,7 +110,7 @@
 
 權威文件：
 
-- [`decision-2026-10-06-bigquery-analytics-over-iceberg.md`](../decision-2026-10-06-bigquery-analytics-over-iceberg.md)
+- [`decision-2026-10-06-bigquery-analytics-over-iceberg.md`](document-cleanup-2026-10-25/decision-2026-10-06-bigquery-analytics-over-iceberg.md)
 - [`spec/specialist-engines.md`](../spec/specialist-engines.md)
 - [`wbs/wbs-5-specialist-engines.md`](../wbs/wbs-5-specialist-engines.md)
 

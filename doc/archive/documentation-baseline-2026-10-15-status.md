@@ -241,7 +241,7 @@
 - **持股頁 UX／首屏加速**：ACTIVE；固定頁首、價格漲跌語意、migration 050／API latency／Flutter 真實 Owner UI acceptance 仍在 [TODO](../todo.md)。
 - **B 組**：B7 月度機制／freshness 與 B8 均已結案，下一工程入口為 B9 產品功能驗收；模型品質列產品交付後研究；不重做 B7／B8。
 - **C 組**：依本次授權與 B9 產品及剩餘產品整套開發、集中驗收，不等待五個 ML 勝出；範圍為 On-demand CEO provider/runtime、capability/quota、Admin profile、User 分析／重新分析、final AI-dependent visual acceptance；不得把 A 組 CLOSED 當成 C 組完成。
-- **Dev Pilot 長期 evidence**：依 [bounded pilot ledger](../pilot-operational-evidence.md) 持續觀察；不得將單次 successful workload 視為整個觀察視窗完成。
+- **Dev Pilot 長期 evidence**：依 [bounded pilot ledger](document-cleanup-2026-10-25/pilot-operational-evidence.md) 持續觀察；不得將單次 successful workload 視為整個觀察視窗完成。
 
 完整未完成清單只以 [todo.md](../todo.md) 為準；未排程構想見 [parking-lot.md](../parking-lot.md)。
 

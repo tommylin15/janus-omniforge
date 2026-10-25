@@ -36,7 +36,7 @@
 
 ### 7.3A `WBS-7-INGESTION-ICEBERG-FINOPS-AB`｜2026-10-18 P0
 
-**唯一優先序**在 [TODO FINOPS-AB／FINOPS-C](../todo.md)；**AI 工程指令**在 [FINOPS-AB/C 卡](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)，不是第二份工單。A＋B 已授權優先實作；2026-10-18 週維護啟用已有既有文件／CI 收據；程式 `effective_batches()` 在 `FINOPS_WEEKLY_MAINTENANCE=true` 時週六23:30，當期自然 occurrence 仍須另讀真實 runtime。
+**唯一優先序**在 [TODO FINOPS-AB／FINOPS-C](../todo.md)；**AI 工程指令**在 [FINOPS-AB/C 卡](../archive/document-cleanup-2026-10-25/execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)，不是第二份工單。A＋B 已授權優先實作；2026-10-18 週維護啟用已有既有文件／CI 收據；程式 `effective_batches()` 在 `FINOPS_WEEKLY_MAINTENANCE=true` 時週六23:30，當期自然 occurrence 仍須另讀真實 runtime。
 
 - A：`janus-ingestion-core` 的 Iceberg Compaction、`janus-intelligence-mart` 的 Mart Cleanup、Core Cleanup 同組改每週六 23:30 邏輯時段；週六 non-trading 不得依賴當天 ingestion SUCCESS，必驗最新有效 EOD snapshot、跨日依賴、互斥、延遲、no-op、failed/ambiguous 和 rollback。不得改掉每天市場收集或當日 Private/Owner 所需處理。
 - B：Ingestion Data Supplement bounded date/selected field、同日同 Dataset 安全合併提交與 no-op、Snapshot/metadata reuse、dirty-partition compaction。不能降低 PIT、版本修正、provenance、全市場 coverage 或 research/private protected references；保存固定 Core snapshot。

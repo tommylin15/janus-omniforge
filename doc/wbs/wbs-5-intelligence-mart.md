@@ -17,4 +17,4 @@ Colab 人工做五角色 features/labels、模型 fit、OOS、版本；Mart **�
 舊 Controller 月度 due、手動流程、獨立研究 BQ 資源、雲端 ML/OOS 作業已不再是產品或模型新路線的一環。只要其他正式服務不引用就立刻移除，不等待新 GAS／Colab 完工。共用 `janus-intelligence-mart` 仍服務正式 UI 與週清理，不得整支刪掉；真實 Cloud Run/BQ 的終態必須實機讀回。
 
 ## D08／驗收
-CEO 按需只用已驗證五角色 Fact Pack，Admin 模型頁維持既有位置；LLM 不產生 canonical number、不擁有 publication/Owner 權限。D07/08 實際完整狀態依 [唯一 TODO](../todo.md)、[D07 執行卡](../execution-cards/d07-specialist-b9-oos.md) 與 live evidence。
+CEO 按需只用已驗證五角色 Fact Pack，Admin 模型頁維持既有位置；LLM 不產生 canonical number、不擁有 publication/Owner 權限。D07/08 實際完整狀態依 [唯一 TODO](../todo.md)、[D07 執行卡](../archive/document-cleanup-2026-10-25/execution-cards/d07-specialist-b9-oos.md) 與 live evidence。

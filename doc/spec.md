@@ -1,6 +1,6 @@
 # Janus — Project Specification
 
-> 2026-10-24 統一批次重構：排程、備份與資料快照以 [統一批次契約](spec/unified-batch-flow.md) 為準；本輪程式已修改但未測試／部署／驗收。測試與切換依 [AI交接](runbook-unified-batch-ai.md)。
+> 排程、備份與資料快照依 [統一批次契約](spec/unified-batch-flow.md)；部署狀態與未完成驗收以 [唯一 TODO](todo.md) 為準。
 
 > **2026-10-24 研究精簡決策優先**：本文涉及獨立資料稽核、逐來源補證、全歷史 PIT／精確時間校準、例行週月稽核及自然驗收等待的要求已取消，不再是待辦或發布前置。依 [研究精簡政策](spec/research-simplification.md)，保留必要日期／單位、基本防洩漏與操作安全；歷史證據不改判 PASS。
 
@@ -46,12 +46,12 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 
 - **正式文件追溯順序**：[PROJECT_RULES](PROJECT_RULES.md) → 指定領域 SPEC → [WBS 依賴矩陣](wbs.md) → [唯一 Active TODO](todo.md) → [Operations 驗收證據](spec/operations-and-testing.md)。
 - **04 Valuation 估值參考區間子功能**：[04 情境子契約](spec/valuation-range.md) 正式取消第五模型，保留 PE/PB 研究並將唯一價格區間卡、EPS/BVPS/歷史倍數、來源及 publication 整合於 04；公告／變化提醒仍由 [A-CHANGE](spec/change-analysis.md) 提供。RV-01…06 在 TODO 是 04 功能工作，現役舊五筆 event baseline 相容遷移需實際驗收。
-- **治理 C0/C1、57 leases**：[資料治理](spec/data-governance.md)／[C1-A Live](research/data-governance-c1a-2026-10-23.md)。現況不等於 C1-B 清掃許可，P0-2 作業收斂不自動阻塞研究。
+- **治理 C0/C1、57 leases**：[資料治理](spec/data-governance.md)／[C1-A Live](archive/document-cleanup-2026-10-25/research/data-governance-c1a-2026-10-23.md)。現況不等於 C1-B 清掃許可，P0-2 作業收斂不自動阻塞研究。
 - **研究資料與四模型**：[最新研究索引](research/00-四模型最新版本索引.md) 管理實際 Notebook／資料版本；[模型時間](spec/model-feature-time-contract.md)、[模型生命週期](spec/model-lifecycle.md) 管理獨立 OOS／promotion；四角色可獨立研究，不能修改現役 Risk。
 - **Janus 2.0**：[Drive 核准設計](https://drive.google.com/file/d/15sT38MsE96RAwD-aZnAHvOvEINtythPO/view) 是研究／產品目標，不代表已部署；最新 UI 仍讀 [UI 契約](ui.md) 與 runtime。
 
 ## 方案 A 與模型資料入口（2026-10-21）
-[變化判讀SPEC](spec/change-analysis.md) → [A-CHANGE AI卡](execution-cards/a-change-analysis.md)；[四模型角色/X/Y](spec/specialist-engines.md) → [時間窗口與前處理](spec/model-feature-time-contract.md) → [D07 AI卡](execution-cards/d07-specialist-b9-oos.md)。唯一工作順序與驗收仍見[TODO](todo.md)。
+[變化判讀SPEC](spec/change-analysis.md) → [A-CHANGE 歷史卡](archive/document-cleanup-2026-10-25/execution-cards/a-change-analysis.md)；[四模型角色/X/Y](spec/specialist-engines.md) → [時間窗口與前處理](spec/model-feature-time-contract.md) → [D07 歷史卡](archive/document-cleanup-2026-10-25/execution-cards/d07-specialist-b9-oos.md)。唯一工作順序與驗收仍見[TODO](todo.md)。
 
 
 模型開發/運作/回收唯一契約：[模型生命週期](spec/model-lifecycle.md)，涵蓋四模型建議資料量及舊 event 事實相容、GCS候選與受控發布、批次推論、結果成熟、36月回饋保存與每月評估；實作狀態依TODO。

@@ -6,7 +6,7 @@
 
 依 [研究精簡政策](spec/research-simplification.md) 執行：取消獨立資料稽核、逐來源補證、全歷史 PIT／時間校準、例行品質重抓與前瞻成熟等待門檻。既有日期／單位／來源欄位可沿用，不做額外追溯工程。只保留直接影響功能、模型答案正確性與資料安全的檢查。本條覆蓋本文件其他章節及所有舊 SPEC／WBS／TODO／Drive 相反指示；取消不等於驗證通過。
 
-原始研究清理只修改文件與程式，其後已於 2026-10-24 完成離線測試、完整 Release、四個既有 Dev Jobs 更新、API 100% 切流與一次獨立唯讀 Runtime 驗收；本工項有界 CLOSED／PASS，詳細來源與未驗證事項見 [WI](runbook-research-simplification-wi.md)。不擴充為歷史來源稽核；OPS-P0-1 已另有有界結案收據；新備份政策依 Active TODO 的 SEQ-03／04 判定。
+原始研究清理只修改文件與程式，其後已於 2026-10-24 完成離線測試、完整 Release、四個既有 Dev Jobs 更新、API 100% 切流與一次獨立唯讀 Runtime 驗收；本工項有界 CLOSED／PASS，詳細來源與未驗證事項見 [WI](archive/document-cleanup-2026-10-25/runbook-research-simplification-wi.md)。不擴充為歷史來源稽核；OPS-P0-1 已另有有界結案收據；新備份政策依 Active TODO 的 SEQ-03／04 判定。
 
 ## 0.1 統一批次（2026-10-24 最新決策）
 

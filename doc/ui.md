@@ -1,6 +1,6 @@
 # Janus — UI Specification
 
-> 2026-10-24 統一批次重構：排程、備份與資料快照以 [統一批次契約](spec/unified-batch-flow.md) 為準；本輪程式已修改但未測試／部署／驗收。測試與切換依 [AI交接](runbook-unified-batch-ai.md)。
+> 排程、備份與資料快照依 [統一批次契約](spec/unified-batch-flow.md)；部署狀態與未完成驗收以 [唯一 TODO](todo.md) 為準。
 
 版本：1.12
 狀態：索引；頁面與元件契約依下列切片為準

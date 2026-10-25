@@ -97,7 +97,7 @@
 
 必做 Flutter targeted／golden／screenshot regression，empty/single-point/gap/stale／partial 負測，對應 API／Mart tests，GCP dev 真實 authenticated owner 四頁 screenshot/readback 與正式 Release gate。只存 PNG、改文件、寫 UI、使用 fixture 或 build PASS 均不代表產品結案。
 
-AI實作入口：[A-CHANGE卡](../execution-cards/a-change-analysis.md)；模型另見[D07卡](../execution-cards/d07-specialist-b9-oos.md)。已結案D02/D03/DRL不重啟，範圍與排序只讀TODO。
+AI實作入口：[A-CHANGE卡](../archive/document-cleanup-2026-10-25/execution-cards/a-change-analysis.md)；模型另見[D07卡](../archive/document-cleanup-2026-10-25/execution-cards/d07-specialist-b9-oos.md)。已結案D02/D03/DRL不重啟，範圍與排序只讀TODO。
 
 
 ## 5. AI 必須照做的版面規格（2026-10-16）
@@ -160,4 +160,4 @@ AI實作入口：[A-CHANGE卡](../execution-cards/a-change-analysis.md)；模型
 
 ## 6. 方案 A 現行增量（2026-10-21）
 個股第2區三行重點整合為一張狀態/變化/下一觀察/失效條件卡；第5區加入既有觀察的跨日狀態。首頁重要變化可切盤前/盤後，最多三則，cutoff清楚。
-詳細資料語意唯一見[變化判讀](../spec/change-analysis.md)，不在此複製。這次核准站內狀態追蹤；自上次查看/推播/盤中tick仍不做。基本解讀不等模型validated；模型預測與CEO沿原gate。尺寸、色彩、圖表及Owner契約不變；新工程交[A-CHANGE](../execution-cards/a-change-analysis.md)，不重開D03。
+詳細資料語意唯一見[變化判讀](../spec/change-analysis.md)，不在此複製。這次核准站內狀態追蹤；自上次查看/推播/盤中tick仍不做。基本解讀不等模型validated；模型預測與CEO沿原gate。尺寸、色彩、圖表及Owner契約不變；新工程交[A-CHANGE](../archive/document-cleanup-2026-10-25/execution-cards/a-change-analysis.md)，不重開D03。

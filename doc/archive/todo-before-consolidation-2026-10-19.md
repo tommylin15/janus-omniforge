@@ -7,7 +7,7 @@
 
 **2026-10-17 最新決策：D01～D05 全部 PASS／CLOSED（使用者核准寬鬆驗收）**。既有真人正向驗收、資料讀取、備份與正式發布證據已接受；其餘嚴格量測、獨立補驗及原 D03 後續增補均不再要求，不另留支線或後續待辦。缺少證據的部分記為 USER_ACCEPTED／WAIVED，不偽稱實測通過。結案依據、已接受限制及原始清單見 [結案紀錄](d01-d05-relaxed-acceptance-closure-2026-10-17.md)。
 
-**2026-10-18 最新範圍決策：D06 取消獨立收尾，將其剩餘引用保護／Retention／Orphan／Core・Mart Cleanup 整併 FINOPS-AB；D06 原兩天或長時間等量 I/O 量測由使用者取消，不作交付條件。FINOPS-AB（A 快速節流＋B Ingestion／Iceberg 原地優化＋D06 安全收尾）列最高優先，立即推進；DRL-01已於2026-10-19依核准範圍結案，見[證據](drl01-completed-2026-10-19.md)；共用main／runtime仍不得競爭部署。**D07-PRE（資料、模型與運算器整合前置評估）** 合併原 FINOPS-C preflight 與現有兩年資料/Colab 評估，作為 D07/D08 前唯一前置工作包。須完成資料覆蓋、補收/PIT/OOS、**唯一 Colab 資料整理與模型訓練**的可行性、成本／安全和原 Janus 串接評估；**BigQuery 只作大型資料前置縮減**，不列為並行訓練選項。記錄同一份 GO/NO-GO/DEFER/BLOCKED 決議，BQ 不需先實施。既有 ADMIN-V2 正在進行，不因本次排列改動已授權範圍；不重開 D01～D05 及 D06 歷史 gate。唯一 AI 執行指令見 [FINOPS-AB／C 卡](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)。
+**2026-10-18 最新範圍決策：D06 取消獨立收尾，將其剩餘引用保護／Retention／Orphan／Core・Mart Cleanup 整併 FINOPS-AB；D06 原兩天或長時間等量 I/O 量測由使用者取消，不作交付條件。FINOPS-AB（A 快速節流＋B Ingestion／Iceberg 原地優化＋D06 安全收尾）列最高優先，立即推進；DRL-01已於2026-10-19依核准範圍結案，見[證據](drl01-completed-2026-10-19.md)；共用main／runtime仍不得競爭部署。**D07-PRE（資料、模型與運算器整合前置評估）** 合併原 FINOPS-C preflight 與現有兩年資料/Colab 評估，作為 D07/D08 前唯一前置工作包。須完成資料覆蓋、補收/PIT/OOS、**唯一 Colab 資料整理與模型訓練**的可行性、成本／安全和原 Janus 串接評估；**BigQuery 只作大型資料前置縮減**，不列為並行訓練選項。記錄同一份 GO/NO-GO/DEFER/BLOCKED 決議，BQ 不需先實施。既有 ADMIN-V2 正在進行，不因本次排列改動已授權範圍；不重開 D01～D05 及 D06 歷史 gate。唯一 AI 執行指令見 [FINOPS-AB／C 卡](document-cleanup-2026-10-25/execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)。
 
 A 組及 B0～B8 已結案的範圍不重開；有實質變更才回歸受影響路徑。全市場 Bootstrap／同日 Cached、費稅88筆更正、00719B 身分／估值既有成功證據不重送。研究範圍採各歷史日期全上市櫃；50 關注 quota 仍保留。
 
@@ -17,12 +17,12 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](../ex
 
 | 工作包 | 狀態／次序 | 既有 WBS 責任 | 依賴與退出條件 |
 |---|---|---|---|
-| [FINOPS-AB CPU／GCS I/O 優先優化](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **P0／PASS（2026-10-18 完成）** | WBS-3／WBS-7（A＋B） | Jobs rollout、Core retention、Mart retention、週維護啟用全部 SUCCESS |
-| [D06 Iceberg／I/O 歷史證據](../execution-cards/d06-iceberg-retention-io.md) | **不再獨立排程；剩餘全部併 FINOPS-AB** | WBS-7／retention（於 AB 驗收） | 477 objects 清理／audit mirror 停用 PASS 沿用；兩天 I/O 比較 `CANCELLED_BY_USER`，不作另一次驗收 |
+| [FINOPS-AB CPU／GCS I/O 優先優化](document-cleanup-2026-10-25/execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md) | **P0／PASS（2026-10-18 完成）** | WBS-3／WBS-7（A＋B） | Jobs rollout、Core retention、Mart retention、週維護啟用全部 SUCCESS |
+| [D06 Iceberg／I/O 歷史證據](document-cleanup-2026-10-25/execution-cards/d06-iceberg-retention-io.md) | **不再獨立排程；剩餘全部併 FINOPS-AB** | WBS-7／retention（於 AB 驗收） | 477 objects 清理／audit mirror 停用 PASS 沿用；兩天 I/O 比較 `CANCELLED_BY_USER`，不作另一次驗收 |
 | [ADMIN-V2 Admin 四頁主要重構](../decision-2026-10-17-admin-v2.md) | **PASS（2026-10-19 完成）** | WBS-6-ADMIN-OPERATIONAL-CONVERGENCE | 四頁重構＋總覽使用分析／單一使用者追蹤；A1～A5 全部完成，Flutter/Python tests PASS |
 | [D07-PRE Colab 單一建模資料流程（含 FINOPS-C）](../colab-d07-modeling-feasibility-2026-10-19.md) | **IN_PROGRESS／設計已定案、live 尚 PARTIAL；D07/D08 唯一前置** | WBS-5／WBS-7（原 C-preflight） | 資料／特徵／標籤／OOS＋模型訓練統一在 Colab；Janus Core 唯讀合格資料出口，Mart 只做驗證／推論；僅大資料實測瓶頸才用 BigQuery 前置縮減。查 24月 coverage、來源/PIT、安全/成本與月度人工／自動化阻塞 |
-| [D07 五角色資料與品質](../execution-cards/d07-specialist-b9-oos.md) | 後置；D07-PRE 整合評估與處置決議完成後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
-| [D08 CEO／Admin／報告](../execution-cards/d08-ceo-admin-owner-report.md) | 後置；D07-PRE 整合評估與處置決議及有效角色後 | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE、User AI整合 | P0-V技術已PASS；真實 Fact Pack／capability／immutable report／Owner history另驗 |
+| [D07 五角色資料與品質](document-cleanup-2026-10-25/execution-cards/d07-specialist-b9-oos.md) | 後置；D07-PRE 整合評估與處置決議完成後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
+| [D08 CEO／Admin／報告](document-cleanup-2026-10-25/execution-cards/d08-ceo-admin-owner-report.md) | 後置；D07-PRE 整合評估與處置決議及有效角色後 | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE、User AI整合 | P0-V技術已PASS；真實 Fact Pack／capability／immutable report／Owner history另驗 |
 
 ## FINOPS-AB｜CPU／GCS I/O 優化（P0／PASS，2026-10-18 完成）
 
@@ -121,7 +121,7 @@ D01～D05 已結案；D01～D08 各有一張供查閱的 [標準任務卡](../ex
 
 ## D07-PRE｜Colab 唯一資料與模型訓練流程（合併 FINOPS-C）
 
-**狀態：目標流程 DECIDED／工程與真實資料驗收 PARTIAL。** 執行契約：[Colab 單一流程與 24月資料評估](../colab-d07-modeling-feasibility-2026-10-19.md)；AI 操作卡：[FINOPS §4](../execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)。**沒有獨立 Colab、C-preflight、BQ 模型訓練或第二月度排程工單。**
+**狀態：目標流程 DECIDED／工程與真實資料驗收 PARTIAL。** 執行契約：[Colab 單一流程與 24月資料評估](../colab-d07-modeling-feasibility-2026-10-19.md)；AI 操作卡：[FINOPS §4](document-cleanup-2026-10-25/execution-cards/finops-ingestion-iceberg-ab-and-c-gate.md)。**沒有獨立 Colab、C-preflight、BQ 模型訓練或第二月度排程工單。**
 
 - [ ] **D07-PRE 同一組完整驗收**：① 實際 24 個月各 dataset × market × date × symbol × horizon coverage、歷史成分、來源 training-use、成熟 labels、OOS／holdout、PIT 缺口及既有有界補收；② 既有 Core→合格、固定版本 Parquet→**Colab 唯一完成資料驗證／特徵／標籤與 Quant CPU baseline/LightGBM PoC**，驗輸入輸出 hash/provenance、成本、RAM、耗時、安全及上傳回 Janus 的 Artifacts；③ 既有月度第一個週六10:30 Controller 仍唯一調度面，Colab 模型工作先走**可稽核人工操作與回傳**（free runtime 不保證無人值守），盤點未來要可靠自動化的授權/成本/做法，**不得隱藏未自動化的 blocker，也不得 fallback 至 GCP 再訓練**；④ BigQuery 預設 DEFER，不跑 BQML；**僅 Colab 大量 Join/運算有實測瓶頸**才評估 BQ 前置縮減的 bytes/cost、IAM、parity 與回退，仍讓 Colab 負責訓練；⑤ 單一文件記錄日期/SHA/數據、GO/NO-GO/BLOCKED（BQ 前置可 DEFER）、是否可開 D07，並同步 WBS/治理/TODO。
 - **現有 API／canonical Iceberg／daily Screening／Owner 與既有月度 GCP Job 不因文件提交而改動**。將舊 Mart 模型訓練遷移到 Colab 必須在 D07 工程實作與真實測試驗證，且切換前保留既有安全功能；不能宣稱新流程已部署或月度自動訓練可用。

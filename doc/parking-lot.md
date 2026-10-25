@@ -47,7 +47,7 @@ PLAN-05不依賴PLAN-01～04；屆時可依效益由使用者重排，但仍只�
 
 以下不再以 active TODO checkbox 表示：
 
-- `WBS-8-DEV-PILOT-RUN` 的六個月自然 Scheduler／ingestion／analysis、backup／restore、outcome、usefulness、cost、manual intervention、recurring failure、security／privacy evidence。自然 evidence 仍由 [`pilot-operational-evidence.md`](pilot-operational-evidence.md) 保存，但沒有新事件時不製造人工工作。
+- `WBS-8-DEV-PILOT-RUN` 的六個月自然 Scheduler／ingestion／analysis、backup／restore、outcome、usefulness、cost、manual intervention、recurring failure、security／privacy evidence。自然 evidence 仍由 [`pilot-operational-evidence.md`](archive/document-cleanup-2026-10-25/pilot-operational-evidence.md) 保存，但沒有新事件時不製造人工工作。
 - `WBS-8-PROD-GO-NOGO`。
 - Production PostgreSQL topology／HA／replica／backup／retention／成本重設計。
 - Production 付費 backup／restore 演練。

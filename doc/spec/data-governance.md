@@ -17,7 +17,7 @@
 | Stage／Core／Mart、Iceberg current-only、清理安全 | [Retention 契約](retention-governance.md)、[2026-10-18 決策](../decision-2026-10-18-current-only-snapshots.md) |
 | 定時 due、依賴、互斥、調度 | [Controller 程式](../../jobs/ingestion-core/ingestion_core/batch_controller.py) 與 [總控 Runbook](../runbook-batch-controller-dev.md) |
 | 來源、即時／每日／週六／歷史補收 | [補資料 Runbook](../runbook-data-supplement.md)、[來源資料契約](storage-data-and-ingestion.md) |
-| 研究模型、PIT、OOS 與成果 | [Colab／Drive 研究唯一契約](research-collection-gas-drive-colab.md)、[Specialist SPEC](specialist-engines.md)、[D07 執行卡](../execution-cards/d07-specialist-b9-oos.md) |
+| 研究模型、PIT、OOS 與成果 | [Colab／Drive 研究唯一契約](research-collection-gas-drive-colab.md)、[Specialist SPEC](specialist-engines.md)、[D07 執行卡](../archive/document-cleanup-2026-10-25/execution-cards/d07-specialist-b9-oos.md) |
 
 Canonical Core 與 research/derived 資料分離；缺值不補零、不猜當時公開日期、不以最新版本冒充歷史 first-observed。Stage→Core→serving 皆保留 source_id、取得時間、URL/receipt、hash、期別、單位與 provenance。已核准的 Yahoo／FinMind 等第三方來源可以**直接**補收，不必先耗盡官方；不得偽裝成 MOPS／TWSE 官方認證。Owner 交易、成本、現金不進 public research cohort。
 

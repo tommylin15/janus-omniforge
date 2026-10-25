@@ -44,7 +44,7 @@
 
 ## D02｜全市場、快照與效能
 
-**AI入口：**[D02卡](../execution-cards/d02-full-market-snapshot-performance.md)／[總指令路由](../codex-execution-plan.md)。首頁增補沿此工項共用snapshot，版型見[A第5節](../ui/visual-first-four-pages.md)。
+**AI入口：**[D02卡](document-cleanup-2026-10-25/execution-cards/d02-full-market-snapshot-performance.md)／[總指令路由](../codex-execution-plan.md)。首頁增補沿此工項共用snapshot，版型見[A第5節](../ui/visual-first-four-pages.md)。
 
 - [ ] 完成全市場跨搜尋／關注／screening／研究入口的剩餘驗收；固定官方當日分母、TWSE≤10%／TPEx≤30%逐資料集判定；舊500 artifacts不重標全市場。
 - [ ] 首頁快照批次caller、migration057初始補建、serializer、freshness／版本與持股DB-first snapshot真實readback；無N+1／首屏Iceberg掃描。
@@ -54,7 +54,7 @@
 
 ## D03｜四頁與通用圖表
 
-**AI入口：**[D03卡](../execution-cards/d03-four-page-charts-visual.md) → [A具體版面第5節](../ui/visual-first-four-pages.md) → [B三層交付](../ui/visual-first-delivery.md)。不得只讀工項名稱自由設計。
+**AI入口：**[D03卡](document-cleanup-2026-10-25/execution-cards/d03-four-page-charts-visual.md) → [A具體版面第5節](../ui/visual-first-four-pages.md) → [B三層交付](../ui/visual-first-delivery.md)。不得只讀工項名稱自由設計。
 
 - [ ] **D03後續增補（等DRL-01恢復，不擴當前D05 gate）**：首頁資產短摘要／三則事實異動／TAIEX；個股三行事實→對應圖表、單一主圖、支持疑點、既有筆記延續。沿VF-02/05/06/07與D02，不新建工作包；手機／桌面位置、尺寸、字級、按鈕與狀態依A第5節，資料依DRL-01，模型依D07。已存在部分只補差距。
 

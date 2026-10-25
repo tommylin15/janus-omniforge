@@ -1,11 +1,13 @@
+> **歷史封存｜2026-10-25**：本文件保存當時設計或收據，不是現行執行指令；完成／取消不互相改判。現行工作以 [唯一 TODO](../../../todo.md) 為準。
+
 # A-CHANGE｜方案 A 變化判讀 — AI 執行卡
-更新：2026-10-24。**本卡是已完成 A-CHANGE A1–A4 的歷史執行指示，不再代表尚待開工。** 完整 GHCR／dev 100%／獨立 API live PASS，使用者於 2026-10-24 回覆「核對完成」，按 [Operations](../spec/operations-and-testing.md) 記 USER_ACCEPTED／CLOSED；無額外已登入 OAuth 200 或截圖機器 artifact。新的 04 Valuation RV-01…06 是獨立工項，優先順序以 [TODO](../todo.md) 為準。
+更新：2026-10-24。**本卡是已完成 A-CHANGE A1–A4 的歷史執行指示，不再代表尚待開工。** 完整 GHCR／dev 100%／獨立 API live PASS，使用者於 2026-10-24 回覆「核對完成」，按 [Operations](../../../spec/operations-and-testing.md) 記 USER_ACCEPTED／CLOSED；無額外已登入 OAuth 200 或截圖機器 artifact。新的 04 Valuation RV-01…06 是獨立工項，優先順序以 [TODO](../../../todo.md) 為準。
 
 ## 複製給 AI 的指令
 > 執行 A-CHANGE 整包。先讀 AGENTS.md、doc/PROJECT_RULES.md、doc/todo.md、本卡及 doc/spec/change-analysis.md。依當前main讀現有程式，直接main、不建branch/PR。完成A1事實解讀→A2變化狀態→A3盤前盤後→A4首頁/個股集中驗收。基本事實不等模型validated；未驗證機率仍禁止。共用既有Core/Mart/PG/API與Controller，不新增服務、供應商、推播或日常LLM；不重開已結案工程。完成適用tests/CI、既有dev發佈、真實資料/API/UI驗收與失敗修復，再回寫唯一TODO及Operations。遇新付費/擴權/不可逆刪除才依PROJECT_RULES處理。
 
 ## 必讀與入口
-[變化SPEC](../spec/change-analysis.md)、[四頁UI](../ui/visual-first-four-pages.md)、[User UI](../ui/user-app.md)、[參考圖契約](../ui/reference/user-app-final/README.md)、[WBS](../wbs.md)。
+[變化SPEC](../../../spec/change-analysis.md)、[四頁UI](../../../ui/visual-first-four-pages.md)、[User UI](../../../ui/user-app.md)、[參考圖契約](../../../ui/reference/user-app-final/README.md)、[WBS](../../../wbs.md)。
 程式：jobs/intelligence-mart/intelligence_mart/specialists.py、market_screening.py、product_runtime.py；packages/analysis_product.py；apps/user_app/lib/final_stock_detail.dart、final_today_v2.dart；tests/test_analysis_product.py、test_specialist_engines.py及對應Flutter tests。先確認實際路由，不改未使用舊頁。
 
 ## 步驟與有界驗收
