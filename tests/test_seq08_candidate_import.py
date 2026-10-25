@@ -33,7 +33,7 @@ def fixture(tmp_path):
         (tmp_path / name).write_bytes(raw)
         expected[key] = (role, target, n, sha256(raw).hexdigest())
         from seq08_candidate_import import COMMITTED_FEATURES
-        names = COMMITTED_FEATURES.get(key, [f"f{x}" for x in range(n)])
+        names = list(COMMITTED_FEATURES.get(key, [f"f{x}" for x in range(n)]))
         bundle[key] = {
             "role": role, "output_name": target, "file": name,
             "feature_order": names, "feature_units": ["unit"] * n,
