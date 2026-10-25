@@ -90,6 +90,57 @@ jobs:
                   "message_code":str(meta.get("status",meta.get("jobStatus","")))[:60],
                   "log_name":str(e.get("logName","")).rsplit("/",1)[-1][:90],
               })
+          # Cross-check the Cloud Run REST v2 execution list as well as gcloud.
+          # Never emit full payloads, headers, or scheduler target URLs.
+          import sys, re
+          sys.path.insert(0,"scripts/gcp")
+          from ghcr_jobs_rollout import cloud, ROOT
+          rest_state="PASS"
+          rest_items=[]
+          try:
+              rest = cloud(f"{ROOT}/jobs/janus-batch-controller/executions?pageSize=25")
+              for e in rest.get("executions",[])[:10]:
+                  rest_items.append({
+                      "create_utc":e.get("createTime"),
+                      "start_utc":e.get("startTime"),
+                      "completion_utc":e.get("completionTime"),
+                      "completed_condition":[{
+                          "state":v.get("state"),
+                          "status":v.get("status")
+                      } for v in e.get("conditions",[]) if v.get("type")=="Completed"][:1],
+                  })
+          except Exception:
+              rest_state="BLOCKED_REST_LIST"
+          log_details=[]
+          for entry in logs[:12]:
+              payload=entry.get("jsonPayload") or {}
+              proto=entry.get("protoPayload") or {}
+              # Capture only named/sanitized status fields, no text or URLs.
+              raw_text=str(payload.get("debugInfo",""))+" "+str(payload.get("status",""))
+              http_codes=re.findall(r"(?:HTTP|http|code|response)[^0-9]{0,30}([1-5][0-9]{2})",raw_text)[:3]
+              log_details.append({
+                  "timestamp":entry.get("timestamp"),
+                  "severity":entry.get("severity"),
+                  "json_keys":sorted(payload.keys())[:20],
+                  "proto_keys":sorted(proto.keys())[:12],
+                  "text_payload_present":bool(entry.get("textPayload")),
+                  "event_status":str(payload.get("status",""))[:60],
+                  "http_codes":http_codes,
+                  "message_code":str(payload.get("messageCode",""))[:90],
+              })
+          try:
+              runlogs=gcloud(["logging","read",
+                  'resource.type="cloud_run_job" AND '
+                  'resource.labels.job_name="janus-batch-controller" AND '
+                  'timestamp>="2026-10-25T06:29:00Z"',
+                  "--project="+PROJECT, "--limit=12", "--format=json"])
+              runlog_check="PASS"
+          except Exception:
+              runlogs=[]
+              runlog_check="BLOCKED"
+          controller_logs=[
+              {"timestamp":e.get("timestamp"),"severity":e.get("severity")}
+              for e in runlogs[:12]]
           report={
               "component":"seq04_natural_tick_readonly",
               "observed_utc":datetime.now(timezone.utc).isoformat(),
@@ -104,6 +155,11 @@ jobs:
               "controller_new_executions":recent,
               "scheduler_logs_status":log_access,
               "scheduler_logs":scheduler_logs[:12],
+              "scheduler_log_fields":log_details,
+              "rest_executions_status":rest_state,
+              "rest_recent_executions":rest_items,
+              "controller_cloud_logging_status":runlog_check,
+              "controller_cloud_logs":controller_logs,
               "ingestion_natural_2026_10_26_0230":"NOT_DUE_YET",
               "gcp_writes":0,"job_dispatches":0
           }
