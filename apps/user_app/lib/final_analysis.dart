@@ -36,6 +36,7 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
   String reportHistoryStatus = 'waiting';
   Timer? poll;
   bool loading = true, busy = false, foreground = true;
+  bool ceoHistoryUnavailable = false;
   String? error;
   DateTime? pollUntil;
   String get path =>
@@ -52,7 +53,9 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
     try {
       final results = await Future.wait([
         widget.api.get(path),
-        widget.api.get('$path/ceo'),
+        widget.api.get('$path/ceo').catchError((_) => <String, dynamic>{
+          'status': 'unavailable', 'items': [],
+          'capability': {'can_request': false}}),
         widget.api.get('$path/reports').catchError((_) => <String, dynamic>{
           'status': 'unavailable', 'items': []}),
       ]).timeout(const Duration(seconds: 20));
@@ -62,6 +65,7 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
         baseline = fvMap(results[0]);
         capability = fvMap(ceo['capability']);
         history = fvRows(ceo['items']);
+        ceoHistoryUnavailable = ceo['status'] == 'unavailable';
         reportHistory = fvRows(fvMap(results[2])['items']);
         reportHistoryStatus = fvText(fvMap(results[2])['status']);
         error = null;
@@ -137,6 +141,7 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
     final inputDates = fvMap(report['inputs_as_of']);
     final statuses = fvRows(report['serving_roles']);
     final gaps = fvMap(report['input_gaps']);
+    final facts = fvRows(report['roles']);
     final reason = const {
       'first_report': '首次報告', 'model_changed': '模型版本更新',
       'financial_changed': '財務資料變更', 'price_move_5pct': '價格異動',
@@ -154,6 +159,9 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
         const SizedBox(height: 6),
         Text('${legacy.uiLabel(role)} · 輸入日 ${fvText(inputDates[role])}',
             style: const TextStyle(fontWeight: FontWeight.w600)),
+        for (final item in facts.where((x) => fvMap(x)['role'] == role))
+          if (fvMap(item)['plain_language'] != null)
+            Text('已保存事實：${fvText(fvMap(item)['plain_language'])}'),
         if (fvRows(gaps[role]).isNotEmpty)
           Text('輸入缺口：${fvRows(gaps[role]).join('、')}',
               style: const TextStyle(color: Colors.orange, fontSize: 12)),
@@ -276,6 +284,9 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
                   child: _stockReport(fvMap(fvMap(row)['report']))),
         ]),
       fvSectionTitle(context, 'On-demand CEO'),
+      if (ceoHistoryUnavailable)
+        const Text('CEO 歷史／Gateway 暫時無法讀取；事實報告仍可閱讀',
+            style: TextStyle(color: Colors.orange)),
       if (history.isEmpty)
         fvBoundedState('尚無 CEO 分析；開頁不會自動呼叫 LLM')
       else

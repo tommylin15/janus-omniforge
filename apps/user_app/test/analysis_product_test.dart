@@ -5,8 +5,9 @@ import 'package:janus_user_app/admin_analysis.dart';
 import 'package:janus_user_app/main.dart';
 
 class AnalysisApi extends Api {
-  AnalysisApi({this.canRequest = false, this.active = false}) : super('test');
-  final bool canRequest, active;
+  AnalysisApi({this.canRequest = false, this.active = false,
+      this.ceoUnavailable = false}) : super('test');
+  final bool canRequest, active, ceoUnavailable;
   final posts = <String>[];
   @override
   Future<dynamic> get(String path) async {
@@ -18,7 +19,8 @@ class AnalysisApi extends Api {
         'specialists': []
       };
     if (path.endsWith('/reports')) return {'status': 'waiting', 'items': []};
-    if (path.endsWith('/ceo'))
+    if (path.endsWith('/ceo')) {
+      if (ceoUnavailable) throw StateError('CEO endpoint unavailable');
       return {
         'items': active
             ? [
@@ -27,6 +29,7 @@ class AnalysisApi extends Api {
             : [],
         'capability': {'can_request': canRequest, 'profile_approved': true}
       };
+    }
     return {
       'analysis_as_of': '2026-10-11',
       'freshness': 'current',
@@ -74,6 +77,17 @@ void main() {
     expect(find.widgetWithText(FilledButton, '分析'), findsNothing);
     expect(api.posts, isEmpty);
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('CEO outage preserves latest deterministic report and blocks dispatch',
+      (tester) async {
+    final api = AnalysisApi(ceoUnavailable: true);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(
+      body: SingleChildScrollView(child: FinalAnalysisPanel(api, '2330')))));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('報告資料日 2026-10-10'), findsOneWidget);
+    expect(find.textContaining('事實報告仍可閱讀'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '分析'), findsNothing);
+    expect(api.posts, isEmpty);
   });
   testWidgets(
       'authorized user explicitly requests analysis, active request disables duplicates',
