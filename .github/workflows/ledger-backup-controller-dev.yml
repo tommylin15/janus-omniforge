@@ -176,6 +176,23 @@ jobs:
           fi
           echo 'LEDGER_BACKUP_PAUSE_RESUME_CAS=PASS' >> "$GITHUB_STEP_SUMMARY"
           echo 'BACKUP_EXECUTION=NOT_TRIGGERED; GCS_DELETIONS=0; IAM_CHANGES=0' >> "$GITHUB_STEP_SUMMARY"
+      - name: Pause existing single Scheduler and fence active Dev Jobs for SEQ-04 migration
+        if: steps.request.outputs.phase == 'install'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, 'scripts/gcp')
+          from ghcr_jobs_rollout import scheduler, set_scheduler, wait_for_terminal_executions
+          current = scheduler()  # also checks only the approved target exists
+          if current['state'] != 'ENABLED':
+              raise SystemExit('seq04_scheduler_not_enabled')
+          wait_for_terminal_executions(timeout=600)
+          set_scheduler('pause', 'PAUSED')
+          wait_for_terminal_executions(timeout=600)
+          print('SEQ04_SCHEDULER_FENCED=PASS')
+          PY
       - name: Apply additive SEQ-04 migration069 before installing updated VM executor
         if: steps.request.outputs.phase == 'install'
         shell: bash
@@ -206,6 +223,22 @@ jobs:
           gcloud compute scp scripts/gcp/ledger_restore_verify.py janus-postgres-dev:/tmp/janus-ledger-restore-verify.py --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet
           gcloud compute scp scripts/gcp/ledger-durability-dev.sh janus-postgres-dev:/tmp/janus-ledger-durability --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet
           gcloud compute ssh janus-postgres-dev --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet --command='sudo env GCP_PROJECT_ID=gen-lang-client-0593591102 GCP_ENVIRONMENT=dev bash /tmp/janus-ledger-durability install-controller'
+      - name: Restore original single Scheduler after SEQ-04 VM installation attempt
+        if: always() && steps.request.outputs.phase == 'install'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, 'scripts/gcp')
+          from ghcr_jobs_rollout import scheduler, set_scheduler
+          live = scheduler()
+          if live['state'] == 'PAUSED':
+              set_scheduler('resume', 'ENABLED')
+          elif live['state'] != 'ENABLED':
+              raise SystemExit('seq04_scheduler_state_unknown')
+          print('SEQ04_SCHEDULER_ORIGINAL_CRON_RESTORED=' + live['schedule'])
+          PY
       - name: Read actual controller backup receipt and verify immutable bytes
         if: steps.request.outputs.phase == 'handoff'
         run: |
