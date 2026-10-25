@@ -1,0 +1,22 @@
+{
+  "intent": "seq04-existing-dev-two-hour-controller-cutover",
+  "approved": true,
+  "project": "gen-lang-client-0593591102",
+  "location": "us-central1",
+  "scheduler": "janus-ingestion-daily",
+  "source_sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
+  "release_run": "40154638538",
+  "jobs_run": "40155713885",
+  "api_promotion_run": "40157972457",
+  "old_cron": "30 * * * *",
+  "new_cron": "30 */2 * * *",
+  "time_zone": "Asia/Taipei",
+  "no_new_resources": true,
+  "job_images": {
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:6c36cb26e64398ca07b981d9b13563c2864457066fa0e25929eb48cfb04ff15d",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:6c36cb26e64398ca07b981d9b13563c2864457066fa0e25929eb48cfb04ff15d",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:86b999bdf7a0350a01728cf8864a073f6c76c13a3c0ff982e975e030a747f0a0",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:50536c3ac7cccf2e426149e78c5a2bd4411f2e2ba6f3f0a23b983e03123090fc"
+  },
+  "purpose": "SEQ-04 approved existing Dev single Scheduler cadence change after release #40154638538 PASS, four Jobs 8/8 #40155713885 PASS, API 100% #40157972457 PASS, PG migration and isolated restore PASS. Preserve immutable target/identity and old hourly cron rollback; no new schedule, service, IAM, resource, or data mutation. Trigger no business batch outside existing Scheduler."
+}
