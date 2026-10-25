@@ -163,10 +163,60 @@ def execute(receipt_file):
             jobs.command(LEASE + ["release", "--safe-to-release"])
 
 
+
+def diagnose_prior():
+    """Read-only evidence from the prior failed attempt; never dispatches."""
+    directory = Path("/tmp/seq08-prior-failure")
+    directory.mkdir(parents=True, exist_ok=True)
+    result = subprocess.run(["gh", "run", "download", "40194391101",
+        "-n", "seq08-real-mart-execution-receipt", "-D", str(directory)],
+        capture_output=True, timeout=45, check=False)
+    if result.returncode:
+        raise ValueError("prior_receipt_download_unavailable")
+    data = json.loads((directory / "seq08-real-mart.json").read_text())
+    phase = str(data.get("phase", "UNKNOWN"))
+    if phase not in {"PREFLIGHT", "DISPATCH_REQUESTED", "WAITING_FOR_REAL_DEV_JOB",
+                     "REAL_JOB_PASS_PRODUCT_CONTENT_READBACK_PENDING"}:
+        raise ValueError("prior_receipt_phase_unknown")
+    executions = jobs.cloud(f"{jobs.ROOT}/jobs/{JOB}/executions?pageSize=10")
+    names = [{"execution": item.get("name", "").rsplit("/", 1)[-1],
+              "created": item.get("createTime"),
+              "terminal": jobs.terminal(item),
+              "succeeded_count": item.get("succeededCount"),
+              "failed_count": item.get("failedCount")}
+             for item in executions.get("executions", [])[:10]]
+    lease = subprocess.run(LEASE + ["inspect"], capture_output=True, timeout=30,
+                           check=False)
+    state = "UNKNOWN"
+    if lease.returncode == 0:
+        try:
+            state = json.loads(lease.stdout).get("status", "UNKNOWN")
+        except ValueError:
+            pass
+    output = {"prior_phase": phase, "prior_dispatch_maybe": phase != "PREFLIGHT",
+              "operation_exists": bool(data.get("operation")),
+              "prior_operation": data.get("operation"),
+              "latest_job_executions": names, "lease_status": state,
+              "no_gcp_mutation": True}
+    print(json.dumps(output, sort_keys=True))
+    return output
+
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--receipt", type=Path, required=True)
+    p.add_argument("--receipt", type=Path)
+    p.add_argument("--diagnose-prior", action="store_true")
     args = p.parse_args()
+    if args.diagnose_prior:
+        try:
+            diagnose_prior()
+            return 0
+        except Exception as error:
+            reason = str(error) if isinstance(error, ValueError) else "diagnostic_read_failure"
+            print(json.dumps({"diagnostic": "BLOCKED", "reason": reason}))
+            return 78
+    if not args.receipt:
+        p.error("--receipt is required for live execution")
     try:
         output = execute(args.receipt)
         print(json.dumps({"result": "PASS", "phase": output["phase"],
