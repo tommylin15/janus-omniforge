@@ -5,5 +5,5 @@
   "release_run": 38856837257,
   "release_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
   "phase": "audit",
-  "reason": "OPS-P0-1 bounded post-resume live read-only audit: check actual 2026-10-24 daily backup request success and immutable GCS receipt, VM executor timer, Controller occurrence, and recent Scheduler results. No backup/PG/GCS/Scheduler/IAM mutation. Follow current simplified acceptance; no natural GitHub schedule probe."
+  "reason": "SEQ-04 2026-10-25 deployment preflight read-only baseline: current Scheduler target/cron, Controller occurrences, PG backup VM executor timers and receipts. No GCP writes, no backup restore, no GCS deletion, no role or production change."
 }
