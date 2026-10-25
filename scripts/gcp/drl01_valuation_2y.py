@@ -35,7 +35,8 @@ def checked(path: str) -> dict:
                 data.get("target_start") != "2024-10" or
                 data.get("target_end") != "2026-09" or
                 data.get("offsets") != [[13, 12], [1, 12]] or
-                not re.fullmatch(r"[a-f0-9]{40}", str(data.get("deployed_sha", "")))):
+                not re.fullmatch(r"[a-f0-9]{40}", str(data.get("deployed_sha", ""))) or
+                not re.fullmatch(r"sha256:[a-f0-9]{64}", str(data.get("live_image_digest", "")))):
             raise ValueError("invalid_seq05_valuation_scope")
         return data
     if (data.get("intent") != "drl01-official-twse-focus-two-year-valuation"
@@ -51,7 +52,7 @@ def checked(path: str) -> dict:
     return data
 
 
-def job_digest_matches(commit_sha: str, existing_job: dict) -> bool:
+def job_digest_matches(commit_sha: str, existing_job: dict, *, pinned_digest: str | None = None) -> bool:
     """Never send new valuation-only env to an older image that ignores it."""
     container = existing_job["template"]["template"]["containers"]
     if len(container) != 1:
@@ -59,6 +60,12 @@ def job_digest_matches(commit_sha: str, existing_job: dict) -> bool:
     image = container[0].get("image", "").removeprefix("cache.us-docker.pkg.dev/")
     if not image.startswith("ghcr.io/tommylin15/janus-ingestion-core@sha256:"):
         return False
+    if pinned_digest is not None:
+        # The Dev Job's immutable digest was independently read back from
+        # GCP. Never accept an unpinned tag or changed image. This guards
+        # against mutable registry tags with a correct historical source SHA.
+        return bool(re.fullmatch(r"sha256:[a-f0-9]{64}", pinned_digest)
+                    and image == "ghcr.io/tommylin15/janus-ingestion-core@" + pinned_digest)
     result = subprocess.run(
         ["skopeo", "inspect", "--no-creds",
          f"docker://ghcr.io/tommylin15/janus-ingestion-core:sha-{commit_sha}"],
@@ -112,7 +119,8 @@ def run(path: str):
               "slices":[], "planned_offsets":offsets, "status":"PARTIAL"}
     save(report)
     current = job(JOB)
-    if not job_digest_matches(request["deployed_sha"], current):
+    if not job_digest_matches(request["deployed_sha"], current,
+                              pinned_digest=request.get("live_image_digest") if seq05 else None):
         # Safe diagnostics: image digest/tag only, no service identity,
         # environment variables or credentials.
         from ghcr_jobs_rollout import image
@@ -133,7 +141,8 @@ def run(path: str):
         # before a new write. Do not blindly redispatch an unknown operation.
         wait_for_terminal_executions(timeout=700)
         current = job(JOB)
-        if not job_digest_matches(request["deployed_sha"], current):
+        if not job_digest_matches(request["deployed_sha"], current,
+                                  pinned_digest=request.get("live_image_digest") if seq05 else None):
             raise RuntimeError("job_image_changed_during_backfill")
         expected_months = []
         ending = 2026*12 + 10 - 1 - offset
