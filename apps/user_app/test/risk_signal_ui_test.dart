@@ -3,19 +3,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:janus_user_app/risk_signal_ui.dart';
 
 Map<String, dynamic> specialist({
-  String modelStatus = 'oos_validated',
-  String modelVersion = 'risk-xgboost8-2025h2-v1',
+  String status = 'ACTIVE_PREDICTED',
   double? forecast = .36,
   double? recent = .25,
 }) => {
   'role': 'risk',
-  'analysis_as_of': '2026-10-21',
-  'model_version': modelVersion,
-  'model_status': modelStatus,
+  'analysis_as_of': '2026-10-23',
+  'model_status': 'oos_not_validated', // Historic Risk8 must never enable XGB12 display.
   'baseline_status': 'available',
-  'metrics': {
-    'future_20d_volatility_annualized': forecast,
-    'recent_20d_volatility_annualized': recent,
+  'metrics': {'recent_20d_volatility_annualized':recent},
+  'seq08_native_model': {
+    'status': status,
+    'model_version': 'risk-xgb12-20261024',
+    'input_as_of': '2026-10-23',
+    'prediction': forecast,
   },
 };
 
@@ -27,37 +28,36 @@ Future<void> mount(WidgetTester tester, Map<String, dynamic> data,
 }
 
 void main() {
-  testWidgets('unverified model cannot show forecast or risk direction', (tester) async {
-    await mount(tester, specialist(modelStatus: 'oos_not_validated'));
+  testWidgets('missing new model never substitutes the old Risk8 forecast', (tester) async {
+    await mount(tester, specialist(status:'MISSING_OR_INACTIVE_ARTIFACT'));
     expect(find.text('模型尚待驗證'), findsOneWidget);
     expect(find.textContaining('預測 36.0%'), findsNothing);
-    expect(find.textContaining('更新頻率：交易日盤後'), findsOneWidget);
+    expect(find.textContaining('不顯示舊 Risk8'), findsOneWidget);
   });
 
-  testWidgets('increasing risk is an orange warning, not a price buy call', (tester) async {
+  testWidgets('new Risk12 predicts higher RMS without a buy call', (tester) async {
     await mount(tester, specialist());
     expect(find.text('波動風險升高'), findsOneWidget);
     expect(find.textContaining('預測 36.0%'), findsOneWidget);
-    expect(find.textContaining('2026/10/21'), findsNothing);
-    expect(find.textContaining('資料日 2026-10-21'), findsOneWidget);
+    expect(find.textContaining('2026-10-23'), findsWidgets);
     expect(find.textContaining('買進'), findsNothing);
   });
 
-  testWidgets('easing volatility is not a bullish or buy signal', (tester) async {
-    await mount(tester, specialist(forecast: .15));
+  testWidgets('lower forecast is not a bullish or trade signal', (tester) async {
+    await mount(tester, specialist(forecast:.15));
     expect(find.text('波動風險相對緩和'), findsOneWidget);
     expect(find.textContaining('低波動不代表股價將上漲'), findsOneWidget);
   });
 
-  testWidgets('first-release approved XGB shows real risk forecast and OOS caveat', (tester) async {
-    await mount(tester, specialist(modelStatus: 'first_release_approved'));
-    expect(find.text('波動風險升高'), findsOneWidget);
-    expect(find.textContaining('預測 36.0%'), findsOneWidget);
-    expect(find.textContaining('前瞻 20 交易日樣本持續回收'), findsOneWidget);
+  testWidgets('new model prediction without recent volatility still displays only forecast', (tester) async {
+    await mount(tester, specialist(recent:null));
+    expect(find.text('風險預測可用'), findsOneWidget);
+    expect(find.textContaining('年化 RMS 波動預測 36.0%'), findsOneWidget);
+    expect(find.textContaining('前瞻結果仍需持續驗證'), findsOneWidget);
   });
 
-  testWidgets('expired forecast is neutral despite model numbers', (tester) async {
-    await mount(tester, specialist(), freshness: 'stale');
+  testWidgets('stale Risk12 cannot display forecast as current', (tester) async {
+    await mount(tester, specialist(),freshness:'stale');
     expect(find.text('資料已過期'), findsOneWidget);
     expect(find.textContaining('預測 36.0%'), findsNothing);
   });
