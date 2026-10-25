@@ -408,9 +408,9 @@ class PrivatePipeline:
             "schema_version": "1", "user_id": prepared["user_id"],
             "valuation_date": prepared["valuation_date"],
             "ledger_version": prepared["ledger_version"],
-            "change_version": prepared["change_version"],
+            "change_version": prepared.get("change_version"),
             "watchlist": prepared["watchlist"], "profile": prepared["profile"],
-            "cash": prepared["cash"], "broker_profile": prepared["broker_profile"],
+            "cash": prepared.get("cash"), "broker_profile": prepared.get("broker_profile"),
             "positions": prepared["marts"]["mart_user_positions"], "risk": prepared["risk"],
         }
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
