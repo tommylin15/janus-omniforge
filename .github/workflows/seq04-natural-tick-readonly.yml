@@ -1,0 +1,115 @@
+name: SEQ-04 natural two-hour Scheduler receipt readback (read-only)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/seq04-natural-tick-readonly.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Inspect Scheduler at 14:30 Taipei and corresponding Controller executions
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json, subprocess
+          from datetime import datetime, timezone
+          PROJECT = "gen-lang-client-0593591102"
+          ZONE = "us-central1"
+          EPOCH = "2026-10-25T06:30:00Z"  # 14:30 Taipei
+          def gcloud(args):
+              p = subprocess.run(["gcloud", *args], capture_output=True,
+                                 text=True, check=True, timeout=90)
+              return json.loads(p.stdout)
+          scheduler = gcloud(["scheduler", "jobs", "describe", "janus-ingestion-daily",
+                              "--project="+PROJECT, "--location="+ZONE, "--format=json"])
+          runs = gcloud(["run", "jobs", "executions", "list",
+                         "--project="+PROJECT, "--region="+ZONE,
+                         "--job=janus-batch-controller",
+                         "--limit=20", "--format=json"])
+          if not isinstance(runs, list):
+              raise SystemExit("controller_executions_wrong_shape")
+          def normalized(t):
+              if not t: return None
+              try: return datetime.fromisoformat(t.replace("Z","+00:00"))
+              except ValueError: return None
+          boundary = normalized(EPOCH)
+          def finished(x):
+              for c in x.get("conditions", []):
+                  if c.get("type") == "Completed":
+                      return c.get("state") in ("CONDITION_SUCCEEDED","CONDITION_FAILED") or c.get("status") in ("True","False")
+              return bool(x.get("completionTime"))
+          recent = []
+          for item in runs[:20]:
+              when = normalized(item.get("createTime"))
+              if when is None or when < boundary: continue
+              recent.append({
+                  "created_utc": item.get("createTime"),
+                  "started_utc": item.get("startTime"),
+                  "completed_utc": item.get("completionTime"),
+                  "execution_suffix": item.get("name","").rsplit("/",1)[-1],
+                  "terminal": finished(item),
+                  "succeeded": any(c.get("type")=="Completed" and
+                      (c.get("state")=="CONDITION_SUCCEEDED" or c.get("status")=="True")
+                      for c in item.get("conditions", [])),
+                  "failed": any(c.get("type")=="Completed" and
+                      (c.get("state")=="CONDITION_FAILED" or c.get("status")=="False")
+                      for c in item.get("conditions", [])),
+              })
+          # Logs are optional; a log query failure is reported, not hidden.
+          try:
+              logs = gcloud(["logging","read",
+                  'resource.type="cloud_scheduler_job" AND '
+                  'resource.labels.job_id="janus-ingestion-daily" AND '
+                  'timestamp>="2026-10-25T06:28:00Z"',
+                  "--project="+PROJECT, "--limit=30","--format=json"])
+              log_access="PASS"
+          except (subprocess.CalledProcessError,subprocess.TimeoutExpired):
+              logs=[]
+              log_access="BLOCKED"
+          scheduler_logs=[]
+          for e in logs:
+              stamp=e.get("timestamp","")
+              if stamp < "2026-10-25T06:28:00Z": continue
+              meta=e.get("jsonPayload") or {}
+              scheduler_logs.append({
+                  "timestamp":stamp,
+                  "severity":e.get("severity"),
+                  "message_code":str(meta.get("status",meta.get("jobStatus","")))[:60],
+                  "log_name":str(e.get("logName","")).rsplit("/",1)[-1][:90],
+              })
+          report={
+              "component":"seq04_natural_tick_readonly",
+              "observed_utc":datetime.now(timezone.utc).isoformat(),
+              "expected_tick_utc":EPOCH,
+              "scheduler":{
+                "schedule":scheduler.get("schedule"),
+                "time_zone":scheduler.get("timeZone"),
+                "state":scheduler.get("state"),
+                "last_attempt_utc":scheduler.get("lastAttemptTime"),
+                "status_code":(scheduler.get("status") or {}).get("code")
+              },
+              "controller_new_executions":recent,
+              "scheduler_logs_status":log_access,
+              "scheduler_logs":scheduler_logs[:12],
+              "ingestion_natural_2026_10_26_0230":"NOT_DUE_YET",
+              "gcp_writes":0,"job_dispatches":0
+          }
+          print("SEQ04_RECEIPT="+json.dumps(report,sort_keys=True))
+          if (scheduler.get("schedule") != "30 */2 * * *"
+              or scheduler.get("timeZone") != "Asia/Taipei"
+              or scheduler.get("state") != "ENABLED"):
+              raise SystemExit("scheduler_configuration_drift")
+          PY
