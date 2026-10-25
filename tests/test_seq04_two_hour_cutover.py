@@ -102,15 +102,47 @@ def test_workflow_is_explicit_and_has_single_global_mutex():
     assert "actions/upload-artifact@v4" in text
 
 
-def test_scheduler_update_diagnostics_are_safely_classified(monkeypatch):
-    from types import SimpleNamespace
+def test_scheduler_patch_updates_only_cron(monkeypatch):
+    from io import BytesIO
+    calls = []
+    monkeypatch.setattr(cutover.jobs, "command", lambda args: "test_access_token\n")
+    class Response(BytesIO):
+        def __enter__(self):
+            return self
+        def __exit__(self, *_):
+            self.close()
+    def transport(request, timeout):
+        calls.append((request, timeout))
+        data = json.loads(request.data.decode("utf-8"))
+        assert data == {
+            "name": "projects/gen-lang-client-0593591102/locations/us-central1/jobs/janus-ingestion-daily",
+            "schedule": cutover.NEW,
+        }
+        assert request.get_method() == "PATCH"
+        assert "updateMask=schedule" in request.full_url
+        assert request.full_url.startswith("https://cloudscheduler.googleapis.com/v1/")
+        assert request.headers["Authorization"] == "Bearer test_access_token"
+        assert "httpTarget" not in data and "timeZone" not in data
+        return Response(json.dumps(data).encode("utf-8"))
+    monkeypatch.setattr(cutover, "urlopen", transport)
+    cutover.change_schedule(cutover.NEW)
+    assert len(calls) == 1
+
+
+def test_scheduler_patch_permission_denial_is_sanitized(monkeypatch):
+    from urllib.error import HTTPError
     import pytest
-    def denied(args, **kwargs):
-        assert args[:5] == ["gcloud", "scheduler", "jobs", "update", "http"]
-        assert "--schedule=30 */2 * * *" in args
-        assert kwargs["capture_output"] is True
-        return SimpleNamespace(returncode=1, stdout="", stderr="PERMISSION_DENIED for secret resource")
-    monkeypatch.setattr(cutover.subprocess, "run", denied)
+    monkeypatch.setattr(cutover.jobs, "command", lambda args: "test_access_token")
+    def denied(request, timeout):
+        raise HTTPError(request.full_url, 403, "secret token in raw error", {}, None)
+    monkeypatch.setattr(cutover, "urlopen", denied)
     with pytest.raises(ValueError, match="seq04_scheduler_update_permission_denied") as error:
         cutover.change_schedule(cutover.NEW)
     assert "secret" not in str(error.value)
+
+
+def test_scheduler_patch_rejects_unapproved_cron_without_network(monkeypatch):
+    import pytest
+    monkeypatch.setattr(cutover.jobs, "command", lambda args: 1/0)
+    with pytest.raises(ValueError, match="seq04_scheduler_update_unapproved_schedule"):
+        cutover.change_schedule("*/5 * * * *")
