@@ -75,7 +75,7 @@ def test_unknown_stock_no_reference_without_reclassification_guess():
     assert _card(_datasets("2317"), symbol="2317") is None
 
 
-@pytest.mark.parametrize("source", ["yahoo-finance", "unreviewed-provider"])
+@pytest.mark.parametrize("source", ["unreviewed-provider"])
 def test_third_party_requires_explicit_control_review(source):
     result = _card(_datasets(source=source))
     assert result["status"] == "blocked_rights"
@@ -119,3 +119,8 @@ def test_seq05_user_approved_simple_eps_sum_uses_existing_real_core_style_finmin
     assert card["eps_aggregation"] == "last_four_reported_quarters_simple_sum"
     assert len(card["eps_quarter_values"]) == 4
     assert sum(Decimal(x["value"]) for x in card["eps_quarter_values"]) == Decimal("86.28")
+
+
+def test_existing_approved_yahoo_fallback_is_usable_in_research_scope():
+    result = _card(_datasets(source="yahoo-finance"))
+    assert result["status"] == "available"
