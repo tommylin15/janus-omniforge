@@ -11,7 +11,7 @@ from typing import Any, Iterable
 from urllib.parse import quote, urlparse
 
 
-APPROVED_SOURCES = frozenset({"twse", "tpex", "mops", "taiex", "tpex-benchmark", "taifex", "tdcc", "finmind"})
+APPROVED_SOURCES = frozenset({"twse", "tpex", "mops", "taiex", "tpex-benchmark", "taifex", "tdcc", "finmind", "yahoo-finance"})
 
 
 def analysis_cutoff(as_of: date) -> datetime:
@@ -132,7 +132,10 @@ def evidence_from_rows(datasets: dict[str, list[dict[str, Any]]], core_snapshot_
                 "value": value,
                 "unit": unit or "not_applicable",
                 "source_id": row.get("source_id"),
-                "source_authorization": row.get("source_authorization", "official" if row.get("source_id") in APPROVED_SOURCES else "blocked"),
+                "source_authorization": row.get(
+                    "source_authorization",
+                    ("approved_fallback" if row.get("source_id") in {"finmind", "yahoo-finance"} else "official")
+                    if row.get("source_id") in APPROVED_SOURCES else "blocked"),
                 "published_at": published.isoformat().replace("+00:00", "Z") if published else None,
                 "availability_at": availability.isoformat().replace("+00:00", "Z") if availability else None,
                 "publication_time_authoritative": publication_authoritative,
