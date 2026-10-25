@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
   "sha": "0389054dba3f339cde29add2d587e623694f4a0d",
-  "purpose": "SEQ-04 centralized Dev batch source-only full Release after SEQ-01..03 integration; 00:30 PG backup, 02:30 ingestion, weekday 04:30 screening, 06:30 private, Saturday 22:30 maintenance; two specific regression fixes and #40154394943 offline PASS. Publish immutable GHCR images for same-SHA guarded deployment. No GCP mutation in release, no IAM/resource changes.",
+  "purpose": "SEQ-08 user-authorized direct new five-head model serving and owner report integration. Exact native X model candidates imported/readback GCS via #40182200560. No old Risk8 inference path. Full Python/Flutter/schema/auth/GHCR test and digest publication only; no GCP mutation or Registry promotion in Release.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 15
+  "request_attempt": 16
 }
