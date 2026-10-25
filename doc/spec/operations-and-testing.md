@@ -1,5 +1,13 @@
 # Janus 最新驗收證據索引
 
+### 2026-10-25｜SEQ-04 現有 Dev Scheduler 兩小時切換受權限阻擋（DEPLOY=PARTIAL）
+
+- **已通過的上游**：GHCR 全量 Release [#40154638538](https://github.com/tommylin15/janus-omniforge/actions/runs/40154638538)、四個現役 Dev Jobs 同源固定映像及 8/8 Canary [#40155713885](https://github.com/tommylin15/janus-omniforge/actions/runs/40155713885)、API 100% Promotion [#40157972457](https://github.com/tommylin15/janus-omniforge/actions/runs/40157972457) 均 SUCCESS；PG migration 069／既有 VM executor install [#40155184201](https://github.com/tommylin15/janus-omniforge/actions/runs/40155184201) SUCCESS，PG 隔離還原 [#40155337207](https://github.com/tommylin15/janus-omniforge/actions/runs/40155337207) SUCCESS。上述不能等同於全系統 live／GCS／Owner UI PASS。
+- **首次失敗**：[ #40158518968](https://github.com/tommylin15/janus-omniforge/actions/runs/40158518968) 的正式 receipt 為 `phase=ROLLED_BACK`、`reason=execution_not_terminal`、`previous_cron=restored_cron=30 * * * *`、`scheduler_enabled=true`、`gcp_new_resources=0`；未強制取消在途 Job。後續全頁唯讀診斷 [#40159481533](https://github.com/tommylin15/janus-omniforge/actions/runs/40159481533) SUCCESS，四個現役 Job 共檢查 1,819 筆執行，未終態 0；已退役 research Job 無執行、無寫入。
+- **權限阻擋（最新）**：[ #40159576001](https://github.com/tommylin15/janus-omniforge/actions/runs/40159576001) 已通過執行終態 gate，對原有 `janus-ingestion-daily` 呼叫 `gcloud scheduler jobs update http` 時回報 `seq04_scheduler_update_permission_denied`。回復 receipt 再次證實 `phase=ROLLED_BACK`、`restored_cron=30 * * * *`、`scheduler_enabled=true`、`gcp_new_resources=0`，target hash 保持 `5b647622b2abbcecbbb1e74e0e9134ac60155d41a0f209115ceae0271aa4b3ea`。
+- **唯一剩餘切換入口**：核准並取得現有 CI 部署身分對該唯一 Scheduler 的 `cloudscheduler.jobs.update` 權限（或使用已獲核准、具等效權限的部署身分），之後重跑現有受保護 [SEQ-04 Scheduler workflow](../../.github/workflows/seq04-two-hour-controller-dev.yml)，實際讀回 `30 */2 * * *`／Asia/Taipei／ENABLED／相同 target/identity 及一次自然 occurrence。未取得授權前不擴 IAM，不重試，不創第二個排程。來源版本不因文件更新自動宣稱已切換。
+
+
 ### 2026-10-25｜SEQ-02 持股／買賣／觀察設定快照（DOC／CODE／OFFLINE_PASS；DEV LIVE DEFERRED）
 
 - **GitHub 版本**：[功能 commit `72361a2`](https://github.com/tommylin15/janus-omniforge/commit/72361a2910d43eca06f6ef9aaaee220553a40c1e)、[相容修正 `9f0cd44`](https://github.com/tommylin15/janus-omniforge/commit/9f0cd4477d0f6cb1fe653b23979e8fd76c6672fe)。核對 PrivatePipeline、Iceberg workspace_snapshots、Owner API、PG ledger/watchlist/cash/profile、重算 worker、Flutter 關注頁及原有測試。保持原始買賣/修正/沖銷與 private.current_positions 權威不變，不建立券商下單能力。
