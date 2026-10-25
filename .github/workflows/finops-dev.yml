@@ -16,6 +16,7 @@ on:
           - iceberg-readback
           - gcp-acceptance
           - ci-orphans
+          - seq04-closeout
       dry-run:
         description: 'Dry run (no mutations)'
         type: boolean
@@ -32,6 +33,7 @@ on:
       - 'ops/finops-iceberg-readback-once.json'
       - 'ops/finops-gcp-live-acceptance.json'
       - 'ops/finops-ci-orphan-generations.json'
+      - 'ops/seq04-live-closeout-request.json'
 
 permissions:
   contents: read
@@ -67,6 +69,7 @@ jobs:
               *iceberg-readback*) echo "operation=iceberg-readback" >> "$GITHUB_OUTPUT" ;;
               *gcp-live-acceptance*) echo "operation=gcp-acceptance" >> "$GITHUB_OUTPUT" ;;
               *ci-orphan*) echo "operation=ci-orphans" >> "$GITHUB_OUTPUT" ;;
+              *seq04-live-closeout*) echo "operation=seq04-closeout" >> "$GITHUB_OUTPUT" ;;
               *) echo "operation=none" >> "$GITHUB_OUTPUT" ;;
             esac
           fi
@@ -355,3 +358,66 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+
+  seq04-closeout:
+    needs: detect
+    if: needs.detect.outputs.operation == 'seq04-closeout'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 26
+    concurrency:
+      group: janus-dev-runtime-writers
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONPATH: 'jobs/ingestion-core:.'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: test
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Validate live request and affected bounded retention tests
+        run: |
+          python -m py_compile scripts/gcp/seq04_live_closeout.py
+          python -m pytest -q tests/test_data_retention.py tests/test_private_ledger_backup_retention.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path('ops/seq04-live-closeout-request.json').read_text())
+          assert x == {
+              'intent':'seq04-existing-dev-bounded-closeout',
+              'project':'gen-lang-client-0593591102',
+              'approved':True,
+              'no_new_gcp_resources':True,
+              'no_scheduler_changes':True,
+              'no_owner_mutation':True,
+              'stage_max_objects':6000,
+              'stage_max_bytes':268435456,
+              'private_daily_cap':3,
+              'private_weekly_cap':1,
+              'private_monthly_cap':1,
+              'phase':x.get('phase'),
+              'attempt':x.get('attempt'),
+          }
+          assert x['phase'] in ('readback','stage','private','all')
+          assert isinstance(x['attempt'],int) and 1 <= x['attempt'] <= 4
+          PY
+      - name: Refuse mutation while release lease requires recovery
+        run: |
+          python scripts/gcp/ghcr_release_lease.py inspect > /tmp/seq04-release-lease.json
+          jq -e '.status == "ABSENT"' /tmp/seq04-release-lease.json >/dev/null
+      - name: Existing dev bounded Stage and Private closeout
+        run: python scripts/gcp/seq04_live_closeout.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: seq04-bounded-closeout-receipt
+          path: seq04-closeout-live-receipt.json
+          if-no-files-found: ignore
+          retention-days: 14
