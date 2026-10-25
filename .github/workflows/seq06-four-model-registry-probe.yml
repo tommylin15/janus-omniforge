@@ -155,13 +155,12 @@ jobs:
           service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - name: Unit acceptance / single-job authorization gates
         run: python -m pytest -q tests/test_seq08_real_mart_acceptance.py
+      - name: Read-only prior failed attempt and Cloud Run execution inventory
+        if: "${{ startsWith(github.event.head_commit.message, 'ops(seq08): diagnose prior Mart acceptance') }}"
+        run: python scripts/gcp/seq08_real_mart_acceptance.py --diagnose-prior
       - name: One real Dev Deep Coverage execution on current Core
-        run: |
-          if [[ "${{ github.event.head_commit.message }}" == ops\(seq08\):\ diagnose\ prior\ Mart\ acceptance* ]]; then
-            python scripts/gcp/seq08_real_mart_acceptance.py --diagnose-prior
-          else
-            python scripts/gcp/seq08_real_mart_acceptance.py --receipt /tmp/seq08-real-mart.json
-          fi
+        if: "${{ startsWith(github.event.head_commit.message, 'ops(seq08): run one bounded real Mart acceptance') }}"
+        run: python scripts/gcp/seq08_real_mart_acceptance.py --receipt /tmp/seq08-real-mart.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
