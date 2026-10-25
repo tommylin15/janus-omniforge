@@ -96,3 +96,7 @@ Operations只保存當前適用摘要／歷史連結，不無限追加。原2296
 - [Valuation 估值｜XGBoost 操作與開發指令](colab-models/04-valuation-xgboost.md)
 
 2026-10-25：四模型全部以本版正式上線為目標，採現有可發布artifact；必要serving／快取／報告／UI接線依SEQ-06…08。上述研究Notebook保留，調校與全面研究資料改善移至 [2027 Q1第二版](parking-lot.md#v2-2027-q1)，不是本次發布前置。模型檔存在不等於已上線，實際狀態依runtime證據。
+
+## SEQ 外未來分期規劃
+
+[Parking Lot 分期入口](parking-lot.md#future-stages) → [適度性／工具比較／五期規劃與 WBS](future-development-stages.md) → [逐期四階段 AI 指示](future-development-stages.md#ai-handoff)。僅為規劃文件，未啟動項目不列 Active TODO；現行 SEQ 順序與狀態仍以 [TODO](todo.md) 為準。
