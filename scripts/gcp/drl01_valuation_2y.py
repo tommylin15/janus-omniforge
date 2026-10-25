@@ -108,6 +108,16 @@ def save(report: dict):
 
 
 def run(path: str):
+    raw_request = json.loads(Path(path).read_text(encoding="utf-8"))
+    if (raw_request.get("intent") == "seq05-two-stock-bounded-valuation"
+            and raw_request.get("approved") is False
+            and raw_request.get("closed_after_failed_job") is True):
+        # Explicit one-time closure: the failed prior Job wrote the entire
+        # first 12-month slice. It must never be resent as a normal retry.
+        print(json.dumps({"operation": "seq05_valuation_history",
+                          "status": "SKIPPED_ALREADY_PARTIALLY_COMMITTED",
+                          "data_mutations": 0}, sort_keys=True), flush=True)
+        return
     request = checked(path)
     seq05 = request["intent"] == "seq05-two-stock-bounded-valuation"
     symbols = request["symbols"] if seq05 else SYMBOLS
