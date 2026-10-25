@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['.github/workflows/drl01-valuation-diagnostics.yml']
+    paths: ['.github/workflows/drl01-valuation-diagnostics.yml', 'scripts/gcp/seq05_failed_job_readback.py']
 permissions:
   contents: read
   id-token: write
@@ -56,3 +56,17 @@ jobs:
                 if safe:found.append(safe)
             print(json.dumps({"execution":name,"log_summary":found[-10:]},sort_keys=True))
           PY
+      - name: SEQ-05 exact failed execution and bounded Core/Serving readback
+        env:
+          PYTHONPATH: scripts/gcp
+        run: |
+          set -Eeuo pipefail
+          python -m py_compile scripts/gcp/seq05_failed_job_readback.py
+          python scripts/gcp/seq05_failed_job_readback.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: seq05-failed-job-readback
+          path: /tmp/seq05-failed-job-readback.json
+          if-no-files-found: ignore
+          retention-days: 14
