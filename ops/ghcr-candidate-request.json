@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "a2881c5c2532beb5570e29a1fda4472c7bb0d448",
+  "sha": "462bd1c85708cb5bc4ce1877d35a3645ff9668d4",
   "digest": "",
-  "release_run": "40184318031",
+  "release_run": "40215268427",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "SEQ-08 full release #40184318031 PASS. Exact SHA a2881c5c includes native four-model five-head serving + new Flutter risk/Val UI. Deploy existing Dev API 0% fixed digest candidate only; no traffic switch, no Job mutation, no model registry promotion.",
-  "request_attempt": 12
+  "purpose": "SEQ-08 final holiday-safe full release #40215268427 PASS, exact source SHA 462bd1c8. Deploy existing Dev API 0% immutable GHCR candidate only, negative Owner/OAuth boundary next; no traffic change, no Registry or Dev Job mutations.",
+  "request_attempt": 13
 }
