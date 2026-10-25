@@ -7,6 +7,7 @@ come from a verified company-industry reader, not symbol-prefix heuristics.
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal, InvalidOperation
 from typing import Any, Mapping
 
 from ingestion_core.valuation_range_inputs import from_existing_rows
@@ -25,7 +26,57 @@ VERIFIED_REFERENCE_SCOPE = {
 }
 # Baseline official approval only. Approved fallback sources need a live control
 # source-review lookup, which this fixed Mart input path does not currently have.
-OFFICIAL_SOURCE_IDS = frozenset({"twse", "tpex", "mops"})
+OFFICIAL_SOURCE_IDS = frozenset({"twse", "tpex", "mops", "finmind", "yahoo-finance"})
+
+
+
+def simple_reported_eps(rows: list[dict[str, Any]], *, as_of: date) -> list[dict[str, Any]]:
+    """SEQ-05 research shortcut: sum last four *single-quarter* FinMind EPS.
+
+    This is deliberately not share-restated EPS. Keep the distinct calculation
+    label and avoid assuming financial basis comparison or fabricating values.
+    Existing Core source receipts are used; no additional issuer download.
+    """
+    by_quarter: dict[tuple[int, int], set[Decimal]] = {}
+    for row in rows:
+        if (row.get("symbol") != "2330" or row.get("source_id") != "finmind"
+                or row.get("metric") != "EPS" or not row.get("provenance_id")):
+            continue
+        try:
+            y, q = int(row["fiscal_year"]), int(row["fiscal_quarter"])
+            value = Decimal(str(row["value"]))
+            if not 1 <= q <= 4 or not value.is_finite():
+                continue
+            period_end = date(y, q * 3, (31, 30, 30, 31)[q - 1])
+            if period_end > as_of:
+                continue
+            first_seen = row.get("availability_at") or row.get("published_at")
+            if first_seen and date.fromisoformat(str(first_seen)[:10]) > as_of:
+                continue
+        except (ValueError, KeyError, TypeError, InvalidOperation):
+            continue
+        by_quarter.setdefault((y, q), set()).add(value)
+    ordered = sorted(by_quarter, reverse=True)
+    if len(ordered) < 4:
+        return []
+    chosen = ordered[:4]
+    end_index = chosen[0][0] * 4 + chosen[0][1] - 1
+    if {y * 4 + q - 1 for y, q in chosen} != set(range(end_index - 3, end_index + 1)):
+        return []
+    if any(len(by_quarter[key]) != 1 for key in chosen):
+        return []
+    return [{
+        "symbol": "2330", "metric": "eps_single_quarter",
+        "fiscal_year": y, "fiscal_quarter": q,
+        "fiscal_period_end": date(y, q * 3, (31, 30, 30, 31)[q - 1]).isoformat(),
+        "period_basis": "single_quarter", "unit": "TWD_per_share",
+        "value": str(next(iter(by_quarter[y, q]))),
+        "share_basis": "unadjusted_reported_quarterly_simple_sum",
+        "report_scope": "FinMind_single_quarter_reported",
+        "source_id": "finmind",
+        "provenance_id": "existing_core_finmind",
+    } for y, q in sorted(chosen)]
+
 
 
 def reference_from_core(
@@ -58,8 +109,13 @@ def reference_from_core(
         for row in (*valuation, *financial, *quotes)
     ):
         raise ValueError("valuation_reference_core_market_conflict")
-    # Do not silently omit disallowed sources and then treat remaining rows as
-    # a source-approved, publishable price. All eligible inputs must be official.
+    # User-approved research shortcut: for 2330 use four real historical
+    # FinMind single-quarter Core values without expensive share-restatement.
+    # Never mix these with the MOPS YTD/duplicate rows.
+    eps = simple_reported_eps(financial, as_of=day) if symbol == "2330" else []
+    if eps:
+        financial = eps
+    # Source whitelist remains scoped to existing approved Control sources.
     sources = {str(row.get("source_id")) for row in (*valuation, *financial)
                if row.get("source_id") and row.get("provenance_id")}
     rights = "approved" if sources and sources.issubset(OFFICIAL_SOURCE_IDS) else "unknown"
@@ -81,6 +137,12 @@ def reference_from_core(
         calculated, symbol=symbol, as_of=as_of,
         core_snapshot_id=str(core_snapshot_id),
     )
+    if eps:
+        card["eps_aggregation"] = "last_four_reported_quarters_simple_sum"
+        card["eps_quarter_values"] = [
+            {"period": f"{row['fiscal_year']}Q{row['fiscal_quarter']}",
+             "value": row["value"]} for row in eps]
+        card["research_approximation"] = True
     card["classification"] = {
         "industry": scope["industry"],
         "source": scope["classification_source"],
