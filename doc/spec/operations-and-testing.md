@@ -1,5 +1,15 @@
 # Janus 最新驗收證據索引
 
+
+### SEQ-04 Owner／Admin 真實登入後 UI 正向驗收（2026-10-25；USER_SCREENSHOT_PASS）
+
+- **證據類型**：使用者於本輪對話提供5張2026-10-25台灣時間16:46–16:48的Dev真實手機瀏覽器截圖；只在對話中檢視、不上傳GitHub/GCS，不記錄Google電子郵件、實際持股代碼／股數／成本／現金／損益或任何Session／Token。
+- **Owner UI 正向=PASS**：User App已載入「今日」摘要、本人現金及參考資產、持股與損益列表、個股詳情中的本人持股／成本／損益／公開事實卡；不是匿名API 401、樣板空畫面或fixture，因此可結清本次**使用者實際登入後的Owner UI可讀**。截圖無HTTP／Bearer／API原始回應，因此**不能**由此單獨認定session驗簽、User OAuth token audience、owner workspace snapshot API或跨Owner A/B isolation全面PASS。
+- **Admin UI 正向=PASS**：Admin管理後台顯示登入帳號識別、營運自動工作狀態及GCS六桶盤點結果（有實際物件計數與容量）；可證明使用者實際登入環境的Admin畫面及盤點功能載入。截圖不能直接證明Admin token audience驗簽、跨角色API授權邊界或完整後台所有API；這些仍依既有同版自動auth契約與Runtime API收據判斷。
+- **獨立功能提示，非auth blocker**：截圖中全市場上市／上櫃顯示部分資料缺漏；Owner持股頁手動更新報價提示「報價暫時無法更新、保留最後資料」。兩項保留為下一次自然ingestion／報價功能檢查資訊，不將其冒充OAuth錯誤，也不把缺值當0。截圖只證明當前已部署版User/Admin界面，**不驗收尚待SEQ-08部署的新版四模型報告、Owner history與UI**。
+- **判定與後續**：SEQ-04 `OWNER_UI_AUTH_POSITIVE=PASS_SCREENSHOT`、`ADMIN_UI_AUTH_POSITIVE=PASS_SCREENSHOT`，**Owner/Admin真人UI登入待辦結清，不要求使用者再次登入或創建第二帳號**。嚴格API層的有token正向／wrong audience／server-side Owner A/B isolation，若本次無實際執行收據則維持`NOT_DIRECTLY_VERIFIED`，不捏造；依[OAuth runbook](../runbook-user-oauth-dev.md) 既有policy：2026-10-12已取消將每版真人A→B→A作發版前置，繼續使用自動auth boundary及同來源測試。SEQ-04整體仍需10/26新版自然資料鏈與新週備份收據，不能僅由截圖宣告FULL_PASS。
+
+
 ### SEQ-07 分析報告、Owner history 與 UI 程式／離線驗收（2026-10-25；OFFLINE_PASS／LIVE_DEFERRED）
 
 - **source SHA**：[f9ace32b795e6c1895901e7750f18be2f57da575](https://github.com/tommylin15/janus-omniforge/commit/f9ace32b795e6c1895901e7750f18be2f57da575)。程式包含固定四角色ML serving→既有Mart product JSONB／週期事實報告、Owner token 綁定的不可變歷史讀取 API `/api/v1/me/analysis/{symbol}/reports`、唯一 Valuation 卡及 Flutter Advanced 分析/歷史；CEO按需維持手動；Gateway／CEO history讀取失敗，UI 不阻斷已保存事實卡。
