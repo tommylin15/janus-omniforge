@@ -41,7 +41,7 @@ jobs:
             printf '[]\n' > /tmp/seq04-denials.json
           fi
           python - <<'PY'
-          import json, os
+          import json, os, re
           job=json.load(open('/tmp/seq04-scheduler-readback.json'))
           entries=json.load(open('/tmp/seq04-denials.json'))
           results=[]
@@ -56,6 +56,12 @@ jobs:
                   'method':str(payload.get('methodName',''))[:130],
                   'principal':str((payload.get('authenticationInfo') or {}).get('principalEmail',''))[:125],
                   'status_code':(payload.get('status') or {}).get('code'),
+                  'status_permission_hints':sorted(set(re.findall(
+                      r'(?:cloudscheduler\\.jobs\\.[A-Za-z]+|iam\\.serviceAccounts\\.[A-Za-z]+)',
+                      str((payload.get('status') or {}).get('message','')))))[:8],
+                  'error_reasons':[str(d.get('reason',''))[:75]
+                      for d in (payload.get('status') or {}).get('details',[])
+                      if isinstance(d,dict) and re.fullmatch(r'[A-Z_]{3,75}',str(d.get('reason','')))],
                   'denied_permissions':denied[:12]
               })
           oauth=(job.get('httpTarget') or {}).get('oauthToken') or {}
