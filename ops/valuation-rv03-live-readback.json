@@ -1,12 +1,12 @@
 {
-  "intent": "rv03-two-stock-existing-dev-readonly",
-  "symbols": [
-    "2330",
-    "2882"
-  ],
-  "as_of": "2026-10-24",
-  "no_data_mutation": true,
-  "no_job_template_mutation": true,
-  "no_new_resources": true,
-  "one_execution": true
+    "intent": "rv03-two-stock-existing-dev-readonly",
+    "symbols": [
+        "2330",
+        "2882"
+    ],
+    "as_of": "2026-10-24",
+    "no_data_mutation": true,
+    "no_job_template_mutation": true,
+    "no_new_resources": true,
+    "one_execution": true
 }
