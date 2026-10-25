@@ -14,7 +14,7 @@ on:
         description: Install while retaining original timer, or verify restore before handoff
         required: true
         type: choice
-        options: [install, handoff, audit, resume]
+        options: [install, handoff, audit, resume, reconcile]
 permissions:
   contents: read
   actions: read
@@ -46,7 +46,7 @@ jobs:
             jq -e '.intent == "dev-ledger-backup-handoff" and .approved == true and
               .environment == "dev" and (.release_run | type == "number") and
               (.release_sha | test("^[0-9a-f]{40}$")) and
-              (.phase == "install" or .phase == "handoff" or .phase == "audit" or .phase == "resume")' \
+              (.phase == "install" or .phase == "handoff" or .phase == "audit" or .phase == "resume" or .phase == "reconcile")' \
               ops/ledger-backup-controller-request.json >/dev/null
             release_run="$(jq -r .release_run ops/ledger-backup-controller-request.json)"
             release_sha="$(jq -r .release_sha ops/ledger-backup-controller-request.json)"
@@ -57,7 +57,7 @@ jobs:
             phase="$MANUAL_PHASE"
           fi
           [[ "$release_run" =~ ^[0-9]+$ ]]
-          [[ "$phase" == "install" || "$phase" == "handoff" || "$phase" == "audit" || "$phase" == "resume" ]]
+          [[ "$phase" == "install" || "$phase" == "handoff" || "$phase" == "audit" || "$phase" == "resume" || "$phase" == "reconcile" ]]
           echo "release_run=$release_run" >>"$GITHUB_OUTPUT"
           echo "release_sha=$release_sha" >>"$GITHUB_OUTPUT"
           echo "phase=$phase" >>"$GITHUB_OUTPUT"
@@ -263,6 +263,22 @@ jobs:
           set -Eeuo pipefail
           gcloud compute ssh janus-postgres-dev --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet --command='sudo systemctl is-active janus-ledger-backup-executor.timer && sudo systemctl disable --now janus-ledger-backup.timer && ! sudo systemctl is-enabled janus-ledger-backup.timer'
           echo 'BACKUP_TIMER_HANDOFF=PASS' >> "$GITHUB_STEP_SUMMARY"
+      - name: SEQ-04 bounded weekly archive recovery and exact old occurrence reconcile
+        if: steps.request.outputs.phase == 'reconcile'
+        env:
+          PYTHONPATH: scripts/gcp:.
+        run: |
+          set -Eeuo pipefail
+          python -m py_compile scripts/gcp/seq04_backup_weekly_reconcile.py
+          python -m pytest -q tests/test_private_ledger_backup_retention.py
+          python scripts/gcp/seq04_backup_weekly_reconcile.py
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.request.outputs.phase == 'reconcile'
+        with:
+          name: seq04-weekly-occurrence-repair-evidence
+          path: seq04-backup-weekly-reconcile-receipt.json
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Remove private temporary backup on every outcome
         if: always()
         run: rm -f /tmp/restore-receipt.json /tmp/backup-receipt.json
