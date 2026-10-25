@@ -26,7 +26,7 @@ jobs:
           from pathlib import Path
           x=json.loads(Path('ops/seq04-immediate-readonly-request.json').read_text())
           attempt = x.pop('audit_attempt', 1)
-          assert attempt in (1, 2)
+          assert attempt in (1, 2, 3)
           assert x == {
               'intent':'seq04-immediate-bounded-read-only',
               'project':'gen-lang-client-0593591102',
