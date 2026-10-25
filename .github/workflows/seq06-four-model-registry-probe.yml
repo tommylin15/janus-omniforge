@@ -137,7 +137,7 @@ jobs:
   # Still the SAME existing Dev workflow, never a second Scheduler/regular cron.
   seq08-real-mart-acceptance:
     needs: inventory
-    if: "${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'ops(seq08): run one bounded real Mart acceptance') }}"
+    if: "${{ github.event_name == 'push' && (startsWith(github.event.head_commit.message, 'ops(seq08): run one bounded real Mart acceptance') || startsWith(github.event.head_commit.message, 'ops(seq08): diagnose prior Mart acceptance')) }}"
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: dev
@@ -156,7 +156,12 @@ jobs:
       - name: Unit acceptance / single-job authorization gates
         run: python -m pytest -q tests/test_seq08_real_mart_acceptance.py
       - name: One real Dev Deep Coverage execution on current Core
-        run: python scripts/gcp/seq08_real_mart_acceptance.py --receipt /tmp/seq08-real-mart.json
+        run: |
+          if [[ "${{ github.event.head_commit.message }}" == ops\(seq08\):\ diagnose\ prior\ Mart\ acceptance* ]]; then
+            python scripts/gcp/seq08_real_mart_acceptance.py --diagnose-prior
+          else
+            python scripts/gcp/seq08_real_mart_acceptance.py --receipt /tmp/seq08-real-mart.json
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
