@@ -55,68 +55,73 @@ def test_stage_cleanup_runs_daily_independent_of_weekly_iceberg(monkeypatch):
         "stage-cleanup/2026-10-20/22"]
 
 
-def test_weekly_eod_core_requires_successful_trading_slot_and_immutable_receipt():
+def test_weekly_eod_core_requires_successful_preopen_ingestion_receipt():
     from unittest.mock import MagicMock
     from ingestion_core.batch_controller import weekly_eod_core_evidence
     db = MagicMock()
     cursor = db.cursor.return_value.__enter__.return_value
-    friday = datetime(2026, 10, 16, 6, 30, tzinfo=timezone.utc)  # 14:30 Taipei
-    slot = datetime(2026, 10, 17, 15, 30, tzinfo=timezone.utc)
+    saturday_preopen = datetime(2026, 10, 16, 18, 30, tzinfo=timezone.utc)  # Saturday 02:30
+    slot = datetime(2026, 10, 17, 14, 30, tzinfo=timezone.utc)  # Saturday 22:30
     ready = ("sha256:" + "a" * 64,
              "gs://janus-dev-core/executions/eod-1/core-snapshot.json", "2026-10-16")
     cursor.fetchall.side_effect = [
-        [("ingestion/2026-10-16/14", friday)],
-        [ready],
-    ]
+        [("ingestion/2026-10-17/02", saturday_preopen)], [ready]]
     evidence = weekly_eod_core_evidence(db, slot)
     assert evidence == {
-        "source_occurrence": "ingestion/2026-10-16/14", "source_date": "2026-10-16",
+        "source_occurrence": "ingestion/2026-10-17/02", "source_date": "2026-10-16",
         "core_snapshot_id": ready[0], "core_snapshot_uri": ready[1]}
     assert cursor.execute.call_count == 2
+    assert "created_at >= %s" in cursor.execute.call_args.args[0]
     cursor.reset_mock()
     cursor.fetchall.side_effect = [
-        [("ingestion/2026-10-16/14", friday)],
-        [("sha256:invalid", ready[1], ready[2])],
-    ]
+        [("ingestion/2026-10-17/02", saturday_preopen)],
+        [("sha256:invalid", ready[1], ready[2])]]
     assert weekly_eod_core_evidence(db, slot) is None
     cursor.fetchall.side_effect = [[], []]
     assert weekly_eod_core_evidence(db, slot) is None
+    cursor.fetchall.side_effect = [
+        [("ingestion/2026-10-17/14", saturday_preopen)], [ready]]
+    assert weekly_eod_core_evidence(db, slot) is None
+
+
 
 
 def test_private_pipeline_effective_schedule_is_controller_owned():
     from ingestion_core.batch_controller import BATCHES
     private = next(b for b in BATCHES if b.name == "private")
-    assert private.hours == (10, 18, 22)
+    assert private.hours == (6,)
     assert private.dependencies == ("market-screening",)
-    rows = [r for r in due_batches(datetime(2026, 10, 2, 14, 30, tzinfo=timezone.utc))
+    assert private.independent_hours == ()
+    rows = [r for r in due_batches(datetime(2026, 10, 1, 22, 30, tzinfo=timezone.utc))
             if r[1].name == "private"]
-    assert [r[3] for r in rows] == [
-        ["market-screening/2026-10-02/08"], ["market-screening/2026-10-02/16"], []]
+    assert [r[3] for r in rows] == [["market-screening/2026-10-02/04"]]
 
-def test_ingestion_has_same_controller_eod_slot_with_same_day_price_scope():
+
+def test_preopen_ingestion_and_screening_use_real_data_date():
     from ingestion_core.batch_controller import BATCHES
-    ingestion = next(batch for batch in BATCHES if batch.name == "ingestion")
-    assert ingestion.hours == (6, 14)
-    now = datetime(2026, 10, 6, 6, 30, tzinfo=timezone.utc)  # 14:30 Asia/Taipei
-    rows = [row for row in due_batches(now) if row[1].name == "ingestion"]
-    assert [row[0] for row in rows] == [
-        "ingestion/2026-10-06/06",
-        "ingestion/2026-10-06/14",
-    ]
-    eod = rows[-1]
-    env = dict(occurrence_env(eod[1], eod[2]))
-    assert env["INGESTION_DATE"] == "2026-10-06"
-    assert env["INGESTION_DATASETS"] == ""
-    assert env["JANUS_UNIFIED_COLLECTION"] == "true"
-    assert dict(occurrence_env(rows[0][1], rows[0][2]))["INGESTION_DATE"] == ""
+    batches = {b.name: b for b in BATCHES}
+    assert batches["ledger-backup"].hours == (0,)
+    assert batches["ingestion"].hours == (2,)
+    assert batches["market-screening"].hours == (4,)
+    assert batches["private"].hours == (6,)
+    at_private = datetime(2026, 10, 1, 22, 30, tzinfo=timezone.utc)  # Friday 06:30 Taipei
+    rows = {row[0]: row for row in due_batches(at_private)}
+    assert rows["market-screening/2026-10-02/04"][3] == ["ingestion/2026-10-02/02"]
+    assert rows["private/2026-10-02/06"][3] == ["market-screening/2026-10-02/04"]
+    ingestion = rows["ingestion/2026-10-02/02"]
+    assert dict(occurrence_env(ingestion[1], ingestion[2]))["INGESTION_DATE"] == ""
+    screening = rows["market-screening/2026-10-02/04"]
+    assert dict(occurrence_env(screening[1], screening[2]))["SCREENING_DATE"] == "latest"
+    assert dict(occurrence_env(ingestion[1], ingestion[2]))["JANUS_UNIFIED_COLLECTION"] == "true"
 
 
-def test_afternoon_private_requires_ingestion_but_nightly_does_not():
-    rows = due_batches(datetime(2026, 10, 6, 14, 30, tzinfo=timezone.utc))
-    private = [row for row in rows if row[1].name == "private"]
-    assert len(private) == 3
-    assert private[1][3] == ["market-screening/2026-10-06/16"]
-    assert private[2][3] == []
+def test_weekend_ingestion_and_backup_but_no_market_or_private():
+    saturday = datetime(2026, 10, 16, 22, 30, tzinfo=timezone.utc)  # Saturday 06:30 Taipei
+    rows = {batch.name for _, batch, _, _ in due_batches(saturday)}
+    assert {"ingestion", "ledger-backup"} <= rows
+    assert "market-screening" not in rows and "private" not in rows
+
+
 
 def test_private_independent_hour_configuration_rejects_invalid_slots():
     # Waiving one dependency is explicit and limited to a configured daily slot.
@@ -129,64 +134,53 @@ def test_private_independent_hour_configuration_rejects_invalid_slots():
                     (Batch("bad", "unused", (21,), independent_hours=(21,)),))
 
 
-def test_nightly_private_precedes_older_unrunnable_afternoon_slot():
+def test_current_private_slot_prioritized_over_retired_pending():
     from ingestion_core.batch_controller import prioritize_nightly_private
-    now = datetime(2026, 10, 15, 14, 30, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 14, 22, 30, tzinfo=timezone.utc)
     rows = [("private/2026-10-15/18", {"status": "pending"}),
-            ("market-screening/2026-10-15/16", {"status": "failed"}),
-            ("private/2026-10-15/22", {"status": "pending"})]
-    assert prioritize_nightly_private(rows, now)[0][0] == "private/2026-10-15/22"
-    assert len(prioritize_nightly_private(rows, now)) == len(rows)
+            ("private/2026-10-15/06", {"status": "pending"})]
+    assert prioritize_nightly_private(rows, now)[0][0] == "private/2026-10-15/06"
 
 
-def test_live_tick_dispatches_nightly_private_when_afternoon_upstream_failed(monkeypatch):
-    from unittest.mock import MagicMock, Mock, call
+def test_live_tick_closes_private_when_early_market_failed(monkeypatch):
+    from unittest.mock import MagicMock, Mock
     from ingestion_core import batch_controller as controller
     monkeypatch.setenv("GCP_PROJECT_ID", PROJECT)
     monkeypatch.setenv("BATCH_CONTROLLER_MODE", "active")
     monkeypatch.setenv("BATCH_CONTROLLER_NOT_BEFORE", "2026-10-01T00:00:00Z")
     monkeypatch.setattr(controller, "probe_mobile_ledger_queue",
                         lambda **kwargs: {"pending": False})
-    day = "private/2026-10-15/18"
-    night = "private/2026-10-15/22"
-    morning = {"batch": "private", "job": "janus-private-pipeline",
-               "status": "pending", "dependencies": ["market-screening/2026-10-15/16"],
-               "scheduled_at": "2026-10-15T18:30:00+08:00", "env": []}
-    evening = {"batch": "private", "job": "janus-private-pipeline",
-               "status": "pending", "dependencies": [],
-               "scheduled_at": "2026-10-15T22:30:00+08:00", "env": []}
+    day = "private/2026-10-15/06"
+    state = {"batch": "private", "job": "janus-private-pipeline",
+             "status": "pending", "dependencies": ["market-screening/2026-10-15/04"],
+             "scheduled_at": "2026-10-15T06:30:00+08:00", "env": []}
     db = MagicMock()
     db.execute.return_value.fetchone.return_value = (True,)
     cursor = db.cursor.return_value.__enter__.return_value
-    cursor.fetchall.side_effect = [[], [(day, morning), (night, evening)],
-                                   [("market-screening/2026-10-15/16", "failed")]]
+    cursor.fetchall.side_effect = [[], [(day, state)],
+                                   [("market-screening/2026-10-15/04", "failed")]]
     cursor.fetchone.return_value = None
     session = Mock()
-    session.get.return_value = SimpleNamespace(status_code=200, json=lambda: {"executions": []})
-    session.post.return_value = SimpleNamespace(
-        status_code=200,
-        json=lambda: {"name": f"projects/{PROJECT}/locations/{REGION}/operations/nightly-123"})
     record = Mock()
     monkeypatch.setattr(controller, "record", record)
-    result = controller.run(now=datetime(2026, 10, 15, 14, 30, tzinfo=timezone.utc),
-                            control=SimpleNamespace(connection=db, get_admin_setting=lambda key: None), session=session)
+    result = controller.run(now=datetime(2026, 10, 14, 22, 30, tzinfo=timezone.utc),
+                            control=SimpleNamespace(connection=db, get_admin_setting=lambda key: None),
+                            session=session)
     assert result["status"] == "tick_completed"
-    assert session.post.call_count == 1
-    assert session.post.call_args.args[0].endswith("/jobs/janus-private-pipeline:run")
-    transitions = [(args.args[2], args.args[4]) for args in record.call_args_list]
-    assert (night, "dispatch_intent") in transitions
-    assert (night, "dispatch_result") in transitions
-    assert (day, "private_upstream_failed") in transitions
-    skipped = next(args.args[3] for args in record.call_args_list
-                   if args.args[2] == day and args.args[4] == "private_upstream_failed")
-    assert skipped["status"] == "skipped" and skipped["reason"] == "upstream_ingestion_failed"
-    assert transitions.index((night, "dispatch_intent")) < transitions.index((day, "private_upstream_failed"))
+    session.post.assert_not_called()
+    skipped = next(call.args[3] for call in record.call_args_list
+                   if call.args[2] == day and call.args[4] == "private_upstream_failed")
+    assert skipped["status"] == "skipped"
+    assert skipped["reason"] == "upstream_ingestion_failed"
+
+
+
 
 def test_dependency_uses_latest_preceding_slot_and_original_private_time():
     batches = (Batch("source", "unused", (7, 12)), Batch("mart", "unused", (9, 13), dependencies=("source",)))
     rows = due_batches(datetime(2026, 10, 2, 6, tzinfo=timezone.utc), batches)
     assert [row[3] for row in rows if row[1].name == "mart"] == [["source/2026-10-02/07"], ["source/2026-10-02/12"]]
-    assert not any(row[1].name == "private" for row in due_batches(datetime(2026, 10, 2, 2, 29, tzinfo=timezone.utc)))
+    assert not any(row[1].name == "private" for row in due_batches(datetime(2026, 10, 1, 22, 29, tzinfo=timezone.utc)))
 
 
 def test_running_jobs_are_polled_once_without_mutation_or_wait():
@@ -389,8 +383,8 @@ def test_mobile_ledger_slot_is_current_hour_only_and_conditionally_dispatched():
 
 
 def test_regular_private_slot_suppresses_same_hour_mobile_trigger():
-    rows = scheduled_batches(datetime(2026, 10, 6, 14, 30, tzinfo=timezone.utc), True)
-    assert len([r for r in rows if r[1].name == "private"]) == 3
+    rows = scheduled_batches(datetime(2026, 10, 5, 22, 30, tzinfo=timezone.utc), True)
+    assert len([r for r in rows if r[1].name == "private"]) == 1
     assert not [r for r in rows if r[1].name == "mobile-ledger"]
 
 def test_mobile_probe_does_not_open_control_database(monkeypatch):
