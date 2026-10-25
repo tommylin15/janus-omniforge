@@ -1,0 +1,46 @@
+name: SEQ-04 controlled two-hour Dev Scheduler cutover
+
+on:
+  push:
+    branches: [main]
+    paths: ['ops/seq04-two-hour-cutover-request.json']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+
+jobs:
+  cutover:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Offline one-Scheduler cutover and rollback checks
+        run: python -m pytest -q tests/test_seq04_two_hour_cutover.py
+      - name: Update only existing Scheduler with protected rollback
+        run: python scripts/gcp/seq04_two_hour_cutover.py --receipt /tmp/seq04-scheduler-cutover-receipt.json
+      - name: Persist bounded cutover receipt on all outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seq04-two-hour-scheduler-cutover
+          path: /tmp/seq04-scheduler-cutover-receipt.json
+          if-no-files-found: ignore
+          retention-days: 14
