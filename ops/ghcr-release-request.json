@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "0389054dba3f339cde29add2d587e623694f4a0d",
-  "purpose": "SEQ-08 direct-five-head latest code and Flutter risk/Val UI integration full Release. Prior #40184001239 FAILED due Flutter unnecessary_non_null_assertion; source now fixed. Single full-test Python Flutter GHCR publish at new SHA; no GCP mutation, Registry promotion or API traffic.",
+  "sha": "feffe95da7086c5fb8c0b32302e35a872862dc93",
+  "purpose": "SEQ-08 revised true-five-head nontrading-day Quant/Risk feature freshness and same-session full-market rank. Offline PostgreSQL/product #40204115801 PASS; selective #40204374888 PASS. New exact-GitHub-run full Python+Flutter tests, four GHCR images; Dev GCP unchanged until candidate/jobs/API gates. Final release HEAD identified by this ops commit, no model artifact retraining or registry rewrite.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 18
+  "request_attempt": 19
 }
