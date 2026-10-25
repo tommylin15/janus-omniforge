@@ -139,6 +139,12 @@ def persist_products(connection, manifest, store, bucket):
                         {k: v for k, v in previous.items() if k != "content_hash"}):
                     raise ValueError("previous analyst product hash mismatch")
                 payload["analyst_inputs"] = analyst_rows[symbol]
+                reference = analyst_rows[symbol].get("valuation_reference")
+                if reference is not None:
+                    from packages.valuation_reference import validate_published_card
+                    payload["valuation_reference"] = validate_published_card(
+                        reference, symbol=symbol, as_of=manifest["analysis_as_of"],
+                        core_snapshot_id=str(manifest["core_snapshot_id"]))
                 from packages.stock_report_policy import attach_stock_report
                 attach_stock_report(payload, analyst_rows[symbol], previous)
                 payload["content_hash"] = content_hash({k: v for k, v in payload.items() if k != "content_hash"})
