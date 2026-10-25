@@ -1,0 +1,16 @@
+{
+  "intent": "seq08-activate-five-real-heads",
+  "approved": true,
+  "apply": true,
+  "scope": "existing-dev-mart-single-atomic-pointer",
+  "source_sha": "a2881c5c2532beb5570e29a1fda4472c7bb0d448",
+  "release_run": "40184318031",
+  "jobs_run": "40184957380",
+  "api_run": "40192646498",
+  "allow_old_model_fallback": false,
+  "no_new_resources": true,
+  "candidate_import_run": "40182200560",
+  "registry_before_probe_run": "40193222840",
+  "purpose": "SEQ-08 user-approved four-role five-head direct replacement. Five true candidate UBJs create-only SHA readback PASS; fixed a2881c Release, same-source four Jobs and Dev API 100% PASS. Create exactly one seq08-four-models-active.json GCS pointer only if all model bytes and native feature dimensions verify, then exact readback. No legacy model fallback/restore, no other Registry/PG/Owner data, no new GCP resources, no Scheduler or API changes.",
+  "attempt": 1
+}
