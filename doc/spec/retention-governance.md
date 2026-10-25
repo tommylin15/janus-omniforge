@@ -45,7 +45,7 @@
 
 ## 3. 排程／執行與恢復
 
-新契約以 Cloud Scheduler **每兩小時 :30（Asia/Taipei）** 進既有 Controller；**Stage-only cleanup 每日 22:30** 由既有 `janus-ingestion-core` 執行，`ICEBERG_MAINTENANCE_MODE=stage-only-apply`，僅對 Stage 48h 到期且無有效租約引用做 generation-fenced 清理，不觸及 Core／Mart／Private。**每週六 22:30 due** 依序啟動 `iceberg-compaction → mart-cleanup → core-cleanup`，相依子步驟可跨 tick。**私人備份每日02:30** 由 Controller 建立請求、既有 PG VM executor 領取，先完成 daily／weekly／monthly 副本讀回再做有界 retention。現有 Dev 是否已切換須由 SEQ-04 實際讀回 Scheduler／Job env／VM timer；此處是目標規格，不當成已部署證據。
+新契約以 Cloud Scheduler **每兩小時 :30（Asia/Taipei）** 進既有 Controller；**Stage-only cleanup 每日 22:30** 由既有 `janus-ingestion-core` 執行，`ICEBERG_MAINTENANCE_MODE=stage-only-apply`，僅對 Stage 48h 到期且無有效租約引用做 generation-fenced 清理，不觸及 Core／Mart／Private。**每週六 22:30 due** 依序啟動 `iceberg-compaction → mart-cleanup → core-cleanup`，相依子步驟可跨 tick。**私人備份每日00:30** 由 Controller 建立請求、既有 PG VM executor 領取，先完成 daily／weekly／monthly 副本讀回再做有界 retention。現有 Dev 是否已切換須由 SEQ-04 實際讀回 Scheduler／Job env／VM timer；此處是目標規格，不當成已部署證據。
 
 Mart `MART_OPERATION=retention`、`MART_RETENTION_MODE=dry-run|apply`，Core `ICEBERG_MAINTENANCE_MODE=retention-dry-run|retention-apply`；步驟為 current Core readback → compact → Mart retirement/cleanup → Core row/snapshot expiration/orphan cleanup（每日 Stage-only 另外執行，不被週維護取代） → 按資料集分列 planned/actual objects、bytes、失敗、active bytes 與 current readback。不可在 source/writer/job 終態未知時盲目重送 apply。操作詳見 [總控 Runbook](../runbook-batch-controller-dev.md)，證據放 [operations](operations-and-testing.md)。
 
