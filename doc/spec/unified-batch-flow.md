@@ -1,6 +1,6 @@
 # 統一批次與資料快照契約
 
-更新：2026-10-25。狀態：SEQ-01 CODE／DOC與 selective CI PASS；完整離線與 Flutter tests 未驗；DEPLOY、LIVE ACCEPTANCE 均 NOT VERIFIED。此狀態不涵蓋尚未開工的SEQ-02…08。
+更新：2026-10-25。狀態：SEQ-01、SEQ-02、SEQ-03 的文件、程式與離線測試已有各自 CI 收據（見 [唯一TODO](../todo.md)）；SEQ-03 source `246aaac`、CI #40152197002 `completed/success`。SEQ-01…03 的 Dev 部署、migration、isolated restore 與 live acceptance 均交 SEQ-04，未因本次執行。SEQ-05…08 未在本輪上線。
 本文件是批次時段、端到端依賴與備份政策的唯一入口，覆蓋舊每日時段與 GitHub 備份 cron。四個模型按可發布設計；這不是目前 Registry、模型效用或 runtime 已通過的宣告。
 
 ## 1. 決策與兩方案

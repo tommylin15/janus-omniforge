@@ -1,5 +1,7 @@
 # 統一批次：交接 AI 指令與驗收 WI
 
+> SEQ-03 離線收據：[CI #40152197002](https://github.com/tommylin15/janus-omniforge/actions/runs/40152197002)、來源 `246aaac277e5baab1ccfb5eb9c753fbf6cb61570`，`completed/success`；`bash scripts/test-unified-batch.sh` 234 passed／9 non-fatal warnings，selective API270／7 skipped、Mart247、Ingestion209。實際 Dev migration、restore、GCS讀回與清理apply均未進行，交SEQ-04。
+
 > 2026-10-25操作路由：依[唯一TODO](todo.md)與[SEQ四階段AI卡](execution-cards/sequential-delivery.md)逐項啟動。本WI是共用程序，不是額外待辦或自動開工授權。SEQ-04執行基礎批次／快照／備份的部署驗收；C節四模型、完整報告與產品UI條件由SEQ-05…07準備後在SEQ-08執行。不得在SEQ-04冒稱四模型產品已驗。四模型本版全部正式上線，研究調校延至2027 Q1。
 
 目前SEQ-01離線狀態：已於來源 `4241bf40b94b5a75ffee235b9ef0b52b5eb5a271` 的[GitHub CI #40148605544](https://github.com/tommylin15/janus-omniforge/actions/runs/40148605544) 真實執行 A節的完整 Python／Shell 腳本（217 passed，9 non-fatal warnings）與 Flutter Admin targeted（7 passed）；Controller CI另99 passed。以下 A節命令保留作為可重跑指示；B～D節部署／migration／真實Dev及Scheduler驗收**尚未執行**，由SEQ-04辦理。
