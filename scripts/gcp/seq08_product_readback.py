@@ -33,7 +33,7 @@ def require_request(data):
     if data != {
         "intent": "seq08-exact-real-mart-product-readonly",
         "source_sha": SOURCE, "successful_mart_run": RUN,
-        "symbols": list(SAMPLES), "diagnostic_attempt": 4, "read_only": True,
+        "symbols": list(SAMPLES), "diagnostic_attempt": 5, "read_only": True,
         "no_gcp_mutation": True, "no_owner_mutation": True,
         "no_new_resources": True
     }:

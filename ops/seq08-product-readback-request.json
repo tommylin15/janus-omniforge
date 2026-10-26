@@ -10,5 +10,5 @@
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_new_resources": true,
-  "diagnostic_attempt": 4
+  "diagnostic_attempt": 5
 }

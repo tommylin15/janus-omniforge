@@ -14,7 +14,7 @@ def test_fixed_one_run_readonly_request():
     correct={
         "intent":"seq08-exact-real-mart-product-readonly",
         "source_sha":module.SOURCE,"successful_mart_run":module.RUN,
-        "symbols":["2330","2882"],"diagnostic_attempt":4,"read_only":True,"no_gcp_mutation":True,
+        "symbols":["2330","2882"],"diagnostic_attempt":5,"read_only":True,"no_gcp_mutation":True,
         "no_owner_mutation":True,"no_new_resources":True
     }
     module.require_request(correct)
@@ -115,6 +115,11 @@ def test_actual_gcs_only_screening_gate_and_percentile_proof(monkeypatch):
     assert result["samples"]["2882"]["rank_valid"] is False
     assert result["product_projection"] is False
     artifact["input_telemetry"]["seq08_quant_rank"]["ranked_rows"] = 2
+    # First validate the immutable hash boundary, then deliberately update
+    # the fixture manifest to isolate the second, gate-accounting guard.
+    with pytest.raises(ValueError, match="hash_or_identity_invalid"):
+        module.readback_market_screening(eid, "janus-intelligence-mart-aaabc")
+    manifest["screening"]["artifact_hash"] = digest(artifact)
     with pytest.raises(ValueError, match="count_mismatch"):
         module.readback_market_screening(eid, "janus-intelligence-mart-aaabc")
 
