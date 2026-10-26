@@ -56,6 +56,9 @@ def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch,
         if "MI_5MINS_HIST" in url:
             month = "08" if "20260801" in url else "07"
             return json.dumps({"fields": ["日期", "收盤指數"], "data": [[f"115/{month}/03", "100"]]}).encode(), "utf-8"
+        if 'indexInfo/inx' in url:
+            return json.dumps({'stat':'ok', 'tables':[{'fields': ['日期','開市','最高','最低','收市'],
+                'data': [['115/08/03','10','11','9','10']]}]}, ensure_ascii=False).encode(), 'utf-8'
         if 'tpex.org.tw' in url:
             return json.dumps([{'Date': '20260803', '代號': s, '名稱': s, '成交股數': '100',
                 '成交金額(元)': '1000', '開盤': '10', '最高': '10', '最低': '10', '收盤': '10'}
@@ -77,11 +80,14 @@ def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch,
     assert not result["failures"]
     assert result["months"][0]["status"] == expected_status
     assert [commit['dataset_id'] for commit in commits] == [
-        'ohlcv', 'ohlcv', 'market-volume', 'market-volume', 'benchmark']
+        'ohlcv', 'ohlcv', 'market-volume', 'market-volume', 'benchmark', 'benchmark']
     assert len(commits[0]["rows"]) == 500-missing
     assert len(commits[1]['rows']) == 500-otc_missing
     assert len(commits[2]['rows']) == 500-missing
     assert len(commits[3]['rows']) == 500-otc_missing
+    assert commits[5]["source_id"] == "tpex"
+    assert commits[5]["rows"][0]["benchmark_id"] == "TPEx"
+    assert commits[5]["rows"][0]["index_kind"] == "price"
     assert all(row['provenance_id']=='provenance' and row['source_id']=='tpex' for row in commits[3]['rows'])
     assert result['months'][0]['market_volume_source_rows'] == {
         'TWSE':500-missing, 'TPEX':500-otc_missing}

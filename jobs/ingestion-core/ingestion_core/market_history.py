@@ -12,6 +12,7 @@ from .control import ExecutionStatus
 from .data_supplement import _fetch
 from .dq import ALLOWED_COLUMNS, validate_ohlcv
 from .first_batch import normalise_benchmark
+from .tpex_benchmark import endpoint as tpex_benchmark_endpoint, parse_tpex_month
 from .sources import twse_market_volume_adapter, tpex_market_volume_adapter
 from .stage import GcsObjectStore, StageWriter
 
@@ -76,6 +77,19 @@ def run_market_history():
                         if first.isoformat() <= r["trade_date"] <= last.isoformat()]
                     if not benchmark:
                         raise ValueError("official trading calendar is empty")
+                    # TPEx has its own official price-index history. Never use
+                    # TAIEX as a substitute for a TPEx 20-session return.
+                    tpex_url = tpex_benchmark_endpoint(period)
+                    tpex_raw, _ = _fetch(tpex_url)
+                    tpex_entry = stage(tpex_raw, tpex_url, "tpex", "benchmark", {"month": period})
+                    staged.append(tpex_entry)
+                    tpex_benchmark = [dict(r, source_id="tpex",
+                        observed_at=r["trade_date"]+"T00:00:00Z",
+                        provenance_id=tpex_entry.idempotency_key)
+                        for r in parse_tpex_month(tpex_raw, period, through=last)
+                        if first.isoformat() <= r["trade_date"] <= last.isoformat()]
+                    if not tpex_benchmark:
+                        raise ValueError("official TPEx trading calendar is empty")
                     counts = {'TWSE': {}, 'TPEX': {}}
                     for index in benchmark:
                         day = date.fromisoformat(index["trade_date"])
@@ -106,7 +120,8 @@ def run_market_history():
                     for dataset, rows, source in (("ohlcv", prices['TWSE'], "twse"), ("ohlcv", prices['TPEX'], "tpex"),
                                                   ("market-volume", volume_rows['TWSE'], "twse"),
                                                   ("market-volume", volume_rows['TPEX'], "tpex"),
-                                                  ("benchmark", benchmark, "taiex")):
+                                                  ("benchmark", benchmark, "taiex"),
+                                                  ("benchmark", tpex_benchmark, "tpex")):
                         if rows:
                             result = core.write(dataset_id=dataset, rows=rows, execution_id=execution.execution_id,
                                 provenance_id=rows[0]["provenance_id"], source_id=source, partition_date=first)
@@ -118,7 +133,9 @@ def run_market_history():
                     thresholds = {"TWSE": .10, "TPEX": .30}
                     unacceptable = {market: ratio > thresholds[market] for market, ratio in market_missing.items()}
                     missing = max(market_missing.values())
-                    checkpoint = {"month": period, "trading_days": len(benchmark), "received_rows": sum(map(len, prices.values())),
+                    checkpoint = {"month": period, "trading_days": len(benchmark),
+                                  "tpex_benchmark_sessions": len(tpex_benchmark),
+                                  "received_rows": sum(map(len, prices.values())),
                         'market_volume_source_rows': {market: len(volume_rows[market]) for market in members},
                         'missing_ratio_by_market': market_missing,
                         "threshold_by_market": thresholds, "unacceptable_by_market": unacceptable,
