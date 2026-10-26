@@ -67,77 +67,85 @@ proof={"status":"PG_SELECT_READBACK_PASS","mart_execution_id":uid,
 # Public-only independent 2330/2882 model feature/probability spot check.
 # Use the exact existing CURRENT Core manifest and an in-memory inference
 # cache: reading weights is allowed, persisting anything to GCS is not.
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from urllib.parse import urlparse
-from ingestion_core.stage import GcsObjectStore
-from intelligence_mart.specialist_runtime import latest_training_input
-from intelligence_mart.analytics_reader import IcebergSnapshotReader
-from intelligence_mart.analyst_inputs import bounded_inputs,build
-from intelligence_mart.specialists import DEPENDENCIES
-from intelligence_mart.storage import sql_catalog_from_environment
-from intelligence_mart.seq08_native_serving import Session
-
-today=datetime.now(ZoneInfo("Asia/Taipei")).date()
-dev_core=GcsObjectStore("gen-lang-client-0593591102-dev-core")
-event=latest_training_input(dev_core,today)
-uri=urlparse(event["coreSnapshotUri"])
-if uri.scheme!="gs" or uri.netloc!=dev_core.bucket:
-    raise ValueError("unexpected_core_manifest_uri")
-core=json.loads(dev_core.read(uri.path.lstrip("/")))
-asof=event["analysisAsOf"]; snapshot=event["coreSnapshotId"]
-required={name for names in DEPENDENCIES.values() for name in names}
-tables={name:fence for name,fence in core.get("iceberg_tables",{}).items()
-        if name in {"core."+kind+"_v1" for kind in required}}
-inputs=dict(core,iceberg_tables=tables)
-if "datasets" in core:
-    inputs["datasets"]={name:rows for name,rows in core["datasets"].items()
-                        if name in required}
-reader=IcebergSnapshotReader(sql_catalog_from_environment(),date_bounds=bounded_inputs(core,asof))
 try:
-    stock_data=reader.read(inputs,("2330","2882"),core_snapshot_id=snapshot,row_limit=240000)
-finally:
-    reader.close()
-with psycopg.connect(host=settings["host"],dbname=settings["name"],user=settings["user"],
-                     password=settings["password"],sslmode=os.getenv("PUBLICATION_DB_SSLMODE","require"),
-                     connect_timeout=8) as conn:
-    with conn.transaction():
-        conn.execute("SET TRANSACTION READ ONLY")
-        conn.execute("SET LOCAL statement_timeout='25000ms'")
-        with conn.cursor() as cur:
-            cur.execute("""SELECT symbol,payload_json->'seq08_quant_rank'
-                        FROM private.market_screening_product
-                        WHERE analysis_as_of=%s AND core_snapshot_id=%s
-                          AND symbol=ANY(%s)""",(asof,snapshot,["2330","2882"]))
-            ranks={}
-            for sym,val in cur.fetchall():
-                if isinstance(val,str):val=json.loads(val)
-                if isinstance(val,dict):ranks[str(sym)]=val
-analyst=build(stock_data.datasets,("2330","2882"),asof,snapshot,market_rank=ranks)
-class LocalOnlyCache:
-    def __init__(self,bucket):
-        self.backing=GcsObjectStore(bucket);self.pending={}
-    def read(self,name):
-        return self.pending[name] if name in self.pending else self.backing.read(name)
-    def create(self,name,raw,mime):
-        self.pending[name]=raw
-        return True
-bucket="gen-lang-client-0593591102-dev-mart"
-predictions=Session(LocalOnlyCache(bucket),bucket).run(analyst)
-public={}
-for row in predictions["rows"]:
-    public[row["symbol"]]={role:{"status":info["status"],
-                                 "prediction":info.get("prediction"),
-                                 "input_as_of":info.get("input_as_of"),
-                                 "missing_features":info.get("missing_features",[]),
-                                 "reasons":info.get("reasons",[])}
-                           for role,info in row["roles"].items()}
-proof["public_model_spotcheck"]={
-    "analysis_as_of":asof,"core_snapshot_id":snapshot,
-    "target_symbols":["2330","2882"],"rows":public,
-    "independent_of_owner_portfolio":True,
-    "full_market_rank_count":len(ranks),"gcs_persistent_writes":0}
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from urllib.parse import urlparse
+    from ingestion_core.stage import GcsObjectStore
+    from intelligence_mart.specialist_runtime import latest_training_input
+    from intelligence_mart.analytics_reader import IcebergSnapshotReader
+    from intelligence_mart.analyst_inputs import bounded_inputs,build
+    from intelligence_mart.specialists import DEPENDENCIES
+    from intelligence_mart.storage import sql_catalog_from_environment
+    from intelligence_mart.seq08_native_serving import Session
 
+    today=datetime.now(ZoneInfo("Asia/Taipei")).date()
+    dev_core=GcsObjectStore("gen-lang-client-0593591102-dev-core")
+    event=latest_training_input(dev_core,today)
+    uri=urlparse(event["coreSnapshotUri"])
+    if uri.scheme!="gs" or uri.netloc!=dev_core.bucket:
+        raise ValueError("unexpected_core_manifest_uri")
+    core=json.loads(dev_core.read(uri.path.lstrip("/")))
+    asof=event["analysisAsOf"]; snapshot=event["coreSnapshotId"]
+    required={name for names in DEPENDENCIES.values() for name in names}
+    tables={name:fence for name,fence in core.get("iceberg_tables",{}).items()
+            if name in {"core."+kind+"_v1" for kind in required}}
+    inputs=dict(core,iceberg_tables=tables)
+    if "datasets" in core:
+        inputs["datasets"]={name:rows for name,rows in core["datasets"].items()
+                            if name in required}
+    reader=IcebergSnapshotReader(sql_catalog_from_environment(),date_bounds=bounded_inputs(core,asof))
+    try:
+        stock_data=reader.read(inputs,("2330","2882"),core_snapshot_id=snapshot,row_limit=240000)
+    finally:
+        reader.close()
+    with psycopg.connect(host=settings["host"],dbname=settings["name"],user=settings["user"],
+                         password=settings["password"],sslmode=os.getenv("PUBLICATION_DB_SSLMODE","require"),
+                         connect_timeout=8) as conn:
+        with conn.transaction():
+            conn.execute("SET TRANSACTION READ ONLY")
+            conn.execute("SET LOCAL statement_timeout='25000ms'")
+            with conn.cursor() as cur:
+                cur.execute("""SELECT symbol,payload_json->'seq08_quant_rank'
+                            FROM private.market_screening_product
+                            WHERE analysis_as_of=%s AND core_snapshot_id=%s
+                              AND symbol=ANY(%s)""",(asof,snapshot,["2330","2882"]))
+                ranks={}
+                for sym,val in cur.fetchall():
+                    if isinstance(val,str):val=json.loads(val)
+                    if isinstance(val,dict):ranks[str(sym)]=val
+    analyst=build(stock_data.datasets,("2330","2882"),asof,snapshot,market_rank=ranks)
+    class LocalOnlyCache:
+        def __init__(self,bucket):
+            self.backing=GcsObjectStore(bucket);self.pending={}
+        def read(self,name):
+            return self.pending[name] if name in self.pending else self.backing.read(name)
+        def create(self,name,raw,mime):
+            self.pending[name]=raw
+            return True
+    bucket="gen-lang-client-0593591102-dev-mart"
+    predictions=Session(LocalOnlyCache(bucket),bucket).run(analyst)
+    public={}
+    for row in predictions["rows"]:
+        public[row["symbol"]]={role:{"status":info["status"],
+                                     "prediction":info.get("prediction"),
+                                     "input_as_of":info.get("input_as_of"),
+                                     "missing_features":info.get("missing_features",[]),
+                                     "reasons":info.get("reasons",[])}
+                               for role,info in row["roles"].items()}
+    proof["public_model_spotcheck"]={
+        "analysis_as_of":asof,"core_snapshot_id":snapshot,
+        "target_symbols":["2330","2882"],"rows":public,
+        "independent_of_owner_portfolio":True,
+        "full_market_rank_count":len(ranks),"gcs_persistent_writes":0}
+
+except Exception as public_error:
+    proof["public_model_spotcheck"]={
+        "status":"NOT_VERIFIED",
+        "reason_type":type(public_error).__name__,
+        "target_symbols":["2330","2882"],
+        "independent_of_owner_portfolio":True,
+        "gcs_persistent_writes":0}
 print("SEQ08_PG_PROOF:"+json.dumps(proof,sort_keys=True),flush=True)
 '''
 
