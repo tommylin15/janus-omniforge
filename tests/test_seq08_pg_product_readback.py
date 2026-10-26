@@ -62,6 +62,13 @@ def test_public_two_stock_inline_probe_compiles_and_is_cache_only():
     assert "if verified_stock_market_day(day)" in probe.PROBE
     assert 'verified_stock_market_day(row.get("trade_date"))' in probe.PROBE
     assert "benchmark_dates=sorted(market_benchmark)" in probe.PROBE
+    assert "stock_report_rows" in probe.PROBE
+    assert "valid_stock_report_schema_rows" in probe.PROBE
+    assert "symbols_with_earlier_history" in probe.PROBE
+    assert "SELECT COUNT(DISTINCT previous.symbol)" in probe.PROBE
+    assert "SET TRANSACTION READ ONLY" in probe.PROBE
+    assert "report_db" in probe.PROBE
+
 
     assert "public_market_rank_input_gates" in probe.PROBE
     assert "rank=False" in probe.PROBE
