@@ -18,5 +18,5 @@
   "source_sha": "c4605a84eb46257cbf628b33e2156ebc01f5b9ac",
   "release_run": "40319442822",
   "jobs_run": "40320593857",
-  "purpose": "SEQ08 second bounded TPEx official price-index Core repair attempt after #40336566921 PREFLIGHT NOT_DISPATCHED; no Cloud Run write was performed. Script now records safe lease/preflight machine code and phase; pin c4605a84 four Dev Jobs rollout #40320593857 and API100 #40336305146. Never retry ambiguous POST or duplicate Core execution."
+  "purpose": "SEQ08 third and final bounded request after second attempt #40337216401 failed at LEASE_ACQUIRE before GCP dispatch: bounded_release_lease_atomic_lease_claim_rejected_or_unavailable_tag_http_403. Apply job now has scoped contents:write and standard janus-dev-runtime-writers concurrency, matching existing successful GHCR API/Jobs workflows. No previous Core writes or ambiguous POST; official 2026-09/10 TPEx price index only; new immutable Core snapshot, no Owner/paid resources."
 }

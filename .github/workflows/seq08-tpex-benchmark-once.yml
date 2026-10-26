@@ -38,6 +38,15 @@ jobs:
   apply:
     needs: offline
     if: "github.event_name == 'push' && startsWith(github.event.head_commit.message, 'ops(seq08): run one official TPEx benchmark Core repair')"
+    # The shared ref/tag lease uses GitHub's git refs API. This permission
+    # is scoped to the mutating apply job; the offline job stays read-only.
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
+    concurrency:
+      group: janus-dev-runtime-writers
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 35
     environment: dev
