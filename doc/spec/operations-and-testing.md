@@ -1,5 +1,13 @@
 # Janus 最新驗收證據索引
 
+## 2026-10-26 SEQ-08 最終 Quant Rank JSONB 型別糾正與 Release/Live 收據
+
+- **固定現役版** `462bd1c85708cb5bc4ce1877d35a3645ff9668d4`：五 approved UBJ 原子 Registry ACTIVE、Release [#40215268427](https://github.com/tommylin15/janus-omniforge/actions/runs/40215268427)、四 Job [#40216332296](https://github.com/tommylin15/janus-omniforge/actions/runs/40216332296)、API100 [#40247497520](https://github.com/tommylin15/janus-omniforge/actions/runs/40247497520)、全市場 Screening [#40247788673](https://github.com/tommylin15/janus-omniforge/actions/runs/40247788673)、Deep Coverage [#40248399245](https://github.com/tommylin15/janus-omniforge/actions/runs/40248399245) 均有真實 PASS；不另部署舊權重。
+- **GCS精確五頭與PG實際結果**：[ #40249008222](https://github.com/tommylin15/janus-omniforge/actions/runs/40249008222) `READBACK_PASS`、8股Quant0/Risk2/Fundamental2/Valuation4；[#40249244086](https://github.com/tommylin15/janus-omniforge/actions/runs/40249244086) `PG_SELECT_READBACK_PASS`，`missing_serving=0`、8筆與GCS一致。2330 Valuation PE/PB真預測成功，2882缺MOPS四項季因子。兩股不是本次去識別Owner8股之一。
+- **錯誤 SQL 統計撤回**：先前 [#40249995006](https://github.com/tommylin15/janus-omniforge/actions/runs/40249995006) 以 `payload_json->'seq08_quant_rank' IS NOT NULL` 得「ranked_rows=1991」是 PostgreSQL JSONB `null` 的型別誤計，**不能當作1911或1991有效特徵**。兩股都是 Screening 成員 [#40250757476](https://github.com/tommylin15/janus-omniforge/actions/runs/40250757476) PASS，但 rank false。
+- **終版型別校正讀回**：[ #40251221001](https://github.com/tommylin15/janus-omniforge/actions/runs/40251221001) `PG_SELECT_READBACK_PASS`，2026-10-26 Core snapshot `sha256:544970f64e6dd965ca6cf57786a120f3eb39ffeddacd6255bdcc373ade74ffd3`：`screening_rows=1991`、`ranked_rows=0`（`jsonb_typeof(...)='object'`）、`json_null_rank_count=1991`，其中10/22最新交易日1,955股。**Quant缺值來自全市場 feature rank 尚未形成，不是 PG 接線遺失**。須下次有界檢驗 `market_features` 的OHLCV/benchmark市場日和21-session完整性，再修正必要資料讀取或缺口，禁止用Owner8股臆造rank。
+- **未驗收**：Risk6/8仍無合格OHLCV交易窗口、Fundamental6/8缺月營收/去年基期、Valuation4/8缺季MOPS；新版登入Owner UI／報告／歷史無正向授權session且 Janus MCP read-only internal error。**整體 SEQ-08 LIVE_PARTIAL**。既有 dev 固定 100%與PG8筆成功不能包裝成四模型全數可用。更正上述 JSONB 統計並保留純讀取/測試失敗收據，不做進一步重複探針、GCP開銷或權重重訓。
+
 ## 2026-10-26｜SEQ-08 修正版真資料與 PostgreSQL 實際驗收
 
 | Acceptance | Run evidence | 狀態與有界結論 |
