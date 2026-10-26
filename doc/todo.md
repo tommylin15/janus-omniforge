@@ -1,5 +1,13 @@
 # Janus — 唯一 Active TODO
 
+## SEQ-08 最終真資料狀態（2026-10-26；本節覆蓋以下舊快照）
+
+- **新版部署 PASS**：fixed app SHA `462bd1c85708cb5bc4ce1877d35a3645ff9668d4`；同版 GHCR Release #40215268427、API 0% #40215944127、OAuth/auth #40216220752、四既有 Jobs #40216332296、Dev API100 #40247497520 全部完成 SUCCESS；五頭核准 UBJ 與既有 ACTIVE GCS 指標保持不變，不需研究重訓或舊模型相容。
+- **新真市場／模型工作**：全市場 Screening [#40247788673](https://github.com/tommylin15/janus-omniforge/actions/runs/40247788673)、本輪 deidentified Owner target Deep Coverage [#40248399245](https://github.com/tommylin15/janus-omniforge/actions/runs/40248399245) 各為 Cloud Run 實際 Job success。精確 GCS 產物讀回 [#40249008222](https://github.com/tommylin15/janus-omniforge/actions/runs/40249008222) `READBACK_PASS`：`analysis_as_of=2026-10-26`、Core snapshot `sha256:544970f64e6dd965ca6cf57786a120f3eb39ffeddacd6255bdcc373ade74ffd3`、Mart execution `c2604239-f954-4819-bfc2-6e102d62fcaf`，8檔，Quant 0/8（全部缺 `ret20_market_rank`）；Risk 2/8（ACTIVE_CACHED）、Fundamental 2/8、Valuation 4/8；剩餘嚴守缺值。Rank/價量完整窗口仍為可觀測 concrete BLOCKER，非重訓要求。
+- **PostgreSQL 真投影 PASS**：[ #40249244086](https://github.com/tommylin15/janus-omniforge/actions/runs/40249244086) `PG_SELECT_READBACK_PASS`，同 Mart execution 8 rows，`missing_serving=0`，Quant／Risk／Fundamental／Valuation 各角色分布完全等於 GCS。新版 2330 Core 公共獨立真 Valuation PE/PB `ACTIVE_PREDICTED`，回傳 `log_pe=2.712153434753418`、`log_pb=1.2493306398391724`；其 Quant／Risk／Fundamental 仍缺特徵。2882 Valuation 缺合格可比較 MOPS 季財務，其他3模型也缺特徵。兩股皆**不在**本輪8檔 Owner target union；`public_samples_present.2330=true / 2882=false` 是 PG 歷史存在性，不代表本輪8檔新品報告已交付。
+- **量化排名接線待釐清**：新版市場 rank 對這2股讀回0個，八檔 Quant 皆無合法 rank。已做第二輪小範圍只讀 full-market cohort aggregate [#40249995006](https://github.com/tommylin15/janus-omniforge/actions/runs/40249995006)，其結果依 Workflow/收據追加，不應將執行中當PASS。第一次診斷 #40249709135 為新 SQL 區塊 IndentationError，僅離線測試 FAIL、未派送雲端 Job；程式已修正。
+- **未完成且必須留在 SEQ-08**：Quant 0/8 的 full-market rank／Core screening coverage、Risk 6/8 missing latest valid session、Fundamental 6/8 少月營收／基期、Valuation 4/8 少MOPS 可比季。Owner **新版**正向登入、個股報告卡、分析歷史及 UI 沒有可用授權 session（Janus MCP read-only 回 internal error），維持 `NOT_VERIFIED`。不保留舊模型 fallback；不將部分真推論/PG readback宣稱四模型全數完成，SEQ-08 = **LIVE_PARTIAL**。
+
 ## SEQ-08 2026-10-26 現役修正版部署／真資料入口（覆蓋下列歷史快照）
 
 - **已部署最新模型 serving 程式**：source SHA `462bd1c85708cb5bc4ce1877d35a3645ff9668d4`；四模型五份核准真UBJ **未重訓/未換權重**，GCS atomic ACTIVE `models/registry/seq08-four-models-active.json` 沿前輪 #40193843435。非交易日 Quant/Risk 特徵與同市場 Screening rank 已修正且 CI PASS。
