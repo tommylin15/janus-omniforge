@@ -42,6 +42,7 @@ def authorize():
             or request.get("mart_operation") not in ("market-screening", "deep-coverage")
             or request.get("product_projection") is not True
             or request.get("new_core_run") != "40337663516"
+            or request.get("new_core_execution_id") != "bf26bfb1-3dcc-4f76-85b4-effcc4f25ef3"
             or request.get("expected_core_snapshot_id") != "sha256:5d741c0b8804322e87cf7bd4c1a4c04be3244e36e000a216d0fc07912596166a"
             or request.get("job_runs_allowed") != 1
             or request.get("training_allowed") is not False
@@ -99,6 +100,19 @@ def execute(receipt_file):
                      (API_RUN, "promote-api-only"),
                      (REGISTRY_RUN, "seq08-model-activation")):
         successful(run, job)
+    successful("40337663516", "apply")
+    core_uri = ("gs://gen-lang-client-0593591102-dev-core/executions/"
+                + request["new_core_execution_id"] + "/core-snapshot.json")
+    check = subprocess.run(["gcloud", "storage", "cat", core_uri, "--project", jobs.PROJECT],
+                           capture_output=True, check=False, timeout=90)
+    if check.returncode:
+        raise ValueError("seq08_new_core_manifest_unreadable")
+    core = json.loads(check.stdout)
+    if (core.get("snapshot_id") != request["expected_core_snapshot_id"]
+            or core.get("execution_id") != request["new_core_execution_id"]
+            or core.get("analysis_as_of") != "2026-10-26"
+            or "core.benchmark_v1" not in core.get("iceberg_tables", {})):
+        raise ValueError("seq08_new_core_manifest_fence_mismatch")
     pointer_readback()
     target = accepted_job()
     jobs.legacy_writers()
