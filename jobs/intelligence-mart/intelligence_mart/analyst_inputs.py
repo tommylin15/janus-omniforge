@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from .specialists import digest, number, validated_inputs
+from .market_sessions import verified_stock_market_day
 
 VERSION = "analyst-inputs-v3-seq08-core-market-aligned"
 QUANT15 = ("ret5","ret20","ret60","ma20_distance","ma60_distance","vol20","vol60","drawdown60","volume_ratio20","log_turnover20","market_code","ret10","ret120","bollinger_z20","ret20_market_rank")
@@ -128,6 +129,7 @@ def build(datasets, symbols, as_of, snapshot, *, market_rank=None):
                 if str(r.get("benchmark_id", "")).casefold() == benchmark_id.casefold()
                 and str(r.get("index_kind") or "price").lower() == "price"
                 and r.get("trade_date") and str(r["trade_date"])[:10] <= as_of
+                and verified_stock_market_day(r["trade_date"])
             })
             info = (market_rank or {}).get(symbol)
             ranked_day = verified_market_rank(
