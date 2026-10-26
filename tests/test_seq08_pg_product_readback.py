@@ -53,3 +53,5 @@ def test_public_two_stock_inline_probe_compiles_and_is_cache_only():
     assert "class LocalOnlyCache" in probe.PROBE
     assert "self.backing.create" not in probe.PROBE
     assert "SET TRANSACTION READ ONLY" in probe.PROBE
+    assert "jsonb_typeof(payload_json->'seq08_quant_rank')='object'" in probe.PROBE
+    assert "json_null_rank_count" in probe.PROBE
