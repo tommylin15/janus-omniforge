@@ -55,6 +55,13 @@ def test_public_two_stock_inline_probe_compiles_and_is_cache_only():
     assert "SET TRANSACTION READ ONLY" in probe.PROBE
     assert "jsonb_typeof(payload_json->'seq08_quant_rank')='object'" in probe.PROBE
     assert "json_null_rank_count" in probe.PROBE
+    # Read-only diagnostics must apply the same confirmed exchange-closure
+    # calendar as the deployed market_features gate; otherwise 09/25 and
+    # 10/23 appear as fake missing OHLCV days even after the code fix.
+    assert "from intelligence_mart.market_sessions import verified_stock_market_day" in probe.PROBE
+    assert "if verified_stock_market_day(day)" in probe.PROBE
+    assert 'verified_stock_market_day(row.get("trade_date"))' in probe.PROBE
+
     assert "public_market_rank_input_gates" in probe.PROBE
     assert "rank=False" in probe.PROBE
     assert "accepted_stock_sessions" in probe.PROBE

@@ -156,6 +156,7 @@ try:
     # Recompute only the two explicitly requested public stocks' *input*
     # gates with deployed source; never infer full-market percentiles from 2 stocks.
     from intelligence_mart.market_screening import market_features
+    from intelligence_mart.market_sessions import verified_stock_market_day
     from intelligence_mart.specialists import validated_inputs,price_series
     public_market_gates={}
     for public_symbol in ("2330","2882"):
@@ -165,7 +166,8 @@ try:
             feature_row=market_features(stock_data.datasets,(public_symbol,),
                                         asof,snapshot,rank=False)[0]
             valid,_,rejected=validated_inputs(stock_data.datasets,public_symbol,asof,snapshot)
-            accepted_prices=price_series(valid.get("ohlcv",()))
+            accepted_prices={day:price for day,price in price_series(valid.get("ohlcv",())).items()
+                             if verified_stock_market_day(day)}
             market_set={str(row.get("market","")).lower()
                         for row in valid.get("ohlcv",()) if row.get("market")}
             market_name=next(iter(market_set)) if len(market_set)==1 else None
@@ -173,14 +175,16 @@ try:
             market_benchmark=price_series([
                 row for row in valid.get("benchmark",())
                 if benchmark_id and str(row.get("benchmark_id","")).casefold()==benchmark_id.casefold()
-                and str(row.get("index_kind") or "price").lower()=="price"])
+                and str(row.get("index_kind") or "price").lower()=="price"
+                and verified_stock_market_day(row.get("trade_date"))])
             last_stock_day=max(accepted_prices,default=None)
             prior_market_days=[day for day in market_benchmark
                                if last_stock_day is not None and day<=last_stock_day][-21:]
             missing_days=[day for day in prior_market_days if day not in accepted_prices]
             benchmark_dates=sorted({str(row.get("trade_date",""))[:10]
                                     for row in valid.get("benchmark",())
-                                    if row.get("trade_date")})
+                                    if row.get("trade_date")
+                                    and verified_stock_market_day(row.get("trade_date"))})
             public_market_gates[public_symbol]={
                 "gate":feature_row.get("seq08_quant_rank_gate"),
                 "latest_trade_date":feature_row.get("latest_trade_date"),
