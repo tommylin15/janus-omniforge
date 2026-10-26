@@ -7,14 +7,14 @@
   "jobs_run": "40320593857",
   "api_run": "40336305146",
   "registry_run": "40193843435",
-  "mart_operation": "market-screening",
+  "mart_operation": "deep-coverage",
   "job_runs_allowed": 1,
   "training_allowed": false,
   "llm_allowed": false,
   "owner_ledger_writes_allowed": false,
   "new_resources_allowed": false,
-  "purpose": "SEQ08 new verified TPEx official Core snapshot #40337663516 immutable ID sha256:5d741c0b. Exactly one fixed c4605a84 real full-market Screening Job with PG product projection true on NEW Core snapshot only, read back GCS manifest before dispatch. Old Core snapshot sha256:544970 stays immutable. Models five approved UBJ; no new resources, Owner mutation, LLM, training or Scheduler changes.",
-  "attempt": 6,
+  "purpose": "SEQ-08 exactly one existing Dev Mart Deep Coverage using official TPEx-repaired Core sha256:5d741c0b...; full-market Screening same Core #40339115367 GCS exact #40353770844 TWSE1058 TPEx762 and PG SQL #40354200697 1820/1991 VALID, 2330/2882 Quant/Risk ACTIVE. Use owner de-identified held/watchlist union only; write versioned five-head real serving + specialist_product and Fact Pack/history through existing job, no Owner ledger edits, no retraining/LLM, no new resources. Require exact GCS/PG readback before declaring completion.",
+  "attempt": 7,
   "diagnostic_attempt": 1,
   "diagnostic_scope": "READ_ONLY_PRIOR_RECEIPT_AND_EXISTING_DEV_JOB_EXECUTIONS_NO_DISPATCH",
   "retry_after": {
@@ -28,5 +28,7 @@
   "product_projection": true,
   "new_core_run": "40337663516",
   "new_core_execution_id": "bf26bfb1-3dcc-4f76-85b4-effcc4f25ef3",
-  "expected_core_snapshot_id": "sha256:5d741c0b8804322e87cf7bd4c1a4c04be3244e36e000a216d0fc07912596166a"
+  "expected_core_snapshot_id": "sha256:5d741c0b8804322e87cf7bd4c1a4c04be3244e36e000a216d0fc07912596166a",
+  "screening_prior_successful_run": "40339115367",
+  "screening_pg_verified_run": "40354200697"
 }
