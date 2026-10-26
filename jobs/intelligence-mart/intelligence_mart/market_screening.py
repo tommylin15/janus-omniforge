@@ -96,6 +96,8 @@ def market_features(datasets, symbols, as_of, snapshot, *, rank=True):
         sessions_21 = [day for day in benchmark if day <= last_trade][-21:]
         if accepted_market not in ("twse", "tpex"):
             gate = "market_unresolved"
+        elif not verified_stock_market_day(last_trade):
+            gate = "stock_observation_on_closed_exchange_date"
         elif not 0 <= freshness <= 7:
             gate = "stock_session_missing_or_stale"
         elif len(sessions_21) < 21:
@@ -136,7 +138,8 @@ def rank_features(output, as_of):
         market = item.get("market")
         day = row.get("latest_trade_date")
         if (market in ("twse", "tpex") and item.get("analysis_as_of") == as_of
-                and isinstance(day, str) and number(item.get("ret20")) is not None):
+                and isinstance(day, str) and verified_stock_market_day(day)
+                and number(item.get("ret20")) is not None):
             try:
                 age = (cutoff - date.fromisoformat(day)).days
             except ValueError:
