@@ -59,3 +59,6 @@ def test_public_two_stock_inline_probe_compiles_and_is_cache_only():
     assert "rank=False" in probe.PROBE
     assert "accepted_stock_sessions" in probe.PROBE
     assert "accepted_all_benchmark_sessions" in probe.PROBE
+    assert "missing_21_benchmark_sessions" in probe.PROBE
+    assert "benchmark_sessions_to_stock_day" in probe.PROBE
+    assert "market_benchmark=price_series" in probe.PROBE
