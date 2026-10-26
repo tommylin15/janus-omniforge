@@ -34,7 +34,7 @@ def require_request(data):
     if data != {
         "intent": "seq08-exact-real-mart-product-readonly",
         "source_sha": SOURCE, "successful_mart_run": RUN,
-        "symbols": list(SAMPLES), "diagnostic_attempt": 6, "read_only": True,
+        "symbols": list(SAMPLES), "diagnostic_attempt": 7, "read_only": True,
         "no_gcp_mutation": True, "no_owner_mutation": True,
         "no_new_resources": True
     }:
@@ -297,6 +297,88 @@ def readback_market_screening(execution_id, cloud_execution):
     }
 
 
+
+def read_new_core_from_bounded_prefix():
+    """Read only a bounded screening prefix if CI lacks Cloud Logging access.
+
+    This proves a new Core artifact, not its exact internal Mart run UUID.
+    """
+    from datetime import datetime, timezone
+    prefix="gs://"+BUCKET+"/screening/"
+    result=run(["gcloud","storage","ls","-l",prefix,"--project",PROJECT],timeout=80)
+    if result.returncode or len(result.stdout)>250000:
+        raise ValueError("bounded_screening_listing_unavailable")
+    window_start=datetime.fromisoformat("2026-10-26T14:15:00+00:00")
+    window_end=datetime.fromisoformat("2026-10-26T15:00:00+00:00")
+    candidates=[]
+    lines=result.stdout.decode().splitlines()
+    if len(lines)>251:
+        raise ValueError("bounded_screening_listing_too_many")
+    pattern=re.compile(r"^\s*(\d+)\s+(\d{4}-\d\d-\d\dT\S+)\s+(gs://\S+)\s*$")
+    for line in lines:
+        if line.startswith("TOTAL:") or not line.strip():
+            continue
+        m=pattern.fullmatch(line)
+        if not m or not re.fullmatch(r"gs://"+re.escape(BUCKET)+r"/screening/[0-9a-f]{64}\.json",m.group(3)):
+            raise ValueError("bounded_screening_listing_invalid")
+        day=datetime.fromisoformat(m.group(2).replace("Z","+00:00"))
+        if day.tzinfo is None or int(m.group(1))>16000000:
+            raise ValueError("bounded_screening_listing_invalid")
+        if window_start<=day.astimezone(timezone.utc)<=window_end:
+            candidates.append(m.group(3)[len("gs://"+BUCKET+"/"):])
+    if len(candidates)>24:
+        raise ValueError("bounded_screening_candidates_exceeded")
+    found=[]
+    for path in candidates:
+        artifact,sha=object_json(path)
+        identity=artifact.get("identity")
+        if not isinstance(identity,dict) or identity.get("core_snapshot_id")!=EXPECTED_CORE_SNAPSHOT_ID:
+            continue
+        if identity.get("analysis_as_of")!="2026-10-26":
+            continue
+        compact=lambda v:json.dumps(v,ensure_ascii=False,sort_keys=True,separators=(",",":"),default=str).encode()
+        digest=lambda v:"sha256:"+sha256(compact(v)).hexdigest()
+        rows=artifact.get("rows")
+        telemetry=artifact.get("input_telemetry",{}).get("seq08_quant_rank",{})
+        if (artifact.get("artifact_kind")!="mart_market_screening_v1"
+            or identity.get("feature_version")!="market-screening-v5-exchange-closure-filter"
+            or artifact.get("identity_hash")!=digest(identity)
+            or artifact.get("output_hash")!=digest({k:v for k,v in artifact.items() if k!="output_hash"})
+            or not isinstance(rows,list) or not 100<=len(rows)<=3500
+            or not isinstance(telemetry,dict)):
+            raise ValueError("new_core_screening_digest_mismatch")
+        from collections import Counter
+        gates=Counter(str(row.get("seq08_quant_rank_gate","unknown")) for row in rows)
+        ranked=Counter()
+        symbols=set()
+        for row in rows:
+            symbol=row.get("symbol")
+            if not isinstance(symbol,str) or symbol in symbols:
+                raise ValueError("new_core_screening_duplicate_symbol")
+            symbols.add(symbol)
+            rank=row.get("seq08_quant_rank")
+            if rank is not None:
+                if not isinstance(rank,dict) or row.get("seq08_quant_rank_gate")!="ranked":
+                    raise ValueError("new_core_screening_rank_invalid")
+                market=rank.get("market")
+                if market not in ("twse","tpex") or rank.get("core_snapshot_id")!=EXPECTED_CORE_SNAPSHOT_ID:
+                    raise ValueError("new_core_screening_market_or_snapshot_invalid")
+                ranked[market]+=1
+        if gates.get("ranked",0)!=sum(ranked.values()) or dict(gates)!=telemetry.get("gate_counts"):
+            raise ValueError("new_core_screening_gate_mismatch")
+        found.append({"status":"RANK_READY_PASS" if ranked["tpex"]>=100 and ranked["twse"]>=100 else "RANK_PARTIAL",
+                      "scope":"BOUNDED_NEW_CORE_GCS_NOT_EXACT_MART_EXECUTION",
+                      "core_snapshot_id":EXPECTED_CORE_SNAPSHOT_ID,
+                      "screening_rows":len(rows),"ranked_rows":sum(ranked.values()),
+                      "ranked_by_market":dict(ranked),"gate_counts":dict(gates),
+                      "artifact_sha256":sha,"artifact_path":path,
+                      "pg_product_readback":"NOT_VERIFIED","owner_login_ui":"NOT_VERIFIED",
+                      "gcp_mutations":0})
+    if len(found)!=1:
+        raise ValueError("bounded_new_core_screening_missing_or_ambiguous")
+    return found[0]
+
+
 def main():
     import argparse
     p = argparse.ArgumentParser()
@@ -308,9 +390,15 @@ def main():
         phase = "SOURCE_RECEIPT"
         cloud_execution = receipt()
         phase = "CLOUD_LOG_IDENTITY"
-        execution_id = lookup_execution_id(cloud_execution, operation="market-screening")
-        phase = "GCS_SCREENING_ARTIFACT"
-        result = readback_market_screening(execution_id, cloud_execution)
+        try:
+            execution_id = lookup_execution_id(cloud_execution, operation="market-screening")
+            phase = "GCS_SCREENING_ARTIFACT"
+            result = readback_market_screening(execution_id, cloud_execution)
+        except ValueError as error:
+            if str(error)!="cloud_logging_exact_execution_read_denied":
+                raise
+            phase = "BOUNDED_GCS_SCREENING_PROOF"
+            result = read_new_core_from_bounded_prefix()
         args.receipt.write_text(json.dumps(result, sort_keys=True))
         print(json.dumps(result, sort_keys=True))
         return 0
