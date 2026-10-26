@@ -14,7 +14,7 @@ def test_fixed_one_run_readonly_request():
     correct={
         "intent":"seq08-exact-real-mart-product-readonly",
         "source_sha":module.SOURCE,"successful_mart_run":module.RUN,
-        "symbols":["2330","2882"],"diagnostic_attempt":7,"read_only":True,"no_gcp_mutation":True,
+        "symbols":["2330","2882"],"diagnostic_attempt":8,"read_only":True,"no_gcp_mutation":True,
         "no_owner_mutation":True,"no_new_resources":True
     }
     module.require_request(correct)
@@ -53,14 +53,14 @@ def test_live_artifact_status_and_no_owner_symbol_leak(monkeypatch):
         "fundamental":{"status":"ABSTAINED_X_ONLY","prediction":None},
         "valuation":{"status":"ACTIVE_PREDICTED","prediction":{"log_pe":2,"log_pb":1}}
     }
-    input_doc={"output_hash":"sha256:input","core_snapshot_id":"snap"}
+    input_doc={"output_hash":"sha256:input","core_snapshot_id":module.EXPECTED_CORE_SNAPSHOT_ID}
     serving={"artifact_kind":"mart_four_model_serving_v1","owner_fields_exposed":False,
-             "analysis_as_of":"2026-10-25","core_snapshot_id":"snap",
+             "analysis_as_of":"2026-10-25","core_snapshot_id":module.EXPECTED_CORE_SNAPSHOT_ID,
              "source_analyst_input_hash":"sha256:input",
              "rows":[{"symbol":"2330","roles":roles},{"symbol":"OTHER_OWNER_SYMBOL","roles":roles}]}
     def hash_of(value):
         return "sha256:"+hashlib.sha256(json.dumps(value,sort_keys=True).encode()).hexdigest()
-    manifest={"execution_id":eid,"analysis_as_of":"2026-10-25","core_snapshot_id":"snap",
+    manifest={"execution_id":eid,"analysis_as_of":"2026-10-25","core_snapshot_id":module.EXPECTED_CORE_SNAPSHOT_ID,
         "four_model_serving":{"artifact_uri":"gs://"+module.BUCKET+"/"+root+"four-model-serving.json",
                               "artifact_hash":hash_of(serving)},
         "analyst_inputs":{"artifact_uri":"gs://"+module.BUCKET+"/"+root+"analyst-inputs.json",
@@ -176,3 +176,12 @@ def test_bounded_fallback_never_claims_exact_execution():
     assert "len(candidates)>24" in code
     assert "BOUNDED_NEW_CORE_GCS_NOT_EXACT_MART_EXECUTION" in code
     assert "pg_product_readback" in code
+
+
+def test_deep_coverage_requires_exact_new_core_snapshot():
+    import inspect
+    source=inspect.getsource(module.readback)
+    assert "EXPECTED_CORE_SNAPSHOT_ID" in source
+    main_source=inspect.getsource(module.main)
+    assert 'operation="deep-coverage"' in main_source
+    assert "result = readback(execution_id, cloud_execution)" in main_source
