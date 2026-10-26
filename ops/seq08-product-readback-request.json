@@ -1,14 +1,14 @@
 {
-  "intent": "seq08-exact-real-mart-product-readonly",
-  "source_sha": "462bd1c85708cb5bc4ce1877d35a3645ff9668d4",
-  "successful_mart_run": "40248399245",
-  "symbols": [
-    "2330",
-    "2882"
-  ],
-  "read_only": true,
-  "no_gcp_mutation": true,
-  "no_owner_mutation": true,
-  "no_new_resources": true,
-  "diagnostic_attempt": 3
+    "intent": "seq08-exact-real-mart-product-readonly",
+    "source_sha": "462bd1c85708cb5bc4ce1877d35a3645ff9668d4",
+    "successful_mart_run": "40248399245",
+    "symbols": [
+        "2330",
+        "2882"
+    ],
+    "read_only": true,
+    "no_gcp_mutation": true,
+    "no_owner_mutation": true,
+    "no_new_resources": true,
+    "diagnostic_attempt": 3
 }
