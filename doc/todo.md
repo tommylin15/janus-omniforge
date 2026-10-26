@@ -1,5 +1,12 @@
 # Janus — 唯一 Active TODO
 
+## SEQ-08 休市日校正與 Dev 新版驗收（2026-10-26 下午）
+
+- **已核對技術根因**：既有 Core 2026-10-26 snapshot 的 2330／2882 21 market-session 輸入被 2026-09-25 休市日佔位，10/23 與 10/26 亦為 2026 年已確認閉市日期；參考 `jobs/intelligence-mart/intelligence_mart/market_sessions.py` 與 [舊 Core PG 真資料 #40265638862](https://github.com/tommylin15/janus-omniforge/actions/runs/40265638862)。目前 Core 不應造出 10/26 的不存在 EOD；正確市場日窗口排除閉市日、對同市場選 21 個真 session（20 段報酬），不補價也不偽造排名。
+- **新修正 Release／API0／Auth 已 PASS**：正式源 `43543ac684f34341265069244b5507f51afd5cff`，[GHCR full Release #40266792603](https://github.com/tommylin15/janus-omniforge/actions/runs/40266792603)、[四 Job 既有 digest+config baseline #40266979470](https://github.com/tommylin15/janus-omniforge/actions/runs/40266979470)（上一 live source `420b1b5c`）、[0% API candidate #40267268006](https://github.com/tommylin15/janus-omniforge/actions/runs/40267268006)、[OAuth/Owner/Admin/MCP 匿名 boundary #40281196164](https://github.com/tommylin15/janus-omniforge/actions/runs/40281196164) 都 completed/success。五份真 UBJ／Registry 不變，不要求再授權模型或舊模型相容。
+- **現階段非結案**：[四 Job 同版 rollout #40281342258](https://github.com/tommylin15/janus-omniforge/actions/runs/40281342258) 已由受控 request 提交，必須讀 `jobs-rollout` 終態及 receipt 的 full canary、source/digest、可回復基準，未有最終成功前不能自行推 API100。[部署後 Mart Core/PG 唯讀 probe #40282426306](https://github.com/tommylin15/janus-omniforge/actions/runs/40282426306) 已在共用 `janus-dev-runtime-writers` queue，僅 SELECT 舊8筆 PG＋在部署版本內記憶體重新計算公共 2330／2882 最新 Core 21 session gate，不寫 PG／GCS 或 Owner。讀回腳本也已套用與模型完全相同的閉市／同市場日期過濾，對應 [selective CI #40282219549](https://github.com/tommylin15/janus-omniforge/actions/runs/40282219549) PASS。
+- **下一個唯一入口**：成功四 Jobs receipt → 新 API 0%/Auth same-source gate 下受控 direct 100% → 讀回 PG probe 的新 21 session `gate`／`missing_21_session_count`、舊 immutable PG 0 rank 與正確的「舊版產品」區別；若仍無**新的合法 Core snapshot**，不可覆寫 `(analysis_as_of, core_snapshot_id, symbol)` 舊1,991筆 Screening。新 Core 可用後：新 full-market Quant rank、Owner union Deep Coverage、四模型真實輸出／Fact Pack／報告／history。**Owner 正向已登入 UI 尚 NOT_VERIFIED**（Dev MCP 此前 internal error，不把負向 401 當通過）。SEQ-08 維持 `LIVE_PARTIAL`。
+
 ## SEQ-08 新版 Dev 集中發布（2026-10-26 10:42 Asia/Taipei）
 
 - **Release PASS**：本輪 Quant/Risk/財報缺值修正 `f648e1bc` + 完整發布固定來源 `420b1b5cdef91c7df1671660217315f62fc7e77f`；[完整 GHCR Release #40257626504](https://github.com/tommylin15/janus-omniforge/actions/runs/40257626504) Python、Flutter、四元件 publish、anonymous digest verification SUCCESS。沿用四角色五份已核准真 UBJ，沒有重新訓練或舊模型相容。
