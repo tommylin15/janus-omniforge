@@ -1,5 +1,13 @@
 # Janus — 唯一 Active TODO
 
+## SEQ-08 2026-10-26 晚間真資料進展（最新）
+
+- **同版 Dev Jobs／API100 都 PASS**：正式源 `43543ac684f34341265069244b5507f51afd5cff`。四 Jobs [#40281342258](https://github.com/tommylin15/janus-omniforge/actions/runs/40281342258) `jobs-rollout` PASS、81 tests；API direct 100% [#40299267385](https://github.com/tommylin15/janus-omniforge/actions/runs/40299267385) `promote-api-only` PASS、51 tests，固定 digest/身份讀回；並無舊模型 prediction fallback。
+- **修復 PG gate 假陽性並驗真 Core 窗口**：#40282426306 workflow 雖 SUCCESS，但真 PG Job 是 skipped，不能算通過。正確觸發的 [#40299434731](https://github.com/tommylin15/janus-omniforge/actions/runs/40299434731) `seq08-pg-product-readback` 確實執行並取得 `PG_SELECT_READBACK_PASS`。在既有 2026-10-26 immutable Core snapshot `sha256:544970f64e6dd965ca6cf57786a120f3eb39ffeddacd6255bdcc373ade74ffd3`，**2330、2882 均已 21/21 合法市場日、missing 0、`ready_for_same_market_rank`**。真 Risk12 即時唯讀推論：2330 `0.28244033455848694`、2882 `0.3632313311100006` 均 ACTIVE_PREDICTED；Quant 兩檔 X 已足（只缺 `ret20_market_rank`），其餘月營收/2882季財務合法缺值照實保留。
+- **舊 PG 排名不可覆寫**：同 snapshot 舊 `private.market_screening_product` 仍 1,991 rows、valid Quant rank 0；屬修正前既有 immutable 投影，不可將 PG SELECT成功冒充新全市場 rank PASS。**GCS-only 真實全市場 Screening** [#40300491771](https://github.com/tommylin15/janus-omniforge/actions/runs/40300491771) 已 executed/completed SUCCESS、Mart Cloud Run `REAL_JOB_PASS_PRODUCT_CONTENT_READBACK_PENDING`，使用相同 Core 但新版本 GCS artifact，強制 `MART_PRODUCT_PROJECTION=false`、零 PG product overwrite／無 LLM／無新資源；實際 `seq08_quant_rank.gate_counts` 仍需從 GCS 內容讀回才可宣稱排名恢復。
+- **下一個唯一動作**：[新 GCS-only Screening Artifact 讀回 #40301481080](https://github.com/tommylin15/janus-omniforge/actions/runs/40301481080) 已提交，應核對真 `screening_rows`、`ranked_rows`、同市場 cohort 與 2330/2882 的 rank gate，並完整確認 Job 非 skipped。若 rank 成功，此為 GCS 計算層成功，不等於 PG/Owner正式產品重投影；必須有更新有效 Core snapshot 才能安全發布同版 Screening／target Deep Coverage／報告，不能覆寫舊 composite identity。
+- **Owner UI 正向仍 NOT_VERIFIED**：Janus Dev private MCP 依然 internal error，browser session 無法授權讀回；需新登入 session 真測四模型卡、報告、Owner history。整體 `SEQ-08 = LIVE_PARTIAL`，不新增 SEQ-09、不重訓／不重問四模型授權。
+
 ## SEQ-08 交易日修正集中部署最新進度（2026-10-26；取代下方進行中快照）
 
 - **四 Job 新版 Rollout PASS**：[GitHub #40281342258](https://github.com/tommylin15/janus-omniforge/actions/runs/40281342258) completed/success，`jobs-rollout` success、81 tests、`ghcr-jobs-rollout-receipt` Artifact 12633431449；發布 immutable model/calendar source `43543ac684f34341265069244b5507f51afd5cff`，沿用五份真權重，沒有 legacy model fallback。
