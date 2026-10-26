@@ -3,11 +3,11 @@
   "approved": true,
   "scope": "existing-dev-mart-one-select-execution",
   "source_sha": "c4605a84eb46257cbf628b33e2156ebc01f5b9ac",
-  "mart_execution_id": "fd2a4886-e800-4651-8706-00efed4062cf",
+  "mart_execution_id": "2375334c-6cc1-4653-a5b2-d732d9bd8b1e",
   "no_pg_mutation": true,
   "no_owner_mutation": true,
   "no_new_resources": true,
   "one_job_execution": true,
-  "rank_diagnostic_attempt": 11,
-  "purpose": "SEQ08 new Core exact PG SELECT after GCS identity/hash #40353770844 RANK_READY_PASS: c4605a84, Core sha256:5d741c0b..., screening Mart execution fd2a4886..., TWSE 1058 TPEx 762. One existing pinned Dev Mart job read-only SQL and 2330/2882 in-memory feature spotcheck; no PG/GCS/Owner writes, no model retraining, no new IAM or resources. Must verify JSONB object count, not just Workflow PASS."
+  "rank_diagnostic_attempt": 12,
+  "purpose": "SEQ08 one existing Dev Mart read-only SQL on EXACT new-Core Deep Coverage 2375334c-6cc1-4653-a5b2-d732d9bd8b1e, GCS model four-role artifact hash PASS #40356749262 with 8 owner-deidentified targets and quant6 risk6 fundamental2 valuation4. Verify PG private.specialist_product count, real model statuses, deterministic stock_report and append-only prior history aggregates, no Owner symbol disclosure or PG writes. Public 2330/2882 in-memory spotchecks remain separate; no retraining, new IAM or resources."
 }
