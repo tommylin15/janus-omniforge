@@ -18,5 +18,5 @@
   "source_sha": "c4605a84eb46257cbf628b33e2156ebc01f5b9ac",
   "release_run": "40319442822",
   "jobs_run": "40320593857",
-  "purpose": "SEQ08 bounded one existing Dev ingestion Cloud Run Job to fetch official TPEx price index only 2026-09/01 through 2026-10/22, write real Stage and Iceberg Core benchmark, mint new immutable Core snapshot and independently read back its identity; gate on full release #40319442822, four Job rollout #40320593857 and API100 #40336305146. No other datasets, Owner writes, Scheduler or new paid resources, no auto-retry after ambiguous dispatch."
+  "purpose": "SEQ08 second bounded TPEx official price-index Core repair attempt after #40336566921 PREFLIGHT NOT_DISPATCHED; no Cloud Run write was performed. Script now records safe lease/preflight machine code and phase; pin c4605a84 four Dev Jobs rollout #40320593857 and API100 #40336305146. Never retry ambiguous POST or duplicate Core execution."
 }

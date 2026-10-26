@@ -114,10 +114,16 @@ def execute(path=REQUEST, receipt=RECEIPT) -> dict:
     dispatched = False
     safe = False
     try:
+        report["phase"] = "LEASE_ACQUIRE"
+        save()
         command(LEASE + ["acquire"])
         lease = True
+        report["phase"] = "EXISTING_WORKLOAD_FENCE"
+        save()
         command(LEASE + ["assert"])
         wait_for_terminal_executions(timeout=720)
+        report["phase"] = "PINNED_JOB_READBACK"
+        save()
         current = job(JOB)
         if not pinned(request["source_sha"], current):
             raise ValueError("tpex_benchmark_serving_ingestion_digest_drift")
@@ -188,12 +194,32 @@ def execute(path=REQUEST, receipt=RECEIPT) -> dict:
             report["lease_released"] = True
             save()
 
+def safe_failure_code(error: Exception) -> str:
+    """Expose only fixed machine patterns, never GCP command output or secrets."""
+    code = str(error)
+    if (isinstance(error, ValueError)
+            and re.fullmatch(r"[a-z][a-z0-9_]{3,90}", code)):
+        return code
+    if isinstance(error, RuntimeError) and (
+            re.fullmatch(r"bounded_release_lease_[a-z0-9_]{3,90}", code)
+            or re.fullmatch(r"bounded_command_failed_[a-z0-9_]{3,90}", code)
+            or re.fullmatch(r"cloud_control_http_[0-9]{3}", code)):
+        return code
+    return type(error).__name__
+
+
 if __name__ == "__main__":
     try:
         print(json.dumps(execute(), sort_keys=True), flush=True)
     except Exception as error:
+        reason = safe_failure_code(error)
+        try:
+            record = json.loads(RECEIPT.read_text())
+            record["failure_code"] = reason
+            record["result"] = "BLOCKED_OR_FAILED"
+            RECEIPT.write_text(json.dumps(record, sort_keys=True))
+        except (OSError, ValueError):
+            pass
         print(json.dumps({"status": "BLOCKED_OR_FAILED",
-                          "reason": str(error) if isinstance(error, ValueError)
-                          and re.fullmatch("[a-z0-9_]+", str(error)) else type(error).__name__,
-                          "no_auto_retry": True}), flush=True)
+                          "reason": reason, "no_auto_retry": True}), flush=True)
         sys.exit(78)

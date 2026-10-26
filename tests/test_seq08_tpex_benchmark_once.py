@@ -46,3 +46,10 @@ def test_exact_snapshot_metadata_without_fake_core(monkeypatch):
     bad=dict(proof,market_stock_ohlcv_writes=1)
     with pytest.raises(ValueError,match="new_core_fence_invalid"):
         module.snapshot(bad)
+
+def test_safe_error_receipt_filters_untrusted_strings():
+    assert module.safe_failure_code(RuntimeError("bounded_release_lease_held")) == "bounded_release_lease_held"
+    assert module.safe_failure_code(RuntimeError("bounded_command_failed_gh_run")) == "bounded_command_failed_gh_run"
+    assert module.safe_failure_code(RuntimeError("cloud_control_http_403")) == "cloud_control_http_403"
+    assert module.safe_failure_code(RuntimeError("token=secret123")) == "RuntimeError"
+    assert module.safe_failure_code(ValueError("seq08_tpex_benchmark_scope_denied")) == "seq08_tpex_benchmark_scope_denied"
