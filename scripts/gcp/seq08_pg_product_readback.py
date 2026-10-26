@@ -142,9 +142,9 @@ try:
                     str(symbol):{"present":True,"latest_trade_date":latest,
                                  "rank_present":rank_ready}
                     for symbol,latest,rank_ready in cur.fetchall()}
-proof["public_screening_membership"]={
-    stock:requested_public_screening.get(stock,{"present":False,"rank_present":False})
-    for stock in ("2330","2882")}
+    proof["public_screening_membership"]={
+        stock:requested_public_screening.get(stock,{"present":False,"rank_present":False})
+        for stock in ("2330","2882")}
     proof["full_market_screening_counts"]={
         "analysis_as_of":asof,"core_snapshot_id":snapshot,
         "screening_rows":int(total),"ranked_rows":int(ranked),
