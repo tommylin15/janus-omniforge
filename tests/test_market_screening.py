@@ -16,7 +16,7 @@ from intelligence_mart.runtime import AnalysisExecution
 
 def data():
     start = date(2026, 1, 1)
-    prices = [{"symbol": "2330", "source_id": "twse", "provenance_id": f"p{i}",
+    prices = [{"symbol": "2330", "market": "TWSE", "source_id": "twse", "provenance_id": f"p{i}",
                "observed_at": str(start + timedelta(days=i)), "trade_date": str(start + timedelta(days=i)),
                "close": 100 + i, "volume_shares": 1000, "turnover_twd": 10000} for i in range(121)]
     return {"ohlcv": prices, "benchmark": [dict(r, symbol=None, benchmark_id="TAIEX", close=100 + i / 2)
