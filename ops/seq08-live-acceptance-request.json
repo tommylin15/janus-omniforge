@@ -2,19 +2,19 @@
   "intent": "seq08-bounded-real-mart-acceptance",
   "approved": true,
   "scope": "existing-dev-one-intelligence-mart-job",
-  "source_sha": "462bd1c85708cb5bc4ce1877d35a3645ff9668d4",
-  "release_run": "40215268427",
-  "jobs_run": "40216332296",
-  "api_run": "40247497520",
+  "source_sha": "43543ac684f34341265069244b5507f51afd5cff",
+  "release_run": "40266792603",
+  "jobs_run": "40281342258",
+  "api_run": "40299267385",
   "registry_run": "40193843435",
-  "mart_operation": "deep-coverage",
+  "mart_operation": "market-screening",
   "job_runs_allowed": 1,
   "training_allowed": false,
   "llm_allowed": false,
   "owner_ledger_writes_allowed": false,
   "new_resources_allowed": false,
-  "purpose": "SEQ-08 final 462bd1 true Core deidentified owner-union Deep Coverage exactly once, AFTER real full-market Screening #40247788673 PASS; reuse PG seq08_quant_rank for current analysisAsOf/Core snapshot if available. Fixed 5 true XGB UBJs and GCS ACTIVE, not retrain, no new GCP resources, no Owner ledger writes/LLM. Exact real receipts then PG and 2330/2882 readback.",
-  "attempt": 4,
+  "purpose": "SEQ-08 verified source 43543 market calendar and 21/21 sessions for 2330 and 2882 after PG read-only #40299434731. One real existing Dev Mart Job market-screening on latest real immutable Core; GCS versioned screening artifact only, MART_PRODUCT_PROJECTION=false to preserve old 1,991-row PG screening snapshot. No rank fabrication, LLM, retrain, new resources, Owner writes or rerun on ambiguous status; output requires further GCS aggregate readback.",
+  "attempt": 5,
   "diagnostic_attempt": 1,
   "diagnostic_scope": "READ_ONLY_PRIOR_RECEIPT_AND_EXISTING_DEV_JOB_EXECUTIONS_NO_DISPATCH",
   "retry_after": {
@@ -25,5 +25,5 @@
     "lease_status": "ABSENT",
     "retry_constraint": "exactly_one_new_dispatch_if_preflight_passes"
   },
-  "screening_prior_successful_run": "40247788673"
+  "product_projection": false
 }

@@ -1,8 +1,9 @@
 """SEQ-08: one bounded existing-Dev Mart Job with real Core data and true ACTIVE models.
 
 No new resource, training, LLM call, Scheduler change, Owner ledger mutation or
-model rollback. The resulting immutable Mart/PG projection is a normal Dev
-workload; subsequent product readback must verify actual head predictions.
+model rollback. For market-screening against an unchanged Core snapshot, persist only new
+versioned GCS artifacts; the old immutable PostgreSQL product must not be
+replaced. An actual new-Core snapshot is required before PG publication.
 """
 from __future__ import annotations
 
@@ -16,10 +17,10 @@ import time
 import ghcr_jobs_rollout as jobs
 from ghcr_mcp_route import LEASE
 
-SOURCE = "462bd1c85708cb5bc4ce1877d35a3645ff9668d4"
-RELEASE_RUN = "40215268427"
-JOBS_RUN = "40216332296"
-API_RUN = "40247497520"
+SOURCE = "43543ac684f34341265069244b5507f51afd5cff"
+RELEASE_RUN = "40266792603"
+JOBS_RUN = "40281342258"
+API_RUN = "40299267385"
 REGISTRY_RUN = "40193843435"
 JOB = "janus-intelligence-mart"
 POINTER = "models/registry/seq08-four-models-active.json"
@@ -39,6 +40,7 @@ def authorize():
             or request.get("api_run") != API_RUN
             or request.get("registry_run") != REGISTRY_RUN
             or request.get("mart_operation") not in ("market-screening", "deep-coverage")
+            or request.get("product_projection") is not (request.get("mart_operation") == "deep-coverage")
             or request.get("job_runs_allowed") != 1
             or request.get("training_allowed") is not False
             or request.get("llm_allowed") is not False
@@ -90,7 +92,7 @@ def pointer_readback():
 
 
 def execute(receipt_file):
-    authorize()
+    request = authorize()
     for run, job in ((RELEASE_RUN, "release-verify"), (JOBS_RUN, "jobs-rollout"),
                      (API_RUN, "promote-api-only"),
                      (REGISTRY_RUN, "seq08-model-activation")):
@@ -101,7 +103,8 @@ def execute(receipt_file):
     if jobs.scheduler().get("state") != "ENABLED":
         raise ValueError("existing_dev_scheduler_not_enabled")
     receipt = {"phase": "PREFLIGHT", "source_sha": SOURCE, "job": JOB,
-               "mart_operation": authorize()["mart_operation"], "job_runs_allowed": 1,
+               "mart_operation": request["mart_operation"], "job_runs_allowed": 1,
+               "product_projection": request["product_projection"],
                "registry_mutations": 0, "owner_ledger_mutations": 0,
                "llm_calls": 0, "new_resources": 0}
     def save():
@@ -128,7 +131,7 @@ def execute(receipt_file):
             arguments = ["python", *arguments]
         override = {"args": arguments, "env": [
             {"name": "MART_OPERATION", "value": receipt["mart_operation"]},
-            {"name": "MART_PRODUCT_PROJECTION", "value": "true"},
+            {"name": "MART_PRODUCT_PROJECTION", "value": "true" if receipt["product_projection"] else "false"},
             {"name": "SCREENING_DATE", "value": "latest"}]}
         if container.get("name"):
             override["name"] = container["name"]

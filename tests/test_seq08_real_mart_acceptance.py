@@ -21,6 +21,7 @@ def request():
         "source_sha": real.SOURCE, "release_run": real.RELEASE_RUN,
         "jobs_run": real.JOBS_RUN, "api_run": real.API_RUN,
         "registry_run": real.REGISTRY_RUN, "mart_operation": "deep-coverage",
+        "product_projection": True,
         "job_runs_allowed": 1, "training_allowed": False, "llm_allowed": False,
         "owner_ledger_writes_allowed": False, "new_resources_allowed": False,
     }
@@ -32,7 +33,7 @@ def test_strict_existing_dev_single_workload(monkeypatch):
     assert real.authorize()["job_runs_allowed"] == 1
     for key, value in (
         ("approved", False), ("source_sha", "0"*40),
-        ("mart_operation","retrain"),
+        ("mart_operation","retrain"), ("product_projection", False),
         ("job_runs_allowed", 2), ("training_allowed", True),
         ("owner_ledger_writes_allowed", True), ("scope", "production"),
     ):
@@ -59,5 +60,10 @@ def test_two_separate_allowed_readback_operations(monkeypatch):
     for op in ("market-screening","deep-coverage"):
         data=request()
         data["mart_operation"]=op
+        data["product_projection"]=(op=="deep-coverage")
         monkeypatch.setattr(real.Path,"read_text",lambda *_, _data=data, **kw: json.dumps(_data))
         assert real.authorize()["mart_operation"]==op
+        assert real.authorize()["product_projection"] is (op=="deep-coverage")
+        data["product_projection"] = not data["product_projection"]
+        with pytest.raises(ValueError):
+            real.authorize()
