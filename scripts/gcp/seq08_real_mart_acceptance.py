@@ -16,10 +16,10 @@ import time
 import ghcr_jobs_rollout as jobs
 from ghcr_mcp_route import LEASE
 
-SOURCE = "a2881c5c2532beb5570e29a1fda4472c7bb0d448"
-RELEASE_RUN = "40184318031"
-JOBS_RUN = "40184957380"
-API_RUN = "40192646498"
+SOURCE = "462bd1c85708cb5bc4ce1877d35a3645ff9668d4"
+RELEASE_RUN = "40215268427"
+JOBS_RUN = "40216332296"
+API_RUN = "40247497520"
 REGISTRY_RUN = "40193843435"
 JOB = "janus-intelligence-mart"
 POINTER = "models/registry/seq08-four-models-active.json"
@@ -38,7 +38,7 @@ def authorize():
             or request.get("jobs_run") != JOBS_RUN
             or request.get("api_run") != API_RUN
             or request.get("registry_run") != REGISTRY_RUN
-            or request.get("mart_operation") != "deep-coverage"
+            or request.get("mart_operation") not in ("market-screening", "deep-coverage")
             or request.get("job_runs_allowed") != 1
             or request.get("training_allowed") is not False
             or request.get("llm_allowed") is not False
@@ -101,7 +101,7 @@ def execute(receipt_file):
     if jobs.scheduler().get("state") != "ENABLED":
         raise ValueError("existing_dev_scheduler_not_enabled")
     receipt = {"phase": "PREFLIGHT", "source_sha": SOURCE, "job": JOB,
-               "mart_operation": "deep-coverage", "job_runs_allowed": 1,
+               "mart_operation": authorize()["mart_operation"], "job_runs_allowed": 1,
                "registry_mutations": 0, "owner_ledger_mutations": 0,
                "llm_calls": 0, "new_resources": 0}
     def save():
@@ -127,8 +127,9 @@ def execute(receipt_file):
         if not command:
             arguments = ["python", *arguments]
         override = {"args": arguments, "env": [
-            {"name": "MART_OPERATION", "value": "deep-coverage"},
-            {"name": "MART_PRODUCT_PROJECTION", "value": "true"}]}
+            {"name": "MART_OPERATION", "value": receipt["mart_operation"]},
+            {"name": "MART_PRODUCT_PROJECTION", "value": "true"},
+            {"name": "SCREENING_DATE", "value": "latest"}]}
         if container.get("name"):
             override["name"] = container["name"]
         receipt["phase"] = "DISPATCH_REQUESTED_OUTCOME_UNKNOWN"
