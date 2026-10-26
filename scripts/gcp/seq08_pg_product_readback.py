@@ -153,6 +153,35 @@ try:
         "latest_session_row_count":int(on_latest),
         "latest_trade_date":latest_day,
         "private_symbols_exposed":False}
+    # Recompute only the two explicitly requested public stocks' *input*
+    # gates with deployed source; never infer full-market percentiles from 2 stocks.
+    from intelligence_mart.market_screening import market_features
+    from intelligence_mart.specialists import validated_inputs,price_series
+    public_market_gates={}
+    for public_symbol in ("2330","2882"):
+        raw_price_rows=[row for row in stock_data.datasets.get("ohlcv",())
+                        if str(row.get("symbol"))==public_symbol]
+        try:
+            feature_row=market_features(stock_data.datasets,(public_symbol,),
+                                        asof,snapshot,rank=False)[0]
+            valid,_,rejected=validated_inputs(stock_data.datasets,public_symbol,asof,snapshot)
+            accepted_prices=price_series(valid.get("ohlcv",()))
+            benchmark_dates=sorted({str(row.get("trade_date",""))[:10]
+                                    for row in valid.get("benchmark",())
+                                    if row.get("trade_date")})
+            public_market_gates[public_symbol]={
+                "gate":feature_row.get("seq08_quant_rank_gate"),
+                "latest_trade_date":feature_row.get("latest_trade_date"),
+                "core_ohlcv_rows":len(raw_price_rows),
+                "accepted_stock_sessions":len(accepted_prices),
+                "accepted_all_benchmark_sessions":len(benchmark_dates),
+                "latest_accepted_benchmark_session":benchmark_dates[-1] if benchmark_dates else None,
+                "rejected_evidence_count":len(rejected),
+                "read_only":True}
+        except (KeyError,ValueError,TypeError) as gate_error:
+            public_market_gates[public_symbol]={
+                "status":"BLOCKED","reason_type":type(gate_error).__name__}
+    proof["public_market_rank_input_gates"]=public_market_gates
     analyst=build(stock_data.datasets,("2330","2882"),asof,snapshot,market_rank=ranks)
     class LocalOnlyCache:
         def __init__(self,bucket):
