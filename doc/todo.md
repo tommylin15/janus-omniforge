@@ -1,5 +1,13 @@
 # Janus — 唯一 Active TODO
 
+## SEQ-08 交易日修正集中部署最新進度（2026-10-26；取代下方進行中快照）
+
+- **四 Job 新版 Rollout PASS**：[GitHub #40281342258](https://github.com/tommylin15/janus-omniforge/actions/runs/40281342258) completed/success，`jobs-rollout` success、81 tests、`ghcr-jobs-rollout-receipt` Artifact 12633431449；發布 immutable model/calendar source `43543ac684f34341265069244b5507f51afd5cff`，沿用五份真權重，沒有 legacy model fallback。
+- **API 新版 100% PASS**：[GitHub #40299267385](https://github.com/tommylin15/janus-omniforge/actions/runs/40299267385) `promote-api-only` completed/success，51 tests、`ghcr-api-only-promotion-receipt` Artifact 12639646884；既有 Dev API direct promotion，不變更四 Job/Scheduler/Owner／IAM。
+- **先前 #40282426306 為假陽性風險，已正名**：[GitHub #40282426306](https://github.com/tommylin15/janus-omniforge/actions/runs/40282426306) workflow completed/success，但僅 `inventory` job success，`seq08-pg-product-readback` = **skipped**，原因是 request commit message 不符合 `startsWith('ops(seq08): verify exact PostgreSQL product projection')` gate。不能拿其成功取代 Core/PG 正向驗收。
+- **新版 Core／PG 真讀回已重新觸發**：[GitHub #40299434731](https://github.com/tommylin15/janus-omniforge/actions/runs/40299434731) 以精確 commit prefix 觸發同一既有 Dev Mart Job 的一次 SELECT＋公開 2330/2882 in-memory feature gate；任務進入 `seq08-pg-product-readback`，結果在最終收據讀回前仍 `PENDING`。現有 immutable 2026-10-26 Core/PG snapshot `sha256:544970f64e6dd965ca6cf57786a120f3eb39ffeddacd6255bdcc373ade74ffd3` 不重寫、不補 10/26 休市日假股價；診斷的 21 sessions 已同步排除休市日與其他市場指數。新同源真模型 ranking/GCS/PG 與 Owner UI 正向仍待實際 readback，不以 PG舊資料成功冒充新版排名。
+- **下一關**：核對 #40299434731 的真 Rank input gate；若 Core 仍無新的有效 immutable snapshot，不能覆寫同 `analysis_as_of + core_snapshot_id + symbol` PG 1,991筆舊 Screening；新 Core available 後跑全市場 Screening → Deep Coverage → 四模型 GCS／PG report／Owner history。Janus Dev MCP 仍 internal error 且無可用 Owner browser session，Owner 登入 UI = `NOT_VERIFIED`。整體 `SEQ-08 LIVE_PARTIAL`。
+
 ## SEQ-08 休市日校正與 Dev 新版驗收（2026-10-26 下午）
 
 - **已核對技術根因**：既有 Core 2026-10-26 snapshot 的 2330／2882 21 market-session 輸入被 2026-09-25 休市日佔位，10/23 與 10/26 亦為 2026 年已確認閉市日期；參考 `jobs/intelligence-mart/intelligence_mart/market_sessions.py` 與 [舊 Core PG 真資料 #40265638862](https://github.com/tommylin15/janus-omniforge/actions/runs/40265638862)。目前 Core 不應造出 10/26 的不存在 EOD；正確市場日窗口排除閉市日、對同市場選 21 個真 session（20 段報酬），不補價也不偽造排名。
