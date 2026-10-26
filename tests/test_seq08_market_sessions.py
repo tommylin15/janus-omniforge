@@ -80,9 +80,10 @@ def test_quant_full_market_21_sessions_ends_at_core_day_not_newer_index_day():
     from intelligence_mart.market_screening import market_features
 
     cutoff = date(2026, 10, 22)
+    from intelligence_mart.market_sessions import verified_stock_market_day
     days = [(cutoff - timedelta(days=offset)).isoformat()
-            for offset in range(44, -1, -1)
-            if (cutoff - timedelta(days=offset)).weekday() < 5][-21:]
+            for offset in range(70, -1, -1)
+            if verified_stock_market_day((cutoff - timedelta(days=offset)).isoformat())][-21:]
     assert len(days) == 21 and days[-1] == "2026-10-22"
     def bar(sym, day, idx):
         return {"symbol": sym, "market": "TWSE", "trade_date": day,
@@ -98,7 +99,7 @@ def test_quant_full_market_21_sessions_ends_at_core_day_not_newer_index_day():
         {"symbol": None, "benchmark_id": "TAIEX", "index_kind": "price",
          "trade_date": day, "observed_at": day, "source_id": "twse",
          "provenance_id": "index-" + day, "close": 120 + i}
-        for i, day in enumerate(days + ["2026-10-23"])
+        for i, day in enumerate(days + ["2026-09-25", "2026-10-23"])
     ]
     # An extra benchmark session (even though it is newer than the Core
     # stock cohort) cannot invalidate the already observed 10/22 window.
@@ -155,3 +156,23 @@ def test_risk_session_alignment_requires_verified_public_cohort_rank():
                          ("source", "owner_eight_stock_rank")]:
         assert not verified_market_rank({**proof, key: invalid}, **ctx)
     assert not verified_market_rank(None, **ctx)
+
+
+def test_verified_2026_exchange_closures_rejected_for_both_roles():
+    from intelligence_mart.market_sessions import verified_stock_market_day
+    # 09/25 official Mid-Autumn holiday, 10/23 typhoon shutdown,
+    # 10/26 restoration-day observed holiday. None can be an index session.
+    for closed in ("2026-09-25","2026-09-28","2026-10-09",
+                   "2026-10-23","2026-10-26","2026-10-25"):
+        assert not verified_stock_market_day(closed)
+    assert verified_stock_market_day("2026-10-22")
+    assert verified_stock_market_day("2026-09-24")
+    assert not verified_stock_market_day("not-a-date")
+
+
+def test_no_synthetic_quant_rank_when_stock_mislabeled_as_closed_day():
+    from intelligence_mart.market_screening import rank_features
+    stale=[sample(i,"twse","2026-09-25",float(i),"2026-09-25")
+           for i in range(110)]
+    output=rank_features(stale,"2026-09-25")
+    assert all(row["seq08_quant_rank"] is None for row in output)
