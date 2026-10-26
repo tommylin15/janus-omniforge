@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "91bab6d685cea365f550b6c7603fa97f0109cb1d",
-  "purpose": "SEQ-08 final consolidated Release: includes latest eligible stock/market session Quant/Risk reader AND full-market Screening same-asof weekend guard, with 7-day maximum freshness and >=100 same-market cohort; test #40215226660 requested. Supersedes interim release #40214963397 which did not include final screening gate and is NOT authorized for Dev rollout. Full Python/Flutter GHCR publish on this request commit only; no GCP writes until subsequent controlled staging.",
+  "sha": "dd75bf74f2107435a0c6d6978e297c1f2102350e",
+  "purpose": "SEQ-08 2026-10-26 Quant 21-session full-market Core/benchmark alignment, Risk12 valid missing and Fundamental missing explanations: explicit full Python/Flutter GHCR release only. Triggering ops commit is the exact build SOURCE SHA; no GCP API traffic or four-Job changes until succeeding explicit gated steps. Four previously approved five-head model UBJs stay unchanged. No new GCP resources or recurring work.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 20
+  "request_attempt": 21
 }
