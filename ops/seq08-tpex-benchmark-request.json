@@ -1,7 +1,7 @@
 {
   "intent": "seq08-official-tpex-price-benchmark-only",
   "approved": true,
-  "apply": false,
+  "apply": true,
   "scope": "existing-dev-ingestion-one-job",
   "months": [
     "2026-09",
@@ -15,8 +15,8 @@
   "job_template_mutation_allowed": false,
   "scheduler_mutation_allowed": false,
   "retraining_allowed": false,
-  "source_sha": "0000000000000000000000000000000000000000",
-  "release_run": "000000",
-  "jobs_run": "000000",
-  "purpose": "SEQ-08 official monthly OTC price-index only, parse/write frozen 2026-09/10 TWSE-independent benchmark and create new Core snapshot; queued only after targeted tests, full GHCR release and four existing Jobs rollout."
+  "source_sha": "c4605a84eb46257cbf628b33e2156ebc01f5b9ac",
+  "release_run": "40319442822",
+  "jobs_run": "40320593857",
+  "purpose": "SEQ08 bounded one existing Dev ingestion Cloud Run Job to fetch official TPEx price index only 2026-09/01 through 2026-10/22, write real Stage and Iceberg Core benchmark, mint new immutable Core snapshot and independently read back its identity; gate on full release #40319442822, four Job rollout #40320593857 and API100 #40336305146. No other datasets, Owner writes, Scheduler or new paid resources, no auto-retry after ambiguous dispatch."
 }
