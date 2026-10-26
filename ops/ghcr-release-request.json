@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "f00ea4ed49e4056556aa1e9059579163b7f88b7e",
-  "purpose": "SEQ-08 verified 2026 TWSE/TPEx closed-session market calendar feature fix; direct Core readback #40265638862 found benchmark phantom 2026-09-25 (official Mid-Autumn holiday) in 2330 and 2882 last-21 sessions, plus 10/23 typhoon closure. Full product CI #40266550876 and selective #40266550908 PASS. Release full Python Flutter 4 GHCR immutable digests only, no Dev runtime mutation until follow-up gates. Five true UBJ model artifacts and Registry unchanged.",
+  "sha": "883373c4ec33803d29576589cf6e0682a2595521",
+  "purpose": "SEQ-08 official TPEx price benchmark Core repair: immutable Stage / Core benchmark only for 2026-09 and 2026-10 through 10/22, new genuine Core snapshot, then Screening/Deep Coverage/PG positive acceptance. Official parser and scoped existing Dev one-shot #40319257917 offline PASS; existing market-history monthly path now records TPEx price index too. Full fixed GHCR four images with five existing model UBJs unchanged; no new GCP resources, API traffic, scheduler or IAM mutations at Release.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": false,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 22
+  "request_attempt": 23
 }
