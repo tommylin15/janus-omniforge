@@ -1,5 +1,22 @@
 # Janus 最新驗收證據索引
 
+## 2026-10-26 SEQ-08 已驗證最終部署（歷史 10/25 記錄仍保留、以此較新狀態為準）
+
+| 階段 | Artifact / Workflow | 本次實際狀態 |
+|---|---|---|
+| 固定新版 source | `462bd1c85708cb5bc4ce1877d35a3645ff9668d4` | Quant/Risk 非交易日最新有效市場交易日(≤7d)與整體 Screening v3同市場≥100 cohort；五 UBJ 不變 |
+| 完整 GHCR 同版發布 | [#40215268427](https://github.com/tommylin15/janus-omniforge/actions/runs/40215268427) | full Python/Flutter/4 digests PASS |
+| 舊 Job image/config 唯讀基線 | [#40215440753](https://github.com/tommylin15/janus-omniforge/actions/runs/40215440753) | 4/4 來源舊版 `a2881c5c...`；GCP 寫入0 |
+| API 0% candidate | [#40215944127](https://github.com/tommylin15/janus-omniforge/actions/runs/40215944127) | PASS |
+| Auth negative / OAuth | [#40216220752](https://github.com/tommylin15/janus-omniforge/actions/runs/40216220752) | PASS，不等於 Owner 正向登入 |
+| 四 Dev Jobs 固定 digest rollout | [#40216332296](https://github.com/tommylin15/janus-omniforge/actions/runs/40216332296) | `jobs-rollout` completed/success；`{"result":"PASS"}`，receipt artifact #12607933703 |
+| Dev API 100% fixed source | [#40247497520](https://github.com/tommylin15/janus-omniforge/actions/runs/40247497520) | `promote-api-only` completed/success；未改Jobs、Storage、Owner或IAM |
+| 真實全市場 Screening | [#40247788673](https://github.com/tommylin15/janus-omniforge/actions/runs/40247788673) | 已觸發既有 Mart Job 的有界 `market-screening`，目前仍 `in_progress`，尚無終態 |
+| 新真 Core Deep Coverage + PG + 2330/2882 | — | **NOT_YET_VERIFIED**；前輪 10/25 的 Quant0/8、Risk0/8 舊收據不能作新版缺陷修正成果 |
+| Owner 正向登入新版 UI | — | **NOT_VERIFIED**；歷史畫面不可證明新版模型結果；MCP read-only 目前 internal error |
+
+本次 user-approved 模型替換不重新徵求發布權；GCS 五頭正式 Registry沿用 [#40193843435](https://github.com/tommylin15/janus-omniforge/actions/runs/40193843435) 已驗證 create-only，沒有重建或換權重。後續唯一入口：Screening 執行結果 → 有界 Deep Coverage → 原子不可變 Mart 產物／PG實際讀回 → 公共股票 2330／2882 → Owner授權 UI；若資料缺值維持 partial，不以 CI／workflow green 替代實際數值。
+
 ## 2026-10-25 SEQ-08 真實 Mart 讀回與非交易日根因／離線修復
 
 - **固定前輪線上映像**：`a2881c5c2532beb5570e29a1fda4472c7bb0d448`；五真 UBJ GCS/Registry ACTIVE [#40193843435](https://github.com/tommylin15/janus-omniforge/actions/runs/40193843435) PASS、四既有 Dev Jobs [#40184957380](https://github.com/tommylin15/janus-omniforge/actions/runs/40184957380) PASS、API100 [#40192646498](https://github.com/tommylin15/janus-omniforge/actions/runs/40192646498) PASS。
