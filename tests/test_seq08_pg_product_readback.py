@@ -61,6 +61,7 @@ def test_public_two_stock_inline_probe_compiles_and_is_cache_only():
     assert "from intelligence_mart.market_sessions import verified_stock_market_day" in probe.PROBE
     assert "if verified_stock_market_day(day)" in probe.PROBE
     assert 'verified_stock_market_day(row.get("trade_date"))' in probe.PROBE
+    assert "benchmark_dates=sorted(market_benchmark)" in probe.PROBE
 
     assert "public_market_rank_input_gates" in probe.PROBE
     assert "rank=False" in probe.PROBE
