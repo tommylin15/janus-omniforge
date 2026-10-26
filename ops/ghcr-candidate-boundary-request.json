@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "43543ac684f34341265069244b5507f51afd5cff",
+  "sha": "c4605a84eb46257cbf628b33e2156ebc01f5b9ac",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "SEQ-08 revised verified TWSE/TPEx closed-session market calendar: full release #40266792603 SUCCESS, API candidate at 0% #40267268006 SUCCESS. Only OAuth/PKCE plus owner/admin/MCP unauthenticated negative boundaries, no GCP mutation, no Owner signed-in acceptance.",
-  "request_attempt": 12
+  "purpose": "SEQ08 new official TPEx benchmark release #40319442822 PASS and 0% API GHCR candidate #40320190614 PASS. Read-only OAuth/PKCE/Owner Admin private-route negative boundaries, no GCP mutation, no Owner positive-login claim.",
+  "request_attempt": 13
 }
