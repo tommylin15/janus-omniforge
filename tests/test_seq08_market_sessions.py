@@ -72,3 +72,53 @@ def test_screening_accepts_recent_market_day_but_not_missing_or_stale():
     assert not eligible_screening_market_date("2026-10-31", "2026-10-22")
     assert not eligible_screening_market_date("2026-10-25", None)
     assert not eligible_screening_market_date("2026-10-25", "invalid")
+
+
+def test_quant_full_market_21_sessions_ends_at_core_day_not_newer_index_day():
+    """Only Core price points inside 21 same-market benchmark sessions count."""
+    from datetime import date, timedelta
+    from intelligence_mart.market_screening import market_features
+
+    cutoff = date(2026, 10, 22)
+    days = [(cutoff - timedelta(days=offset)).isoformat()
+            for offset in range(44, -1, -1)
+            if (cutoff - timedelta(days=offset)).weekday() < 5][-21:]
+    assert len(days) == 21 and days[-1] == "2026-10-22"
+    def bar(sym, day, idx):
+        return {"symbol": sym, "market": "TWSE", "trade_date": day,
+                "observed_at": day, "source_id": "twse",
+                "provenance_id": f"stock-{sym}-{day}", "close": 100 + idx,
+                "volume_shares": 1000, "turnover_twd": 100_000}
+    symbols = [str(i + 1000) for i in range(101)]
+    ohlcv = [bar(sym, day, i) for sym in symbols for i, day in enumerate(days)]
+    # One held-like ticker misses a market day, and may not borrow a stock-row
+    # session (or a rank) from the rest of the public cohort.
+    ohlcv.extend(bar("missing", day, i) for i, day in enumerate(days) if i != 10)
+    benchmark = [
+        {"symbol": None, "benchmark_id": "TAIEX", "index_kind": "price",
+         "trade_date": day, "observed_at": day, "source_id": "twse",
+         "provenance_id": "index-" + day, "close": 120 + i}
+        for i, day in enumerate(days + ["2026-10-23"])
+    ]
+    # An extra benchmark session (even though it is newer than the Core
+    # stock cohort) cannot invalidate the already observed 10/22 window.
+    rows = market_features({"ohlcv": ohlcv, "benchmark": benchmark},
+                           symbols + ["missing"], "2026-10-26", "fixed")
+    ranked = {row["symbol"]: row for row in rows}
+    assert sum(row["seq08_quant_rank"] is not None for row in rows) == 101
+    assert ranked[symbols[0]]["seq08_quant_rank"]["source_trade_date"] == "2026-10-22"
+    assert ranked[symbols[0]]["seq08_quant_rank"]["cohort_size"] == 101
+    assert ranked[symbols[0]]["seq08_quant_rank_gate"] == "ranked"
+    assert ranked["missing"]["seq08_quant_rank"] is None
+    assert ranked["missing"]["seq08_quant_rank_gate"] == "core_stock_21_sessions_incomplete"
+
+
+def test_rank_failure_keeps_specific_input_gate_when_benchmark_has_no_21_sessions():
+    from intelligence_mart.market_screening import market_features
+    row = {"symbol": "2330", "market": "TWSE", "trade_date": "2026-10-22",
+           "observed_at": "2026-10-22", "source_id": "twse",
+           "provenance_id": "stock-2330", "close": 100}
+    result = market_features({"ohlcv": [row], "benchmark": []},
+                             ("2330",), "2026-10-26", "fixed")
+    assert result[0]["seq08_quant_rank"] is None
+    assert result[0]["seq08_quant_rank_gate"] == "benchmark_21_sessions_missing"

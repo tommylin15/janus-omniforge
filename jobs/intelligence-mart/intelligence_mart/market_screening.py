@@ -13,7 +13,7 @@ from .facts import _change, canonical_json
 from .runtime import _fenced_core_manifest, _write_immutable_json
 from .specialists import digest, number, price_series, screening, screening_quality, validated_inputs
 
-VERSION = "market-screening-v3-holiday-snapshot"
+VERSION = "market-screening-v4-seq08-core-benchmark-aligned"
 TABLES = ("core.ohlcv_v1", "core.benchmark_v1", "core.valuation_v1")
 # Keep every field used by source/PIT validation; omit heavy payloads and unrelated features.
 COMMON = ("symbol", "source_id", "provenance_id", "observed_at", "trade_date", "quality_flag",
@@ -51,7 +51,19 @@ def market_features(datasets, symbols, as_of, snapshot, *, rank=True):
         row = screening(scoped, (symbol,), as_of, snapshot)[0]
         valid, evidence, rejected = validated_inputs(scoped, symbol, as_of, snapshot)
         prices = price_series(valid.get("ohlcv", []))
-        benchmark = price_series(valid.get("benchmark", []))
+        # Restrict the benchmark to the actual stock market and price index.
+        # A newer benchmark-only date must not shift the Core OHLCV return window.
+        market_rows = valid.get("ohlcv", [])
+        accepted_markets = {str(r.get("market", "")).lower() for r in market_rows
+                            if r.get("market")}
+        accepted_market = next(iter(accepted_markets)) if len(accepted_markets) == 1 else None
+        benchmark_id = {"twse": "TAIEX", "tpex": "TPEx"}.get(accepted_market)
+        benchmark_rows = [
+            r for r in valid.get("benchmark", [])
+            if benchmark_id and str(r.get("benchmark_id", "")).casefold() == benchmark_id.casefold()
+            and str(r.get("index_kind") or "price").lower() == "price"
+        ]
+        benchmark = price_series(benchmark_rows)
         days = list(prices)
         values = list(prices.values())
         returns = [b / a - 1 for a, b in zip(values[-21:], values[-20:])] if len(values) >= 21 else []
@@ -72,20 +84,30 @@ def market_features(datasets, symbols, as_of, snapshot, *, rank=True):
         # SEQ08 Quant15 training used same-market / same-day pct_rank(ret20).
         # Only calculate if the last 21 *market* sessions are all observed for
         # this ordinary symbol; do not substitute nth stock row after a halt.
-        accepted_markets = {str(r.get("market", "")).lower() for r in valid.get("ohlcv", [])
-                            if r.get("market")}
-        accepted_market = next(iter(accepted_markets)) if len(accepted_markets) == 1 else None
-        sessions_21 = list(benchmark)[-21:]
+        # 20 market returns require 21 same-market index sessions ending on the
+        # last observed Core stock date, not the later calendar analysis date.
+        # The full-market cohort gate below rejects halted/stale single stocks.
         research_ret20 = None
         last_trade = str(row.get("latest_trade_date") or "")
         freshness = ((date.fromisoformat(as_of) - date.fromisoformat(last_trade)).days
                      if last_trade else -1)
-        if (accepted_market in ("twse", "tpex") and len(sessions_21) == 21
-                and sessions_21[-1] == last_trade and 0 <= freshness <= 7
-                and all(day in prices for day in sessions_21)):
-            start, end = prices[sessions_21[0]], prices[sessions_21[-1]]
-            if start > 0 and end > 0:
-                research_ret20 = end / start - 1
+        sessions_21 = [day for day in benchmark if day <= last_trade][-21:]
+        if accepted_market not in ("twse", "tpex"):
+            gate = "market_unresolved"
+        elif not 0 <= freshness <= 7:
+            gate = "stock_session_missing_or_stale"
+        elif len(sessions_21) < 21:
+            gate = "benchmark_21_sessions_missing"
+        elif sessions_21[-1] != last_trade:
+            gate = "benchmark_core_end_date_mismatch"
+        elif not all(day in prices for day in sessions_21):
+            gate = "core_stock_21_sessions_incomplete"
+        elif prices[sessions_21[0]] <= 0 or prices[sessions_21[-1]] <= 0:
+            gate = "core_stock_nonpositive_price"
+        else:
+            research_ret20 = prices[sessions_21[-1]] / prices[sessions_21[0]] - 1
+            gate = "ready_for_same_market_rank"
+        row["seq08_quant_rank_gate"] = gate
         row["seq08_quant_rank_input"] = {
             "market": accepted_market, "ret20": research_ret20,
             "core_snapshot_id": str(snapshot), "analysis_as_of": as_of}
@@ -128,13 +150,22 @@ def rank_features(output, as_of):
         item = row.pop("seq08_quant_rank_input", {})
         cohort = cohorts.get(item.get("market"), [])
         value = number(item.get("ret20"))
-        if (value is None or len(cohort) < 100
-                or row.get("latest_trade_date") != sessions.get(item.get("market"))):
+        if value is None:
             row["seq08_quant_rank"] = None
+            row.setdefault("seq08_quant_rank_gate", "ret20_input_missing")
+            continue
+        if row.get("latest_trade_date") != sessions.get(item.get("market")):
+            row["seq08_quant_rank"] = None
+            row["seq08_quant_rank_gate"] = "not_latest_market_core_session"
+            continue
+        if len(cohort) < 100:
+            row["seq08_quant_rank"] = None
+            row["seq08_quant_rank_gate"] = "same_market_cohort_below_100"
             continue
         below = sum(v < value for _, v in cohort)
         ties = sum(v == value for _, v in cohort)
         percentile = (below + (ties + 1) / 2) / len(cohort)
+        row["seq08_quant_rank_gate"] = "ranked"
         row["seq08_quant_rank"] = {
             "market": item["market"], "value": percentile,
             "cohort_size": len(cohort),
@@ -197,7 +228,17 @@ def read_market_chunks(reader, inputs, symbols, as_of, snapshot, *, risk_model=N
         }
         if sum(telemetry["risk_exclusion_reasons"].values()) != telemetry["risk_excluded_target_count"]:
             raise ValueError("risk target accounting mismatch")
-    return rank_features(rows, as_of), telemetry
+    ranked = rank_features(rows, as_of)
+    gates = {}
+    for item in ranked:
+        gate = item.get("seq08_quant_rank_gate", "unknown")
+        gates[gate] = gates.get(gate, 0) + 1
+    telemetry["seq08_quant_rank"] = {
+        "ranked_rows": gates.get("ranked", 0),
+        "gate_counts": dict(sorted(gates.items())),
+        "basis": "21_same_market_benchmark_sessions_ending_at_latest_core_cohort_date",
+    }
+    return ranked, telemetry
 
 
 

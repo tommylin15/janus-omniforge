@@ -254,8 +254,11 @@ def _research_rows(datasets: dict[str, list[dict[str, Any]]], as_of: date, *,
     markets = {str(row.get("market", "TWSE")).upper() for row in result.get("ohlcv", [])}
     benchmark = "TPEx" if markets == {"TPEX"} else "TAIEX" if markets <= {"TWSE"} else None
     if benchmark and "benchmark" in result:
-        result["benchmark"] = [row for row in result["benchmark"] if row.get("benchmark_id") == benchmark
-                               and row.get("index_kind", "price") == "price"]
+        result["benchmark"] = [
+            row for row in result["benchmark"]
+            if str(row.get("benchmark_id", "")).casefold() == benchmark.casefold()
+            and str(row.get("index_kind") or "price").lower() == "price"
+        ]
     symbols = {str(row["symbol"]) for rows in result.values() for row in rows if row.get("symbol")}
     if any(len(rows) > 5000 * max(1, len(symbols)) for rows in result.values()):
         raise ValueError("research scope exceeds bounded dataset row limit")
