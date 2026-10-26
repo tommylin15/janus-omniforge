@@ -122,7 +122,8 @@ try:
             conn.execute("SET LOCAL statement_timeout='25000ms'")
             with conn.cursor() as cur:
                 cur.execute("""SELECT COUNT(*),
-                                 COUNT(*) FILTER (WHERE payload_json->'seq08_quant_rank' IS NOT NULL),
+                                 COUNT(*) FILTER (WHERE jsonb_typeof(payload_json->'seq08_quant_rank')='object'),
+                             COUNT(*) FILTER (WHERE jsonb_typeof(payload_json->'seq08_quant_rank')='null'),
                                  COUNT(*) FILTER (WHERE payload_json->>'latest_trade_date'=
                                      (SELECT MAX(payload_json->>'latest_trade_date')
                                       FROM private.market_screening_product
@@ -131,9 +132,9 @@ try:
                                FROM private.market_screening_product
                                WHERE analysis_as_of=%s AND core_snapshot_id=%s""",
                             (asof,snapshot,asof,snapshot))
-                total,ranked,on_latest,latest_day=cur.fetchone()
+                total,ranked,json_null_count,on_latest,latest_day=cur.fetchone()
                 cur.execute("""SELECT symbol,payload_json->>'latest_trade_date',
-                                      (payload_json->'seq08_quant_rank') IS NOT NULL
+                                      jsonb_typeof(payload_json->'seq08_quant_rank')='object'
                                FROM private.market_screening_product
                                WHERE analysis_as_of=%s AND core_snapshot_id=%s
                                      AND symbol=ANY(%s)""",
@@ -148,6 +149,7 @@ try:
     proof["full_market_screening_counts"]={
         "analysis_as_of":asof,"core_snapshot_id":snapshot,
         "screening_rows":int(total),"ranked_rows":int(ranked),
+        "json_null_rank_count":int(json_null_count),
         "latest_session_row_count":int(on_latest),
         "latest_trade_date":latest_day,
         "private_symbols_exposed":False}
