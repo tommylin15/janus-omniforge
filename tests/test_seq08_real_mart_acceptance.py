@@ -32,6 +32,7 @@ def test_strict_existing_dev_single_workload(monkeypatch):
     assert real.authorize()["job_runs_allowed"] == 1
     for key, value in (
         ("approved", False), ("source_sha", "0"*40),
+        ("mart_operation","retrain"),
         ("job_runs_allowed", 2), ("training_allowed", True),
         ("owner_ledger_writes_allowed", True), ("scope", "production"),
     ):
@@ -52,3 +53,11 @@ def test_reject_unverified_workflow_job(monkeypatch):
     data["conclusion"] = "failure"
     with pytest.raises(ValueError):
         real.successful(real.JOBS_RUN, "jobs-rollout")
+
+
+def test_two_separate_allowed_readback_operations(monkeypatch):
+    for op in ("market-screening","deep-coverage"):
+        data=request()
+        data["mart_operation"]=op
+        monkeypatch.setattr(real.Path,"read_text",lambda *_, _data=data, **kw: json.dumps(_data))
+        assert real.authorize()["mart_operation"]==op
