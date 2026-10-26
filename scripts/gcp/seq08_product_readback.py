@@ -15,8 +15,9 @@ import tempfile
 
 PROJECT = "gen-lang-client-0593591102"
 BUCKET = PROJECT + "-dev-mart"
-RUN = "40300491771"
-SOURCE = "43543ac684f34341265069244b5507f51afd5cff"
+RUN = "40339115367"
+SOURCE = "c4605a84eb46257cbf628b33e2156ebc01f5b9ac"
+EXPECTED_CORE_SNAPSHOT_ID = "sha256:5d741c0b8804322e87cf7bd4c1a4c04be3244e36e000a216d0fc07912596166a"
 EXPECTED_ROLES = ("quant", "risk", "fundamental", "valuation")
 SAMPLES = ("2330", "2882")
 MAX_BYTES = 8 * 1024 * 1024
@@ -33,7 +34,7 @@ def require_request(data):
     if data != {
         "intent": "seq08-exact-real-mart-product-readonly",
         "source_sha": SOURCE, "successful_mart_run": RUN,
-        "symbols": list(SAMPLES), "diagnostic_attempt": 5, "read_only": True,
+        "symbols": list(SAMPLES), "diagnostic_attempt": 6, "read_only": True,
         "no_gcp_mutation": True, "no_owner_mutation": True,
         "no_new_resources": True
     }:
@@ -233,7 +234,7 @@ def readback_market_screening(execution_id, cloud_execution):
             or not isinstance(rows, list)
             or not isinstance(telemetry, dict)
             or not isinstance(identity.get("analysis_as_of"), str)
-            or not identity.get("core_snapshot_id")):
+            or identity.get("core_snapshot_id") != EXPECTED_CORE_SNAPSHOT_ID):
         raise ValueError("market_screening_artifact_hash_or_identity_invalid")
     gates = Counter(str(row.get("seq08_quant_rank_gate", "unknown")) for row in rows)
     if (dict(gates) != telemetry.get("gate_counts")
@@ -274,7 +275,7 @@ def readback_market_screening(execution_id, cloud_execution):
                 "market": rank.get("market") if isinstance(rank, dict) else None,
             }
     return {
-        "scope": "EXACT_ONE_GCS_ONLY_MARKET_SCREENING_READBACK",
+        "scope": "EXACT_ONE_NEW_CORE_PG_PROJECTED_SCREENING_GCS_READBACK",
         "status": "RANK_READY_PASS" if gates.get("ranked", 0) >= 100
                   else "RANK_NOT_READY_PARTIAL",
         "cloud_run_execution": cloud_execution,
@@ -289,8 +290,8 @@ def readback_market_screening(execution_id, cloud_execution):
         "ranked_by_market": dict(ranked_by_market),
         "gate_counts": dict(gates),
         "samples": public_samples,
-        "product_projection": False,
-        "pg_product_readback": "UNCHANGED_OLD_SNAPSHOT",
+        "product_projection": True,
+        "pg_product_readback": "PENDING_EXACT_SELECT",
         "owner_login_ui": "NOT_VERIFIED",
         "gcp_mutations": 0,
     }

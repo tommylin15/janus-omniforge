@@ -14,7 +14,7 @@ def test_fixed_one_run_readonly_request():
     correct={
         "intent":"seq08-exact-real-mart-product-readonly",
         "source_sha":module.SOURCE,"successful_mart_run":module.RUN,
-        "symbols":["2330","2882"],"diagnostic_attempt":5,"read_only":True,"no_gcp_mutation":True,
+        "symbols":["2330","2882"],"diagnostic_attempt":6,"read_only":True,"no_gcp_mutation":True,
         "no_owner_mutation":True,"no_new_resources":True
     }
     module.require_request(correct)
@@ -84,7 +84,7 @@ def test_actual_gcs_only_screening_gate_and_percentile_proof(monkeypatch):
     eid = "12345678-1234-1234-1234-123456789abc"
     identity_hash = "sha256:" + "a"*64
     path = "screening/" + "a"*64 + ".json"
-    identity = {"analysis_as_of": "2026-10-26", "core_snapshot_id": "sha256:core"}
+    identity = {"analysis_as_of": "2026-10-26", "core_snapshot_id": module.EXPECTED_CORE_SNAPSHOT_ID}
     rank = {"value": 0.72, "market": "twse", "cohort_size": 100,
             "analysis_as_of": identity["analysis_as_of"],
             "core_snapshot_id": identity["core_snapshot_id"],
@@ -113,7 +113,8 @@ def test_actual_gcs_only_screening_gate_and_percentile_proof(monkeypatch):
     assert result["status"] == "RANK_NOT_READY_PARTIAL"
     assert result["samples"]["2330"]["rank_valid"] is True
     assert result["samples"]["2882"]["rank_valid"] is False
-    assert result["product_projection"] is False
+    assert result["product_projection"] is True
+    assert result["pg_product_readback"] == "PENDING_EXACT_SELECT"
     artifact["input_telemetry"]["seq08_quant_rank"]["ranked_rows"] = 2
     # First validate the immutable hash boundary, then deliberately update
     # the fixture manifest to isolate the second, gate-accounting guard.
