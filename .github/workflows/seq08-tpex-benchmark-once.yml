@@ -5,6 +5,8 @@ on:
     paths:
       - 'jobs/ingestion-core/ingestion_core/tpex_benchmark.py'
       - 'tests/test_seq08_tpex_benchmark.py'
+      - 'jobs/ingestion-core/ingestion_core/market_history.py'
+      - 'tests/test_market_history.py'
       - 'scripts/gcp/seq08_tpex_benchmark_once.py'
       - 'tests/test_seq08_tpex_benchmark_once.py'
       - 'ops/seq08-tpex-benchmark-request.json'
@@ -32,7 +34,7 @@ jobs:
       - name: Exact-source TPEx parser, schema and one-shot guards
         env:
           PYTHONPATH: 'jobs/ingestion-core:.'
-        run: python -m pytest -q tests/test_seq08_tpex_benchmark.py tests/test_seq08_tpex_benchmark_once.py
+        run: python -m pytest -q tests/test_seq08_tpex_benchmark.py tests/test_seq08_tpex_benchmark_once.py tests/test_market_history.py
   apply:
     needs: offline
     if: "github.event_name == 'push' && startsWith(github.event.head_commit.message, 'ops(seq08): run one official TPEx benchmark Core repair')"
