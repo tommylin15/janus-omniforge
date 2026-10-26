@@ -181,10 +181,9 @@ try:
             prior_market_days=[day for day in market_benchmark
                                if last_stock_day is not None and day<=last_stock_day][-21:]
             missing_days=[day for day in prior_market_days if day not in accepted_prices]
-            benchmark_dates=sorted({str(row.get("trade_date",""))[:10]
-                                    for row in valid.get("benchmark",())
-                                    if row.get("trade_date")
-                                    and verified_stock_market_day(row.get("trade_date"))})
+            # Same-market accepted benchmark only; do not count the other
+            # exchange when reporting latest session or 21-day coverage.
+            benchmark_dates=sorted(market_benchmark)
             public_market_gates[public_symbol]={
                 "gate":feature_row.get("seq08_quant_rank_gate"),
                 "latest_trade_date":feature_row.get("latest_trade_date"),
