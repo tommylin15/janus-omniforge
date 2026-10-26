@@ -14,7 +14,7 @@ def test_fixed_one_run_readonly_request():
     correct={
         "intent":"seq08-exact-real-mart-product-readonly",
         "source_sha":module.SOURCE,"successful_mart_run":module.RUN,
-        "symbols":["2330","2882"],"diagnostic_attempt":3,"read_only":True,"no_gcp_mutation":True,
+        "symbols":["2330","2882"],"diagnostic_attempt":4,"read_only":True,"no_gcp_mutation":True,
         "no_owner_mutation":True,"no_new_resources":True
     }
     module.require_request(correct)
@@ -77,3 +77,53 @@ def test_live_artifact_status_and_no_owner_symbol_leak(monkeypatch):
     assert got["pg_product_readback"]=="NOT_VERIFIED"
     assert got["input_diagnostics"]["latest_trade_dates"] == {}
     assert got["input_diagnostics"]["missing_features"]["quant"] == {}
+
+
+def test_actual_gcs_only_screening_gate_and_percentile_proof(monkeypatch):
+    import hashlib
+    eid = "12345678-1234-1234-1234-123456789abc"
+    identity_hash = "sha256:" + "a"*64
+    path = "screening/" + "a"*64 + ".json"
+    identity = {"analysis_as_of": "2026-10-26", "core_snapshot_id": "sha256:core"}
+    rank = {"value": 0.72, "market": "twse", "cohort_size": 100,
+            "analysis_as_of": identity["analysis_as_of"],
+            "core_snapshot_id": identity["core_snapshot_id"],
+            "source_trade_date": "2026-10-22",
+            "source": "full_market_core_same_day_pct_rank"}
+    artifact = {"artifact_kind": "mart_market_screening_v1",
+                "identity_hash": identity_hash, "identity": identity,
+                "rows": [
+                    {"symbol": "2330", "latest_trade_date": "2026-10-22",
+                     "seq08_quant_rank_gate": "ranked", "seq08_quant_rank": rank},
+                    {"symbol": "2882", "latest_trade_date": "2026-10-22",
+                     "seq08_quant_rank_gate": "ret20_input_missing", "seq08_quant_rank": None}],
+                "input_telemetry": {"seq08_quant_rank": {
+                    "ranked_rows": 1, "gate_counts": {
+                        "ranked": 1, "ret20_input_missing": 1}}}}
+    def digest(obj):
+        return "sha256:" + hashlib.sha256(json.dumps(obj, sort_keys=True).encode()).hexdigest()
+    manifest = {"execution_id": eid, "identity_hash": identity_hash,
+                "screening": {"artifact_uri": "gs://" + module.BUCKET + "/" + path,
+                              "artifact_hash": digest(artifact)}}
+    backing = {"executions/" + eid + "/screening-manifest.json": manifest,
+               path: artifact}
+    monkeypatch.setattr(module, "object_json", lambda p: (backing[p], digest(backing[p])))
+    result = module.readback_market_screening(eid, "janus-intelligence-mart-aaabc")
+    assert result["ranked_rows"] == 1
+    assert result["status"] == "RANK_NOT_READY_PARTIAL"
+    assert result["samples"]["2330"]["rank_valid"] is True
+    assert result["samples"]["2882"]["rank_valid"] is False
+    assert result["product_projection"] is False
+    artifact["input_telemetry"]["seq08_quant_rank"]["ranked_rows"] = 2
+    with pytest.raises(ValueError, match="count_mismatch"):
+        module.readback_market_screening(eid, "janus-intelligence-mart-aaabc")
+
+
+def test_market_screening_cloud_logging_operation_scope():
+    eid="12345678-1234-1234-1234-123456789abc"
+    log={"textPayload":json.dumps({"component":"intelligence-mart",
+                                   "operation":"market-screening","execution_id":eid})}
+    assert module.parse_execution_id([log],"janus-intelligence-mart-aaabc",
+                                     operation="market-screening")==eid
+    with pytest.raises(ValueError):
+        module.parse_execution_id([log],"janus-intelligence-mart-aaabc")

@@ -1,7 +1,8 @@
 """SEQ-08 exact, read-only GCS evidence for one completed real Dev Mart execution.
 
 No listing, SQL, remote Job invocation, secret/Owner payload logs, or mutations.
-The status counts are intentionally independent of the Job's exit status.
+Reports either real Deep Coverage or the specifically approved GCS-only screening
+artifact; role/percentile counts must be independently verified against bytes.
 """
 from __future__ import annotations
 from collections import Counter
@@ -14,8 +15,8 @@ import tempfile
 
 PROJECT = "gen-lang-client-0593591102"
 BUCKET = PROJECT + "-dev-mart"
-RUN = "40248399245"
-SOURCE = "462bd1c85708cb5bc4ce1877d35a3645ff9668d4"
+RUN = "40300491771"
+SOURCE = "43543ac684f34341265069244b5507f51afd5cff"
 EXPECTED_ROLES = ("quant", "risk", "fundamental", "valuation")
 SAMPLES = ("2330", "2882")
 MAX_BYTES = 8 * 1024 * 1024
@@ -32,7 +33,7 @@ def require_request(data):
     if data != {
         "intent": "seq08-exact-real-mart-product-readonly",
         "source_sha": SOURCE, "successful_mart_run": RUN,
-        "symbols": list(SAMPLES), "diagnostic_attempt": 3, "read_only": True,
+        "symbols": list(SAMPLES), "diagnostic_attempt": 4, "read_only": True,
         "no_gcp_mutation": True, "no_owner_mutation": True,
         "no_new_resources": True
     }:
@@ -55,7 +56,7 @@ def receipt():
     return name
 
 
-def parse_execution_id(entries, cloud_execution):
+def parse_execution_id(entries, cloud_execution, operation="deep-coverage"):
     ids = set()
     for item in entries:
         raw = item.get("textPayload")
@@ -72,7 +73,7 @@ def parse_execution_id(entries, cloud_execution):
         if not isinstance(data, dict):
             continue
         if (data.get("component") == "intelligence-mart"
-                and data.get("operation") == "deep-coverage"
+                and data.get("operation") == operation
                 and data.get("status") not in ("failed", "retrying")):
             candidate = str(data.get("execution_id", ""))
             if UUID_RE.fullmatch(candidate):
@@ -82,18 +83,18 @@ def parse_execution_id(entries, cloud_execution):
     return ids.pop()
 
 
-def lookup_execution_id(cloud_execution):
+def lookup_execution_id(cloud_execution, operation="deep-coverage"):
     query = ('resource.type="cloud_run_job" AND '
              'labels."run.googleapis.com/execution_name"="' + cloud_execution + '"')
     result = run(["gcloud", "logging", "read", query,
                   "--project=" + PROJECT, "--limit=250", "--format=json"], timeout=80)
     if result.returncode:
         raise ValueError("cloud_logging_exact_execution_read_denied")
-    return parse_execution_id(json.loads(result.stdout), cloud_execution)
+    return parse_execution_id(json.loads(result.stdout), cloud_execution, operation)
 
 
 def object_json(path):
-    if not path.startswith("executions/") or ".." in path:
+    if not (path.startswith("executions/") or re.fullmatch(r"screening/[a-f0-9]{64}\.json", path)) or ".." in path:
         raise ValueError("GCS_path_outside_exact_execution")
     result = run(["gcloud", "storage", "cat", "gs://" + BUCKET + "/" + path,
                   "--project", PROJECT], timeout=95)
@@ -198,6 +199,103 @@ def readback(execution_id, cloud_execution):
             "gcp_mutations": 0}
 
 
+
+def readback_market_screening(execution_id, cloud_execution):
+    """Verify actual ranked rows and gates in the exact GCS-only screening artifact.
+
+    Never read/print owner union or mutate immutable PG Screening products.
+    The Cloud Run receipt gives an execution-scoped manifest and a content hash
+    pointing to one immutable screening/<64-hex>.json artifact.
+    """
+    import math
+    root = "executions/" + execution_id + "/"
+    manifest, manifest_hash = object_json(root + "screening-manifest.json")
+    if (manifest.get("execution_id") != execution_id
+            or not isinstance(manifest.get("identity_hash"), str)
+            or not isinstance(manifest.get("screening"), dict)):
+        raise ValueError("market_screening_execution_manifest_invalid")
+    reference = manifest["screening"]
+    prefix = "gs://" + BUCKET + "/"
+    uri = reference.get("artifact_uri", "")
+    if not isinstance(uri, str) or not uri.startswith(prefix):
+        raise ValueError("market_screening_artifact_uri_untrusted")
+    path = uri[len(prefix):]
+    if not re.fullmatch(r"screening/[a-f0-9]{64}\\.json", path):
+        raise ValueError("market_screening_artifact_path_untrusted")
+    artifact, artifact_hash = object_json(path)
+    identity = artifact.get("identity", {})
+    rows = artifact.get("rows")
+    telemetry = artifact.get("input_telemetry", {}).get("seq08_quant_rank", {})
+    if (reference.get("artifact_hash") != artifact_hash
+            or artifact.get("identity_hash") != manifest["identity_hash"]
+            or artifact.get("artifact_kind") != "mart_market_screening_v1"
+            or not isinstance(identity, dict)
+            or not isinstance(rows, list)
+            or not isinstance(telemetry, dict)
+            or not isinstance(identity.get("analysis_as_of"), str)
+            or not identity.get("core_snapshot_id")):
+        raise ValueError("market_screening_artifact_hash_or_identity_invalid")
+    gates = Counter(str(row.get("seq08_quant_rank_gate", "unknown")) for row in rows)
+    if (dict(gates) != telemetry.get("gate_counts")
+            or gates.get("ranked", 0) != telemetry.get("ranked_rows")):
+        raise ValueError("market_screening_rank_gate_count_mismatch")
+    ranked_by_market = Counter()
+    public_samples = {code: {"present": False} for code in SAMPLES}
+    seen = set()
+    for row in rows:
+        symbol = row.get("symbol")
+        if not isinstance(symbol, str) or symbol in seen:
+            raise ValueError("market_screening_duplicate_or_invalid_symbol")
+        seen.add(symbol)
+        rank = row.get("seq08_quant_rank")
+        if rank is not None:
+            if (not isinstance(rank, dict)
+                    or not isinstance(rank.get("value"), (int, float))
+                    or isinstance(rank.get("value"), bool)
+                    or not math.isfinite(rank["value"])
+                    or not 0 < rank["value"] <= 1
+                    or rank.get("cohort_size", 0) < 100
+                    or rank.get("market") not in ("twse", "tpex")
+                    or rank.get("analysis_as_of") != identity["analysis_as_of"]
+                    or rank.get("core_snapshot_id") != identity["core_snapshot_id"]
+                    or rank.get("source_trade_date") != row.get("latest_trade_date")
+                    or rank.get("source") != "full_market_core_same_day_pct_rank"
+                    or row.get("seq08_quant_rank_gate") != "ranked"):
+                raise ValueError("market_screening_invalid_full_market_rank")
+            ranked_by_market[rank["market"]] += 1
+        elif row.get("seq08_quant_rank_gate") == "ranked":
+            raise ValueError("market_screening_ranked_gate_has_null")
+        if symbol in SAMPLES:
+            public_samples[symbol] = {
+                "present": True,
+                "latest_trade_date": row.get("latest_trade_date"),
+                "rank_valid": rank is not None,
+                "gate": row.get("seq08_quant_rank_gate"),
+                "market": rank.get("market") if isinstance(rank, dict) else None,
+            }
+    return {
+        "scope": "EXACT_ONE_GCS_ONLY_MARKET_SCREENING_READBACK",
+        "status": "RANK_READY_PASS" if gates.get("ranked", 0) >= 100
+                  else "RANK_NOT_READY_PARTIAL",
+        "cloud_run_execution": cloud_execution,
+        "mart_execution_id": execution_id,
+        "source_application_sha": SOURCE,
+        "analysis_as_of": identity["analysis_as_of"],
+        "core_snapshot_id": identity["core_snapshot_id"],
+        "manifest_sha256": manifest_hash,
+        "screening_artifact_sha256": artifact_hash,
+        "screening_rows": len(rows),
+        "ranked_rows": gates.get("ranked", 0),
+        "ranked_by_market": dict(ranked_by_market),
+        "gate_counts": dict(gates),
+        "samples": public_samples,
+        "product_projection": False,
+        "pg_product_readback": "UNCHANGED_OLD_SNAPSHOT",
+        "owner_login_ui": "NOT_VERIFIED",
+        "gcp_mutations": 0,
+    }
+
+
 def main():
     import argparse
     p = argparse.ArgumentParser()
@@ -209,9 +307,9 @@ def main():
         phase = "SOURCE_RECEIPT"
         cloud_execution = receipt()
         phase = "CLOUD_LOG_IDENTITY"
-        execution_id = lookup_execution_id(cloud_execution)
-        phase = "GCS_MODEL_ARTIFACTS"
-        result = readback(execution_id, cloud_execution)
+        execution_id = lookup_execution_id(cloud_execution, operation="market-screening")
+        phase = "GCS_SCREENING_ARTIFACT"
+        result = readback_market_screening(execution_id, cloud_execution)
         args.receipt.write_text(json.dumps(result, sort_keys=True))
         print(json.dumps(result, sort_keys=True))
         return 0
