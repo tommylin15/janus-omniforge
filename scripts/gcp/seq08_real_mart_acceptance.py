@@ -17,10 +17,10 @@ import time
 import ghcr_jobs_rollout as jobs
 from ghcr_mcp_route import LEASE
 
-SOURCE = "43543ac684f34341265069244b5507f51afd5cff"
-RELEASE_RUN = "40266792603"
-JOBS_RUN = "40281342258"
-API_RUN = "40299267385"
+SOURCE = "c4605a84eb46257cbf628b33e2156ebc01f5b9ac"
+RELEASE_RUN = "40319442822"
+JOBS_RUN = "40320593857"
+API_RUN = "40336305146"
 REGISTRY_RUN = "40193843435"
 JOB = "janus-intelligence-mart"
 POINTER = "models/registry/seq08-four-models-active.json"
@@ -40,7 +40,9 @@ def authorize():
             or request.get("api_run") != API_RUN
             or request.get("registry_run") != REGISTRY_RUN
             or request.get("mart_operation") not in ("market-screening", "deep-coverage")
-            or request.get("product_projection") is not (request.get("mart_operation") == "deep-coverage")
+            or request.get("product_projection") is not True
+            or request.get("new_core_run") != "40337663516"
+            or request.get("expected_core_snapshot_id") != "sha256:5d741c0b8804322e87cf7bd4c1a4c04be3244e36e000a216d0fc07912596166a"
             or request.get("job_runs_allowed") != 1
             or request.get("training_allowed") is not False
             or request.get("llm_allowed") is not False
