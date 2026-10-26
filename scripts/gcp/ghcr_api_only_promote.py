@@ -182,6 +182,20 @@ def promote(receipt: Path) -> int:
         save()
     except Exception as exc:
         journal["failure_type"] = type(exc).__name__
+        journal["failed_at_phase"] = journal.get("phase", "UNKNOWN")
+        # Only known fixed machine codes can enter a portable receipt;
+        # arbitrary exception strings may include command output or secrets.
+        allowed_codes = {
+            "api_only_request_not_approved", "candidate_boundary_source_not_matching",
+            "upstream_run_not_successful", "upstream_job_receipt_invalid",
+            "candidate_registry_digest_invalid", "service_not_ready",
+            "candidate_not_zero_traffic", "candidate_already_active_or_invalid",
+            "candidate_digest_not_pinned", "candidate_image_source_mismatch",
+            "candidate_revision_not_ready", "candidate_build_not_ready",
+            "candidate_admin_auth_exposed", "prior_live_source_not_matching_request",
+            "serving_or_candidate_drift_under_lease", "post_promotion_revision_drift",
+        }
+        journal["failure_code"] = str(exc) if str(exc) in allowed_codes else type(exc).__name__
         journal["phase"] = "FAILED_ROLLBACK_REQUIRED" if mutated else "PREFLIGHT_BLOCKED"
         save()
         if mutated and previous and baseline:

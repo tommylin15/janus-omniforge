@@ -52,6 +52,24 @@ def test_http_failure_never_counted_as_released_success(tmp_path, monkeypatch):
     receipt = tmp_path / "receipt.json"
     assert p.promote(receipt) == 78
     assert __import__("json").loads(receipt.read_text())["phase"] == "PREFLIGHT_BLOCKED"
+    assert __import__("json").loads(receipt.read_text())["failure_code"] == "api_only_request_not_approved"
+    assert __import__("json").loads(receipt.read_text())["failed_at_phase"] == "PREFLIGHT"
+
+
+
+def test_preflight_code_receipt_sanitizes_untrusted_error(tmp_path, monkeypatch):
+    import json
+    monkeypatch.setattr(p, "REQUEST", tmp_path / "request.json")
+    p.REQUEST.write_text(json.dumps(approved()))
+    monkeypatch.setattr(p, "preflight",
+                        lambda _: (_ for _ in ()).throw(ValueError("Bearer_private_secret")))
+    receipt = tmp_path / "receipt.json"
+    assert p.promote(receipt) == 78
+    result = json.loads(receipt.read_text())
+    assert result["failure_type"] == "ValueError"
+    assert result["failure_code"] == "ValueError"
+    assert "private_secret" not in receipt.read_text()
+    assert result["traffic_mutation"] is False
 
 
 def test_direct_mode_switches_only_once_and_never_claims_rehearsal(tmp_path, monkeypatch):

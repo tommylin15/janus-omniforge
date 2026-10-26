@@ -12,7 +12,7 @@
   "no_scheduler_mutation": true,
   "no_storage_mutation": true,
   "no_iam_mutation": true,
-  "purpose": "SEQ-08 official TPEx price benchmark Core repair: full release #40319442822 PASS, 0 percent API candidate #40320190614 PASS, OAuth boundary #40320423764 PASS, four existing Dev Jobs #40320593857 PASS. Controlled direct API 100% same c4605a84 source. Prior 43543ac6 revision only for infrastructure rollback; no old-model prediction fallback. No new paid resources, IAM, Scheduler, model registry, Owner or job mutation.",
+  "purpose": "SEQ-08 retry once same official TPEx fixed c4605a84 candidate after API promotion #40335624533 failed safely at PREFLIGHT_BLOCKED with no traffic mutation and preserved prior 43543ac6. This retry first records an allowlisted diagnostic machine failure code; Release #40319442822, API 0% #40320190614, Auth #40320423764, four Jobs #40320593857 all PASS. No other resources or Owner mutation.",
   "traffic_validation_mode": "direct",
-  "request_attempt": 6
+  "request_attempt": 7
 }
