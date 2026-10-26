@@ -55,3 +55,7 @@ def test_public_two_stock_inline_probe_compiles_and_is_cache_only():
     assert "SET TRANSACTION READ ONLY" in probe.PROBE
     assert "jsonb_typeof(payload_json->'seq08_quant_rank')='object'" in probe.PROBE
     assert "json_null_rank_count" in probe.PROBE
+    assert "public_market_rank_input_gates" in probe.PROBE
+    assert "rank=False" in probe.PROBE
+    assert "accepted_stock_sessions" in probe.PROBE
+    assert "accepted_all_benchmark_sessions" in probe.PROBE
