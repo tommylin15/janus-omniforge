@@ -8,6 +8,6 @@
   "no_owner_mutation": true,
   "no_new_resources": true,
   "one_job_execution": true,
-  "rank_diagnostic_attempt": 6,
-  "purpose": "SEQ-08 post-deploy read-only PG exact prior execution and latest current Core snapshot market-rank viability. No Owner identifiers, training, mutations or duplicate immutable screening writes. Deployed Mart fixed source 420b1b5c, API promotion #40260316596 PASS."
+  "rank_diagnostic_attempt": 7,
+  "purpose": "SEQ-08 one bounded read-only existing Dev Mart task. Verify current actual Core identity, exact old PG projection unchanged, and public 2330/2882 accepted stock/benchmark session counts plus v4 Quant 21-market-session input gate. No Owner symbols, no rank recomputation from two stocks, no GCP writes/extra resources/model retraining."
 }
