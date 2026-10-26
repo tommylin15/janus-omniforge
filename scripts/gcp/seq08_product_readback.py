@@ -360,8 +360,17 @@ def read_new_core_from_bounded_prefix():
             if rank is not None:
                 if not isinstance(rank,dict) or row.get("seq08_quant_rank_gate")!="ranked":
                     raise ValueError("new_core_screening_rank_invalid")
+                from math import isfinite
                 market=rank.get("market")
-                if market not in ("twse","tpex") or rank.get("core_snapshot_id")!=EXPECTED_CORE_SNAPSHOT_ID:
+                value=rank.get("value")
+                if (market not in ("twse","tpex")
+                    or rank.get("core_snapshot_id")!=EXPECTED_CORE_SNAPSHOT_ID
+                    or rank.get("analysis_as_of")!="2026-10-26"
+                    or rank.get("source_trade_date")!=row.get("latest_trade_date")
+                    or rank.get("source")!="full_market_core_same_day_pct_rank"
+                    or type(rank.get("cohort_size")) is not int or rank["cohort_size"]<100
+                    or not isinstance(value,(int,float)) or isinstance(value,bool)
+                    or not isfinite(value) or not 0<value<=1):
                     raise ValueError("new_core_screening_market_or_snapshot_invalid")
                 ranked[market]+=1
         if gates.get("ranked",0)!=sum(ranked.values()) or dict(gates)!=telemetry.get("gate_counts"):
