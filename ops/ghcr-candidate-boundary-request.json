@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "420b1b5cdef91c7df1671660217315f62fc7e77f",
+  "sha": "43543ac684f34341265069244b5507f51afd5cff",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "SEQ-08 verified Release #40257626504 and existing Dev API 0% candidate #40258134293 PASS, read-only OAuth/PKCE and Owner/Admin/MCP negative boundary against exact SHA; never claim logged-in Owner positive UI.",
-  "request_attempt": 11
+  "purpose": "SEQ-08 revised verified TWSE/TPEx closed-session market calendar: full release #40266792603 SUCCESS, API candidate at 0% #40267268006 SUCCESS. Only OAuth/PKCE plus owner/admin/MCP unauthenticated negative boundaries, no GCP mutation, no Owner signed-in acceptance.",
+  "request_attempt": 12
 }
