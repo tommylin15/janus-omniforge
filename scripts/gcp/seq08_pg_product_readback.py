@@ -166,6 +166,18 @@ try:
                                         asof,snapshot,rank=False)[0]
             valid,_,rejected=validated_inputs(stock_data.datasets,public_symbol,asof,snapshot)
             accepted_prices=price_series(valid.get("ohlcv",()))
+            market_set={str(row.get("market","")).lower()
+                        for row in valid.get("ohlcv",()) if row.get("market")}
+            market_name=next(iter(market_set)) if len(market_set)==1 else None
+            benchmark_id={"twse":"TAIEX","tpex":"TPEx"}.get(market_name)
+            market_benchmark=price_series([
+                row for row in valid.get("benchmark",())
+                if benchmark_id and str(row.get("benchmark_id","")).casefold()==benchmark_id.casefold()
+                and str(row.get("index_kind") or "price").lower()=="price"])
+            last_stock_day=max(accepted_prices,default=None)
+            prior_market_days=[day for day in market_benchmark
+                               if last_stock_day is not None and day<=last_stock_day][-21:]
+            missing_days=[day for day in prior_market_days if day not in accepted_prices]
             benchmark_dates=sorted({str(row.get("trade_date",""))[:10]
                                     for row in valid.get("benchmark",())
                                     if row.get("trade_date")})
@@ -175,6 +187,11 @@ try:
                 "core_ohlcv_rows":len(raw_price_rows),
                 "accepted_stock_sessions":len(accepted_prices),
                 "accepted_all_benchmark_sessions":len(benchmark_dates),
+                "market":market_name,
+                "latest_same_market_benchmark_date":max(market_benchmark,default=None),
+                "benchmark_sessions_to_stock_day":len(prior_market_days),
+                "missing_21_benchmark_sessions":missing_days,
+                "missing_21_session_count":len(missing_days),
                 "latest_accepted_benchmark_session":benchmark_dates[-1] if benchmark_dates else None,
                 "rejected_evidence_count":len(rejected),
                 "read_only":True}
