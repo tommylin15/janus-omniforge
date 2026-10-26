@@ -132,6 +132,19 @@ try:
                                WHERE analysis_as_of=%s AND core_snapshot_id=%s""",
                             (asof,snapshot,asof,snapshot))
                 total,ranked,on_latest,latest_day=cur.fetchone()
+                cur.execute("""SELECT symbol,payload_json->>'latest_trade_date',
+                                      (payload_json->'seq08_quant_rank') IS NOT NULL
+                               FROM private.market_screening_product
+                               WHERE analysis_as_of=%s AND core_snapshot_id=%s
+                                     AND symbol=ANY(%s)""",
+                            (asof,snapshot,["2330","2882"]))
+                requested_public_screening={
+                    str(symbol):{"present":True,"latest_trade_date":latest,
+                                 "rank_present":rank_ready}
+                    for symbol,latest,rank_ready in cur.fetchall()}
+proof["public_screening_membership"]={
+    stock:requested_public_screening.get(stock,{"present":False,"rank_present":False})
+    for stock in ("2330","2882")}
     proof["full_market_screening_counts"]={
         "analysis_as_of":asof,"core_snapshot_id":snapshot,
         "screening_rows":int(total),"ranked_rows":int(ranked),
