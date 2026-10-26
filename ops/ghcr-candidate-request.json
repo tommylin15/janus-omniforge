@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "462bd1c85708cb5bc4ce1877d35a3645ff9668d4",
+  "sha": "420b1b5cdef91c7df1671660217315f62fc7e77f",
   "digest": "",
-  "release_run": "40215268427",
+  "release_run": "40257626504",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "SEQ-08 final holiday-safe full release #40215268427 PASS, exact source SHA 462bd1c8. Deploy existing Dev API 0% immutable GHCR candidate only, negative Owner/OAuth boundary next; no traffic change, no Registry or Dev Job mutations.",
-  "request_attempt": 13
+  "purpose": "SEQ-08 Quant/Risk 21-market-session fixed-source release #40257626504 PASS; create existing janus-api GHCR digest 0%-traffic candidate, without promoting traffic or changing Jobs/Registry/Owner/PG; follows prior live 462bd1c8 baseline.",
+  "request_attempt": 14
 }
