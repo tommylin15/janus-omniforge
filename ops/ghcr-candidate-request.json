@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "420b1b5cdef91c7df1671660217315f62fc7e77f",
+  "sha": "43543ac684f34341265069244b5507f51afd5cff",
   "digest": "",
-  "release_run": "40257626504",
+  "release_run": "40266792603",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "SEQ-08 Quant/Risk 21-market-session fixed-source release #40257626504 PASS; create existing janus-api GHCR digest 0%-traffic candidate, without promoting traffic or changing Jobs/Registry/Owner/PG; follows prior live 462bd1c8 baseline.",
-  "request_attempt": 14
+  "purpose": "SEQ-08 official 09/25 holiday + 10/23 typhoon market session correction, exact immutable release #40266792603 PASS. Stage existing Dev janus-api 0% fixed digest only; no traffic promotion, model registry or Job mutation. Full Python Flutter and fixed four image verification passed.",
+  "request_attempt": 15
 }
