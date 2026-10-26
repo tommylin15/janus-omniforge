@@ -15,7 +15,7 @@ import tempfile
 
 PROJECT = "gen-lang-client-0593591102"
 BUCKET = PROJECT + "-dev-mart"
-RUN = "40339115367"
+RUN = "40355591648"
 SOURCE = "c4605a84eb46257cbf628b33e2156ebc01f5b9ac"
 EXPECTED_CORE_SNAPSHOT_ID = "sha256:5d741c0b8804322e87cf7bd4c1a4c04be3244e36e000a216d0fc07912596166a"
 EXPECTED_ROLES = ("quant", "risk", "fundamental", "valuation")
@@ -34,7 +34,7 @@ def require_request(data):
     if data != {
         "intent": "seq08-exact-real-mart-product-readonly",
         "source_sha": SOURCE, "successful_mart_run": RUN,
-        "symbols": list(SAMPLES), "diagnostic_attempt": 7, "read_only": True,
+        "symbols": list(SAMPLES), "diagnostic_attempt": 8, "read_only": True,
         "no_gcp_mutation": True, "no_owner_mutation": True,
         "no_new_resources": True
     }:
@@ -109,7 +109,7 @@ def readback(execution_id, cloud_execution):
     manifest, manifest_hash = object_json(root + "specialist-manifest.json")
     if (manifest.get("execution_id") != execution_id
             or not manifest.get("analysis_as_of")
-            or not manifest.get("core_snapshot_id")
+            or manifest.get("core_snapshot_id") != EXPECTED_CORE_SNAPSHOT_ID
             or not isinstance(manifest.get("four_model_serving"), dict)
             or not isinstance(manifest.get("analyst_inputs"), dict)):
         raise ValueError("mart_manifest_new_serving_reference_missing")
@@ -399,15 +399,9 @@ def main():
         phase = "SOURCE_RECEIPT"
         cloud_execution = receipt()
         phase = "CLOUD_LOG_IDENTITY"
-        try:
-            execution_id = lookup_execution_id(cloud_execution, operation="market-screening")
-            phase = "GCS_SCREENING_ARTIFACT"
-            result = readback_market_screening(execution_id, cloud_execution)
-        except ValueError as error:
-            if str(error)!="cloud_logging_exact_execution_read_denied":
-                raise
-            phase = "BOUNDED_GCS_SCREENING_PROOF"
-            result = read_new_core_from_bounded_prefix()
+        execution_id = lookup_execution_id(cloud_execution, operation="deep-coverage")
+        phase = "GCS_FIVE_HEAD_SERVING_ARTIFACTS"
+        result = readback(execution_id, cloud_execution)
         args.receipt.write_text(json.dumps(result, sort_keys=True))
         print(json.dumps(result, sort_keys=True))
         return 0
