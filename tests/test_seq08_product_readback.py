@@ -14,7 +14,7 @@ def test_fixed_one_run_readonly_request():
     correct={
         "intent":"seq08-exact-real-mart-product-readonly",
         "source_sha":module.SOURCE,"successful_mart_run":module.RUN,
-        "symbols":["2330","2882"],"diagnostic_attempt":2,"read_only":True,"no_gcp_mutation":True,
+        "symbols":["2330","2882"],"diagnostic_attempt":3,"read_only":True,"no_gcp_mutation":True,
         "no_owner_mutation":True,"no_new_resources":True
     }
     module.require_request(correct)
