@@ -8,6 +8,6 @@
   "no_owner_mutation": true,
   "no_new_resources": true,
   "one_job_execution": true,
-  "rank_diagnostic_attempt": 7,
-  "purpose": "SEQ-08 one bounded read-only existing Dev Mart task. Verify current actual Core identity, exact old PG projection unchanged, and public 2330/2882 accepted stock/benchmark session counts plus v4 Quant 21-market-session input gate. No Owner symbols, no rank recomputation from two stocks, no GCP writes/extra resources/model retraining."
+  "rank_diagnostic_attempt": 8,
+  "purpose": "SEQ-08 one bounded READ ONLY existing Dev Mart task. Previously verified exactly 21 benchmark sessions incomplete for public 2330 and 2882; now return exact missing benchmark dates within last 21 same-market sessions using unchanged pinned current Core snapshot. No fresh history backfill, no writes, no Owner symbols exposed, no separate resources."
 }
