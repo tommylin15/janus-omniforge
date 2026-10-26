@@ -14,8 +14,8 @@ import tempfile
 
 PROJECT = "gen-lang-client-0593591102"
 BUCKET = PROJECT + "-dev-mart"
-RUN = "40195093746"
-SOURCE = "a2881c5c2532beb5570e29a1fda4472c7bb0d448"
+RUN = "40248399245"
+SOURCE = "462bd1c85708cb5bc4ce1877d35a3645ff9668d4"
 EXPECTED_ROLES = ("quant", "risk", "fundamental", "valuation")
 SAMPLES = ("2330", "2882")
 MAX_BYTES = 8 * 1024 * 1024
@@ -32,7 +32,7 @@ def require_request(data):
     if data != {
         "intent": "seq08-exact-real-mart-product-readonly",
         "source_sha": SOURCE, "successful_mart_run": RUN,
-        "symbols": list(SAMPLES), "diagnostic_attempt": 2, "read_only": True,
+        "symbols": list(SAMPLES), "diagnostic_attempt": 3, "read_only": True,
         "no_gcp_mutation": True, "no_owner_mutation": True,
         "no_new_resources": True
     }:
