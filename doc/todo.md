@@ -1,5 +1,12 @@
 # Janus — 唯一 Active TODO
 
+## SEQ-08 最新模型排名根因與收尾狀態（2026-10-26）
+
+- **最終真資料驗收已讀回**：固定源 `462bd1c85708cb5bc4ce1877d35a3645ff9668d4`；Release #40215268427、四既有 Dev Jobs #40216332296、API100 #40247497520、Screening #40247788673、Deep Coverage #40248399245、GCS five-head #40249008222、PG產品 #40249244086 **PASS**。五真權重/Registry 不變；一次新 Core snapshot `sha256:544970f64e6dd965ca6cf57786a120f3eb39ffeddacd6255bdcc373ade74ffd3`，2026-10-26 8檔 Owner 去識別 union：Quant 0/8、Risk2/8、Fundamental2/8、Valuation4/8，PG `missing_serving=0`。此為部分模型有效，不冒充全角色有效。
+- **已證實 Quant 0/8 的直接原因**：[#40251221001](https://github.com/tommylin15/janus-omniforge/actions/runs/40251221001) `PG_SELECT_READBACK_PASS`；本次全市場 Screening **1,991 rows、真正 `jsonb_typeof(seq08_quant_rank)='object'` 為0、JSON `null` 為1,991、最近交易日10/22的1,955 rows**。早先以 `IS NOT NULL` 誤計「1,991有效排名」已更正並由 live 型別讀回反證；這是因子生成前置不成立，不是 PG JOIN 缺漏。2330/2882在 Screen 名單，但排名 `null`。唯一直接工程修正入口：分析 `market_screening.market_features` 中 `accepted_market`、`sessions_21`、完整每股 OHLCV sessions 及 20日報酬基礎的各gate拒絕原因、確認市場日來源後最小修復並重新驗收。禁止將8檔Owner排名偽作同市場全群組，不用Null填假排名，不因全市場有1991股擅自宣稱完整。
+- **Risk/財報實際缺口**：Risk 6/8 `latest_market_session_missing_or_stale`、非fixture真Risk12 2/8 ACTIVE_CACHED；Fundamental6/8缺月營收基期及足月窗口；Valuation4/8缺可比財報MOPS季度。公共2330 `log_pe=2.712153434753418`、`log_pb=1.2493306398391724` 真 Valuation PE/PB雙頭預測成功；2882 PE/PB 因4項季財務特徵缺失，正式 missing，不虛構區間。8筆Mart→PG產品資料存在且hash對應。
+- **Owner 正向產品驗收**：新版本登入後的持股、觀察股、分析報告、模型卡和Owner history 尚無可用授權 session；Janus Dev read-only MCP 讀取請求 internal error，不能以舊版手機截圖、未登入401或 PG 去識別投影代替 UI PASS。**SEQ-08 = LIVE_PARTIAL，不是 CLOSED**；其餘重點是 Quant X 預處理完整產出、Risk/財報正常缺值處理、Owner 正向產品驗收，沒有額外研究重訓、權重部署或舊模型回復。
+
 ## SEQ-08 最終真資料狀態（2026-10-26；本節覆蓋以下舊快照）
 
 - **新版部署 PASS**：fixed app SHA `462bd1c85708cb5bc4ce1877d35a3645ff9668d4`；同版 GHCR Release #40215268427、API 0% #40215944127、OAuth/auth #40216220752、四既有 Jobs #40216332296、Dev API100 #40247497520 全部完成 SUCCESS；五頭核准 UBJ 與既有 ACTIVE GCS 指標保持不變，不需研究重訓或舊模型相容。
