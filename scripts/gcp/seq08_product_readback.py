@@ -220,7 +220,7 @@ def readback_market_screening(execution_id, cloud_execution):
     if not isinstance(uri, str) or not uri.startswith(prefix):
         raise ValueError("market_screening_artifact_uri_untrusted")
     path = uri[len(prefix):]
-    if not re.fullmatch(r"screening/[a-f0-9]{64}\\.json", path):
+    if not re.fullmatch(r"screening/[a-f0-9]{64}\.json", path):
         raise ValueError("market_screening_artifact_path_untrusted")
     artifact, artifact_hash = object_json(path)
     identity = artifact.get("identity", {})
