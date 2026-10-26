@@ -2,10 +2,10 @@
   "intent": "seq08-bounded-real-mart-acceptance",
   "approved": true,
   "scope": "existing-dev-one-intelligence-mart-job",
-  "source_sha": "43543ac684f34341265069244b5507f51afd5cff",
-  "release_run": "40266792603",
-  "jobs_run": "40281342258",
-  "api_run": "40299267385",
+  "source_sha": "c4605a84eb46257cbf628b33e2156ebc01f5b9ac",
+  "release_run": "40319442822",
+  "jobs_run": "40320593857",
+  "api_run": "40336305146",
   "registry_run": "40193843435",
   "mart_operation": "market-screening",
   "job_runs_allowed": 1,
@@ -13,8 +13,8 @@
   "llm_allowed": false,
   "owner_ledger_writes_allowed": false,
   "new_resources_allowed": false,
-  "purpose": "SEQ-08 verified source 43543 market calendar and 21/21 sessions for 2330 and 2882 after PG read-only #40299434731. One real existing Dev Mart Job market-screening on latest real immutable Core; GCS versioned screening artifact only, MART_PRODUCT_PROJECTION=false to preserve old 1,991-row PG screening snapshot. No rank fabrication, LLM, retrain, new resources, Owner writes or rerun on ambiguous status; output requires further GCS aggregate readback.",
-  "attempt": 5,
+  "purpose": "SEQ08 new verified TPEx official Core snapshot #40337663516 immutable ID sha256:5d741c0b. Exactly one fixed c4605a84 real full-market Screening Job with PG product projection true on NEW Core snapshot only, read back GCS manifest before dispatch. Old Core snapshot sha256:544970 stays immutable. Models five approved UBJ; no new resources, Owner mutation, LLM, training or Scheduler changes.",
+  "attempt": 6,
   "diagnostic_attempt": 1,
   "diagnostic_scope": "READ_ONLY_PRIOR_RECEIPT_AND_EXISTING_DEV_JOB_EXECUTIONS_NO_DISPATCH",
   "retry_after": {
@@ -25,5 +25,8 @@
     "lease_status": "ABSENT",
     "retry_constraint": "exactly_one_new_dispatch_if_preflight_passes"
   },
-  "product_projection": false
+  "product_projection": true,
+  "new_core_run": "40337663516",
+  "new_core_execution_id": "bf26bfb1-3dcc-4f76-85b4-effcc4f25ef3",
+  "expected_core_snapshot_id": "sha256:5d741c0b8804322e87cf7bd4c1a4c04be3244e36e000a216d0fc07912596166a"
 }
