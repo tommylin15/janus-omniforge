@@ -10,10 +10,11 @@ from math import sqrt
 from urllib.error import HTTPError
 
 from .facts import _change, canonical_json
+from .market_sessions import verified_stock_market_day
 from .runtime import _fenced_core_manifest, _write_immutable_json
 from .specialists import digest, number, price_series, screening, screening_quality, validated_inputs
 
-VERSION = "market-screening-v4-seq08-core-benchmark-aligned"
+VERSION = "market-screening-v5-exchange-closure-filter"
 TABLES = ("core.ohlcv_v1", "core.benchmark_v1", "core.valuation_v1")
 # Keep every field used by source/PIT validation; omit heavy payloads and unrelated features.
 COMMON = ("symbol", "source_id", "provenance_id", "observed_at", "trade_date", "quality_flag",
@@ -62,6 +63,7 @@ def market_features(datasets, symbols, as_of, snapshot, *, rank=True):
             r for r in valid.get("benchmark", [])
             if benchmark_id and str(r.get("benchmark_id", "")).casefold() == benchmark_id.casefold()
             and str(r.get("index_kind") or "price").lower() == "price"
+            and verified_stock_market_day(r.get("trade_date"))
         ]
         benchmark = price_series(benchmark_rows)
         days = list(prices)
