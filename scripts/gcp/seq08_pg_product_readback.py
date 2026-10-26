@@ -64,6 +64,42 @@ proof={"status":"PG_SELECT_READBACK_PASS","mart_execution_id":uid,
        "public_samples_present":{code:code in public_samples for code in ("2330","2882")},
        "owner_login_ui":"NOT_VERIFIED","private_symbols_exposed":False}
 
+
+# Verify deterministic stock-report projection and append-only history using
+# only aggregate counts. Do not log held/watchlisted symbols or report content.
+with psycopg.connect(host=settings["host"],dbname=settings["name"],user=settings["user"],
+                     password=settings["password"],sslmode=os.getenv("PUBLICATION_DB_SSLMODE","require"),
+                     connect_timeout=8) as report_db:
+    with report_db.transaction():
+        report_db.execute("SET TRANSACTION READ ONLY")
+        report_db.execute("SET LOCAL statement_timeout='25000ms'")
+        with report_db.cursor() as cur:
+            cur.execute("""SELECT COUNT(*),
+                 COUNT(*) FILTER (WHERE jsonb_typeof(payload_json->'stock_report')='object'),
+                 COUNT(*) FILTER (WHERE payload_json->'stock_report'->>'schema_version'='stock-report.v1'),
+                 COUNT(*) FILTER (WHERE jsonb_typeof(payload_json->'analyst_inputs')='object'),
+                 COUNT(*) FILTER (WHERE jsonb_typeof(payload_json->'four_model_serving')='object')
+                 FROM private.specialist_product WHERE execution_id=%s""",(uid,))
+            report_rows,stock_reports,schema_reports,inputs_rows,model_rows=cur.fetchone()
+            cur.execute("""SELECT COUNT(DISTINCT previous.symbol)
+                    FROM private.specialist_product previous
+                    WHERE previous.analysis_as_of<
+                        (SELECT MIN(analysis_as_of) FROM private.specialist_product WHERE execution_id=%s)
+                      AND previous.symbol IN
+                        (SELECT symbol FROM private.specialist_product WHERE execution_id=%s)""",
+                        (uid,uid))
+            prior_symbol_count=cur.fetchone()[0]
+proof["report_projection"]={
+    "current_product_rows":int(report_rows),
+    "stock_report_rows":int(stock_reports),
+    "valid_stock_report_schema_rows":int(schema_reports),
+    "analyst_inputs_rows":int(inputs_rows),
+    "four_model_serving_rows":int(model_rows),
+    "symbols_with_earlier_history":int(prior_symbol_count),
+    "owner_ui_readback":"NOT_VERIFIED",
+    "private_symbols_exposed":False,
+}
+
 # Public-only independent 2330/2882 model feature/probability spot check.
 # Use the exact existing CURRENT Core manifest and an in-memory inference
 # cache: reading weights is allowed, persisting anything to GCS is not.
