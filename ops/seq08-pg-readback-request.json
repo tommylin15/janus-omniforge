@@ -8,6 +8,6 @@
   "no_owner_mutation": true,
   "no_new_resources": true,
   "one_job_execution": true,
-  "rank_diagnostic_attempt": 9,
-  "purpose": "SEQ-08 same-source holiday/typhoon-safe gate verification after existing Dev four Job rollout #40281342258. ONE READ-ONLY PG SELECT plus public 2330/2882 latest Core same-exchange 21-session in-memory gate; raw prior immutable PG outputs remain unchanged. No owner data, rank fabrication, new resource or GCS/PG writes. Gate probe CI #40282219549 PASS."
+  "rank_diagnostic_attempt": 10,
+  "purpose": "SEQ-08 actual one-shot PostgreSQL SELECT + bounded public 2330/2882 current Core 21-session ranking gates following corrected closed-session model Dev rollout #40281342258 and API 100% request #40299267385. Previous #40282426306 completed SUCCESS but PG readback job was SKIPPED because commit message did not match exact workflow condition; this exact prefix triggers seq08-pg-product-readback. No PG or GCS writes, no Owner data leak, no duplicated immutable screening projection."
 }
