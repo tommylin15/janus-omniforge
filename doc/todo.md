@@ -1,5 +1,12 @@
 # Janus — 唯一 Active TODO
 
+## SEQ-08 2026-10-26 現役修正版部署／真資料入口（覆蓋下列歷史快照）
+
+- **已部署最新模型 serving 程式**：source SHA `462bd1c85708cb5bc4ce1877d35a3645ff9668d4`；四模型五份核准真UBJ **未重訓/未換權重**，GCS atomic ACTIVE `models/registry/seq08-four-models-active.json` 沿前輪 #40193843435。非交易日 Quant/Risk 特徵與同市場 Screening rank 已修正且 CI PASS。
+- **完整 Release** [#40215268427](https://github.com/tommylin15/janus-omniforge/actions/runs/40215268427)、四 Job 舊image基線 [#40215440753](https://github.com/tommylin15/janus-omniforge/actions/runs/40215440753)、Dev API 0% candidate [#40215944127](https://github.com/tommylin15/janus-omniforge/actions/runs/40215944127)、Auth 負向邊界 [#40216220752](https://github.com/tommylin15/janus-omniforge/actions/runs/40216220752)、**四既有 Dev Jobs rollout** [#40216332296](https://github.com/tommylin15/janus-omniforge/actions/runs/40216332296)、**新版 API 100%** [#40247497520](https://github.com/tommylin15/janus-omniforge/actions/runs/40247497520)：以上 Workflow 各自 completed/success；Jobs `phase=PASS`、API `promote-api-only=success`。不新增雲端資源、排程、模型相容或回復責任。
+- **新版 Live 尚待**：全市場 Screening 真工作 [#40247788673](https://github.com/tommylin15/janus-omniforge/actions/runs/40247788673) 已派送進既有受控 Dev 工作流程，**目前 in_progress，不宣稱模型真預測 PASS**。下一步按結果再做最新合法 Core snapshot 的一次 `deep-coverage`，讀回 `four-model-serving.json`、Quant/Risk coverage、PG `private.specialist_product` 及獨立 2330／2882 公共股票驗收。
+- **Owner 個人資料／UI**：先前五張畫面只證明舊版曾可登入；此新版正式登入 Owner 報告／歷史／UI 尚未取得可授權正向 session。Janus 唯讀 MCP 直接讀 2330、2882 和 Owner 都遇內部錯誤，不能標 PASS；不得造值或洩露私人組合。整體 SEQ-08 = **LIVE_PARTIAL**，不提前 CLOSED。
+
 ## SEQ-08 最新實際部署快照（2026-10-25；覆蓋本檔以下較早的「未部署」描述）
 
 - **五真權重**：現有 Dev GCS create-only SHA readback [#40182200560](https://github.com/tommylin15/janus-omniforge/actions/runs/40182200560) PASS；Quant15、Risk12、Fundamental15、Valuation PE/PB 五頭原生驗證。
