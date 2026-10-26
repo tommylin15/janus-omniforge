@@ -127,9 +127,10 @@ def test_rank_failure_keeps_specific_input_gate_when_benchmark_has_no_21_session
 def test_quant_rank_cohort_day_is_dominant_not_one_newer_symbol():
     # Screening may contain a few Core bars beyond the last complete cohort.
     # Their date must not shift everybody else's denominator.
-    rows = [sample(i, "twse", "2026-10-22", float(i)) for i in range(101)]
-    rows.extend(sample("new-" + str(i), "twse", "2026-10-23", float(i))
-                for i in range(3))
+    rows = [sample(i, "twse", "2026-10-22", float(i), "2026-10-26")
+            for i in range(101)]
+    rows.extend(sample("new-" + str(i), "twse", "2026-10-23", float(i),
+                       "2026-10-26") for i in range(3))
     ranked = {r["symbol"]: r for r in rank_features(rows, "2026-10-26")}
     assert ranked["0"]["seq08_quant_rank"]["source_trade_date"] == "2026-10-22"
     assert ranked["0"]["seq08_quant_rank"]["cohort_size"] == 101
