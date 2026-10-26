@@ -1,0 +1,22 @@
+{
+  "intent": "seq08-official-tpex-price-benchmark-only",
+  "approved": true,
+  "apply": false,
+  "scope": "existing-dev-ingestion-one-job",
+  "months": [
+    "2026-09",
+    "2026-10"
+  ],
+  "date_start": "2026-09-01",
+  "date_end": "2026-10-22",
+  "max_runs": 1,
+  "new_resources_allowed": false,
+  "owner_mutation_allowed": false,
+  "job_template_mutation_allowed": false,
+  "scheduler_mutation_allowed": false,
+  "retraining_allowed": false,
+  "source_sha": "0000000000000000000000000000000000000000",
+  "release_run": "000000",
+  "jobs_run": "000000",
+  "purpose": "SEQ-08 official monthly OTC price-index only, parse/write frozen 2026-09/10 TWSE-independent benchmark and create new Core snapshot; queued only after targeted tests, full GHCR release and four existing Jobs rollout."
+}
