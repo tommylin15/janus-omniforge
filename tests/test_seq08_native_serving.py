@@ -126,15 +126,15 @@ def test_screening_rank_is_market_wide_average_ties_not_target_only():
     rows=[]
     for n in range(101):
         rows.append({
-            "symbol":str(n), "latest_trade_date":"2026-10-23",
+            "symbol":str(n), "latest_trade_date":"2026-10-22",
             "metrics":{"return_20d_percent":n,"relative_strength_20d_percent":None,
                        "turnover_20d_mean_twd":None},
             "screening_score":None,
             "seq08_quant_rank_input":{
                 "market":"twse","ret20":float(n//2),
-                "core_snapshot_id":"123","analysis_as_of":"2026-10-23"},
+                "core_snapshot_id":"123","analysis_as_of":"2026-10-26"},
         })
-    result=rank_features(rows,"2026-10-23")
+    result=rank_features(rows,"2026-10-26")
     assert result[0]["seq08_quant_rank"]["cohort_size"]==101
     assert result[0]["seq08_quant_rank"]["value"]==pytest.approx(1.5/101)
     assert result[-1]["seq08_quant_rank"]["value"]==1.
