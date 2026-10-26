@@ -114,7 +114,7 @@ try:
                 for sym,val in cur.fetchall():
                     if isinstance(val,str):val=json.loads(val)
                     if isinstance(val,dict):ranks[str(sym)]=val
-        with psycopg.connect(host=settings["host"],dbname=settings["name"],user=settings["user"],
+    with psycopg.connect(host=settings["host"],dbname=settings["name"],user=settings["user"],
                          password=settings["password"],sslmode=os.getenv("PUBLICATION_DB_SSLMODE","require"),
                          connect_timeout=8) as conn:
         with conn.transaction():
