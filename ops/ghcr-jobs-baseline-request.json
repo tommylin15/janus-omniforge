@@ -3,7 +3,7 @@
   "environment": "dev",
   "risk_candidate_sha256": "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044",
   "no_gcp_writes": true,
-  "source": "SEQ-08 2026-10-26 read current pinned four Dev Jobs immediately before upgrading from previous deployed source 462bd1c8",
-  "purpose": "Read-only pre-rollout exact baseline for existing dev four jobs (live image digests, source labels, and config fingerprints); no job execution, traffic, IAM, Scheduler, model fallback, or GCP writes.",
-  "request_attempt": 14
+  "source": "SEQ-08 verified 2026 09/25 exchange closure feature fix new release #40266792603; existing live four Dev Jobs still 420b1b5c prior to rollout.",
+  "purpose": "Read-only current four existing Dev Job GHCR pinned digests, source labels and exact config hashes before changing to final closure-filter release. Preserve infrastructure recovery only; no model fallback, IAM, Scheduler, API traffic or GCP writes.",
+  "request_attempt": 15
 }
