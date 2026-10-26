@@ -8,5 +8,5 @@
   "no_owner_mutation": true,
   "no_new_resources": true,
   "one_job_execution": true,
-  "rank_diagnostic_attempt": 1
+  "rank_diagnostic_attempt": 2
 }
