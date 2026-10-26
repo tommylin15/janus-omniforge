@@ -7,5 +7,6 @@
   "no_pg_mutation": true,
   "no_owner_mutation": true,
   "no_new_resources": true,
-  "one_job_execution": true
+  "one_job_execution": true,
+  "rank_diagnostic_attempt": 1
 }
