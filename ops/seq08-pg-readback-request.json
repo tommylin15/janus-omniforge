@@ -2,12 +2,12 @@
   "intent": "seq08-one-existing-dev-pg-readonly",
   "approved": true,
   "scope": "existing-dev-mart-one-select-execution",
-  "source_sha": "420b1b5cdef91c7df1671660217315f62fc7e77f",
+  "source_sha": "43543ac684f34341265069244b5507f51afd5cff",
   "mart_execution_id": "c2604239-f954-4819-bfc2-6e102d62fcaf",
   "no_pg_mutation": true,
   "no_owner_mutation": true,
   "no_new_resources": true,
   "one_job_execution": true,
-  "rank_diagnostic_attempt": 8,
-  "purpose": "SEQ-08 one bounded READ ONLY existing Dev Mart task. Previously verified exactly 21 benchmark sessions incomplete for public 2330 and 2882; now return exact missing benchmark dates within last 21 same-market sessions using unchanged pinned current Core snapshot. No fresh history backfill, no writes, no Owner symbols exposed, no separate resources."
+  "rank_diagnostic_attempt": 9,
+  "purpose": "SEQ-08 same-source holiday/typhoon-safe gate verification after existing Dev four Job rollout #40281342258. ONE READ-ONLY PG SELECT plus public 2330/2882 latest Core same-exchange 21-session in-memory gate; raw prior immutable PG outputs remain unchanged. No owner data, rank fabrication, new resource or GCS/PG writes. Gate probe CI #40282219549 PASS."
 }
