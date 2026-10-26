@@ -88,7 +88,7 @@ core=json.loads(dev_core.read(uri.path.lstrip("/")))
 asof=event["analysisAsOf"]; snapshot=event["coreSnapshotId"]
 required={name for names in DEPENDENCIES.values() for name in names}
 tables={name:fence for name,fence in core.get("iceberg_tables",{}).items()
-        if name.split(".",1)[1][:-3].replace("_","-") in required}
+        if name in {"core."+kind+"_v1" for kind in required}}
 inputs=dict(core,iceberg_tables=tables)
 if "datasets" in core:
     inputs["datasets"]={name:rows for name,rows in core["datasets"].items()
