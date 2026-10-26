@@ -124,20 +124,26 @@ def rank_features(output, as_of):
     # compute AFTER all chunks are joined, never rank Owner target subset.
     # Trading holidays use the latest *observed* market session, not the
     # calendar analysis date. Distinct trade sessions never enter one cohort.
-    sessions = {}
+    # Choose the latest *complete Core cohort*, not the maximum day seen
+    # anywhere: one anomalous/newer stock must not displace 1,900 eligible
+    # same-market stocks from the rank denominator.
+    populations = {}
     cutoff = date.fromisoformat(as_of)
     for row in output:
         item = row.get("seq08_quant_rank_input") or {}
         market = item.get("market")
         day = row.get("latest_trade_date")
         if (market in ("twse", "tpex") and item.get("analysis_as_of") == as_of
-                and isinstance(day, str)):
+                and isinstance(day, str) and number(item.get("ret20")) is not None):
             try:
                 age = (cutoff - date.fromisoformat(day)).days
             except ValueError:
                 continue
             if 0 <= age <= 7:
-                sessions[market] = max(sessions.get(market, ""), day)
+                counts = populations.setdefault(market, {})
+                counts[day] = counts.get(day, 0) + 1
+    sessions = {market: max(counts, key=lambda day: (counts[day], day))
+                for market, counts in populations.items()}
     cohorts = {}
     for row in output:
         item = row.get("seq08_quant_rank_input") or {}
