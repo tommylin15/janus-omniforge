@@ -137,3 +137,21 @@ def test_quant_rank_cohort_day_is_dominant_not_one_newer_symbol():
     assert all(ranked["new-" + str(i)]["seq08_quant_rank"] is None for i in range(3))
     assert all(ranked["new-" + str(i)]["seq08_quant_rank_gate"] ==
                "not_latest_market_core_session" for i in range(3))
+
+
+def test_risk_session_alignment_requires_verified_public_cohort_rank():
+    from intelligence_mart.analyst_inputs import verified_market_rank
+    proof = {"market": "twse", "analysis_as_of": "2026-10-26",
+             "source_trade_date": "2026-10-22", "core_snapshot_id": "fixed",
+             "source": "full_market_core_same_day_pct_rank",
+             "cohort_size": 101, "value": 0.5}
+    ctx = {"market": "twse", "latest_day": "2026-10-22",
+           "as_of": "2026-10-26", "snapshot": "fixed"}
+    assert verified_market_rank(proof, **ctx)
+    for key, invalid in [("cohort_size", 8), ("value", None),
+                         ("core_snapshot_id", "other"),
+                         ("source_trade_date", "2026-10-21"),
+                         ("market", "tpex"), ("value", float("nan")),
+                         ("source", "owner_eight_stock_rank")]:
+        assert not verified_market_rank({**proof, key: invalid}, **ctx)
+    assert not verified_market_rank(None, **ctx)

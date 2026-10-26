@@ -5,7 +5,7 @@ from datetime import date, timedelta
 
 from .specialists import digest, number, validated_inputs
 
-VERSION = "analyst-inputs-v2-seq08"
+VERSION = "analyst-inputs-v3-seq08-core-market-aligned"
 QUANT15 = ("ret5","ret20","ret60","ma20_distance","ma60_distance","vol20","vol60","drawdown60","volume_ratio20","log_turnover20","market_code","ret10","ret120","bollinger_z20","ret20_market_rank")
 RISK12 = ("vol20","vol60","drawdown60","abs_return5","volume_ratio20","atr14_pct","abs_overnight_gap5","log_turnover20","downside_vol20","worst_daily_ret20","amihud_illiquidity","drawdown_from_high120")
 FUND15 = ("yoy_m","yoy_3m","yoy_change1","growth_acceleration","mom_m","log_revenue","season_sin","season_cos","revenue_vol3","market_code","revenue_sum6m","revenue_mean12m","revenue_growth_6m","base_log_twd","base_to_recent_log")
@@ -79,6 +79,22 @@ def latest_eligible_market_session(latest_trade_date, sessions, analysis_as_of, 
     return actual.isoformat() if 0 <= age <= max_age_days else None
 
 
+def verified_market_rank(info, *, market, latest_day, as_of, snapshot):
+    """Only full-market rank can establish a target's Core cohort day."""
+    if not isinstance(info, dict):
+        return False
+    value = number(info.get("value"))
+    return (info.get("market") == market
+            and info.get("analysis_as_of") == as_of
+            and info.get("source_trade_date") == latest_day
+            and str(info.get("core_snapshot_id")) == str(snapshot)
+            and info.get("source") == "full_market_core_same_day_pct_rank"
+            and isinstance(info.get("cohort_size"), int)
+            and not isinstance(info.get("cohort_size"), bool)
+            and info["cohort_size"] >= 100
+            and value is not None and 0 < value <= 1)
+
+
 def build(datasets, symbols, as_of, snapshot, *, market_rank=None):
     """Materialize reference feature contracts; model schemas must be matched before serving."""
     import pandas as pd
@@ -104,13 +120,28 @@ def build(datasets, symbols, as_of, snapshot, *, market_rank=None):
             market = str(prices.market.iloc[0])
             latest = prices.sort_values("trade_date").iloc[-1]
             latest_day, latest_close = str(latest.trade_date)[:10], number(latest.close)
-            # Include observed benchmark sessions to expose gaps, never forward fill stock prices.
+            # Stock bars are not a market calendar. Use accepted same-market
+            # Core benchmark sessions only; never forward-fill missing OHLCV.
             benchmark_id = "TAIEX" if market == "twse" else "TPEx"
-            sessions = sorted(set(prices.trade_date) | {
-                str(r["trade_date"])[:10] for r in datasets.get("benchmark", [])
-                if r.get("benchmark_id") == benchmark_id and r.get("trade_date")
-                and str(r["trade_date"])[:10] <= as_of})
+            benchmark_days = sorted({
+                str(r["trade_date"])[:10] for r in valid.get("benchmark", [])
+                if str(r.get("benchmark_id", "")).casefold() == benchmark_id.casefold()
+                and str(r.get("index_kind") or "price").lower() == "price"
+                and r.get("trade_date") and str(r["trade_date"])[:10] <= as_of
+            })
+            info = (market_rank or {}).get(symbol)
+            ranked_day = verified_market_rank(
+                info, market=market, latest_day=latest_day, as_of=as_of,
+                snapshot=snapshot)
+            # Only a proven complete public Core cohort lets Risk use the last
+            # observed Core day when the index alone has newer observations.
+            # Otherwise the newer market session still blocks a halted stock.
+            sessions = ([day for day in benchmark_days if day <= latest_day]
+                        if ranked_day and latest_day in benchmark_days
+                        else benchmark_days)
             daily_values, day_reasons = {}, []
+            if not benchmark_days:
+                day_reasons.append("market_benchmark_sessions_missing")
             try:
                 # Original research factor factory is shared by Quant15 and Risk12.
                 market_day = latest_eligible_market_session(latest_day, sessions, as_of)
@@ -132,15 +163,8 @@ def build(datasets, symbols, as_of, snapshot, *, market_rank=None):
                     # Factory.rank(pct=True) is all-market, same-day; running it on
                     # one Owner's stock silently gives 1.0. Never expose that value.
                     values["ret20_market_rank"] = None
-                    info = (market_rank or {}).get(symbol)
-                    if (isinstance(info, dict) and info.get("market") == market
-                            and info.get("analysis_as_of") == as_of
-                            and info.get("source_trade_date") == latest_day
-                            and str(info.get("core_snapshot_id")) == str(snapshot)
-                            and info.get("source") == "full_market_core_same_day_pct_rank"
-                            and isinstance(info.get("cohort_size"), int)
-                            and info["cohort_size"] >= 100):
-                        values["ret20_market_rank"] = info.get("value")
+                    if ranked_day:
+                        values["ret20_market_rank"] = number(info["value"])
                     else:
                         reasons.append("full_market_same_day_percent_rank_missing")
                 roles[role] = _features(order, values, input_as_of=latest_day,
@@ -170,6 +194,8 @@ def build(datasets, symbols, as_of, snapshot, *, market_rank=None):
                 reasons.append("invalid_revenue_window")
         else:
             reasons.append("monthly_revenue_or_market_missing")
+        if revenues and any(number(fund_values.get(key)) is None for key in FUND15):
+            reasons.append("monthly_revenue_comparison_window_incomplete")
         roles["fundamental"] = _features(FUND15, fund_values, input_as_of=period,
                                          version=SEQ08_FEATURE_VERSION["fundamental"], reasons=reasons)
         base_twd = number(fund_values.get("_research_base_twd"))
@@ -215,7 +241,7 @@ def build(datasets, symbols, as_of, snapshot, *, market_rank=None):
         result.append(item)
     artifact = {"artifact_kind": "mart_analyst_inputs_v1", "schema_version": VERSION,
         "analysis_as_of": as_of, "core_snapshot_id": snapshot, "rows": result,
-        "calendar_basis": "OBSERVED_CORE_BENCHMARK_AND_TARGET_SESSIONS",
+        "calendar_basis": "ACCEPTED_SAME_MARKET_BENCHMARK_SESSIONS_WITH_FULL_CORE_COHORT_PROOF",
         "owner_fields_exposed": False, "publication_authority": False}
     artifact["output_hash"] = digest(artifact)
     return artifact
