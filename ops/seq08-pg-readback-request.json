@@ -2,12 +2,12 @@
   "intent": "seq08-one-existing-dev-pg-readonly",
   "approved": true,
   "scope": "existing-dev-mart-one-select-execution",
-  "source_sha": "43543ac684f34341265069244b5507f51afd5cff",
-  "mart_execution_id": "c2604239-f954-4819-bfc2-6e102d62fcaf",
+  "source_sha": "c4605a84eb46257cbf628b33e2156ebc01f5b9ac",
+  "mart_execution_id": "fd2a4886-e800-4651-8706-00efed4062cf",
   "no_pg_mutation": true,
   "no_owner_mutation": true,
   "no_new_resources": true,
   "one_job_execution": true,
-  "rank_diagnostic_attempt": 10,
-  "purpose": "SEQ-08 actual one-shot PostgreSQL SELECT + bounded public 2330/2882 current Core 21-session ranking gates following corrected closed-session model Dev rollout #40281342258 and API 100% request #40299267385. Previous #40282426306 completed SUCCESS but PG readback job was SKIPPED because commit message did not match exact workflow condition; this exact prefix triggers seq08-pg-product-readback. No PG or GCS writes, no Owner data leak, no duplicated immutable screening projection."
+  "rank_diagnostic_attempt": 11,
+  "purpose": "SEQ08 new Core exact PG SELECT after GCS identity/hash #40353770844 RANK_READY_PASS: c4605a84, Core sha256:5d741c0b..., screening Mart execution fd2a4886..., TWSE 1058 TPEx 762. One existing pinned Dev Mart job read-only SQL and 2330/2882 in-memory feature spotcheck; no PG/GCS/Owner writes, no model retraining, no new IAM or resources. Must verify JSONB object count, not just Workflow PASS."
 }
