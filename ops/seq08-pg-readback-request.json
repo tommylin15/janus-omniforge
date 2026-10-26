@@ -1,0 +1,11 @@
+{
+  "intent": "seq08-one-existing-dev-pg-readonly",
+  "approved": true,
+  "scope": "existing-dev-mart-one-select-execution",
+  "source_sha": "462bd1c85708cb5bc4ce1877d35a3645ff9668d4",
+  "mart_execution_id": "c2604239-f954-4819-bfc2-6e102d62fcaf",
+  "no_pg_mutation": true,
+  "no_owner_mutation": true,
+  "no_new_resources": true,
+  "one_job_execution": true
+}
