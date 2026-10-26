@@ -14,7 +14,7 @@ def test_fixed_one_run_readonly_request():
     correct={
         "intent":"seq08-exact-real-mart-product-readonly",
         "source_sha":module.SOURCE,"successful_mart_run":module.RUN,
-        "symbols":["2330","2882"],"diagnostic_attempt":6,"read_only":True,"no_gcp_mutation":True,
+        "symbols":["2330","2882"],"diagnostic_attempt":7,"read_only":True,"no_gcp_mutation":True,
         "no_owner_mutation":True,"no_new_resources":True
     }
     module.require_request(correct)
@@ -133,3 +133,46 @@ def test_market_screening_cloud_logging_operation_scope():
                                      operation="market-screening")==eid
     with pytest.raises(ValueError):
         module.parse_execution_id([log],"janus-intelligence-mart-aaabc")
+
+
+def test_new_core_gcs_fallback_proves_percentile_not_pg(monkeypatch):
+    from types import SimpleNamespace
+    import hashlib
+    base=module.BUCKET
+    uri="gs://"+base+"/screening/"+"a"*64+".json"
+    out=("  750 2026-10-26T14:27:00Z "+uri+"\nTOTAL: 1 objects\n").encode()
+    monkeypatch.setattr(module,"run",lambda cmd,timeout=75:SimpleNamespace(returncode=0,stdout=out))
+    identity={"analysis_as_of":"2026-10-26","core_snapshot_id":module.EXPECTED_CORE_SNAPSHOT_ID,
+              "feature_version":"market-screening-v5-exchange-closure-filter"}
+    def hashof(value):
+        return "sha256:"+hashlib.sha256(
+            json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(",",":"),default=str).encode()
+        ).hexdigest()
+    rows=[]
+    for i in range(100):
+        symbol="2330" if i==0 else str(3000+i)
+        rank={"value":(i+1)/100,"market":"twse","cohort_size":100,
+              "source_trade_date":"2026-10-22","core_snapshot_id":module.EXPECTED_CORE_SNAPSHOT_ID,
+              "analysis_as_of":"2026-10-26","source":"full_market_core_same_day_pct_rank"}
+        rows.append({"symbol":symbol,"latest_trade_date":"2026-10-22",
+                     "seq08_quant_rank":rank,"seq08_quant_rank_gate":"ranked"})
+    artifact={"identity":identity,"identity_hash":hashof(identity),"rows":rows,
+              "artifact_kind":"mart_market_screening_v1",
+              "input_telemetry":{"seq08_quant_rank":{"ranked_rows":100,"gate_counts":{"ranked":100}}}}
+    artifact["output_hash"]=hashof(artifact)
+    monkeypatch.setattr(module,"object_json",lambda path:(artifact,"sha256:artifact"))
+    proof=module.read_new_core_from_bounded_prefix()
+    assert proof["status"]=="RANK_PARTIAL"
+    assert proof["ranked_by_market"]=={"twse":100}
+    assert proof["pg_product_readback"]=="NOT_VERIFIED"
+    artifact["rows"][0]["seq08_quant_rank"]["value"]=1.1
+    with pytest.raises(ValueError,match="digest_mismatch"):
+        module.read_new_core_from_bounded_prefix()
+
+def test_bounded_fallback_never_claims_exact_execution():
+    import inspect
+    code=inspect.getsource(module.read_new_core_from_bounded_prefix)
+    assert "len(lines)>251" in code
+    assert "len(candidates)>24" in code
+    assert "BOUNDED_NEW_CORE_GCS_NOT_EXACT_MART_EXECUTION" in code
+    assert "pg_product_readback" in code
