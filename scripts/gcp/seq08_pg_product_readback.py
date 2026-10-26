@@ -114,7 +114,31 @@ try:
                 for sym,val in cur.fetchall():
                     if isinstance(val,str):val=json.loads(val)
                     if isinstance(val,dict):ranks[str(sym)]=val
-    analyst=build(stock_data.datasets,("2330","2882"),asof,snapshot,market_rank=ranks)
+    with psycopg.connect(host=settings["host"],dbname=settings["name"],user=settings["user"],
+                     password=settings["password"],sslmode=os.getenv("PUBLICATION_DB_SSLMODE","require"),
+                     connect_timeout=8) as conn:
+    with conn.transaction():
+        conn.execute("SET TRANSACTION READ ONLY")
+        conn.execute("SET LOCAL statement_timeout='25000ms'")
+        with conn.cursor() as cur:
+            cur.execute("""SELECT COUNT(*),
+                             COUNT(*) FILTER (WHERE payload_json->'seq08_quant_rank' IS NOT NULL),
+                             COUNT(*) FILTER (WHERE payload_json->>'latest_trade_date'=
+                                 (SELECT MAX(payload_json->>'latest_trade_date')
+                                  FROM private.market_screening_product
+                                  WHERE analysis_as_of=%s AND core_snapshot_id=%s)),
+                             MAX(payload_json->>'latest_trade_date')
+                           FROM private.market_screening_product
+                           WHERE analysis_as_of=%s AND core_snapshot_id=%s""",
+                        (asof,snapshot,asof,snapshot))
+            total,ranked,on_latest,latest_day=cur.fetchone()
+proof["full_market_screening_counts"]={
+    "analysis_as_of":asof,"core_snapshot_id":snapshot,
+    "screening_rows":int(total),"ranked_rows":int(ranked),
+    "latest_session_row_count":int(on_latest),
+    "latest_trade_date":latest_day,
+    "private_symbols_exposed":False}
+analyst=build(stock_data.datasets,("2330","2882"),asof,snapshot,market_rank=ranks)
     class LocalOnlyCache:
         def __init__(self,bucket):
             self.backing=GcsObjectStore(bucket);self.pending={}
