@@ -35,7 +35,9 @@ def test_features_ranks_missing_and_pit():
     metrics = by_symbol["2330"]["metrics"]
     assert metrics["turnover_20d_mean_twd"] == 10000
     assert metrics["volatility_20d_annualized"] > 0
-    assert metrics["relative_strength_120d_percent"] == 60
+    # The synthetic 121-calendar-day benchmark includes weekends and the
+    # 2026-05-01 exchange holiday; it is not 121 valid trading sessions.
+    assert metrics["relative_strength_120d_percent"] is None
     assert metrics["pe_ratio"] is None
     assert by_symbol["missing"]["candidate_rank"] is None
     assert all(v is None for v in by_symbol["missing"]["cross_sectional_rank"].values())
