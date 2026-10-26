@@ -1,5 +1,20 @@
 # Janus 最新驗收證據索引
 
+## 2026-10-26｜SEQ-08 修正版真資料與 PostgreSQL 實際驗收
+
+| Acceptance | Run evidence | 狀態與有界結論 |
+|---|---|---|
+| 最新同版 Model/Image/API | Release #40215268427；四Jobs #40216332296；API100 #40247497520 | source `462bd1c85708cb5bc4ce1877d35a3645ff9668d4` 全部 PASS |
+| 完整市場 Screening | [#40247788673](https://github.com/tommylin15/janus-omniforge/actions/runs/40247788673) | 實際 Dev `market-screening` Cloud Run SUCCESS；不能憑成功表示所有 Quant rank 有效 |
+| 8股 Deep Coverage | [#40248399245](https://github.com/tommylin15/janus-omniforge/actions/runs/40248399245) | Dev `deep-coverage` Cloud Run SUCCESS；model output 另讀 |
+| 唯讀 GCS Five Head | [#40249008222](https://github.com/tommylin15/janus-omniforge/actions/runs/40249008222) | `READBACK_PASS`、2026-10-26／Core `sha256:544970f64e6dd965ca6cf57786a120f3eb39ffeddacd6255bdcc373ade74ffd3`、execution `c2604239-f954-4819-bfc2-6e102d62fcaf`；8檔 Quant=0、Risk=2、Fundamental=2、Valuation=4，餘缺值有理由。Risk從 10/25 舊 0/8 改善至2/8，並非 8/8。 |
+| PostgreSQL 同 Mart 產品投影 | [#40249244086](https://github.com/tommylin15/janus-omniforge/actions/runs/40249244086) | `PG_SELECT_READBACK_PASS`，exact execution 8筆，`missing_serving=0`；模型分布與 GCS 一致，private symbol list不外洩 |
+| 公共兩股點測（與Owner無關） | 同 #40249244086 | 2330 Valuation 雙頭 `ACTIVE_PREDICTED`，`log_pe=2.712153434753418`、`log_pb=1.2493306398391724`；2330其餘三角色缺因子。2882 四角色均缺因子，Valuation 缺合格可比 MOPS 季資料。PG現有私有產品歷史存在：2330 true、2882 false，非本輪8檔Owner portfolio或當前報告UI。 |
+| Quant rank 缺口 | 新 GCS READBACK + PG | 8/8缺 `ret20_market_rank`，2330/2882 `full_market_rank_count=0`。需要 full market cohort/readers 獨立彙總檢查，不應用8股 Owner ranking 補假分位。前輪單獨 rank probe #40249709135 僅測試時 IndentationError、無雲端執行；已更正並啟動 #40249995006（結果後續更新）。 |
+| Owner 真人新版 UI | 無授權正向 session | **NOT_VERIFIED**；舊版登入畫面不能代替本版報告／估值卡、Owner history 新版驗收。Janus read-only MCP 目前 internal error。 |
+
+**結論：** 實際 Dev image、API100、Screening／Deep Coverage、五頭真正推論、8筆PG產品投影與公共 2330 PE/PB 均有成功證據；Quant 0/8 和其他模型合法特徵不足是具體未通過部分，不能判定四模型 full acceptance / SEQ-08 CLOSED。沿單一 SEQ-08 工作線處理市場 cohort/rank/真實行情、財報缺值、個股公開報告與 Owner UI，不新開模型或重訓、不造值、不新增付費資源。
+
 ## 2026-10-26 SEQ-08 已驗證最終部署（歷史 10/25 記錄仍保留、以此較新狀態為準）
 
 | 階段 | Artifact / Workflow | 本次實際狀態 |
