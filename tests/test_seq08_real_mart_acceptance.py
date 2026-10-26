@@ -21,6 +21,9 @@ def request():
         "source_sha": real.SOURCE, "release_run": real.RELEASE_RUN,
         "jobs_run": real.JOBS_RUN, "api_run": real.API_RUN,
         "registry_run": real.REGISTRY_RUN, "mart_operation": "deep-coverage",
+        "new_core_run": "40337663516",
+        "new_core_execution_id": "bf26bfb1-3dcc-4f76-85b4-effcc4f25ef3",
+        "expected_core_snapshot_id": "sha256:5d741c0b8804322e87cf7bd4c1a4c04be3244e36e000a216d0fc07912596166a",
         "product_projection": True,
         "job_runs_allowed": 1, "training_allowed": False, "llm_allowed": False,
         "owner_ledger_writes_allowed": False, "new_resources_allowed": False,
@@ -34,6 +37,7 @@ def test_strict_existing_dev_single_workload(monkeypatch):
     for key, value in (
         ("approved", False), ("source_sha", "0"*40),
         ("mart_operation","retrain"), ("product_projection", False),
+        ("new_core_run", "0"), ("new_core_execution_id", "bogus"),
         ("job_runs_allowed", 2), ("training_allowed", True),
         ("owner_ledger_writes_allowed", True), ("scope", "production"),
     ):
@@ -60,10 +64,10 @@ def test_two_separate_allowed_readback_operations(monkeypatch):
     for op in ("market-screening","deep-coverage"):
         data=request()
         data["mart_operation"]=op
-        data["product_projection"]=(op=="deep-coverage")
+        data["product_projection"]=True
         monkeypatch.setattr(real.Path,"read_text",lambda *_, _data=data, **kw: json.dumps(_data))
         assert real.authorize()["mart_operation"]==op
-        assert real.authorize()["product_projection"] is (op=="deep-coverage")
-        data["product_projection"] = not data["product_projection"]
+        assert real.authorize()["product_projection"] is True
+        data["product_projection"] = False
         with pytest.raises(ValueError):
             real.authorize()
