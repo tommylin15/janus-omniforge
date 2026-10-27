@@ -304,6 +304,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     admin_auth = GoogleAdminAuthenticator(
         admin_audience or os.getenv("GOOGLE_ADMIN_CLIENT_ID", ""),
         admin_emails if admin_emails is not None else allowed_admin_emails(),
+        shared_audience=audience or os.getenv("GOOGLE_USER_CLIENT_ID", ""),
         verifier=admin_verifier,
     )
     mcp_oauth = oauth_facade if oauth_facade is not None else _Lazy(lambda: McpOAuth(
@@ -1372,6 +1373,12 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @private.get("/private-data/{request_id}")
     def deletion_status(request_id: UUID, current: AuthenticatedUser = Depends(user)):
         return jsonable_encoder(repository.deletion_request(current.user_id, request_id))
+
+    @admin.get("/session")
+    def admin_session() -> Response:
+        # Authenticate via the Admin router dependency before entering the UI.
+        # Do not expose Google claims or any Owner-private fields.
+        return JSONResponse({"authorized": True}, headers={"Cache-Control": "no-store"})
 
     def admin_actor(current: AuthenticatedAdmin = Depends(authenticate_admin)) -> str:
         return current.email
