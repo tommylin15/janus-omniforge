@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "14e19e0b91bc496814f69dd87dcb22b9a46795d2",
+  "sha": "ab5b12686839019cec40065fa6d043b6334e52a0",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Gemini CLI and Google Antigravity OAuth: exact-source full Release #40439117177 PASS and existing Dev 0-percent API candidate #40440685940 PASS. Verify same-source OAuth discovery/S256/refresh metadata and unauthenticated User/Admin/MCP boundaries without GCP mutations or claiming real client consent/token acceptance. Fixed MCP tag routing follows only after this gate passes.",
-  "request_attempt": 14
+  "purpose": "Owner watchlist repair: full Release #40452156270 and 0%-traffic candidate #40452708990 PASS. Read-only exact SHA public health, private owner/Admin 401/403, OAuth metadata and route boundary. No Owner token access or GCP mutation; needed for controlled API-only promotion.",
+  "request_attempt": 15
 }
