@@ -1,5 +1,25 @@
 # Janus 最新驗收證據索引
 
+## 2026-10-27 全市場 2 年歷史資料補齊與 Serving 投影｜100% PASS
+
+- **全市場歷史種子收錄（1,925 檔個股 100% 收錄）**：
+  - 蒐集器實作於 [`scripts/seed/fetch_2y_history_seed.py`](../../scripts/seed/fetch_2y_history_seed.py)，10 執行緒並行抓取全市場上市（1,045 檔）與上櫃（880 檔）普通股。
+  - 產出檔案（壓縮為 `.jsonl.gz`）：
+    - `data/seed/ohlcv_2y.jsonl.gz`：925,896 筆（14.4 MB）。
+    - `data/seed/eps_3y.jsonl.gz`：8,189 筆（86.3 KB）。
+    - `data/seed/revenue_2y.jsonl.gz`：16,250 筆（165.5 KB）。
+- **Cloud Run Job 與 PostgreSQL Serving 分級投影執行**：
+  - Workflow：[Janus full-market 2Y history seed to dev serving #40522002009](https://github.com/tommylin15/janus-omniforge/actions/runs/40522002009) 4m37s completed/success。
+  - 遵守 Cold/Hot Tiering 政策：Tier 1（持股／關注清單）保留 500 日，Tier 2（其餘個股）保留 120 日，EPS（12季）與月營收（24月）全量投影。
+  - 每 2,000 筆獨立 transaction 提交，執行 `ANALYZE` 統計更新，PostgreSQL 磁碟空間增加 < 95MB（< 0.3% GCP Free Tier 30GB 限制）。
+- **Live Runtime API 讀回證據（正式 Cloud Run API `janus-api-2oo7qbkd5q-uc.a.run.app`）**：
+  - `GET /api/v1/public/stocks/2330/visual-series?metric=close&limit=10`：HTTP 200，最新收盤價 2400.00。
+  - `GET /api/v1/public/stocks/2330/visual-series?metric=eps&limit=8`：HTTP 200，`data_status: available`，連續 8 季單季 EPS（2026 Q2: 27.25, Q1: 22.08 ...）正確讀回。
+  - `GET /api/v1/public/stocks/2330/visual-series?metric=revenue&limit=8`：HTTP 200，`data_status: available`，連續 8 個月單月營收正確讀回。
+  - `GET /api/v1/public/stocks/6488/visual-series?metric=close&limit=10`（上櫃櫃買標的環球晶）：HTTP 200，最新收盤價 814.00。
+  - 抽查 `2454`（聯發科，3960.00）、`2317`（鴻海，247.50）、`8069`（元太，157.00）均正常即時回傳。
+  - `GET /api/v1/public/kline/2330?limit=200`：回傳 200 筆完整 K 線資料。
+
 ## 2026-10-27 個股圖解與白話資訊（前端增量）｜Dev 部署 100% PASS
 
 - **正式部署來源** `73f02252c8a7e8c3d2162d7f25dd22a5c023915f`：包含四面向圖解（`StockFactsPanel`、`StockMetricBars`、`StockValuationBand`、`RiskSignalCard`）、公告摘要與閱讀提示、分析明細收合，以及 390px 寬度／200% 字級（`TextScaler.linear(2)`）無溢位無例外 Widget 回歸測試。

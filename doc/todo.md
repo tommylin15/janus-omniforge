@@ -10,15 +10,23 @@
     - 每月 10 日 21:00 營收批次：寫入 Core Iceberg 與 Serving、自動 Prune 淘汰 > 24 個月前營收。
     - 每季財報申報截止日批次：寫入 Core Iceberg 與 Serving、自動 Prune 淘汰 > 12 季前 EPS。
     - 每週六 02:00 DB 維護：清理孤兒快照並執行 `VACUUM ANALYZE` 釋放 dead tuples 與整理 Index。
-- **全市場歷史種子全量蒐集 100% PASS（2026-10-27）**：
+- **全市場歷史種子全量蒐集與 Serving 投影 100% PASS（2026-10-27）**：
   - 蒐集器實作於 [`scripts/seed/fetch_2y_history_seed.py`](../scripts/seed/fetch_2y_history_seed.py)，採用 10 執行緒多工並行，全量資料壓縮為 `.jsonl.gz`。
   - **全市場 1,925 檔個股全數收錄完成**（耗時 898 秒 / ~15分鐘，無超時無錯誤）：
     - **OHLCV（2 年日頻行情）**：`925,896` 筆，壓縮後僅 14.4 MB。
     - **單季 EPS（3 年單季財報）**：`8,189` 筆，壓縮後 86 KB。
     - **單月營收（2 年月營收）**：`16,250` 筆，壓縮後 166 KB。
-  - **Serving 匯入與淘汰修剪處理器完成**：[`scripts/seed/import_seed_to_serving.py`](../scripts/seed/import_seed_to_serving.py) 與 Cloud Run Job 同步器 [`scripts/gcp/history_seed_serving_sync.py`](../scripts/gcp/history_seed_serving_sync.py)，支援 Tier 1（500日）與 Tier 2（120日）分級投影及單季 EPS/營收全量投影，乾跑測試 PASS（4.86 秒完成 23.4 萬筆 OHLCV 與 2.4 萬筆基本面預備）。
-  - **自動化執行與遷移準備**：建立專用 Workflow [`.github/workflows/history-seed-serving-sync.yml`](../.github/workflows/history-seed-serving-sync.yml)、請求檔 [`ops/history-seed-serving-sync-request.json`](../ops/history-seed-serving-sync-request.json) 與資料庫遷移 [`infra/postgres/migrations/070_yahoo_revenue_serving.sql`](../infra/postgres/migrations/070_yahoo_revenue_serving.sql)。
-- **下一步**：觸發執行 dev Serving 投影同步與讀回驗收，打通個股圖表歷史序列。
+  - **PostgreSQL Serving 分級快取投影已全數寫入（Workflow #40522002009 SUCCESS）**：
+    - 依據 Cold/Hot Tiering 政策，持股／關注清單（Tier 1）保留 2 年（500日），全市場其餘個股（Tier 2）保留 120 日，單季 EPS（12季）與月營收（24月）全量寫入。
+    - 分塊每 2,000 筆獨立 transaction 提交，執行 `ANALYZE` 更新統計資訊，資料庫總體積嚴格受控於 95MB 以內（< 0.3% GCP Free Tier 30GB 限制）。
+  - **Live Runtime API 線上驗收 100% PASS**（測試端點 `https://janus-api-2oo7qbkd5q-uc.a.run.app`）：
+    - `GET /api/v1/public/stocks/2330/visual-series?metric=close&limit=10`：回傳 HTTP 200，最新收盤價 2400.00。
+    - `GET /api/v1/public/stocks/2330/visual-series?metric=eps&limit=8`：回傳 HTTP 200，`data_status: available`，連續 8 季單季 EPS 正確呈現（2026 Q2: 27.25, Q1: 22.08, 2025 Q4: 19.51 ...）。
+    - `GET /api/v1/public/stocks/2330/visual-series?metric=revenue&limit=8`：回傳 HTTP 200，`data_status: available`，連續 8 個月單月營收正確呈現。
+    - `GET /api/v1/public/stocks/6488/visual-series?metric=close&limit=10`（上櫃櫃買標的環球晶）：回傳 HTTP 200，最新收盤價 814.00。
+    - 抽查 `2454`（聯發科，3960.00）、`2317`（鴻海，247.50）、`8069`（元太，157.00）均正常即時回傳。
+    - `GET /api/v1/public/kline/2330?limit=200`：回傳 200 筆完整 K 線蠟燭圖資料。
+- **全市場補檔任務宣告完成**：全市場上市櫃 1,925 檔股票之走勢圖、K 線圖、單季 EPS 與月營收折線圖已全數連通且有界熱快取投影完畢，可正常運作於日常更新與滾動淘汰機制。
 
 ## 個股圖解與白話資訊（2026-10-27 前端增量）
 
