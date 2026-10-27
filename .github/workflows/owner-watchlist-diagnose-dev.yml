@@ -1,0 +1,96 @@
+name: Owner watchlist bounded Dev runtime diagnosis
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/owner-watchlist-diagnose-dev.yml'
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Bounded read of active API revision and watchlist error classes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          project=gen-lang-client-0593591102
+          gcloud run services describe janus-api --project="$project" --region=us-central1 --format=json > /tmp/owner-watchlist-service.json
+          if gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="janus-api" AND timestamp>="2026-10-27T04:20:00Z"' \
+              --project="$project" --limit=600 --format=json > /tmp/owner-watchlist-logs.json 2>/dev/null; then
+            export JANUS_LOGGING_READ=PASS
+          else
+            export JANUS_LOGGING_READ=DENIED_OR_UNAVAILABLE
+            printf '[]\n' > /tmp/owner-watchlist-logs.json
+          fi
+          python3 - <<'PY'
+          import collections,json,os,re,urllib.error,urllib.request
+          from pathlib import Path
+          service=json.loads(Path('/tmp/owner-watchlist-service.json').read_text())
+          logs=json.loads(Path('/tmp/owner-watchlist-logs.json').read_text())
+          traffic=[{'revision':x.get('revisionName'),'percent':x.get('percent')} for x in service.get('status',{}).get('traffic',[]) if (x.get('percent') or 0)>0]
+          watch_status=collections.Counter()
+          other_status=collections.Counter()
+          exception_classes=collections.Counter()
+          stack_locations=collections.Counter()
+          for item in logs if isinstance(logs,list) else []:
+            http=item.get('httpRequest') or {}
+            url=str(http.get('requestUrl') or '')
+            path=url.split('?',1)[0]
+            status=http.get('status')
+            if path.endswith('/api/v1/me/watchlist') and isinstance(status,int):
+              watch_status[str(status)]+=1
+            elif '/api/v1/me/' in path and isinstance(status,int):
+              other_status[str(status)]+=1
+            body=item.get('textPayload') or ''
+            structured=item.get('jsonPayload') or {}
+            if not isinstance(structured,dict):structured={}
+            if not body and structured:
+              message=structured.get('message')
+              body=message if isinstance(message,str) else ''
+            if isinstance(body,str):
+              for kind in re.findall(r'(?m)^(?:[A-Za-z_][\\w.]*[.]?)*(?:Error|Exception|Timeout|UndefinedTable|InsufficientPrivilege|QueryCanceled|OperationalError|ProgrammingError)(?=\\s*:|\\s*$)',body):
+                exception_classes[kind.split('.')[-1]]+=1
+              for f,fn in re.findall(r'File "/app/(services/api/[a-zA-Z_0-9/]+[.]py)", line [0-9]+, in ([a-zA-Z_][a-zA-Z_0-9]*)',body):
+                if fn in {'watchlist','resolve_prices','read','stock_identities','_connection'}:
+                  stack_locations[fn+'@'+f]+=1
+          base='https://janus-api-2oo7qbkd5q-uc.a.run.app'
+          def probe(path):
+            try:
+              with urllib.request.urlopen(base+path,timeout=15) as r:
+                return r.status,r.read(100).decode('ascii','ignore')
+            except urllib.error.HTTPError as e:return e.code,''
+            except Exception:return None,''
+          build=probe('/app/build-id.txt')
+          anonymous=probe('/api/v1/me/watchlist')
+          result={'scope':'watchlist-runtime-metadata-only',
+              'logging_read':os.environ['JANUS_LOGGING_READ'],
+              'log_entries_scanned':len(logs),
+              'active_traffic':traffic,
+              'build_id':build[1] if build[0]==200 and re.fullmatch(r'[a-f0-9]{40}',build[1]) else 'UNKNOWN',
+              'anonymous_watchlist_status':anonymous[0],
+              'watchlist_http_status_counts':dict(watch_status),
+              'other_owner_http_status_counts':dict(other_status),
+              'api_exception_classes':dict(exception_classes.most_common(12)),
+              'api_error_stack_locations':dict(stack_locations.most_common(10)),
+              'no_owner_payload':True,'no_gcp_mutation':True}
+          print(json.dumps(result,sort_keys=True))
+          Path('/tmp/owner-watchlist-diagnosis.json').write_text(json.dumps(result,sort_keys=True))
+          PY
+      - name: Preserve only sanitized bounded evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owner-watchlist-sanitized-runtime
+          path: /tmp/owner-watchlist-diagnosis.json
+          if-no-files-found: ignore
+          retention-days: 7
