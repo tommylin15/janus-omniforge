@@ -3,7 +3,7 @@
   "environment": "dev",
   "risk_candidate_sha256": "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044",
   "no_gcp_writes": true,
-  "source": "SEQ-08 official TPEx benchmark source c4605a84 pre-rollout previous stable 43543ac6",
-  "purpose": "Read-only four existing Dev Cloud Run Job image digests/config hashes/source SHA before new official TPEx benchmark release; no GCP mutation, lease-safe, retain prior rollback configuration only for infrastructure safety.",
-  "request_attempt": 16
+  "source": "Owner watchlist bugfix release: read-only existing dev four-Job rollback baseline before any optional same-source rollout.",
+  "purpose": "Capture exact active job images, source SHAs and configuration hashes with zero GCP mutations. Backend/API/UI bugfix should not alter canonical data, models or Scheduler.",
+  "request_attempt": 17
 }
