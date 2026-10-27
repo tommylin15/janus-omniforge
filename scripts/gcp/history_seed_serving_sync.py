@@ -118,10 +118,15 @@ try:
         if is_tier1: tier1_count += len(selected)
         else: tier2_count += len(selected)
         for td, o, h, l, c, v, market in selected:
-            payload = json.dumps({'trade_date': td, 'open': o, 'high': h, 'low': l, 'close': c, 'volume': v, 'turnover': None, 'source_id': 'yahoo-finance'})
+            prov = f"seed_yahoo_{td}"
+            payload = json.dumps({
+                'trade_date': td, 'open': o, 'high': h, 'low': l, 'close': c,
+                'volume': v, 'turnover': None, 'source_id': 'yahoo-finance',
+                'provenance_id': prov, 'execution_id': execution_id,
+            })
             sort_at = f"{td}T13:30:00+08:00"
             natural_key = f"{symbol}_{market}_{td}"
-            prepared_ohlcv.append(('ohlcv', symbol, natural_key, sort_at, payload, 'yahoo-finance', f"seed_yahoo_{td}", execution_id))
+            prepared_ohlcv.append(('ohlcv', symbol, natural_key, sort_at, payload, 'yahoo-finance', prov, execution_id))
 
     print(f"Upserting {len(prepared_ohlcv)} OHLCV rows to control.stock_serving_recent...", flush=True)
     chunk_size = 2000
@@ -163,8 +168,15 @@ try:
         y = r['fiscal_year']; q = r['fiscal_quarter']
         natural_key = f"{symbol}_{y}_Q{q}_eps"
         sort_at = r.get('availability_at') or f"{y}-{q*3:02d}-15T00:00:00+08:00"
-        payload = json.dumps({'symbol': symbol, 'fiscal_year': y, 'fiscal_quarter': q, 'fiscal_period_end': r['fiscal_period_end'], 'statement_type': 'income', 'metric': 'eps_single_quarter', 'period_basis': 'single_quarter', 'unit': 'TWD_per_share', 'currency': 'TWD', 'value': r['value'], 'source_id': 'yahoo-finance'})
-        prepared_fin.append(('financials', symbol, natural_key, sort_at, payload, 'yahoo-finance', f"seed_eps_{y}Q{q}", execution_id))
+        prov = f"seed_eps_{y}Q{q}"
+        payload = json.dumps({
+            'symbol': symbol, 'fiscal_year': y, 'fiscal_quarter': q,
+            'fiscal_period_end': r['fiscal_period_end'], 'statement_type': 'income',
+            'metric': 'eps_single_quarter', 'period_basis': 'single_quarter',
+            'unit': 'TWD_per_share', 'currency': 'TWD', 'value': r['value'],
+            'source_id': 'yahoo-finance', 'provenance_id': prov, 'execution_id': execution_id,
+        })
+        prepared_fin.append(('financials', symbol, natural_key, sort_at, payload, 'yahoo-finance', prov, execution_id))
 
     for line in rev_lines:
         r = json.loads(line)
@@ -173,8 +185,16 @@ try:
         y = r['fiscal_year']; m = r['fiscal_month']
         natural_key = f"{symbol}_{y}_{m:02d}_revenue"
         sort_at = r.get('availability_at') or f"{y}-{m:02d}-10T00:00:00+08:00"
-        payload = json.dumps({'symbol': symbol, 'fiscal_year': y, 'fiscal_quarter': r['fiscal_quarter'], 'fiscal_month': m, 'fiscal_period_end': r['fiscal_period_end'], 'statement_type': 'monthly_revenue', 'metric': 'monthly_revenue', 'period_basis': 'monthly', 'unit': 'TWD_thousands', 'currency': 'TWD', 'value': r['value'], 'source_id': 'yahoo-finance'})
-        prepared_fin.append(('financials', symbol, natural_key, sort_at, payload, 'yahoo-finance', f"seed_rev_{y}_{m:02d}", execution_id))
+        prov = f"seed_rev_{y}_{m:02d}"
+        payload = json.dumps({
+            'symbol': symbol, 'fiscal_year': y, 'fiscal_quarter': r['fiscal_quarter'],
+            'fiscal_month': m, 'fiscal_period_end': r['fiscal_period_end'],
+            'statement_type': 'monthly_revenue', 'metric': 'monthly_revenue',
+            'period_basis': 'monthly', 'unit': 'TWD_thousands', 'currency': 'TWD',
+            'value': r['value'], 'source_id': 'yahoo-finance', 'provenance_id': prov,
+            'execution_id': execution_id,
+        })
+        prepared_fin.append(('financials', symbol, natural_key, sort_at, payload, 'yahoo-finance', prov, execution_id))
 
     for offset in range(0, len(prepared_fin), chunk_size):
         chunk = prepared_fin[offset:offset+chunk_size]
