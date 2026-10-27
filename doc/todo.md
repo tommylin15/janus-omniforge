@@ -2,6 +2,8 @@
 
 ## OAuth 客戶端相容接線／部署（2026-10-27，使用者新增授權）
 
+- **最新接續**：route #40451813759 前置 RuntimeError，無路由階段收據／artifact，租約404。另一工作線已把包含 OAuth 的 `ab5b1268` 透過 Release #40452156270／candidate #40452708990／Auth #40452973476／API100 #40453071869 成功發布；已同步 main，MCP tags改接這個現役同源版本。路由工具補租約安全原因，允許固定已驗證100% serving revision只接MCP tags，保留canonical不變／digest／Ready／probe／恢復限制；97項測試PASS。等待新的路由run讀回，尚不稱固定入口完成。
+
 - 範圍：保留 ChatGPT Web／Codex，新增 Gemini CLI 與 Google Antigravity（agy）；沿既有 Dev API、MCP issuer/resource 與 Google Owner allowlist，不新增資源/IAM／Google client／scope。
 - 程式與 targeted tests：有界 public-client DCR、Gemini loopback／Antigravity 精確 callback、S256／client-resource binding、refresh/revoke、CSP、路徑 discovery、token no-store 與部署探針已完成；139項相關 OAuth／User/Admin API／安全發布離線測試 PASS（1項既有 multipart deprecation warning）。部署工具第一次共用 helper 匯入造成循環依賴，已修復並重跑通過；User API 初測因未設 CI 套件路徑而2項 collection/import失敗，正確 PYTHONPATH 重跑全數通過。
 - 完整 Release 與 0% candidate PASS：來源 `14e19e0b91bc496814f69dd87dcb22b9a46795d2`、[Release #40439117177](https://github.com/tommylin15/janus-omniforge/actions/runs/40439117177) 與 [候選 #40440685940](https://github.com/tommylin15/janus-omniforge/actions/runs/40440685940) completed/success。已指定同源唯讀 auth boundary 請求；成功後才更新既有兩 MCP tags 並驗新 client prelogin。Gemini CLI／agy 本人 consent 後正向唯讀測試另驗；固定 MCP 入口尚未切換，不稱已生效，不代做 Google consent。設定與契約見 [OAuth runbook](runbook-user-oauth-dev.md)。

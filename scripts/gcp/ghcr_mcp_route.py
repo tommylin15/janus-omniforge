@@ -27,6 +27,15 @@ def command(args):
     result = subprocess.run(args, capture_output=True, text=True, timeout=120)
     if result.returncode:
         # gcloud/API errors can include runtime config or OAuth query payloads.
+        if args[:len(LEASE)] == LEASE:
+            try:
+                reason = json.loads(result.stderr.strip().splitlines()[-1]).get("reason")
+            except (ValueError, IndexError, AttributeError):
+                reason = None
+            allowed = {"lease_busy", "lease_source_is_not_current_main_dispatch_fresh_run",
+                       "lease_main_source_readback_failed"}
+            print(json.dumps({"phase": "release_lease", "reason": reason if reason in allowed else "lease_command_failed"}),
+                  file=sys.stderr)
         raise RuntimeError("bounded_command_failed")
     return result.stdout
 
@@ -165,8 +174,8 @@ def main():
         active, existing = routes(before)
         candidate = existing[tag][0]
         validate(before, before, candidate, restored=True)
-        if existing[tag][1] != 0 or candidate == active[0][0]:
-            raise ValueError("zero_traffic_candidate_required")
+        if existing[tag][1] != (100 if candidate == active[0][0] else 0):
+            raise ValueError("candidate_traffic_identity_mismatch")
         # Persist only bounded routing metadata for independent recovery after crash.
         args.baseline.write_text(json.dumps({"source_sha": sha, "candidate": candidate,
             "active": active, "tags": existing}, sort_keys=True))

@@ -108,7 +108,8 @@ def test_workflow_is_manual_and_shared_lease_fences_tag_mutation():
 
 
 @pytest.mark.parametrize("recovery_safe", [True, False])
-def test_failed_live_probe_restores_tags_and_only_releases_after_verified_recovery(tmp_path, recovery_safe, capsys):
+@pytest.mark.parametrize("already_serving", [True, False])
+def test_failed_live_probe_restores_tags_and_only_releases_after_verified_recovery(tmp_path, recovery_safe, already_serving, capsys):
     sha = route.json.loads((ROOT / "ops/ghcr-candidate-request.json").read_text())["sha"]
     calls = []
 
@@ -131,9 +132,15 @@ def test_failed_live_probe_restores_tags_and_only_releases_after_verified_recove
     before = baseline()
     before["status"]["traffic"][1]["url"] = "https://candidate.test"
     restored = baseline() if recovery_safe else switched()
+    after = switched()
+    if already_serving:
+        for snapshot in (before, after, restored):
+            snapshot["status"]["traffic"][0]["revisionName"] = "candidate"
+            snapshot["status"]["traffic"][0]["percent"] = 0
+            snapshot["status"]["traffic"][1]["percent"] = 100
     with patch.object(sys, "argv", ["repair", "--release-run", "123", "--baseline", str(tmp_path / "baseline.json")]), \
          patch.object(route, "command", side_effect=command), \
-         patch.object(route, "describe", side_effect=[before, switched(), restored]), \
+         patch.object(route, "describe", side_effect=[before, after, restored]), \
          patch.object(route, "probe", side_effect=[None, ValueError("live-probe-failed")]):
         with pytest.raises(RuntimeError, match="baseline_verified" if recovery_safe else "lease_retained"):
             route.main()
@@ -147,3 +154,16 @@ def test_failed_live_probe_restores_tags_and_only_releases_after_verified_recove
     assert '"mutation_attempted": true' in diagnostics
     assert "live-probe-failed" not in diagnostics
     assert ('"recovery": "BASELINE_VERIFIED"' in diagnostics) is recovery_safe
+
+
+@pytest.mark.parametrize("reason,expected", [
+    ("lease_source_is_not_current_main_dispatch_fresh_run", "lease_source_is_not_current_main_dispatch_fresh_run"),
+    ("secret-value-do-not-print", "lease_command_failed"),
+])
+def test_lease_failure_only_reports_allowlisted_reason(reason, expected, capsys):
+    from types import SimpleNamespace
+    result = SimpleNamespace(returncode=1, stdout="", stderr=route.json.dumps({"reason": reason}))
+    with patch.object(route.subprocess, "run", return_value=result), pytest.raises(RuntimeError):
+        route.command(route.LEASE + ["acquire"])
+    diagnostic = route.json.loads(capsys.readouterr().err)
+    assert diagnostic == {"phase": "release_lease", "reason": expected}
