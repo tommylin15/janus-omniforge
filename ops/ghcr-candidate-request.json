@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "c4605a84eb46257cbf628b33e2156ebc01f5b9ac",
+  "sha": "14e19e0b91bc496814f69dd87dcb22b9a46795d2",
   "digest": "",
-  "release_run": "40319442822",
+  "release_run": "40439117177",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "SEQ-08 official TPEx price benchmark Core repair full fixed Release #40319442822 SUCCESS, create new 0-percent existing Dev API candidate only; no traffic/Jobs/GCS/PG mutations, same five model UBJs. Prepare exact source auth and eventual Jobs/API gates.",
-  "request_attempt": 16
+  "purpose": "Gemini CLI and Google Antigravity MCP OAuth compatibility: full same-source Release #40439117177 SUCCESS including Python, Flutter, four public immutable GHCR images. Create existing Dev API 0-percent candidate for exact-source auth boundary and later controlled two-MCP-tag routing; no canonical traffic, Jobs, IAM, Secret, Google OAuth client, Owner or data mutations.",
+  "request_attempt": 17
 }
