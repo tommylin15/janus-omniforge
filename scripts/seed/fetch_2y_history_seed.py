@@ -246,54 +246,104 @@ def write_gz_jsonl(path: Path, items: list[dict[str, Any]]) -> None:
             f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
 
+def load_full_market_roster() -> list[tuple[str, str, str]]:
+    """Load full market common equities (~1,925 stocks) from TWSE and TPEx CSVs."""
+    import csv, io
+    roster: list[tuple[str, str, str]] = []
+    urls = [
+        ("TWSE", "https://raw.githubusercontent.com/mlouielu/twstock/dev/twstock/codes/twse_equities.csv"),
+        ("TPEX", "https://raw.githubusercontent.com/mlouielu/twstock/dev/twstock/codes/tpex_equities.csv"),
+    ]
+    for market, url in urls:
+        try:
+            raw = http_get(url, timeout=20).decode("utf-8")
+            reader = csv.DictReader(io.StringIO(raw))
+            for row in reader:
+                code = str(row.get("code", "")).strip()
+                name = str(row.get("name", "")).strip()
+                row_type = str(row.get("type", "")).strip()
+                if row_type == "股票" and len(code) == 4 and code[0] in "123456789":
+                    roster.append((code, market, name))
+        except Exception as e:
+            print(f"Warning: Failed to fetch {market} roster from {url}: {e}")
+    roster.sort(key=lambda x: x[0])
+    return roster
+
+
+def _collect_single_symbol(item: tuple[str, str, str]) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    symbol, market, name = item
+    ohlcv, _ = fetch_ohlcv_2y(symbol, market)
+    eps = fetch_eps_3y(symbol, market)
+    rev = fetch_revenue_2y(symbol, market)
+    return symbol, ohlcv, eps, rev
+
+
 def main() -> None:
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     parser = argparse.ArgumentParser(description="Fetch 2-year history seed data")
-    parser.add_argument("--symbols", help="Comma-separated stock symbols (e.g. 2330,2317,2454,2882,6488)")
+    parser.add_argument("--symbols", help="Comma-separated stock symbols or 'all' for full market universe")
     parser.add_argument("--outdir", default="data/seed", help="Output directory")
-    parser.add_argument("--delay", type=float, default=0.2, help="Delay between requests in seconds")
+    parser.add_argument("--workers", type=int, default=8, help="Number of concurrent workers (default: 8)")
+    parser.add_argument("--limit", type=int, default=0, help="Limit number of symbols (for testing)")
     args = parser.parse_args()
 
-    symbols_input = args.symbols
-    if not symbols_input:
-        # Default focus batch for demonstration
-        symbols_with_market = [
-            ("2330", "TWSE"), ("2317", "TWSE"), ("2454", "TWSE"), ("2382", "TWSE"),
-            ("2308", "TWSE"), ("2882", "TWSE"), ("2881", "TWSE"), ("2603", "TWSE"),
-            ("6488", "TPEX"), ("8069", "TPEX"), ("5347", "TPEX"), ("3293", "TPEX"),
-        ]
+    symbols_input = (args.symbols or "").strip()
+    if symbols_input == "all" or not symbols_input:
+        print("Loading full market equities roster...")
+        roster = load_full_market_roster()
+        if not roster:
+            print("Fallback to default core batch of symbols...")
+            roster = [
+                ("2330", "TWSE", "台積電"), ("2317", "TWSE", "鴻海"), ("2454", "TWSE", "聯發科"),
+                ("2382", "TWSE", "廣達"), ("2308", "TWSE", "台達電"), ("2882", "TWSE", "國泰金"),
+                ("2881", "TWSE", "富邦金"), ("2603", "TWSE", "長榮"), ("6488", "TPEX", "環球晶"),
+                ("8069", "TPEX", "元太"), ("5347", "TPEX", "世界"), ("3293", "TPEX", "鈊象"),
+            ]
+        symbols_with_market = roster
     else:
         symbols_with_market = []
         for s in symbols_input.split(","):
             s = s.strip()
             if not s:
                 continue
-            # Basic heuristic: 4-digit symbols starting with 6, 8, 5, 3 are often TPEx, others TWSE, or query
-            # We can default to TWSE and test suffix
-            symbols_with_market.append((s, "TWSE"))
+            m = "TPEX" if s[0] in "5683" else "TWSE"
+            symbols_with_market.append((s, m, s))
 
+    if args.limit > 0:
+        symbols_with_market = symbols_with_market[:args.limit]
+
+    total_symbols = len(symbols_with_market)
     out_dir = Path(args.outdir)
-    all_ohlcv = []
-    all_eps = []
-    all_revenue = []
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Starting seed collection for {len(symbols_with_market)} symbols...")
-    for symbol, market in symbols_with_market:
-        print(f"[{symbol}] Fetching OHLCV (2Y)...", end="", flush=True)
-        ohlcv, market = fetch_ohlcv_2y(symbol, market)
-        print(f" {len(ohlcv)} days ({market}) | EPS (3Y)...", end="", flush=True)
-        time.sleep(args.delay)
-        eps = fetch_eps_3y(symbol, market)
-        print(f" {len(eps)} quarters | Revenue (2Y)...", end="", flush=True)
-        time.sleep(args.delay)
-        rev = fetch_revenue_2y(symbol, market)
-        print(f" {len(rev)} months")
-        time.sleep(args.delay)
+    print(f"Starting seed collection for {total_symbols} symbols using {args.workers} workers...")
+    all_ohlcv: list[dict[str, Any]] = []
+    all_eps: list[dict[str, Any]] = []
+    all_revenue: list[dict[str, Any]] = []
+    done_count = 0
+    t0 = time.time()
 
-        all_ohlcv.extend(ohlcv)
-        all_eps.extend(eps)
-        all_revenue.extend(rev)
+    with ThreadPoolExecutor(max_workers=args.workers) as executor:
+        futures = {executor.submit(_collect_single_symbol, item): item[0] for item in symbols_with_market}
+        for future in as_completed(futures):
+            sym = futures[future]
+            try:
+                symbol, ohlcv, eps, rev = future.result()
+                all_ohlcv.extend(ohlcv)
+                all_eps.extend(eps)
+                all_revenue.extend(rev)
+                done_count += 1
+                if done_count % 50 == 0 or done_count == total_symbols:
+                    elapsed = time.time() - t0
+                    rate = done_count / elapsed if elapsed > 0 else 0
+                    print(f"[{done_count}/{total_symbols}] ({done_count*100/total_symbols:.1f}%) "
+                          f"OHLCV={len(all_ohlcv)} EPS={len(all_eps)} Rev={len(all_revenue)} "
+                          f"({rate:.1f} sym/s, elapsed {elapsed:.0f}s)")
+            except Exception as e:
+                print(f"Error collecting {sym}: {e}")
 
-    # Save to compressed JSON Lines
+    # Write out compressed JSON Lines
     ohlcv_path = out_dir / "ohlcv_2y.jsonl.gz"
     eps_path = out_dir / "eps_3y.jsonl.gz"
     rev_path = out_dir / "revenue_2y.jsonl.gz"
@@ -302,7 +352,9 @@ def main() -> None:
     write_gz_jsonl(eps_path, all_eps)
     write_gz_jsonl(rev_path, all_revenue)
 
+    elapsed_total = time.time() - t0
     print("\n=== Collection Complete ===")
+    print(f"Total time: {elapsed_total:.1f} seconds")
     print(f"OHLCV: {len(all_ohlcv)} rows -> {ohlcv_path} ({ohlcv_path.stat().st_size / 1024:.1f} KB)")
     print(f"EPS: {len(all_eps)} rows -> {eps_path} ({eps_path.stat().st_size / 1024:.1f} KB)")
     print(f"Revenue: {len(all_revenue)} rows -> {rev_path} ({rev_path.stat().st_size / 1024:.1f} KB)")
