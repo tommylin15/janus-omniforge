@@ -9,7 +9,7 @@
 ## MCP 本人現金部位（2026-10-27，使用者新增授權）
 
 - `janus_private_context` 新增 `resource="cash"`，沿既有Owner現金reader，十進位TWD餘額／未設定null／現金與帳本版本，拒絕client指定Owner、symbol／year；唯讀、沿 `janus.private.read`，不新增資料表或OAuth權限，不需客戶端重新註冊。需部署後重新載入工具清單。
-- 程式與Owner隔離／金額精度／未設定／匿名拒絕測試完成；66項相關MCP／OAuth／User API測試PASS（1項既有multipart deprecation warning）。尚待完整Release、0%候選／Auth與兩個固定MCP tags更新，再驗部署版schema及可用已授權cash正向讀取。ChatGPT現有外掛schema尚無cash，發布後需刷新工具定義；未部署不稱live PASS。
+- 程式與Owner隔離／金額精度／未設定／匿名拒絕測試完成；66項相關MCP／OAuth／User API測試PASS（1項既有multipart deprecation warning）。完整Release #40477783215、0%候選 #40478796674、Auth #40479305373、固定MCP tags #40479761426均SUCCESS；兩個入口部署版cash schema／唯讀標記／匿名401獨立讀回PASS，正式API流量不變。唯一尚待：客戶端刷新工具定義後的本人授權cash正向讀取；ChatGPT現有外掛schema尚無cash，不冒稱真人讀取PASS。收據見 [Operations](spec/operations-and-testing.md)。
 
 ## OAuth 客戶端首次授權正向驗收（2026-10-27）
 

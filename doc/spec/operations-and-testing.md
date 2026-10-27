@@ -1,5 +1,12 @@
 # Janus 最新驗收證據索引
 
+## 2026-10-27 MCP 本人現金部位｜伺服器部署 PASS／授權正向待驗
+
+- 同源 `0b2e3eb3e819c94928d0a49e711bdb3af5f611b7`：[完整 Release #40477783215](https://github.com/tommylin15/janus-omniforge/actions/runs/40477783215)、[0% candidate #40478796674](https://github.com/tommylin15/janus-omniforge/actions/runs/40478796674)、[Auth boundary #40479305373](https://github.com/tommylin15/janus-omniforge/actions/runs/40479305373)、[固定 MCP route #40479761426](https://github.com/tommylin15/janus-omniforge/actions/runs/40479761426) 均 completed/success。
+- 固定 tags `mcp-oauth`／`mcp-adapter` 指向 revision `janus-api-00623-jel`，image `ghcr.io/tommylin15/janus-api@sha256:2ff40749650ea00ada51656afe61a6ad5dce55589bc5dd5e0c5e6e2615d91b84`。收據 `canonical_traffic_unchanged=true`、`legacy_trigger_count=0`、`legacy_writers_fenced=true`；不更新 Jobs／Scheduler／IAM／Secret／Owner資料。Workflow head `3889ef71affeb9872e1ec6f360560e15e09b2357` 與上述應用映像來源分開記錄。
+- 部署後獨立公開HTTP讀回兩個入口：build SHA吻合、`janus_private_context` schema含 `cash`、readOnlyHint=true、匿名cash呼叫401且含授權challenge，不含cash_balance。66項相關MCP／OAuth／User API離線測試PASS；不與Release測試數加總。
+- 沿用 `janus.private.read`，無新scope，不需重新註冊OAuth client；客戶端須重新載入工具定義。現有ChatGPT外掛schema尚未包含cash，**本人授權cash正向讀取 NOT_VERIFIED**，未取得或保存token／Owner payload。Gemini／Antigravity首次consent與正向驗收仍各自待本人完成。
+
 ## 2026-10-27 Admin 共用 Google 登入｜CLOSED／PASS（使用者真人登入成功）
 
 - **部署來源** `ec1061652bfb2226e88f1b25aa9d416dee51a2ed`；Flutter User/Admin 共用既有 `GOOGLE_USER_CLIENT_ID`，Admin 進管理介面前查 `GET /api/v1/admin/session`；後端驗證 Google issuer/audience/exp/email_verified/sub 並對 `GOOGLE_ADMIN_ALLOWED_EMAILS` 單獨授權。舊 Admin client 以合法另一 audience 過渡保留，MCP bearer 不能冒充 Google ID token。
