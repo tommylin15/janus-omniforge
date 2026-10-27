@@ -61,8 +61,13 @@ def test_prelogin_probe_verifies_google_callback_and_negative_private_boundary()
     issuer = "https://mcp-oauth---janus-api-2oo7qbkd5q-uc.a.run.app"
     resource = "https://mcp-adapter---janus-api-2oo7qbkd5q-uc.a.run.app/mcp"
     responses = [(200, {}, sha.encode()),
-                 (200, {}, route.json.dumps({"issuer": issuer, "code_challenge_methods_supported": ["S256"]}).encode()),
+                 (200, {}, route.json.dumps({"issuer": issuer, "code_challenge_methods_supported": ["S256"],
+                    "registration_endpoint": issuer + "/oauth/register", "response_types_supported": ["code"]}).encode()),
                  (200, {}, route.json.dumps({"resource": resource}).encode()),
+                 *[(status, headers, body) for _ in range(2) for status, headers, body in (
+                     (201, {}, b'{"client_id":"janus-dcr.signed"}'),
+                     (302, {"Location": "https://accounts.google.com/o/oauth2/v2/auth?" + route.urlencode({"redirect_uri": issuer + "/oauth/google/callback"})}, b""))],
+                 (400, {}, b""),
                  (302, {"Location": "https://accounts.google.com/o/oauth2/v2/auth?" + route.urlencode({"redirect_uri": issuer + "/oauth/google/callback"})}, b""),
                  (400, {}, b""), (401, {}, b""),
                  (200, {}, route.json.dumps({"result": {"tools": [
@@ -72,9 +77,11 @@ def test_prelogin_probe_verifies_google_callback_and_negative_private_boundary()
                  (200, {}, route.json.dumps({"error": {"code": -32602, "message": "Unknown tool"}}).encode())]
     with patch.object(route, "request", side_effect=responses) as request:
         route.probe("https://candidate.test", sha)
-    query = route.parse_qs(route.urlsplit(request.call_args_list[3].args[0]).query)
+    query = route.parse_qs(route.urlsplit(request.call_args_list[8].args[0]).query)
     assert query["client_id"] == [route.CODEX]
     assert query["redirect_uri"] == ["http://127.0.0.1:59164/callback"]
+    registration = request.call_args_list[3]
+    assert registration.args[1] == {"redirect_uris": ["http://localhost:54321/oauth/callback"]}
 
 
 def test_route_probe_rejects_candidate_advertising_retired_write_scope():

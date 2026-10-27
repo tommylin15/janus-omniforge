@@ -137,7 +137,7 @@ AUDIT_LOGGER.setLevel(logging.INFO)
 
 
 def _router_family(path: str) -> str | None:
-    for family, prefix in (("mcp", "/mcp"), ("public", "/api/v1/public/"), ("private", "/api/v1/me/"),
+    for family, prefix in (("mcp", "/mcp"), ("mcp", "/oauth/"), ("public", "/api/v1/public/"), ("private", "/api/v1/me/"),
                            ("admin", "/api/v1/admin/"), ("admin", "/api/v1/core/")):
         if path.startswith(prefix):
             return family
@@ -439,6 +439,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def user(request_user: AuthenticatedUser = Depends(authenticate)) -> AuthenticatedUser: return request_user
     def key(value: str = Header(alias="Idempotency-Key", min_length=8, max_length=128)) -> str: return value
 
+    @api.get("/.well-known/oauth-protected-resource/mcp")
     @api.get("/.well-known/oauth-protected-resource")
     def mcp_protected_resource() -> dict[str, Any]:
         return oauth_service().protected_resource_metadata()
@@ -446,6 +447,20 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @api.get("/.well-known/oauth-authorization-server")
     def mcp_authorization_server() -> dict[str, Any]:
         return oauth_service().authorization_server_metadata()
+
+    @api.post("/oauth/register", status_code=status.HTTP_201_CREATED)
+    async def mcp_register(request: Request) -> Response:
+        try:
+            if len(await request.body()) > 4096:
+                raise ValueError("registration too large")
+            metadata = await request.json()
+            if not isinstance(metadata, dict):
+                raise ValueError("invalid metadata")
+            result = oauth_service().register_client(metadata)
+        except (ValueError, TypeError, HTTPException):
+            return JSONResponse({"error": "invalid_client_metadata"}, status_code=400,
+                                headers={"Cache-Control": "no-store"})
+        return JSONResponse(result, status_code=201, headers={"Cache-Control": "no-store"})
 
     @api.get("/oauth/authorize")
     def mcp_authorize(request: Request) -> Response:
@@ -461,8 +476,9 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return oauth_service().complete_authorization(form.get("token", ""), form.get("approved") == "true")
 
     @api.post("/oauth/token")
-    async def mcp_token(request: Request) -> dict[str, Any]:
-        return oauth_service().exchange_token(parse_form(request, await request.body()))
+    async def mcp_token(request: Request) -> Response:
+        return JSONResponse(oauth_service().exchange_token(parse_form(request, await request.body())),
+                            headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
 
     @api.post("/oauth/revoke", status_code=status.HTTP_200_OK)
     async def mcp_revoke(request: Request) -> Response:

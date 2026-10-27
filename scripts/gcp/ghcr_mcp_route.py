@@ -91,6 +91,23 @@ def probe(base, sha):
     code, _, body = request(base + "/.well-known/oauth-protected-resource")
     if code != 200 or json.loads(body).get("resource") != resource:
         raise ValueError("resource_metadata_mismatch")
+    if metadata.get("registration_endpoint") != issuer + "/oauth/register" or metadata.get("response_types_supported") != ["code"]:
+        raise ValueError("google_client_discovery_missing")
+    for callback in ("http://localhost:54321/oauth/callback", "https://antigravity.google/oauth-callback"):
+        code, _, body = request(base + "/oauth/register", {"redirect_uris": [callback]})
+        client_id = json.loads(body).get("client_id", "")
+        if code != 201 or not client_id.startswith("janus-dcr."):
+            raise ValueError("google_client_registration_failed")
+        query = {"response_type": "code", "client_id": client_id, "redirect_uri": callback,
+                 "state": "bounded-google-client-probe", "code_challenge": "x" * 43,
+                 "code_challenge_method": "S256"}
+        code, headers, _ = request(base + "/oauth/authorize?" + urlencode(query))
+        target = urlsplit(headers.get("Location", ""))
+        if (code != 302 or target.netloc != "accounts.google.com" or target.scheme != "https"
+                or parse_qs(target.query).get("redirect_uri") != [issuer + "/oauth/google/callback"]):
+            raise ValueError("google_client_prelogin_failed")
+    if request(base + "/oauth/register", {"redirect_uris": ["https://evil.test/oauth/callback"]})[0] != 400:
+        raise ValueError("registration_negative_guard_failed")
     query = {"response_type": "code", "client_id": CODEX,
              "redirect_uri": "http://127.0.0.1:59164/callback", "resource": resource,
              "scope": "janus.private.read", "state": "bounded-prelogin-probe",
@@ -121,6 +138,7 @@ def probe(base, sha):
 
 
 def main():
+    from ghcr_jobs_rollout import successful_operation
     parser = argparse.ArgumentParser()
     parser.add_argument("--release-run", required=True)
     parser.add_argument("--baseline", type=Path, required=True)
@@ -132,9 +150,10 @@ def main():
     run = json.loads(command(["gh", "run", "view", args.release_run, "--json",
                               "headSha,status,conclusion,jobs,workflowName"]))
     names = {job["name"] for job in run["jobs"] if job["conclusion"] == "success"}
-    if (run["headSha"] != sha or run["status"] != "completed" or run["conclusion"] != "success"
-            or run["workflowName"] != "Janus GHCR full-test image publication"
-            or not {"python-tests", "flutter-tests", "publish (api)", "public-pull-gate"}.issubset(names)):
+    if (run["headSha"] != sha or not successful_operation(
+            run, args.release_run, "Janus GHCR full-test image publication", "release")
+            or (run["workflowName"] == "Janus GHCR full-test image publication"
+                and not {"python-tests", "flutter-tests", "publish (api)", "public-pull-gate"}.issubset(names))):
         raise ValueError("full_release_gate_not_passed")
     command(LEASE + ["acquire"])
     before = None

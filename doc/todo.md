@@ -1,5 +1,11 @@
 # Janus — 唯一 Active TODO
 
+## OAuth 客戶端相容接線／部署（2026-10-27，使用者新增授權）
+
+- 範圍：保留 ChatGPT Web／Codex，新增 Gemini CLI 與 Google Antigravity（agy）；沿既有 Dev API、MCP issuer/resource 與 Google Owner allowlist，不新增資源/IAM／Google client／scope。
+- 程式與 targeted tests：有界 public-client DCR、Gemini loopback／Antigravity 精確 callback、S256／client-resource binding、refresh/revoke、CSP、路徑 discovery、token no-store 與部署探針已完成；139項相關 OAuth／User/Admin API／安全發布離線測試 PASS（1項既有 multipart deprecation warning）。部署工具第一次共用 helper 匯入造成循環依賴，已修復並重跑通過；User API 初測因未設 CI 套件路徑而2項 collection/import失敗，正確 PYTHONPATH 重跑全數通過。
+- 尚待：完整 GitHub Release → 固定 digest 0% API candidate → 同源 auth boundary → 既有兩 MCP tags 受控更新與讀回；Gemini CLI／agy 本人 consent 後正向唯讀測試另驗。未部署，不稱 live PASS；不代做 Google consent。設定與契約見 [OAuth runbook](runbook-user-oauth-dev.md)。
+
 ## SEQ-08｜TPEx 正式修復及四模型報告/歷史最終讀回（2026-10-27，最新）
 
 - **TPEx 修復、合法新 Core、四 Dev Jobs/API100：PASS**。正式來源 `c4605a84eb46257cbf628b33e2156ebc01f5b9ac`，官方 TPEx price benchmark 9/10月補收與全新 immutable Core `sha256:5d741c0b8804322e87cf7bd4c1a4c04be3244e36e000a216d0fc07912596166a` [#40337663516](https://github.com/tommylin15/janus-omniforge/actions/runs/40337663516)。新版 Release [#40319442822](https://github.com/tommylin15/janus-omniforge/actions/runs/40319442822)、四 Jobs [#40320593857](https://github.com/tommylin15/janus-omniforge/actions/runs/40320593857)、API100 [#40336305146](https://github.com/tommylin15/janus-omniforge/actions/runs/40336305146) 成功，保留五真 UBJ、不重訓、不回落舊模型、不新增資源/IAM。

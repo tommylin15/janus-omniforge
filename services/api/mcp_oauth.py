@@ -165,6 +165,8 @@ class McpOAuth:
             "authorization_response_iss_parameter_supported": True,
             "authorization_endpoint": f"{base}/oauth/authorize",
             "token_endpoint": f"{base}/oauth/token",
+            "registration_endpoint": f"{base}/oauth/register",
+            "response_types_supported": ["code"],
             "grant_types_supported": ["authorization_code", "refresh_token"],
             "revocation_endpoint": f"{base}/oauth/revoke",
             "revocation_endpoint_auth_methods_supported": ["none"],
@@ -174,17 +176,55 @@ class McpOAuth:
             "scopes_supported": sorted(MCP_SCOPES),
         }
 
+    def register_client(self, metadata: Mapping[str, Any]) -> dict[str, Any]:
+        redirects = metadata.get("redirect_uris")
+        if (not isinstance(redirects, list) or not 1 <= len(redirects) <= 2
+                or any(not isinstance(uri, str) or not self._google_client_redirect(uri) for uri in redirects)
+                or metadata.get("token_endpoint_auth_method", "none") != "none"
+                or metadata.get("grant_types", ["authorization_code", "refresh_token"]) not in
+                    (["authorization_code"], ["authorization_code", "refresh_token"], ["refresh_token", "authorization_code"])
+                or metadata.get("response_types", ["code"]) != ["code"]):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid_client_metadata")
+        raw_scope = metadata.get("scope", " ".join(sorted(MCP_SCOPES)))
+        if not isinstance(raw_scope, str):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid_client_metadata")
+        scope = self._scope(raw_scope)
+        # Signed public registration survives replicas without a new client table.
+        client_id = "janus-dcr." + self._sign({"kind": "client", "redirect_uris": redirects})
+        if len(client_id) > 512:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid_client_metadata")
+        return {"client_id": client_id, "redirect_uris": redirects, "scope": scope,
+                "token_endpoint_auth_method": "none", "grant_types": ["authorization_code", "refresh_token"],
+                "response_types": ["code"]}
+
+    def _registered_redirects(self, client_id: str) -> list[str]:
+        if not client_id.startswith("janus-dcr.") or len(client_id) > 512:
+            return []
+        try:
+            payload = self._unsigned(client_id.removeprefix("janus-dcr."), "client")
+            return payload["redirect_uris"]
+        except (HTTPException, KeyError):
+            return []
+
+    @staticmethod
+    def _google_client_redirect(value: str) -> bool:
+        if value == "https://antigravity.google/oauth-callback":
+            return True
+        callback = re.fullmatch(r"http://(?:localhost|127\.0\.0\.1):([1-9][0-9]{0,4})/oauth/callback", value)
+        return callback is not None and int(callback.group(1)) <= 65535
+
     def begin_authorization(self, params: Mapping[str, str]) -> Response:
         client_id = params.get("client_id", "")
         redirect_uri = params.get("redirect_uri", "")
-        scope = " ".join(dict.fromkeys((*self._scope(params.get("scope", "")).split(), "offline_access")))
+        registered = self._registered_redirects(client_id)
+        scope = " ".join(dict.fromkeys((*self._scope(params.get("scope", " ".join(sorted(MCP_SCOPES)) if registered else "")).split(), "offline_access")))
         if params.get("response_type") != "code":
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "response_type must be code")
         if not params.get("state"):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "state is required")
         if not self._valid_client(client_id) or not self._valid_redirect(redirect_uri, client_id):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "OAuth client or redirect URI is not allowed")
-        if params.get("resource") != self.settings.resource:
+        if params.get("resource", self.settings.resource if registered else "") != self.settings.resource:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "resource is required")
         challenge = params.get("code_challenge", "")
         if params.get("code_challenge_method") != "S256" or not self._valid_challenge(challenge):
@@ -226,10 +266,10 @@ class McpOAuth:
             state["exp"] = self._now() + self.settings.authorization_ttl
             form_origins = "'self' https://chatgpt.com"
             # Browsers can enforce form-action on the POST's redirect to Codex.
-            if state["client_id"] == CODEX_CLIENT_ID and self._valid_redirect(state["redirect_uri"], CODEX_CLIENT_ID):
+            if self._valid_redirect(state["redirect_uri"], state["client_id"]):
                 redirect = urlsplit(state["redirect_uri"])
-                if redirect.scheme == "http":
-                    form_origins += f" http://{redirect.netloc}"
+                if redirect.scheme == "http" or redirect.netloc == "antigravity.google":
+                    form_origins += f" {redirect.scheme}://{redirect.netloc}"
             return Response(content=self._consent_page(self._sign(state)), media_type="text/html", headers={
                 "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
                 "Content-Security-Policy": f"default-src 'none'; style-src 'unsafe-inline'; form-action {form_origins}; base-uri 'none'",
@@ -257,6 +297,8 @@ class McpOAuth:
         grant_type = form.get("grant_type")
         if grant_type == "authorization_code" and not self._valid_redirect(form.get("redirect_uri", ""), form.get("client_id", "")):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "OAuth redirect URI is not allowed")
+        if "resource" not in form and self._registered_redirects(form.get("client_id", "")):
+            form = {**form, "resource": self.settings.resource}
         if form.get("resource") != self.settings.resource:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "resource is required")
         now = self._now()
@@ -320,7 +362,7 @@ class McpOAuth:
 
     def _consent_page(self, token: str) -> str:
         safe = html.escape(token, quote=True)
-        return f"<!doctype html><meta charset='utf-8'><title>Janus MCP authorization</title><main><h1>Janus MCP authorization</h1><p>允許 ChatGPT 唯讀查詢已核准的 Janus 市場與私人資料；MCP 不提供新增交易或股息紀錄功能。短效存取憑證可自動續期；授權閒置 90 天後失效，你可隨時在 ChatGPT 解除連結或撤銷。</p><form method='post' action='/oauth/authorize/complete'><input type='hidden' name='token' value='{safe}'><button name='approved' value='true'>允許</button><button name='approved' value='false'>拒絕</button></form></main>"
+        return f"<!doctype html><meta charset='utf-8'><title>Janus MCP authorization</title><main><h1>Janus MCP authorization</h1><p>允許本次連線的 MCP 客戶端唯讀查詢已核准的 Janus 市場與私人資料；MCP 不提供新增交易或股息紀錄功能。短效存取憑證可自動續期；授權閒置 90 天後失效，你可隨時在客戶端解除連結或撤銷。</p><form method='post' action='/oauth/authorize/complete'><input type='hidden' name='token' value='{safe}'><button name='approved' value='true'>允許</button><button name='approved' value='false'>拒絕</button></form></main>"
 
     def _sign(self, payload: Mapping[str, Any]) -> str:
         encoded = self._b64(json.dumps(dict(payload), separators=(",", ":"), sort_keys=True).encode())
@@ -332,9 +374,10 @@ class McpOAuth:
             encoded, supplied = token.rsplit(".", 1)
             expected = self._b64(hmac.new(self.settings.signing_key, encoded.encode(), sha256).digest())
             payload = json.loads(self._unb64(encoded))
-            if not hmac.compare_digest(supplied, expected) or not isinstance(payload, dict) or int(payload.get("exp", 0)) <= self._now():
+            if (not hmac.compare_digest(supplied, expected) or not isinstance(payload, dict)
+                    or (kind != "client" and int(payload.get("exp", 0)) <= self._now())):
                 raise ValueError("invalid signed token")
-            if kind == "google" and payload.get("kind") != "google":
+            if kind in {"google", "client"} and payload.get("kind") != kind:
                 raise ValueError("invalid state")
             if kind == "access" and payload.get("iss") != self.settings.issuer:
                 raise ValueError("invalid access token")
@@ -361,12 +404,13 @@ class McpOAuth:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "scope is not allowlisted")
         return " ".join(values)
 
-    @staticmethod
-    def _valid_client(value: str) -> bool:
-        return value == MCP_CLIENT_ID or (value.startswith("https://chatgpt.com/oauth/") and value.endswith("/client.json"))
+    def _valid_client(self, value: str) -> bool:
+        return (value == MCP_CLIENT_ID or (value.startswith("https://chatgpt.com/oauth/") and value.endswith("/client.json"))
+                or bool(self._registered_redirects(value)))
 
-    @staticmethod
-    def _valid_redirect(value: str, client_id: str) -> bool:
+    def _valid_redirect(self, value: str, client_id: str) -> bool:
+        if client_id.startswith("janus-dcr."):
+            return value in self._registered_redirects(client_id) and self._google_client_redirect(value)
         if value == MCP_REDIRECT_URI or (value.startswith("https://chatgpt.com/connector/oauth/") and "?" not in value and "#" not in value):
             return True
         # Codex listens on an OS-selected port; never allow arbitrary localhost URLs.

@@ -49,6 +49,35 @@ MCP tag 修復使用 `.github/workflows/ghcr-mcp-route-dev.yml`，人工 dispatc
 
 ## 3. 目前 Secret 模型
 
+### Gemini CLI／Google Antigravity OAuth 相容接線（2026-10-27）
+
+本輪新增 `/oauth/register` public-client DCR，僅接受 Gemini CLI 的
+`http://localhost:<1..65535>/oauth/callback`／`http://127.0.0.1:<1..65535>/oauth/callback`
+與 Antigravity 的精確 `https://antigravity.google/oauth-callback`。不接受任意遠端 URL、其他本機路徑、query、fragment、userinfo 或 client secret 認證。
+註冊產生簽章公開 client ID，跨 instance 重用且不新增資料表；它不是 access token、沒有 Owner 權限，也不因註冊而登入。簽章金鑰輪替後客戶端須重新註冊。
+既有 Google → Janus callback、issuer、resource、Owner allowlist 與唯讀 scope 不變。授權碼與 refresh 仍綁定實際 client／redirect／resource，並要求 S256 PKCE。
+新 DCR client 未送 resource 時只綁定現有唯一 MCP resource，明送錯誤 resource 仍拒絕；未送 scope 時以現有唯讀 scope 顯示 consent。既有 ChatGPT／Codex 的 resource 要求不變。
+
+部署並完成固定 MCP tags 讀回後，可在 Gemini CLI 的 MCP 設定合併：
+
+```json
+{"mcpServers":{"janus":{"httpUrl":"https://mcp-adapter---janus-api-2oo7qbkd5q-uc.a.run.app/mcp"}}}
+```
+
+執行 `/mcp auth janus`，由使用者完成 Google 登入與 Janus consent。
+Antigravity 的 MCP 設定使用：
+
+```json
+{"mcpServers":{"janus":{"serverUrl":"https://mcp-adapter---janus-api-2oo7qbkd5q-uc.a.run.app/mcp"}}}
+```
+
+在 Agent settings → Customizations 對 Janus 按 Authenticate，依客戶端畫面完成本人授權。不要填入 Janus 的 Google client secret、signing key 或其他客戶端的 bearer token。
+上述 Gemini 指 **Gemini CLI**，不把 Gemini 網頁／手機產品或企業連接器視為已支援。
+官方契約：[Gemini CLI MCP/OAuth](https://geminicli.com/docs/tools/mcp-server/)、[Antigravity MCP/OAuth](https://antigravity.google/docs/mcp/)。
+
+發布驗證沿用完整 Release → 0% candidate → 同源 auth boundary → `ghcr-mcp-route-dev.yml`，後者核對新版 DCR／兩個新 client prelogin、Codex、拒絕任意 redirect 與 private 匿名401，僅更新既有兩個 MCP tags。
+prelogin 302、fixture token 測試均不代表兩個真實客戶端已登入／工具正向 PASS；必須另記本人完成 consent 後的有界唯讀結果。實際發布狀態見 TODO／Operations。
+
 目前 `scripts/gcp/deploy-dev.sh` 對 `janus-api` 使用整合後的 `janus-runtime-bundle`，以 `JANUS_API_POSTGRES_BUNDLE` 注入 runtime；Jobs 也使用同一 bundle 的對應 runtime env。不要再依照舊文件建立 `google-user-client-secret`、`private-database-url`、`postgres-private-api-password` 等分散 Secret 作為新的 canonical path。
 
 Rotation／修改前：

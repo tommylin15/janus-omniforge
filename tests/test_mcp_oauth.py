@@ -48,6 +48,88 @@ class McpOAuthTests(unittest.TestCase):
         self.assertEqual(metadata["revocation_endpoint"], "https://api.example.test/oauth/revoke")
         self.assertEqual(metadata["revocation_endpoint_auth_methods_supported"], ["none"])
         self.assertEqual(self.settings.refresh_ttl, 90 * 24 * 60 * 60)
+        self.assertEqual(metadata["response_types_supported"], ["code"])
+        self.assertEqual(metadata["registration_endpoint"], self.settings.issuer + "/oauth/register")
+
+    def test_google_clients_register_authorize_exchange_refresh_and_revoke(self):
+        for callback in ("http://localhost:54321/oauth/callback", "http://127.0.0.1:7777/oauth/callback",
+                         "https://antigravity.google/oauth-callback"):
+            with self.subTest(callback=callback):
+                registration = self.oauth.register_client({"redirect_uris": [callback]})
+                client_id = registration["client_id"]
+                self.assertLessEqual(len(client_id), 512)
+                verifier = "google-client-verifier" * 3
+                response = self.oauth.begin_authorization({
+                    "response_type": "code", "client_id": client_id, "redirect_uri": callback,
+                    "code_challenge": self.oauth._pkce(verifier), "code_challenge_method": "S256", "state": "google-client-state",
+                })
+                google_state = parse_qs(urlsplit(response.headers["location"]).query)["state"][0]
+                consent = self.oauth.google_callback({"state": google_state, "code": "google-code"})
+                origin = urlsplit(callback)
+                self.assertIn(f"{origin.scheme}://{origin.netloc}", consent.headers["Content-Security-Policy"])
+                token = re.search(r"name='token' value='([^']+)'", consent.body.decode()).group(1)
+                redirect = self.oauth.complete_authorization(token, True)
+                query = parse_qs(urlsplit(redirect.headers["location"]).query)
+                self.assertEqual(query["iss"], [self.settings.issuer])
+                self.assertEqual(query["state"], ["google-client-state"])
+                access = self.oauth.exchange_token({
+                    "grant_type": "authorization_code", "client_id": client_id, "redirect_uri": callback,
+                    "code": query["code"][0], "code_verifier": verifier,
+                })
+                self.assertEqual(self.oauth.verify_access_token(access["access_token"], "janus.private.read")["sub"], "owner-uuid")
+                renewed = self.oauth.exchange_token({"grant_type": "refresh_token", "client_id": client_id,
+                                                     "refresh_token": access["refresh_token"]})
+                self.oauth.revoke_token({"client_id": client_id, "token": renewed["refresh_token"]})
+                with self.assertRaises(HTTPException):
+                    self.oauth.exchange_token({"grant_type": "refresh_token", "client_id": client_id,
+                                               "refresh_token": renewed["refresh_token"]})
+
+    def test_registration_rejects_untrusted_redirects_and_confidential_clients(self):
+        for metadata in ({"redirect_uris": ["https://evil.test/oauth-callback"]},
+                         {"redirect_uris": ["https://antigravity.google.evil.test/oauth-callback"]},
+                         {"redirect_uris": ["http://localhost:0/oauth/callback"]},
+                         {"redirect_uris": ["http://localhost:65536/oauth/callback"]},
+                         {"redirect_uris": ["http://localhost:7777/oauth/callback?next=evil"]},
+                         {"redirect_uris": ["http://localhost:7777/oauth/callback\n"]},
+                         {"redirect_uris": ["http://127.0.0.2:7777/oauth/callback"]},
+                         {"redirect_uris": []}, {"redirect_uris": "http://localhost:7777/oauth/callback"},
+                         {"redirect_uris": ["https://antigravity.google/oauth-callback"], "token_endpoint_auth_method": "client_secret_post"},
+                         {"redirect_uris": ["https://antigravity.google/oauth-callback"], "scope": "janus.private.write"}):
+            with self.subTest(metadata=metadata), self.assertRaises(HTTPException):
+                self.oauth.register_client(metadata)
+
+    def test_registered_client_cannot_change_callback_resource_or_signature(self):
+        client_id = self.oauth.register_client({"redirect_uris": ["http://localhost:7777/oauth/callback"]})["client_id"]
+        self.assertFalse(self.oauth._valid_client(client_id + "tampered"))
+        self.assertFalse(self.oauth._valid_redirect("http://localhost:7778/oauth/callback", client_id))
+        self.assertFalse(self.oauth._valid_redirect(MCP_REDIRECT_URI, client_id))
+        for resource in ("https://evil.test/mcp", ""):
+            with self.subTest(resource=resource), self.assertRaises(HTTPException):
+                self.oauth.begin_authorization({"response_type": "code", "client_id": client_id,
+                    "redirect_uri": "http://localhost:7777/oauth/callback", "resource": resource,
+                    "code_challenge": "x" * 43, "code_challenge_method": "S256", "state": "state"})
+
+    def test_registration_http_contract_and_path_discovery(self):
+        from fastapi.testclient import TestClient
+        from services.api.app import create_app
+        from types import SimpleNamespace
+        with TestClient(create_app(repository=SimpleNamespace(), oauth_facade=self.oauth)) as client:
+            response = client.post("/oauth/register", json={"redirect_uris": ["https://antigravity.google/oauth-callback"]})
+            self.assertEqual(response.status_code, 201)
+            self.assertEqual(response.headers["cache-control"], "no-store")
+            self.assertTrue(self.oauth._valid_client(response.json()["client_id"]))
+            for body in ([], {"redirect_uris": ["https://evil.test"]}, {"scope": 7}, None):
+                self.assertEqual(client.post("/oauth/register", json=body).status_code, 400)
+            self.assertEqual(client.post("/oauth/register", content="x" * 4097).status_code, 400)
+            self.assertEqual(client.get("/.well-known/oauth-protected-resource/mcp").json()["resource"], self.settings.resource)
+
+    def test_registered_client_is_public_metadata_and_never_an_access_token(self):
+        registration = self.oauth.register_client({"redirect_uris": ["https://antigravity.google/oauth-callback"],
+                                                   "grant_types": ["authorization_code"]})
+        clone = McpOAuth(self.settings, InMemoryOAuthCodeStore(), lambda *_: "owner-uuid")
+        self.assertTrue(clone._valid_client(registration["client_id"]))
+        with self.assertRaises(HTTPException):
+            clone.verify_access_token(registration["client_id"].removeprefix("janus-dcr."), "janus.private.read")
 
     def test_authorization_requires_exact_resource_and_s256(self):
         with self.assertRaises(HTTPException):
