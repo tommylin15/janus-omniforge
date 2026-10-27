@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "883373c4ec33803d29576589cf6e0682a2595521",
-  "purpose": "SEQ-08 official TPEx price benchmark Core repair: immutable Stage / Core benchmark only for 2026-09 and 2026-10 through 10/22, new genuine Core snapshot, then Screening/Deep Coverage/PG positive acceptance. Official parser and scoped existing Dev one-shot #40319257917 offline PASS; existing market-history monthly path now records TPEx price index too. Full fixed GHCR four images with five existing model UBJs unchanged; no new GCP resources, API traffic, scheduler or IAM mutations at Release.",
+  "sha": "882065a88e26aa176513a98af32c56411efe36b1",
+  "purpose": "Owner UI watchlist repair: serve saved watchlist before optional live quotes; non-blocking refresh, bounded same-account GET credential renewal, correct unknown count on error. Run full Python/Flutter release gates. Existing Dev only, no new resource, no model/data reruns. API candidate and owner readback required before traffic change.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -10,8 +10,8 @@
     "api"
   ],
   "no_new_resources": true,
-  "api_only_promotion": false,
+  "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 23
+  "request_attempt": 24
 }
