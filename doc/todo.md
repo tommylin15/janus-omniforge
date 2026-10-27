@@ -1,5 +1,10 @@
 # Janus — 唯一 Active TODO
 
+## MCP 本人現金部位（2026-10-27，使用者新增授權）
+
+- `janus_private_context` 新增 `resource="cash"`，沿既有Owner現金reader，十進位TWD餘額／未設定null／現金與帳本版本，拒絕client指定Owner、symbol／year；唯讀、沿 `janus.private.read`，不新增資料表或OAuth權限，不需客戶端重新註冊。需部署後重新載入工具清單。
+- 程式與Owner隔離／金額精度／未設定／匿名拒絕測試完成；66項相關MCP／OAuth／User API測試PASS（1項既有multipart deprecation warning）。尚待完整Release、0%候選／Auth與兩個固定MCP tags更新，再驗部署版schema及可用已授權cash正向讀取。ChatGPT現有外掛schema尚無cash，發布後需刷新工具定義；未部署不稱live PASS。
+
 ## OAuth 客戶端首次授權正向驗收（2026-10-27）
 
 - 伺服器接線／測試／部署 **PASS**：[MCP route #40456143800](https://github.com/tommylin15/janus-omniforge/actions/runs/40456143800)，兩個固定 MCP tags 已更新，正式 API traffic 不變；完整收據見 [Operations](spec/operations-and-testing.md)。

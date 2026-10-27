@@ -110,6 +110,9 @@ OAuth issuer 必須使用目前 `mcp-oauth` tagged URL，MCP resource 必須使�
 
 ## 5. Refresh token acceptance
 
+新增 `janus_private_context(resource="cash")` 沿用 `janus.private.read`，沒有變更OAuth client／issuer／resource／scope／signing key，既有持有private-read權限的連線不需重新註冊或重新consent。部署到固定MCP入口後，若客戶端快取舊tools/list schema，重新載入MCP工具或重連即可；原授權不含private-read或已失效時才另行授權。驗證用 `{"resource":"cash","limit":1}`，只回報status／欄位與版本是否合理，不把本人金額或token寫入部署收據。
+ChatGPT已安裝外掛若仍使用固定舊schema（resource enum沒有cash），需更新／重新載入外掛工具定義；新增resource不等於需要建立新的OAuth client或複製Secret。
+
 目前 contract 包含 `offline_access`、refresh-token rotation／revocation 與 inactivity expiry。驗收時不要讀 token 值；只驗證行為與 bounded metadata：
 
 1. 新授權後能建立有效 refresh state。

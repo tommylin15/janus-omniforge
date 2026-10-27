@@ -175,7 +175,8 @@ ChatGPT MCP 是 external authenticated client／consumer，不是 Janus 第四�
   - 不接受 table／dataset／URI／offset／raw query。
 - `janus_private_context`
   - scope：`janus.private.read`。
-  - `resource`：`positions`、`annual-pnl`、`exposure`、`performance`、`stress-tests`、`investment-profile`、`watchlist`、`trades`。
+  - `resource`：`positions`、`annual-pnl`、`exposure`、`performance`、`stress-tests`、`investment-profile`、`watchlist`、`trades`、`cash`。
+  - `cash` 走既有 owner-scoped `cash_position`，回傳手動現金checkpoint加其後帳本現金流的TWD餘額；金額使用十進位字串，附 `cash_status`、`cash_version`、`anchor_ledger_version`、`current_ledger_version`、checkpoint `updated_at`。未設定時維持 `cash_balance=null / cash_status=not_configured / status=missing`，不補0；不是券商即時可用餘額、多幣別或分帳戶清冊。不接受symbol／year或client指定Owner。
   - optional `symbol` 只適用 positions／watchlist／trades；`year` 依 resource contract；`limit` 1–20，default 10。
   - `investment-profile` 只有既有 AI context opt-in 時回傳；第一版不暴露 free-form notes。
 

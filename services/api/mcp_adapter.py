@@ -15,7 +15,7 @@ from .models import ContextSelector
 
 PROTOCOL_VERSION = "2025-06-18"
 MARKET_RESOURCES = ("ohlcv", "valuation", "institutional", "financials", "events", "market-activity", "benchmark")
-PRIVATE_RESOURCES = ("positions", "annual-pnl", "exposure", "performance", "stress-tests", "investment-profile", "watchlist", "trades")
+PRIVATE_RESOURCES = ("positions", "annual-pnl", "exposure", "performance", "stress-tests", "investment-profile", "watchlist", "trades", "cash")
 TOOL_SCOPES = {
     "janus_sources":"janus.sources.read",
     "janus_market_context":"janus.market.read",
@@ -49,7 +49,7 @@ class MarketArgs(_Args):
 
 
 class PrivateArgs(_Args):
-    resource: Literal["positions", "annual-pnl", "exposure", "performance", "stress-tests", "investment-profile", "watchlist", "trades"]
+    resource: Literal["positions", "annual-pnl", "exposure", "performance", "stress-tests", "investment-profile", "watchlist", "trades", "cash"]
     symbol: str | None = Field(default=None, pattern=r"^[0-9A-Z._-]{1,20}$")
     year: int | None = Field(default=None, ge=1900, le=9999)
     limit: int = Field(default=10, ge=1, le=20)
@@ -78,7 +78,7 @@ TOOLS = (
     _tool("janus_market_context", "Read Janus market context",
           "Read bounded published Janus market records for one allowlisted symbol and resource.", MarketArgs),
     _tool("janus_private_context", "Read private Janus context",
-          "Read bounded owner-scoped Janus portfolio or ledger records after explicit OAuth authorization.", PrivateArgs),
+          "Read bounded owner-scoped Janus portfolio, cash balance, or ledger records after explicit OAuth authorization.", PrivateArgs),
 )
 
 
@@ -131,7 +131,7 @@ class McpAdapter:
                 {"source_id":"janus-core","owner_scope":"public","resources":list(MARKET_RESOURCES),
                  "freshness":"published daily data","status":"available","bounds":self._bounds(),
                  "disclosure":"Published Janus market data shared with an external AI service."},
-                {"source_id":"janus-private-core","owner_scope":"owner","resources":["watchlist","trades"],
+                {"source_id":"janus-private-core","owner_scope":"owner","resources":["watchlist","trades","cash"],
                  "freshness":"latest owner snapshot","status":"available","bounds":self._bounds(),
                  "disclosure":"Private owner data shared with an external AI service."},
                 {"source_id":"janus-private-mart","owner_scope":"owner","resources":list(PRIVATE_RESOURCES[:6]),
@@ -143,7 +143,7 @@ class McpAdapter:
             selector = ContextSelector(source_id="janus-core", **args.model_dump())
         else:
             args = PrivateArgs.model_validate(arguments)
-            source_id = "janus-private-core" if args.resource in {"watchlist","trades"} else "janus-private-mart"
+            source_id = "janus-private-core" if args.resource in {"watchlist","trades","cash"} else "janus-private-mart"
             selector = ContextSelector(source_id=source_id, **args.model_dump())
         return self.contexts.read(owner_id, selector)
 

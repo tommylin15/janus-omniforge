@@ -195,3 +195,57 @@ def test_private_mart_withholds_stale_records_before_date_and_limit_filtering():
         assert result["ledger_version"] == 24
         assert result["missing_reason"] == "private_mart_stale"
     assert service.read(OWNER, ContextSelector(source_id="janus-private-core", resource="trades"))["records"]
+
+
+def test_cash_context_uses_authenticated_owner_and_preserves_decimal_balance():
+    from decimal import Decimal
+    other = UUID("00000000-0000-0000-0000-000000000002")
+    calls = []
+    repository = Repository()
+    def cash_position(owner_id):
+        calls.append(owner_id)
+        return {"user_id": owner_id, "cash_status": "available", "cash_balance":
+                Decimal("123456789012.34") if owner_id == OWNER else Decimal("-42.50"),
+                "currency": "TWD", "cash_version": 2, "anchor_ledger_version": 3,
+                "current_ledger_version": 4, "updated_at": "2026-10-27T05:00:00Z"}
+    repository.cash_position = cash_position
+    class OwnerOAuth(OAuth):
+        def verify_access_token(self, token, scope):
+            assert scope in {"janus.private.read", "janus.sources.read"}
+            if token not in {"valid", "other"}:
+                raise HTTPException(401, "invalid token")
+            return {"sub": str(OWNER if token == "valid" else other), "scope": scope}
+    api = TestClient(create_app(repository=repository, store=Store(), core=Core(), oauth_facade=OwnerOAuth()))
+    params = {"name": "janus_private_context", "arguments": {"resource": "cash", "limit": 1}}
+    assert rpc(api, "tools/call", params).status_code == 401
+    assert calls == []
+    for token, balance in (("valid", "123456789012.34"), ("other", "-42.50")):
+        result = rpc(api, "tools/call", params, token=token).json()["result"]["structuredContent"]
+        assert result["status"] == "available" and result["resource"] == "cash"
+        assert result["records"][0]["cash_balance"] == balance
+        assert result["records"][0]["currency"] == "TWD"
+        assert result["records"][0]["current_ledger_version"] == 4
+        assert result["as_of"] == "2026-10-27T05:00:00Z"
+        assert "user_id" not in result["records"][0]
+        assert result["provenance"][0]["context_source_id"] == "janus-private-core"
+    assert calls == [OWNER, other]
+    tools = rpc(api, "tools/list").json()["result"]["tools"]
+    private = next(tool for tool in tools if tool["name"] == "janus_private_context")
+    assert "cash" in private["inputSchema"]["properties"]["resource"]["enum"]
+    sources = rpc(api, "tools/call", {"name": "janus_sources", "arguments": {}}, token="valid").json()["result"]["structuredContent"]
+    assert "cash" in next(source for source in sources["items"] if source["source_id"] == "janus-private-core")["resources"]
+    for invalid in ({"owner_id": str(other)}, {"symbol": "2330"}, {"year": 2026}):
+        bad = {"name": "janus_private_context", "arguments": {"resource": "cash", **invalid}}
+        assert rpc(api, "tools/call", bad, token="valid").json()["result"]["isError"] is True
+    assert calls == [OWNER, other]
+
+
+def test_cash_context_not_configured_is_missing_without_a_fabricated_zero():
+    repository = Repository()
+    repository.cash_position = lambda owner_id: {"cash_status": "not_configured", "cash_balance": None,
+        "currency": "TWD", "cash_version": 0, "anchor_ledger_version": None, "current_ledger_version": None}
+    result = rpc(client(repository), "tools/call", {"name": "janus_private_context",
+        "arguments": {"resource": "cash"}}, token="valid").json()["result"]["structuredContent"]
+    assert result["status"] == "missing"
+    assert result["records"][0]["cash_status"] == "not_configured"
+    assert result["records"][0]["cash_balance"] is None

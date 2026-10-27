@@ -29,7 +29,7 @@ class SourceSpec:
 
 SOURCES = (
     SourceSpec("janus-core", "core", "public", ("ohlcv", "valuation", "institutional", "financials", "events", "market-activity", "benchmark"), "published daily data", "Published Janus market data."),
-    SourceSpec("janus-private-core", "private_core", "owner", ("notes", "watchlist", "trades"), "latest owner snapshot", "Private notes, watchlist, or trades selected by you."),
+    SourceSpec("janus-private-core", "private_core", "owner", ("notes", "watchlist", "trades", "cash"), "latest owner snapshot", "Private notes, watchlist, cash balance, or trades selected by you."),
     SourceSpec("janus-private-mart", "private_mart", "owner", ("positions", "annual-pnl", "investment-profile", "exposure", "performance", "stress-tests"), "latest completed valuation", "Private portfolio calculations selected by you."),
 )
 SOURCE_BY_ID = {source.source_id: source for source in SOURCES}
@@ -90,7 +90,8 @@ class ContextSourceService:
         truncated = len(rows) > len(records)
         while records and len(json.dumps(records,default=str,separators=(",", ":")).encode()) > MAX_CONTEXT_BYTES:
             records.pop(); truncated = True
-        return {"schema_version":"janus.mcp.v1", "status":"partial" if truncated else "available" if records else "missing",
+        available = bool(records) and (selector.resource != "cash" or records[0].get("cash_status") == "available")
+        return {"schema_version":"janus.mcp.v1", "status":"partial" if truncated else "available" if available else "missing",
                 "resource":selector.resource, "as_of":self._as_of(records), "records":records,
                 "provenance":self._provenance(selector.source_id,records),
                 "bounds":{"limit":selector.limit,"returned":len(records),"truncated":truncated,
@@ -108,6 +109,9 @@ class ContextSourceService:
             return [row for row in rows if not selector.symbol or row.get("symbol") == selector.symbol]
         if selector.resource == "trades":
             return self.repository.ledger_history(owner_id,selector.symbol,selector.year,limit=200)
+        if selector.resource == "cash":
+            row = self.repository.cash_position(owner_id)
+            return [{**row, "cash_balance": str(row["cash_balance"]) if row["cash_balance"] is not None else None}]
         if selector.resource == "investment-profile":
             profile=self.repository.investment_profile(owner_id)
             if not profile.get("ai_context_opt_in"): raise ContextSourceError("investment profile context is not enabled")
