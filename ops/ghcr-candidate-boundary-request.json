@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "ec1061652bfb2226e88f1b25aa9d416dee51a2ed",
+  "sha": "0b2e3eb3e819c94928d0a49e711bdb3af5f611b7",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Shared Janus Dev API candidate #40460824526 passed, same release #40460262500 and exact SHA ec106165. Read-only OAuth issuer, Admin/User/MCP unauthenticated boundaries, protected Admin session and source build-id; no Owner credential or GCP mutation. For approved Admin shared-login and Owner watchlist repair.",
-  "request_attempt": 16
+  "purpose": "Owner cash MCP exact-source auth boundary after full Release #40477783215 and zero-traffic candidate #40478796674 SUCCESS, source 0b2e3eb3. Read-only OAuth discovery/S256/refresh metadata, User/Admin/MCP unauthenticated rejection and exact build identity; no GCP mutation, new scopes, Owner credential or cash payload. Fixed MCP tags update follows only after PASS.",
+  "request_attempt": 17
 }
