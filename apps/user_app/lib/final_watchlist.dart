@@ -399,10 +399,15 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                   children: [
                     header(context, null),
                     fvPanel(
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Expanded(child: Text('關注清單暫時無法使用；請重試，若持續失敗請重新登入')),
-                          TextButton(onPressed: reload, child: const Text('重試')),
+                          Row(children: [
+                            const Expanded(child: Text('關注清單暫時無法使用')),
+                            TextButton(onPressed: reload, child: const Text('重試')),
+                          ]),
+                          const Text('若持續失敗，請重新開啟 App 登入',
+                              style: TextStyle(color: fvMuted, fontSize: 12)),
                         ],
                       ),
                     ),
