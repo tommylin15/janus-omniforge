@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:janus_user_app/final_charts.dart';
 import 'package:janus_user_app/final_visual_pages.dart';
 import 'package:janus_user_app/final_visual_common.dart';
 import 'package:janus_user_app/final_visual_series.dart';
@@ -1771,4 +1772,52 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets('FvKlineChart renders KD indicator correctly when showKd is true', (tester) async {
+    final klineRows = [
+      for (var i = 1; i <= 20; i++)
+        {
+          'trade_date': '2026-10-${i.toString().padLeft(2, '0')}',
+          'open': (100 + i).toString(),
+          'high': (105 + i).toString(),
+          'low': (98 + i).toString(),
+          'close': (102 + i).toString(),
+          'volume_shares': '1000000',
+        }
+    ];
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: FvKlineChart(rows: klineRows, maxPoints: 20, showKd: true),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('fv-kline-chart')), findsOneWidget);
+    expect(find.text('K(9,3)'), findsOneWidget);
+    expect(find.text('D(9,3)'), findsOneWidget);
+  });
+
+  testWidgets('FvPeRiverChart renders valuation river bands and responds to touch', (tester) async {
+    final epsRows = [
+      {'date': '2023-09-30', 'value': '2.0'},
+      {'date': '2023-12-31', 'value': '2.5'},
+      {'date': '2024-03-31', 'value': '1.5'},
+      {'date': '2024-06-30', 'value': '2.0'},
+      {'date': '2024-09-30', 'value': '2.2'},
+    ];
+    final klineRows = [
+      for (var i = 1; i <= 30; i++)
+        {
+          'trade_date': '2024-08-${i.toString().padLeft(2, '0')}',
+          'close': (150 + i).toString(),
+        }
+    ];
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: FvPeRiverChart(klineRows: klineRows, epsRows: epsRows),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('fv-pe-river-chart')), findsOneWidget);
+    expect(find.textContaining('本益比估值河流圖'), findsOneWidget);
+    expect(find.text('收盤價'), findsOneWidget);
+  });
 }

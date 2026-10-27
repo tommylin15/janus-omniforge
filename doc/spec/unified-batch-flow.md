@@ -119,3 +119,60 @@ Private snapshot 是 current Iceberg table 的資料列，不是舊 Iceberg snap
 ## 分析輸入與報告減頻（2026-10-25）
 
 依[分析Mart契約](analyst-input-mart.md)：EOD／每日事實與私人PnL照常；深度因子只服務持股∪觀察股。新增execution內分析輸入artifact，完整事實報告採首次／每7日新資料／財務或模型變更／相對上次報告價格變動5%，CEO仍按需。不新增Scheduler或GitHub業務cron。已寫程式不代表四ML接線／UI或實機驗收完成。
+
+---
+
+## 8. 專案全批次盤點與三大精簡管線收斂（2026-10-27 盤點）
+
+依使用者要求全面盤點專案內全部批次排程，並對重疊與過度切割之工作進行精簡收斂。
+
+### 8.1 現行 11 個批次清單與痛點分析
+
+| 原排程名稱 | 原執行時段 | 原工作內容 | 痛點與重疊分析 |
+|---|---|---|---|
+| `ledger-backup` | 每日 00:30 | PG 邏輯備份至 GCS | 運作良好，獨立保留 |
+| `ingestion` | 每日 02:30 | 收取全市場行情、財報、營收 | 台股 13:30 收盤、18:00 前官方數據已發布完成，延後至凌晨 02:30 造成使用者整晚無法獲得當日收盤與最新資訊 |
+| `market-screening` | 平日 04:30 | 依賴 ingestion，執行四模型與市場週期 | 與前一階段人為間隔 2 小時，白白等待 Cloud Scheduler 喚醒 |
+| `private` | 平日 06:30 | 依賴 screening，計算個人持股估值與異動 | 再次人為間隔 2 小時，導致個人持股估值延遲至次日晨間才更新 |
+| `stage-cleanup` | 每日 22:30 | 清理 >48h GCS Stage 暫存 | 輕量維護，每日執行 |
+| `mobile-ledger` | 每 2 小時 :30 | 消耗手機記帳佇列 | 輕量輪詢，有待處理才跑，無則 0 秒退出；運作良好 |
+| `iceberg-compaction` | 週六 22:30 | 合併 Iceberg 小檔案 | 與 Mart/Core 清理同一時段，透過 3 層依賴鏈反覆調度容器 |
+| `mart-cleanup` | 週六 22:30 | Mart 快照修剪 | 同上，過度零碎切割 |
+| `core-cleanup` | 週六 22:30 | Core 歷史修剪 | 同上，過度零碎切割 |
+| `collection-queue` | 手動手動 | 手動重收佇列 | 手動保留 |
+| `analysis-queue` | 手動手動 | 手動分析佇列 | 手動保留 |
+
+### 8.2 收斂後的三大精簡批次管線架構
+
+為消除不必要的中繼等待、降低調度摩擦與確保盤後第一時間交付新鮮數據，系統收斂為「**三大精簡管線**」：
+
+```mermaid
+flowchart TD
+    subgraph Pipeline_A["管線 A：交易日收盤一條龍主鏈 (EOD Master Pipeline · 平日 18:30)"]
+        A1["1. 公開行情與財報收取<br/>(TWSE/TPEx + Yahoo備援)"] --> A2["2. Core 寫入與熱快取投影<br/>(PostgreSQL Serving)"]
+        A2 --> A3["3. 內建特徵工程與四模型推論<br/>(Quant / Risk / Fund / Valuation)"]
+        A3 --> A4["4. 個人持股估值與變更分析<br/>(Private Pipeline)"]
+        A4 --> A5["5. 滾動修剪淘汰<br/>(維持 Serving < 95MB)"]
+    end
+
+    subgraph Pipeline_B["管線 B：即時記帳與補償管線 (Mobile Ledger · 每 2 小時)"]
+        B1["Cloud Scheduler 每兩小時喚醒"] --> B2{"檢查待處理佇列<br/>probe_queue"}
+        B2 -- "有待處理" --> B3["消耗交易紀錄並即時重新計算損益"]
+        B2 -- "佇列為空" --> B4["0 秒靜默退出 (零運算浪費)"]
+    end
+
+    subgraph Pipeline_C["管線 C：資料庫備份與週末維護管線 (Maintenance Pipeline)"]
+        C1["每日 00:30：PostgreSQL 邏輯備份至 GCS"]
+        C2["週六 22:30：週末大維護<br/>(Stage 清理 + Iceberg Compaction + 快照修剪 + PG VACUUM ANALYZE)"]
+    end
+```
+
+#### 精簡重點說明：
+1. **盤後一條龍直通（Pipeline A）**：
+   - 將原本橫跨 02:30、04:30、06:30 長達 4 小時等待的鏈路，統一收斂至交易日 **18:30**。
+   - Ingestion 完成後直接鏈式觸發 Intelligence Mart 與 Private Pipeline，使用者在晚間 19:00 前即可在 App 查看最新收盤行情、KD 線、估值河流圖、四模型評分與個人持股未實現損益。
+2. **四模型因子計算完全零額外批次負擔**：
+   - 四個分析師模型（Quant15、Risk12、Fund15、Valuation）所需的因子特徵已內建於 `intelligence_mart.analyst_inputs`。
+   - 批次啟動時自動於記憶體內動態向量化完成計算，無需維護額外的因子資料庫或單獨排程。
+3. **週末大維護一次打包（Pipeline C）**：
+   - 週六 22:30 統一執行儲存與資料庫保養，包含小檔案合併、清理舊快照與 PostgreSQL `VACUUM ANALYZE`，回收 dead tuples，徹底杜絕 Free Tier VM 磁碟膨脹風險。

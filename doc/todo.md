@@ -1,5 +1,46 @@
 # Janus — 唯一 Active TODO
 
+## 全市場歷史資料補齊、KD線、估值河流圖與批次精簡收斂（2026-10-27）
+
+- **全市場基本面 100% 補齊與 Serving 投影 100% PASS（2026-10-27）**：
+  - 針對使用者回報「臻鼎（4958）沒有 EPS」進行根本原因定位（先前種子抓取遭遇 Yahoo TW 999 阻擋且未重試）。
+  - 開發增量補齊腳本 [`scripts/seed/fill_missing_financials.py`](../scripts/seed/fill_missing_financials.py)，加入 60ms 速率保護與 Yahoo REST 雙重備援端點。
+  - 完成全市場 1,238 檔缺失個股補收，種子資料全數回寫：
+    - `data/seed/eps_3y.jsonl.gz`：**1,919 檔（100% 全市場覆蓋）**，22,461 筆單季 EPS。
+    - `data/seed/revenue_2y.jsonl.gz`：**1,887 檔（98.3% 全市場覆蓋）**，43,953 筆單月營收。
+    - 臻鼎-KY（4958）驗收：完整取得 12 季單季 EPS（最新 Q2: 2.19, Q1: 1.33, 2025Q4: 3.22, Q3: 2.46...）與 24 個月單月營收。
+  - **Git 提交與 GCP 投影閉環**：
+    - 提交 commit `b6c9b540`。
+    - GitHub Actions 工作流 `Janus full-market 2Y history seed to dev serving` ([Run #40534367335](https://github.com/tommylin15/janus-omniforge/actions/runs/40534367335)) 執行成功 (`success`，耗時 4m49s)，將全市場 1,919 檔 EPS 與營收同步至 PostgreSQL Serving 快取。
+  - **Live Runtime API 線上驗證 100% PASS**（端點 `https://janus-api-2oo7qbkd5q-uc.a.run.app`）：
+    - `GET /api/v1/public/stocks/4958/visual-series?metric=eps&limit=8`：回傳 HTTP 200，8 季 EPS 完整呈現。
+    - `GET /api/v1/public/stocks/4958/visual-series?metric=revenue&limit=8`：回傳 HTTP 200，8 個月營收完整呈現。
+    - 抽檢 2330、3234、8069 均回傳 `status: available`。
+
+- **KD(9,3,3) 隨機指標線與本益比估值河流圖（P/E River Chart）前端實作 100% PASS（2026-10-27）**：
+  - **KD(9,3,3) 實作**：
+    - 於 [`apps/user_app/lib/final_charts.dart`](../apps/user_app/lib/final_charts.dart) 實作 9 日 RSV 與台灣標準指數平滑（K、D 平滑係數 2/3、1/3）。
+    - 繪製 45px 獨立子畫布，標註 80 超買線與 20 超賣線，橘色 K 線與藍色 D 線，即時數值顯示於圖例。
+    - 於個股詳情頁提供 `KD(9,3)` FilterChip 開關，支援點擊展開。
+  - **本益比估值河流圖實作**：
+    - 實作 `FvPeRiverChart`，以滾動近四季累積 EPS（TTM EPS）為基準，動態適配個股歷史本益比區間，繪製 5 條河流倍數線（12x~28x 或高本益比動態階梯）。
+    - 4 個半透明色塊區間（便宜 $\rightarrow$ 偏低 $\rightarrow$ 合理 $\rightarrow$ 偏高），墨黑粗線呈現真實收盤價。
+    - 支援手勢觸控滑動（Touch / Drag Scrub），即時回顯日期、收盤價、TTM EPS、即時 PE 與估值位階。
+    - 個股詳情頁「選擇想看的趨勢」新增「本益比河流圖」ChoiceChip，一鍵自動同步載入 K 線與 12 季 EPS。
+  - **回歸測試**：
+    - 新增 KD 指標與河流圖 Widget 回歸測試於 [`apps/user_app/test/final_visual_test.dart`](../apps/user_app/test/final_visual_test.dart)。
+
+- **四模型推論與特徵工程因子工廠定位釐清（2026-10-27）**：
+  - 確認四個分析師模型（Quant15、Risk12、Fund15、Valuation）之特徵工程已內建於 `intelligence_mart.analyst_inputs`。
+  - **無需**使用者額外手動執行因子批次，只要 Core / Serving 歷史資料就緒，Mart 推論啟動時即在記憶體內向量化萃取因子矩陣並直接執行本地輕量 XGBoost 模型推論，零外部 API 費用。
+
+- **專案全部批次盤點與三大精簡管線收斂（2026-10-27）**：
+  - 全面盤點專案 11 個排程，找出凌晨人為等待 2 小時（02:30 $\rightarrow$ 04:30 $\rightarrow$ 06:30）與週末 22:30 四重微型批次之過度切割問題。
+  - 正式收斂為「**三大精簡管線**」並回寫 [`doc/spec/unified-batch-flow.md`](spec/unified-batch-flow.md)：
+    1. **管線 A：交易日收盤一條龍主鏈（平日 18:30）**：行情/財報收取 $\rightarrow$ Core/Serving 投影 $\rightarrow$ 四模型推論 $\rightarrow$ 個人持股估值 $\rightarrow$ 滾動淘汰修剪。
+    2. **管線 B：即時記帳與補償管線（每 2 小時）**：有交易才喚醒，佇列為空時 0 秒靜默，零成本。
+    3. **管線 C：資料庫備份與週末維護管線**：每日 00:30 備份；週六 22:30 合併執行 Stage/Iceberg/Mart/Core 清理與 PostgreSQL `VACUUM ANALYZE`。
+
 ## 全市場 2 年歷史資料補齊與 Serving 快取日常維護（2026-10-27）
 
 - **架構與生命週期契約回寫完成**：已制定並回寫正式契約 [`doc/spec/history-seed-pipeline.md`](spec/history-seed-pipeline.md)，並同步更新 [儲存契約](spec/storage-data-and-ingestion.md) 與 [Retention 治理](spec/retention-governance.md)。

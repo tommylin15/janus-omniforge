@@ -170,13 +170,20 @@ class FvMonthlyPnlChart extends StatelessWidget {
 }
 
 class FvKlineChart extends StatelessWidget {
-  const FvKlineChart({required this.rows, this.maxPoints = 40, this.chartHeight,
-    this.candlesticks = true, super.key});
+  const FvKlineChart({
+    required this.rows,
+    this.maxPoints = 40,
+    this.chartHeight,
+    this.candlesticks = true,
+    this.showKd = false,
+    super.key,
+  });
 
   final List<dynamic> rows;
   final int maxPoints;
   final double? chartHeight;
   final bool candlesticks;
+  final bool showKd;
 
   @override
   Widget build(BuildContext context) {
@@ -199,10 +206,14 @@ class FvKlineChart extends StatelessWidget {
       }
     }
     candles.sort((a, b) => a.day.compareTo(b.day));
+    final allKd = showKd ? _calculateKd(candles) : const <_KdPoint>[];
     final window = maxPoints.clamp(1, 264);
     final visible = candles.length > window
         ? candles.sublist(candles.length - window)
         : candles;
+    final visibleKd = (showKd && allKd.length >= visible.length)
+        ? allKd.sublist(allKd.length - visible.length)
+        : const <_KdPoint>[];
     if (visible.isEmpty) return fvBoundedState('K 線資料不足，無法繪製');
 
     final hasVolume =
@@ -241,14 +252,20 @@ class FvKlineChart extends StatelessWidget {
             style: const TextStyle(color: fvMuted, fontSize: 11)),
           const SizedBox(height: 10),
           SizedBox(
-            height: chartHeight ?? (hasVolume ? 240 : 195),
+            height: chartHeight ?? (hasVolume ? (showKd ? 295 : 240) : (showKd ? 250 : 195)),
             width: double.infinity,
             child: CustomPaint(
               key: const Key('fv-kline-chart'),
-              painter: _CandlestickPainter(visible, hasVolume: hasVolume, candlesticks: candlesticks,
+              painter: _CandlestickPainter(
+                visible,
+                hasVolume: hasVolume,
+                candlesticks: candlesticks,
+                showKd: showKd,
+                kdPoints: visibleKd,
                 gaps: rows.map(fvMap).where((row) => fvChartNumber(row['close']) == null)
                   .map((row) => DateTime.tryParse(fvText(row['trade_date'], missing: '')))
-                  .whereType<DateTime>().toList()),
+                  .whereType<DateTime>().toList(),
+              ),
             ),
           ),
           const SizedBox(height: 6),
@@ -257,6 +274,16 @@ class FvKlineChart extends StatelessWidget {
               const _LegendDot(color: fvGain, label: '上漲'),
               const SizedBox(width: 14),
               const _LegendDot(color: fvLoss, label: '下跌'),
+              if (showKd && visibleKd.isNotEmpty) ...[
+                const SizedBox(width: 14),
+                const _LegendDot(color: Color(0xFFE65100), label: 'K(9,3)'),
+                const SizedBox(width: 4),
+                Text(visibleKd.last.k.toStringAsFixed(1), style: const TextStyle(color: Color(0xFFE65100), fontSize: 11, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 10),
+                const _LegendDot(color: Color(0xFF1565C0), label: 'D(9,3)'),
+                const SizedBox(width: 4),
+                Text(visibleKd.last.d.toStringAsFixed(1), style: const TextStyle(color: Color(0xFF1565C0), fontSize: 11, fontWeight: FontWeight.bold)),
+              ],
               if (!hasVolume) ...[
                 const SizedBox(width: 14),
                 const Expanded(
@@ -388,22 +415,65 @@ class _Candle {
   final double? volume;
 }
 
+class _KdPoint {
+  const _KdPoint(this.k, this.d);
+  final double k;
+  final double d;
+}
+
+List<_KdPoint> _calculateKd(List<_Candle> candles) {
+  if (candles.isEmpty) return const [];
+  final points = <_KdPoint>[];
+  var prevK = 50.0;
+  var prevD = 50.0;
+
+  for (var i = 0; i < candles.length; i++) {
+    final start = math.max(0, i - 8);
+    var minLow = candles[start].low;
+    var maxHigh = candles[start].high;
+    for (var j = start + 1; j <= i; j++) {
+      if (candles[j].low < minLow) minLow = candles[j].low;
+      if (candles[j].high > maxHigh) maxHigh = candles[j].high;
+    }
+    final rsv = (maxHigh - minLow).abs() < 1e-6
+        ? 50.0
+        : ((candles[i].close - minLow) / (maxHigh - minLow) * 100.0).clamp(0.0, 100.0);
+    final k = (2.0 / 3.0) * prevK + (1.0 / 3.0) * rsv;
+    final d = (2.0 / 3.0) * prevD + (1.0 / 3.0) * k;
+    points.add(_KdPoint(k, d));
+    prevK = k;
+    prevD = d;
+  }
+  return points;
+}
+
 class _CandlestickPainter extends CustomPainter {
-  _CandlestickPainter(this.candles, {required this.hasVolume, required this.candlesticks, required this.gaps});
+  _CandlestickPainter(
+    this.candles, {
+    required this.hasVolume,
+    required this.candlesticks,
+    required this.gaps,
+    this.showKd = false,
+    this.kdPoints = const [],
+  });
 
   final List<_Candle> candles;
   final bool hasVolume;
   final bool candlesticks;
   final List<DateTime> gaps;
+  final bool showKd;
+  final List<_KdPoint> kdPoints;
 
   @override
   void paint(Canvas canvas, Size size) {
     const left = 8.0;
     const right = 8.0;
     const top = 12.0;
-    final volumeHeight = hasVolume ? 42.0 : 0.0;
-    final bottom = hasVolume ? 64.0 : 30.0;
-    final priceHeight = math.max(1.0, size.height - top - bottom).toDouble();
+    final volumeHeight = hasVolume ? 36.0 : 0.0;
+    final kdHeight = showKd ? 45.0 : 0.0;
+    final bottomMargin = 22.0;
+    final subSectionGaps = (hasVolume ? 14.0 : 0.0) + (showKd ? 16.0 : 0.0);
+    final priceHeight = math.max(60.0, size.height - top - bottomMargin - volumeHeight - kdHeight - subSectionGaps);
     final lows = candles.map((item) => item.low).toList();
     final highs = candles.map((item) => item.high).toList();
     var minPrice = lows.reduce((a, b) => a < b ? a : b);
@@ -432,7 +502,9 @@ class _CandlestickPainter extends CustomPainter {
             .map((item) => item.volume ?? 0)
             .fold<double>(0, (a, b) => a > b ? a : b)
         : 0.0;
-    final volumeTop = top + priceHeight + 16;
+    final volumeTop = top + priceHeight + 14.0;
+    final volumeBottom = volumeTop + volumeHeight;
+    final kdTop = hasVolume ? (volumeBottom + 16.0) : (top + priceHeight + 14.0);
 
     final line = Path();
     for (var index = 0; index < candles.length; index++) {
@@ -443,22 +515,22 @@ class _CandlestickPainter extends CustomPainter {
         ..color = color
         ..strokeWidth = 1.4;
       if (candlesticks) {
-      canvas.drawLine(
-        Offset(x, priceY(candle.high)),
-        Offset(x, priceY(candle.low)),
-        wick,
-      );
-      final openY = priceY(candle.open);
-      final closeY = priceY(candle.close);
-      final bodyTop = openY < closeY ? openY : closeY;
-      final bodyBottom = openY > closeY ? openY : closeY;
-      final rect = Rect.fromLTRB(
-        x - bodyWidth / 2,
-        bodyTop,
-        x + bodyWidth / 2,
-        bodyTop + 1.5 > bodyBottom ? bodyTop + 1.5 : bodyBottom,
-      );
-      canvas.drawRect(rect, Paint()..color = color);
+        canvas.drawLine(
+          Offset(x, priceY(candle.high)),
+          Offset(x, priceY(candle.low)),
+          wick,
+        );
+        final openY = priceY(candle.open);
+        final closeY = priceY(candle.close);
+        final bodyTop = openY < closeY ? openY : closeY;
+        final bodyBottom = openY > closeY ? openY : closeY;
+        final rect = Rect.fromLTRB(
+          x - bodyWidth / 2,
+          bodyTop,
+          x + bodyWidth / 2,
+          bodyTop + 1.5 > bodyBottom ? bodyTop + 1.5 : bodyBottom,
+        );
+        canvas.drawRect(rect, Paint()..color = color);
       } else {
         final broken = index == 0 || gaps.any((day) => day.isAfter(candles[index - 1].day) && day.isBefore(candle.day));
         if (broken) { line.moveTo(x, priceY(candle.close)); }
@@ -480,6 +552,35 @@ class _CandlestickPainter extends CustomPainter {
     }
     if (!candlesticks) {
       canvas.drawPath(line, Paint()..color = fvTeal..strokeWidth = 2.5..style = PaintingStyle.stroke);
+    }
+
+    if (showKd && kdPoints.length == candles.length) {
+      double kdY(double val) => kdTop + (100.0 - val.clamp(0.0, 100.0)) / 100.0 * kdHeight;
+      final refPaint = Paint()
+        ..color = fvMuted.withValues(alpha: 0.25)
+        ..strokeWidth = 0.8;
+      canvas.drawLine(Offset(left, kdY(80)), Offset(size.width - right, kdY(80)), refPaint);
+      canvas.drawLine(Offset(left, kdY(20)), Offset(size.width - right, kdY(20)), refPaint);
+      _paintLabel(canvas, '80', Offset(left, kdY(80)), alignRight: false);
+      _paintLabel(canvas, '20', Offset(left, kdY(20)), alignRight: false);
+
+      final kPath = Path();
+      final dPath = Path();
+      for (var index = 0; index < candles.length; index++) {
+        final x = left + step * (index + 0.5);
+        final kd = kdPoints[index];
+        final ky = kdY(kd.k);
+        final dy = kdY(kd.d);
+        if (index == 0) {
+          kPath.moveTo(x, ky);
+          dPath.moveTo(x, dy);
+        } else {
+          kPath.lineTo(x, ky);
+          dPath.lineTo(x, dy);
+        }
+      }
+      canvas.drawPath(kPath, Paint()..color = const Color(0xFFE65100)..strokeWidth = 1.6..style = PaintingStyle.stroke);
+      canvas.drawPath(dPath, Paint()..color = const Color(0xFF1565C0)..strokeWidth = 1.6..style = PaintingStyle.stroke);
     }
 
     _paintLabel(
@@ -508,7 +609,8 @@ class _CandlestickPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CandlestickPainter oldDelegate) {
     if (candlesticks != oldDelegate.candlesticks || gaps.toString() != oldDelegate.gaps.toString() ||
-        hasVolume != oldDelegate.hasVolume || candles.length != oldDelegate.candles.length) {
+        hasVolume != oldDelegate.hasVolume || candles.length != oldDelegate.candles.length ||
+        showKd != oldDelegate.showKd || kdPoints.length != oldDelegate.kdPoints.length) {
       return true;
     }
     for (var i = 0; i < candles.length; i++) {
@@ -541,4 +643,387 @@ void _paintLabel(
   if (center) dx -= painter.width / 2;
   if (alignRight) dx -= painter.width;
   painter.paint(canvas, Offset(dx, anchor.dy - painter.height / 2));
+}
+
+class FvPeRiverChart extends StatefulWidget {
+  const FvPeRiverChart({
+    required this.klineRows,
+    required this.epsRows,
+    this.chartHeight = 280,
+    super.key,
+  });
+
+  final List<dynamic> klineRows;
+  final List<dynamic> epsRows;
+  final double chartHeight;
+
+  @override
+  State<FvPeRiverChart> createState() => _FvPeRiverChartState();
+}
+
+class _FvPeRiverPoint {
+  const _FvPeRiverPoint({
+    required this.day,
+    required this.close,
+    required this.ttmEps,
+    required this.pe,
+    required this.bands,
+  });
+  final DateTime day;
+  final double close;
+  final double ttmEps;
+  final double pe;
+  final List<double> bands;
+}
+
+class _FvPeRiverChartState extends State<FvPeRiverChart> {
+  int? highlightedIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final epsPoints = <(DateTime, double)>[];
+    for (final raw in widget.epsRows) {
+      final map = fvMap(raw);
+      final dt = DateTime.tryParse(fvText(map['date'] ?? map['fiscal_period_end'], missing: ''));
+      final val = fvChartNumber(map['value'] ?? map['eps']);
+      if (dt != null && val != null) {
+        epsPoints.add((dt, val));
+      }
+    }
+    epsPoints.sort((a, b) => a.$1.compareTo(b.$1));
+
+    if (epsPoints.length < 4) {
+      return fvPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('本益比估值河流圖 (P/E River)', style: TextStyle(color: fvInk, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            fvBoundedState('需要至少 4 季 EPS 才能計算近四季滾動 TTM EPS（目前僅有 ${epsPoints.length} 季）'),
+          ],
+        ),
+      );
+    }
+
+    final dailyCandles = <(DateTime, double)>[];
+    for (final raw in widget.klineRows) {
+      final map = fvMap(raw);
+      final dt = DateTime.tryParse(fvText(map['trade_date'], missing: ''));
+      final close = fvChartNumber(map['close']);
+      if (dt != null && close != null && close > 0) {
+        dailyCandles.add((dt, close));
+      }
+    }
+    dailyCandles.sort((a, b) => a.$1.compareTo(b.$1));
+
+    if (dailyCandles.length < 2) {
+      return fvPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('本益比估值河流圖 (P/E River)', style: TextStyle(color: fvInk, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            fvBoundedState('價格資料不足，無法繪製本益比河流圖'),
+          ],
+        ),
+      );
+    }
+
+    final validPes = <double>[];
+    final riverCandidates = <(DateTime, double, double, double)>[];
+    for (final candle in dailyCandles) {
+      final tDate = candle.$1;
+      final close = candle.$2;
+      final available = epsPoints.where((e) => e.$1.isBefore(tDate) || e.$1.isAtSameMomentAs(tDate)).toList();
+      if (available.length >= 4) {
+        final last4 = available.sublist(available.length - 4);
+        final ttm = last4.fold<double>(0.0, (acc, item) => acc + item.$2);
+        if (ttm > 0.05) {
+          final pe = close / ttm;
+          validPes.add(pe);
+          riverCandidates.add((tDate, close, ttm, pe));
+        }
+      }
+    }
+
+    if (riverCandidates.length < 2 || validPes.isEmpty) {
+      return fvPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('本益比估值河流圖 (P/E River)', style: TextStyle(color: fvInk, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            fvBoundedState('近四季 TTM EPS 均非正數（處於虧損或資料未銜接），本益比河流圖無法計算倍數'),
+          ],
+        ),
+      );
+    }
+
+    validPes.sort();
+    final p10 = validPes[(validPes.length * 0.1).floor().clamp(0, validPes.length - 1)];
+    final p90 = validPes[(validPes.length * 0.9).floor().clamp(0, validPes.length - 1)];
+    List<double> multiples;
+    if (p90 <= 30.0 && p10 >= 10.0) {
+      multiples = const [12.0, 16.0, 20.0, 24.0, 28.0];
+    } else {
+      final rawStep = (p90 - p10) / 4.0;
+      final step = math.max(2.0, rawStep.roundToDouble());
+      final base = math.max(step, ((p10 / step).round() * step));
+      multiples = [base, base + step, base + 2 * step, base + 3 * step, base + 4 * step];
+    }
+
+    final riverPoints = <_FvPeRiverPoint>[];
+    for (final cand in riverCandidates) {
+      final bands = multiples.map((m) => m * cand.$3).toList();
+      riverPoints.add(_FvPeRiverPoint(
+        day: cand.$1,
+        close: cand.$2,
+        ttmEps: cand.$3,
+        pe: cand.$4,
+        bands: bands,
+      ));
+    }
+
+    final curIdx = (highlightedIndex ?? (riverPoints.length - 1)).clamp(0, riverPoints.length - 1);
+    final current = riverPoints[curIdx];
+
+    String zoneLabel;
+    Color zoneColor;
+    if (current.close > current.bands[4]) {
+      zoneLabel = '高於 ${multiples[4].toInt()}x · 昂貴區間';
+      zoneColor = const Color(0xFFD45252);
+    } else if (current.close > current.bands[3]) {
+      zoneLabel = '${multiples[3].toInt()}x～${multiples[4].toInt()}x · 偏高區間';
+      zoneColor = const Color(0xFFE65100);
+    } else if (current.close > current.bands[1]) {
+      zoneLabel = '${multiples[1].toInt()}x～${multiples[3].toInt()}x · 合理區間';
+      zoneColor = const Color(0xFF2E8B70);
+    } else if (current.close > current.bands[0]) {
+      zoneLabel = '${multiples[0].toInt()}x～${multiples[1].toInt()}x · 偏低區間';
+      zoneColor = const Color(0xFF1565C0);
+    } else {
+      zoneLabel = '低於 ${multiples[0].toInt()}x · 便宜區間';
+      zoneColor = const Color(0xFF2F6FB3);
+    }
+
+    return fvPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '本益比估值河流圖 (P/E River)',
+                  style: TextStyle(
+                    color: fvInk,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: zoneColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  zoneLabel,
+                  style: TextStyle(
+                    color: zoneColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${current.day.toIso8601String().substring(0, 10)} · 收盤 ${legacy.accountingNumber(current.close, decimals: 2)} · TTM EPS ${current.ttmEps.toStringAsFixed(2)} 元 · 本益比 ${current.pe.toStringAsFixed(1)} 倍',
+            style: const TextStyle(color: fvInk, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '河流倍數：${multiples.map((m) => '${m.toInt()}x').join('、')} · 近 ${riverPoints.length} 個交易日 · 輕觸圖表可滑動查看',
+            style: const TextStyle(color: fvMuted, fontSize: 11),
+          ),
+          const SizedBox(height: 10),
+          LayoutBuilder(
+            builder: (context, constraints) => GestureDetector(
+              onTapDown: (detail) {
+                final ratio = ((detail.localPosition.dx - 8) / math.max(1, constraints.maxWidth - 16)).clamp(0.0, 1.0);
+                setState(() => highlightedIndex = (ratio * (riverPoints.length - 1)).round());
+              },
+              onHorizontalDragUpdate: (detail) {
+                final ratio = ((detail.localPosition.dx - 8) / math.max(1, constraints.maxWidth - 16)).clamp(0.0, 1.0);
+                setState(() => highlightedIndex = (ratio * (riverPoints.length - 1)).round());
+              },
+              child: SizedBox(
+                height: widget.chartHeight,
+                width: double.infinity,
+                child: CustomPaint(
+                  key: const Key('fv-pe-river-chart'),
+                  painter: _PeRiverPainter(
+                    riverPoints,
+                    highlightedIndex: curIdx,
+                    multiples: multiples,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              _LegendDot(color: const Color(0xFFEF5350).withValues(alpha: 0.7), label: '${multiples[3].toInt()}x～${multiples[4].toInt()}x 偏高'),
+              _LegendDot(color: const Color(0xFFFFA726).withValues(alpha: 0.7), label: '${multiples[2].toInt()}x～${multiples[3].toInt()}x 中高'),
+              _LegendDot(color: const Color(0xFF66BB6A).withValues(alpha: 0.7), label: '${multiples[1].toInt()}x～${multiples[2].toInt()}x 合理'),
+              _LegendDot(color: const Color(0xFF29B6F6).withValues(alpha: 0.7), label: '${multiples[0].toInt()}x～${multiples[1].toInt()}x 偏低'),
+              const _LegendDot(color: fvInk, label: '收盤價'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PeRiverPainter extends CustomPainter {
+  _PeRiverPainter(
+    this.points, {
+    required this.highlightedIndex,
+    required this.multiples,
+  });
+
+  final List<_FvPeRiverPoint> points;
+  final int highlightedIndex;
+  final List<double> multiples;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+    const left = 8.0;
+    const right = 8.0;
+    const top = 12.0;
+    const bottom = 22.0;
+    final chartHeight = math.max(1.0, size.height - top - bottom);
+    final chartWidth = math.max(1.0, size.width - left - right);
+
+    var minY = double.infinity;
+    var maxY = double.negativeInfinity;
+    for (final p in points) {
+      if (p.close < minY) minY = p.close;
+      if (p.close > maxY) maxY = p.close;
+      for (final b in p.bands) {
+        if (b < minY) minY = b;
+        if (b > maxY) maxY = b;
+      }
+    }
+    if ((maxY - minY).abs() < 1e-6) {
+      maxY += 10.0;
+      minY = math.max(0.0, minY - 10.0);
+    } else {
+      final pad = (maxY - minY) * 0.05;
+      minY = math.max(0.0, minY - pad);
+      maxY += pad;
+    }
+    final rangeY = maxY - minY;
+    double y(double val) => top + (maxY - val) / rangeY * chartHeight;
+
+    final gridPaint = Paint()
+      ..color = fvSoft
+      ..strokeWidth = 1;
+    for (var i = 0; i < 4; i++) {
+      final gy = top + chartHeight * i / 3.0;
+      canvas.drawLine(Offset(left, gy), Offset(size.width - right, gy), gridPaint);
+    }
+
+    final step = chartWidth / (points.length - 1 == 0 ? 1 : points.length - 1);
+
+    final zoneColors = [
+      const Color(0xFF29B6F6).withValues(alpha: 0.22),
+      const Color(0xFF66BB6A).withValues(alpha: 0.22),
+      const Color(0xFFFFA726).withValues(alpha: 0.22),
+      const Color(0xFFEF5350).withValues(alpha: 0.22),
+    ];
+
+    for (var b = 0; b < 4; b++) {
+      final path = Path();
+      for (var i = 0; i < points.length; i++) {
+        final x = left + step * i;
+        final py = y(points[i].bands[b + 1]);
+        if (i == 0) {
+          path.moveTo(x, py);
+        } else {
+          path.lineTo(x, py);
+        }
+      }
+      for (var i = points.length - 1; i >= 0; i--) {
+        final x = left + step * i;
+        final py = y(points[i].bands[b]);
+        path.lineTo(x, py);
+      }
+      path.close();
+      canvas.drawPath(path, Paint()..color = zoneColors[b]..style = PaintingStyle.fill);
+    }
+
+    final bandLinePaint = Paint()
+      ..color = const Color(0xFF90A4AE).withValues(alpha: 0.5)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    for (var b = 0; b < 5; b++) {
+      final bPath = Path();
+      for (var i = 0; i < points.length; i++) {
+        final x = left + step * i;
+        final py = y(points[i].bands[b]);
+        if (i == 0) {
+          bPath.moveTo(x, py);
+        } else {
+          bPath.lineTo(x, py);
+        }
+      }
+      canvas.drawPath(bPath, bandLinePaint);
+      final lastPy = y(points.last.bands[b]);
+      _paintLabel(canvas, '${multiples[b].toInt()}x', Offset(size.width - right + 2, lastPy), alignRight: false);
+    }
+
+    final closePath = Path();
+    for (var i = 0; i < points.length; i++) {
+      final x = left + step * i;
+      final py = y(points[i].close);
+      if (i == 0) {
+        closePath.moveTo(x, py);
+      } else {
+        closePath.lineTo(x, py);
+      }
+    }
+    canvas.drawPath(
+      closePath,
+      Paint()
+        ..color = fvInk
+        ..strokeWidth = 2.4
+        ..style = PaintingStyle.stroke,
+    );
+
+    final hIdx = highlightedIndex.clamp(0, points.length - 1);
+    final hx = left + step * hIdx;
+    final hy = y(points[hIdx].close);
+    final cursorPaint = Paint()
+      ..color = fvInk.withValues(alpha: 0.4)
+      ..strokeWidth = 1.0;
+    canvas.drawLine(Offset(hx, top), Offset(hx, top + chartHeight), cursorPaint);
+    canvas.drawCircle(Offset(hx, hy), 4.5, Paint()..color = fvInk);
+    canvas.drawCircle(Offset(hx, hy), 2.5, Paint()..color = Colors.white);
+
+    _paintLabel(canvas, points.first.day.toIso8601String().substring(0, 10), Offset(left, size.height - 12));
+    _paintLabel(canvas, points.last.day.toIso8601String().substring(0, 10), Offset(size.width - right, size.height - 12), alignRight: true);
+    _paintLabel(canvas, legacy.accountingNumber(maxY, decimals: 1), Offset(left, 2));
+    _paintLabel(canvas, legacy.accountingNumber(minY, decimals: 1), Offset(left, top + chartHeight - 12));
+  }
+
+  @override
+  bool shouldRepaint(covariant _PeRiverPainter oldDelegate) => true;
 }

@@ -111,6 +111,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   int klineGeneration = 0;
   int chartDays = 66;
   bool candleChart = false;
+  bool showKd = false;
   String? selectedVisual;
   final loadingVisual = <String>{};
   int primaryGeneration = 0;
@@ -317,7 +318,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                   maxScale: 3,
                   child: SizedBox(
                     width: MediaQuery.sizeOf(dialogContext).width - 48,
-                    child: FvKlineChart(rows: rows, maxPoints: chartDays, chartHeight: 280, candlesticks: candleChart),
+                    child: FvKlineChart(rows: rows, maxPoints: chartDays, chartHeight: 280, candlesticks: candleChart, showKd: showKd),
                   ),
                 )),
               ],
@@ -328,8 +329,19 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
     );
   }
 
-  Future<void> openVisual(String metric) async {
-    setState(() => selectedVisual = metric);
+  Future<void> openPeRiver() async {
+    setState(() => selectedVisual = 'pe_river');
+    if (fvRows(values['kline']).length < 100) {
+      chartDays = 264;
+      loadKline(force: true);
+    } else {
+      loadKline(force: false);
+    }
+    await openVisual('eps', setVisual: false);
+  }
+
+  Future<void> openVisual(String metric, {bool setVisual = true}) async {
+    if (setVisual) setState(() => selectedVisual = metric);
     if (!const {'pe', 'pb', 'yield', 'foreign', 'investment_trust', 'dealer', 'revenue', 'eps'}.contains(metric)) return;
     final key = 'visual-$metric';
     if ((values.containsKey(key) && !errors.contains(key)) || loadingVisual.contains(key)) return;
@@ -584,17 +596,24 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
               Wrap(spacing: 7, runSpacing: 7, children: [
                 ChoiceChip(label: const Text('價格'), selected: selectedVisual == null,
                   onSelected: (_) => setState(() => selectedVisual = null)),
-                if (!nonEquity)
-                for (final entry in const {'pe': '本益比', 'pb': '股價淨值比',
-                    'yield': '殖利率', 'revenue': '月營收',
-                    'eps': 'EPS', 'foreign': '外資', 'investment_trust': '投信',
-                    'dealer': '自營商', 'events': '事件'}.entries)
+                if (!nonEquity) ...[
                   ChoiceChip(
-                    key: Key('visual-tab-${entry.key}'),
-                    label: Text(entry.value),
-                    selected: selectedVisual == entry.key,
-                    onSelected: (_) => openVisual(entry.key),
+                    key: const Key('visual-tab-pe-river'),
+                    label: const Text('本益比河流圖'),
+                    selected: selectedVisual == 'pe_river',
+                    onSelected: (_) => openPeRiver(),
                   ),
+                  for (final entry in const {'pe': '本益比', 'pb': '股價淨值比',
+                      'yield': '殖利率', 'revenue': '月營收',
+                      'eps': 'EPS', 'foreign': '外資', 'investment_trust': '投信',
+                      'dealer': '自營商', 'events': '事件'}.entries)
+                    ChoiceChip(
+                      key: Key('visual-tab-${entry.key}'),
+                      label: Text(entry.value),
+                      selected: selectedVisual == entry.key,
+                      onSelected: (_) => openVisual(entry.key),
+                    ),
+                ],
               ]),
               const SizedBox(height: 7),
               const Text('僅呈現已發布資料。缺少可比較歷史時明確標示。',
@@ -636,6 +655,12 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                 onSelected: (_) => setState(() => candleChart = false)),
               ChoiceChip(label: const Text('日 K'), selected: candleChart,
                 onSelected: (_) => setState(() => candleChart = true)),
+              FilterChip(
+                key: const Key('stock-chart-kd-filter'),
+                label: const Text('KD(9,3)'),
+                selected: showKd,
+                onSelected: (val) => setState(() => showKd = val),
+              ),
             ]),
             if (klineLoading && fvRows(values['kline']).isEmpty)
               fvBoundedState('價格圖載入中；其餘個股資訊可先查看', icon: Icons.show_chart)
@@ -647,7 +672,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
             else if (fvRows(values['kline']).isEmpty)
               fvBoundedState('尚無可繪製的正式行情，不顯示示意圖')
             else ...[
-              FvKlineChart(rows: fvRows(values['kline']), maxPoints: chartDays, candlesticks: candleChart),
+              FvKlineChart(rows: fvRows(values['kline']), maxPoints: chartDays, candlesticks: candleChart, showKd: showKd),
               if (errors.contains('kline'))
                 const Text('行情更新失敗，保留上次有效圖表',
                     style: TextStyle(color: fvMuted, fontSize: 11)),
@@ -748,6 +773,24 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                       _twoYearValuationCard(result, label),
                   ]);
                 }),
+              ] else if (selectedVisual == 'pe_river') ...[
+                if ((klineLoading && fvRows(values['kline']).isEmpty) || loadingVisual.contains('visual-eps'))
+                  fvBoundedState('本益比估值河流圖載入中...', icon: Icons.waves)
+                else if (errors.contains('kline') && fvRows(values['kline']).isEmpty)
+                  fvPanel(child: Row(children: [
+                    const Expanded(child: Text('價格資料讀取失敗')),
+                    TextButton(onPressed: () => openPeRiver(), child: const Text('重試')),
+                  ]))
+                else if (errors.contains('visual-eps') && fvRows(fvMap(values['visual-eps'])['points']).isEmpty)
+                  fvPanel(child: Row(children: [
+                    const Expanded(child: Text('EPS 資料讀取失敗')),
+                    TextButton(onPressed: () => openPeRiver(), child: const Text('重試')),
+                  ]))
+                else
+                  FvPeRiverChart(
+                    klineRows: fvRows(values['kline']),
+                    epsRows: fvRows(fvMap(values['visual-eps'])['points']),
+                  ),
               ] else
                 fvBoundedState(selectedVisual == 'events'
                   ? '公司事件請參考下方公告與閱讀提示。'

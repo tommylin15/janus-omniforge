@@ -189,3 +189,50 @@ flowchart LR
    - 日頻行情：`control.stock_serving_recent` (`dataset_id='ohlcv'`)
    - 單季 EPS：`control.market_serving_recent` (`dataset_id='financials'`, `payload_json->>'metric'='eps_single_quarter'`)
    - 單月營收：`control.market_serving_recent` (`dataset_id='financials'`, `payload_json->>'metric'='monthly_revenue'`)
+
+---
+
+## 6. 實施成果、視覺化指標與模型接線
+
+### 6.1 全市場歷史種子收錄成果 (100% 驗收通過)
+- **GitHub 交付**：提交 commit `b6c9b540`。
+- **GCP Serving 投影**：GitHub Actions 工作流 `Janus full-market 2Y history seed to dev serving` ([Run #40534367335](https://github.com/tommylin15/janus-omniforge/actions/runs/40534367335)) 執行成功 (`success`，耗時 4m49s)。
+- **實際入庫覆蓋率**：
+  1. `ohlcv_2y.jsonl.gz`：全市場 1,919 檔（100%），共 925,518 筆日 K 線。
+  2. `eps_3y.jsonl.gz`：全市場 1,919 檔（100%），共 22,461 筆單季 EPS（12 季）。
+  3. `revenue_2y.jsonl.gz`：全市場 1,887 檔（98.3%），共 43,953 筆單月營收（24 個月）。
+- **實機 Runtime API 驗證**：
+  - 4958 臻鼎-KY：`GET /api/v1/public/stocks/4958/visual-series?metric=eps` 取得完整 12 季 EPS（最新 Q2 2.19、Q1 1.33、2025Q4 3.22...）；`metric=revenue` 取得 24 個月營收；`GET /api/v1/public/kline/4958` 取得完整日 K 線。
+  - 抽檢 2330 台積電、3234 光環、8069 元太：全部回傳 `status: available`。
+
+### 6.2 KD(9,3,3) 隨機指標線實作
+- **計算公式**：
+  - 9 日未成熟隨機值（Raw Stochastic Value）：
+    $$RSV_t = \frac{Close_t - \min(Low_{t-8..t})}{\max(High_{t-8..t}) - \min(Low_{t-8..t})} \times 100$$
+  - 台灣標準指數平滑：
+    $$K_t = \frac{2}{3} K_{t-1} + \frac{1}{3} RSV_t \quad (K_0 = 50.0)$$
+    $$D_t = \frac{2}{3} D_{t-1} + \frac{1}{3} K_t \quad (D_0 = 50.0)$$
+- **視覺呈現**：
+  - 繪製於 `FvKlineChart` 下方專屬指標子畫布，高度 45px。
+  - 內建 80 超買參考線與 20 超賣參考線。
+  - K 線使用橘色 (`#E65100`)，D 線使用深藍色 (`#1565C0`)。
+  - 個股頁面圖表控制列提供 `KD(9,3)` FilterChip 開關，支援即時切換與圖表放大縮放。
+
+### 6.3 本益比估值河流圖 (P/E River Chart) 實作
+- **計算公式**：
+  - 滾動近四季累積 EPS（TTM EPS）：
+    $$EPS_{\text{TTM}, t} = \sum_{k=1}^4 EPS_k \quad (\text{截至 } t \text{ 日期已發布之近 4 季單季 EPS})$$
+  - 動態河流倍數：
+    根據個股歷史滾動本益比分佈（$P_{10}$ 與 $P_{90}$），若處於標準區間則採用台股經典 `[12x, 16x, 20x, 24x, 28x]`；若為高本益比成長股（如 4958 或高價股），系統動態適配為整數階梯（如 `[48x, 54x, 60x, 66x, 72x]`），確保河流完整包覆歷史走勢。
+- **視覺呈現與互動**：
+  - 4 個半透明色塊區間：便宜區（淺藍） $\rightarrow$ 偏低區（淺綠） $\rightarrow$ 中高區（淺橘） $\rightarrow$ 偏高區（粉紅）。
+  - 收盤價以粗墨黑線覆蓋於河流上方。
+  - 支援觸控滑動（Touch / Drag Scrub）：即時顯示游標所在之日期、收盤價、TTM EPS、即時本益比與當前估值位階（如「20x～24x 合理區間」）。
+  - 個股頁面「選擇想看的趨勢」新增「本益比河流圖」ChoiceChip，一鍵加載與展開。
+
+### 6.4 四個分析師模型之特徵工程與推論管線
+- **因子計算自動化**：
+  - 四個分析師模型（Quant15、Risk12、Fund15、Valuation）所需的特徵因子已完全封裝於 `jobs/intelligence-mart/intelligence_mart/analyst_inputs.py` 與 `research.chatgpt.janus_precision`。
+  - **不需要**使用者手動執行或額外建立獨立因子產製批次。
+  - 當 Cloud Run Job `janus-intelligence-mart` 啟動時，直接讀取 Core/Serving 的 2 年歷史日線與財報資料，在記憶體中高速向量化計算出 QUANT15、RISK12 與 FUND15 因子矩陣，並直接交由本地輕量 XGBoost 模型推論產出專家評分卡與 Fact Pack。
+  - **零外部 API 費用**：四模型推論全部在本地容器運行，不耗費任何 LLM API Token。
