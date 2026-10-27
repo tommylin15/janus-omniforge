@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "0b2e3eb3e819c94928d0a49e711bdb3af5f611b7",
+  "sha": "73f02252c8a7e8c3d2162d7f25dd22a5c023915f",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Owner cash MCP exact-source auth boundary after full Release #40477783215 and zero-traffic candidate #40478796674 SUCCESS, source 0b2e3eb3. Read-only OAuth discovery/S256/refresh metadata, User/Admin/MCP unauthenticated rejection and exact build identity; no GCP mutation, new scopes, Owner credential or cash payload. Fixed MCP tags update follows only after PASS.",
-  "request_attempt": 17
+  "purpose": "Stock detail readability increment (2026-10-27) exact-source auth boundary after full Release #40482790589 and zero-traffic candidate #40483579702 SUCCESS, source 73f02252. Read-only OAuth discovery/S256/refresh metadata, User/Admin/MCP unauthenticated rejection and exact build identity; no GCP mutation.",
+  "request_attempt": 18
 }
