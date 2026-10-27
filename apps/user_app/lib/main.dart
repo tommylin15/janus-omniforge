@@ -152,7 +152,7 @@ class _JanusAppState extends State<JanusApp> {
 }
 
 class Api implements AdminApi {
-  Api(this.token, {this.adminUsage = false});
+  Api(this.token, {this.adminUsage = false, this.refreshIdToken});
   final bool adminUsage;
   late final usage = UsageTracker(
     send: (body) => post('$_usagePrefix/batches', body),
@@ -162,7 +162,9 @@ class Api implements AdminApi {
   );
   String get _usagePrefix =>
       adminUsage ? '/api/v1/admin/usage/self' : '/api/v1/me/usage';
-  final String token;
+  String token;
+  // Token refresh is scoped to authenticated GETs; never replay a mutation.
+  final Future<String?> Function()? refreshIdToken;
   // shortcut: unknown retries survive this Api instance; check records after signing in again.
   final Map<String, String> _pendingJournalKeys = {};
   static const base = String.fromEnvironment('JANUS_API_BASE_URL');
@@ -234,8 +236,22 @@ class Api implements AdminApi {
     }
     if (body != null) request.body = jsonEncode(body);
     final responseFuture = request.send().then(http.Response.fromStream);
-    final response = await (journalWrite
+    var response = await (journalWrite
         ? responseFuture.timeout(const Duration(seconds: 9)) : responseFuture);
+    if (response.statusCode == 401 && method == 'GET' && refreshIdToken != null) {
+      try {
+        final renewed = await refreshIdToken!();
+        if (renewed != null && renewed.isNotEmpty && renewed != token) {
+          token = renewed;
+          final retry = http.Request(method, Uri.parse('$base$path'))
+            ..headers.addAll(headers);
+          response = await retry.send().then(http.Response.fromStream);
+        }
+      } catch (_) {
+        // Keep the original unauthorized result; never leak a Google token,
+        // switch accounts silently or retry a write.
+      }
+    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       if (operation != null && response.statusCode < 500) _pendingJournalKeys.remove(operation);
       throw Exception(jsonDecode(response.body)['detail'] ?? '服務暫時無法使用');
