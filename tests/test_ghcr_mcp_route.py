@@ -109,7 +109,8 @@ def test_workflow_is_manual_and_shared_lease_fences_tag_mutation():
 
 @pytest.mark.parametrize("recovery_safe", [True, False])
 @pytest.mark.parametrize("already_serving", [True, False])
-def test_failed_live_probe_restores_tags_and_only_releases_after_verified_recovery(tmp_path, recovery_safe, already_serving, capsys):
+@pytest.mark.parametrize("triggers", [[], [{"disabled": True}], [{"disabled": False}]])
+def test_failed_live_probe_restores_tags_and_only_releases_after_verified_recovery(tmp_path, recovery_safe, already_serving, triggers, capsys):
     sha = route.json.loads((ROOT / "ops/ghcr-candidate-request.json").read_text())["sha"]
     calls = []
 
@@ -121,7 +122,7 @@ def test_failed_live_probe_restores_tags_and_only_releases_after_verified_recove
                 "jobs": [{"name": name, "conclusion": "success"} for name in
                          ("python-tests", "flutter-tests", "publish (api)", "public-pull-gate")]})
         if args[:4] == ["gcloud", "builds", "triggers", "list"]:
-            return '[{"disabled": true}]'
+            return route.json.dumps(triggers)
         if args[:3] == ["gcloud", "builds", "list"]:
             return "[]"
         if args[:4] == ["gcloud", "run", "revisions", "describe"]:
@@ -138,20 +139,21 @@ def test_failed_live_probe_restores_tags_and_only_releases_after_verified_recove
             snapshot["status"]["traffic"][0]["revisionName"] = "candidate"
             snapshot["status"]["traffic"][0]["percent"] = 0
             snapshot["status"]["traffic"][1]["percent"] = 100
+    active_trigger = any(trigger.get("disabled") is not True for trigger in triggers)
     with patch.object(sys, "argv", ["repair", "--release-run", "123", "--baseline", str(tmp_path / "baseline.json")]), \
          patch.object(route, "command", side_effect=command), \
-         patch.object(route, "describe", side_effect=[before, after, restored]), \
+         patch.object(route, "describe", side_effect=[before, restored] if active_trigger else [before, after, restored]), \
          patch.object(route, "probe", side_effect=[None, ValueError("live-probe-failed")]):
         with pytest.raises(RuntimeError, match="baseline_verified" if recovery_safe else "lease_retained"):
             route.main()
     updates = [arg for call in calls for arg in call if arg.startswith("--update-tags=")]
-    assert updates == ["--update-tags=mcp-oauth=candidate,mcp-adapter=candidate",
-                       "--update-tags=mcp-oauth=old-oauth,mcp-adapter=old-adapter"]
+    assert updates == ([] if active_trigger else ["--update-tags=mcp-oauth=candidate,mcp-adapter=candidate",
+                       "--update-tags=mcp-oauth=old-oauth,mcp-adapter=old-adapter"])
     released = route.LEASE + ["release", "--safe-to-release"] in calls
     assert released is recovery_safe
     diagnostics = capsys.readouterr().err
-    assert '"phase": "fixed_tag_probe"' in diagnostics
-    assert '"mutation_attempted": true' in diagnostics
+    assert f'"phase": "{"legacy_trigger_readback" if active_trigger else "fixed_tag_probe"}"' in diagnostics
+    assert f'"mutation_attempted": {"false" if active_trigger else "true"}' in diagnostics
     assert "live-probe-failed" not in diagnostics
     assert ('"recovery": "BASELINE_VERIFIED"' in diagnostics) is recovery_safe
 

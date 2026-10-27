@@ -182,8 +182,9 @@ def main():
         phase = "legacy_trigger_readback"
         triggers = json.loads(command(["gcloud", "builds", "triggers", "list", f"--project={PROJECT}",
             f"--region={REGION}", "--filter=name=janus-dev-v2", "--format=json(id,name,disabled)"]))
-        if len(triggers) != 1 or triggers[0].get("disabled") is not True:
+        if len(triggers) > 1 or any(trigger.get("disabled") is not True for trigger in triggers):
             raise ValueError("legacy_writer_not_disabled")
+        print(json.dumps({"legacy_trigger_count": len(triggers), "legacy_writers_fenced": True}))
         phase = "legacy_build_readback"
         builds = json.loads(command(["gcloud", "builds", "list", f"--project={PROJECT}",
             f"--region={REGION}", "--filter=status=QUEUED OR status=WORKING", "--format=json(id,status)", "--limit=1"]))
