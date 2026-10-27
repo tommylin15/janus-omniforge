@@ -35,10 +35,13 @@ jobs:
         run: |
           set -o pipefail
           flutter test --reporter=expanded 2>&1 | tee test_log.txt || {
-            echo "### Flutter Test Failures" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            tail -n 120 test_log.txt >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
+            python3 -c "
+lines = open('test_log.txt', errors='ignore').read()
+idx = lines.rfind('[E]')
+block = lines[idx:idx+1500] if idx != -1 else lines[-1500:]
+encoded = block.replace('\r', '').replace('\n', ' %0A ')
+print(f'::error title=FlutterTestFailure::{encoded}')
+"
             exit 1
           }
       - run: grep -Fq 'Janus · OmniForge' web/index.html
