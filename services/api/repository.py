@@ -530,7 +530,14 @@ class PostgresWorkspaceRepository:
                        WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)
                    ) AS in_market
                    FROM private.watchlist w LEFT JOIN control.stock_master s ON s.symbol=w.symbol
-                   LEFT JOIN publication.stock_latest price ON price.symbol=w.symbol AND price.dataset_id='ohlcv'
+                   -- Restrict price reads to the Owner's actual symbols.
+                   -- The full-market latest View performs a global DISTINCT ON.
+                   LEFT JOIN LATERAL (
+                     SELECT r.payload_json,r.sort_at
+                     FROM publication.stock_serving_recent r
+                     WHERE r.symbol=w.symbol AND r.dataset_id='ohlcv'
+                     ORDER BY r.sort_at DESC LIMIT 1
+                   ) price ON true
                    LEFT JOIN LATERAL (
                      SELECT r.payload_json FROM publication.stock_serving_recent r
                      WHERE r.symbol=w.symbol AND r.dataset_id='ohlcv' AND r.sort_at<price.sort_at
