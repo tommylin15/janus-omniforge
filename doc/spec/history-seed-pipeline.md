@@ -59,9 +59,53 @@ flowchart TD
 | **高頻：Tier 2 日線** | 其餘 ~1,800 檔 $\times$ 90~120 天 | ~160,000~210,000 筆 | ~45.0 MB | 中等 (~30MB) | **保留近端日線供 KD/選股** |
 | **合計總量** | **全系統 Serving 快取** | **約 250,000 ~ 380,000 筆** | **約 80 ~ 95 MB** | **小於 70MB** | **安全低於 30GB 限制 (< 0.3%)** |
 
-> [!IMPORTANT]
-> - 當任何 Tier 2 股票被使用者加入「關注清單」或「個人持股」時，系統動態將其升格為 **Tier 1**，並自動從 Core Iceberg 補足其 2 年歷史資料至 Serving 快取。
-> - 移出關注且不在持股名單滿 30 天後，降格回 Tier 2，於週末例行批次自動修剪至 120 天。
+### 3.2 使用者「觀察股與持股」隨時變化的動態處置機制
+
+針對使用者在日常使用中「隨時加入觀察股、新增買進持股、移除觀察股、清空賣出持股」的動態行為，系統設計了雙重保障機制，兼顧**操作即時性**與**資料庫防震盪**：
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 使用者 (User App)
+    participant API as FastAPI / Private API
+    participant PG_Serving as PostgreSQL Serving 快取
+    participant Demand as 需求佇列 (Sync Demand)
+    participant Iceberg as Core Iceberg (完整歷史冷儲存)
+
+    Note over User, Iceberg: 情境 A：使用者隨時「加入觀察股」或「新增買進持股」
+    User->>API: 點擊加入觀察清單 / 記錄買進成交
+    API->>API: 寫入 private.watchlist 或 private.current_positions
+    API->>Demand: 觸發 control.sync_stock_supplement_demand() (去識別化)
+    User->>API: 立即點開該個股詳情頁面
+    API->>PG_Serving: 查詢該股資料
+    PG_Serving-->>User: 【零延遲響應】立即顯示 Tier 2 常駐 120天日線、KD線、12季EPS、24月營收 (完全不空白)
+    Note over Demand, PG_Serving: 背景非同步自動升格 (Tier 2 → Tier 1)
+    Demand->>Iceberg: 讀取該股其餘 2 年歷史日線 (第 121 ~ 500 天)
+    Iceberg->>PG_Serving: 補齊寫入 control.stock_serving_recent
+    Note over User, PG_Serving: 前端自動或下次進入即可無縫展開完整 2 年線圖與估值河流圖
+
+    Note over User, Iceberg: 情境 B：使用者隨時「移除觀察股」或「賣出持股清空」
+    User->>API: 點擊取消關注 / 記錄賣出庫存歸零
+    API->>Demand: 重新計算去識別化活躍聯集 (active_symbols)
+    Demand->>Demand: 標記該股進入 30 天緩衝冷卻期 (Grace Period)，不立即刪除
+    Note over PG_Serving: 【防震盪保護】避免誤按取消或短期重新加入導致頻繁重複搬移資料
+    Note over PG_Serving: 超過 30 天且已非任何持股/觀察股，週六 02:00 維護排程自動修剪回 120 天 (降格回 Tier 2)
+    Note over Iceberg: Core Iceberg 始終保留該股完整歷史，未來再度加入可秒級無損還原
+```
+
+#### 動態處置三大原則：
+1. **即時體驗不等待（Zero-Blank UX）**：
+   - 由於全市場 1,991 檔股票在 Serving 快取中**已經常駐 120 天日線、24 個月單月營收與 12 季單季 EPS**。
+   - 使用者在盤中或任何時間加入新觀察股或持股時，點開個股詳情頁面，走勢圖與財務資訊**當下就具備可用資料**，絕不會因為正在排程補數而出現空白或卡頓。
+2. **背景升格不卡鎖（Tier 2 $\rightarrow$ Tier 1 Promotion）**：
+   - 使用者操作觸發 `control.sync_stock_supplement_demand()`，系統自動將該股標記為 Tier 1 需求。
+   - 背景任務立即從 Core Iceberg 提取剩餘的 2 年歷史日線（約 380 筆）投影至 `control.stock_serving_recent`。
+   - 補齊完成後，完整的 2 年日線圖與本益比/淨值比河流圖自動連通，全程在背景完成，不鎖住使用者操作。
+3. **優雅降格與 30 天防震盪緩衝（Grace Period & De-escalation）**：
+   - 當使用者移除關注或出清股票時，系統**絕對不立即粗暴刪除資料**。
+   - 系統給予 **30 天緩衝冷卻期**。若使用者在 30 天內再度關注或買回，完全不需要重新搬移資料。
+   - 只有在滿 30 天且確認不在任何活躍持股或觀察清單內，才由週六 02:00 例行維護作業將其日線修剪回 120 天（降回 Tier 2）。
+   - **底層數據零損失**：Core Iceberg 永遠保有完整歷史，隨時可按需重新投影。
 
 ---
 
