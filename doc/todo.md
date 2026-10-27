@@ -1,10 +1,10 @@
 # Janus — 唯一 Active TODO
 
-## 個股圖解與白話資訊（2026-10-27）
+## 個股圖解與白話資訊（2026-10-27 前端增量）
 
-- 使用者授權本輪需求評估、文件與程式；契約與影響範圍見 [UI 規格](ui/stock-detail-readable.md)。測試、驗收、上版交使用者另行執行，不啟動 CI／部署，不改判 SEQ-08。
-- 本地程式已修改：四面向圖解、估值價帶、波動比較、公告摘要／閱讀提示及分析明細收合；相依 widget assertions 與新案例已撰寫但未執行。`DOC=UPDATED / CODE=IMPLEMENTED / TEST=NOT_RUN / ACCEPTANCE=NOT_RUN / DEPLOY=NOT_RUN`。
-- 待執行：相關 Flutter tests、390px／200% 字級及真實 Owner 圖文驗收、正式 Release／部署；本輪無 PASS 證據。
+- 使用者授權推進執行「個股圖解與白話資訊（2026-10-27 前端增量）」；契約與影響範圍見 [UI 規格](ui/stock-detail-readable.md)。
+- 本地程式與測試：四面向圖解、估值價帶、波動比較、公告摘要／閱讀提示、分析明細收合，以及 390px 寬度／200% 字級（`TextScaler.linear(2)`）無溢位無例外 widget regression tests。
+- 執行中：推進 GitHub Actions CI / Release / 0% Candidate / Auth Boundary / API-only Promote 至 Dev 環境。未完成 live readback 前不宣稱完成。
 
 ## MCP 本人現金部位（2026-10-27，使用者新增授權）
 
