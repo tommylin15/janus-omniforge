@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "14e19e0b91bc496814f69dd87dcb22b9a46795d2",
+  "sha": "ab5b12686839019cec40065fa6d043b6334e52a0",
   "digest": "",
-  "release_run": "40439117177",
+  "release_run": "40452156270",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Gemini CLI and Google Antigravity MCP OAuth compatibility: full same-source Release #40439117177 SUCCESS including Python, Flutter, four public immutable GHCR images. Create existing Dev API 0-percent candidate for exact-source auth boundary and later controlled two-MCP-tag routing; no canonical traffic, Jobs, IAM, Secret, Google OAuth client, Owner or data mutations.",
-  "request_attempt": 17
+  "purpose": "Owner watchlist 0%-traffic candidate. Full GitHub release #40452156270 succeeded: Python, Flutter, four GHCR immutable images and anonymous pull. Fix persisted owner watchlist GET latency, Google token refresh and false-zero UI. No traffic, job, Scheduler, model, cost, IAM or Owner ledger mutation until subsequent gates.",
+  "request_attempt": 18
 }
