@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "0b2e3eb3e819c94928d0a49e711bdb3af5f611b7",
+  "sha": "73f02252c8a7e8c3d2162d7f25dd22a5c023915f",
   "digest": "",
-  "release_run": "40477783215",
+  "release_run": "40482790589",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Owner cash MCP read-only resource: full exact-source Release #40477783215 SUCCESS, including Python, Flutter, all four immutable GHCR images and anonymous pull. Create existing Dev API zero-traffic candidate for same-source auth boundary and subsequent two fixed MCP tag updates. No canonical traffic, Jobs, Scheduler, IAM, Secret, OAuth scope or Owner data mutations; cash remains janus.private.read.",
-  "request_attempt": 21
+  "purpose": "Stock detail readability increment (2026-10-27): full exact-source Release #40482790589 SUCCESS, including Python, Flutter 390px/200% widget tests, all four immutable GHCR images and anonymous pull. Create existing Dev API zero-traffic candidate for same-source auth boundary and subsequent API promotion. No canonical traffic, Jobs, Scheduler, IAM, Secret or Owner data mutations.",
+  "request_attempt": 22
 }
