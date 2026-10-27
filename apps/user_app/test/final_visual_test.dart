@@ -1619,6 +1619,8 @@ void main() {
     ]};
     await tester.scrollUntilVisible(find.text('重試'), 120,
       scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('重試'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('重試'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('fv-kline-chart')), findsOneWidget);
