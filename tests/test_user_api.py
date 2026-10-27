@@ -152,6 +152,55 @@ def auth(): return {"Authorization":"Bearer valid-user-token"}
 def admin_auth(): return {"Authorization":"Bearer valid-admin-token"}
 
 
+def test_watchlist_cached_quotes_return_without_waiting_for_refresh(monkeypatch):
+    from unittest.mock import Mock
+
+    router = Mock()
+    router.read.return_value = {
+        "2330": {
+            "price": "123.45", "price_date": "2026-10-22",
+            "state": "stale", "source": "core_ohlcv", "is_final": True,
+        }
+    }
+    router.resolve.side_effect = TimeoutError("MIS is slow")
+    router.refresh_tpex.return_value = {"status": "idle", "updated": 0}
+    monkeypatch.setattr(app_module, "QuoteRouter", lambda *_args: router)
+    api, repo, _ = client()
+    repo.stock_identities = lambda symbols: {
+        symbol: {"symbol": symbol, "market": "TWSE", "enabled": True}
+        for symbol in symbols
+    }
+    response = api.get("/api/v1/me/watchlist", headers=auth())
+    assert response.status_code == 200
+    assert response.json()[0]["symbol"] == "2330"
+    assert response.json()[0]["market_price"] == "123.45"
+    assert response.json()[0]["price_status"] == "stale"
+    router.read.assert_called_once()
+    # Background provider failure must not convert a persisted list to HTTP 5xx.
+    router.resolve.assert_called_once()
+
+
+def test_watchlist_uses_saved_owner_rows_when_optional_quote_reader_fails(monkeypatch):
+    from unittest.mock import Mock
+
+    router = Mock()
+    router.read.side_effect = TimeoutError("quote cache unavailable")
+    router.resolve.side_effect = TimeoutError("MIS is slow")
+    router.refresh_tpex.return_value = {"status": "idle", "updated": 0}
+    monkeypatch.setattr(app_module, "QuoteRouter", lambda *_args: router)
+    api, repo, _ = client()
+    repo.stock_identities = lambda symbols: {
+        symbol: {"symbol": symbol, "market": "TWSE", "enabled": True}
+        for symbol in symbols
+    }
+    response = api.get("/api/v1/me/watchlist", headers=auth())
+    assert response.status_code == 200
+    assert [item["symbol"] for item in response.json()] == ["2330"]
+    # No missing/malformed quote may erase a persisted watchlist membership.
+    assert response.json()[0]["change"] is None
+    router.resolve.assert_called_once()
+
+
 def test_new_follow_wakes_shared_stock_queue_and_dispatch_failure_does_not_undo_mutation(monkeypatch):
     from unittest.mock import Mock
     pipeline = Mock()
