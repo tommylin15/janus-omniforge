@@ -9,25 +9,23 @@ Follows Cold/Hot Tiering policy:
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 import time
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ghcr_jobs_rollout import ROOT, cloud, job, terminal
 
 JOB = "janus-ingestion-core"
 PROJECT = "gen-lang-client-0593591102"
 
 PROBE = r"""
-import gzip, io, json, os, time
+import gzip, io, json, os, sys, time, traceback
 from collections import defaultdict
 import psycopg
 from ingestion_core.stage import GcsObjectStore
-
-req = json.loads(os.environ['HISTORY_SEED_REQUEST'])
-bucket = os.environ.get('STAGE_BUCKET', 'gen-lang-client-0593591102-dev-stage')
-store = GcsObjectStore(bucket)
 
 report = {
     'component': 'history_seed_serving_sync',
@@ -36,166 +34,188 @@ report = {
     'job_template_mutation': False,
 }
 
-t0 = time.time()
-print("Reading seed files from GCS stage...", flush=True)
-ohlcv_raw = store.read('seed_data/ohlcv_2y.jsonl.gz')
-with gzip.GzipFile(fileobj=io.BytesIO(ohlcv_raw)) as gz:
-    ohlcv_text = gz.read().decode('utf-8')
+try:
+    req = json.loads(os.environ['HISTORY_SEED_REQUEST'])
+    bucket = os.environ.get('STAGE_BUCKET', 'gen-lang-client-0593591102-dev-stage')
+    store = GcsObjectStore(bucket)
 
-by_symbol = defaultdict(list)
-total_ohlcv = 0
-for line in ohlcv_text.splitlines():
-    if not line.strip(): continue
-    r = json.loads(line)
-    by_symbol[r['symbol']].append((
-        r['trade_date'], r['open'], r['high'], r['low'], r['close'],
-        int(r['volume_shares']), r.get('market', 'TWSE')
-    ))
-    total_ohlcv += 1
+    t0 = time.time()
+    print("Reading seed files from GCS stage...", flush=True)
+    ohlcv_raw = store.read('seed_data/ohlcv_2y.jsonl.gz')
+    with gzip.GzipFile(fileobj=io.BytesIO(ohlcv_raw)) as gz:
+        ohlcv_text = gz.read().decode('utf-8')
 
-print(f"Parsed {total_ohlcv} OHLCV rows across {len(by_symbol)} symbols in {time.time()-t0:.2f}s", flush=True)
+    by_symbol = defaultdict(list)
+    total_ohlcv = 0
+    for line in ohlcv_text.splitlines():
+        if not line.strip(): continue
+        r = json.loads(line)
+        by_symbol[r['symbol']].append((
+            r['trade_date'], r['open'], r['high'], r['low'], r['close'],
+            int(r['volume_shares']), r.get('market', 'TWSE')
+        ))
+        total_ohlcv += 1
 
-# Database connection
-host = os.environ['CONTROL_DB_HOST']
-port = int(os.environ.get('CONTROL_DB_PORT', 5432))
-dbname = os.environ['CONTROL_DB_NAME']
-user = os.environ['CONTROL_DB_USER']
-password = os.environ['CONTROL_DB_PASSWORD']
-sslmode = os.environ.get('CONTROL_DB_SSLMODE', 'require')
+    print(f"Parsed {total_ohlcv} OHLCV rows across {len(by_symbol)} symbols in {time.time()-t0:.2f}s", flush=True)
 
-with psycopg.connect(host=host, port=port, dbname=dbname, user=user, password=password, sslmode=sslmode, connect_timeout=10) as conn:
-    # Migration 070: allow yahoo-finance for monthly_revenue
-    with conn.transaction(), conn.cursor() as cur:
-        cur.execute('''
-            ALTER TABLE control.market_serving_recent DROP CONSTRAINT IF EXISTS market_serving_recent_source_id_check;
-            ALTER TABLE control.market_serving_recent ADD CONSTRAINT market_serving_recent_source_id_check CHECK (
-                source_id IN ('twse','tpex','taiex','mops') OR
-                (source_id='yahoo-finance' AND dataset_id='financials'
-                  AND coalesce(payload_json->>'metric','')='eps_single_quarter'
-                  AND coalesce(payload_json->>'period_basis','')='single_quarter'
-                  AND coalesce(payload_json->>'unit','')='TWD_per_share') OR
-                (source_id IN ('finmind','yahoo-finance') AND dataset_id='financials'
-                  AND coalesce(payload_json->>'metric','')='monthly_revenue'
-                  AND coalesce(payload_json->>'statement_type','')='monthly_revenue'
-                  AND coalesce(payload_json->>'unit','')='TWD_thousands')
-            );
-            INSERT INTO control.schema_migrations(version) VALUES ('070_yahoo_revenue_serving') ON CONFLICT DO NOTHING;
-        ''')
+    # Database connection
+    host = os.environ['CONTROL_DB_HOST']
+    port = int(os.environ.get('CONTROL_DB_PORT', 5432))
+    dbname = os.environ['CONTROL_DB_NAME']
+    user = os.environ['CONTROL_DB_USER']
+    password = os.environ['CONTROL_DB_PASSWORD']
+    sslmode = os.environ.get('CONTROL_DB_SSLMODE', 'require')
 
-    # Resolve Tier 1
-    tier1 = set(req.get('tier1_symbols_fallback', []))
-    try:
+    with psycopg.connect(host=host, port=port, dbname=dbname, user=user, password=password, sslmode=sslmode, connect_timeout=15) as conn:
+        # Migration 070: allow yahoo-finance for monthly_revenue
+        with conn.transaction(), conn.cursor() as cur:
+            cur.execute('''
+                ALTER TABLE control.market_serving_recent DROP CONSTRAINT IF EXISTS market_serving_recent_source_id_check;
+                ALTER TABLE control.market_serving_recent ADD CONSTRAINT market_serving_recent_source_id_check CHECK (
+                    source_id IN ('twse','tpex','taiex','mops') OR
+                    (source_id='yahoo-finance' AND dataset_id='financials'
+                      AND coalesce(payload_json->>'metric','')='eps_single_quarter'
+                      AND coalesce(payload_json->>'period_basis','')='single_quarter'
+                      AND coalesce(payload_json->>'unit','')='TWD_per_share') OR
+                    (source_id IN ('finmind','yahoo-finance') AND dataset_id='financials'
+                      AND coalesce(payload_json->>'metric','')='monthly_revenue'
+                      AND coalesce(payload_json->>'statement_type','')='monthly_revenue'
+                      AND coalesce(payload_json->>'unit','')='TWD_thousands')
+                );
+                INSERT INTO control.schema_migrations(version) VALUES ('070_yahoo_revenue_serving') ON CONFLICT DO NOTHING;
+            ''')
+
+        # Load valid stock_master symbols to guarantee FK integrity
         with conn.cursor() as cur:
-            cur.execute("SELECT symbol FROM private.watchlist WHERE active UNION SELECT symbol FROM private.current_positions WHERE shares > 0")
-            for row in cur.fetchall():
-                tier1.add(str(row[0]).upper())
-    except Exception as e:
-        print(f"Watchlist lookup notice: {e}", flush=True)
+            cur.execute("SELECT symbol FROM control.stock_master WHERE enabled=true")
+            valid_symbols = {str(r[0]) for r in cur.fetchall()}
+        print(f"Loaded {len(valid_symbols)} enabled symbols from control.stock_master", flush=True)
 
-    # Prepare OHLCV rows
-    prepared_ohlcv = []
-    tier1_count = 0
-    tier2_count = 0
-    execution_id = '00000000-0000-0000-0000-000000000001'
+        # Resolve Tier 1
+        tier1 = set(req.get('tier1_symbols_fallback', []))
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT symbol FROM private.watchlist WHERE active UNION SELECT symbol FROM private.current_positions WHERE shares > 0")
+                for row in cur.fetchall():
+                    tier1.add(str(row[0]).upper())
+        except Exception as e:
+            print(f"Watchlist lookup notice: {e}", flush=True)
 
-    for symbol, rows in by_symbol.items():
-        rows.sort(key=lambda x: x[0])
-        is_tier1 = symbol in tier1
-        limit = 500 if is_tier1 else 120
-        selected = rows[-limit:] if len(rows) > limit else rows
-        if is_tier1: tier1_count += len(selected)
-        else: tier2_count += len(selected)
-        for td, o, h, l, c, v, market in selected:
-            payload = json.dumps({'trade_date': td, 'open': o, 'high': h, 'low': l, 'close': c, 'volume': v, 'turnover': None, 'source_id': 'yahoo-finance'})
-            sort_at = f"{td}T13:30:00+08:00"
-            natural_key = f"{symbol}_{market}_{td}"
-            prepared_ohlcv.append(('ohlcv', symbol, natural_key, sort_at, payload, 'yahoo-finance', f"seed_yahoo_{td}", execution_id))
+        # Prepare OHLCV rows (only for symbols in stock_master)
+        prepared_ohlcv = []
+        tier1_count = 0
+        tier2_count = 0
+        execution_id = '00000000-0000-0000-0000-000000000001'
 
-    print(f"Upserting {len(prepared_ohlcv)} OHLCV rows to control.stock_serving_recent...", flush=True)
-    chunk_size = 1000
-    with conn.transaction(), conn.cursor() as cur:
-        for offset in range(0, len(prepared_ohlcv), chunk_size):
-            chunk = prepared_ohlcv[offset:offset+chunk_size]
-            cur.executemany('''
-                INSERT INTO control.stock_serving_recent(dataset_id, symbol, natural_key, sort_at, payload_json, source_id, provenance_id, execution_id, updated_at)
-                VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s, now())
-                ON CONFLICT (dataset_id, symbol, natural_key) DO UPDATE SET
-                    sort_at = EXCLUDED.sort_at,
-                    payload_json = EXCLUDED.payload_json,
-                    source_id = EXCLUDED.source_id,
-                    provenance_id = EXCLUDED.provenance_id,
-                    execution_id = EXCLUDED.execution_id,
-                    updated_at = now()
-                WHERE EXCLUDED.sort_at >= control.stock_serving_recent.sort_at
-            ''', chunk)
+        for symbol, rows in by_symbol.items():
+            if symbol not in valid_symbols:
+                continue
+            rows.sort(key=lambda x: x[0])
+            is_tier1 = symbol in tier1
+            limit = 500 if is_tier1 else 120
+            selected = rows[-limit:] if len(rows) > limit else rows
+            if is_tier1: tier1_count += len(selected)
+            else: tier2_count += len(selected)
+            for td, o, h, l, c, v, market in selected:
+                payload = json.dumps({'trade_date': td, 'open': o, 'high': h, 'low': l, 'close': c, 'volume': v, 'turnover': None, 'source_id': 'yahoo-finance'})
+                sort_at = f"{td}T13:30:00+08:00"
+                natural_key = f"{symbol}_{market}_{td}"
+                prepared_ohlcv.append(('ohlcv', symbol, natural_key, sort_at, payload, 'yahoo-finance', f"seed_yahoo_{td}", execution_id))
 
-    # Financials (EPS & Revenue)
-    print("Reading and inserting financials...", flush=True)
-    eps_raw = store.read('seed_data/eps_3y.jsonl.gz')
-    with gzip.GzipFile(fileobj=io.BytesIO(eps_raw)) as gz:
-        eps_text = gz.read().decode('utf-8')
-    rev_raw = store.read('seed_data/revenue_2y.jsonl.gz')
-    with gzip.GzipFile(fileobj=io.BytesIO(rev_raw)) as gz:
-        rev_text = gz.read().decode('utf-8')
+        print(f"Upserting {len(prepared_ohlcv)} OHLCV rows to control.stock_serving_recent...", flush=True)
+        chunk_size = 1000
+        with conn.transaction(), conn.cursor() as cur:
+            for offset in range(0, len(prepared_ohlcv), chunk_size):
+                chunk = prepared_ohlcv[offset:offset+chunk_size]
+                cur.executemany('''
+                    INSERT INTO control.stock_serving_recent(dataset_id, symbol, natural_key, sort_at, payload_json, source_id, provenance_id, execution_id, updated_at)
+                    VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s, now())
+                    ON CONFLICT (dataset_id, symbol, natural_key) DO UPDATE SET
+                        sort_at = EXCLUDED.sort_at,
+                        payload_json = EXCLUDED.payload_json,
+                        source_id = EXCLUDED.source_id,
+                        provenance_id = EXCLUDED.provenance_id,
+                        execution_id = EXCLUDED.execution_id,
+                        updated_at = now()
+                    WHERE EXCLUDED.sort_at >= control.stock_serving_recent.sort_at
+                ''', chunk)
 
-    prepared_fin = []
-    for line in eps_text.splitlines():
-        if not line.strip(): continue
-        r = json.loads(line)
-        symbol = r['symbol']; y = r['fiscal_year']; q = r['fiscal_quarter']
-        natural_key = f"{symbol}_{y}_Q{q}_eps"
-        sort_at = r.get('availability_at') or f"{y}-{q*3:02d}-15T00:00:00+08:00"
-        payload = json.dumps({'symbol': symbol, 'fiscal_year': y, 'fiscal_quarter': q, 'fiscal_period_end': r['fiscal_period_end'], 'statement_type': 'income', 'metric': 'eps_single_quarter', 'period_basis': 'single_quarter', 'unit': 'TWD_per_share', 'currency': 'TWD', 'value': r['value'], 'source_id': 'yahoo-finance'})
-        prepared_fin.append(('financials', symbol, natural_key, sort_at, payload, 'yahoo-finance', f"seed_eps_{y}Q{q}", execution_id))
+        # Financials (EPS & Revenue)
+        print("Reading and inserting financials...", flush=True)
+        eps_raw = store.read('seed_data/eps_3y.jsonl.gz')
+        with gzip.GzipFile(fileobj=io.BytesIO(eps_raw)) as gz:
+            eps_text = gz.read().decode('utf-8')
+        rev_raw = store.read('seed_data/revenue_2y.jsonl.gz')
+        with gzip.GzipFile(fileobj=io.BytesIO(rev_raw)) as gz:
+            rev_text = gz.read().decode('utf-8')
 
-    for line in rev_text.splitlines():
-        if not line.strip(): continue
-        r = json.loads(line)
-        symbol = r['symbol']; y = r['fiscal_year']; m = r['fiscal_month']
-        natural_key = f"{symbol}_{y}_{m:02d}_revenue"
-        sort_at = r.get('availability_at') or f"{y}-{m:02d}-10T00:00:00+08:00"
-        payload = json.dumps({'symbol': symbol, 'fiscal_year': y, 'fiscal_quarter': r['fiscal_quarter'], 'fiscal_month': m, 'fiscal_period_end': r['fiscal_period_end'], 'statement_type': 'monthly_revenue', 'metric': 'monthly_revenue', 'period_basis': 'monthly', 'unit': 'TWD_thousands', 'currency': 'TWD', 'value': r['value'], 'source_id': 'yahoo-finance'})
-        prepared_fin.append(('financials', symbol, natural_key, sort_at, payload, 'yahoo-finance', f"seed_rev_{y}_{m:02d}", execution_id))
+        prepared_fin = []
+        for line in eps_text.splitlines():
+            if not line.strip(): continue
+            r = json.loads(line)
+            symbol = r['symbol']
+            if symbol not in valid_symbols: continue
+            y = r['fiscal_year']; q = r['fiscal_quarter']
+            natural_key = f"{symbol}_{y}_Q{q}_eps"
+            sort_at = r.get('availability_at') or f"{y}-{q*3:02d}-15T00:00:00+08:00"
+            payload = json.dumps({'symbol': symbol, 'fiscal_year': y, 'fiscal_quarter': q, 'fiscal_period_end': r['fiscal_period_end'], 'statement_type': 'income', 'metric': 'eps_single_quarter', 'period_basis': 'single_quarter', 'unit': 'TWD_per_share', 'currency': 'TWD', 'value': r['value'], 'source_id': 'yahoo-finance'})
+            prepared_fin.append(('financials', symbol, natural_key, sort_at, payload, 'yahoo-finance', f"seed_eps_{y}Q{q}", execution_id))
 
-    with conn.transaction(), conn.cursor() as cur:
-        for offset in range(0, len(prepared_fin), chunk_size):
-            chunk = prepared_fin[offset:offset+chunk_size]
-            cur.executemany('''
-                INSERT INTO control.market_serving_recent(dataset_id, symbol, natural_key, sort_at, payload_json, source_id, provenance_id, execution_id, updated_at)
-                VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s, now())
-                ON CONFLICT (dataset_id, symbol, natural_key) DO UPDATE SET
-                    sort_at = EXCLUDED.sort_at,
-                    payload_json = EXCLUDED.payload_json,
-                    source_id = EXCLUDED.source_id,
-                    provenance_id = EXCLUDED.provenance_id,
-                    execution_id = EXCLUDED.execution_id,
-                    updated_at = now()
-                WHERE EXCLUDED.sort_at >= control.market_serving_recent.sort_at
-            ''', chunk)
+        for line in rev_text.splitlines():
+            if not line.strip(): continue
+            r = json.loads(line)
+            symbol = r['symbol']
+            if symbol not in valid_symbols: continue
+            y = r['fiscal_year']; m = r['fiscal_month']
+            natural_key = f"{symbol}_{y}_{m:02d}_revenue"
+            sort_at = r.get('availability_at') or f"{y}-{m:02d}-10T00:00:00+08:00"
+            payload = json.dumps({'symbol': symbol, 'fiscal_year': y, 'fiscal_quarter': r['fiscal_quarter'], 'fiscal_month': m, 'fiscal_period_end': r['fiscal_period_end'], 'statement_type': 'monthly_revenue', 'metric': 'monthly_revenue', 'period_basis': 'monthly', 'unit': 'TWD_thousands', 'currency': 'TWD', 'value': r['value'], 'source_id': 'yahoo-finance'})
+            prepared_fin.append(('financials', symbol, natural_key, sort_at, payload, 'yahoo-finance', f"seed_rev_{y}_{m:02d}", execution_id))
 
-    # Vacuum
-    print("Running VACUUM ANALYZE...", flush=True)
-    with conn.cursor() as cur:
-        cur.execute('VACUUM ANALYZE control.stock_serving_recent, control.market_serving_recent;')
+        with conn.transaction(), conn.cursor() as cur:
+            for offset in range(0, len(prepared_fin), chunk_size):
+                chunk = prepared_fin[offset:offset+chunk_size]
+                cur.executemany('''
+                    INSERT INTO control.market_serving_recent(dataset_id, symbol, natural_key, sort_at, payload_json, source_id, provenance_id, execution_id, updated_at)
+                    VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s, now())
+                    ON CONFLICT (dataset_id, symbol, natural_key) DO UPDATE SET
+                        sort_at = EXCLUDED.sort_at,
+                        payload_json = EXCLUDED.payload_json,
+                        source_id = EXCLUDED.source_id,
+                        provenance_id = EXCLUDED.provenance_id,
+                        execution_id = EXCLUDED.execution_id,
+                        updated_at = now()
+                    WHERE EXCLUDED.sort_at >= control.market_serving_recent.sort_at
+                ''', chunk)
 
-    # Verification counts
-    with conn.cursor() as cur:
-        cur.execute("SELECT COUNT(*) FROM control.stock_serving_recent WHERE dataset_id='ohlcv'")
-        actual_ohlcv = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM control.market_serving_recent WHERE dataset_id='financials'")
-        actual_fin = cur.fetchone()[0]
+        # Vacuum
+        print("Running VACUUM ANALYZE...", flush=True)
+        with conn.cursor() as cur:
+            cur.execute('VACUUM ANALYZE control.stock_serving_recent, control.market_serving_recent;')
 
-    report.update({
-        'status': 'PASS',
-        'ohlcv_inserted': len(prepared_ohlcv),
-        'financials_inserted': len(prepared_fin),
-        'db_total_serving_ohlcv': actual_ohlcv,
-        'db_total_serving_financials': actual_fin,
-        'tier1_symbols_count': len(tier1),
-        'tier1_ohlcv_rows': tier1_count,
-        'tier2_ohlcv_rows': tier2_count,
-        'elapsed_seconds': round(time.time() - t0, 2),
-    })
+        # Verification counts
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM control.stock_serving_recent WHERE dataset_id='ohlcv'")
+            actual_ohlcv = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM control.market_serving_recent WHERE dataset_id='financials'")
+            actual_fin = cur.fetchone()[0]
+
+        report.update({
+            'status': 'PASS',
+            'ohlcv_inserted': len(prepared_ohlcv),
+            'financials_inserted': len(prepared_fin),
+            'db_total_serving_ohlcv': actual_ohlcv,
+            'db_total_serving_financials': actual_fin,
+            'tier1_symbols_count': len(tier1),
+            'tier1_ohlcv_rows': tier1_count,
+            'tier2_ohlcv_rows': tier2_count,
+            'elapsed_seconds': round(time.time() - t0, 2),
+        })
+
+except Exception as err:
+    traceback.print_exc()
+    report['status'] = f"FAIL_{type(err).__name__}"
+    report['error'] = str(err)
 
 print("HISTORY_SEED_RECEIPT:" + json.dumps(report, sort_keys=True, ensure_ascii=False), flush=True)
 """
@@ -247,10 +267,21 @@ def main():
         raise RuntimeError(f"Job execution failed or timed out: {op.get('error')}")
 
     exe = op.get('response', {})
+    execution = exe.get('name', '').rsplit('/', 1)[-1]
+
+    # Dump logs if execution was not successful
     if not terminal(exe) or exe.get('succeededCount') != 1 or exe.get('failedCount', 0):
+        print(f"Cloud Run Job failed: {execution}, details: {json.dumps(exe)}")
+        filt = f'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="{execution}"'
+        cp = subprocess.run([
+            'gcloud', 'logging', 'read', filt, f'--project={PROJECT}',
+            '--limit=100', '--format=json',
+        ], text=True, capture_output=True, timeout=50)
+        if cp.returncode == 0:
+            for event in json.loads(cp.stdout):
+                print(event.get('textPayload', ''))
         raise RuntimeError('job_execution_not_terminal_success')
 
-    execution = exe.get('name', '').rsplit('/', 1)[-1]
     print(f"Cloud Run Job succeeded: {execution}")
 
     # Read receipt from Cloud Logging
@@ -283,7 +314,7 @@ def main():
     print(json.dumps(out, sort_keys=True, indent=2))
 
     if receipt.get('status') != 'PASS':
-        raise RuntimeError('history_seed_import_not_pass')
+        raise RuntimeError(f"history_seed_import_not_pass: {receipt.get('status')}")
     print("Full market history seed successfully projected into PostgreSQL serving!")
 
 

@@ -39,7 +39,7 @@ jobs:
           gcloud storage cp data/seed/*.jsonl.gz gs://gen-lang-client-0593591102-dev-stage/seed_data/
       - name: Project full-market seed into PostgreSQL serving via existing Job
         env:
-          PYTHONPATH: .
+          PYTHONPATH: .:scripts/gcp
         run: python scripts/gcp/history_seed_serving_sync.py ops/history-seed-serving-sync-request.json
       - uses: actions/upload-artifact@v4
         if: always()
