@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "61cd960e31d4040c37dd9671ddcc1df7e552435b",
-  "purpose": "Admin Google OAuth reuse: use verified User Web client for Admin Flutter login, server-side Admin email allowlist and explicit /api/v1/admin/session preflight; old Admin audience accepted during transition. Full Python/Flutter tests before any Dev API-only traffic change. Preserve MCP tags, Jobs, Scheduler and Owner data.",
+  "sha": "1253a7fb993a2035ae6d77a0c6bb085a143ec602",
+  "purpose": "Re-run full Python/Flutter GHCR Release for Admin shared Google login after updating usage-analytics test to explicitly enforce Admin allowlist rather than obsolete audience prohibition. Preserve current Dev API, MCP tags, Jobs and Scheduler; no traffic mutation.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 25
+  "request_attempt": 26
 }
