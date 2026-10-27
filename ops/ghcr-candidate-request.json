@@ -7,6 +7,6 @@
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Admin shared Google login: full Release #40460262500 passed 2020 Python tests, Flutter checks and 4 immutable GHCR images. Deploy Janus API only as 0%-traffic candidate, preserve canonical and MCP tags; verify build ID, health and unauthenticated Admin/User isolation before any traffic change.",
-  "request_attempt": 19
+  "purpose": "Bounded Owner watchlist performance repair plus concurrent approved Admin shared-login implementation: source ec106165 full Release #40460262500 all Python/Flutter/GHCR gates PASS. 0%-traffic Dev API candidate, prior canonical traffic and four Jobs/Scheduler/DB data preserved; validate exact build, OAuth boundary and reversible API-only promotion separately.",
+  "request_attempt": 20
 }
