@@ -90,12 +90,21 @@ class GoogleUserAuthenticator:
 
 
 class GoogleAdminAuthenticator:
-    """Separate Google bearer-token boundary for Admin and legacy Core routes."""
+    """Verify a Google identity, then enforce independent Admin membership.
+
+    The working User Web OAuth client can be reused for Google sign-in. Its ID
+    token never grants Admin access without this server-side Admin allowlist.
+    The original Admin client remains accepted during migration.
+    """
 
     def __init__(self, audience: str, allowed_emails: frozenset[str], *,
+                 shared_audience: str = "",
                  verifier: Callable[[str, str], Mapping[str, Any]] | None = None,
                  clock: Callable[[], float] = time.time) -> None:
         self.audience = audience.strip()
+        self.audiences = tuple(dict.fromkeys(
+            value for value in (self.audience, shared_audience.strip()) if value
+        ))
         self.allowed_emails = frozenset(value.strip().lower() for value in allowed_emails if value.strip())
         self.verifier = verifier or GoogleUserAuthenticator._verify_google_token
         self.clock = clock
@@ -106,23 +115,29 @@ class GoogleAdminAuthenticator:
         scheme, _, token = request.headers.get("Authorization", "").partition(" ")
         if scheme.lower() != "bearer" or not token:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "admin authentication required")
-        try:
-            claims = dict(self.verifier(token, self.audience))
-            raw_audience = claims.get("aud")
-            audiences = {raw_audience} if isinstance(raw_audience, str) else set(raw_audience or ())
-            subject = str(claims.get("sub", "")).strip()
-            email = str(claims.get("email", "")).strip().lower()
-            if str(claims.get("iss", "")) not in GOOGLE_ISSUERS or self.audience not in audiences:
-                raise ValueError("wrong token issuer or audience")
-            if int(claims.get("exp", 0)) <= int(self.clock()) or claims.get("email_verified") is not True:
-                raise ValueError("expired or unverified identity")
-            if not subject or not email:
-                raise ValueError("missing admin identity")
-        except Exception as error:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid admin credential") from error
-        if email not in self.allowed_emails:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "admin account is not allowed")
-        return AuthenticatedAdmin(subject, email)
+        for expected_audience in self.audiences:
+            try:
+                # Google's verifier must validate the actual token against each
+                # configured client; never trust a caller-provided audience.
+                claims = dict(self.verifier(token, expected_audience))
+                raw_audience = claims.get("aud")
+                audiences = {raw_audience} if isinstance(raw_audience, str) else set(raw_audience or ())
+                subject = str(claims.get("sub", "")).strip()
+                email = str(claims.get("email", "")).strip().lower()
+                if (str(claims.get("iss", "")) not in GOOGLE_ISSUERS
+                        or expected_audience not in audiences):
+                    raise ValueError("wrong token issuer or audience")
+                if (int(claims.get("exp", 0)) <= int(self.clock())
+                        or claims.get("email_verified") is not True):
+                    raise ValueError("expired or unverified identity")
+                if not subject or not email:
+                    raise ValueError("missing admin identity")
+            except Exception:
+                continue
+            if email not in self.allowed_emails:
+                raise HTTPException(status.HTTP_403_FORBIDDEN, "admin account is not allowed")
+            return AuthenticatedAdmin(subject, email)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid admin credential")
 
 
 def allowed_user_emails() -> frozenset[str]:
