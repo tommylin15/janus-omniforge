@@ -48,3 +48,9 @@ jobs:
           path: /tmp/history-seed-serving-readback.json
           if-no-files-found: ignore
           retention-days: 14
+      - name: Print readback artifact
+        if: always()
+        run: |
+          if [ -f /tmp/history-seed-serving-readback.json ]; then
+            cat /tmp/history-seed-serving-readback.json
+          fi
