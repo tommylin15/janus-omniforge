@@ -2,9 +2,12 @@
 
 ## 個股圖解與白話資訊（2026-10-27 前端增量）
 
-- 使用者授權推進執行「個股圖解與白話資訊（2026-10-27 前端增量）」；契約與影響範圍見 [UI 規格](ui/stock-detail-readable.md)。
-- 本地程式與測試：四面向圖解、估值價帶、波動比較、公告摘要／閱讀提示、分析明細收合，以及 390px 寬度／200% 字級（`TextScaler.linear(2)`）無溢位無例外 widget regression tests。
-- 執行中：推進 GitHub Actions CI / Release / 0% Candidate / Auth Boundary / API-only Promote 至 Dev 環境。未完成 live readback 前不宣稱完成。
+- **程式／測試／部署 100% PASS**：來源 `73f02252c8a7e8c3d2162d7f25dd22a5c023915f`。
+  - **前端改進**：四面向圖解（股價走勢、公司營運、價格評價、波動風險）、唯一估值參考價帶、波動比較進度條、公告摘要與閱讀提示、分析與報告技術明細預設收合。
+  - **測試驗證**：[Flutter User App CI #40482544858](https://github.com/tommylin15/janus-omniforge/actions/runs/40482544858) SUCCESS，包含 390px 寬度／200% 字級（`TextScaler.linear(2)`）無溢位無例外 Widget 回歸測試。
+  - **正式發布與部署**：完整 Release [#40482790589](https://github.com/tommylin15/janus-omniforge/actions/runs/40482790589) SUCCESS；0% Candidate [#40483579702](https://github.com/tommylin15/janus-omniforge/actions/runs/40483579702) SUCCESS；Auth boundary [#40483894328](https://github.com/tommylin15/janus-omniforge/actions/runs/40483894328) SUCCESS；受控 API-only 100% [#40484056048](https://github.com/tommylin15/janus-omniforge/actions/runs/40484056048) SUCCESS。
+  - **即時 Runtime 證據**：Cloud Run 正式環境 `https://janus-api-2oo7qbkd5q-uc.a.run.app/app/build-id.txt` 讀回吻合 `73f02252c8a7e8c3d2162d7f25dd22a5c023915f`；`/app/` 回傳 200；保留先前 `ec106165` rollback 基準；不改 Jobs／Scheduler／IAM／Secret／Owner 資料。收據見 [Operations](spec/operations-and-testing.md)。
+- **尚待**：由 Owner 實機登入瀏覽個股頁面確認白話與圖解易讀性。
 
 ## MCP 本人現金部位（2026-10-27，使用者新增授權）
 

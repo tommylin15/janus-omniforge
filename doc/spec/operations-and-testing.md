@@ -1,5 +1,22 @@
 # Janus 最新驗收證據索引
 
+## 2026-10-27 個股圖解與白話資訊（前端增量）｜Dev 部署 100% PASS
+
+- **正式部署來源** `73f02252c8a7e8c3d2162d7f25dd22a5c023915f`：包含四面向圖解（`StockFactsPanel`、`StockMetricBars`、`StockValuationBand`、`RiskSignalCard`）、公告摘要與閱讀提示、分析明細收合，以及 390px 寬度／200% 字級（`TextScaler.linear(2)`）無溢位無例外 Widget 回歸測試。
+- **CI 與映像發布**：
+  - [Flutter User App #40482544858](https://github.com/tommylin15/janus-omniforge/actions/runs/40482544858) completed/success。
+  - [完整 Release #40482790589](https://github.com/tommylin15/janus-omniforge/actions/runs/40482790589) completed/success（`release-flutter`、`release-tests`、四個 GHCR 容器映像發布與匿名 pull 驗證均 PASS）。
+- **受控候選／邊界／正式流量**：
+  - [0% candidate #40483579702](https://github.com/tommylin15/janus-omniforge/actions/runs/40483579702) completed/success，候選 URL `https://ghcr-73f02252c8a7---janus-api-2oo7qbkd5q-uc.a.run.app/app/build-id.txt` 讀回 `73f02252c8a7e8c3d2162d7f25dd22a5c023915f` PASS。
+  - [Auth boundary #40483894328](https://github.com/tommylin15/janus-omniforge/actions/runs/40483894328) completed/success，唯讀邊界與 OAuth / MCP 挑戰驗證 PASS。
+  - [API-only promote #40484056048](https://github.com/tommylin15/janus-omniforge/actions/runs/40484056048) completed/success，52項 promotion/lease guards 通過，已平順切換至 100% 流量。
+- **即時 Runtime 證據讀回**：
+  - 正式 `https://janus-api-2oo7qbkd5q-uc.a.run.app/app/build-id.txt` 讀回為 `73f02252c8a7e8c3d2162d7f25dd22a5c023915f`。
+  - 正式 `/app/` 回傳 HTTP 200，Web 資源載入正常。
+  - 公開 `/api/v1/public/events/2330` 回傳 HTTP 200。
+  - 安全保護：保留前版 `ec1061652bfb2226e88f1b25aa9d416dee51a2ed` 作為 rollback 基準；不改四 Jobs、Scheduler、MCP tags、IAM、Storage 或 Owner 帳本資料。
+- **尚待**：由 Owner 實機登入檢視個股頁面之圖解與白話排版視覺體驗。
+
 ## 2026-10-27 MCP 本人現金部位｜伺服器部署 PASS／授權正向待驗
 
 - 同源 `0b2e3eb3e819c94928d0a49e711bdb3af5f611b7`：[完整 Release #40477783215](https://github.com/tommylin15/janus-omniforge/actions/runs/40477783215)、[0% candidate #40478796674](https://github.com/tommylin15/janus-omniforge/actions/runs/40478796674)、[Auth boundary #40479305373](https://github.com/tommylin15/janus-omniforge/actions/runs/40479305373)、[固定 MCP route #40479761426](https://github.com/tommylin15/janus-omniforge/actions/runs/40479761426) 均 completed/success。
