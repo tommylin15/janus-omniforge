@@ -1,15 +1,9 @@
 # Janus — 唯一 Active TODO
 
-## OAuth 客戶端相容接線／部署（2026-10-27，使用者新增授權）
+## OAuth 客戶端首次授權正向驗收（2026-10-27）
 
-- **最新失敗已定位／修正**：#40455824460 `legacy_trigger_readback / legacy_writer_not_disabled`，`mutation_attempted=false`、`BASELINE_VERIFIED / lease_released=true`。舊 gate要求legacy trigger必須存在，會錯拒已移除情況；改為接受0筆或1筆已停用，仍拒啟用／不明狀態／重複trigger並保留active build檢查。105項路由／租約測試PASS（包含不存在、停用、啟用三種情境）；仍須重跑路由讀回，不稱live PASS。
-
-- **最新接續**：route #40451813759 前置 RuntimeError，無路由階段收據／artifact，租約404。另一工作線已把包含 OAuth 的 `ab5b1268` 透過 Release #40452156270／candidate #40452708990／Auth #40452973476／API100 #40453071869 成功發布；已同步 main，MCP tags改接這個現役同源版本。路由工具補租約安全原因，允許固定已驗證100% serving revision只接MCP tags，保留canonical不變／digest／Ready／probe／恢復限制；97項測試PASS。等待新的路由run讀回，尚不稱固定入口完成。
-
-- 範圍：保留 ChatGPT Web／Codex，新增 Gemini CLI 與 Google Antigravity（agy）；沿既有 Dev API、MCP issuer/resource 與 Google Owner allowlist，不新增資源/IAM／Google client／scope。
-- 程式與 targeted tests：有界 public-client DCR、Gemini loopback／Antigravity 精確 callback、S256／client-resource binding、refresh/revoke、CSP、路徑 discovery、token no-store 與部署探針已完成；139項相關 OAuth／User/Admin API／安全發布離線測試 PASS（1項既有 multipart deprecation warning）。部署工具第一次共用 helper 匯入造成循環依賴，已修復並重跑通過；User API 初測因未設 CI 套件路徑而2項 collection/import失敗，正確 PYTHONPATH 重跑全數通過。
-- 完整 Release 與 0% candidate PASS：來源 `14e19e0b91bc496814f69dd87dcb22b9a46795d2`、[Release #40439117177](https://github.com/tommylin15/janus-omniforge/actions/runs/40439117177) 與 [候選 #40440685940](https://github.com/tommylin15/janus-omniforge/actions/runs/40440685940) completed/success。已指定同源唯讀 auth boundary 請求；成功後才更新既有兩 MCP tags 並驗新 client prelogin。Gemini CLI／agy 本人 consent 後正向唯讀測試另驗；固定 MCP 入口尚未切換，不稱已生效，不代做 Google consent。設定與契約見 [OAuth runbook](runbook-user-oauth-dev.md)。
-- Auth [#40447532156](https://github.com/tommylin15/janus-omniforge/actions/runs/40447532156) completed/success。固定 MCP route [#40447684982](https://github.com/tommylin15/janus-omniforge/actions/runs/40447684982) FAILED，原始錯誤僅 `RuntimeError`，根因尚未確定；恢復 artifact 保留 baseline，Git-ref lease 已讀回404（不存在），兩個固定入口仍為舊 `fbcc5f58`。獨立精確 candidate 公開 HTTP probe 的新客戶端 DCR／prelogin、Codex／private negative全部 PASS。已補安全階段／有限錯誤碼與恢復收據，93項路由／租約／發布測試 PASS；保持相同映像與所有原安全 gate，下一輪受控重跑以取得確切失敗階段及恢復結果，不冒稱路由部署成功。
+- 伺服器接線／測試／部署 **PASS**：[MCP route #40456143800](https://github.com/tommylin15/janus-omniforge/actions/runs/40456143800)，兩個固定 MCP tags 已更新，正式 API traffic 不變；完整收據見 [Operations](spec/operations-and-testing.md)。
+- **唯一尚待**：Gemini CLI 與 Google Antigravity（agy）本人完成 Google／Janus consent 後，各一次 `janus_sources` 與 owner-scoped 唯讀工具正向結果；不記錄 token 或 Owner payload，不以 prelogin302／匿名401冒充正向。首次 consent 依專案規則由本人操作。設定與操作見 [OAuth runbook](runbook-user-oauth-dev.md)。
 
 ## Owner 關注清單讀取修復／SEQ-08 UI 收尾（2026-10-27）
 

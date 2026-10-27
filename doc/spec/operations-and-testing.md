@@ -1,15 +1,11 @@
 # Janus 最新驗收證據索引
 
-## 2026-10-27 Gemini CLI／Antigravity OAuth｜Release／0% candidate PASS、Auth 待驗
+## 2026-10-27 Gemini CLI／Antigravity OAuth｜伺服器部署 PASS
 
-- [路由 #40455824460](https://github.com/tommylin15/janus-omniforge/actions/runs/40455824460) 明確 `phase=legacy_trigger_readback / reason=legacy_writer_not_disabled / mutation_attempted=false`，恢復 `BASELINE_VERIFIED / lease_released=true`。原檢查把「legacy trigger不存在」也算未停用，修正為0筆或1筆明確disabled可通過；啟用／缺disabled／重複仍拒絕，active build guard不變。新增三種trigger狀態的路由恢復回歸，共105項PASS；下一次真實run會輸出非敏感trigger count與fenced結果，尚未將固定入口標PASS。
-
-- 後續 route [#40451813759](https://github.com/tommylin15/janus-omniforge/actions/runs/40451813759) 在路由 try/baseline 前以 RuntimeError 結束，無恢復 artifact、租約讀回404。期間另一工作線更新 main 並完成 `ab5b12686839019cec40065fa6d043b6334e52a0` [Release #40452156270](https://github.com/tommylin15/janus-omniforge/actions/runs/40452156270)、candidate #40452708990、Auth #40452973476、API100 #40453071869；此版包含 OAuth 實作。已同步最新 main；補租約有限錯誤碼，並讓同一已驗證100%現役 revision 可作 MCP tag 目標（仍要求 canonical traffic 完全不變、固定 digest/Ready/版本及同樣回復 gate），避免回退至舊候選。97項相關測試 PASS；前置 RuntimeError 尚無精確 lease 原因，不將推測稱為根因。
-
-- 最新 Auth [#40447532156](https://github.com/tommylin15/janus-omniforge/actions/runs/40447532156) `auth-boundary` SUCCESS。MCP route [#40447684982](https://github.com/tommylin15/janus-omniforge/actions/runs/40447684982) FAILED／exit78，錯誤被舊工具遮罩為 `RuntimeError`，未有可判定根因；不能稱 IAM、OAuth 或路由錯誤已確診。下載既有 `mcp-route-bounded-recovery` artifact：canonical baseline `janus-api-00615-vav` 100%、candidate `janus-api-00617-gih`、兩個 MCP tags 基線 `janus-api-00451-cuw`。Git-ref lease 唯讀404；公開兩固定入口 build SHA 均仍 `fbcc5f58a2fa31f2f36dc4c82702fb62910c7361`，精確 `14e19e0b` candidate 的完整公開路由 probe PASS。新增只含固定 phase／有限錯誤碼／mutation_attempted／恢復結果的診斷，無 raw exception／credentials；93項對應測試 PASS，待受控重跑收據，應用映像不變。
-
-- 精確來源 `14e19e0b91bc496814f69dd87dcb22b9a46795d2`；[完整 GHCR Release #40439117177](https://github.com/tommylin15/janus-omniforge/actions/runs/40439117177) completed/success。必要 `release-tests`、`release-flutter`、四個 `release-publish`、`release-verify` 全部 success；不能將其他 skipped operation 當作已部署。
-- [API 0% candidate #40440685940](https://github.com/tommylin15/janus-omniforge/actions/runs/40440685940) 的 `candidate` completed/success，request source 為上述精確 SHA；候選 health／build identity／未登入拒絕／0% readback／owned lease release gate PASS，其他 skipped operation 不作驗收證據。已指定同源唯讀 auth boundary；之後仍須兩個 MCP tags 固定版本與新客戶端 prelogin 讀回，才可判部署 PASS。Gemini CLI／agy 真人 consent、token 及 authenticated tool readback 尚未驗收；canonical traffic／Jobs 未由本次候選改動。
+- [固定 MCP route #40456143800](https://github.com/tommylin15/janus-omniforge/actions/runs/40456143800) completed/success，來源 `ab5b12686839019cec40065fa6d043b6334e52a0`，revision `janus-api-00618-buj`，固定 image `ghcr.io/tommylin15/janus-api@sha256:4794702a96fce6d2455caba6260f10180c53aecc519b3bd386a6e5e45775a958`；`mcp-oauth`／`mcp-adapter` 兩 tags讀回PASS，`canonical_traffic_unchanged=true`，共用lease正常釋放。未更新Jobs／Scheduler／Secret／IAM／Owner資料。
+- 同源 gate：[完整 Release #40452156270](https://github.com/tommylin15/janus-omniforge/actions/runs/40452156270)、[0% candidate #40452708990](https://github.com/tommylin15/janus-omniforge/actions/runs/40452708990)、[Auth #40452973476](https://github.com/tommylin15/janus-omniforge/actions/runs/40452973476) 均SUCCESS。此新版包含先前 `14e19e0b` 的OAuth接線，避免回退已發布Owner watchlist修補。
+- 部署後獨立公開HTTP讀回兩個固定入口：build SHA精確相同，Gemini CLI／Antigravity有界DCR及Google prelogin302、Codex callback、任意redirect拒絕、private匿名401、三個唯讀工具及退役write拒絕全部PASS。未使用真人token或私人資料，**Gemini／agy首次consent、正向token／refresh及authenticated工具仍NOT_VERIFIED**；離線139項OAuth/API與最新105項路由/租約測試分別PASS，不加總。
+- 已確認並修復的部署阻擋：legacy trigger count真實為0，原檢查卻要求必須有1筆disabled；修正接受不存在／明確停用，仍拒啟用／未知狀態／重複及active builds。成功run收據 `legacy_trigger_count=0 / legacy_writers_fenced=true`。失敗歷史 [#40447684982](https://github.com/tommylin15/janus-omniforge/actions/runs/40447684982)、[#40451813759](https://github.com/tommylin15/janus-omniforge/actions/runs/40451813759)、[#40455824460](https://github.com/tommylin15/janus-omniforge/actions/runs/40455824460) 保持FAILED；後者明確未mutation、baseline驗證且lease釋放，前兩次遮罩錯誤不倒推為相同已確診根因。
 
 ## 2026-10-27 Janus MCP 重新授權恢復｜有界 PASS
 
