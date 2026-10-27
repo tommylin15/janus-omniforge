@@ -108,7 +108,7 @@ def test_workflow_is_manual_and_shared_lease_fences_tag_mutation():
 
 
 @pytest.mark.parametrize("recovery_safe", [True, False])
-def test_failed_live_probe_restores_tags_and_only_releases_after_verified_recovery(tmp_path, recovery_safe):
+def test_failed_live_probe_restores_tags_and_only_releases_after_verified_recovery(tmp_path, recovery_safe, capsys):
     sha = route.json.loads((ROOT / "ops/ghcr-candidate-request.json").read_text())["sha"]
     calls = []
 
@@ -142,3 +142,8 @@ def test_failed_live_probe_restores_tags_and_only_releases_after_verified_recove
                        "--update-tags=mcp-oauth=old-oauth,mcp-adapter=old-adapter"]
     released = route.LEASE + ["release", "--safe-to-release"] in calls
     assert released is recovery_safe
+    diagnostics = capsys.readouterr().err
+    assert '"phase": "fixed_tag_probe"' in diagnostics
+    assert '"mutation_attempted": true' in diagnostics
+    assert "live-probe-failed" not in diagnostics
+    assert ('"recovery": "BASELINE_VERIFIED"' in diagnostics) is recovery_safe

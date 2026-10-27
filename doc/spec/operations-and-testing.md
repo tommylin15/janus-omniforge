@@ -2,6 +2,8 @@
 
 ## 2026-10-27 Gemini CLI／Antigravity OAuth｜Release／0% candidate PASS、Auth 待驗
 
+- 最新 Auth [#40447532156](https://github.com/tommylin15/janus-omniforge/actions/runs/40447532156) `auth-boundary` SUCCESS。MCP route [#40447684982](https://github.com/tommylin15/janus-omniforge/actions/runs/40447684982) FAILED／exit78，錯誤被舊工具遮罩為 `RuntimeError`，未有可判定根因；不能稱 IAM、OAuth 或路由錯誤已確診。下載既有 `mcp-route-bounded-recovery` artifact：canonical baseline `janus-api-00615-vav` 100%、candidate `janus-api-00617-gih`、兩個 MCP tags 基線 `janus-api-00451-cuw`。Git-ref lease 唯讀404；公開兩固定入口 build SHA 均仍 `fbcc5f58a2fa31f2f36dc4c82702fb62910c7361`，精確 `14e19e0b` candidate 的完整公開路由 probe PASS。新增只含固定 phase／有限錯誤碼／mutation_attempted／恢復結果的診斷，無 raw exception／credentials；93項對應測試 PASS，待受控重跑收據，應用映像不變。
+
 - 精確來源 `14e19e0b91bc496814f69dd87dcb22b9a46795d2`；[完整 GHCR Release #40439117177](https://github.com/tommylin15/janus-omniforge/actions/runs/40439117177) completed/success。必要 `release-tests`、`release-flutter`、四個 `release-publish`、`release-verify` 全部 success；不能將其他 skipped operation 當作已部署。
 - [API 0% candidate #40440685940](https://github.com/tommylin15/janus-omniforge/actions/runs/40440685940) 的 `candidate` completed/success，request source 為上述精確 SHA；候選 health／build identity／未登入拒絕／0% readback／owned lease release gate PASS，其他 skipped operation 不作驗收證據。已指定同源唯讀 auth boundary；之後仍須兩個 MCP tags 固定版本與新客戶端 prelogin 讀回，才可判部署 PASS。Gemini CLI／agy 真人 consent、token 及 authenticated tool readback 尚未驗收；canonical traffic／Jobs 未由本次候選改動。
 

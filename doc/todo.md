@@ -5,6 +5,7 @@
 - 範圍：保留 ChatGPT Web／Codex，新增 Gemini CLI 與 Google Antigravity（agy）；沿既有 Dev API、MCP issuer/resource 與 Google Owner allowlist，不新增資源/IAM／Google client／scope。
 - 程式與 targeted tests：有界 public-client DCR、Gemini loopback／Antigravity 精確 callback、S256／client-resource binding、refresh/revoke、CSP、路徑 discovery、token no-store 與部署探針已完成；139項相關 OAuth／User/Admin API／安全發布離線測試 PASS（1項既有 multipart deprecation warning）。部署工具第一次共用 helper 匯入造成循環依賴，已修復並重跑通過；User API 初測因未設 CI 套件路徑而2項 collection/import失敗，正確 PYTHONPATH 重跑全數通過。
 - 完整 Release 與 0% candidate PASS：來源 `14e19e0b91bc496814f69dd87dcb22b9a46795d2`、[Release #40439117177](https://github.com/tommylin15/janus-omniforge/actions/runs/40439117177) 與 [候選 #40440685940](https://github.com/tommylin15/janus-omniforge/actions/runs/40440685940) completed/success。已指定同源唯讀 auth boundary 請求；成功後才更新既有兩 MCP tags 並驗新 client prelogin。Gemini CLI／agy 本人 consent 後正向唯讀測試另驗；固定 MCP 入口尚未切換，不稱已生效，不代做 Google consent。設定與契約見 [OAuth runbook](runbook-user-oauth-dev.md)。
+- Auth [#40447532156](https://github.com/tommylin15/janus-omniforge/actions/runs/40447532156) completed/success。固定 MCP route [#40447684982](https://github.com/tommylin15/janus-omniforge/actions/runs/40447684982) FAILED，原始錯誤僅 `RuntimeError`，根因尚未確定；恢復 artifact 保留 baseline，Git-ref lease 已讀回404（不存在），兩個固定入口仍為舊 `fbcc5f58`。獨立精確 candidate 公開 HTTP probe 的新客戶端 DCR／prelogin、Codex／private negative全部 PASS。已補安全階段／有限錯誤碼與恢復收據，93項路由／租約／發布測試 PASS；保持相同映像與所有原安全 gate，下一輪受控重跑以取得確切失敗階段及恢復結果，不冒稱路由部署成功。
 
 ## SEQ-08｜TPEx 正式修復及四模型報告/歷史最終讀回（2026-10-27，最新）
 

@@ -158,6 +158,7 @@ def main():
     command(LEASE + ["acquire"])
     before = None
     mutation = False
+    phase = "baseline"
     try:
         before = describe()
         tag = "ghcr-" + sha[:12]
@@ -169,14 +170,17 @@ def main():
         # Persist only bounded routing metadata for independent recovery after crash.
         args.baseline.write_text(json.dumps({"source_sha": sha, "candidate": candidate,
             "active": active, "tags": existing}, sort_keys=True))
+        phase = "legacy_trigger_readback"
         triggers = json.loads(command(["gcloud", "builds", "triggers", "list", f"--project={PROJECT}",
             f"--region={REGION}", "--filter=name=janus-dev-v2", "--format=json(id,name,disabled)"]))
         if len(triggers) != 1 or triggers[0].get("disabled") is not True:
             raise ValueError("legacy_writer_not_disabled")
+        phase = "legacy_build_readback"
         builds = json.loads(command(["gcloud", "builds", "list", f"--project={PROJECT}",
             f"--region={REGION}", "--filter=status=QUEUED OR status=WORKING", "--format=json(id,status)", "--limit=1"]))
         if builds:
             raise ValueError("legacy_build_active")
+        phase = "candidate_revision_readback"
         revision = json.loads(command(["gcloud", "run", "revisions", "describe", candidate,
             f"--project={PROJECT}", f"--region={REGION}", "--format=json"]))
         image = revision["spec"]["containers"][0]["image"].removeprefix("cache.us-docker.pkg.dev/")
@@ -187,12 +191,15 @@ def main():
         if not any(c.get("type") == "Ready" and c.get("status") == "True" for c in revision["status"]["conditions"]):
             raise ValueError("candidate_not_ready")
         candidate_url = next(t["url"] for t in before["status"]["traffic"] if t.get("tag") == tag)
+        phase = "candidate_probe"
         probe(candidate_url, sha)
         command(LEASE + ["assert"])
         mutation = True
+        phase = "tag_update"
         command(["gcloud", "run", "services", "update-traffic", SERVICE, f"--project={PROJECT}",
             f"--region={REGION}", "--update-tags=" + ",".join(f"{tag}={candidate}" for tag in TAGS), "--quiet"])
         validate(before, describe(), candidate)
+        phase = "fixed_tag_probe"
         for tag in TAGS:
             probe("https://" + tag + "---" + urlsplit(BASE).netloc, sha)
         command(LEASE + ["assert"])
@@ -201,7 +208,13 @@ def main():
             "image": image, "tags": TAGS, "canonical_traffic_unchanged": True,
             "codex_prelogin_gate": "PASS", "authenticated_mcp": "PENDING"}, sort_keys=True))
         return 0
-    except Exception:
+    except Exception as failure:
+        # Only code-owned phase names cross the diagnostic boundary.
+        safe_reasons = {"bounded_command_failed", "legacy_writer_not_disabled", "legacy_build_active",
+                        "candidate_not_fixed_ghcr_digest", "candidate_min_instances_not_zero", "candidate_not_ready"}
+        print(json.dumps({"result": "BLOCKED", "phase": phase,
+                          "mutation_attempted": mutation,
+                          "reason": str(failure) if str(failure) in safe_reasons else type(failure).__name__}), file=sys.stderr)
         if before is None:
             raise RuntimeError("baseline_unknown_lease_retained") from None
         try:
@@ -214,6 +227,7 @@ def main():
             command(LEASE + ["release", "--safe-to-release"])
         except Exception:
             raise RuntimeError("recovery_unknown_lease_retained") from None
+        print(json.dumps({"recovery": "BASELINE_VERIFIED", "lease_released": True}), file=sys.stderr)
         raise RuntimeError("route_repair_failed_baseline_verified") from None
 
 
