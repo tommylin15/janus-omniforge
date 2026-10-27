@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "ab5b12686839019cec40065fa6d043b6334e52a0",
+  "sha": "ec1061652bfb2226e88f1b25aa9d416dee51a2ed",
   "digest": "",
-  "release_run": "40452156270",
+  "release_run": "40460262500",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Owner watchlist 0%-traffic candidate. Full GitHub release #40452156270 succeeded: Python, Flutter, four GHCR immutable images and anonymous pull. Fix persisted owner watchlist GET latency, Google token refresh and false-zero UI. No traffic, job, Scheduler, model, cost, IAM or Owner ledger mutation until subsequent gates.",
-  "request_attempt": 18
+  "purpose": "Admin shared Google login: full Release #40460262500 passed 2020 Python tests, Flutter checks and 4 immutable GHCR images. Deploy Janus API only as 0%-traffic candidate, preserve canonical and MCP tags; verify build ID, health and unauthenticated Admin/User isolation before any traffic change.",
+  "request_attempt": 19
 }
