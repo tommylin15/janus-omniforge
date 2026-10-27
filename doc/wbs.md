@@ -11,7 +11,7 @@
 | SEQ-05 | Valuation 真資料、唯一估值卡契約／估值／後端工程 | RV-01…06、UB-02 的 Valuation 子功能 | SEQ-04可交接階段；[四階段與退出條件](execution-cards/sequential-delivery.md#seq-05) |
 | SEQ-06 | 四模型正式上線模式、版本與共用快取／模型／推論工程 | UB-02、D07 serving、Risk API/UI、D07-CROSS-JOB-MODEL-CACHE；FACTOR-FACTORY／X/Y 僅必要 serving 一致性 | SEQ-05可交接階段；[四階段與退出條件](execution-cards/sequential-delivery.md#seq-06) |
 | SEQ-07 | 分析報告、Owner history 與 UI 完整接線／全端／產品工程 | UB-02、D08、RV-05 合流 | SEQ-06可交接階段；[四階段與退出條件](execution-cards/sequential-delivery.md#seq-07) |
-| SEQ-08 | 四分析師到報告 UI 集中發布驗收／整合驗收／發版 | UB-02 完成 gate、RV-06、D08 發布 | SEQ-07可交接階段；[四階段與退出條件](execution-cards/sequential-delivery.md#seq-08) |
+| SEQ-08 | 四分析師到報告 UI 集中發布驗收／整合驗收／發版 | UB-02 完成 gate、RV-06、D08 發布 | **已結案（CLOSED）**：全市場 Quant、Owner 8 檔報告及實機登入驗收完成；圖解白話增量由前端接續；[四階段與退出條件](execution-cards/sequential-delivery.md#seq-08) |
 
 每項均有文件設計、程式開發、測試驗收、部署四階段；設計建議GPT-6 Astra，實作／驗收／部署建議GPT-6.1 Sol。SEQ-01…03先完成可離線交付部分，SEQ-04集中部署並結清live；SEQ-05…07同理交SEQ-08，不能把待集中部署標PASS。
 
