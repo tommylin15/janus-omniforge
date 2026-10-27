@@ -12,7 +12,7 @@ Cloud Run endpoint 是遠端服務；Codex 的本機外掛安裝不會自動讓 
 
 ## 1. 安全邊界
 
-- User 與 Admin OAuth audience 必須分離；不得拿 Admin token 當 User token。
+- User API 仍僅接受 User Google audience。依 2026-10-27 使用者要求，Admin Web 可共用已可用的 User Google Web client，但 Admin API 必須另由伺服器端 Admin allowlist 授權，不能僅憑 Google 登入升權；過渡期保留舊 Admin audience。MCP access token 不是 Google ID token，不能直接當 Admin bearer token。
 - MCP OAuth 只提供 Janus 已授權的 read-only domain context；typed selector、limit、date range、owner scope 由 server contract 限制，不接受任意 SQL、GCS URI、object path 或 client-supplied user identity。
 - Secret payload 不得出現在 argv、shell trace、process listing、Cloud Build substitution、deployment metadata、UI 或 log。
 - 真實 Google login、allowlisted owner、Cloud Run API、PostgreSQL／Iceberg owner isolation 才能構成 live acceptance；mock verifier／fixture 只補 deterministic regression 與 negative coverage。
@@ -23,6 +23,15 @@ Cloud Run endpoint 是遠端服務；Codex 的本機外掛安裝不會自動讓 
 User Web client 必須使用 Janus User audience，並包含目前實際 UI／callback 所需的 authorized origins／redirect URIs。不要從歷史文件複製固定 URL；執行前以目前 Cloud Run tagged URL、Flutter build config 與 Google Auth Platform 設定交叉確認。
 
 公開 client ID 可作為 Flutter Web build-time configuration；client secret、MCP signing material、database credentials 必須走目前 Secret bundle，不寫入 source、README 或一般 config。
+
+### 2026-10-27 Admin 共用 Google 登入（Dev）
+
+- `/app/` 的 User 與 `/app/admin/` 的 Admin Flutter Web 均使用現行 `GOOGLE_USER_CLIENT_ID` 取得 Google ID token；不複製 MCP OAuth callback、client secret 或 refresh token。
+- Admin 進入管理介面前先呼叫 `GET /api/v1/admin/session`。後端依 `GOOGLE_ADMIN_ALLOWED_EMAILS`、Google issuer、audience、到期日、email_verified 及 sub 確認；僅回最小 `{"authorized":true}` 與 `Cache-Control: no-store`。一般 User 登入成功但不在 Admin 白名單即 403；憑證無效或缺少仍 401。
+- 後端過渡期接受合法的 `GOOGLE_ADMIN_CLIENT_ID` 或 `GOOGLE_USER_CLIENT_ID` Google ID token，但 Admin route 始終另要求 Admin allowlist；User API 仍只接受 User client audience。MCP bearer token 不可直接傳給 Admin API。
+- 現行 build／deploy 可繼續傳舊 `GOOGLE_ADMIN_CLIENT_ID` 維持過渡相容，不新增 OAuth client、Secret、IAM 或付費資源。本輪涉及登入契約改動，不適用「僅移動 preview tag」豁免。
+- 驗收按既有 Release → 0% candidate → auth boundary → Dev API-only promotion；再驗證 `/app/build-id.txt`、匿名 Admin 401、非 Admin 使用者 403、白名單 Google ID token 的正向 200 與 Flutter Admin 登入。匿名 boundary PASS 不等於真人 Admin 正向 PASS；失敗時保留或恢復先前已驗證 Dev revision，不影響 MCP tags／四 Jobs。
+
 
 ### 固定 preview 與 OAuth 來源／callback 契約
 
