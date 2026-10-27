@@ -154,7 +154,17 @@ class _FinalLoginPageState extends State<FinalLoginPage> {
     try {
       final token = legacy.requireGoogleIdToken((await account.authentication).idToken);
       if (!mounted) return;
-      final api = legacy.Api(token, adminUsage: widget.admin);
+      final api = legacy.Api(
+        token,
+        adminUsage: widget.admin,
+        refreshIdToken: () async {
+          // Never adopt credentials for a different Google account on a
+          // background retry. The API may only retry an idempotent GET.
+          final renewed = await google.signInSilently(reAuthenticate: true);
+          if (renewed == null || renewed.id != account.id) return null;
+          return (await renewed.authentication).idToken;
+        },
+      );
       await Navigator.of(context).pushReplacement(MaterialPageRoute(
         builder: (_) => widget.admin
             ? AdminWorkspace(
