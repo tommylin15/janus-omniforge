@@ -271,10 +271,10 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  // Both workspaces use the already-authorized Google Web login origin.
+  // Server-side /api/v1/admin/session still enforces Admin membership.
   static const userClient = String.fromEnvironment('GOOGLE_USER_CLIENT_ID');
-  static const adminClient = String.fromEnvironment('GOOGLE_ADMIN_CLIENT_ID');
-  late final GoogleSignIn google =
-      GoogleSignIn(clientId: widget.admin ? adminClient : userClient);
+  late final GoogleSignIn google = GoogleSignIn(clientId: userClient);
   late final StreamSubscription<GoogleSignInAccount?> accountChanges;
   bool busy = false;
   bool finishing = false;
@@ -334,6 +334,10 @@ class _LoginPageState extends State<LoginPage> {
           requireGoogleIdToken((await account.authentication).idToken);
       if (mounted) {
         final api = Api(token, adminUsage: widget.admin);
+        if (widget.admin) {
+          await api.get('/api/v1/admin/session');
+        }
+        if (!mounted) return;
         await Navigator.of(context).pushReplacement(MaterialPageRoute(
             builder: (_) => widget.admin
                 ? AdminWorkspace(
@@ -351,7 +355,9 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) {
         setState(() {
           busy = false;
-          error = '登入憑證無效，請重新登入';
+          error = widget.admin
+              ? '管理員驗證未通過，請確認帳號權限或重新登入'
+              : '登入憑證無效，請重新登入';
         });
       }
     }
