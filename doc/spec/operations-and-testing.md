@@ -1,9 +1,9 @@
 # Janus 最新驗收證據索引
 
-## 2026-10-27 Gemini CLI／Antigravity OAuth｜完整 Release PASS、候選請求
+## 2026-10-27 Gemini CLI／Antigravity OAuth｜Release／0% candidate PASS、Auth 待驗
 
 - 精確來源 `14e19e0b91bc496814f69dd87dcb22b9a46795d2`；[完整 GHCR Release #40439117177](https://github.com/tommylin15/janus-omniforge/actions/runs/40439117177) completed/success。必要 `release-tests`、`release-flutter`、四個 `release-publish`、`release-verify` 全部 success；不能將其他 skipped operation 當作已部署。
-- 沿既有 request 指向同 SHA／Release 的 API 0% candidate；後續須同源 auth boundary、兩個 MCP tags 固定版本與新客戶端 prelogin 讀回，才可判部署 PASS。Gemini CLI／agy 真人 consent、token 及 authenticated tool readback 尚未驗收；canonical traffic／Jobs 不在本次候選操作範圍。
+- [API 0% candidate #40440685940](https://github.com/tommylin15/janus-omniforge/actions/runs/40440685940) 的 `candidate` completed/success，request source 為上述精確 SHA；候選 health／build identity／未登入拒絕／0% readback／owned lease release gate PASS，其他 skipped operation 不作驗收證據。已指定同源唯讀 auth boundary；之後仍須兩個 MCP tags 固定版本與新客戶端 prelogin 讀回，才可判部署 PASS。Gemini CLI／agy 真人 consent、token 及 authenticated tool readback 尚未驗收；canonical traffic／Jobs 未由本次候選改動。
 
 ## 2026-10-27 Janus MCP 重新授權恢復｜有界 PASS
 

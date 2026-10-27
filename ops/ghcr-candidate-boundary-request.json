@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "c4605a84eb46257cbf628b33e2156ebc01f5b9ac",
+  "sha": "14e19e0b91bc496814f69dd87dcb22b9a46795d2",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "SEQ08 new official TPEx benchmark release #40319442822 PASS and 0% API GHCR candidate #40320190614 PASS. Read-only OAuth/PKCE/Owner Admin private-route negative boundaries, no GCP mutation, no Owner positive-login claim.",
-  "request_attempt": 13
+  "purpose": "Gemini CLI and Google Antigravity OAuth: exact-source full Release #40439117177 PASS and existing Dev 0-percent API candidate #40440685940 PASS. Verify same-source OAuth discovery/S256/refresh metadata and unauthenticated User/Admin/MCP boundaries without GCP mutations or claiming real client consent/token acceptance. Fixed MCP tag routing follows only after this gate passes.",
+  "request_attempt": 14
 }
