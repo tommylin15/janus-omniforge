@@ -192,9 +192,12 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: FinalWatchlistPage(api)));
     await tester.pump();
     expect(find.text('關注清單載入中'), findsOneWidget);
+    expect(find.text('我的關注 —/50'), findsOneWidget);
     await tester.pump(const Duration(seconds: 10));
     await tester.pump();
     expect(find.text('關注清單暫時無法使用'), findsOneWidget);
+    expect(find.text('我的關注 —/50'), findsOneWidget);
+    expect(find.text('我的關注 0/50'), findsNothing);
     expect(find.text('重試'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(tester.takeException(), isNull);
