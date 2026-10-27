@@ -1,13 +1,12 @@
 # Janus 最新驗收證據索引
 
-## 2026-10-27 Janus MCP 連線修復診斷
+## 2026-10-27 Janus MCP 重新授權恢復｜有界 PASS
 
-- 已重現：ChatGPT 安裝的 `Janus Dev Read-only v2`，`janus_sources` 及 2330 OHLCV limit=1 均回 MCP -32603 Internal error；尚未修復。
-- 實際 HTTP：既有 mcp-adapter `/mcp` tools/list 200，精確三個唯讀工具；無憑證 sources 呼叫 401，OAuth resource metadata 200。mcp-oauth metadata 200，ChatGPT client＋既有 callback＋S256 prelogin 302 至 accounts.google.com，Google callback 保持既有 issuer `/oauth/google/callback`。
-- mcp-adapter／mcp-oauth `/app/build-id.txt` 均為 `fbcc5f58a2fa31f2f36dc4c82702fb62910c7361`；沒有這兩入口已掉線或版本分裂的證據。本輪不更換 OAuth client、不改 Secret、不任意重綁 traffic tags。
-- 故障仍可能位於安裝連接授權／refresh 交換或 authenticated runtime；僅 metadata／負向拒絕不能證明 token 有效。下一步由使用者對同一現有 Janus 連接重新授權，再測 sources／有界行情／owner private read。未取得新授權證據前保持 BLOCKED，不稱已修復。
-- 另觀察 canonical janus-api 的 build-id 及 OAuth metadata HTTP 500；MCP tagged 入口上述請求仍成功，不能據此斷言 canonical 500 是這次 connector Internal error 的原因。
-
+- 使用者完成既有 `Janus Dev Read-only v2` 重新授權後，ChatGPT 實際工具正向讀回：`janus_sources` 成功列出三個來源；2330 OHLCV limit=1 成功；owner positions limit=1 成功；owner watchlist limit=1 最終成功。讀取範圍均受現有 limit、owner 與唯讀限制。
+- OHLCV／positions／watchlist 回傳 partial 與 `bounds.truncated=true` 對應本輪 limit=1，不能誤稱完整清冊；行情／持股資料日期為 2026-10-22，連線恢復不代表資料新鮮度或 SEQ-08 Owner UI 驗收完成。
+- 重新授權後第一次無 symbol watchlist 呼叫仍曾回 Internal error；同 scope positions 成功、symbol=2330 watchlist 回 bounded missing、再讀無 symbol watchlist 成功。單次失敗根因未取得 traceback，不宣稱序列化錯誤或永久修復；在上述有界讀取驗收通過且無持續異常時依專案規則結案，不另增無證據的追查工作。
+- 先前 server HTTP probe：MCP tools/list 200／三個唯讀工具、未授權呼叫401、OAuth metadata200、ChatGPT prelogin302至Google；兩個固定MCP入口 build SHA均為 `fbcc5f58a2fa31f2f36dc4c82702fb62910c7361`。本輪無程式修改、無 Secret／OAuth client／Cloud Run tag變更，處置是恢復既有使用者連接授權。
+- 先前 canonical API HTTP500 是另外觀察，沒有證據是 MCP此次錯誤根因；本次不改 canonical traffic，也不把其他工程狀態改判PASS。舊 SEQ-08摘要中的 MCP internal error 為歷史 checkpoint，最新 MCP連線狀態依本節。
 
 ## 2026-10-26 SEQ-08 最終 Quant Rank JSONB 型別糾正與 Release/Live 收據
 
