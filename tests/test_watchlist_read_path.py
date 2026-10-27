@@ -30,7 +30,10 @@ def test_watchlist_read_preserves_offlist_owner_rows_without_writing():
     assert "UPDATE" not in sql
     assert "AS in_market" in sql
     assert "control.market_universe_members" in sql
-    assert "LEFT JOIN LATERAL" in sql and "publication.stock_serving_recent" in sql
+    assert sql.count("LEFT JOIN LATERAL") == 2
+    assert "publication.stock_serving_recent" in sql
+    assert "publication.stock_latest" not in sql.split("FROM private.watchlist w", 1)[1]
+    assert "r.symbol=w.symbol" in sql
     assert "r.sort_at<price.sort_at" in sql
 
 
@@ -63,3 +66,34 @@ def test_trade_search_includes_registered_etf_and_uses_bound_parameters():
     assert 'LIMIT 20' in sql
     assert repository.search_trade_instruments(' ') == []
     assert len(queries) == 1
+
+
+def test_eod_quote_read_restricts_latest_lookup_to_requested_symbols():
+    from datetime import datetime, timezone
+
+    seen = []
+    class Connection:
+        def execute(self, sql, args):
+            seen.append((sql, args))
+            return self
+        def fetchall(self):
+            return [
+                {"symbol": "2330", "sort_at": datetime(2026, 10, 27, tzinfo=timezone.utc),
+                 "payload_json": {"trade_date": "2026-10-27", "close": "998"}},
+            ]
+
+    class Repository(PostgresWorkspaceRepository):
+        @contextmanager
+        def _connection(self):
+            yield Connection()
+
+    quotes = Repository("test").eod_quotes({"2330": {}, "2882": {}})
+    assert quotes["2330"]["price"] == "998"
+    assert quotes["2330"]["price_date"] == "2026-10-27"
+    assert quotes["2330"]["is_final"] is True
+    sql, args = seen[0]
+    assert args == (["2330", "2882"],)
+    assert "unnest(%s::text[])" in sql
+    assert "publication.stock_serving_recent" in sql
+    assert "publication.stock_latest" not in sql
+    assert "ORDER BY r.sort_at DESC LIMIT 1" in sql
