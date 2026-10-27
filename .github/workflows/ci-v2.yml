@@ -116,7 +116,13 @@ jobs:
           target = json.loads(os.environ['CI_TARGET'])
           for requirement in ['requirements-dev.txt', *target['requirements']]:
               subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', requirement], check=True)
-          subprocess.run([sys.executable, '-m', 'pytest', '-q', *target['tests']], check=True)
+          res = subprocess.run([sys.executable, '-m', 'pytest', '-q', '--tb=short', *target['tests']], capture_output=True, text=True)
+          if res.returncode != 0:
+              lines = [l for l in res.stdout.splitlines() if 'FAIL' in l or 'ERROR' in l or 'assert' in l or 'E   ' in l]
+              print('::error title=PytestFailure::' + ' %0A '.join(lines[:25]))
+              print(res.stdout)
+              print(res.stderr)
+              sys.exit(res.returncode)
           PY
 
   seq01-offline:
