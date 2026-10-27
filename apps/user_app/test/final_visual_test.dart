@@ -1786,13 +1786,16 @@ void main() {
     ];
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
-        body: FvKlineChart(rows: klineRows, maxPoints: 20, showKd: true),
+        body: SingleChildScrollView(
+          child: FvKlineChart(rows: klineRows, maxPoints: 20, showKd: true),
+        ),
       ),
     ));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('fv-kline-chart')), findsOneWidget);
     expect(find.text('K(9,3)'), findsOneWidget);
     expect(find.text('D(9,3)'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('FvPeRiverChart renders valuation river bands and responds to touch', (tester) async {
@@ -1812,12 +1815,17 @@ void main() {
     ];
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
-        body: FvPeRiverChart(klineRows: klineRows, epsRows: epsRows),
+        body: SingleChildScrollView(
+          child: FvPeRiverChart(klineRows: klineRows, epsRows: epsRows),
+        ),
       ),
     ));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('fv-pe-river-chart')), findsOneWidget);
     expect(find.textContaining('本益比估值河流圖'), findsOneWidget);
     expect(find.text('收盤價'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('fv-pe-river-chart')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 }

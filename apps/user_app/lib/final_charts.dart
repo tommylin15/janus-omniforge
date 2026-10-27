@@ -269,30 +269,49 @@ class FvKlineChart extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Row(
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
             children: [
               const _LegendDot(color: fvGain, label: '上漲'),
-              const SizedBox(width: 14),
               const _LegendDot(color: fvLoss, label: '下跌'),
               if (showKd && visibleKd.isNotEmpty) ...[
-                const SizedBox(width: 14),
-                const _LegendDot(color: Color(0xFFE65100), label: 'K(9,3)'),
-                const SizedBox(width: 4),
-                Text(visibleKd.last.k.toStringAsFixed(1), style: const TextStyle(color: Color(0xFFE65100), fontSize: 11, fontWeight: FontWeight.bold)),
-                const SizedBox(width: 10),
-                const _LegendDot(color: Color(0xFF1565C0), label: 'D(9,3)'),
-                const SizedBox(width: 4),
-                Text(visibleKd.last.d.toStringAsFixed(1), style: const TextStyle(color: Color(0xFF1565C0), fontSize: 11, fontWeight: FontWeight.bold)),
-              ],
-              if (!hasVolume) ...[
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Text(
-                    '成交量資料不足',
-                    style: TextStyle(color: fvMuted, fontSize: 11),
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const _LegendDot(color: Color(0xFFE65100), label: 'K(9,3)'),
+                    const SizedBox(width: 4),
+                    Text(
+                      visibleKd.last.k.toStringAsFixed(1),
+                      style: const TextStyle(
+                        color: Color(0xFFE65100),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const _LegendDot(color: Color(0xFF1565C0), label: 'D(9,3)'),
+                    const SizedBox(width: 4),
+                    Text(
+                      visibleKd.last.d.toStringAsFixed(1),
+                      style: const TextStyle(
+                        color: Color(0xFF1565C0),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ],
+              if (!hasVolume)
+                const Text(
+                  '成交量資料不足',
+                  style: TextStyle(color: fvMuted, fontSize: 11),
+                ),
             ],
           ),
         ],
@@ -906,7 +925,7 @@ class _PeRiverPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (points.isEmpty) return;
     const left = 8.0;
-    const right = 8.0;
+    const right = 32.0;
     const top = 12.0;
     const bottom = 22.0;
     final chartHeight = math.max(1.0, size.height - top - bottom);
