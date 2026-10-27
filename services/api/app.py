@@ -1288,11 +1288,30 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                          current: AuthenticatedUser = Depends(user)):
         return jsonable_encoder({"items": repository.search_watchlist_stocks(q.strip())})
 
+    def refresh_watchlist_quotes_safely(identities: dict[str, dict[str, Any]]) -> None:
+        # A slow exchange provider or quote persistence must never hold up an
+        # authenticated owner's already-saved list. Revalidation remains
+        # demand-triggered, but runs only after the response is sent.
+        try:
+            resolve_prices(identities)
+        except Exception as error:
+            LOGGER.warning("watchlist quote refresh unavailable: %s", type(error).__name__)
+
     @private.get("/watchlist")
-    def watchlist(current:AuthenticatedUser=Depends(user)):
+    def watchlist(background_tasks: BackgroundTasks, current:AuthenticatedUser=Depends(user)):
         rows = repository.watchlist(current.user_id)
-        identities = repository.stock_identities({str(row["symbol"]) for row in rows}) if rows else {}
-        prices, _, _, _, _ = resolve_prices(identities)
+        identities: dict[str, dict[str, Any]] = {}
+        prices: dict[str, dict[str, Any]] = {}
+        if rows:
+            try:
+                identities = repository.stock_identities({str(row["symbol"]) for row in rows})
+                prices = quote_router.read(identities)
+            except Exception as error:
+                # The persisted watchlist and its stored EOD columns are still
+                # readable when the optional quote overlay fails.
+                LOGGER.warning("watchlist cached quote overlay unavailable: %s", type(error).__name__)
+            if identities:
+                background_tasks.add_task(refresh_watchlist_quotes_safely, identities)
         result = []
         for row in rows:
             quote = prices.get(str(row["symbol"]))
