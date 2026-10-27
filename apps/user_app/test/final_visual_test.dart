@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:janus_user_app/final_charts.dart';
+import 'package:janus_user_app/final_charts.dart' show FvKlineChart, FvPeRiverChart;
 import 'package:janus_user_app/final_visual_pages.dart';
 import 'package:janus_user_app/final_visual_common.dart';
 import 'package:janus_user_app/final_visual_series.dart';

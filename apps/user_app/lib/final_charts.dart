@@ -422,7 +422,7 @@ class _KdPoint {
 }
 
 List<_KdPoint> _calculateKd(List<_Candle> candles) {
-  if (candles.isEmpty) return const [];
+  if (candles.isEmpty) return const <_KdPoint>[];
   final points = <_KdPoint>[];
   var prevK = 50.0;
   var prevD = 50.0;
@@ -454,7 +454,7 @@ class _CandlestickPainter extends CustomPainter {
     required this.candlesticks,
     required this.gaps,
     this.showKd = false,
-    this.kdPoints = const [],
+    this.kdPoints = const <_KdPoint>[],
   });
 
   final List<_Candle> candles;
