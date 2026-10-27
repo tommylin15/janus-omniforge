@@ -197,7 +197,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     }
   }
 
-  Widget header(BuildContext context, int count, {int followups = 0}) => Column(
+  Widget header(BuildContext context, int? count, {int followups = 0}) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           fvPageTitle(context, '關注', subtitle: '我的關注清單與待追蹤事項'),
@@ -217,7 +217,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                   const SizedBox(height: 8),
                 ],
                 Text(
-                  '我的關注 $count/50',
+                  '我的關注 ${count?.toString() ?? '—'}/50',
                   style: const TextStyle(
                     color: fvInk,
                     fontWeight: FontWeight.w800,
@@ -234,7 +234,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
           fvSectionTitle(
             context,
             '我的關注',
-            trailing: count == 0 ? null : '長按拖曳排序',
+            trailing: count == null || count == 0 ? null : '長按拖曳排序',
           ),
         ],
       );
@@ -390,18 +390,18 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
               if (snapshot.connectionState != ConnectionState.done && lastGoodData == null) {
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
-                  children: [header(context, 0), fvBoundedState('關注清單載入中')],
+                  children: [header(context, null), fvBoundedState('關注清單載入中')],
                 );
               }
               if (snapshot.hasError && lastGoodData == null) {
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
                   children: [
-                    header(context, 0),
+                    header(context, null),
                     fvPanel(
                       child: Row(
                         children: [
-                          const Expanded(child: Text('關注清單暫時無法使用')),
+                          const Expanded(child: Text('關注清單暫時無法使用；請重試，若持續失敗請重新登入')),
                           TextButton(onPressed: reload, child: const Text('重試')),
                         ],
                       ),
