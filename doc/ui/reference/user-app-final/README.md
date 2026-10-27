@@ -18,6 +18,8 @@
 
 ## 固定圖片路徑
 
+2026-10-27 個股增量以 [個股圖解與白話資訊](../../stock-detail-readable.md) 為準；舊 PNG 保留色彩與卡片基線，不再要求呈現五角色及進階資料舊文案。此更新不是實機視覺驗收。
+
 - `doc/ui/reference/user-app-final/today.png` — 今日
 - `doc/ui/reference/user-app-final/watchlist.png` — 關注
 - `doc/ui/reference/user-app-final/ledger.png` — 記帳／筆記

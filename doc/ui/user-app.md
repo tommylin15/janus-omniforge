@@ -50,6 +50,8 @@ Specialist／CEO 等 AI-only 區塊未就緒時，可以 bounded unavailable／h
 
 ## 5.3 個股詳情
 
+**2026-10-27 最新呈現契約：**[個股圖解與白話資訊](stock-detail-readable.md) 覆蓋下方舊五 specialist／進階資料呈現；四個白話面向、公告內容與閱讀提示、預設收合技術明細。資料與模型 gate 不變，本輪僅需求／文件／程式。
+
 Primary content 依 [四頁正式UI規格的「個股」節](visual-first-four-pages.md)：股價／本人持股 → 營運、估值、風險三行事實 → 同一價量／通用主圖 → 支持與疑點 → 既有筆記／驗證點 → 收合深入研究。點三行中的任一行直接切對應圖表與期間；可驗算事實不等模型，但預測結論須依D07/D08。
 
 `StockHeader` 顯示 latest-price resolver 的現價／正式收盤價與行情日；backend bounded 讀最近兩筆 canonical OHLCV，回傳 `previous_close/change/change_percent`。正值紅、負值綠、0／未知中性；Flutter 不另抓行情重算漲跌。

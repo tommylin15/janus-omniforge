@@ -1322,6 +1322,7 @@ void main() {
       },
       '/api/v1/public/events/2330': [
         {'event_id': 'evt-a', 'title': '法說公告',
+         'summary': '公司公布第三季營運說明會日期。',
          'published_at': '2026-10-08T16:00:00+08:00',
          'effective_date': '2026-11-01', 'source_id': 'mops'},
         {'event_id': 'evt-a', 'title': '重複公告', 'published_at': '2026-10-08'},
@@ -1330,11 +1331,13 @@ void main() {
     });
     await tester.pumpWidget(MaterialApp(home: FinalStockDetailPage(api: api, symbol: '2330')));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('公司事件時間軸'),
+    await tester.scrollUntilVisible(find.text('公司公告，看懂發生什麼事'),
       220, scrollable: find.byType(Scrollable).first);
     await tester.scrollUntilVisible(find.text('事件日：2026-10-01'),
       120, scrollable: find.byType(Scrollable).first);
     expect(find.text('法說公告'), findsOneWidget);
+    expect(find.text('公司公布第三季營運說明會日期。'), findsOneWidget);
+    expect(find.textContaining('目前只有公告標題'), findsOneWidget);
     expect(find.text('重複公告'), findsNothing);
     expect(find.text('公告：2026-10-08T16:00:00+08:00'), findsOneWidget);
     expect(find.text('生效：2026-11-01'), findsOneWidget);
@@ -1554,20 +1557,20 @@ void main() {
     expect(find.byKey(const Key('fv-health-bars')), findsNothing);
 
     await tester.scrollUntilVisible(
-      find.text('進階資料'),
+      find.text('分析與報告'),
       250,
       scrollable: find.byType(Scrollable).last,
     );
-    await tester.ensureVisible(find.text('進階資料'));
+    await tester.ensureVisible(find.text('分析與報告'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('進階資料'));
+    await tester.tap(find.text('分析與報告'));
     await tester.pumpAndSettle();
 
     expect(
       api.reads.where((path) => path == '/api/v1/public/kline/2330').length,
       1,
     );
-    expect(find.text('進階資料'), findsOneWidget);
+    expect(find.text('分析與報告'), findsOneWidget);
     expect(find.text('K 線／OHLCV'), findsNothing);
     expect(tester.takeException(), isNull);
   });

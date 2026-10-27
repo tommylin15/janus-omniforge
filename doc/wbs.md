@@ -19,6 +19,8 @@
 
 ## 原領域 WBS 定位（不構成額外工作）
 
+2026-10-27 個股呈現增量：前端責任為四面向圖解、公告內容、分析技術資料收合及相依測試程式；需求與驗收邊界見 [UI 契約](ui/stock-detail-readable.md)。使用者另行負責測試執行、驗收與上版，本輪不擴展後端或重開模型研究。
+
 - 資料／總控：[WBS 3](wbs/wbs-3-ingestion-admin.md)。
 - 私人記帳／快照：[4J](wbs/wbs-4j-personal-workspace.md)、[4R](wbs/wbs-4r-personal-risk.md)。
 - 四模型／報告：[Specialist](wbs/wbs-5-specialist-engines.md)、[Mart](wbs/wbs-5-intelligence-mart.md)。

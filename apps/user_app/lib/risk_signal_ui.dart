@@ -39,14 +39,14 @@ class RiskSignalCard extends StatelessWidget {
     final asOf = specialist['analysis_as_of']?.toString() ?? '尚未取得';
     final model = validated ? serving['model_version'].toString() : '未啟用新版預測模型';
     return Semantics(
-      label: 'Risk 分析師，$state，資料日 $asOf，交易日盤後更新',
+      label: '波動風險，$state，資料日 $asOf，交易日盤後更新',
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              const Expanded(child: Text('Risk 分析師｜個股風險',
-                  style: TextStyle(fontWeight: FontWeight.w800))),
+            Wrap(spacing: 12, runSpacing: 8, children: [
+              const Text('波動風險｜股價可能晃動多大？',
+                  style: TextStyle(fontWeight: FontWeight.w800)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(color: color.withValues(alpha: .10),
@@ -56,7 +56,7 @@ class RiskSignalCard extends StatelessWidget {
             ]),
             const SizedBox(height: 9),
             Text(!validated
-              ? '新版 Risk12 尚無可用正式推論；僅保留觀測事實，不顯示舊 Risk8 或替代預測。'
+              ? '目前沒有可用的波動預測，不能據此判斷風險高低。'
               : increasing
                 ? '預期未來 20 個交易日的波動高於近期，請留意跳空、流動性與風險控管。'
                 : easing
@@ -66,6 +66,24 @@ class RiskSignalCard extends StatelessWidget {
                     : '預期未來 20 個交易日波動與近期相近，仍需留意市場突然變化。'),
             if (validated) ...[
               const SizedBox(height: 6),
+              for (final entry in <String, double>{
+                if (recent != null) '近期實際波動': recent,
+                '未來 20 交易日預測': predicted,
+              }.entries) ...[
+                Text('${entry.key} ${(entry.value * 100).toStringAsFixed(1)}%'),
+                Padding(padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: LinearProgressIndicator(
+                    value: (recent ?? 0) == 0 && predicted == 0 ? 0 :
+                        entry.value / ((recent ?? 0) > predicted ? recent! : predicted),
+                    color: color, minHeight: 8,
+                    semanticsLabel: '${entry.key}，年化波動',
+                    semanticsValue: '${(entry.value * 100).toStringAsFixed(1)}%',
+                  )),
+              ],
+              Text(recent == null
+                  ? '長條表示預測波動；缺少近期值，無法比較是否升高。'
+                  : '兩條使用同一比例尺；越長表示波動幅度越大，不是上漲機率。',
+                  style: const TextStyle(color: Colors.blueGrey, fontSize: 12)),
               Text(recent != null && recent > 0
                  ? '近期年化波動 ${(recent * 100).toStringAsFixed(1)}% → 預測 ${(predicted * 100).toStringAsFixed(1)}%'
                  : '未來 20 交易日年化 RMS 波動預測 ${(predicted * 100).toStringAsFixed(1)}%',
@@ -74,8 +92,10 @@ class RiskSignalCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text('行情資料日 $asOf · 更新頻率：交易日盤後',
               style: const TextStyle(color: Colors.blueGrey, fontSize: 11)),
-            Text('模型 $model · 模型評估：每月，重訓檢討：每季',
-              style: const TextStyle(color: Colors.blueGrey, fontSize: 11)),
+            ExpansionTile(title: const Text('查看風險計算方式'), children: [
+              Text('模型 $model。以年化尺度表達未來 20 個交易日的波動，並非預測股價漲跌百分比。',
+                style: const TextStyle(color: Colors.blueGrey, fontSize: 12)),
+            ]),
             if (validated)
               const Text('模型為歷史研究定版，前瞻結果仍需持續驗證；不是保證預測。',
                 style: TextStyle(color: Colors.blueGrey, fontSize: 11)),

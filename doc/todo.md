@@ -1,5 +1,11 @@
 # Janus — 唯一 Active TODO
 
+## 個股圖解與白話資訊（2026-10-27）
+
+- 使用者授權本輪需求評估、文件與程式；契約與影響範圍見 [UI 規格](ui/stock-detail-readable.md)。測試、驗收、上版交使用者另行執行，不啟動 CI／部署，不改判 SEQ-08。
+- 本地程式已修改：四面向圖解、估值價帶、波動比較、公告摘要／閱讀提示及分析明細收合；相依 widget assertions 與新案例已撰寫但未執行。`DOC=UPDATED / CODE=IMPLEMENTED / TEST=NOT_RUN / ACCEPTANCE=NOT_RUN / DEPLOY=NOT_RUN`。
+- 待執行：相關 Flutter tests、390px／200% 字級及真實 Owner 圖文驗收、正式 Release／部署；本輪無 PASS 證據。
+
 ## MCP 本人現金部位（2026-10-27，使用者新增授權）
 
 - `janus_private_context` 新增 `resource="cash"`，沿既有Owner現金reader，十進位TWD餘額／未設定null／現金與帳本版本，拒絕client指定Owner、symbol／year；唯讀、沿 `janus.private.read`，不新增資料表或OAuth權限，不需客戶端重新註冊。需部署後重新載入工具清單。

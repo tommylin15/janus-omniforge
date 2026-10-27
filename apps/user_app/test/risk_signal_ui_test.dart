@@ -32,13 +32,14 @@ void main() {
     await mount(tester, specialist(status:'MISSING_OR_INACTIVE_ARTIFACT'));
     expect(find.text('模型尚待驗證'), findsOneWidget);
     expect(find.textContaining('預測 36.0%'), findsNothing);
-    expect(find.textContaining('不顯示舊 Risk8'), findsOneWidget);
+    expect(find.textContaining('目前沒有可用的波動預測'), findsOneWidget);
   });
 
   testWidgets('new Risk12 predicts higher RMS without a buy call', (tester) async {
     await mount(tester, specialist());
     expect(find.text('波動風險升高'), findsOneWidget);
-    expect(find.textContaining('預測 36.0%'), findsOneWidget);
+    expect(find.textContaining('預測 36.0%'), findsWidgets);
+    expect(find.byType(LinearProgressIndicator), findsNWidgets(2));
     expect(find.textContaining('2026-10-23'), findsWidgets);
     expect(find.textContaining('買進'), findsNothing);
   });

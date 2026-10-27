@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'final_charts.dart';
 import 'final_perf.dart';
 import 'final_analysis.dart';
-import 'risk_signal_ui.dart';
+import 'stock_insights.dart';
 import 'final_visual_common.dart';
 import 'final_visual_series.dart';
 import 'main.dart' as legacy;
@@ -750,7 +750,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                 }),
               ] else
                 fvBoundedState(selectedVisual == 'events'
-                  ? '公司事件請參考下方官方事件時間軸。'
+                  ? '公司事件請參考下方公告與閱讀提示。'
                   : '尚無通過期別、來源和可比性驗證的歷史序列。'),
             ],
             if (nonEquity)
@@ -803,16 +803,18 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                   ],
                 ),
               ),
-            if (!nonEquity && baselineRoles.any((item) => fvMap(item)['role'] == 'risk')) ...[
-              RiskSignalCard(
-                specialist: {
-                  ...fvMap(baselineRoles.firstWhere(
-                    (item) => fvMap(item)['role'] == 'risk')),
-                  'seq08_native_model': fvMap(
-                    fvMap(baseline['four_model_serving'])['risk']),
-                },
-                freshness: fvText(baseline['freshness'], missing: 'unavailable'),
-              ),
+            if (!nonEquity) ...[
+              if (errors.contains('baseline')) ...[
+                fvBoundedState('圖解資料暫時讀取失敗；已讀取的舊資料僅供參考'),
+                TextButton(onPressed: () => safe('baseline',
+                    '/api/v1/me/analysis/${Uri.encodeComponent(widget.symbol)}'),
+                  child: const Text('重新讀取圖解資料')),
+              ],
+              if (values.containsKey('baseline'))
+                StockFactsPanel(errors.contains('baseline')
+                    ? {...baseline, 'freshness': 'stale'} : baseline)
+              else if (!errors.contains('baseline'))
+                fvBoundedState('圖解資料載入中'),
             ],
             if (!nonEquity && report['model_validation_status'] == 'validated') ...[
             fvSectionTitle(context, '五面向健康度'),
@@ -825,7 +827,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
               ),
             fvSectionTitle(context, '白話摘要'),
             if (baselineRoles.isNotEmpty)
-              Text('基準分析日 ${fvText(baseline['analysis_as_of'])} · ${baseline['freshness'] == 'stale' ? '資料過期' : '已保存'}；完整五角色見進階資料',
+              Text('基準分析日 ${fvText(baseline['analysis_as_of'])} · ${baseline['freshness'] == 'stale' ? '資料過期' : '已保存'}；完整分析見分析與報告',
                   style: const TextStyle(color: fvMuted, fontSize: 12)),
             summary.isEmpty
                 ? fvBoundedState('白話摘要尚未就緒；不會在開頁時自動呼叫 LLM')
@@ -867,7 +869,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                       style: const TextStyle(color: fvInk, height: 1.45),
                     ),
                   ),
-            fvSectionTitle(context, '公司事件時間軸'),
+            fvSectionTitle(context, '公司公告，看懂發生什麼事'),
             if (errors.contains('events'))
               fvBoundedState('公司事件暫時無法使用')
             else if (events.isEmpty)
@@ -897,6 +899,12 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                                       missing: '事件'),
                                     style: const TextStyle(color: fvInk,
                                         fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 6),
+                                Text(fvText(row['summary'], missing: '目前只有公告標題，尚無可讀摘要；請依來源核對全文。'),
+                                    style: const TextStyle(color: fvInk, height: 1.5)),
+                                const SizedBox(height: 6),
+                                Text(stockEventReadingTip(row),
+                                    style: const TextStyle(color: fvTeal, fontSize: 12)),
                                 Text(row['published_at'] != null
                                     ? '公告：${fvText(row['published_at'])}'
                                     : '公告時間未確認',
@@ -954,11 +962,11 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
               key: const Key('advanced-section'),
               tilePadding: const EdgeInsets.symmetric(horizontal: 4),
               title: const Text(
-                '進階資料',
+                '分析與報告',
                 style: TextStyle(color: fvInk, fontWeight: FontWeight.w800),
               ),
               subtitle: const Text(
-                '完整 specialist、CEO 與 provenance 依能力載入；價量圖已在上方',
+                '看模型能回答什麼、保存的報告與歷史；技術細節預設收合',
               ),
               children: [
                 FinalAnalysisPanel(widget.api, widget.symbol),
@@ -966,7 +974,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
             ),
             const SizedBox(height: 14),
             const Text(
-              '本頁提供研究資訊，不構成投資建議。資料可能為 partial、stale 或 unavailable，請以標示的資料日期與來源為準。',
+              '本頁提供研究資訊，不構成投資建議。資料可能不完整、過期或暫時無法取得，請以標示的資料日期與來源為準。',
               style: TextStyle(color: fvMuted, fontSize: 12, height: 1.45),
             ),
             const SizedBox(height: 24),
