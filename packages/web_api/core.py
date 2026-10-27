@@ -196,7 +196,7 @@ class CoreQueryService:
         if self._serving_series is None:
             return response
         raw = self._serving_series(dataset, normalized, 600 if dataset == 'financials' else
-                                   limit * 3 if dataset == "institutional" else limit)
+                                   limit * 3 if dataset in {"institutional", "ohlcv", "valuation"} else limit)
         if raw is None:
             return response
         response["data_status"] = "missing"
@@ -236,10 +236,13 @@ class CoreQueryService:
                         number = candidate
             except (InvalidOperation, ValueError, TypeError):
                 pass
-            if day_string in dated:
-                if dated[day_string]["value"] is not None or number is None:
-                    continue
             source = str(row.get("source_id") or "").strip()
+            if day_string in dated:
+                current_source = dated[day_string].get("source_id")
+                if current_source in {"twse", "tpex", "mops"} and source == "yahoo-finance":
+                    continue
+                if dated[day_string]["value"] is not None and source not in {"twse", "tpex", "mops"}:
+                    continue
             allowed_sources = {"twse", "tpex", "mops"} | ({"yahoo-finance"} if metric in {"eps", "revenue"} else set())
             if metric == 'revenue':
                 allowed_sources.add('finmind')
