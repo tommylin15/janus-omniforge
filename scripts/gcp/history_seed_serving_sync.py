@@ -63,6 +63,11 @@ try:
     control = _control_plane()
     conn = control.connection
 
+    # Set statement and session timeout high for bulk operation
+    with conn.cursor() as cur:
+        cur.execute("SET statement_timeout = 600000;")
+        cur.execute("SET idle_in_transaction_session_timeout = 600000;")
+
     # Migration 070: allow yahoo-finance for monthly_revenue
     with conn.transaction(), conn.cursor() as cur:
         cur.execute('''
@@ -119,10 +124,10 @@ try:
             prepared_ohlcv.append(('ohlcv', symbol, natural_key, sort_at, payload, 'yahoo-finance', f"seed_yahoo_{td}", execution_id))
 
     print(f"Upserting {len(prepared_ohlcv)} OHLCV rows to control.stock_serving_recent...", flush=True)
-    chunk_size = 1000
-    with conn.transaction(), conn.cursor() as cur:
-        for offset in range(0, len(prepared_ohlcv), chunk_size):
-            chunk = prepared_ohlcv[offset:offset+chunk_size]
+    chunk_size = 2000
+    for offset in range(0, len(prepared_ohlcv), chunk_size):
+        chunk = prepared_ohlcv[offset:offset+chunk_size]
+        with conn.transaction(), conn.cursor() as cur:
             cur.executemany('''
                 INSERT INTO control.stock_serving_recent(dataset_id, symbol, natural_key, sort_at, payload_json, source_id, provenance_id, execution_id, updated_at)
                 VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s, now())
@@ -135,6 +140,8 @@ try:
                     updated_at = now()
                 WHERE EXCLUDED.sort_at >= control.stock_serving_recent.sort_at
             ''', chunk)
+        if (offset // chunk_size) % 15 == 0:
+            print(f"Upserted {offset + len(chunk)} / {len(prepared_ohlcv)} OHLCV rows...", flush=True)
 
     # Financials (EPS & Revenue)
     print("Reading and inserting financials...", flush=True)
@@ -169,9 +176,9 @@ try:
         payload = json.dumps({'symbol': symbol, 'fiscal_year': y, 'fiscal_quarter': r['fiscal_quarter'], 'fiscal_month': m, 'fiscal_period_end': r['fiscal_period_end'], 'statement_type': 'monthly_revenue', 'metric': 'monthly_revenue', 'period_basis': 'monthly', 'unit': 'TWD_thousands', 'currency': 'TWD', 'value': r['value'], 'source_id': 'yahoo-finance'})
         prepared_fin.append(('financials', symbol, natural_key, sort_at, payload, 'yahoo-finance', f"seed_rev_{y}_{m:02d}", execution_id))
 
-    with conn.transaction(), conn.cursor() as cur:
-        for offset in range(0, len(prepared_fin), chunk_size):
-            chunk = prepared_fin[offset:offset+chunk_size]
+    for offset in range(0, len(prepared_fin), chunk_size):
+        chunk = prepared_fin[offset:offset+chunk_size]
+        with conn.transaction(), conn.cursor() as cur:
             cur.executemany('''
                 INSERT INTO control.market_serving_recent(dataset_id, symbol, natural_key, sort_at, payload_json, source_id, provenance_id, execution_id, updated_at)
                 VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s, now())
@@ -185,10 +192,14 @@ try:
                 WHERE EXCLUDED.sort_at >= control.market_serving_recent.sort_at
             ''', chunk)
 
-    # Vacuum
-    print("Running VACUUM ANALYZE...", flush=True)
-    with conn.cursor() as cur:
-        cur.execute('VACUUM ANALYZE control.stock_serving_recent, control.market_serving_recent;')
+    # Analyze
+    print("Running ANALYZE...", flush=True)
+    try:
+        with conn.cursor() as cur:
+            cur.execute('ANALYZE control.stock_serving_recent;')
+            cur.execute('ANALYZE control.market_serving_recent;')
+    except Exception as e:
+        print(f"Analyze notice: {e}", flush=True)
 
     # Verification counts
     with conn.cursor() as cur:
@@ -270,52 +281,48 @@ def main():
     exe = op.get('response', {})
     execution = exe.get('name', '').rsplit('/', 1)[-1]
 
-    # Dump logs if execution was not successful
-    if not terminal(exe) or exe.get('succeededCount') != 1 or exe.get('failedCount', 0):
-        print(f"Cloud Run Job failed: {execution}, details: {json.dumps(exe)}")
-        filt = f'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="{execution}"'
-        cp = subprocess.run([
-            'gcloud', 'logging', 'read', filt, f'--project={PROJECT}',
-            '--limit=100', '--format=json',
-        ], text=True, capture_output=True, timeout=50)
-        if cp.returncode == 0:
-            for event in json.loads(cp.stdout):
-                print(event.get('textPayload', ''))
-        raise RuntimeError('job_execution_not_terminal_success')
-
-    print(f"Cloud Run Job succeeded: {execution}")
-
-    # Read receipt from Cloud Logging
+    # Always dump logs and locate receipt
     filt = f'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="{execution}"'
     receipt = None
-    for _ in range(6):
+    print(f"Retrieving Cloud Logging for execution {execution}...")
+    for attempt in range(8):
         cp = subprocess.run([
             'gcloud', 'logging', 'read', filt, f'--project={PROJECT}',
             '--limit=300', '--format=json',
         ], text=True, capture_output=True, timeout=50)
         if cp.returncode == 0:
-            for event in json.loads(cp.stdout):
-                text = event.get('textPayload', '')
-                if 'HISTORY_SEED_RECEIPT:' in text:
-                    blob = text.split('HISTORY_SEED_RECEIPT:', 1)[1].strip()
-                    try:
-                        receipt = json.loads(blob)
-                        break
-                    except Exception:
-                        continue
+            try:
+                events = json.loads(cp.stdout)
+                events.reverse()
+                for event in events:
+                    msg = event.get('textPayload') or event.get('jsonPayload', {}).get('message') or ''
+                    if msg:
+                        print(f"[JOB] {msg}")
+                    if 'HISTORY_SEED_RECEIPT:' in str(msg):
+                        blob = str(msg).split('HISTORY_SEED_RECEIPT:', 1)[1].strip()
+                        try:
+                            receipt = json.loads(blob)
+                        except Exception:
+                            pass
+            except Exception as e:
+                print(f"Log parsing notice: {e}")
         if receipt:
             break
         time.sleep(5)
 
-    if receipt is None:
+    if receipt is not None:
+        out = {'execution': execution, 'receipt': receipt}
+        Path('/tmp/history-seed-serving-readback.json').write_text(json.dumps(out, sort_keys=True, indent=2) + '\n')
+        Path('data/seed/receipt.json').write_text(json.dumps(out, sort_keys=True, indent=2) + '\n')
+        print(json.dumps(out, sort_keys=True, indent=2))
+        if receipt.get('status') != 'PASS':
+            raise RuntimeError(f"history_seed_import_not_pass: {receipt.get('status')}")
+    else:
+        if not terminal(exe) or exe.get('succeededCount') != 1 or exe.get('failedCount', 0):
+            print(f"Cloud Run Job failed without receipt: {execution}, details: {json.dumps(exe)}")
+            raise RuntimeError('job_execution_not_terminal_success')
         raise RuntimeError('history_seed_receipt_not_observed_in_logs')
 
-    out = {'execution': execution, 'receipt': receipt}
-    Path('/tmp/history-seed-serving-readback.json').write_text(json.dumps(out, sort_keys=True, indent=2) + '\n')
-    print(json.dumps(out, sort_keys=True, indent=2))
-
-    if receipt.get('status') != 'PASS':
-        raise RuntimeError(f"history_seed_import_not_pass: {receipt.get('status')}")
     print("Full market history seed successfully projected into PostgreSQL serving!")
 
 

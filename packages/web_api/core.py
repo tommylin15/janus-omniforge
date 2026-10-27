@@ -240,7 +240,7 @@ class CoreQueryService:
                 if dated[day_string]["value"] is not None or number is None:
                     continue
             source = str(row.get("source_id") or "").strip()
-            allowed_sources = {"twse", "tpex", "mops"} | ({"yahoo-finance"} if metric == "eps" else set())
+            allowed_sources = {"twse", "tpex", "mops"} | ({"yahoo-finance"} if metric in {"eps", "revenue"} else set())
             if metric == 'revenue':
                 allowed_sources.add('finmind')
             if dataset in {"institutional", "financials"} and (source not in allowed_sources or not row.get("provenance_id")):
