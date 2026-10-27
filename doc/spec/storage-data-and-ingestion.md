@@ -15,6 +15,7 @@
 | Core／Silver | Iceberg／Parquet | 正規化、去重、單位、日期、null、PIT、provenance、文本與股票代號關聯 | ingestion-core／DuckDB／PyIceberg | intelligence-mart、read-only query runtime |
 | Mart／Gold | Iceberg／Parquet | 特徵、角色輸出、聚合、研報、評估 | intelligence-mart | FastAPI、User、Admin |
 | Private control／ledger | PostgreSQL append-only events／bounded index | 使用者手動交易、修正、冪等、所有權、目前關注狀態、私人 artifact index 與 pipeline checkpoint | private API | 該使用者、private pipeline |
+| Public Serving Projection | PostgreSQL `control.*_serving_recent` | 低延遲查詢快取（日頻 OHLCV、估值、EPS、月營收）；採 Tier-1（2年）與 Tier-2（120天）分級淘汰與容量防護 | FastAPI Public Runtime | User App 圖表與個股資訊（詳見 [歷史種子與 Serving 契約](history-seed-pipeline.md)） |
 | Private Core／Mart | 加密受限 Iceberg／Parquet | 交易正規化、筆記 revision、關注歷史、AI messages／context／citations、庫存與損益 | private pipeline／chat persistence | 該使用者的 API，不得公開 |
 
 規則：

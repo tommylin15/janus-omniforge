@@ -1,5 +1,20 @@
 # Janus — 唯一 Active TODO
 
+## 全市場 2 年歷史資料補齊與 Serving 快取日常維護（2026-10-27）
+
+- **架構與生命週期契約回寫完成**：已制定並回寫正式契約 [`doc/spec/history-seed-pipeline.md`](spec/history-seed-pipeline.md)，並同步更新 [儲存契約](spec/storage-data-and-ingestion.md) 與 [Retention 治理](spec/retention-governance.md)。
+  - **雙層分工**：Core Iceberg (GCS) 為 100% 全市場 $\times$ 完整 2~3 年歷史冷儲存單一事實來源；PostgreSQL `control.*_serving_recent` 為有界低延遲熱快取投影。
+  - **GCP Free Tier 守護策略（Cold/Hot Tiering）**：PostgreSQL 絕不無界灌入 300 萬筆日線。實施分級：Tier 1（持股／關注清單／高流動性標的約 150~200 檔）保留 2 年（500日）；Tier 2（全市場其餘 ~1,800 檔）保留 90~120 天近端走勢；低頻單季 EPS（12 季）與單月營收（24 個月）全量進快取（< 10MB）。總筆數受控於 25~38 萬筆，磁碟佔用 < 95MB，安全低於 30GB 限制。
+  - **日常全自動滾動淘汰排程**：
+    - 每日 18:30 EOD 批次：更新 Tier 1/2 清單、寫入今日行情至 Core Iceberg 與 Serving 快取、自動 Prune 淘汰過期快照（Tier 1 > 750d，Tier 2 > 120d）。
+    - 每月 10 日 21:00 營收批次：寫入 Core Iceberg 與 Serving、自動 Prune 淘汰 > 24 個月前營收。
+    - 每季財報申報截止日批次：寫入 Core Iceberg 與 Serving、自動 Prune 淘汰 > 12 季前 EPS。
+    - 每週六 02:00 DB 維護：清理孤兒快照並執行 `VACUUM ANALYZE` 釋放 dead tuples 與整理 Index。
+- **種子蒐集實作與樣本驗證 PASS**：
+  - 蒐集器實作於 [`scripts/seed/fetch_2y_history_seed.py`](../scripts/seed/fetch_2y_history_seed.py)，採用 Python 標準庫 `gzip` 產出 `.jsonl.gz` 壓縮包（全市場 < 40MB），完全避免 `noexec` 環境下 native binary（如 pyarrow）載入問題。
+  - 抽樣 6 檔代表標的（2330, 2317, 2454, 2882, 6488, 8069）驗收成功：日線 2,904 筆（484 天/檔）、單季 EPS 72 筆（12 季/檔）、單月營收 144 筆（24 個月/檔）全數成功產出。
+- **下一步**：實作 Serving 匯入與淘汰修剪處理器（`scripts/seed/import_seed_to_serving.py`）、批次匯入至 Dev Serving、打通個股圖表歷史序列。
+
 ## 個股圖解與白話資訊（2026-10-27 前端增量）
 
 - **程式／測試／部署 100% PASS**：來源 `73f02252c8a7e8c3d2162d7f25dd22a5c023915f`。

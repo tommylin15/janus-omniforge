@@ -26,6 +26,7 @@
 | Specialist 成果 | 每股最近 3 代完整分析 | 被有效分析引用的共用 hash 不誤刪 |
 | OOS/ML artifacts | 保留仍使用結果；無引用、過時逾7天可清 | 固定 dataset/label/schema/hash，另有模型登錄時定義正式保護 |
 | Core execution manifest | 90 天及活躍執行操作保護 | 不再因外部歷史研究 fence 延長 Iceberg snapshot |
+| PostgreSQL Serving 快取 (`stock_serving_recent`) | Tier 1: 750 天；Tier 2: 120 天；營收: 24 個月；EPS: 12 季 | 依 [歷史種子與 Serving 契約](history-seed-pipeline.md) 分級，每日/月/季批次修剪，週六 vacuum |
 | 非 current orphan Parquet/Avro/metadata | ≥7天 | generation 刪除＋catalog/current readback |
 | 私有 ledger、成本、現金、筆記、交易 | 公開 retention 不適用 | Owner 隔離及私人備份政策獨立 |
 

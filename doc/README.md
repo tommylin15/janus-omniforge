@@ -35,6 +35,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `PROJECT_RULES.md`：治理、權限、驗證與文件維護規則。
 - `project-management.md`：單一執行順序、文件責任、驗收與風險決策選項。
 - `spec/valuation-range.md`：2026-10-24 最新決策改為 **04 Valuation 估值區間子契約**，第五模型已撤銷；工程進度依唯一 TODO；舊 Drive AI 交接屬歷史參考；[Drive AI 交接](https://drive.google.com/file/d/1M7pxgkeyzK_Joi4C9Z2aTSRCgdV-u5YO/view)。
+- `spec/history-seed-pipeline.md`：**全市場歷史資料種子收錄與 Serving 快取生命週期契約**；2 年 OHLCV、3 年 EPS、2 年營收、Iceberg 冷儲存與 PostgreSQL 分級熱快取（Tier 1 2年 vs Tier 2 120天）及日常自動滾動淘汰排程。
 - `wbs.md`：單一路線責任、必要前置與集中部署；不另建第二份 TODO。
 - `spec/data-governance.md`：正式 Canonical 保存、Scheduler 與補收政策；模型研究採集另以 `spec/research-collection-gas-drive-colab.md` 為唯一規格。
 - `status.md`：目前狀態與下一個執行序列的短入口；不是新的 source of truth。

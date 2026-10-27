@@ -32,6 +32,7 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 | 產品目標、優先序、Token-first specialist、On-demand CEO、全域架構決策 | [產品目標與架構決策](spec/overview-and-decisions.md) | 涉及 API 或部署時再讀對應切片 |
 | Monorepo、服務責任、GCP 拓撲 | [Monorepo 與 GCP 拓撲](spec/repository-and-gcp.md) | 涉及 IAM／release 時讀品質與發布 |
 | Iceberg／PostgreSQL、公開／私人資料、來源、Ingestion | [儲存、資料供應與 Ingestion](spec/storage-data-and-ingestion.md) | 產製 Mart 時讀 Intelligence |
+| 全市場 2 年歷史種子收錄、Serving 快取分級與滾動淘汰 | [歷史種子收錄與 Serving 契約](spec/history-seed-pipeline.md) | 涉及歷史補齊與 PG 容量防護必讀 |
 | Mart、Fact Pack、四模型及舊 event 事實 specialist 相容、evaluation、On-demand CEO boundary、publication、DuckDB boundary | [Intelligence、Aggregator 與 Runtime](spec/intelligence-and-governance.md) | specialist 細節再讀 [Specialist Engines](spec/specialist-engines.md) |
 | 公開資料 retention／Stage-Core-Mart 清理與 current-only snapshot | [公開資料保存治理](spec/retention-governance.md) | 排程、補收先讀 [統一治理入口](spec/data-governance.md)；真實執行查 Operations |
 | FastAPI、User／Admin、MCP／OAuth、GCP 開發與 CI/CD | [API、User、Admin 與交付](spec/api-and-delivery.md) | UI 行為另讀 UI 索引 |
