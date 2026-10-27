@@ -1,12 +1,12 @@
 # Janus 最新驗收證據索引
 
-## 2026-10-27 Admin 共用 Google 登入｜Dev API-only 100% PASS（真人 Admin 正向未驗）
+## 2026-10-27 Admin 共用 Google 登入｜CLOSED／PASS（使用者真人登入成功）
 
 - **部署來源** `ec1061652bfb2226e88f1b25aa9d416dee51a2ed`；Flutter User/Admin 共用既有 `GOOGLE_USER_CLIENT_ID`，Admin 進管理介面前查 `GET /api/v1/admin/session`；後端驗證 Google issuer/audience/exp/email_verified/sub 並對 `GOOGLE_ADMIN_ALLOWED_EMAILS` 單獨授權。舊 Admin client 以合法另一 audience 過渡保留，MCP bearer 不能冒充 Google ID token。
 - **離線與映像**：[完整 Release #40460262500](https://github.com/tommylin15/janus-omniforge/actions/runs/40460262500) completed/success（Python 2,020 passed、Flutter analyze/test/build PASS、四個 GHCR 映像發布與匿名驗證 PASS）。前次 #40459888447 因舊 usage analytics 測試預期拒絕所有 User audience 而有1項FAIL；已改成測試 Admin allowlist 正反向並通過，不把歷史 FAIL 改判。
 - **受控候選／授權／正式發布**：[0% candidate #40460824526](https://github.com/tommylin15/janus-omniforge/actions/runs/40460824526) completed/success、revision `janus-api-00621-pof`、image `ghcr.io/tommylin15/janus-api@sha256:d1e519a69779934b228cd2cd17655dd8d04abcfeb69a55d29cad2c3a432ac58b`；[同源 read-only auth boundary #40461139265](https://github.com/tommylin15/janus-omniforge/actions/runs/40461139265) completed/success；[API-only promote #40461306304](https://github.com/tommylin15/janus-omniforge/actions/runs/40461306304) completed/success，52項promotion/lease/offline guards通過、真 GCP runtime traffic readback 與回復收據已保存為 workflow artifact `ghcr-api-only-promotion-receipt`。
 - **安全範圍**：只切既有 Janus Dev API／Flutter App，保留舊 100% `ab5b1268` rollback baseline；不改四 Jobs、Scheduler、MCP tags、IAM、Storage、Owner ledger或模型。第一次候選 #40460808681、第一次重複 API promotion #40461265506 均在 `main` freshness lease gate 被拒且未成功切流，後續同源正常 run 成功，不將前兩次記成 PASS。
-- **限制**：上述是已部署 API/App、匿名 OAuth/權限邊界及離線允許／拒絕邏輯的 PASS。沒有取得新版本真實 Google Admin ID token 或使用者登入畫面的正向 200／四管理頁讀回；`ADMIN_GOOGLE_REAL_LOGIN=NOT_VERIFIED`，不能以匿名401、模擬 claims 或已成功切流冒充。待使用者以 Admin 帳號在正式 `/app/admin/` 登入驗證，無需另開 OAuth client／Secret。
+- **2026-10-27 真人正向驗收／正式結案**：使用者在新版本部署後親自回報「登入成功」，並於同一對話明確指示「結案」。記錄 `ADMIN_GOOGLE_REAL_LOGIN=PASS_USER_CONFIRMED`、`ADMIN_SHARED_GOOGLE_OAUTH=CLOSED/PASS`；依現行 Flutter `final_visual.dart` 登入流程，Admin 進入工作台前必須通過 `GET /api/v1/admin/session`，後端仍執行 Admin 專屬白名單與 Google ID token 驗證。**證據邊界**：本次沒有取得或保存真實 ID token／API response payload，也沒有另外證實四個管理頁逐頁讀取、非 Admin 真人負向登入；這些不冒稱獨立 live API 測試 PASS。既有權限負向／白名單測試由 Release 與 auth boundary 保留。使用者核准的登入修復工項已滿足有界驗收而結案；不建立額外 OAuth client／Secret，不對其它 Owner UI、MCP 第三方首次 consent 或 SEQ-08 工項改判。
 
 
 ## 2026-10-27 Gemini CLI／Antigravity OAuth｜伺服器部署 PASS
