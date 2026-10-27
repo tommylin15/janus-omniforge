@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "ab5b12686839019cec40065fa6d043b6334e52a0",
+  "sha": "ec1061652bfb2226e88f1b25aa9d416dee51a2ed",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Owner watchlist repair: full Release #40452156270 and 0%-traffic candidate #40452708990 PASS. Read-only exact SHA public health, private owner/Admin 401/403, OAuth metadata and route boundary. No Owner token access or GCP mutation; needed for controlled API-only promotion.",
-  "request_attempt": 15
+  "purpose": "Shared Janus Dev API candidate #40460824526 passed, same release #40460262500 and exact SHA ec106165. Read-only OAuth issuer, Admin/User/MCP unauthenticated boundaries, protected Admin session and source build-id; no Owner credential or GCP mutation. For approved Admin shared-login and Owner watchlist repair.",
+  "request_attempt": 16
 }
