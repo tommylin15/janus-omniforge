@@ -602,9 +602,14 @@ class PostgresWorkspaceRepository:
             return {}
         with self._connection() as connection:
             rows = connection.execute(
-                """SELECT symbol,sort_at,payload_json
-                   FROM publication.stock_latest
-                   WHERE dataset_id='ohlcv' AND symbol=ANY(%s)""",
+                """SELECT selected.symbol,latest.sort_at,latest.payload_json
+                   FROM unnest(%s::text[]) AS selected(symbol)
+                   JOIN LATERAL (
+                     SELECT r.sort_at,r.payload_json
+                     FROM publication.stock_serving_recent r
+                     WHERE r.dataset_id='ohlcv' AND r.symbol=selected.symbol
+                     ORDER BY r.sort_at DESC LIMIT 1
+                   ) latest ON true""",
                 (sorted(identities),),
             ).fetchall()
         result = {}
