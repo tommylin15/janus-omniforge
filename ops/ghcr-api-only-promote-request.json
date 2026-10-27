@@ -12,7 +12,7 @@
   "no_scheduler_mutation": true,
   "no_storage_mutation": true,
   "no_iam_mutation": true,
-  "purpose": "Owner watchlist performance root cause: Cloud Run GET 200 after 10-12s exceeded Flutter 9s; QueryCanceled observed. Deploy indexed per-symbol stock_serving_recent reads and 25s bounded UI timeout, plus already approved same-source Admin OAuth. Full Release #40460262500 PASS, 0% candidate #40460824526 PASS, auth boundary #40461139265 PASS; prior Dev 100% ab5b1268 must match before traffic write. Reversible existing Dev API-only promotion; Jobs, Scheduler, storage, IAM, owner and models untouched.",
+  "purpose": "Approved existing Dev API/App-only update combining shared Google User login for Admin with independent Admin email allowlist/session preflight and bounded Owner watchlist repair. Full Release #40460262500, 0% candidate #40460824526 and exact auth boundary #40461139265 PASS. Fail closed unless prior canonical source ab5b1268 matches live; preserve MCP routing tags, four Jobs, Scheduler, storage, IAM, Owner data; reversible traffic switch only.",
   "traffic_validation_mode": "direct",
-  "request_attempt": 9
+  "request_attempt": 10
 }
