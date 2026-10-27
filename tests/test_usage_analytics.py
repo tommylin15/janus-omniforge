@@ -42,7 +42,7 @@ def test_cross_midnight_oversized_and_repeated_events_rejected():
     assert UsageBatch.model_validate(batch()).events[0].feature_id=='journal'
 
 
-def test_api_binds_identity_and_admin_audience(monkeypatch):
+def test_api_binds_identity_and_admin_allowlist(monkeypatch):
     from tests.test_user_api import Repository,Store,Core,auth,admin_auth,USER_ID
     from services.api.app import create_app
     from fastapi.testclient import TestClient
@@ -53,7 +53,8 @@ def test_api_binds_identity_and_admin_audience(monkeypatch):
     repo=Repository()
     def verify(token,audience):
         return {'iss':'https://accounts.google.com','aud':'admin-client' if token=='valid-admin-token' else 'user-client',
-                'sub':'synthetic','email':'admin@example.com','email_verified':True,'exp':1900000000}
+                'sub':'synthetic','email':'other@example.com' if token=='nonadmin-user' else 'admin@example.com',
+                'email_verified':True,'exp':1900000000}
     api=TestClient(create_app(repo,Store(),verify,audience='user-client',core=Core(),
         admin_verifier=verify,admin_audience='admin-client',admin_emails=frozenset({'admin@example.com'})))
     assert api.post('/api/v1/me/usage/batches',json=batch(),headers=auth()).status_code==200
@@ -61,7 +62,10 @@ def test_api_binds_identity_and_admin_audience(monkeypatch):
     spoof=event(); spoof['feature_id']='admin_overview'
     assert api.post('/api/v1/me/usage/batches',json=batch([spoof]),headers=auth()).status_code==422
     assert api.post('/api/v1/admin/usage/self/batches',json=batch(),headers=admin_auth()).status_code==422
-    assert api.get('/api/v1/admin/usage/overview',headers=auth()).status_code==401
+    # Shared Google User login is accepted only for a verified Admin member.
+    assert api.get('/api/v1/admin/usage/overview',headers=auth()).status_code==200
+    assert api.get('/api/v1/admin/usage/overview',
+                   headers={'Authorization':'Bearer nonadmin-user'}).status_code==403
     assert api.get('/api/v1/me/usage/preference',headers=admin_auth()).status_code==401
     assert api.get('/api/v1/admin/usage/overview?days=10000',headers=admin_auth()).status_code==422
     assert api.get('/api/v1/admin/usage/overview',headers=admin_auth()).status_code==200
