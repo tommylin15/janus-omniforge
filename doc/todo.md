@@ -1,12 +1,5 @@
 # Janus — 唯一 Active TODO
 
-## Admin Google 共用登入｜唯一剩餘真人正向驗收（2026-10-27）
-
-- **CODE／完整 CI／Dev API 100% PASS**：來源 `ec1061652bfb2226e88f1b25aa9d416dee51a2ed`。兩個 Flutter 入口共用既有 Google User Web client；Admin 後端仍使用 `GOOGLE_ADMIN_ALLOWED_EMAILS` 獨立授權並先檢查 `/api/v1/admin/session`，一般 User 不因 Google 登入而取得管理權；舊 Admin client 過渡相容。不修改 MCP OAuth、IAM 或 Token/Secret。
-- **精確收據**：[Release #40460262500](https://github.com/tommylin15/janus-omniforge/actions/runs/40460262500) Python 2,020 pass + Flutter + GHCR四映像 PASS → [0% candidate #40460824526](https://github.com/tommylin15/janus-omniforge/actions/runs/40460824526) PASS → [OAuth/Admin/Owner匿名邊界 #40461139265](https://github.com/tommylin15/janus-omniforge/actions/runs/40461139265) PASS → [API-only 100% #40461306304](https://github.com/tommylin15/janus-omniforge/actions/runs/40461306304) completed/success、readback/rollback receipt。未觸及四 Jobs／Scheduler／Owner ledger。歷史租約阻擋見 [Operations](spec/operations-and-testing.md)。
-- **唯一未驗**：新版本由使用者本人在正式 [Admin App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/admin/) 以 Admin Google 帳號正向登入，確認四管理頁實際可讀（至少總覽與批次）、非 Admin 帳號被拒。當前 `ADMIN_GOOGLE_REAL_LOGIN=NOT_VERIFIED`；自動無憑證401／測試假 claims／API100不等於真人登入驗收。成功後移除此 active item，保留 Operations 收據；不需要重建 OAuth client 或再次整版部署。
-
-
 ## OAuth 客戶端首次授權正向驗收（2026-10-27）
 
 - 伺服器接線／測試／部署 **PASS**：[MCP route #40456143800](https://github.com/tommylin15/janus-omniforge/actions/runs/40456143800)，兩個固定 MCP tags 已更新，正式 API traffic 不變；完整收據見 [Operations](spec/operations-and-testing.md)。
