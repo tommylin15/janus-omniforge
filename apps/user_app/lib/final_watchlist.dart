@@ -100,7 +100,9 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     final stopwatch = Stopwatch()..start();
     try {
       final response = await widget.api.get('/api/v1/me/watchlist')
-          .timeout(const Duration(seconds: 9));
+          // Allow bounded mobile latency; 9s caused false failures even when
+          // the authenticated Owner endpoint eventually returned HTTP 200.
+          .timeout(const Duration(seconds: 25));
       if (generation == loadGeneration) lastGoodData = response;
       return generation == loadGeneration ? response : null;
     } finally {
