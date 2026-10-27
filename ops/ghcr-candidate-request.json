@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "ec1061652bfb2226e88f1b25aa9d416dee51a2ed",
+  "sha": "0b2e3eb3e819c94928d0a49e711bdb3af5f611b7",
   "digest": "",
-  "release_run": "40460262500",
+  "release_run": "40477783215",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Bounded Owner watchlist performance repair plus concurrent approved Admin shared-login implementation: source ec106165 full Release #40460262500 all Python/Flutter/GHCR gates PASS. 0%-traffic Dev API candidate, prior canonical traffic and four Jobs/Scheduler/DB data preserved; validate exact build, OAuth boundary and reversible API-only promotion separately.",
-  "request_attempt": 20
+  "purpose": "Owner cash MCP read-only resource: full exact-source Release #40477783215 SUCCESS, including Python, Flutter, all four immutable GHCR images and anonymous pull. Create existing Dev API zero-traffic candidate for same-source auth boundary and subsequent two fixed MCP tag updates. No canonical traffic, Jobs, Scheduler, IAM, Secret, OAuth scope or Owner data mutations; cash remains janus.private.read.",
+  "request_attempt": 21
 }
