@@ -130,7 +130,8 @@ class QueryCore:
                                  "limit": limit, "offset": offset})()
 
 
-def client(claims=None,public=None,query_core=None,raise_server_exceptions=True,private_recalculator=None):
+def client(claims=None,public=None,query_core=None,raise_server_exceptions=True,private_recalculator=None,
+           allow_user_admin=False):
     repo,store=Repository(),Store()
     private_recalculator=private_recalculator or Recalculator()
     values=claims or {"iss":"https://accounts.google.com","aud":"user-client","sub":"google-a","email":"old@example.com","email_verified":True,"exp":1_900_000_000}
@@ -143,7 +144,8 @@ def client(claims=None,public=None,query_core=None,raise_server_exceptions=True,
     app=create_app(repo,store,lambda _token,_audience:values,audience="user-client",core=Core(),
                    query_core=query_core,
                    admin_verifier=verify_admin,admin_audience="admin-client",
-                   admin_emails=frozenset({"admin@example.com"}),
+                   admin_emails=frozenset({"admin@example.com", "old@example.com"}
+                                          if allow_user_admin else {"admin@example.com"}),
                    public=public,private_recalculator=private_recalculator)
     return TestClient(app, raise_server_exceptions=raise_server_exceptions),repo,store
 
@@ -305,9 +307,9 @@ def test_unhandled_error_response_and_log_do_not_leak_secret(caplog):
 def test_core_routes_require_admin_audience_and_preserve_legacy_contract():
     api,_,_=client(query_core=QueryCore())
     assert api.get("/api/v1/admin/core/2330/summary").status_code==401
-    assert api.get("/api/v1/admin/core/2330/summary",headers=auth()).status_code==401
-    assert api.get("/api/v1/admin/memberships/core_focus",headers=auth()).status_code==401
-    assert api.post("/api/v1/admin/executions/old/items/item/retry",headers=auth()).status_code==401
+    assert api.get("/api/v1/admin/core/2330/summary",headers=auth()).status_code==403
+    assert api.get("/api/v1/admin/memberships/core_focus",headers=auth()).status_code==403
+    assert api.post("/api/v1/admin/executions/old/items/item/retry",headers=auth()).status_code==403
     assert api.get("/api/v1/admin/core/2330/summary",headers={"Authorization":"Bearer other-admin-token"}).status_code==403
     assert api.get("/api/v1/admin/core/2330/summary",headers=admin_auth()).json()=={
         "symbol":"2330","datasets":{}
@@ -316,6 +318,34 @@ def test_core_routes_require_admin_audience_and_preserve_legacy_contract():
     assert page.status_code==200
     assert page.json()=={"dataset_id":"ohlcv","symbol":"2330","rows":[],"limit":10,"offset":2}
 
+
+
+def test_shared_google_login_still_requires_explicit_admin_allowlist():
+    api, _, _ = client()
+    endpoint = "/api/v1/admin/session"
+    assert api.get(endpoint).status_code == 401
+    # The same User Google client authenticates, but the email is not Admin.
+    assert api.get(endpoint, headers=auth()).status_code == 403
+    assert api.get(endpoint, headers=admin_auth()).json() == {"authorized": True}
+
+    allowed, _, _ = client(allow_user_admin=True)
+    response = allowed.get(endpoint, headers=auth())
+    assert response.status_code == 200
+    assert response.json() == {"authorized": True}
+    assert response.headers["Cache-Control"] == "no-store"
+    assert "email" not in response.text and "sub" not in response.text
+    # Admin membership doesn't relax User OAuth's own audience check.
+    assert allowed.get("/api/v1/me/profile", headers=auth()).status_code == 200
+
+
+def test_shared_google_admin_rejects_unverified_and_wrong_issuer():
+    base = {"iss": "https://accounts.google.com", "aud": "user-client",
+            "sub": "google-a", "email": "old@example.com",
+            "email_verified": True, "exp": 1_900_000_000}
+    for changed in ({"email_verified": False}, {"iss": "https://fake.example"},
+                    {"exp": 1}, {"aud": "untrusted-client"}, {"sub": ""}):
+        api, _, _ = client(claims={**base, **changed}, allow_user_admin=True)
+        assert api.get("/api/v1/admin/session", headers=auth()).status_code == 401
 
 
 def test_admin_gcs_inventory_requires_admin_and_is_read_only(monkeypatch):
@@ -330,7 +360,7 @@ def test_admin_gcs_inventory_requires_admin_and_is_read_only(monkeypatch):
     api, _, _ = client()
     url = "/api/v1/admin/gcs-storage/inspect"
     assert api.post(url, json={}).status_code == 401
-    assert api.post(url, json={}, headers=auth()).status_code == 401
+    assert api.post(url, json={}, headers=auth()).status_code == 403
     assert api.post(url, json={}, headers={"Authorization": "Bearer other-admin-token"}).status_code == 403
     assert calls == []
     ok = api.post(url, json={}, headers=admin_auth())
