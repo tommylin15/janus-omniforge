@@ -1,5 +1,14 @@
 # Janus 最新驗收證據索引
 
+## 2026-10-27 Janus MCP 連線修復診斷
+
+- 已重現：ChatGPT 安裝的 `Janus Dev Read-only v2`，`janus_sources` 及 2330 OHLCV limit=1 均回 MCP -32603 Internal error；尚未修復。
+- 實際 HTTP：既有 mcp-adapter `/mcp` tools/list 200，精確三個唯讀工具；無憑證 sources 呼叫 401，OAuth resource metadata 200。mcp-oauth metadata 200，ChatGPT client＋既有 callback＋S256 prelogin 302 至 accounts.google.com，Google callback 保持既有 issuer `/oauth/google/callback`。
+- mcp-adapter／mcp-oauth `/app/build-id.txt` 均為 `fbcc5f58a2fa31f2f36dc4c82702fb62910c7361`；沒有這兩入口已掉線或版本分裂的證據。本輪不更換 OAuth client、不改 Secret、不任意重綁 traffic tags。
+- 故障仍可能位於安裝連接授權／refresh 交換或 authenticated runtime；僅 metadata／負向拒絕不能證明 token 有效。下一步由使用者對同一現有 Janus 連接重新授權，再測 sources／有界行情／owner private read。未取得新授權證據前保持 BLOCKED，不稱已修復。
+- 另觀察 canonical janus-api 的 build-id 及 OAuth metadata HTTP 500；MCP tagged 入口上述請求仍成功，不能據此斷言 canonical 500 是這次 connector Internal error 的原因。
+
+
 ## 2026-10-26 SEQ-08 最終 Quant Rank JSONB 型別糾正與 Release/Live 收據
 
 - **固定現役版** `462bd1c85708cb5bc4ce1877d35a3645ff9668d4`：五 approved UBJ 原子 Registry ACTIVE、Release [#40215268427](https://github.com/tommylin15/janus-omniforge/actions/runs/40215268427)、四 Job [#40216332296](https://github.com/tommylin15/janus-omniforge/actions/runs/40216332296)、API100 [#40247497520](https://github.com/tommylin15/janus-omniforge/actions/runs/40247497520)、全市場 Screening [#40247788673](https://github.com/tommylin15/janus-omniforge/actions/runs/40247788673)、Deep Coverage [#40248399245](https://github.com/tommylin15/janus-omniforge/actions/runs/40248399245) 均有真實 PASS；不另部署舊權重。
