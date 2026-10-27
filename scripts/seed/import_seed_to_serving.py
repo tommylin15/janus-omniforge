@@ -12,27 +12,15 @@ or inside a Cloud Run Job execution.
 from __future__ import annotations
 
 import argparse
-from datetime import date, datetime, timezone
-from decimal import Decimal
+from collections import defaultdict
+from datetime import datetime, timezone
 import gzip
 import json
 import os
 from pathlib import Path
 import sys
+import time
 from typing import Any
-
-
-def read_gz_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        print(f"Warning: {path} not found.")
-        return []
-    items = []
-    with gzip.open(path, "rt", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                items.append(json.loads(line))
-    return items
 
 
 def get_db_connection():
@@ -52,38 +40,51 @@ def get_db_connection():
 
 def resolve_tier1_symbols(connection: Any, fallback_symbols: list[str]) -> set[str]:
     tier1 = set(fallback_symbols)
-    try:
-        with connection.cursor() as cur:
-            # Union of active watchlist and active holdings
-            cur.execute("""
-                SELECT symbol FROM private.watchlist WHERE active
-                UNION
-                SELECT symbol FROM private.current_positions WHERE shares > 0
-            """)
-            for row in cur.fetchall():
-                tier1.add(str(row[0]).upper())
-    except Exception as e:
-        print(f"Note: Could not query private active watchlist/holdings ({e}). Using focus fallback.")
+    if connection is not None:
+        try:
+            with connection.cursor() as cur:
+                cur.execute("""
+                    SELECT symbol FROM private.watchlist WHERE active
+                    UNION
+                    SELECT symbol FROM private.current_positions WHERE shares > 0
+                """)
+                for row in cur.fetchall():
+                    tier1.add(str(row[0]).upper())
+        except Exception as e:
+            print(f"Note: Could not query private active watchlist/holdings ({e}). Using focus fallback.")
     return tier1
 
 
-def import_ohlcv(connection: Any, ohlcv_rows: list[dict[str, Any]], tier1_symbols: set[str], dry_run: bool = False) -> dict[str, int]:
-    from collections import defaultdict
+def import_ohlcv(connection: Any, ohlcv_path: Path, tier1_symbols: set[str], dry_run: bool = False) -> dict[str, int]:
+    t0 = time.time()
     by_symbol = defaultdict(list)
-    for r in ohlcv_rows:
-        by_symbol[r["symbol"]].append(r)
+    total_parsed = 0
 
-    prepared = []
-    execution_id = "00000000-0000-0000-0000-000000000001"
-    now_utc = datetime.now(timezone.utc).isoformat()
+    with gzip.open(ohlcv_path, "rt", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            r = json.loads(line)
+            by_symbol[r["symbol"]].append((
+                r["trade_date"],
+                r["open"],
+                r["high"],
+                r["low"],
+                r["close"],
+                int(r["volume_shares"]),
+                r.get("market", "TWSE"),
+            ))
+            total_parsed += 1
 
     tier1_count = 0
     tier2_count = 0
+    prepared = []
+    execution_id = "00000000-0000-0000-0000-000000000001"
 
     for symbol, rows in by_symbol.items():
-        rows.sort(key=lambda x: x["trade_date"])
+        rows.sort(key=lambda x: x[0])
         is_tier1 = symbol in tier1_symbols
-        # Tier 1 keeps up to 500 days; Tier 2 keeps up to 120 days
         limit = 500 if is_tier1 else 120
         selected = rows[-limit:] if len(rows) > limit else rows
         if is_tier1:
@@ -91,36 +92,39 @@ def import_ohlcv(connection: Any, ohlcv_rows: list[dict[str, Any]], tier1_symbol
         else:
             tier2_count += len(selected)
 
-        for r in selected:
-            trade_date = r["trade_date"]
-            payload = {
-                "trade_date": trade_date,
-                "open": r["open"],
-                "high": r["high"],
-                "low": r["low"],
-                "close": r["close"],
-                "volume": int(r["volume_shares"]),
-                "turnover": None,
-                "source_id": "yahoo-finance",
-            }
-            sort_at = f"{trade_date}T13:30:00+08:00"
-            natural_key = f"{symbol}_{r.get('market','TWSE')}_{trade_date}"
-            prepared.append((
-                "ohlcv",
-                symbol,
-                natural_key,
-                sort_at,
-                json.dumps(payload),
-                "yahoo-finance",
-                f"seed_yahoo_{trade_date}",
-                execution_id,
-            ))
+        if not dry_run:
+            for trade_date, o, h, l, c, v, market in selected:
+                payload = {
+                    "trade_date": trade_date,
+                    "open": o,
+                    "high": h,
+                    "low": l,
+                    "close": c,
+                    "volume": v,
+                    "turnover": None,
+                    "source_id": "yahoo-finance",
+                }
+                sort_at = f"{trade_date}T13:30:00+08:00"
+                natural_key = f"{symbol}_{market}_{trade_date}"
+                prepared.append((
+                    "ohlcv",
+                    symbol,
+                    natural_key,
+                    sort_at,
+                    json.dumps(payload),
+                    "yahoo-finance",
+                    f"seed_yahoo_{trade_date}",
+                    execution_id,
+                ))
 
-    if dry_run:
-        print(f"[DRY-RUN] OHLCV prepared: {len(prepared)} rows (Tier 1: {tier1_count}, Tier 2: {tier2_count})")
-        return {"total": len(prepared), "tier1": tier1_count, "tier2": tier2_count}
+    elapsed = time.time() - t0
+    total_prepared = tier1_count + tier2_count
+    print(f"OHLCV parsed {total_parsed} rows -> prepared {total_prepared} rows (Tier 1: {tier1_count}, Tier 2: {tier2_count}) in {elapsed:.2f}s")
 
-    chunk_size = 500
+    if dry_run or not connection:
+        return {"total": total_prepared, "tier1": tier1_count, "tier2": tier2_count}
+
+    chunk_size = 1000
     with connection.transaction(), connection.cursor() as cur:
         for offset in range(0, len(prepared), chunk_size):
             chunk = prepared[offset:offset + chunk_size]
@@ -139,82 +143,103 @@ def import_ohlcv(connection: Any, ohlcv_rows: list[dict[str, Any]], tier1_symbol
                    WHERE EXCLUDED.sort_at >= control.stock_serving_recent.sort_at""",
                 chunk,
             )
+    return {"total": total_prepared, "tier1": tier1_count, "tier2": tier2_count}
 
-    return {"total": len(prepared), "tier1": tier1_count, "tier2": tier2_count}
 
-
-def import_financials(connection: Any, eps_rows: list[dict[str, Any]], rev_rows: list[dict[str, Any]], dry_run: bool = False) -> dict[str, int]:
+def import_financials(connection: Any, eps_path: Path, rev_path: Path, dry_run: bool = False) -> dict[str, int]:
+    t0 = time.time()
     execution_id = "00000000-0000-0000-0000-000000000001"
+    eps_count = 0
+    rev_count = 0
     prepared = []
 
     # 1. EPS rows
-    for r in eps_rows:
-        symbol = r["symbol"]
-        y = r["fiscal_year"]
-        q = r["fiscal_quarter"]
-        natural_key = f"{symbol}_{y}_Q{q}_eps"
-        sort_at = r.get("availability_at") or f"{y}-{q*3:02d}-15T00:00:00+08:00"
-        payload = {
-            "symbol": symbol,
-            "fiscal_year": y,
-            "fiscal_quarter": q,
-            "fiscal_period_end": r["fiscal_period_end"],
-            "statement_type": "income",
-            "metric": "eps_single_quarter",
-            "period_basis": "single_quarter",
-            "unit": "TWD_per_share",
-            "currency": "TWD",
-            "value": r["value"],
-            "source_id": "yahoo-finance",
-        }
-        prepared.append((
-            "financials",
-            symbol,
-            natural_key,
-            sort_at,
-            json.dumps(payload),
-            "yahoo-finance",
-            f"seed_eps_{y}Q{q}",
-            execution_id,
-        ))
+    if eps_path.exists():
+        with gzip.open(eps_path, "rt", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                r = json.loads(line)
+                eps_count += 1
+                if not dry_run:
+                    symbol = r["symbol"]
+                    y = r["fiscal_year"]
+                    q = r["fiscal_quarter"]
+                    natural_key = f"{symbol}_{y}_Q{q}_eps"
+                    sort_at = r.get("availability_at") or f"{y}-{q*3:02d}-15T00:00:00+08:00"
+                    payload = {
+                        "symbol": symbol,
+                        "fiscal_year": y,
+                        "fiscal_quarter": q,
+                        "fiscal_period_end": r["fiscal_period_end"],
+                        "statement_type": "income",
+                        "metric": "eps_single_quarter",
+                        "period_basis": "single_quarter",
+                        "unit": "TWD_per_share",
+                        "currency": "TWD",
+                        "value": r["value"],
+                        "source_id": "yahoo-finance",
+                    }
+                    prepared.append((
+                        "financials",
+                        symbol,
+                        natural_key,
+                        sort_at,
+                        json.dumps(payload),
+                        "yahoo-finance",
+                        f"seed_eps_{y}Q{q}",
+                        execution_id,
+                    ))
 
     # 2. Revenue rows
-    for r in rev_rows:
-        symbol = r["symbol"]
-        y = r["fiscal_year"]
-        m = r["fiscal_month"]
-        natural_key = f"{symbol}_{y}_{m:02d}_revenue"
-        sort_at = r.get("availability_at") or f"{y}-{m:02d}-10T00:00:00+08:00"
-        payload = {
-            "symbol": symbol,
-            "fiscal_year": y,
-            "fiscal_quarter": r["fiscal_quarter"],
-            "fiscal_month": m,
-            "fiscal_period_end": r["fiscal_period_end"],
-            "statement_type": "monthly_revenue",
-            "metric": "monthly_revenue",
-            "period_basis": "monthly",
-            "unit": "TWD_thousands",
-            "currency": "TWD",
-            "value": r["value"],
-            "source_id": "yahoo-finance",
-        }
-        prepared.append((
-            "financials",
-            symbol,
-            natural_key,
-            sort_at,
-            json.dumps(payload),
-            "yahoo-finance",
-            f"seed_rev_{y}_{m:02d}",
-            execution_id,
-        ))
+    if rev_path.exists():
+        with gzip.open(rev_path, "rt", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                r = json.loads(line)
+                rev_count += 1
+                if not dry_run:
+                    symbol = r["symbol"]
+                    y = r["fiscal_year"]
+                    m = r["fiscal_month"]
+                    natural_key = f"{symbol}_{y}_{m:02d}_revenue"
+                    sort_at = r.get("availability_at") or f"{y}-{m:02d}-10T00:00:00+08:00"
+                    payload = {
+                        "symbol": symbol,
+                        "fiscal_year": y,
+                        "fiscal_quarter": r["fiscal_quarter"],
+                        "fiscal_month": m,
+                        "fiscal_period_end": r["fiscal_period_end"],
+                        "statement_type": "monthly_revenue",
+                        "metric": "monthly_revenue",
+                        "period_basis": "monthly",
+                        "unit": "TWD_thousands",
+                        "currency": "TWD",
+                        "value": r["value"],
+                        "source_id": "yahoo-finance",
+                    }
+                    prepared.append((
+                        "financials",
+                        symbol,
+                        natural_key,
+                        sort_at,
+                        json.dumps(payload),
+                        "yahoo-finance",
+                        f"seed_rev_{y}_{m:02d}",
+                        execution_id,
+                    ))
 
-    if dry_run:
-        print(f"[DRY-RUN] Financials prepared: {len(prepared)} rows (EPS: {len(eps_rows)}, Rev: {len(rev_rows)})")
-        return {"total": len(prepared), "eps": len(eps_rows), "revenue": len(rev_rows)}
+    elapsed = time.time() - t0
+    total_fin = eps_count + rev_count
+    print(f"Financials parsed EPS={eps_count}, Rev={rev_count} -> total {total_fin} rows in {elapsed:.2f}s")
 
-    chunk_size = 500
+    if dry_run or not connection:
+        return {"total": total_fin, "eps": eps_count, "revenue": rev_count}
+
+    chunk_size = 1000
     with connection.transaction(), connection.cursor() as cur:
         for offset in range(0, len(prepared), chunk_size):
             chunk = prepared[offset:offset + chunk_size]
@@ -234,7 +259,7 @@ def import_financials(connection: Any, eps_rows: list[dict[str, Any]], rev_rows:
                 chunk,
             )
 
-    return {"total": len(prepared), "eps": len(eps_rows), "revenue": len(rev_rows)}
+    return {"total": total_fin, "eps": eps_count, "revenue": rev_count}
 
 
 def main() -> None:
@@ -250,22 +275,12 @@ def main() -> None:
     eps_path = indir / "eps_3y.jsonl.gz"
     rev_path = indir / "revenue_2y.jsonl.gz"
 
-    print(f"Reading seed files from {indir}...")
-    ohlcv = read_gz_jsonl(ohlcv_path)
-    eps = read_gz_jsonl(eps_path)
-    rev = read_gz_jsonl(rev_path)
-    print(f"Loaded: OHLCV={len(ohlcv)}, EPS={len(eps)}, Revenue={len(rev)}")
-
-    if not (ohlcv or eps or rev):
-        print("No seed data found to import.")
-        sys.exit(1)
-
     fallback_focus = [s.strip().upper() for s in args.focus_symbols.split(",") if s.strip()]
 
     if args.dry_run:
         tier1 = set(fallback_focus)
-        import_ohlcv(None, ohlcv, tier1, dry_run=True)
-        import_financials(None, eps, rev, dry_run=True)
+        import_ohlcv(None, ohlcv_path, tier1, dry_run=True)
+        import_financials(None, eps_path, rev_path, dry_run=True)
         print("Dry run completed successfully.")
         return
 
@@ -276,11 +291,11 @@ def main() -> None:
         print(f"Resolved Tier 1 symbols ({len(tier1)} stocks): {sorted(tier1)[:15]}...")
 
         print("Importing OHLCV...")
-        ohlcv_res = import_ohlcv(conn, ohlcv, tier1, dry_run=False)
+        ohlcv_res = import_ohlcv(conn, ohlcv_path, tier1, dry_run=False)
         print(f"OHLCV imported: {ohlcv_res}")
 
         print("Importing Financials (EPS & Revenue)...")
-        fin_res = import_financials(conn, eps, rev, dry_run=False)
+        fin_res = import_financials(conn, eps_path, rev_path, dry_run=False)
         print(f"Financials imported: {fin_res}")
 
         print("Vacuuming Serving tables...")

@@ -10,10 +10,15 @@
     - 每月 10 日 21:00 營收批次：寫入 Core Iceberg 與 Serving、自動 Prune 淘汰 > 24 個月前營收。
     - 每季財報申報截止日批次：寫入 Core Iceberg 與 Serving、自動 Prune 淘汰 > 12 季前 EPS。
     - 每週六 02:00 DB 維護：清理孤兒快照並執行 `VACUUM ANALYZE` 釋放 dead tuples 與整理 Index。
-- **種子蒐集實作與樣本驗證 PASS**：
-  - 蒐集器實作於 [`scripts/seed/fetch_2y_history_seed.py`](../scripts/seed/fetch_2y_history_seed.py)，採用 Python 標準庫 `gzip` 產出 `.jsonl.gz` 壓縮包（全市場 < 40MB），完全避免 `noexec` 環境下 native binary（如 pyarrow）載入問題。
-  - 抽樣 6 檔代表標的（2330, 2317, 2454, 2882, 6488, 8069）驗收成功：日線 2,904 筆（484 天/檔）、單季 EPS 72 筆（12 季/檔）、單月營收 144 筆（24 個月/檔）全數成功產出。
-- **下一步**：實作 Serving 匯入與淘汰修剪處理器（`scripts/seed/import_seed_to_serving.py`）、批次匯入至 Dev Serving、打通個股圖表歷史序列。
+- **全市場歷史種子全量蒐集 100% PASS（2026-10-27）**：
+  - 蒐集器實作於 [`scripts/seed/fetch_2y_history_seed.py`](../scripts/seed/fetch_2y_history_seed.py)，採用 10 執行緒多工並行，全量資料壓縮為 `.jsonl.gz`。
+  - **全市場 1,925 檔個股全數收錄完成**（耗時 898 秒 / ~15分鐘，無超時無錯誤）：
+    - **OHLCV（2 年日頻行情）**：`925,896` 筆，壓縮後僅 14.4 MB。
+    - **單季 EPS（3 年單季財報）**：`8,189` 筆，壓縮後 86 KB。
+    - **單月營收（2 年月營收）**：`16,250` 筆，壓縮後 166 KB。
+  - **Serving 匯入與淘汰修剪處理器完成**：[`scripts/seed/import_seed_to_serving.py`](../scripts/seed/import_seed_to_serving.py) 與 Cloud Run Job 同步器 [`scripts/gcp/history_seed_serving_sync.py`](../scripts/gcp/history_seed_serving_sync.py)，支援 Tier 1（500日）與 Tier 2（120日）分級投影及單季 EPS/營收全量投影，乾跑測試 PASS（4.86 秒完成 23.4 萬筆 OHLCV 與 2.4 萬筆基本面預備）。
+  - **自動化執行與遷移準備**：建立專用 Workflow [`.github/workflows/history-seed-serving-sync.yml`](../.github/workflows/history-seed-serving-sync.yml)、請求檔 [`ops/history-seed-serving-sync-request.json`](../ops/history-seed-serving-sync-request.json) 與資料庫遷移 [`infra/postgres/migrations/070_yahoo_revenue_serving.sql`](../infra/postgres/migrations/070_yahoo_revenue_serving.sql)。
+- **下一步**：觸發執行 dev Serving 投影同步與讀回驗收，打通個股圖表歷史序列。
 
 ## 個股圖解與白話資訊（2026-10-27 前端增量）
 

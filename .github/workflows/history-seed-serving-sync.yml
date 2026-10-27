@@ -1,0 +1,50 @@
+name: Janus full-market 2Y history seed to dev serving
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['ops/history-seed-serving-sync-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate seed projection request
+        run: |
+          python -m py_compile scripts/gcp/history_seed_serving_sync.py
+          python - <<'PY'
+          import json
+          p = json.load(open('ops/history-seed-serving-sync-request.json'))
+          assert p['intent'] == 'history-seed-serving-sync' and p['approved'] is True
+          assert p['no_owner_mutation'] and p['no_job_template_mutation']
+          PY
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Stage seed files to GCS
+        run: |
+          gcloud storage cp data/seed/*.jsonl.gz gs://gen-lang-client-0593591102-dev-stage/seed_data/
+      - name: Project full-market seed into PostgreSQL serving via existing Job
+        env:
+          PYTHONPATH: .
+        run: python scripts/gcp/history_seed_serving_sync.py ops/history-seed-serving-sync-request.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: history-seed-serving-readback
+          path: /tmp/history-seed-serving-readback.json
+          if-no-files-found: ignore
+          retention-days: 14

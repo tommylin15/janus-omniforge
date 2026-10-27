@@ -25,7 +25,6 @@ coverage.xml
 htmlcov/
 .tmp/
 /tmp*/
-data/
 
 # Local editor overrides may contain machine-specific paths or credentials.
 .amazonq/
