@@ -37,8 +37,8 @@ jobs:
           flutter test --reporter=expanded 2>&1 | tee test_log.txt || {
             python3 -c "
           lines = open('test_log.txt', errors='ignore').read()
-          idx = lines.rfind('[E]')
-          block = lines[idx:idx+1500] if idx != -1 else lines[-1500:]
+          idx = lines.find('Stock chart first timeout retries typed rows without losing quote')
+          block = lines[idx:idx+2500] if idx != -1 else lines[-2500:]
           encoded = block.replace('\r', '').replace('\n', ' %0A ')
           print(f'::error title=FlutterTestFailure::{encoded}')
           "
