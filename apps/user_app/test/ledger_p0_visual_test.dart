@@ -342,9 +342,10 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: FinalStockDetailPage(
       api: api, symbol: '00719B')));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('圖表總覽'), 180,
-        scrollable: find.byType(Scrollable).first);
-    expect(find.text('價格'), findsWidgets);
+    await tester.scrollUntilVisible(find.text('價格與量能'), 180,
+        scrollable: find.descendant(of: find.byKey(const Key('final-stock-detail-scroll')), matching: find.byType(Scrollable)).first);
+    expect(find.byKey(const Key('stock-section-technical')), findsOneWidget);
+    expect(find.byKey(const Key('stock-section-fundamentals')), findsNothing);
     expect(find.byKey(const Key('visual-tab-pe')), findsNothing);
     expect(find.byKey(const Key('visual-tab-foreign')), findsNothing);
     expect(find.byKey(const Key('visual-tab-events')), findsNothing);

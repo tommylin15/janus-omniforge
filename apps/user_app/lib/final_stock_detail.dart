@@ -4,9 +4,9 @@ import 'final_changes.dart';
 import 'package:flutter/material.dart';
 
 import 'final_charts.dart';
+import 'final_stock_fundamentals.dart';
 import 'final_perf.dart';
 import 'final_analysis.dart';
-import 'stock_insights.dart';
 import 'final_visual_common.dart';
 import 'final_visual_series.dart';
 import 'main.dart' as legacy;
@@ -14,31 +14,22 @@ import 'main.dart' as legacy;
 int _usableVisualSeriesPoints(Map<String, dynamic> series) {
   // An explicit null marker is a gap, not a usable chart observation.
   final valid = fvRows(series['points'])
-      .where((item) => fvChartNumber(fvMap(item)['value']) != null).length;
+      .where((item) => fvChartNumber(fvMap(item)['value']) != null)
+      .length;
   if (series['usable_points'] == null) return valid;
   final declared = fvInt(series['usable_points']);
   return declared < valid ? declared : valid;
 }
 
-List<Map<String, dynamic>> _eventTimelineRows(List<dynamic> raw) {
-  final uniqueIds = <String>{};
-  final events = <Map<String, dynamic>>[];
-  for (final item in raw) {
-    final row = fvMap(item);
-    final eventId = fvText(row['event_id'], missing: '');
-    if (eventId.isNotEmpty && !uniqueIds.add(eventId)) continue;
-    events.add(row);
-  }
-  // Published announcements first. Event/effective dates never masquerade
-  // as a publication date and cannot be used to claim earlier knowledge.
-  return fvNewestRows(events, fields: const ['published_at']).take(6).toList();
-}
-
 FvTableSummary _visualTableSummary(String? metric) => switch (metric) {
-  'revenue' || 'foreign' || 'investment_trust' || 'dealer' => FvTableSummary.sum,
-  'pe' || 'pb' || 'yield' => FvTableSummary.average,
-  _ => FvTableSummary.latest,
-};
+      'revenue' ||
+      'foreign' ||
+      'investment_trust' ||
+      'dealer' =>
+        FvTableSummary.sum,
+      'pe' || 'pb' || 'yield' => FvTableSummary.average,
+      _ => FvTableSummary.latest,
+    };
 
 Widget _twoYearValuationCard(Map<String, dynamic> series, String label) {
   final profile = fvMap(series['two_year_profile']);
@@ -50,31 +41,62 @@ Widget _twoYearValuationCard(Map<String, dynamic> series, String label) {
   final until = fvText(profile['latest']);
   final rank = fvNumber(profile['percentile_midrank']);
   final monthly = fvRows(profile['monthly_points']);
-  return fvPanel(child: Column(
+  return fvPanel(
+      child: Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label + (ready ? ' · 兩年歷史區間' : status == 'partial_history' ? ' · 已有歷史（未達兩年）' : ' · 兩年歷史尚未就緒'),
+      Text(
+          label +
+              (ready
+                  ? ' · 兩年歷史區間'
+                  : status == 'partial_history'
+                      ? ' · 已有歷史（未達兩年）'
+                      : ' · 兩年歷史尚未就緒'),
           style: const TextStyle(fontWeight: FontWeight.w800, color: fvInk)),
       const SizedBox(height: 6),
-      Text('實際 ' + since + ' ～ ' + until + ' · ' + months + ' 個月份、' + count + ' 個有效日',
+      Text(
+          '實際 ' +
+              since +
+              ' ～ ' +
+              until +
+              ' · ' +
+              months +
+              ' 個月份、' +
+              count +
+              ' 個有效日',
           style: const TextStyle(color: fvMuted, fontSize: 12)),
       if (ready) ...[
         const SizedBox(height: 7),
-        Text('低 ' + fvText(profile['min']) + ' · P25 ' + fvText(profile['quartile_25']) +
-             ' · 中位 ' + fvText(profile['median']) + ' · P75 ' +
-             fvText(profile['quartile_75']) + ' · 高 ' + fvText(profile['max']),
-             style: const TextStyle(fontSize: 12, color: fvInk)),
+        Text(
+            '低 ' +
+                fvText(profile['min']) +
+                ' · P25 ' +
+                fvText(profile['quartile_25']) +
+                ' · 中位 ' +
+                fvText(profile['median']) +
+                ' · P75 ' +
+                fvText(profile['quartile_75']) +
+                ' · 高 ' +
+                fvText(profile['max']),
+            style: const TextStyle(fontSize: 12, color: fvInk)),
         if (rank != null) ...[
           const SizedBox(height: 6),
           LinearProgressIndicator(value: (rank / 100).clamp(0.0, 1.0)),
-          Text('最新 ' + fvText(profile['latest_value']) + ' 倍 · 兩年歷史分位 ' +
-               rank.toStringAsFixed(1) + '%',
+          Text(
+              '最新 ' +
+                  fvText(profile['latest_value']) +
+                  ' 倍 · 兩年歷史分位 ' +
+                  rank.toStringAsFixed(1) +
+                  '%',
               style: const TextStyle(color: fvMuted, fontSize: 12)),
         ],
         if (monthly.length >= 2) ...[
           const SizedBox(height: 8),
-          FvVisualSeriesChart(rows: monthly, label: label + ' 每月實際中位數',
-              unit: 'times', height: 164),
+          FvVisualSeriesChart(
+              rows: monthly,
+              label: label + ' 每月實際中位數',
+              unit: 'times',
+              height: 164),
         ],
       ] else ...[
         const SizedBox(height: 5),
@@ -112,6 +134,9 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   int chartDays = 66;
   bool candleChart = false;
   bool showKd = false;
+  String section = 'overview';
+  String pricePeriod = 'day';
+  final scrollController = ScrollController();
   String? selectedVisual;
   final loadingVisual = <String>{};
   int primaryGeneration = 0;
@@ -127,11 +152,15 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
     final epoch = requestEpoch;
     final version = (requestVersions[key] ?? 0) + 1;
     requestVersions[key] = version;
-    bool current() => mounted && requestEpoch == epoch &&
-        requestVersions[key] == version && widget.symbol == requestedSymbol &&
+    bool current() =>
+        mounted &&
+        requestEpoch == epoch &&
+        requestVersions[key] == version &&
+        widget.symbol == requestedSymbol &&
         identical(widget.api, requestedApi);
     try {
-      final value = await requestedApi.get(path).timeout(const Duration(seconds: 9));
+      final value =
+          await requestedApi.get(path).timeout(const Duration(seconds: 9));
       if (current()) {
         setState(() {
           values[key] = value;
@@ -143,8 +172,11 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
       if (current()) {
         if (key == 'kline') {
           // Keep failure evidence without tokens, response bodies or Owner data.
-          final kind = error is TimeoutException ? 'timeout' :
-              error is FormatException ? 'invalid_response' : 'request_failed';
+          final kind = error is TimeoutException
+              ? 'timeout'
+              : error is FormatException
+                  ? 'invalid_response'
+                  : 'request_failed';
           debugPrint('stock_chart_read_failed symbol=$requestedSymbol '
               'kind=$kind elapsed_ms=${stopwatch.elapsedMilliseconds}');
         }
@@ -175,7 +207,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   @override
   void didUpdateWidget(covariant FinalStockDetailPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.symbol != widget.symbol || !identical(oldWidget.api, widget.api)) {
+    if (oldWidget.symbol != widget.symbol ||
+        !identical(oldWidget.api, widget.api)) {
       quoteTimer?.cancel();
       requestEpoch++;
       requestVersions.clear();
@@ -183,7 +216,11 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
       errors.clear();
       klineRequested = false;
       klineLoading = false;
-      chartDays = 22;
+      chartDays = 66;
+      section = 'overview';
+      pricePeriod = 'day';
+      candleChart = false;
+      showKd = false;
       selectedVisual = null;
       loadingVisual.clear();
       unawaited(loadPrimary());
@@ -228,6 +265,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   @override
   void dispose() {
     quoteTimer?.cancel();
+    scrollController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -237,18 +275,15 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
     final stopwatch = Stopwatch()..start();
     if (mounted) setState(() => loading = true);
     // All secondary requests are independent of the initial price/holdings view.
-    unawaited(safe('changes', '/api/v1/me/analysis/${Uri.encodeComponent(widget.symbol)}/changes'));
-    unawaited(safe('baseline',
-        '/api/v1/me/analysis/${Uri.encodeComponent(widget.symbol)}'));
-    unawaited(Future.wait([
-      safe('health', '/api/v1/public/stock-health/${Uri.encodeComponent(widget.symbol)}'),
-      safe('notes', '/api/v1/me/notes?symbol=${Uri.encodeQueryComponent(widget.symbol)}'),
-      safe('events', '/api/v1/public/events/${Uri.encodeComponent(widget.symbol)}'),
-    ]));
+    unawaited(safe('changes',
+        '/api/v1/me/analysis/${Uri.encodeComponent(widget.symbol)}/changes'));
+    unawaited(safe('health',
+        '/api/v1/public/stock-health/${Uri.encodeComponent(widget.symbol)}'));
     unawaited(loadKline());
     try {
       await Future.wait([
-        safe('header', '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}'),
+        safe('header',
+            '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}'),
         loadHoldings(),
       ]);
     } finally {
@@ -281,22 +316,36 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
       klineRequested = true;
       klineLoading = true;
     });
-    final first = await safe('kline', '/api/v1/public/kline/${Uri.encodeComponent(widget.symbol)}');
-    if (chartDays > 200 && first != null && mounted && generation == klineGeneration && epoch == requestEpoch && requestedSymbol == widget.symbol) {
-      final older = await safe('kline-older', '/api/v1/public/kline/${Uri.encodeComponent(widget.symbol)}?limit=64&offset=200');
-      if (older != null && mounted && generation == klineGeneration && epoch == requestEpoch && requestedSymbol == widget.symbol) {
+    final first = await safe(
+        'kline', '/api/v1/public/kline/${Uri.encodeComponent(widget.symbol)}');
+    if (chartDays > 200 &&
+        first != null &&
+        mounted &&
+        generation == klineGeneration &&
+        epoch == requestEpoch &&
+        requestedSymbol == widget.symbol) {
+      final older = await safe('kline-older',
+          '/api/v1/public/kline/${Uri.encodeComponent(widget.symbol)}?limit=64&offset=200');
+      if (older != null &&
+          mounted &&
+          generation == klineGeneration &&
+          epoch == requestEpoch &&
+          requestedSymbol == widget.symbol) {
         setState(() => values['kline'] = [...fvRows(first), ...fvRows(older)]);
       }
     }
-    if (mounted && generation == klineGeneration && epoch == requestEpoch && requestedSymbol == widget.symbol) {
+    if (mounted &&
+        generation == klineGeneration &&
+        epoch == requestEpoch &&
+        requestedSymbol == widget.symbol) {
       setState(() => klineLoading = false);
     }
   }
 
-
   void _openExpandedChart() {
     final rows = fvRows(values['kline']);
-    if (rows.isEmpty) return;
+    final period = fvMap(values['price-$pricePeriod']);
+    if (candleChart ? fvRows(period['bars']).isEmpty : rows.isEmpty) return;
     showDialog<void>(
       context: context,
       builder: (dialogContext) => Dialog(
@@ -308,17 +357,33 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
             child: Column(
               children: [
                 Row(children: [
-                  const Expanded(child: Text('價格與量能 · 捏合縮放圖表',
-                    style: TextStyle(color: fvInk, fontWeight: FontWeight.w800))),
-                  IconButton(tooltip: '關閉圖表', onPressed: () => Navigator.pop(dialogContext),
-                    icon: const Icon(Icons.close)),
+                  const Expanded(
+                      child: Text('價格與量能 · 捏合縮放圖表',
+                          style: TextStyle(
+                              color: fvInk, fontWeight: FontWeight.w800))),
+                  IconButton(
+                      tooltip: '關閉圖表',
+                      onPressed: () => Navigator.pop(dialogContext),
+                      icon: const Icon(Icons.close)),
                 ]),
-                Expanded(child: InteractiveViewer(
+                Expanded(
+                    child: InteractiveViewer(
                   minScale: 1,
                   maxScale: 3,
                   child: SizedBox(
                     width: MediaQuery.sizeOf(dialogContext).width - 48,
-                    child: FvKlineChart(rows: rows, maxPoints: chartDays, chartHeight: 280, candlesticks: candleChart, showKd: showKd),
+                    child: candleChart
+                        ? SingleChildScrollView(
+                            child: FvPeriodKChart(
+                                payload: period,
+                                maxBars: chartDays,
+                                showKd: showKd))
+                        : FvKlineChart(
+                            rows: rows,
+                            maxPoints: chartDays,
+                            chartHeight: 280,
+                            candlesticks: candleChart,
+                            showKd: showKd),
                   ),
                 )),
               ],
@@ -327,6 +392,33 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
         ),
       ),
     );
+  }
+
+  void openSection(String next) {
+    setState(() {
+      section = next;
+      selectedVisual = switch (next) {
+        'fundamentals' => 'revenue',
+        'valuation' => 'pe',
+        'chips' => 'foreign',
+        _ => null,
+      };
+    });
+    if (scrollController.hasClients) scrollController.jumpTo(0);
+    if (selectedVisual != null) openVisual(selectedVisual!, setVisual: false);
+  }
+
+  Future<void> loadPriceSeries(String period, {bool force = false}) async {
+    final key = 'price-$period';
+    if (loadingVisual.contains(key) ||
+        (!force && values.containsKey(key) && !errors.contains(key))) return;
+    final epoch = requestEpoch;
+    setState(() => loadingVisual.add(key));
+    await safe(key,
+        '/api/v1/public/stocks/${Uri.encodeComponent(widget.symbol)}/price-series?period=$period&limit=300');
+    if (mounted && epoch == requestEpoch) {
+      setState(() => loadingVisual.remove(key));
+    }
   }
 
   Future<void> openPeRiver() async {
@@ -342,14 +434,27 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
 
   Future<void> openVisual(String metric, {bool setVisual = true}) async {
     if (setVisual) setState(() => selectedVisual = metric);
-    if (!const {'pe', 'pb', 'yield', 'foreign', 'investment_trust', 'dealer', 'revenue', 'eps'}.contains(metric)) return;
+    if (metric == 'revenue' || metric == 'eps') {
+      unawaited(loadPriceSeries('month'));
+    }
+    if (!const {
+      'pe',
+      'pb',
+      'yield',
+      'foreign',
+      'investment_trust',
+      'dealer',
+      'revenue',
+      'eps'
+    }.contains(metric)) return;
     final key = 'visual-$metric';
-    if ((values.containsKey(key) && !errors.contains(key)) || loadingVisual.contains(key)) return;
+    if ((values.containsKey(key) && !errors.contains(key)) ||
+        loadingVisual.contains(key)) return;
     setState(() => loadingVisual.add(key));
     final symbol = widget.symbol;
     final epoch = requestEpoch;
     await safe(key,
-      '/api/v1/public/stocks/${Uri.encodeComponent(symbol)}/visual-series?metric=$metric&limit=120');
+        '/api/v1/public/stocks/${Uri.encodeComponent(symbol)}/visual-series?metric=$metric&limit=120');
     if (mounted && epoch == requestEpoch && widget.symbol == symbol) {
       setState(() => loadingVisual.remove(key));
     }
@@ -358,23 +463,50 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   void expandVisual(Map<String, dynamic> result, String label) {
     final points = fvRows(result['points']);
     if (_usableVisualSeriesPoints(result) < 2) return;
-    showDialog<void>(context: context, builder: (ctx) => Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 28),
-      child: Padding(padding: const EdgeInsets.all(12), child: Column(
-        mainAxisSize: MainAxisSize.min, children: [
-          Row(children: [
-            Expanded(child: Text('$label · 捏合放大', style: const TextStyle(fontWeight: FontWeight.w800))),
-            IconButton(tooltip: '關閉估值圖', icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-          ]),
-          InteractiveViewer(minScale: 1, maxScale: 3, child: SizedBox(
-            width: MediaQuery.sizeOf(ctx).width - 48,
-            child: FvVisualSeriesChart(rows: points, label: label, unit: fvText(result['unit']), height: 270,
-              dailyTable: !const {'revenue', 'eps'}.contains(selectedVisual),
-              tableSummary: _visualTableSummary(selectedVisual),
-              bars: const {'foreign', 'investment_trust', 'dealer', 'revenue', 'eps'}.contains(result['metric'])))),
-        ],
-      )),
-    ));
+    showDialog<void>(
+        context: context,
+        builder: (ctx) => Dialog(
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 28),
+              child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(children: [
+                        Expanded(
+                            child: Text('$label · 捏合放大',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w800))),
+                        IconButton(
+                            tooltip: '關閉估值圖',
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(ctx)),
+                      ]),
+                      InteractiveViewer(
+                          minScale: 1,
+                          maxScale: 3,
+                          child: SizedBox(
+                              width: MediaQuery.sizeOf(ctx).width - 48,
+                              child: FvVisualSeriesChart(
+                                  rows: points,
+                                  label: label,
+                                  unit: fvText(result['unit']),
+                                  height: 270,
+                                  dailyTable: !const {'revenue', 'eps'}
+                                      .contains(selectedVisual),
+                                  tableSummary:
+                                      _visualTableSummary(selectedVisual),
+                                  bars: const {
+                                    'foreign',
+                                    'investment_trust',
+                                    'dealer',
+                                    'revenue',
+                                    'eps'
+                                  }.contains(result['metric'])))),
+                    ],
+                  )),
+            ));
   }
 
   List<dynamic> get positions {
@@ -388,87 +520,26 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
         .toList();
   }
 
-  Widget reasonColumn(String title, List<dynamic> items, IconData icon) =>
-      fvPanel(
-        padding: const EdgeInsets.all(13),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 18, color: fvTeal),
-                const SizedBox(width: 6),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: fvInk,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 9),
-            if (items.isEmpty)
-              const Text(
-                '尚未就緒',
-                style: TextStyle(color: fvMuted, fontSize: 12),
-              )
-            else
-              for (final item in items.take(3))
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    '• ${fvText(item is Map ? (fvMap(item)['title'] ?? fvMap(item)['summary'] ?? fvMap(item)['reason']) : item)}',
-                    style: const TextStyle(
-                      color: fvInk,
-                      fontSize: 12,
-                      height: 1.35,
-                    ),
-                  ),
-                ),
-          ],
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
-    final baseline = fvMap(values['baseline']);
-    final baselineRoles = fvRows(baseline['specialists']);
     final report = fvMap(values['health']);
     final reportData = fvMap(report['data']);
-    final health = baselineRoles.isNotEmpty
-        ? <String, dynamic>{}
-        : reportData.isNotEmpty ? reportData : report;
+    final health = reportData.isNotEmpty ? reportData : report;
     final header = fvMap(values['header']);
     final kind = fvText(header['instrument_kind'], missing: '').toUpperCase();
     // Verified class wins. Legacy 0-prefix ETF identifiers are conservative
     // fallbacks until the instrument kind is available from an upgraded API.
     final nonEquity = kind.isNotEmpty
         ? !const {'COMMON_STOCK', 'STOCK', 'EQUITY'}.contains(kind)
-        : widget.symbol.startsWith('0') && widget.symbol.length >= 5
-            && widget.symbol.length <= 7;
+        : widget.symbol.startsWith('0') &&
+            widget.symbol.length >= 5 &&
+            widget.symbol.length <= 7;
     final name = fvText(
       header['stock_name'] ?? health['stock_name'] ?? health['name'],
       missing: widget.symbol,
     );
-    final notes = fvNewestRows(fvRows(values['notes']),
-        fields: const ['updated_at', 'created_at']);
-    final events = _eventTimelineRows(fvRows(values['events']));
     final position =
         positions.isEmpty ? <String, dynamic>{} : fvMap(positions.first);
-    final summary = fvRows(fvMap(values['changes'])['observations']).map(fvMap)
-        .where((r) => r['status'] == 'available').map((r) => fvText(r['headline'])).join('；');
-    final supports = fvRows(
-      health['supports'] ?? health['why'] ?? health['reasons'],
-    );
-    final risks = fvRows(
-      health['risks'] ?? health['watchouts'] ?? health['warnings'],
-    );
-    final dimensions = fvMap(
-      health['dimensions'] ?? health['role_scores'] ?? health['scores'],
-    );
-    final chips =
-        health['chips'] ?? health['institutional'] ?? health['positioning'];
     final evidence = fvMap(
       report['provenance'] ?? health['provenance'] ?? health['sources'],
     );
@@ -485,545 +556,622 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
-      body: RefreshIndicator(
-        onRefresh: loadPrimary,
-        child: ListView(
-          key: const Key('final-stock-detail-scroll'),
-          padding: const EdgeInsets.fromLTRB(18, 8, 18, 40),
-          children: [
-            fvPanel(
-              tone: FvCardTone.mint,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          name,
-                          style: const TextStyle(
-                            color: fvInk,
-                            fontSize: 25,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      fvStatusPill(
-                        header['price_status'] ??
-                            (loading ? 'partial' : 'missing'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(widget.symbol, style: const TextStyle(color: fvMuted)),
-                  const SizedBox(height: 8),
-                  Text(
-                    legacy.accountingNumber(header['close'], decimals: 2, missing: '尚未取得'),
-                    key: const Key('stock-price-value'),
-                    style: const TextStyle(color: fvInk, fontSize: 30, fontWeight: FontWeight.w800),
-                  ),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        '${header['price_source'] == 'twse_mis' ? '盤中最新價' : '正式收盤價'} · 行情日 ${fvText(header['trade_date'])}',
-                        style: const TextStyle(color: fvMuted, fontSize: 12),
-                      ),
-                      if (header['change'] != null)
-                        Text(
-                          '${fvNumber(header['change']) != null && fvNumber(header['change'])! > 0 ? '▲ +' : fvNumber(header['change']) != null && fvNumber(header['change'])! < 0 ? '▼ ' : ''}${legacy.accountingNumber(header['change'], decimals: 2)} (${fvSignedPercent(header['change_percent'])})',
-                          key: const Key('stock-price-change'),
-                          style: TextStyle(
-                            color: fvSignedColor(header['change']),
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (errors.contains('header'))
-                    const Text('報價更新失敗，顯示上次有效資料',
-                        style: TextStyle(color: fvMuted, fontSize: 11)),
-                ],
-              ),
-            ),
-            if (position.isNotEmpty) fvSectionTitle(context, '我的持股'),
-            if (fvMap(values['quotes'])['positions'] is! List && values['positions'] is! List)
-              fvBoundedState(loading ? '持股資料載入中' : '持股資料尚未取得')
-            else if (position.isNotEmpty)
-              fvPanel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '持有 ${legacy.accountingNumber(position['shares'])} 股',
-                      style: const TextStyle(
-                        color: fvInk,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Text(
-                      '平均成本 ${legacy.accountingNumber(position['average_cost'], decimals: 2)} · 現價 ${legacy.accountingNumber(position['market_price'], decimals: 2, missing: '缺價')}',
-                      style: const TextStyle(color: fvInk),
-                    ),
-                    Text(
-                      '未實現損益 ${legacy.accountingNumber(position['unrealized_pnl'], missing: '資料不足')} · ${legacy.portfolioReturnLabel(position['unrealized_return'])}',
-                      key: const Key('stock-unrealized-pnl'),
-                      style: TextStyle(
-                        color: fvSignedColor(position['unrealized_pnl']),
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Text(
-                      '${position['valuation_date'] == null ? '報價估值' : '估值日 ${fvText(position['valuation_date'])}'} · 行情日 ${fvText(position['price_date'])}',
-                      style: const TextStyle(color: fvMuted, fontSize: 11),
-                    ),
-                  ],
-                ),
-              ),
-            if (!nonEquity) FinalChangeCard(fvMap(values['changes'])),
-            if (!nonEquity && errors.contains('changes'))
-              TextButton(onPressed: () => safe('changes', '/api/v1/me/analysis/${Uri.encodeComponent(widget.symbol)}/changes'),
-                child: const Text('異動資料暫未更新，重試')),
-            fvSectionTitle(context, '圖表總覽'),
-            fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('選擇想看的趨勢', style: TextStyle(fontWeight: FontWeight.w800, color: fvInk)),
-              const SizedBox(height: 9),
-              Wrap(spacing: 7, runSpacing: 7, children: [
-                ChoiceChip(label: const Text('價格'), selected: selectedVisual == null,
-                  onSelected: (_) => setState(() => selectedVisual = null)),
-                if (!nonEquity) ...[
-                  ChoiceChip(
-                    key: const Key('visual-tab-pe-river'),
-                    label: const Text('本益比河流圖'),
-                    selected: selectedVisual == 'pe_river',
-                    onSelected: (_) => openPeRiver(),
-                  ),
-                  for (final entry in const {'pe': '本益比', 'pb': '股價淨值比',
-                      'yield': '殖利率', 'revenue': '月營收',
-                      'eps': 'EPS', 'foreign': '外資', 'investment_trust': '投信',
-                      'dealer': '自營商', 'events': '事件'}.entries)
-                    ChoiceChip(
-                      key: Key('visual-tab-${entry.key}'),
-                      label: Text(entry.value),
-                      selected: selectedVisual == entry.key,
-                      onSelected: (_) => openVisual(entry.key),
-                    ),
-                ],
+      body: Column(children: [
+        Material(
+            color: fvCanvas,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              child: Row(children: [
+                for (final entry in {
+                  'overview': '總覽',
+                  'technical': '技術',
+                  if (!nonEquity) ...{
+                    'fundamentals': '營運',
+                    'valuation': '估值',
+                    'chips': '籌碼',
+                  },
+                  'research': '研究',
+                }.entries)
+                  Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        key: Key('stock-section-${entry.key}'),
+                        label: Text(entry.value),
+                        selected: section == entry.key,
+                        onSelected: (_) => openSection(entry.key),
+                      )),
               ]),
-              const SizedBox(height: 7),
-              const Text('僅呈現已發布資料。缺少可比較歷史時明確標示。',
-                  style: TextStyle(color: fvMuted, fontSize: 11)),
-            ])),
-            if (selectedVisual == null) ...[
-            fvSectionTitle(context, '價格與量能'),
-            Row(
-              children: [
-                const Icon(Icons.candlestick_chart_outlined, color: fvTeal, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Wrap(
-                    spacing: 6,
-                    children: [
-                      for (final period in const [22, 66, 132, 264])
-                        ChoiceChip(
-                          label: Text(const {22: '近1月', 66: '近3月', 132: '近6月', 264: '近12月'}[period]!),
-                          selected: chartDays == period,
-                          onSelected: (_) {
-                            setState(() => chartDays = period);
-                            if (period > 200) loadKline(force: true);
-                          },
-                        ),
-                    ],
-                  ),
-                ),
-                if (fvRows(values['kline']).isNotEmpty)
-                  IconButton(
-                    key: const Key('stock-chart-expand'),
-                    tooltip: '放大圖表',
-                    onPressed: _openExpandedChart,
-                    icon: const Icon(Icons.open_in_full, color: fvTeal),
-                  ),
-              ],
-            ),
-            Wrap(spacing: 6, children: [
-              ChoiceChip(label: const Text('收盤折線'), selected: !candleChart,
-                onSelected: (_) => setState(() => candleChart = false)),
-              ChoiceChip(label: const Text('日 K'), selected: candleChart,
-                onSelected: (_) => setState(() => candleChart = true)),
-              FilterChip(
-                key: const Key('stock-chart-kd-filter'),
-                label: const Text('KD(9,3)'),
-                selected: showKd,
-                onSelected: (val) => setState(() => showKd = val),
-              ),
-            ]),
-            if (klineLoading && fvRows(values['kline']).isEmpty)
-              fvBoundedState('價格圖載入中；其餘個股資訊可先查看', icon: Icons.show_chart)
-            else if (errors.contains('kline') && fvRows(values['kline']).isEmpty)
-              fvPanel(child: Row(children: [
-                const Expanded(child: Text('價格圖暫時無法使用')),
-                TextButton(onPressed: () => loadKline(force: true), child: const Text('重試')),
-              ]))
-            else if (fvRows(values['kline']).isEmpty)
-              fvBoundedState('尚無可繪製的正式行情，不顯示示意圖')
-            else ...[
-              FvKlineChart(rows: fvRows(values['kline']), maxPoints: chartDays, candlesticks: candleChart, showKd: showKd),
-              if (errors.contains('kline'))
-                const Text('行情更新失敗，保留上次有效圖表',
-                    style: TextStyle(color: fvMuted, fontSize: 11)),
-            ],
-            ],
-            if (selectedVisual != null) ...[
-              if (const {'pe', 'pb', 'yield', 'foreign', 'investment_trust', 'dealer', 'revenue', 'eps'}.contains(selectedVisual)) ...[
-                if (loadingVisual.contains('visual-$selectedVisual'))
-                  fvBoundedState('圖表載入中；其餘資訊可繼續使用', icon: Icons.query_stats)
-                else if (errors.contains('visual-$selectedVisual'))
-                  fvPanel(child: Row(children: [
-                    const Expanded(child: Text('圖表讀取失敗')),
-                    TextButton(onPressed: () => openVisual(selectedVisual!), child: const Text('重試')),
-                  ]))
-                else Builder(builder: (context) {
-                  final result = fvMap(values['visual-$selectedVisual']);
-                  final points = fvRows(result['points']);
-                  final label = const {'pe': '本益比', 'pb': '股價淨值比', 'yield': '殖利率',
-                    'foreign': '外資買賣超', 'investment_trust': '投信買賣超',
-                    'dealer': '自營商買賣超', 'revenue': '月營收', 'eps': '單季 EPS'}[selectedVisual]!;
-                  final usable = points.map(fvMap)
-                      .where((point) => fvChartNumber(point['value']) != null)
-                      .toList();
-                  if (selectedVisual == 'eps' && _usableVisualSeriesPoints(result) == 1 && usable.isNotEmpty) {
-                    // A genuine single-quarter EPS has value even without an
-                    // eligible historical four-quarter/TTM trend.
-                    final latest = usable.last;
-                    final year = fvText(latest['date']).substring(0, 4);
-                    return fvPanel(child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('已發布單季 EPS · $year',
-                            style: const TextStyle(fontWeight: FontWeight.w800, color: fvInk)),
-                        const SizedBox(height: 6),
-                        Text('${fvText(latest['value'])} 元／股 · ${fvText(latest['date'])}',
-                            style: const TextStyle(color: fvInk)),
-                        const SizedBox(height: 5),
-                        const Text('目前只有單季合格資料；不推算四季 EPS／TTM。',
-                            style: TextStyle(color: fvMuted, fontSize: 12)),
-                      ],
-                    ));
-                  }
-                  if (_usableVisualSeriesPoints(result) < 2) {
-                    return Column(children: [
-                      fvBoundedState('歷史資料不足：${fvText(result['missing_reason'], missing: '尚未就緒')}'),
-                      if (selectedVisual == 'pe' || selectedVisual == 'pb')
-                        _twoYearValuationCard(result, label),
-                    ]);
-                  }
-                  return Column(children: [
-                    Row(children: [
-                      Expanded(child: Text('資料日 ${fvText(result['data_as_of'])} · ${fvText(result['data_status'])}',
-                        style: const TextStyle(color: fvMuted, fontSize: 11))),
-                      IconButton(key: const Key('valuation-chart-expand'), tooltip: '放大估值圖',
-                        onPressed: () => expandVisual(result, label),
-                        icon: const Icon(Icons.open_in_full, color: fvTeal)),
-                    ]),
-                    if (selectedVisual == 'eps') Builder(builder: (context) {
-                      final current = fvMap(result['eps_current_year']);
-                      final year = fvText(current['year']);
-                      final quarters = fvRows(current['available_quarters'])
-                          .map((q) => 'Q$q').join('、');
-                      final hasMinimum = current['status'] == 'ready';
-                      return Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          hasMinimum
-                            ? '$year 年已核實 $quarters 單季 EPS；四季／TTM 尚未驗證'
-                            : '$year 年已核實：${quarters.isEmpty ? '尚無' : quarters}；其餘季度缺值，不推算 TTM',
-                          style: const TextStyle(color: fvMuted, fontSize: 12),
-                        ),
-                      );
-                    }),
-                    if (selectedVisual == 'revenue') Builder(builder: (context) {
-                      final yoy = fvMap(result['revenue_yoy']);
-                      final change = fvNumber(yoy['percent']);
-                      return Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          change == null
-                              ? '營收年增率：去年同月資料不足；月營收仍可參考'
-                              : '營收年增率 ${change > 0 ? '+' : ''}${change.toStringAsFixed(2)}% · 去年同月 ${fvText(yoy['comparison_period'])}',
-                          style: TextStyle(
-                            color: change == null ? fvMuted : fvSignedColor(change),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      );
-                    }),
-                    FvVisualSeriesChart(rows: points, label: label, unit: fvText(result['unit']),
-                      dailyTable: !const {'revenue', 'eps'}.contains(selectedVisual),
-                      tableSummary: _visualTableSummary(selectedVisual),
-                      bars: const {'foreign', 'investment_trust', 'dealer', 'revenue', 'eps'}.contains(selectedVisual)),
-                    Text('來源：${fvRows(result['source_ids']).join('、')}',
-                      style: const TextStyle(color: fvMuted, fontSize: 11)),
-                    if (selectedVisual == 'pe' || selectedVisual == 'pb')
-                      _twoYearValuationCard(result, label),
-                  ]);
-                }),
-              ] else if (selectedVisual == 'pe_river') ...[
-                if ((klineLoading && fvRows(values['kline']).isEmpty) || loadingVisual.contains('visual-eps'))
-                  fvBoundedState('本益比估值河流圖載入中...', icon: Icons.waves)
-                else if (errors.contains('kline') && fvRows(values['kline']).isEmpty)
-                  fvPanel(child: Row(children: [
-                    const Expanded(child: Text('價格資料讀取失敗')),
-                    TextButton(onPressed: () => openPeRiver(), child: const Text('重試')),
-                  ]))
-                else if (errors.contains('visual-eps') && fvRows(fvMap(values['visual-eps'])['points']).isEmpty)
-                  fvPanel(child: Row(children: [
-                    const Expanded(child: Text('EPS 資料讀取失敗')),
-                    TextButton(onPressed: () => openPeRiver(), child: const Text('重試')),
-                  ]))
-                else
-                  FvPeRiverChart(
-                    klineRows: fvRows(values['kline']),
-                    epsRows: fvRows(fvMap(values['visual-eps'])['points']),
-                  ),
-              ] else
-                fvBoundedState(selectedVisual == 'events'
-                  ? '公司事件請參考下方公告與閱讀提示。'
-                  : '尚無通過期別、來源和可比性驗證的歷史序列。'),
-            ],
-            if (nonEquity)
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text('非普通股僅保留價格、本人持股與筆記；不開放公司財報、法人及估值圖表。',
-                  style: TextStyle(color: fvMuted, fontSize: 11)),
-              ),
-            fvSectionTitle(context, '筆記與待追蹤'),
-            if (errors.contains('notes'))
-              fvBoundedState('筆記資料尚未取得')
-            else if (notes.isEmpty)
-              fvBoundedState('目前沒有這檔股票的筆記')
-            else
-              fvPanel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final item in notes.take(3))
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 9),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              fvMap(item)['needs_follow_up'] == true
-                                  ? Icons.flag_outlined
-                                  : Icons.notes_outlined,
-                              color: fvTeal,
-                              size: 19,
-                            ),
-                            const SizedBox(width: 9),
-                            Expanded(
-                              child: Text(
-                                fvText(
-                                  fvMap(item)['body'] ??
-                                      fvMap(item)['text'] ??
-                                      fvMap(item)['content'],
-                                  missing: '筆記內容不可用',
-                                ),
-                                style: const TextStyle(
-                                  color: fvInk,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            if (!nonEquity) ...[
-              if (errors.contains('baseline')) ...[
-                fvBoundedState('圖解資料暫時讀取失敗；已讀取的舊資料僅供參考'),
-                TextButton(onPressed: () => safe('baseline',
-                    '/api/v1/me/analysis/${Uri.encodeComponent(widget.symbol)}'),
-                  child: const Text('重新讀取圖解資料')),
-              ],
-              if (values.containsKey('baseline'))
-                StockFactsPanel(errors.contains('baseline')
-                    ? {...baseline, 'freshness': 'stale'} : baseline)
-              else if (!errors.contains('baseline'))
-                fvBoundedState('圖解資料載入中'),
-            ],
-            if (!nonEquity && report['model_validation_status'] == 'validated') ...[
-            fvSectionTitle(context, '五面向健康度'),
-            if (dimensions.isEmpty && health['mart_health_score'] == null)
-              fvBoundedState('五面向健康度尚未就緒')
-            else
-              FvHealthBars(
-                dimensions: dimensions,
-                overall: health['mart_health_score'],
-              ),
-            fvSectionTitle(context, '白話摘要'),
-            if (baselineRoles.isNotEmpty)
-              Text('基準分析日 ${fvText(baseline['analysis_as_of'])} · ${baseline['freshness'] == 'stale' ? '資料過期' : '已保存'}；完整分析見分析與報告',
-                  style: const TextStyle(color: fvMuted, fontSize: 12)),
-            summary.isEmpty
-                ? fvBoundedState('白話摘要尚未就緒；不會在開頁時自動呼叫 LLM')
-                : fvPanel(
-                    child: Text(
-                      '$summary',
-                      style: const TextStyle(color: fvInk, height: 1.55),
-                    ),
-                  ),
-            fvSectionTitle(context, '為什麼／要注意什麼'),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: reasonColumn(
-                    '支持',
-                    supports,
-                    Icons.check_circle_outline,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: reasonColumn(
-                    '風險',
-                    risks,
-                    Icons.warning_amber_outlined,
-                  ),
-                ),
-              ],
-            ),
-            ],
-            if (!nonEquity) ...[
-            fvSectionTitle(context, '籌碼與定位'),
-            chips == null
-                ? fvBoundedState('籌碼與定位資料尚未就緒')
-                : fvPanel(
-                    child: Text(
-                      fvText(chips),
-                      style: const TextStyle(color: fvInk, height: 1.45),
-                    ),
-                  ),
-            fvSectionTitle(context, '公司公告，看懂發生什麼事'),
-            if (errors.contains('events'))
-              fvBoundedState('公司事件暫時無法使用')
-            else if (events.isEmpty)
-              fvBoundedState('目前沒有可發布事件')
-            else
-              fvPanel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('近兩年公告，最新在上；日期不明者置後，不推測事件利多或利空。',
-                        style: TextStyle(color: fvMuted, fontSize: 11)),
-                    const SizedBox(height: 10),
-                    for (final (index, row) in events.indexed)
-                      ColoredBox(color: fvDatedRowColor(index), child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.only(top: 3, right: 10),
-                              child: Icon(Icons.radio_button_checked, color: fvTeal, size: 17),
-                            ),
-                            Expanded(child: Column(
+            )),
+        Expanded(
+            child: Center(
+                child: SizedBox(
+                    width: 960,
+                    child: RefreshIndicator(
+                      onRefresh: () async {
+                        await loadPrimary();
+                        if (!mounted) return;
+                        if (section == 'technical' && candleChart) {
+                          await loadPriceSeries(pricePeriod, force: true);
+                        } else if (selectedVisual != null &&
+                            section != 'research') {
+                          final metric = selectedVisual == 'pe_river'
+                              ? 'eps'
+                              : selectedVisual!;
+                          values.remove('visual-$metric');
+                          await openVisual(metric, setVisual: false);
+                        }
+                      },
+                      child: ListView(
+                        controller: scrollController,
+                        key: const Key('final-stock-detail-scroll'),
+                        padding: const EdgeInsets.fromLTRB(18, 8, 18, 40),
+                        children: [
+                          fvPanel(
+                            tone: FvCardTone.mint,
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(fvText(row['title'] ?? row['event_type'] ?? row['summary'],
-                                      missing: '事件'),
-                                    style: const TextStyle(color: fvInk,
-                                        fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 6),
-                                Text(fvText(row['summary'], missing: '目前只有公告標題，尚無可讀摘要；請依來源核對全文。'),
-                                    style: const TextStyle(color: fvInk, height: 1.5)),
-                                const SizedBox(height: 6),
-                                Text(stockEventReadingTip(row),
-                                    style: const TextStyle(color: fvTeal, fontSize: 12)),
-                                Text(row['published_at'] != null
-                                    ? '公告：${fvText(row['published_at'])}'
-                                    : '公告時間未確認',
-                                    style: const TextStyle(color: fvMuted, fontSize: 11)),
-                                if (row['effective_date'] != null)
-                                  Text('生效：${fvText(row['effective_date'])}',
-                                      style: const TextStyle(color: fvMuted, fontSize: 11)),
-                                if (row['published_at'] == null &&
-                                    (row['event_date'] ?? row['date']) != null)
-                                  Text('事件日：${fvText(row['event_date'] ?? row['date'])}',
-                                      style: const TextStyle(color: fvMuted, fontSize: 11)),
-                                if (row['source_id'] != null)
-                                  Text('來源：${fvText(row['source_id'])}',
-                                      style: const TextStyle(color: fvMuted, fontSize: 11)),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        name,
+                                        style: const TextStyle(
+                                          color: fvInk,
+                                          fontSize: 25,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                    fvStatusPill(
+                                      header['price_status'] ??
+                                          (loading ? 'partial' : 'missing'),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Text(widget.symbol,
+                                    style: const TextStyle(color: fvMuted)),
+                                const SizedBox(height: 8),
+                                Text(
+                                  legacy.accountingNumber(header['close'],
+                                      decimals: 2, missing: '尚未取得'),
+                                  key: const Key('stock-price-value'),
+                                  style: const TextStyle(
+                                      color: fvInk,
+                                      fontSize: 30,
+                                      fontWeight: FontWeight.w800),
+                                ),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      '${header['price_source'] == 'twse_mis' ? '盤中最新價' : '正式收盤價'} · 行情日 ${fvText(header['trade_date'])}',
+                                      style: const TextStyle(
+                                          color: fvMuted, fontSize: 12),
+                                    ),
+                                    if (header['change'] != null)
+                                      Text(
+                                        '${fvNumber(header['change']) != null && fvNumber(header['change'])! > 0 ? '▲ +' : fvNumber(header['change']) != null && fvNumber(header['change'])! < 0 ? '▼ ' : ''}${legacy.accountingNumber(header['change'], decimals: 2)} (${fvSignedPercent(header['change_percent'])})',
+                                        key: const Key('stock-price-change'),
+                                        style: TextStyle(
+                                          color:
+                                              fvSignedColor(header['change']),
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                if (errors.contains('header'))
+                                  const Text('報價更新失敗，顯示上次有效資料',
+                                      style: TextStyle(
+                                          color: fvMuted, fontSize: 11)),
                               ],
-                            )),
-                          ],
-                        ),
-                      )),
-                  ],
-                ),
-              ),
-            ],
-            ExpansionTile(
-              tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-              title: const Text(
-                '證據與來源',
-                style: TextStyle(color: fvInk, fontWeight: FontWeight.w800),
-              ),
-              children: [
-                if (evidence.isEmpty)
-                  fvBoundedState('證據與來源尚未就緒')
-                else
-                  fvPanel(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (final entry in evidence.entries)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Text(
-                              '${entry.key}：${fvText(entry.value)}',
-                              style: const TextStyle(
-                                color: fvMuted,
-                                fontSize: 12,
-                              ),
                             ),
                           ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-            if (!nonEquity) ExpansionTile(
-              key: const Key('advanced-section'),
-              tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-              title: const Text(
-                '分析與報告',
-                style: TextStyle(color: fvInk, fontWeight: FontWeight.w800),
-              ),
-              subtitle: const Text(
-                '看模型能回答什麼、保存的報告與歷史；技術細節預設收合',
-              ),
-              children: [
-                FinalAnalysisPanel(widget.api, widget.symbol),
-              ],
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              '本頁提供研究資訊，不構成投資建議。資料可能不完整、過期或暫時無法取得，請以標示的資料日期與來源為準。',
-              style: TextStyle(color: fvMuted, fontSize: 12, height: 1.45),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
+                          if (position.isNotEmpty)
+                            fvSectionTitle(context, '我的持股'),
+                          if (fvMap(values['quotes'])['positions'] is! List &&
+                              values['positions'] is! List)
+                            fvBoundedState(loading ? '持股資料載入中' : '持股資料尚未取得')
+                          else if (position.isNotEmpty)
+                            fvPanel(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '持有 ${legacy.accountingNumber(position['shares'])} 股',
+                                    style: const TextStyle(
+                                      color: fvInk,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 7),
+                                  Text(
+                                    '平均成本 ${legacy.accountingNumber(position['average_cost'], decimals: 2)} · 現價 ${legacy.accountingNumber(position['market_price'], decimals: 2, missing: '缺價')}',
+                                    style: const TextStyle(color: fvInk),
+                                  ),
+                                  Text(
+                                    '未實現損益 ${legacy.accountingNumber(position['unrealized_pnl'], missing: '資料不足')} · ${legacy.portfolioReturnLabel(position['unrealized_return'])}',
+                                    key: const Key('stock-unrealized-pnl'),
+                                    style: TextStyle(
+                                      color: fvSignedColor(
+                                          position['unrealized_pnl']),
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 7),
+                                  Text(
+                                    '${position['valuation_date'] == null ? '報價估值' : '估值日 ${fvText(position['valuation_date'])}'} · 行情日 ${fvText(position['price_date'])}',
+                                    style: const TextStyle(
+                                        color: fvMuted, fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (section == 'overview' && !nonEquity) ...[
+                            FinalChangeCard(fvMap(values['changes'])),
+                            if (errors.contains('changes'))
+                              TextButton(
+                                  onPressed: () => safe('changes',
+                                      '/api/v1/me/analysis/${Uri.encodeComponent(widget.symbol)}/changes'),
+                                  child: const Text('異動資料暫未更新，重試')),
+                          ],
+                          if (const {'fundamentals', 'valuation', 'chips'}
+                              .contains(section)) ...[
+                            fvSectionTitle(
+                                context,
+                                switch (section) {
+                                  'fundamentals' => '公司營運',
+                                  'valuation' => '價格與估值',
+                                  _ => '法人動向',
+                                }),
+                            Wrap(spacing: 7, runSpacing: 7, children: [
+                              for (final entry in (switch (section) {
+                                'fundamentals' => const {
+                                    'revenue': '月營收',
+                                    'eps': 'EPS'
+                                  },
+                                'valuation' => const {
+                                    'pe': '本益比',
+                                    'pb': '股價淨值比',
+                                    'yield': '殖利率',
+                                    'pe_river': '本益比河流圖'
+                                  },
+                                _ => const {
+                                    'foreign': '外資',
+                                    'investment_trust': '投信',
+                                    'dealer': '自營商'
+                                  },
+                              })
+                                  .entries)
+                                ChoiceChip(
+                                    key: Key(
+                                        'visual-tab-${entry.key == 'pe_river' ? 'pe-river' : entry.key}'),
+                                    label: Text(entry.value),
+                                    selected: selectedVisual == entry.key,
+                                    onSelected: (_) => entry.key == 'pe_river'
+                                        ? openPeRiver()
+                                        : openVisual(entry.key)),
+                            ]),
+                            const SizedBox(height: 12),
+                          ],
+                          if (section == 'overview' ||
+                              section == 'technical') ...[
+                            fvSectionTitle(context, '價格與量能'),
+                            if (section == 'technical')
+                              Row(
+                                children: [
+                                  const Icon(Icons.candlestick_chart_outlined,
+                                      color: fvTeal, size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Wrap(
+                                      spacing: 6,
+                                      children: [
+                                        for (final period in const [
+                                          22,
+                                          66,
+                                          132,
+                                          264
+                                        ])
+                                          ChoiceChip(
+                                            label: Text(const {
+                                              22: '近1月',
+                                              66: '近3月',
+                                              132: '近6月',
+                                              264: '近12月'
+                                            }[period]!),
+                                            selected: chartDays == period,
+                                            onSelected: (_) {
+                                              setState(
+                                                  () => chartDays = period);
+                                              if (period > 200)
+                                                loadKline(force: true);
+                                            },
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (candleChart
+                                      ? fvRows(fvMap(
+                                                  values['price-$pricePeriod'])[
+                                              'bars'])
+                                          .isNotEmpty
+                                      : fvRows(values['kline']).isNotEmpty)
+                                    IconButton(
+                                      key: const Key('stock-chart-expand'),
+                                      tooltip: '放大圖表',
+                                      onPressed: _openExpandedChart,
+                                      icon: const Icon(Icons.open_in_full,
+                                          color: fvTeal),
+                                    ),
+                                ],
+                              ),
+                            if (section == 'technical')
+                              Wrap(spacing: 6, runSpacing: 6, children: [
+                                ChoiceChip(
+                                    label: const Text('收盤折線'),
+                                    selected: !candleChart,
+                                    onSelected: (_) =>
+                                        setState(() => candleChart = false)),
+                                for (final entry in const {
+                                  'day': '日 K',
+                                  'week': '週 K',
+                                  'month': '月 K'
+                                }.entries)
+                                  ChoiceChip(
+                                      key: Key('stock-period-${entry.key}'),
+                                      label: Text(entry.value),
+                                      selected: candleChart &&
+                                          pricePeriod == entry.key,
+                                      onSelected: (_) {
+                                        setState(() {
+                                          candleChart = true;
+                                          pricePeriod = entry.key;
+                                        });
+                                        loadPriceSeries(entry.key);
+                                      }),
+                                FilterChip(
+                                    key: const Key('stock-chart-kd-filter'),
+                                    label: const Text('KD(9,3)'),
+                                    selected: showKd,
+                                    onSelected: (val) =>
+                                        setState(() => showKd = val)),
+                              ]),
+                            if (section == 'technical' && candleChart) ...[
+                              if (loadingVisual
+                                      .contains('price-$pricePeriod') &&
+                                  !values.containsKey('price-$pricePeriod'))
+                                fvBoundedState('K 線載入中')
+                              else if (errors.contains('price-$pricePeriod'))
+                                fvPanel(
+                                    child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                      const Text('K 線更新失敗；已載入資料保留供參考'),
+                                      TextButton(
+                                          onPressed: () => loadPriceSeries(
+                                              pricePeriod,
+                                              force: true),
+                                          child: const Text('重試 K 線')),
+                                      if (values
+                                          .containsKey('price-$pricePeriod'))
+                                        FvPeriodKChart(
+                                            payload: fvMap(
+                                                values['price-$pricePeriod']),
+                                            maxBars: chartDays,
+                                            showKd: showKd),
+                                    ]))
+                              else
+                                FvPeriodKChart(
+                                    payload:
+                                        fvMap(values['price-$pricePeriod']),
+                                    maxBars: chartDays,
+                                    showKd: showKd),
+                            ] else ...[
+                              if (klineLoading &&
+                                  fvRows(values['kline']).isEmpty)
+                                fvBoundedState('價格圖載入中；其餘個股資訊可先查看',
+                                    icon: Icons.show_chart)
+                              else if (errors.contains('kline') &&
+                                  fvRows(values['kline']).isEmpty)
+                                fvPanel(
+                                    child: Row(children: [
+                                  const Expanded(child: Text('價格圖暫時無法使用')),
+                                  TextButton(
+                                      onPressed: () => loadKline(force: true),
+                                      child: const Text('重試')),
+                                ]))
+                              else if (fvRows(values['kline']).isEmpty)
+                                fvBoundedState('尚無可繪製的正式行情，不顯示示意圖')
+                              else ...[
+                                FvKlineChart(
+                                    rows: fvRows(values['kline']),
+                                    maxPoints:
+                                        section == 'overview' ? 66 : chartDays,
+                                    candlesticks: false,
+                                    showKd: section == 'technical' && showKd),
+                                if (errors.contains('kline'))
+                                  const Text('行情更新失敗，保留上次有效圖表',
+                                      style: TextStyle(
+                                          color: fvMuted, fontSize: 11)),
+                              ],
+                            ],
+                          ],
+                          if (selectedVisual != null) ...[
+                            if (const {
+                              'pe',
+                              'pb',
+                              'yield',
+                              'foreign',
+                              'investment_trust',
+                              'dealer',
+                              'revenue',
+                              'eps'
+                            }.contains(selectedVisual)) ...[
+                              if (loadingVisual
+                                  .contains('visual-$selectedVisual'))
+                                fvBoundedState('圖表載入中；其餘資訊可繼續使用',
+                                    icon: Icons.query_stats)
+                              else if (errors
+                                  .contains('visual-$selectedVisual'))
+                                fvPanel(
+                                    child: Row(children: [
+                                  const Expanded(child: Text('圖表讀取失敗')),
+                                  TextButton(
+                                      onPressed: () =>
+                                          openVisual(selectedVisual!),
+                                      child: const Text('重試')),
+                                ]))
+                              else
+                                Builder(builder: (context) {
+                                  final result =
+                                      fvMap(values['visual-$selectedVisual']);
+                                  final points = fvRows(result['points']);
+                                  final label = const {
+                                    'pe': '本益比',
+                                    'pb': '股價淨值比',
+                                    'yield': '殖利率',
+                                    'foreign': '外資買賣超',
+                                    'investment_trust': '投信買賣超',
+                                    'dealer': '自營商買賣超',
+                                    'revenue': '月營收',
+                                    'eps': '單季 EPS'
+                                  }[selectedVisual]!;
+                                  final usable = points
+                                      .map(fvMap)
+                                      .where((point) =>
+                                          fvChartNumber(point['value']) != null)
+                                      .toList();
+                                  if (selectedVisual == 'eps' &&
+                                      _usableVisualSeriesPoints(result) == 1 &&
+                                      usable.isNotEmpty) {
+                                    // A genuine single-quarter EPS has value even without an
+                                    // eligible historical four-quarter/TTM trend.
+                                    final latest = usable.last;
+                                    final year =
+                                        fvText(latest['date']).substring(0, 4);
+                                    return fvPanel(
+                                        child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text('已發布單季 EPS · $year',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                                color: fvInk)),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                            '${fvText(latest['value'])} 元／股 · ${fvText(latest['date'])}',
+                                            style:
+                                                const TextStyle(color: fvInk)),
+                                        const SizedBox(height: 5),
+                                        const Text('目前只有單季合格資料；不推算四季 EPS／TTM。',
+                                            style: TextStyle(
+                                                color: fvMuted, fontSize: 12)),
+                                      ],
+                                    ));
+                                  }
+                                  if (_usableVisualSeriesPoints(result) < 2) {
+                                    return Column(children: [
+                                      fvBoundedState(
+                                          '歷史資料不足：${fvText(result['missing_reason'], missing: '尚未就緒')}'),
+                                      if (selectedVisual == 'pe' ||
+                                          selectedVisual == 'pb')
+                                        _twoYearValuationCard(result, label),
+                                    ]);
+                                  }
+                                  if (selectedVisual == 'revenue' ||
+                                      selectedVisual == 'eps') {
+                                    final monthlyClose = fvMonthlyCloseMap(
+                                        fvRows(fvMap(
+                                            values['price-month'])['bars']));
+                                    return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                              '資料日 ${fvText(result['data_as_of'])} · ${fvText(result['data_status'])}',
+                                              style: const TextStyle(
+                                                  color: fvMuted,
+                                                  fontSize: 11)),
+                                          if (selectedVisual == 'revenue')
+                                            FvRevenueChart(
+                                                points: points,
+                                                monthlyClose: monthlyClose)
+                                          else
+                                            FvEpsChart(
+                                                points: points,
+                                                monthlyClose: monthlyClose),
+                                          if (loadingVisual
+                                              .contains('price-month'))
+                                            const Text('月底股價載入中'),
+                                          if (errors.contains('price-month'))
+                                            TextButton(
+                                                onPressed: () =>
+                                                    loadPriceSeries('month',
+                                                        force: true),
+                                                child: const Text(
+                                                    '月底股價未更新，重試；營收與 EPS 仍可閱讀')),
+                                          Text(
+                                              '來源：${fvRows(result['source_ids']).join('、')}',
+                                              style: const TextStyle(
+                                                  color: fvMuted,
+                                                  fontSize: 11)),
+                                        ]);
+                                  }
+                                  return Column(children: [
+                                    Row(children: [
+                                      Expanded(
+                                          child: Text(
+                                              '資料日 ${fvText(result['data_as_of'])} · ${fvText(result['data_status'])}',
+                                              style: const TextStyle(
+                                                  color: fvMuted,
+                                                  fontSize: 11))),
+                                      IconButton(
+                                          key: const Key(
+                                              'valuation-chart-expand'),
+                                          tooltip: '放大估值圖',
+                                          onPressed: () =>
+                                              expandVisual(result, label),
+                                          icon: const Icon(Icons.open_in_full,
+                                              color: fvTeal)),
+                                    ]),
+                                    FvVisualSeriesChart(
+                                        rows: points,
+                                        label: label,
+                                        unit: fvText(result['unit']),
+                                        dailyTable: !const {'revenue', 'eps'}
+                                            .contains(selectedVisual),
+                                        tableSummary:
+                                            _visualTableSummary(selectedVisual),
+                                        bars: const {
+                                          'foreign',
+                                          'investment_trust',
+                                          'dealer',
+                                          'revenue',
+                                          'eps'
+                                        }.contains(selectedVisual)),
+                                    Text(
+                                        '來源：${fvRows(result['source_ids']).join('、')}',
+                                        style: const TextStyle(
+                                            color: fvMuted, fontSize: 11)),
+                                    if (selectedVisual == 'pe' ||
+                                        selectedVisual == 'pb')
+                                      _twoYearValuationCard(result, label),
+                                  ]);
+                                }),
+                            ] else if (selectedVisual == 'pe_river') ...[
+                              if ((klineLoading &&
+                                      fvRows(values['kline']).isEmpty) ||
+                                  loadingVisual.contains('visual-eps'))
+                                fvBoundedState('本益比估值河流圖載入中...',
+                                    icon: Icons.waves)
+                              else if (errors.contains('kline') &&
+                                  fvRows(values['kline']).isEmpty)
+                                fvPanel(
+                                    child: Row(children: [
+                                  const Expanded(child: Text('價格資料讀取失敗')),
+                                  TextButton(
+                                      onPressed: () => openPeRiver(),
+                                      child: const Text('重試')),
+                                ]))
+                              else if (errors.contains('visual-eps') &&
+                                  fvRows(fvMap(values['visual-eps'])['points'])
+                                      .isEmpty)
+                                fvPanel(
+                                    child: Row(children: [
+                                  const Expanded(child: Text('EPS 資料讀取失敗')),
+                                  TextButton(
+                                      onPressed: () => openPeRiver(),
+                                      child: const Text('重試')),
+                                ]))
+                              else
+                                FvPeRiverChart(
+                                  klineRows: fvRows(values['kline']),
+                                  epsRows: fvRows(
+                                      fvMap(values['visual-eps'])['points']),
+                                ),
+                            ] else
+                              fvBoundedState('尚無通過期別、來源和可比性驗證的歷史序列。'),
+                          ],
+                          if (nonEquity)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 8),
+                              child: Text('非普通股僅保留價格與本人持股；不開放公司財報、法人及估值圖表。',
+                                  style:
+                                      TextStyle(color: fvMuted, fontSize: 11)),
+                            ),
+                          if (section == 'overview') ...[
+                            TextButton.icon(
+                                key: const Key('stock-open-technical'),
+                                onPressed: () => openSection('technical'),
+                                icon: const Icon(Icons.candlestick_chart),
+                                label: const Text('查看完整技術圖表')),
+                            TextButton.icon(
+                                onPressed: () => openSection('research'),
+                                icon: const Icon(Icons.insights),
+                                label: const Text('查看模型走勢與預測對照')),
+                          ],
+                          if (section == 'research') ...[
+                            ExpansionTile(
+                              tilePadding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              title: const Text(
+                                '證據與來源',
+                                style: TextStyle(
+                                    color: fvInk, fontWeight: FontWeight.w800),
+                              ),
+                              children: [
+                                if (evidence.isEmpty)
+                                  fvBoundedState('證據與來源尚未就緒')
+                                else
+                                  fvPanel(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        for (final entry in evidence.entries)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                                bottom: 6),
+                                            child: Text(
+                                              '${entry.key}：${fvText(entry.value)}',
+                                              style: const TextStyle(
+                                                color: fvMuted,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            if (!nonEquity) ...[
+                              fvSectionTitle(context, '分析與報告'),
+                              FinalAnalysisPanel(widget.api, widget.symbol,
+                                  key: ValueKey(
+                                      'model-research-${widget.symbol}')),
+                            ],
+                          ],
+                          const SizedBox(height: 14),
+                          const Text(
+                            '本頁提供研究資訊，不構成投資建議。資料可能不完整、過期或暫時無法取得，請以標示的資料日期與來源為準。',
+                            style: TextStyle(
+                                color: fvMuted, fontSize: 12, height: 1.45),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    )))),
+      ]),
     );
   }
 }

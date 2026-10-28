@@ -199,6 +199,30 @@ class AnalysisService:
                 "profile_approved": bool(profile and profile["approved"]),
                 "profile_version": profile["version"] if profile else None}
 
+    def model_history(self, user_id, symbol):
+        """Saved inference history, fenced by the same Owner membership as reports."""
+        with self.repository._connection() as connection:
+            member = connection.execute("""SELECT (
+                EXISTS(SELECT 1 FROM private.current_positions
+                       WHERE user_id=%s AND symbol=%s AND shares>0)
+                OR EXISTS(SELECT 1 FROM private.watchlist
+                          WHERE user_id=%s AND symbol=%s AND active)
+                ) AS allowed""", (user_id, symbol, user_id, symbol)).fetchone()
+            if not member or not member['allowed']:
+                raise NotFoundError('owner model history not found')
+            rows = connection.execute("""SELECT DISTINCT ON (analysis_as_of)
+                payload_json,created_at FROM private.specialist_product
+                WHERE symbol=%s ORDER BY analysis_as_of DESC,created_at DESC LIMIT 80""",
+                (symbol,)).fetchall()
+        products = []
+        for row in rows:
+            value = row['payload_json']
+            if (value.get('symbol') != symbol or value.get('content_hash') != content_hash(
+                    {k: v for k, v in value.items() if k != 'content_hash'})):
+                raise HTTPException(503, '模型歷史來源驗證失敗')
+            products.append({**value, 'created_at': str(row['created_at'])})
+        return products
+
     def stock_report_history(self, user_id, symbol, limit=10):
         """Bounded immutable deterministic history for an owner's current universe.
 

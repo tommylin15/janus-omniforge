@@ -828,6 +828,20 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                     "excluded_reasons": ["valuation_reference_not_published"]}
         return jsonable_encoder(reference)
 
+    @private.get("/analysis/{symbol}/model-timeline")
+    def model_timeline(symbol: str, current: AuthenticatedUser = Depends(user)):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from packages.model_timeline import build_timeline
+        symbol = public.require_enabled_symbol(symbol)
+        products = analysis_service.model_history(current.user_id, symbol)
+        # Bounded existing serving readers only: no model calls, Core scans or writes.
+        prices = query_core.price_series(symbol, 'day', limit=300)
+        series = {metric: query_core.visual_series(symbol, metric, limit=200)
+                  for metric in ('revenue', 'pe', 'pb')}
+        return jsonable_encoder(build_timeline(products, prices, **series,
+            today=datetime.now(ZoneInfo('Asia/Taipei')).date().isoformat()))
+
     @private.get("/analysis/{symbol}/reports")
     def stock_report_history(symbol: str, limit: int = Query(10, ge=1, le=20),
                              current: AuthenticatedUser = Depends(user)):

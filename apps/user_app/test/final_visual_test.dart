@@ -93,6 +93,18 @@ void mobileView(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
+Future<void> stockSection(WidgetTester tester, String section) async {
+  final tab = find.byKey(Key('stock-section-$section'));
+  await tester.ensureVisible(tab);
+  await tester.pumpAndSettle();
+  await tester.tap(tab);
+  await tester.pumpAndSettle();
+}
+
+Finder get stockScroll => find.descendant(
+    of: find.byKey(const Key('final-stock-detail-scroll')),
+    matching: find.byType(Scrollable)).first;
+
 void main() {
   testWidgets('Today keeps unvalidated research collapsed behind official market facts', (tester) async {
     mobileView(tester);
@@ -1270,8 +1282,9 @@ void main() {
     });
     await tester.pumpWidget(MaterialApp(home: FinalStockDetailPage(api: api, symbol: '2330')));
     await tester.pumpAndSettle();
+    await stockSection(tester, 'valuation');
     await tester.scrollUntilVisible(find.byKey(const Key('visual-tab-pe')),
-      250, scrollable: find.byType(Scrollable).first);
+      250, scrollable: stockScroll);
     await tester.tap(find.byKey(const Key('visual-tab-pe')));
     await tester.pumpAndSettle();
     expect(find.textContaining('歷史資料不足'), findsOneWidget);
@@ -1298,15 +1311,16 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: FinalStockDetailPage(api: api, symbol: '2330')));
     await tester.pumpAndSettle();
+    await stockSection(tester, 'fundamentals');
     await tester.scrollUntilVisible(find.byKey(const Key('visual-tab-eps')),
-      250, scrollable: find.byType(Scrollable).first);
+      250, scrollable: stockScroll);
     // Locate the tab itself; the facts card changes the initial scroll offset.
     await tester.ensureVisible(find.byKey(const Key('visual-tab-eps')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('visual-tab-eps')));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.textContaining('已發布單季 EPS'), 120,
-      scrollable: find.byType(Scrollable).first);
+      scrollable: stockScroll);
     expect(find.textContaining('已發布單季 EPS'), findsOneWidget);
     expect(find.textContaining('0.35 元／股'), findsOneWidget);
     expect(find.textContaining('不推算四季 EPS／TTM'), findsOneWidget);
@@ -1314,38 +1328,16 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Official event timeline keeps published and effective dates distinct',
-      (tester) async {
+  testWidgets('Stock page omits announcements and notes without fetching them', (tester) async {
     mobileView(tester);
-    final api = FinalFakeApi({
-      '/api/v1/public/stock-header/2330': {
-        'stock_name': '台積電', 'close': '1000', 'trade_date': '2026-10-08'
-      },
-      '/api/v1/public/events/2330': [
-        {'event_id': 'evt-a', 'title': '法說公告',
-         'summary': '公司公布第三季營運說明會日期。',
-         'published_at': '2026-10-08T16:00:00+08:00',
-         'effective_date': '2026-11-01', 'source_id': 'mops'},
-        {'event_id': 'evt-a', 'title': '重複公告', 'published_at': '2026-10-08'},
-        {'event_id': 'evt-b', 'title': '待補公告日期', 'event_date': '2026-10-01'},
-      ],
-    });
+    final api = FinalFakeApi({});
     await tester.pumpWidget(MaterialApp(home: FinalStockDetailPage(api: api, symbol: '2330')));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('公司公告，看懂發生什麼事'),
-      220, scrollable: find.byType(Scrollable).first);
-    await tester.scrollUntilVisible(find.text('事件日：2026-10-01'),
-      120, scrollable: find.byType(Scrollable).first);
-    expect(find.text('法說公告'), findsOneWidget);
-    expect(find.text('公司公布第三季營運說明會日期。'), findsOneWidget);
-    expect(find.textContaining('目前只有公告標題'), findsOneWidget);
-    expect(find.text('重複公告'), findsNothing);
-    expect(find.text('公告：2026-10-08T16:00:00+08:00'), findsOneWidget);
-    expect(find.text('生效：2026-11-01'), findsOneWidget);
-    expect(find.text('來源：mops'), findsOneWidget);
-    expect(find.text('公告時間未確認'), findsOneWidget);
-    expect(find.text('事件日：2026-10-01'), findsOneWidget);
-    expect(tester.takeException(), isNull);
+    await stockSection(tester, 'research');
+    expect(find.text('筆記與待追蹤'), findsNothing);
+    expect(find.text('公司公告，看懂發生什麼事'), findsNothing);
+    expect(api.reads.where((p) => p.contains('/notes?') || p.contains('/events/')), isEmpty);
+    expect(api.posts, isEmpty);
   });
 
   testWidgets('Stock valuation charts use only requested published series', (tester) async {
@@ -1366,17 +1358,20 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: FinalStockDetailPage(api: api, symbol: '2330')));
     await tester.pumpAndSettle();
     expect(api.reads.where((x) => x.contains('visual-series')), isEmpty);
+    await stockSection(tester, 'valuation');
     await tester.scrollUntilVisible(find.byKey(const Key('visual-tab-pe')),
-      250, scrollable: find.byType(Scrollable).first);
+      250, scrollable: stockScroll);
     await tester.tap(find.byKey(const Key('visual-tab-pe')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('fv-visual-series-chart')), findsOneWidget);
     expect(find.text('來源：twse'), findsOneWidget);
     expect(api.reads.where((x) => x.contains('metric=pe')).length, 1);
+    await stockSection(tester, 'fundamentals');
     await tester.tap(find.byKey(const Key('visual-tab-revenue')));
     await tester.pumpAndSettle();
     expect(api.reads.where((x) => x.contains('metric=revenue')).length, 1);
     expect(find.textContaining('歷史資料不足'), findsOneWidget);
+    await stockSection(tester, 'valuation');
     await tester.tap(find.byKey(const Key('visual-tab-pe')));
     await tester.pumpAndSettle();
     expect(api.reads.where((x) => x.contains('metric=pe')).length, 1);
@@ -1533,16 +1528,17 @@ void main() {
     expect(priceChange.style?.color, fvGain);
     expect(unrealized.style?.color, fvGain);
     expect(api.reads.where((path) => path == '/api/v1/public/kline/2330').length, 1);
+    await stockSection(tester, 'technical');
     await tester.scrollUntilVisible(
       find.byKey(const Key('stock-chart-expand')),
       170,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: stockScroll,
     );
     await tester.scrollUntilVisible(find.byKey(const Key('fv-kline-chart')), 120,
-      scrollable: find.byType(Scrollable).first);
+      scrollable: stockScroll);
     expect(find.byKey(const Key('fv-kline-chart')), findsOneWidget);
     await tester.scrollUntilVisible(find.text('近3月'), -100,
-      scrollable: find.byType(Scrollable).first);
+      scrollable: stockScroll);
     await Scrollable.ensureVisible(tester.element(find.text('近3月')), alignment: 0.5);
     await tester.pumpAndSettle();
     await tester.tap(find.text('近3月'));
@@ -1557,10 +1553,11 @@ void main() {
 
     expect(find.byKey(const Key('fv-health-bars')), findsNothing);
 
+    await stockSection(tester, 'research');
     await tester.scrollUntilVisible(
       find.text('分析與報告'),
       250,
-      scrollable: find.byType(Scrollable).last,
+      scrollable: stockScroll,
     );
     await tester.ensureVisible(find.text('分析與報告'));
     await tester.pumpAndSettle();
@@ -1600,7 +1597,7 @@ void main() {
     await tester.pump();
     expect(find.text('125.00'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('價格圖載入中；其餘個股資訊可先查看'), 120,
-      scrollable: find.byType(Scrollable).first);
+      scrollable: stockScroll);
     expect(find.text('價格圖載入中；其餘個股資訊可先查看'), findsOneWidget);
     await tester.pump(const Duration(seconds: 10));
     await tester.pumpAndSettle();
@@ -1609,7 +1606,7 @@ void main() {
     expect(messages.single, isNot(contains('Bearer')));
     debugPrint = originalPrint;
     await tester.scrollUntilVisible(find.text('125.00'), -200,
-      scrollable: find.byType(Scrollable).first);
+      scrollable: stockScroll);
     expect(find.text('125.00'), findsOneWidget);
     api.values[path] = {'rows': [
       {'trade_date': '2026-10-15', 'open': '120', 'high': '126',
@@ -1618,7 +1615,7 @@ void main() {
        'low': '122', 'close': '125', 'volume_shares': 2000},
     ]};
     await tester.scrollUntilVisible(find.text('重試'), 120,
-      scrollable: find.byType(Scrollable).first);
+      scrollable: stockScroll);
     await tester.ensureVisible(find.text('重試'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('重試'));
@@ -1630,7 +1627,7 @@ void main() {
     await tester.pump();
     expect(find.byKey(const Key('fv-kline-chart')), findsOneWidget);
     await tester.scrollUntilVisible(find.text('125.00'), -200,
-      scrollable: find.byType(Scrollable).first);
+      scrollable: stockScroll);
     expect(find.text('125.00'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

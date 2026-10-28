@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'final_visual_common.dart';
 import 'stock_insights.dart';
+import 'model_timeline.dart';
 import 'main.dart' as legacy;
 
 String analysisState(Object? value) =>
@@ -32,7 +33,7 @@ class FinalAnalysisPanel extends StatefulWidget {
 
 class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
     with WidgetsBindingObserver {
-  Map<String, dynamic> baseline = {}, capability = {};
+  Map<String, dynamic> baseline = {}, capability = {}, timeline = {};
   List<dynamic> history = [], reportHistory = [];
   String reportHistoryStatus = 'waiting';
   Timer? poll;
@@ -55,20 +56,26 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
       final results = await Future.wait([
         widget.api.get(path),
         widget.api.get('$path/ceo').catchError((_) => <String, dynamic>{
-          'status': 'unavailable', 'items': [],
-          'capability': {'can_request': false}}),
-        widget.api.get('$path/reports').catchError((_) => <String, dynamic>{
-          'status': 'unavailable', 'items': []}),
+              'status': 'unavailable',
+              'items': [],
+              'capability': {'can_request': false}
+            }),
+        widget.api
+            .get('$path/model-timeline')
+            .catchError((_) => <String, dynamic>{'status': 'unavailable'}),
+        widget.api.get('$path/reports').catchError(
+            (_) => <String, dynamic>{'status': 'unavailable', 'items': []}),
       ]).timeout(const Duration(seconds: 20));
       if (!mounted) return;
       final ceo = fvMap(results[1]);
       setState(() {
         baseline = fvMap(results[0]);
+        timeline = fvMap(results[2]);
         capability = fvMap(ceo['capability']);
         history = fvRows(ceo['items']);
         ceoHistoryUnavailable = ceo['status'] == 'unavailable';
-        reportHistory = fvRows(fvMap(results[2])['items']);
-        reportHistoryStatus = fvText(fvMap(results[2])['status']);
+        reportHistory = fvRows(fvMap(results[3])['items']);
+        reportHistoryStatus = fvText(fvMap(results[3])['status']);
         error = null;
       });
       schedulePoll();
@@ -155,19 +162,29 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
     final gaps = fvMap(report['input_gaps']);
     final facts = fvRows(report['roles']);
     final reason = const {
-      'first_report': '首次報告', 'model_changed': '模型版本更新',
-      'financial_changed': '財務資料變更', 'price_move_5pct': '價格異動',
-      'weekly_new_inputs': '每週資料更新', 'policy_changed': '政策版本更新',
-      'on_demand': '手動重新產生'
-    }[report['generation_reason']] ?? '已保存版本';
+          'first_report': '首次報告',
+          'model_changed': '模型版本更新',
+          'financial_changed': '財務資料變更',
+          'price_move_5pct': '價格異動',
+          'weekly_new_inputs': '每週資料更新',
+          'policy_changed': '政策版本更新',
+          'on_demand': '手動重新產生'
+        }[report['generation_reason']] ??
+        '已保存版本';
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('事實報告 · $reason',
           style: const TextStyle(fontWeight: FontWeight.w800)),
-      Text('報告資料日 ${fvText(report['report_as_of'])} · 版本 ${fvText(report['policy_version'])}',
+      Text(
+          '報告資料日 ${fvText(report['report_as_of'])} · 版本 ${fvText(report['policy_version'])}',
           style: const TextStyle(color: fvMuted, fontSize: 12)),
       const Text('報告是後端確定性事實摘要，不是 CEO 或四模型預測驗證。',
           style: TextStyle(color: fvMuted, fontSize: 12)),
-      for (final role in const ['quant', 'risk', 'fundamental', 'valuation']) ...[
+      for (final role in const [
+        'quant',
+        'risk',
+        'fundamental',
+        'valuation'
+      ]) ...[
         const SizedBox(height: 6),
         Text('${legacy.uiLabel(role)} · 輸入日 ${fvText(inputDates[role])}',
             style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -178,17 +195,23 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
           Text('輸入缺口：${fvRows(gaps[role]).join('、')}',
               style: const TextStyle(color: Colors.orange, fontSize: 12)),
         for (final item in statuses.where((x) => fvMap(x)['role'] == role)) ...[
-          Text('模型狀態 ${fvText(fvMap(item)['status'])} · ${fvText(fvMap(item)['model_version'])}',
+          Text(
+              '模型狀態 ${fvText(fvMap(item)['status'])} · ${fvText(fvMap(item)['model_version'])}',
               style: const TextStyle(color: fvMuted, fontSize: 12)),
-          if (const {'ACTIVE_PREDICTED', 'ACTIVE_CACHED'}.contains(fvMap(item)['status']) &&
+          if (const {'ACTIVE_PREDICTED', 'ACTIVE_CACHED'}
+                  .contains(fvMap(item)['status']) &&
               fvMap(item)['prediction'] is num)
-            Text('模型原始輸出 ${fvText(fvMap(item)['output_name'])}: ${fvMap(item)['prediction']}'),
-          if (const {'ACTIVE_PREDICTED', 'ACTIVE_CACHED'}.contains(fvMap(item)['status']) &&
+            Text(
+                '模型原始輸出 ${fvText(fvMap(item)['output_name'])}: ${fvMap(item)['prediction']}'),
+          if (const {'ACTIVE_PREDICTED', 'ACTIVE_CACHED'}
+                  .contains(fvMap(item)['status']) &&
               fvMap(item)['prediction'] is Map)
-            Text('估值模型雙頭原始輸出 · log PE: ' +
-              fvText(fvMap(fvMap(item)['prediction'])['log_pe']) +
-              ' · log PB: ' + fvText(fvMap(fvMap(item)['prediction'])['log_pb']),
-              style: const TextStyle(color: fvMuted, fontSize: 12)),
+            Text(
+                '估值模型雙頭原始輸出 · log PE: ' +
+                    fvText(fvMap(fvMap(item)['prediction'])['log_pe']) +
+                    ' · log PB: ' +
+                    fvText(fvMap(fvMap(item)['prediction'])['log_pb']),
+                style: const TextStyle(color: fvMuted, fontSize: 12)),
         ],
       ],
       const Text('缺少正式模型時保留缺值；價格／估值不由 App 重新計算。',
@@ -240,36 +263,53 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
     final active =
         history.isNotEmpty && analysisActive(fvMap(history.first)['status']);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      fvSectionTitle(context, '模型能回答什麼？'),
-      const Text('四個模型各看一個面向；可用不等於預測保證正確。',
-          style: TextStyle(color: fvMuted, fontSize: 12)),
-      if (loading)
-        fvBoundedState('分析資料載入中')
-      else for (final role in stockRoleNames.entries) Builder(builder: (context) {
-        final model = fvMap(fvMap(baseline['four_model_serving'])[role.key]);
-        final available = const {'ACTIVE_PREDICTED', 'ACTIVE_CACHED'}.contains(model['status']);
-        final current = baseline['freshness'] == 'current';
-        final state = baseline['freshness'] == 'stale' ? '資料過期'
-            : available && current ? '模型結果可用' : '暫無可用預測';
-        return ListTile(contentPadding: EdgeInsets.zero,
-          leading: Icon(available && current ? Icons.check_circle_outline : Icons.info_outline,
-              color: available && current ? fvTeal : fvMuted),
-          title: Text('${role.value} · $state'),
-          subtitle: Text(const {
-            'quant': '研究相對市場的表現，不是上漲保證。',
-            'fundamental': '研究公司營運變化，仍要核對財報。',
-            'valuation': '研究價格與財務的關係，不是保證成交價。',
-            'risk': '研究波動幅度，不預測漲跌方向。',
-          }[role.key]!),
-        );
-      }),
+      if (!loading) ModelTimelinePanel(timeline),
+      ExpansionTile(title: const Text('模型狀態與資料口徑'), children: [
+        const Text('四個模型各看一個面向；可用不等於預測保證正確。',
+            style: TextStyle(color: fvMuted, fontSize: 12)),
+        if (loading)
+          fvBoundedState('分析資料載入中')
+        else
+          for (final role in stockRoleNames.entries)
+            Builder(builder: (context) {
+              final model =
+                  fvMap(fvMap(baseline['four_model_serving'])[role.key]);
+              final available = const {'ACTIVE_PREDICTED', 'ACTIVE_CACHED'}
+                  .contains(model['status']);
+              final current = baseline['freshness'] == 'current';
+              final state = baseline['freshness'] == 'stale'
+                  ? '資料過期'
+                  : available && current
+                      ? '模型結果可用'
+                      : '暫無可用預測';
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                    available && current
+                        ? Icons.check_circle_outline
+                        : Icons.info_outline,
+                    color: available && current ? fvTeal : fvMuted),
+                title: Text('${role.value} · $state'),
+                subtitle: Text(const {
+                  'quant': '研究相對市場的表現，不是上漲保證。',
+                  'fundamental': '研究公司營運變化，仍要核對財報。',
+                  'valuation': '研究價格與財務的關係，不是保證成交價。',
+                  'risk': '研究波動幅度，不預測漲跌方向。',
+                }[role.key]!),
+              );
+            }),
+      ]),
       ExpansionTile(title: const Text('查看模型資料來源'), children: [
-        for (final item in roles.where((r) => stockRoleNames.containsKey(fvMap(r)['role'])))
-          ListTile(title: Text(stockRoleNames[fvMap(item)['role']]!),
-            subtitle: Text(fvText(fvMap(item)['plain_language']))),
+        for (final item
+            in roles.where((r) => stockRoleNames.containsKey(fvMap(r)['role'])))
+          ListTile(
+              title: Text(stockRoleNames[fvMap(item)['role']]!),
+              subtitle: Text(fvText(fvMap(item)['plain_language']))),
         if (fvMap(baseline['market_context']).isNotEmpty) ...[
-          Text('市場比較資料日 ${fvText(fvMap(baseline['market_context'])['analysis_as_of'])}'),
-          Text('比較股票數 ${fvText(fvMap(baseline['market_context'])['cohort_size'])} · '
+          Text(
+              '市場比較資料日 ${fvText(fvMap(baseline['market_context'])['analysis_as_of'])}'),
+          Text(
+              '比較股票數 ${fvText(fvMap(baseline['market_context'])['cohort_size'])} · '
               '20 日相對強弱排名 ${fvText(fvMap(fvMap(baseline['market_context'])['cross_sectional_rank'])['relative_strength_20d_percent'])}'),
           const Text('當日市場比較，不是未來獲利機率。'),
         ],
@@ -277,19 +317,23 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
       fvSectionTitle(context, '已保存的研究報告'),
       fvPanel(child: _stockReport(fvMap(baseline['stock_report']))),
       if (fvMap(baseline['stock_report_refresh']).isNotEmpty)
-        Text('檢查資料日 ${fvText(fvMap(baseline['stock_report_refresh'])['checked_as_of'])} · ${fvMap(baseline['stock_report_refresh'])['generated'] == true ? '已更新' : '沿用上次成功報告'}',
+        Text(
+            '檢查資料日 ${fvText(fvMap(baseline['stock_report_refresh'])['checked_as_of'])} · ${fvMap(baseline['stock_report_refresh'])['generated'] == true ? '已更新' : '沿用上次成功報告'}',
             style: const TextStyle(color: fvMuted, fontSize: 12)),
       if (reportHistoryStatus == 'unavailable')
         const Text('本人歷史報告目前無法讀取；不影響最新事實報告',
             style: TextStyle(color: Colors.orange)),
-      if (reportHistory.where((row) =>
-            fvMap(fvMap(row)['report'])['report_hash'] !=
-              fvMap(baseline['stock_report'])['report_hash']).isNotEmpty)
+      if (reportHistory
+          .where((row) =>
+              fvMap(fvMap(row)['report'])['report_hash'] !=
+              fvMap(baseline['stock_report'])['report_hash'])
+          .isNotEmpty)
         ExpansionTile(title: const Text('本人歷史事實報告'), children: [
           for (final row in reportHistory)
             if (fvMap(fvMap(row)['report'])['report_hash'] !=
                 fvMap(baseline['stock_report'])['report_hash'])
-              Padding(padding: const EdgeInsets.all(12),
+              Padding(
+                  padding: const EdgeInsets.all(12),
                   child: _stockReport(fvMap(fvMap(row)['report']))),
         ]),
       fvSectionTitle(context, '需要時再做深入分析'),

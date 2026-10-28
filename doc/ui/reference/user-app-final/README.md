@@ -125,6 +125,8 @@ Final Visual Contract 的權威範圍是 presentation：資訊架構、section o
 
 ### 4. Stock Detail Final — `stock-detail.png`
 
+2026-10-28：使用者核准整個個股頁重構與四模型歷史／實際對照，並要求先移除個股公告與筆記。以[圖資 v2 最新呈現契約](../../stock-detail-charts-v2.md)為準，舊 PNG 只保留共通色彩／卡片基線；不以其舊分區或公告／筆記作本次版序 gate。這不是 Dev 真實畫面驗收。
+
 Primary order：以 [User App §5.3](../../user-app.md) 為唯一順序，股價→本人持股→短價量→通用圖表→中性資料／筆記／事件／來源；五角色有效並符合publication後才新增整合摘要，不以舊PNG健康度先行。
 
 進階完整 K 線、Fact Pack、五 specialist persisted outputs、On-demand CEO report、估值詳細指標與 provenance 仍在 Advanced；但短價量與圖表入口不得只埋在 Advanced。

@@ -56,6 +56,9 @@ class Service:
         self.calls.append(('stock_report_history', owner, symbol, limit))
         return {'schema_version': 'owner-stock-report-history.v1', 'symbol': symbol,
                 'status': 'waiting', 'items': []}
+    def model_history(self, owner, symbol):
+        self.calls.append(('model_history', owner, symbol))
+        return []
     def enqueue(self, owner, symbol, profile, key):
         self.calls.append(('enqueue', owner, symbol, profile, key))
         return {'request_id': str(REQUEST), 'status': 'QUEUED'}
@@ -77,19 +80,42 @@ class Service:
         return {'version': 1}
 
 
-def client():
+def client(query_core=None):
     service = Service()
     def verify(token, audience):
         return {'iss': 'https://accounts.google.com', 'aud': audience, 'sub': token,
             'email': 'admin@example.com' if token == 'admin' else f'{token}@example.com',
             'email_verified': True, 'exp': 1_900_000_000}
-    api = create_app(repository=Repository(), store=object(), public=Public(), core=object(),
+    api = create_app(repository=Repository(), store=object(), public=Public(), core=object(), query_core=query_core,
         verifier=verify, audience='user', admin_verifier=verify, admin_audience='admin',
         admin_emails=frozenset({'admin@example.com'}), private_recalculator=object(), analysis_service=service)
     return TestClient(api), service
 
 
 def auth(token='a'): return {'Authorization': 'Bearer '+token, 'Idempotency-Key': 'same-request-1'}
+
+
+def test_model_timeline_is_authenticated_token_scoped_and_uses_bounded_readers():
+    class Core:
+        def __init__(self): self.reads = []
+        def price_series(self, symbol, period, limit):
+            self.reads.append(('price', symbol, period, limit))
+            return {'bars': []}
+        def visual_series(self, symbol, metric, limit):
+            self.reads.append(('visual', symbol, metric, limit))
+            return {'points': []}
+    core = Core()
+    api, service = client(core)
+    path = '/api/v1/me/analysis/2330/model-timeline'
+    assert api.get(path).status_code == 401
+    assert not core.reads and not service.calls
+    response = api.get(path + '?owner_id=other', headers=auth('b'))
+    assert response.status_code == 200
+    assert service.calls == [('model_history', OWNER_B, '2330')]
+    assert core.reads == [('price', '2330', 'day', 300),
+        ('visual', '2330', 'revenue', 200), ('visual', '2330', 'pe', 200),
+        ('visual', '2330', 'pb', 200)]
+    assert response.json()['status'] == 'no_saved_forecasts'
 
 
 def test_reads_never_dispatch_and_requests_require_verified_owner():

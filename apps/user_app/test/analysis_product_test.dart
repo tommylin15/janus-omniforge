@@ -70,11 +70,15 @@ void main() {
             body: SingleChildScrollView(
                 child: FinalAnalysisPanel(api, '2330')))));
     await tester.pumpAndSettle();
-    expect(find.text('模型能回答什麼？'), findsOneWidget);
+    expect(find.text('模型狀態與資料口徑'), findsOneWidget);
     expect(find.text('真實基準；模型品質尚未驗證'), findsNothing);
     expect(find.textContaining('報告資料日 2026-10-10'), findsOneWidget);
     expect(find.textContaining('沿用上次成功報告'), findsOneWidget);
     expect(find.textContaining('模型狀態 MISSING_OR_INACTIVE_ARTIFACT'), findsNothing);
+    expect(find.textContaining('暫無可用預測'), findsNothing);
+    await tester.ensureVisible(find.text('模型狀態與資料口徑'));
+    await tester.tap(find.text('模型狀態與資料口徑'));
+    await tester.pumpAndSettle();
     expect(find.textContaining('暫無可用預測'), findsNWidgets(4));
     expect(find.widgetWithText(FilledButton, '分析'), findsNothing);
     expect(api.posts, isEmpty);
