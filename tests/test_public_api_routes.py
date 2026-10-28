@@ -308,7 +308,7 @@ def test_public_visual_series_requires_published_serving_and_never_scans_core():
         {"date": "2026-10-07", "value": "43.57", "source_id": "twse", "provenance_id": "prov-a"},
         {"date": "2026-10-08", "value": "42.76", "source_id": "twse", "provenance_id": "prov-b"},
     ]
-    assert calls == [("valuation", "2327", 30)]
+    assert calls == [("valuation", "2327", 90)]
     assert api.get("/api/v1/public/stocks/9999/visual-series?metric=pe").status_code == 404
     eps = api.get("/api/v1/public/stocks/2327/visual-series?metric=eps")
     assert eps.status_code == 200 and eps.json()['data_status'] == 'missing'

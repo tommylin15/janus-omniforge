@@ -61,6 +61,6 @@ def test_public_pe_reads_only_one_published_profile_not_core():
     assert report["data_status"]=="available"
     assert report["two_year_profile"]["status"]=="partial_history"
     assert "password" not in report["two_year_profile"]
-    assert calls == [("recent","valuation","2327",12),("two_year","2327","pe_ratio")]
+    assert calls == [("recent","valuation","2327",36),("two_year","2327","pe_ratio")]
     empty=CoreQueryService(disallow_core,serving_series=series)
     assert empty.visual_series("2327","pb")["two_year_profile"]["status"]=="unavailable"
