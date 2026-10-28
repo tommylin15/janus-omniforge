@@ -1,12 +1,12 @@
 # Janus 最新驗收證據索引
 
-## 2026-10-28 個股頁整頁重構與四模型歷史對照｜Dev 100% 部署 PASS
+## 2026-10-28 個股頁整頁重構與四模型歷史對照｜CLOSED／PASS
 
 - 應用來源 `380c369605e2476e4aca35797cc228621ad92da5`；[完整 Release #40657065451](https://github.com/tommylin15/janus-omniforge/actions/runs/40657065451)、[0% 候選 #40657951569](https://github.com/tommylin15/janus-omniforge/actions/runs/40657951569)、[Auth #40658914046](https://github.com/tommylin15/janus-omniforge/actions/runs/40658914046)、[API-only 100% #40659980256](https://github.com/tommylin15/janus-omniforge/actions/runs/40659980256) 均 completed/success。首輪 Release #40654866057 的兩個舊 Serving 筆數斷言失敗已由 `380c3696` 修復，不改判首輪結果。
 - 切流 artifact `ghcr-api-only-promotion-receipt`：`phase=PASS_API_ONLY_100_PERCENT`、revision `janus-api-00627-yox`、image `ghcr.io/tommylin15/janus-api@sha256:62e0f19ad9732845d9b79873de88d01aff6d9f67dedb08fd8e56152840fc2e47`、`lease_released=true`。採核准 `direct` 模式，`rollback_exercised=false`；保留原版 `73f02252c8a7e8c3d2162d7f25dd22a5c023915f`／revision `janus-api-00625-qis` 作失敗回復基準。不改 Jobs、Scheduler、Storage、IAM、MCP tags 或 Owner 資料。
 - 部署後獨立 HTTP：正式 `/app/build-id.txt` 回傳來源完整 SHA，`/app/` 與 `/health` 均 200；新 `/api/v1/me/analysis/2330/model-timeline` 未登入為 401，沒有將負向驗證冒充 Owner 正向。
 - 2327／2330／4958 各自價格日／週／月 K、EPS、營收共 15 個 Serving 查詢全部 200／available。日 K 各 30 根（資料日 2026-10-27）、週 K 各 30 根、月 K 分別 14／14／8 根；EPS 各 12 季（資料日 2026-06-30）、營收各 24 月（資料日 2026-09-30）。期數不足的均線仍保留 missing，不以月 K 期數冒稱 MA240 可用。
-- **驗收邊界**：新版 API／App 部署與公開三股資料鏈 PASS；Owner 已登入的六區操作、四模型時間走勢／來源與實際歷史預測覆蓋尚未實測，維持 NOT_VERIFIED。測試資料預覽不是 live screenshot，未重訓或補造過去預測，整個圖資 v2 的其他擴充待辦不因部署而結案。
+- **Owner 實機驗收與結案**：新版上線並提供正式 App URL 後，使用者在同一對話回報「驗證成功」。本輪個股頁整頁重構／四模型呈現／Dev 發布記為 `OWNER_UI=PASS_USER_CONFIRMED`、`CLOSED／PASS`，不再保留重複的 Owner 畫面待驗。此為使用者實機確認，未取得或保存登入 token、Owner payload 或逐點歷史清冊；不據此宣稱所有歷史預測齊全或模型前瞻效用已驗證。其餘圖資 v2 擴充功能維持原待辦。
 
 ## 2026-10-27 全市場 2 年歷史資料補齊與 Serving 投影｜100% PASS
 

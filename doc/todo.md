@@ -1,21 +1,9 @@
 # Janus — 唯一 Active TODO
 
-## 個股頁圖資 v2（2026-10-28，狀態：partial）
+## 個股頁圖資 v2｜後續擴充（2026-10-28）
 
-**本次使用者最新範圍：整頁重構，不在舊長頁疊加。** 改為總覽／技術／營運／估值／籌碼／研究；個股頁公告與筆記先移除（含讀取請求），既有資料及其他頁面不刪除。四模型均需按真正任務呈現歷史預測、實際走勢、對應期別與白話說明，不能只改 Risk。規格見下方連結 §0。
+本輪整頁重構、四模型呈現與 Dev 發布已由使用者實機確認並有界結案，收據見 [Operations](spec/operations-and-testing.md)。以下只列剩餘功能；規格見[個股頁圖資 v2](ui/stock-detail-charts-v2.md)，不因本次結案自行開工。
 
-- [x] 本機程式：六區導覽、移除舊五面向重複摘要、日／週／月 K、營收／EPS 元件接線、停止個股公告／筆記請求。
-- [x] 本機程式：Owner-scoped 模型歷史 API、四角色五頭比較圖、20 市場日對齊、未到期／事後重算／缺值與版本切換標示；無新模型推論、重訓或資料寫入。
-- [x] 同來源完整 Release／0% 候選／Auth／Dev API 100% 部署與獨立公開資料讀回 PASS（來源 `380c3696`，切流 [#40659980256](https://github.com/tommylin15/janus-omniforge/actions/runs/40659980256)）；詳見 [Operations](spec/operations-and-testing.md)。
-- [ ] Owner 已登入實測六區操作、四模型時間走勢與實際保存歷史覆蓋；不能以公開 API 或測試資料預覽冒充 Owner UI 正向。
-- 本機證據：Python 37 passed／1 個既有 warning；Flutter 全套 136 passed，最終模型分區相關 40 passed；Dart 無 error／warning（既有 style infos）。這些結果不等於 Dev 上線或模型前瞻有效性驗證。
-
-規格與盤點：[`doc/ui/stock-detail-charts-v2.md`](ui/stock-detail-charts-v2.md)
-
-- [x] 後端 `price-series` API（日/週/月 K＋MA5/20/60/240），單元測試 `tests/test_price_series.py`（完整 Release、Dev 部署及 2327／2330／4958 日／週／月 K 公開 API 讀回 PASS）
-- [x] 前端元件 `final_stock_fundamentals.dart`（`FvPeriodKChart`、`FvRevenueChart`、`FvEpsChart`）已接入重構後技術／營運區，本機相關 widget tests PASS；靜態分析無 error／warning，既有 style infos 保留；已部署 Dev，Owner 畫面待驗。
-- [x] 接入 `final_stock_detail.dart`：K 線日/週/月切換、營收單月/累計、EPS 季本益比；補 widget test
-- [x] CI／Dev 部署及 2327／2330／4958 公開價格、EPS、營收 API 驗收 PASS；Owner 畫面仍依上方待辦判定。
 - [ ] 營收表加「累計 YoY」欄、「近 24 個月新高」橫幅（不得稱歷史新高）
 - [ ] 屬性評分 v1（短線/波段/存股）＋特徵表，批次產出 publication
 - [ ] 同業本益比（產業 PE 中位數）publication
