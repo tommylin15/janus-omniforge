@@ -1,6 +1,6 @@
 # 統一批次與資料快照契約
 
-更新：2026-10-25。狀態：SEQ-01、SEQ-02、SEQ-03 的文件、程式與離線測試已有各自 CI 收據（見 [唯一TODO](../todo.md)）；SEQ-03 source `246aaac`、CI #40152197002 `completed/success`。SEQ-01…03 的 Dev 部署、migration、isolated restore 與 live acceptance 均交 SEQ-04，未因本次執行。SEQ-05…08 未在本輪上線。
+更新：2026-10-28。三大管線目標與有界驗收以 §8 為準；§2、SEQ-01 與舊交接中的 02:30／04:30／06:30 跨 tick 時段屬切換前基線，不是新目標。三大管線尚待實作、部署及驗收；目前狀態見 [唯一 TODO](../todo.md) 與 [Operations](operations-and-testing.md)。
 本文件是批次時段、端到端依賴與備份政策的唯一入口，覆蓋舊每日時段與 GitHub 備份 cron。四個模型按可發布設計；這不是目前 Registry、模型效用或 runtime 已通過的宣告。
 
 ## 1. 決策與兩方案
@@ -135,7 +135,7 @@ Private snapshot 是 current Iceberg table 的資料列，不是舊 Iceberg snap
 | `market-screening` | 平日 04:30 | 依賴 ingestion，執行四模型與市場週期 | 與前一階段人為間隔 2 小時，白白等待 Cloud Scheduler 喚醒 |
 | `private` | 平日 06:30 | 依賴 screening，計算個人持股估值與異動 | 再次人為間隔 2 小時，導致個人持股估值延遲至次日晨間才更新 |
 | `stage-cleanup` | 每日 22:30 | 清理 >48h GCS Stage 暫存 | 輕量維護，每日執行 |
-| `mobile-ledger` | 每 2 小時 :30 | 消耗手機記帳佇列 | 輕量輪詢，有待處理才跑，無則 0 秒退出；運作良好 |
+| `mobile-ledger` | 每 2 小時 :30 | 消耗手機記帳佇列 | 輕量輪詢，有待處理才跑，無則不派送額外 Worker |
 | `iceberg-compaction` | 週六 22:30 | 合併 Iceberg 小檔案 | 與 Mart/Core 清理同一時段，透過 3 層依賴鏈反覆調度容器 |
 | `mart-cleanup` | 週六 22:30 | Mart 快照修剪 | 同上，過度零碎切割 |
 | `core-cleanup` | 週六 22:30 | Core 歷史修剪 | 同上，過度零碎切割 |
@@ -158,21 +158,41 @@ flowchart TD
     subgraph Pipeline_B["管線 B：即時記帳與補償管線 (Mobile Ledger · 每 2 小時)"]
         B1["Cloud Scheduler 每兩小時喚醒"] --> B2{"檢查待處理佇列<br/>probe_queue"}
         B2 -- "有待處理" --> B3["消耗交易紀錄並即時重新計算損益"]
-        B2 -- "佇列為空" --> B4["0 秒靜默退出 (零運算浪費)"]
+        B2 -- "佇列為空" --> B4["靜默返回，不派送額外 Worker"]
     end
 
     subgraph Pipeline_C["管線 C：資料庫備份與週末維護管線 (Maintenance Pipeline)"]
         C1["每日 00:30：PostgreSQL 邏輯備份至 GCS"]
-        C2["週六 22:30：週末大維護<br/>(Stage 清理 + Iceberg Compaction + 快照修剪 + PG VACUUM ANALYZE)"]
+        C2["每日 22:30：Stage 48h 清理<br/>週六 22:30：Iceberg Compaction + 快照修剪 + PG VACUUM ANALYZE"]
     end
 ```
 
 #### 精簡重點說明：
 1. **盤後一條龍直通（Pipeline A）**：
    - 將原本橫跨 02:30、04:30、06:30 長達 4 小時等待的鏈路，統一收斂至交易日 **18:30**。
-   - Ingestion 完成後直接鏈式觸發 Intelligence Mart 與 Private Pipeline，使用者在晚間 19:00 前即可在 App 查看最新收盤行情、KD 線、估值河流圖、四模型評分與個人持股未實現損益。
+   - Ingestion 完成後直接鏈式觸發 Intelligence Mart 與 Private Pipeline，App／API 讀取相同資料日的行情、模型與持股估值；19:00 前完成是待實測的時效目標，記錄實際起訖與瓶頸，不先保證。
 2. **四模型因子計算完全零額外批次負擔**：
    - 四個分析師模型（Quant15、Risk12、Fund15、Valuation）所需的因子特徵已內建於 `intelligence_mart.analyst_inputs`。
    - 批次啟動時自動於記憶體內動態向量化完成計算，無需維護額外的因子資料庫或單獨排程。
 3. **週末大維護一次打包（Pipeline C）**：
-   - 週六 22:30 統一執行儲存與資料庫保養，包含小檔案合併、清理舊快照與 PostgreSQL `VACUUM ANALYZE`，回收 dead tuples，徹底杜絕 Free Tier VM 磁碟膨脹風險。
+   - 週六 22:30 統一執行儲存與資料庫保養，包含小檔案合併、清理舊快照與 PostgreSQL `VACUUM ANALYZE`，回收可重用空間並更新統計資訊；不保證資料檔立即縮小或消除磁碟容量風險。Stage 仍每日 22:30 依 48h TTL 清理，不改為每週一次；週六不重複派送同一 Stage 工作。
+
+
+### 8.3 三大管線有界驗收（2026-10-28）
+
+部署後各執行一次真實流程，配合排程讀回與必要離線異常測試。可受控觸發正式使用的同一入口，不必等週六、新週或多日觀察；收據標明 `controlled` 或 `scheduled`，受控執行不冒稱自然排程成功。不得用 fixture 或繞過依賴、鎖及安全限制的獨立腳本代替真實鏈路。
+
+| 驗收項目 | 執行方式 | 通過條件 |
+|---|---|---|
+| A：18:30 盤後主鏈 | 既有 Dev 跑一次收取→Core／Serving→四模型→持股估值→滾動修剪，選已完成交易日與真實來源資料 | 各階段依成功終態直接接續，不等下一個兩小時 tick；保存同鏈 execution／資料日／版本；核對全市場處理摘要與既有 TWSE／TPEx coverage 門檻，並有界抽查 API 與持股估值。模型缺資料如實 missing／partial，工作失敗不可藏在整鏈成功內 |
+| B：兩小時記帳補償 | 分別跑一次有待處理工作及空佇列；有工作情境使用既有待處理資料，或隔離測試 Owner，不為驗收虛構本人交易 | 有工作時完成處理且版本收斂；空佇列不派送額外 Worker；重複觸發不重複入帳或重複派送。既有即時記帳不改為等待 cron |
+| C：備份 | 真實備份一次，核對檔案大小／checksum／可讀性，在既有資源的隔離 DB 還原與讀回 | 帳本、現金 anchor、設定與引用依 §5 核對；daily7／weekly4／monthly6 及不可覆寫規則正確。週月當期副本存在時驗證 EXISTS 與合法 archive，不等新週／新月、不覆寫既有物件；邊界與碰撞用離線測試補足 |
+| C：每日 Stage 與週末維護 | 受控執行每日 Stage 清理及週末相同維護入口，完成 compaction→Mart／Core retention 與 PG VACUUM ANALYZE | 保留租約、generation、current-only／7日 orphan 與刪除上限；讀回各步終態、清理數量／bytes及現役 Core／Mart 可讀；Owner 原始資料不受影響。無到期候選且查詢成功時，實刪0件可通過 |
+| 排程與部署 | 讀回單一 Scheduler、Asia/Taipei 時區、Controller／Worker 固定 digest、既有 VM executor 版本 | 每兩小時 :30 喚醒，交易日18:30主鏈、每日00:30備份／22:30 Stage、週六22:30維護定義正確；舊02:30／04:30／06:30鏈及重複業務 cron 停用，手動入口保留；休市日不捏造當日行情 |
+| 重複、失敗與恢復 | 適用離線測試涵蓋重複觸發、上游失敗、來源延遲、執行中斷、回應不明及版本並行變更；live 讀回實際鎖與持久狀態 | 防重複與busy／lease有效；上游失敗不發布假的最新值，保留上次成功內容；中斷可依持久狀態恢復，不盲重派 ambiguous 工作。避免為故障演練破壞 live 資料 |
+
+「空佇列」只承諾不派送額外 Worker，不宣稱0秒或零成本。備份成功與保留清理成功分列；PG還原不等於GCS／Iceberg完整備份，仍按 §5 的有界現役物件讀回確認依賴。19:00是觀測目標，本項不另設未量測的硬性完成時限。
+
+必要 Release、Jobs／API部署與安全 gate 沿既有流程。最終只交付一張驗收結果表，包含來源 SHA／digest、執行 ID、觸發類型、資料日、各階段起訖／結果、必要 API／DB／物件讀回及具體缺口；不保存 token、Owner 金額或私人 payload。所有上述條件通過且無具體異常，即 `CLOSED／PASS`；未通過只列實際失敗項，不增加自然等待待辦、不重開已取消的 SEQ-04 兩條收據。
+
+本次僅更新文件並 commit／push；未執行程式修改、測試、雲端部署或上述驗收。
