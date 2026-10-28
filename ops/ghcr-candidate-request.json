@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "73f02252c8a7e8c3d2162d7f25dd22a5c023915f",
+  "sha": "380c369605e2476e4aca35797cc228621ad92da5",
   "digest": "",
-  "release_run": "40482790589",
+  "release_run": "40657065451",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Stock detail readability increment (2026-10-27): full exact-source Release #40482790589 SUCCESS, including Python, Flutter 390px/200% widget tests, all four immutable GHCR images and anonymous pull. Create existing Dev API zero-traffic candidate for same-source auth boundary and subsequent API promotion. No canonical traffic, Jobs, Scheduler, IAM, Secret or Owner data mutations.",
-  "request_attempt": 22
+  "purpose": "個股頁整頁重構與四模型歷史對照：同來源完整 Release #40657065451 SUCCESS。建立既有 Dev API/App 的零正式流量候選，供同來源 Auth 邊界驗證後發布；不修改 Jobs、Scheduler、IAM、Secret 或 Owner 資料。",
+  "request_attempt": 23
 }
