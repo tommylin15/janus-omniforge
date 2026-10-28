@@ -24,7 +24,7 @@
 
 缺模型時仍顯示已存在的實際走勢；歷史預測不足、來源不足、尚未公布／未滿 20 日分開顯示。不以最新模型回填歷史。原始輸入日與保存日並列，價量結果若晚於下一市場日開盤才保存、營收結果若晚於目標月份才保存，明示事後重算，不能宣稱當時已發布或前瞻驗證；估值保留當期估計語意；不同模型版本不接續畫成同一條預測線。原始碼／本機測試完成不代表已有 20 天真實預測或 Dev 上線成功。
 
-本次本機驗證：Python 37 passed（1 個既有 multipart deprecation warning）；Flutter 全套 136 passed，最終導覽／模型分區調整後相關 40 passed；Dart 靜態分析無 error／warning，既有 style infos 保留。測試資料手機預覽不是 Dev／Owner 真實驗收，CI／Release／部署與歷史實際覆蓋仍待完成。
+本次本機驗證：Python 37 passed（1 個既有 multipart deprecation warning）；Flutter 全套 136 passed，最終導覽／模型分區調整後相關 40 passed；Dart 靜態分析無 error／warning，既有 style infos 保留。完整 Release／候選／Auth／Dev 100% 部署與三股公開圖表資料讀回已 PASS（[Operations](../spec/operations-and-testing.md)）；測試資料手機預覽不是 Dev／Owner 真實驗收，Owner 畫面與歷史實際覆蓋仍待驗。
 
 ## 1. 盤點總表
 
@@ -66,7 +66,7 @@
 - `ma5/ma20/ma60/ma240` 以聚合後收盤計算，期數不足為 `null`。`adjusted=false`（未還原除權息）。
 - 實作：`packages/web_api/core.py::CoreQueryService.price_series`；路由 `services/api/app.py`；測試 `tests/test_price_series.py`。
 
-### 2.2 前端元件（已接入重構後技術／營運區；Dev 待驗）
+### 2.2 前端元件（已接入並部署 Dev；Owner 畫面待驗）
 `apps/user_app/lib/final_stock_fundamentals.dart`
 - `FvPeriodKChart`：K 線＋4 條均線＋量＋KD(9)；頂部 OHLC 與漲跌、均線數值列。
 - `FvRevenueChart`：單月／累計切換；柱＝營收（億元）、線＝月底收盤；表格：月、今年、去年、YoY、MoM。

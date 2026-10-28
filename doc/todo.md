@@ -6,15 +6,16 @@
 
 - [x] 本機程式：六區導覽、移除舊五面向重複摘要、日／週／月 K、營收／EPS 元件接線、停止個股公告／筆記請求。
 - [x] 本機程式：Owner-scoped 模型歷史 API、四角色五頭比較圖、20 市場日對齊、未到期／事後重算／缺值與版本切換標示；無新模型推論、重訓或資料寫入。
-- [ ] 同來源 CI／Release／Dev 部署與真實 Owner 驗收；確認實際保存歷史覆蓋，不能以測試資料預覽宣稱歷史預測齊全。
+- [x] 同來源完整 Release／0% 候選／Auth／Dev API 100% 部署與獨立公開資料讀回 PASS（來源 `380c3696`，切流 [#40659980256](https://github.com/tommylin15/janus-omniforge/actions/runs/40659980256)）；詳見 [Operations](spec/operations-and-testing.md)。
+- [ ] Owner 已登入實測六區操作、四模型時間走勢與實際保存歷史覆蓋；不能以公開 API 或測試資料預覽冒充 Owner UI 正向。
 - 本機證據：Python 37 passed／1 個既有 warning；Flutter 全套 136 passed，最終模型分區相關 40 passed；Dart 無 error／warning（既有 style infos）。這些結果不等於 Dev 上線或模型前瞻有效性驗證。
 
 規格與盤點：[`doc/ui/stock-detail-charts-v2.md`](ui/stock-detail-charts-v2.md)
 
-- [x] 後端 `price-series` API（日/週/月 K＋MA5/20/60/240），單元測試 `tests/test_price_series.py`（本機通過；CI / deploy / live 待驗）
-- [x] 前端元件 `final_stock_fundamentals.dart`（`FvPeriodKChart`、`FvRevenueChart`、`FvEpsChart`）已接入重構後技術／營運區，本機相關 widget tests PASS；靜態分析無 error／warning，既有 style infos 保留；Dev 待驗。
+- [x] 後端 `price-series` API（日/週/月 K＋MA5/20/60/240），單元測試 `tests/test_price_series.py`（完整 Release、Dev 部署及 2327／2330／4958 日／週／月 K 公開 API 讀回 PASS）
+- [x] 前端元件 `final_stock_fundamentals.dart`（`FvPeriodKChart`、`FvRevenueChart`、`FvEpsChart`）已接入重構後技術／營運區，本機相關 widget tests PASS；靜態分析無 error／warning，既有 style infos 保留；已部署 Dev，Owner 畫面待驗。
 - [x] 接入 `final_stock_detail.dart`：K 線日/週/月切換、營收單月/累計、EPS 季本益比；補 widget test
-- [ ] CI 通過 → deploy dev → live 驗收 2327、2330、4958
+- [x] CI／Dev 部署及 2327／2330／4958 公開價格、EPS、營收 API 驗收 PASS；Owner 畫面仍依上方待辦判定。
 - [ ] 營收表加「累計 YoY」欄、「近 24 個月新高」橫幅（不得稱歷史新高）
 - [ ] 屬性評分 v1（短線/波段/存股）＋特徵表，批次產出 publication
 - [ ] 同業本益比（產業 PE 中位數）publication
