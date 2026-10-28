@@ -1,5 +1,12 @@
 # Janus 最新驗收證據索引
 
+## 2026-10-28 使用者驗收與待辦取消
+
+- 使用者於本輪對話確認原待辦第 15、16、17 項已驗收：MCP 本人現金授權正向讀取、Gemini CLI 與 Antigravity 首次授權／sources 及 Owner 唯讀工具；記為 PASS_USER_CONFIRMED／CLOSED，不保存 token 或私人回應。下方 10/27 同項 NOT_VERIFIED 為當時歷史狀態，已由此回報結清。
+- 使用者直接收掉 SEQ-04 首次新版自然 ingestion→Core→screening 與新週自然備份兩條收據：CLOSED_BY_USER／WAIT_CANCELLED，沒有新增自然執行證據，不改判 runtime PASS；既有通過收據保留。後續改以三大批次管線落地為唯一相關工作入口。
+- 分點主力、概念股、法人目標價、預估本益比需求取消。盤點應用、API、資料層與測試未發現這四項已實作功能，移除 TODO 與圖資規格缺資料列；個人自行設定的關注目標價不屬法人目標價。
+
+
 ## 2026-10-28 個股頁整頁重構與四模型歷史對照｜CLOSED／PASS
 
 - 應用來源 `380c369605e2476e4aca35797cc228621ad92da5`；[完整 Release #40657065451](https://github.com/tommylin15/janus-omniforge/actions/runs/40657065451)、[0% 候選 #40657951569](https://github.com/tommylin15/janus-omniforge/actions/runs/40657951569)、[Auth #40658914046](https://github.com/tommylin15/janus-omniforge/actions/runs/40658914046)、[API-only 100% #40659980256](https://github.com/tommylin15/janus-omniforge/actions/runs/40659980256) 均 completed/success。首輪 Release #40654866057 的兩個舊 Serving 筆數斷言失敗已由 `380c3696` 修復，不改判首輪結果。

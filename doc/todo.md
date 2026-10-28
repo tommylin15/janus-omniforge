@@ -1,5 +1,20 @@
 # Janus — 唯一 Active TODO
 
+## 2026-10-28 待辦收斂決策
+
+第 15～17 項（MCP 本人現金正向讀取、Gemini CLI、Antigravity 首次授權與唯讀工具）已由使用者確認驗收完畢，從待辦移除；收據見 [Operations](spec/operations-and-testing.md)。
+
+SEQ-04「首次新版自然 ingestion→Core→screening 收據」及「新週自然備份收據」依使用者指令直接結案，取消等待，不補造自然執行 PASS。下方舊 SEQ-04 紀錄中的待驗／LIVE_PARTIAL 與下一入口已由本決策取代。
+
+### 下一工作：三大批次管線落地（原清單第 12 項）
+
+- [ ] 管線 A：平日 18:30 盤後主鏈，串接收取→Core／Serving→四模型→個人持股估值→滾動淘汰。
+- [ ] 管線 B：每兩小時記帳補償，無待處理工作時靜默返回。
+- [ ] 管線 C：每日 00:30 備份、週六 22:30 維護；沿既有 VM／Jobs 與保留安全邊界。
+- [ ] 完成程式、適用測試、既有 Dev 部署與實際鏈路驗收；不以既有規格文件當成已落地。
+
+契約見 [統一批次](spec/unified-batch-flow.md)。本項取代上述兩條舊自然收據待辦，不另開自然等待工作。
+
 ## 個股頁圖資 v2｜後續擴充（2026-10-28）
 
 本輪整頁重構、四模型呈現與 Dev 發布已由使用者實機確認並有界結案，收據見 [Operations](spec/operations-and-testing.md)。以下只列剩餘功能；規格見[個股頁圖資 v2](ui/stock-detail-charts-v2.md)，不因本次結案自行開工。
@@ -15,7 +30,6 @@
   - [ ] MOPS 法說會行事曆 — 免費
   - [ ] 財報損益/資產負債欄位（收益比、本業佔比、ROE、ROA）
   - [ ] 營收 Serving retention 由 24 個月放寬至 ≥ 5 年（年度走勢、2022 起長圖）— 評估容量
-  - [ ] 分點主力、概念股、法人目標價、預估本益比 — 多需付費／第三方，**需使用者授權**
 
 ## 全市場歷史資料補齊、KD線、估值河流圖與批次精簡收斂（2026-10-27）
 
@@ -94,16 +108,6 @@
   - **正式發布與部署**：完整 Release [#40482790589](https://github.com/tommylin15/janus-omniforge/actions/runs/40482790589) SUCCESS；0% Candidate [#40483579702](https://github.com/tommylin15/janus-omniforge/actions/runs/40483579702) SUCCESS；Auth boundary [#40483894328](https://github.com/tommylin15/janus-omniforge/actions/runs/40483894328) SUCCESS；受控 API-only 100% [#40484056048](https://github.com/tommylin15/janus-omniforge/actions/runs/40484056048) SUCCESS。
   - **即時 Runtime 證據**：Cloud Run 正式環境 `https://janus-api-2oo7qbkd5q-uc.a.run.app/app/build-id.txt` 讀回吻合 `73f02252c8a7e8c3d2162d7f25dd22a5c023915f`；`/app/` 回傳 200；保留先前 `ec106165` rollback 基準；不改 Jobs／Scheduler／IAM／Secret／Owner 資料。收據見 [Operations](spec/operations-and-testing.md)。
 - **尚待**：由 Owner 實機登入瀏覽個股頁面確認白話與圖解易讀性。
-
-## MCP 本人現金部位（2026-10-27，使用者新增授權）
-
-- `janus_private_context` 新增 `resource="cash"`，沿既有Owner現金reader，十進位TWD餘額／未設定null／現金與帳本版本，拒絕client指定Owner、symbol／year；唯讀、沿 `janus.private.read`，不新增資料表或OAuth權限，不需客戶端重新註冊。需部署後重新載入工具清單。
-- 程式與Owner隔離／金額精度／未設定／匿名拒絕測試完成；66項相關MCP／OAuth／User API測試PASS（1項既有multipart deprecation warning）。完整Release #40477783215、0%候選 #40478796674、Auth #40479305373、固定MCP tags #40479761426均SUCCESS；兩個入口部署版cash schema／唯讀標記／匿名401獨立讀回PASS，正式API流量不變。唯一尚待：客戶端刷新工具定義後的本人授權cash正向讀取；ChatGPT現有外掛schema尚無cash，不冒稱真人讀取PASS。收據見 [Operations](spec/operations-and-testing.md)。
-
-## OAuth 客戶端首次授權正向驗收（2026-10-27）
-
-- 伺服器接線／測試／部署 **PASS**：[MCP route #40456143800](https://github.com/tommylin15/janus-omniforge/actions/runs/40456143800)，兩個固定 MCP tags 已更新，正式 API traffic 不變；完整收據見 [Operations](spec/operations-and-testing.md)。
-- **唯一尚待**：Gemini CLI 與 Google Antigravity（agy）本人完成 Google／Janus consent 後，各一次 `janus_sources` 與 owner-scoped 唯讀工具正向結果；不記錄 token 或 Owner payload，不以 prelogin302／匿名401冒充正向。首次 consent 依專案規則由本人操作。設定與操作見 [OAuth runbook](runbook-user-oauth-dev.md)。
 
 ## Owner 關注清單讀取修復／SEQ-08 實機驗收結案（2026-10-27）
 
@@ -238,7 +242,7 @@
 | SEQ-01 收取、清理與市場分析總控 | UB-01 | DOC／CODE／完整離線217 PASS／Flutter7 PASS；live與部署交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-01) |
 | SEQ-02 持股、買賣與觀察設定快照 | UB-03、4J／4R 的本次增量 | DOC／CODE／OFFLINE_PASS（220 Python、270 API、Flutter User PASS）；live/部署交 SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-02) |
 | SEQ-03 日週月備份、保留清理與回復範圍 | UB-04（不是重開 OPS-P0-1） | DOC／CODE／OFFLINE_PASS（234 Python；API270、Mart247、Ingestion209）／LIVE與DEPLOY交SEQ-04 | SEQ-04 | [四階段指示](execution-cards/sequential-delivery.md#seq-03) |
-| SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | **DEPLOY_PASS／STAGE_PRIVATE_CATALOG_PASS／CURRENT_WEEK_WEEKLY_PASS／OLD_0030_RECONCILE_PASS／NATURAL_CONTROLLER_PASS／OWNER_ADMIN_UI_SCREENSHOT_PASS／OVERALL_LIVE_PARTIAL**：四Job與API、migration069／VM／PG還原、2h Scheduler／14:30 Controller自然tick #40170098722 PASS；Stage #40172644132實刪223件/42,540,741 bytes、後驗 #40173298619 PASS；Private retention #40173273728 daily刪1份/26,044,882 bytes且PG retention succeeded；Iceberg catalog current 76/76 PASS；本週10/19 weekly不可變副本 #40175398373 建立1份30,872,328 bytes且SHA-256一致；舊10/25 00:30 backup occurrence單筆CAS running→succeeded及outbox 1筆同run讀回PASS。Owner/Admin登入後UI已由2026-10-25使用者手機截圖正向PASS（Owner今日／持股／個股、Admin工作／GCS盤點）；OAuth token/audience與跨Owner隔離不以截圖冒充完整API驗收，也不再要求重複人工A/B登入。尚待10/26新版首次02:30資料鏈及10/26新週自然備份；歷史舊running／本週weekly缺口已結清。 | 本輪已到期可修工項結案；10/26自然驗收及Owner/Admin授權獨立待驗 | [四階段指示](execution-cards/sequential-delivery.md#seq-04) |
+| SEQ-04 基礎批次集中部署與兩小時切換 | UB-05：UB-01／03／04 合流 | 已有部署、清理、Controller、weekly 補建及 Owner/Admin UI 收據保留；2026-10-28 使用者取消兩條自然收據等待，行政結案，非新增 runtime PASS | 後續改走上方三大批次管線落地 | [歷史四階段指示](execution-cards/sequential-delivery.md#seq-04) |
 | SEQ-05 Valuation 真資料、唯一估值卡契約 | RV-01…06、UB-02 Valuation 子功能 | **LIVE_CORE_ONEOFF_PASS／DOC_CODE_COMMITTED／OFFLINE_PASS／MART_API_LIVE_PENDING／DEPLOY_SEQ-08**：#40172093172真正透過既有Dev Job完成FinMind 2882 PB 2025-10至2026-08共11月11筆、Yahoo 2026Q2 BVPS=69.37 1筆，Stage→Core讀回11/11月、獨立#40172603358讀回兩股24/24有效月及BVPS=69.37，0來源失敗。2330既有FinMind四季EPS直接相加=86.28元，Mart程式標記research approximation。#40172051959分析測試226 passed，FinMind/Yahoo均標為approved_fallback。一次性工作已封存，#40172457154重觸發安全跳過0 mutation；Mart/Fact Pack/API最新版程式未部署，未有新版live報告價帶 | 唯一下一工程入口SEQ-06四模型正式serving、版本及共用快取；其後SEQ-07報告／Owner history／UI接線；最後SEQ-08集中部署Mart／Fact Pack／API／前端及認證讀回。SEQ-05部署仍交SEQ-08；不得重收11個月或重派一次性請求 | [四階段指示](execution-cards/sequential-delivery.md#seq-05) |
 | SEQ-06 四模型正式上線模式、版本與共用快取 | UB-02、D07 serving、Risk API/UI、D07-CROSS-JOB-MODEL-CACHE；必要 parity | **ORIGINAL OFFLINE_PASS；2026-10-25 USER_PUBLICATION_APPROVED_FOR_ALL_FOUR；REAL_MODEL_BYTES_LOCAL_RELOAD_PASS；LIVE_REGISTRY_NOT_ACTIVE**：原 serving/快取 #40174399997／#40174400071 PASS；新增 [v26 Core MOPS 五因子 mapping d15e4d70](https://github.com/tommylin15/janus-omniforge/commit/d15e4d70af9d0238822918698be3f0ea9efaa8f6)（已用 source XBRL TWD 及同季 YTD revenue YoY、缺值 fail closed），[CI #40177556379](https://github.com/tommylin15/janus-omniforge/actions/runs/40177556379) SUCCESS。讀取真實 Drive 權重並重載 Quant XGB15、Risk XGB12、Fundamental RC1 XGB15、Valuation v26 PE/PB XGB5；Quant／Val雙頭固定向量誤差0，封包僅本地產生，**未上傳GCS**。GCS [唯讀 #40177858431](https://github.com/tommylin15/janus-omniforge/actions/runs/40177858431)：Risk registry mode=DETERMINISTIC、Quant／Fundamental／Valuation三份 active pointer 不存在；新技術門檻：Risk12 四新增因子服務接線／替換舊8 pin、Quant15 特徵供應與版本、Fundamental15＋5% X-only abstention、Valuation PE/PB 雙頭與 Core 真實日期／單位 parity。批准不是已 ACTIVE，原 Research 封包限制仍保存歷史語意 | **併入 SEQ-08 正式發版前完成 GCS candidate create-only import／hash、四模型 feature parity與必要 serving 修改、Registry／PG／Owner UI 驗收；若必要源資料缺失明列 partial** | [四階段指示](execution-cards/sequential-delivery.md#seq-06) |
 | SEQ-07 分析報告、Owner history 與 UI 完整接線 | UB-02、D08、RV-05 合流 | **DOC／CODE COMMITTED／OFFLINE_PASS／DEPLOY_DEFERRED_TO_SEQ-08**：程式 SHA [f9ace32b](https://github.com/tommylin15/janus-omniforge/commit/f9ace32b795e6c1895901e7750f18be2f57da575)。Fact Pack週期報告保存四ML serving版本／狀態與缺值，model／input變更控制重產；Owner專屬持股／觀察股歷史唯讀API有auth／hash／去重；Flutter呈現四角色資料日／版本／缺口、唯一估值區間、報告沿用與歷史，CEO按需及Gateway故障退回事實報告。Python API／契約 #40175446096 275 passed／7 skipped／2 warnings，最新 #40175926343 272 passed／7 skipped／2 warnings；Flutter #40175926335 SUCCESS（widget tests＋PWA build）。真四artifact GCS／Valuation accounting／登入後正向Owner與Gateway live未驗；不宣稱四ML已 ACTIVE | **唯一下一工程入口 SEQ-08：固定SHA/digest 集中部署 Mart／API／Flutter、Owner登入／四模型／2330／2882真資料與rollback驗收** | [四階段指示](execution-cards/sequential-delivery.md#seq-07) |
