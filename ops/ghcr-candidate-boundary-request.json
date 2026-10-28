@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "73f02252c8a7e8c3d2162d7f25dd22a5c023915f",
+  "sha": "380c369605e2476e4aca35797cc228621ad92da5",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Stock detail readability increment (2026-10-27) exact-source auth boundary after full Release #40482790589 and zero-traffic candidate #40483579702 SUCCESS, source 73f02252. Read-only OAuth discovery/S256/refresh metadata, User/Admin/MCP unauthenticated rejection and exact build identity; no GCP mutation.",
-  "request_attempt": 18
+  "purpose": "個股頁整頁重構與四模型歷史對照：完整 Release #40657065451 與 0% 候選 #40657951569 均 SUCCESS。唯讀驗證同來源 OAuth discovery/S256/refresh metadata、User/Admin/MCP 未登入拒絕與 build identity；不變更 GCP。",
+  "request_attempt": 19
 }
