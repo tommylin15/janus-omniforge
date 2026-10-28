@@ -753,6 +753,23 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                     "calculation_version": "published-raw-v1"}
         return jsonable_encoder(series(symbol, metric, limit=limit))
 
+    @public_router.get("/stocks/{symbol}/price-series")
+    def stock_price_series(symbol: str,
+                           period: str = Query("day", pattern="^(day|week|month)$"),
+                           limit: int = Query(120, ge=2, le=300)):
+        symbol = public.require_enabled_symbol(symbol)
+        # Published serving projection only; aggregation happens in memory.
+        series = getattr(query_core, "price_series", None)
+        if series is None:
+            return {"schema_version": "price-series.v1", "symbol": symbol, "period": period,
+                    "data_status": "unavailable", "bars": [], "data_as_of": None,
+                    "source_ids": [], "missing_reason": "serving_unavailable", "adjusted": False,
+                    "ma_windows": [5, 20, 60, 240], "calculation_version": "raw-ohlcv-aggregate-v1"}
+        try:
+            return jsonable_encoder(series(symbol, period, limit=limit))
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail="public data unavailable") from error
+
     @public_router.get("/history/{symbol}", response_model=PublicDatasetOut)
     def public_history(symbol: str, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
         return public_dataset(symbol, "ohlcv", limit, offset)

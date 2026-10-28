@@ -1,5 +1,26 @@
 # Janus — 唯一 Active TODO
 
+## 個股頁圖資 v2（2026-10-28，狀態：partial）
+
+規格與盤點：[`doc/ui/stock-detail-charts-v2.md`](ui/stock-detail-charts-v2.md)
+
+- [x] 後端 `price-series` API（日/週/月 K＋MA5/20/60/240），單元測試 `tests/test_price_series.py`（本機通過；CI / deploy / live 待驗）
+- [x] 前端元件 `final_stock_fundamentals.dart`（`FvPeriodKChart`、`FvRevenueChart`、`FvEpsChart`）— **尚未接入個股頁、未經 flutter analyze/test**
+- [ ] 接入 `final_stock_detail.dart`：K 線日/週/月切換、營收單月/累計、EPS 季本益比；補 widget test
+- [ ] CI 通過 → deploy dev → live 驗收 2327、2330、4958
+- [ ] 營收表加「累計 YoY」欄、「近 24 個月新高」橫幅（不得稱歷史新高）
+- [ ] 屬性評分 v1（短線/波段/存股）＋特徵表，批次產出 publication
+- [ ] 同業本益比（產業 PE 中位數）publication
+- [ ] 技術指標 MACD / RSI
+- [ ] 資券圖表、多空因素規則表 v1
+- 缺資料（需新 adapter 或授權）：
+  - [ ] TDCC 股權分散表 adapter（大戶持股、偷偷賣股、籌碼分佈）— 免費、已核准
+  - [ ] MOPS 公司基本資料（股本、市值、掛牌年數、經營項目）— 免費
+  - [ ] MOPS 法說會行事曆 — 免費
+  - [ ] 財報損益/資產負債欄位（收益比、本業佔比、ROE、ROA）
+  - [ ] 營收 Serving retention 由 24 個月放寬至 ≥ 5 年（年度走勢、2022 起長圖）— 評估容量
+  - [ ] 分點主力、概念股、法人目標價、預估本益比 — 多需付費／第三方，**需使用者授權**
+
 ## 全市場歷史資料補齊、KD線、估值河流圖與批次精簡收斂（2026-10-27）
 
 - **全市場基本面 100% 補齊與 Serving 投影 100% PASS（2026-10-27）**：

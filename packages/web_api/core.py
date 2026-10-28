@@ -335,6 +335,101 @@ class CoreQueryService:
             response["missing_reason"] = None if complete else "insufficient_or_invalid_points"
         return response
 
+    PRICE_SERIES_PERIODS = ("day", "week", "month")
+    PRICE_SERIES_MA = (5, 20, 60, 240)
+
+    def price_series(self, symbol: str, period: str = "day", *, limit: int = 120) -> dict[str, Any]:
+        """Published serving-only OHLCV aggregated to day/week/month bars.
+
+        Raw official prices, not adjusted for dividends. Moving averages are
+        computed on the aggregated closes and stay null until the full window
+        is available, so a short history never yields a fabricated MA.
+        """
+        normalized = self._symbol(symbol)
+        if period not in self.PRICE_SERIES_PERIODS or not 2 <= limit <= 300:
+            raise QueryValidationError("invalid price series period or limit")
+        response: dict[str, Any] = {
+            "schema_version": "price-series.v1", "symbol": normalized, "period": period,
+            "data_status": "unavailable", "bars": [], "data_as_of": None, "source_ids": [],
+            "missing_reason": "serving_unavailable", "adjusted": False,
+            "ma_windows": list(self.PRICE_SERIES_MA), "calculation_version": "raw-ohlcv-aggregate-v1",
+        }
+        if self._serving_series is None:
+            return response
+        raw = self._serving_series("ohlcv", normalized, 1500)
+        if raw is None:
+            return response
+        response["data_status"] = "missing"
+        response["missing_reason"] = "no_published_points"
+        today = datetime.now(ZoneInfo("Asia/Taipei")).date()
+        daily: dict[date, dict[str, Any]] = {}
+        for row in raw:
+            try:
+                day = date.fromisoformat(str(row.get("trade_date"))[:10])
+                values = [Decimal(str(row[key])) for key in ("open", "high", "low", "close")]
+            except (ValueError, TypeError, KeyError, InvalidOperation):
+                continue
+            if day > today or day in daily or not all(v.is_finite() and v > 0 for v in values):
+                continue
+            open_, high, low, close = values
+            if high < low:
+                continue
+            try:
+                volume = Decimal(str(row.get("volume_shares"))) if row.get("volume_shares") is not None else None
+                if volume is not None and (not volume.is_finite() or volume < 0):
+                    volume = None
+            except (InvalidOperation, ValueError, TypeError):
+                volume = None
+            daily[day] = {"open": open_, "high": high, "low": low, "close": close, "volume": volume,
+                          "source_id": str(row.get("source_id") or "") or None}
+        if not daily:
+            return response
+
+        def bucket(day: date) -> date:
+            if period == "week":
+                return date.fromordinal(day.toordinal() - day.weekday())
+            if period == "month":
+                return day.replace(day=1)
+            return day
+
+        bars: list[dict[str, Any]] = []
+        for day in sorted(daily):
+            item = daily[day]
+            key = bucket(day)
+            if bars and bars[-1]["_key"] == key:
+                bar = bars[-1]
+                bar["high"] = max(bar["high"], item["high"])
+                bar["low"] = min(bar["low"], item["low"])
+                bar["close"] = item["close"]
+                bar["date"] = day
+                bar["volume"] = (None if bar["volume"] is None or item["volume"] is None
+                                 else bar["volume"] + item["volume"])
+                bar["sessions"] += 1
+            else:
+                bars.append({"_key": key, "date": day, "open": item["open"], "high": item["high"],
+                             "low": item["low"], "close": item["close"], "volume": item["volume"],
+                             "sessions": 1})
+        closes = [bar["close"] for bar in bars]
+        out = []
+        for index, bar in enumerate(bars):
+            record = {"date": bar["date"].isoformat(), "period_start": bar["_key"].isoformat(),
+                      "open": str(bar["open"]), "high": str(bar["high"]), "low": str(bar["low"]),
+                      "close": str(bar["close"]),
+                      "volume_shares": str(bar["volume"]) if bar["volume"] is not None else None,
+                      "sessions": bar["sessions"]}
+            for window in self.PRICE_SERIES_MA:
+                record[f"ma{window}"] = (str((sum(closes[index + 1 - window:index + 1]) / window).quantize(Decimal("0.01")))
+                                         if index + 1 >= window else None)
+            out.append(record)
+        out = out[-limit:]
+        response.update({
+            "bars": out, "data_as_of": out[-1]["date"],
+            "source_ids": sorted({v["source_id"] for v in daily.values() if v["source_id"]}),
+            "data_status": "available" if len(out) >= 2 else "partial",
+            "missing_reason": None if len(out) >= 2 else "insufficient_points",
+        })
+        return response
+
     def market_home(self, *, as_of_date: date | None = None) -> dict[str, Any]:
         """Published Core baseline; each fixed section fails independently."""
         today = as_of_date or datetime.now(ZoneInfo("Asia/Taipei")).date()
