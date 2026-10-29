@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "38d8b39516be0e6092e737dcd4106c1fde18cc3a",
+  "sha": "4393543ccd02a4951e97354bd13d14a29f517759",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "指定資料日screening修正：Release40828650255、0%候選40829282313成功；唯讀驗證同來源Auth及build identity。",
-  "request_attempt": 23
+  "purpose": "快取Core收據修正：Release40839307433、0%候選40840122264成功；唯讀驗證同來源Auth及build identity。",
+  "request_attempt": 24
 }
