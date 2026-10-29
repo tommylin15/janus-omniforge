@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "380c369605e2476e4aca35797cc228621ad92da5",
+  "sha": "680b5c66f31f73cb6bbf71a8bcd4fbc93a3f657f",
   "digest": "",
-  "release_run": "40657065451",
+  "release_run": "40801272801",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "個股頁整頁重構與四模型歷史對照：同來源完整 Release #40657065451 SUCCESS。建立既有 Dev API/App 的零正式流量候選，供同來源 Auth 邊界驗證後發布；不修改 Jobs、Scheduler、IAM、Secret 或 Owner 資料。",
-  "request_attempt": 23
+  "purpose": "三大批次管線：完整 Release 40801272801 全部成功；建立同來源 0% API 候選供自動 Auth 邊界驗證，正式 API 流量與四 Jobs 不變。",
+  "request_attempt": 24
 }
