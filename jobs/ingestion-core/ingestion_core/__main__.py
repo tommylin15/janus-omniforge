@@ -645,7 +645,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                                                        DataState.FAILED, 0, 0, False, key == "finmind",
                                                        type(error).__name__.upper(), "source collection failed"))
 
-    core_committed = bool(iceberg_tables)
+    core_committed = bool(iceberg_tables) or _full_market_eod_ready(coverage_items, dates[-1].isoformat())
     if core_committed:
         for dataset_id in sorted({getattr(configured[key], "core_dataset_id", None) or configured[key].dataset_id
                                   for key in selected}):

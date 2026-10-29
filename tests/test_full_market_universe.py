@@ -142,3 +142,45 @@ def test_collection_reports_missing_financials_against_each_fixed_market_roster(
     assert {(r['market'], r['expected_count'], r['missing_count']) for r in financials} == {
         ('TWSE', 1, 1), ('TPEX', 2, 2)}
     assert result['coverage_status'] == 'partial' and not inventory['coverage_accepted']
+
+@pytest.mark.parametrize('verified', [True, False])
+def test_cached_eod_emits_current_core_receipt_only_with_both_market_proofs(monkeypatch, verified):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+    from ingestion_core import __main__ as entry
+    control = MagicMock()
+    control.get_collection_config.return_value = SimpleNamespace(source_ids=('twse', 'tpex'), market='market')
+    control.config_symbols.return_value = ('2330', '6488')
+    control.enabled_stock_symbols.return_value = ('2330', '6488')
+    control.market_symbols_as_of.return_value = ('2330', '6488')
+    control.portfolio_coverage_symbols.return_value = ()
+    control.get_admin_setting.return_value = None
+    control.full_market_snapshot.return_value = {'status': 'available', 'version': 1, 'items': [
+        {'symbol': '2330', 'market': 'TWSE'}, {'symbol': '6488', 'market': 'TPEX'}]}
+    def cursor(key):
+        market, symbol = ('TWSE', '2330') if key.startswith('twse:') else ('TPEX', '6488')
+        return SimpleNamespace(coverage={'date': '2026-10-28', 'dataset': 'ohlcv', 'market': market,
+            'snapshot_id': 1 if verified else None, 'received': [symbol]})
+    control.get_cursor.side_effect = cursor
+    class Store:
+        def __init__(self, bucket): pass
+        def create(self, *args): return True
+    core = MagicMock()
+    core.table_exists.return_value = False
+    monkeypatch.setattr(entry, 'GcsObjectStore', Store)
+    monkeypatch.setattr(entry, '_iceberg_core', lambda _: core)
+    monkeypatch.setattr(entry, '_current_core_fences', lambda _: {'core.ohlcv_v1': {'rows': 2, 'snapshot_id': 1}})
+    monkeypatch.setattr(entry, '_should_collect', lambda *a, **k: (False, 'already_fresh'))
+    monkeypatch.setattr(entry, 'dataset_adapters', lambda: {
+        source: SimpleNamespace(source_id=source, dataset_id='market-volume', market=market, batch_scope='market')
+        for source, market in [('twse', 'TWSE'), ('tpex', 'TPEX')]})
+    for key, value in {'STAGE_BUCKET': 'stage', 'CORE_BUCKET': 'core', 'INGESTION_DATE': '2026-10-28',
+        'INGESTION_DATASETS': 'twse,tpex', 'STAGE_EXECUTION_SCOPED': 'true',
+        'STOCK_SERVING_PROJECTION_ENABLED': 'false'}.items():
+        monkeypatch.setenv(key, value)
+    result = entry.collect_stage(execution_id='cached-eod', control=control)
+    assert bool(result['ready_event']) is verified
+    if verified:
+        assert result['ready_event']['analysisAsOf'] == '2026-10-28'
+        assert result['ready_event']['coreSnapshotUri'].endswith('/cached-eod/core-snapshot.json')
+    core.write.assert_not_called()
