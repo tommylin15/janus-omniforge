@@ -43,6 +43,20 @@ jobs:
           install-deps: minimal
           wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
           service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Inspect previous Controller execution
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LATEST=$(gcloud run jobs executions list --job=janus-batch-controller \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --limit=1 --format='value(name.basename())') || true
+          echo "Previous Latest: $LATEST"
+          LOGS=$(gcloud logging read "resource.type=\"cloud_run_job\" AND labels.\"run.googleapis.com/execution_name\"=\"$LATEST\"" \
+            --project=gen-lang-client-0593591102 --limit=100 --format='value(timestamp,textPayload,jsonPayload.message)') || true
+          gh api repos/tommylin15/janus-omniforge/commits/${GITHUB_SHA}/comments -f body="### Previous Execution Logs ($LATEST)
+\`\`\`
+$LOGS
+\`\`\`" || true
       - name: Check compensation acceptance guards
         run: python -m pytest -q tests/test_three_pipeline_compensation_acceptance.py
       - name: Execute the existing Dev pipeline with persistent dispatch fences
@@ -57,3 +71,28 @@ jobs:
           name: three-pipeline-receipt
           path: /tmp/three-pipeline-receipt.json
           retention-days: 14
+      - name: Report failure logs on failure
+        if: failure()
+        run: |
+          echo "## Checking recent executions on failure"
+          LATEST=$(gcloud run jobs executions list --job=janus-batch-controller \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --limit=1 --format='value(name.basename())') || true
+          if [ -n "$LATEST" ]; then
+            LOGS=$(gcloud logging read "resource.type=\"cloud_run_job\" AND labels.\"run.googleapis.com/execution_name\"=\"$LATEST\"" \
+              --project=gen-lang-client-0593591102 --limit=100 --format='value(timestamp,textPayload,jsonPayload.message)') || true
+            gh api repos/tommylin15/janus-omniforge/commits/${GITHUB_SHA}/comments -f body="### Controller Failed Logs ($LATEST)
+\`\`\`
+$LOGS
+\`\`\`" || true
+          fi
+      - name: Report receipt on success
+        if: success()
+        run: |
+          if [ -f /tmp/three-pipeline-receipt.json ]; then
+            RECEIPT=$(cat /tmp/three-pipeline-receipt.json)
+            gh api repos/tommylin15/janus-omniforge/commits/${GITHUB_SHA}/comments -f body="### Acceptance Receipt (${PIPELINE_GROUP})
+\`\`\`json
+$RECEIPT
+\`\`\`" || true
+          fi
