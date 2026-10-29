@@ -2,31 +2,31 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "1fbd989ea974f2bab309dda688b35da01abe78c6",
-  "release_run": "40810051267",
+  "sha": "ab2d2e208114fcdf5c9fed51ba5936898c0013d9",
+  "release_run": "40822451536",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:c5bb6199af7d5fdd30906fbbd7234ece499cdeebe204a9172f446f0f2dcd4865",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:c5bb6199af7d5fdd30906fbbd7234ece499cdeebe204a9172f446f0f2dcd4865",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:d3bda091142a0e563c622719b60fce804256a644fd538599433708c9b3cf3bb5",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:69534de17d0b06c68432f8b7b99035657314089c9abe0cb197dd2240a1d4840a"
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:02465a1bc4bffd6b5634cc7515bff3ed92c5dc73e9df5393edddb978c9aece1a",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:076ee2655f6a76814c689483b03c07c7bb0e2a7b78a531cdcdd3e7c05b89c947",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:d397217990091763030e8c1005685a9ad712ce6261dbd0ee9973e83a50d2e1b8",
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:d397217990091763030e8c1005685a9ad712ce6261dbd0ee9973e83a50d2e1b8"
   },
   "rollback_config_hashes": {
-    "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
-    "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
+    "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f",
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
-    "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
+    "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
+    "janus-batch-controller": "c4161431eef6f6aabb103c7b188987c284298fa836dd730a335cd63297a03994"
   },
-  "auth_boundary_run": "40811227085",
-  "request_attempt": 62,
+  "auth_boundary_run": "40823350617",
+  "request_attempt": 63,
   "safety": "保留單一兩小時 Scheduler、共同 Git-ref lease、全分頁在途 fence、8次 canary 與失敗回復；本階段只換四 Job 映像，Controller timeout 另經受控設定階段處理。",
   "authorization": "使用者明確授權第12項實作、測試、既有 Dev 部署與真實驗收直到完成；衍生 Owner 重算可更新，不虛構交易。",
   "rollback_source_shas": {
-    "janus-batch-controller": "680b5c66f31f73cb6bbf71a8bcd4fbc93a3f657f",
-    "janus-ingestion-core": "680b5c66f31f73cb6bbf71a8bcd4fbc93a3f657f",
-    "janus-intelligence-mart": "680b5c66f31f73cb6bbf71a8bcd4fbc93a3f657f",
-    "janus-private-pipeline": "680b5c66f31f73cb6bbf71a8bcd4fbc93a3f657f"
+    "janus-private-pipeline": "1fbd989ea974f2bab309dda688b35da01abe78c6",
+    "janus-intelligence-mart": "1fbd989ea974f2bab309dda688b35da01abe78c6",
+    "janus-ingestion-core": "1fbd989ea974f2bab309dda688b35da01abe78c6",
+    "janus-batch-controller": "1fbd989ea974f2bab309dda688b35da01abe78c6"
   },
-  "purpose": "第12項新排程：Release 40810051267、候選 40810823597、Auth 40811227085 成功；依現役680b5c66固定digest及設定hash更新既有四Jobs，各兩次canary。隨後受控啟用新排程、退役舊操作緩衝並驗收真實流程。"
+  "purpose": "移除新版主鏈誤串的舊固定焦點歷史補收。Release40822451536、候選40823054382、Auth40823350617成功；依實際現役1fbd989e映像及已啟用新排程設定hash作回復基準，四Jobs各兩次canary，隨後重跑真實主鏈。"
 }
