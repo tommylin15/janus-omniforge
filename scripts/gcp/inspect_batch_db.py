@@ -15,7 +15,7 @@ with _control_plane() as control, control.connection.cursor() as cur:
     if clean:
         cur.execute("DELETE FROM control.batch_occurrences WHERE occurrence_id LIKE 'controlled%'")
         deleted_count = cur.rowcount
-        cur.execute("UPDATE control.cursors SET last_success_at='2026-10-27 18:30:00+00' WHERE last_success_at >= '2026-10-28'")
+        cur.execute("UPDATE control.collection_cursors SET last_success_at='2026-10-27 18:30:00+00', last_observed_at='2026-10-27 18:30:00+00' WHERE last_success_at >= '2026-10-28' OR last_observed_at >= '2026-10-28'")
         reset_cursors = cur.rowcount
     else:
         deleted_count = 0
@@ -49,7 +49,7 @@ with _control_plane() as control, control.connection.cursor() as cur:
     supplements = dict(cur.fetchall())
 
     # 5. Cursors status
-    cur.execute("SELECT cursor_key, last_success_at, coverage->>'date' as cov_date FROM control.cursors LIMIT 10")
+    cur.execute("SELECT cursor_key, last_observed_at, last_success_at, coverage_json->>'date' as cov_date FROM control.collection_cursors LIMIT 10")
     cursors_sample = [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
 
 print("=== DB_DIAGNOSTIC_BEGIN ===")
