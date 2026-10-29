@@ -353,16 +353,22 @@ def run_acceptance(*, processor=None, operation="specialist-acceptance"):
     return _run_event(event, operation, processor=processor)
 
 
-def latest_training_input(store, today):
+def latest_training_input(store, today, *, analysis_as_of=None):
     """Select the latest immutable dev snapshot, preserving its actual data date."""
     from datetime import date
     from hashlib import sha256
     manifests = [item for item in store.objects("executions/") if item["name"].endswith("/core-snapshot.json")]
     if not manifests:
         raise ValueError("no Core snapshot for retraining")
-    item = max(manifests, key=lambda item: (item["updated"], item["name"]))
-    raw = store.read(item["name"])
-    core = json.loads(raw)
+    ordered = sorted(manifests, key=lambda item: (item["updated"], item["name"]), reverse=True)
+    # Daily demand can publish a newer event for another date; never substitute it.
+    for item in ordered[:128] if analysis_as_of is not None else ordered[:1]:
+        raw = store.read(item["name"])
+        core = json.loads(raw)
+        if analysis_as_of is None or core.get("analysis_as_of") == analysis_as_of:
+            break
+    else:
+        raise ValueError("scheduled EOD canonical snapshot not ready within recent 128 manifests")
     age = (today - date.fromisoformat(core["analysis_as_of"])).days
     if not 0 <= age <= 7 or not core.get("iceberg_tables") or item["name"] != f"executions/{core['execution_id']}/core-snapshot.json":
         raise ValueError("invalid or stale retraining Core snapshot")

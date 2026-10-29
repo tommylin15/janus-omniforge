@@ -532,3 +532,21 @@ def test_runtime_watch_only_held_only_overlap_off_market_and_exit(monkeypatch):
         run("ex3")
     assert readers[-1].closed
     assert "executions/ex3/specialist-manifest.json" not in stores["mart"].data
+
+def test_screening_date_selects_its_snapshot_before_newer_demand_event():
+    from intelligence_mart.specialist_runtime import latest_training_input
+    cores = {
+        name: json.dumps({'execution_id': name, 'analysis_as_of': day,
+                          'snapshot_id': 'sha256:' + name, 'iceberg_tables': {'core.ohlcv_v1': {'snapshot_id': 1}}}).encode()
+        for name, day in [('demand', '2026-10-29'), ('canonical', '2026-10-28')]
+    }
+    store = SimpleNamespace(bucket='dev-core',
+        read=lambda name: cores[name.split('/')[1]],
+        objects=lambda prefix: [{'name': f'executions/{name}/core-snapshot.json', 'updated': stamp}
+                                for name, stamp in [('demand', '2026-10-29T06:00'), ('canonical', '2026-10-29T05:00')]])
+    result = latest_training_input(store, date(2026, 10, 29), analysis_as_of='2026-10-28')
+    assert result['executionId'] == 'canonical'
+    assert result['analysisAsOf'] == '2026-10-28'
+    assert latest_training_input(store, date(2026, 10, 29))['executionId'] == 'demand'
+    with pytest.raises(ValueError, match='snapshot not ready'):
+        latest_training_input(store, date(2026, 10, 29), analysis_as_of='2026-10-27')

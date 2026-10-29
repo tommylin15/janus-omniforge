@@ -417,7 +417,8 @@ def run_daily():
         raise ValueError("screening is restricted to existing dev resources")
     today = datetime.now(ZoneInfo("Asia/Taipei")).date()
     requested = os.environ.get("SCREENING_DATE", today.isoformat())
-    event = latest_training_input(GcsObjectStore("gen-lang-client-0593591102-dev-core"), today)
+    event = latest_training_input(GcsObjectStore("gen-lang-client-0593591102-dev-core"), today,
+                                 analysis_as_of=None if requested == "latest" else requested)
     if requested != "latest" and event["analysisAsOf"] != requested:
         raise ValueError("scheduled EOD canonical snapshot not ready")
     return _run_event(event, "market-screening", processor=screening_processor)

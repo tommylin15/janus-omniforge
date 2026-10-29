@@ -119,7 +119,7 @@ def test_preopen_screening_uses_actual_core_as_of_and_rejects_wrong_forced_date(
     monkeypatch.setattr("ingestion_core.stage.GcsObjectStore", lambda bucket: object())
     certified = {"analysisAsOf": "2026-10-16", "executionId": "real-source"}
     monkeypatch.setattr("intelligence_mart.specialist_runtime.latest_training_input",
-                        lambda *_: certified)
+                        lambda *_, **kwargs: certified)
     invoke = Mock(return_value={"status": "succeeded"})
     monkeypatch.setattr("intelligence_mart.specialist_runtime._run_event", invoke)
     assert run_daily()["status"] == "succeeded"
