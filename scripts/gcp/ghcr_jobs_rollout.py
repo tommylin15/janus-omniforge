@@ -724,11 +724,13 @@ def main():
             if journal["phase"] not in {"PASS", "RESTORED", "RESTORED_NO_MUTATION", "RESTORED_FORWARD_ONLY", "PREFLIGHT_BLOCKED_NO_MUTATION"}:
                 recover(journal, lambda: args.receipt.write_text(json.dumps(journal)))
                 command(LEASE + ["release", "--safe-to-release"])
+            msg = "Rollout recover completed"
         else:
             run(args.release_run, args.receipt)
+            msg = "Rollout run completed: PASS"
         print(json.dumps({"result": "PASS", "receipt": args.receipt.name}))
         try:
-            command(["gh", "api", f"repos/tommylin15/janus-omniforge/commits/{os.environ.get('GITHUB_SHA', 'HEAD')}/comments", "-f", "body=Rollout SUCCESS"])
+            command(["gh", "api", f"repos/tommylin15/janus-omniforge/commits/{os.environ.get('GITHUB_SHA', 'HEAD')}/comments", "-f", f"body={msg}"])
         except Exception:
             pass
         return 0
