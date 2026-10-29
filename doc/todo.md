@@ -1,5 +1,18 @@
 # Janus — 唯一 Active TODO
 
+## 架構優化清單（Architecture Optimizations）
+
+### 第一優先改善項目（P0）：批次調度器死鎖快篩與無效輪詢終止機制 (No-Progress Deadlock Fast-Fail)
+- **問題背景**：
+  - 當 Controller 在等待某項前置條件（例如 `weekly_eod_core_evidence` 判定缺少前置收盤 Core 快照）時，若當前上游無任何正在運行的工作站（`running == 0 and dispatching == 0`），該條件在後續 tick 亦絕無可能憑空生成。
+  - 目前調度器僅持續將任務維持在 `pending` 並盲目 `sleep(15)`，直到 `deadline_seconds=3000`（50 分鐘）安全超時，造成 Runner 與容器時間浪費。
+  - **潛在風險**：除了受控驗收中的時間戳邊界外，在未來真實線上環境遇到台股長假（如春節超過 8 天休市無收盤）或平日抓取異常時，亦會陷入相同的 50 分鐘空轉。
+- **具體改善措施**：
+  1. **無前進性偵測（Deadlock / No-Progress Fast-Fail）**：Controller 每次 tick 檢查活躍工作站。若無任何 active worker，且 pending 任務之靜態前置條件缺失，立即將該任務標記為 `skipped`（如安全跳過本週 compaction，不阻擋後續 Stage 清理與 PostgreSQL VACUUM 維護），或直接判定為 `unreachable_dependency` 在 15 秒內即時退場，禁止盲等。
+  2. **客戶端 / GHA 受控前置斷言（Client-side Preflight Assertion）**：調度 Cloud Run Controller 前先進行輕量依賴檢查，缺少條件直接於外層阻擋，不調度雲端 Job。
+  3. **動態階梯式超時（Group-aware Adaptive Deadline）**：依管線性質（如 backup 180s, maintenance 600s）動態縮小超時上限，取代統一寫死 3000s。
+  4. **PostgreSQL 事件驅動通知（`LISTEN / NOTIFY`）**：Worker 結案發送 DB NOTIFY 喚醒 Controller，徹底取代每 15 秒主動 query 資料庫的輪詢機制。
+
 ## 2026-10-28 待辦收斂決策
 
 第 15～17 項（MCP 本人現金正向讀取、Gemini CLI、Antigravity 首次授權與唯讀工具）已由使用者確認驗收完畢，從待辦移除；收據見 [Operations](spec/operations-and-testing.md)。
