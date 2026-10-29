@@ -46,7 +46,9 @@ jobs:
       - name: Inspect previous Controller execution
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python scripts/gcp/diagnostic_acceptance.py "Pre-Acceptance Diagnostic"
+        run: |
+          python scripts/gcp/diagnostic_acceptance.py "Pre-Acceptance Diagnostic"
+          python scripts/gcp/inspect_batch_db.py || true
       - name: Check compensation acceptance guards
         run: python -m pytest -q tests/test_three_pipeline_compensation_acceptance.py
       - name: Execute the existing Dev pipeline with persistent dispatch fences
