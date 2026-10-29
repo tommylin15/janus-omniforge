@@ -91,17 +91,17 @@ def test_reuse_precedes_read_canary_failure_is_audited_and_tampering_fails(monke
                             store_factory=Store, reader_factory=factory)
 
 
-def test_preopen_batch_runs_full_screening_after_ingestion():
+def test_eod_batch_runs_full_screening_after_ingestion():
     from ingestion_core.batch_controller import due_batches, occurrence_env
-    # Wednesday 04:30 Taipei (prior trading session certified by 02:30).
-    now = datetime(2026, 10, 6, 20, 30, tzinfo=timezone.utc)
+    # Wednesday 18:30 Taipei; screening waits for the same EOD ingestion.
+    now = datetime(2026, 10, 7, 10, 30, tzinfo=timezone.utc)
     rows = [r for r in due_batches(now) if r[1].name == "market-screening"]
     assert len(rows) == 1
     early = rows[0]
-    assert early[0] == "market-screening/2026-10-07/04"
-    assert early[3] == ["ingestion/2026-10-07/02"]
+    assert early[0] == "market-screening/2026-10-07/18"
+    assert early[3] == ["ingestion/2026-10-07/18"]
     env = dict(occurrence_env(early[1], early[2]))
-    assert env["SCREENING_DATE"] == "latest"
+    assert env["SCREENING_DATE"] == "2026-10-07"
     assert env["MART_OOS_EVALUATION"] == "false"
     assert env["MART_RISK_SHADOW_ENABLED"] == "false"
     assert env["MART_AI_ENABLED"] == "false"
