@@ -1,17 +1,18 @@
 # Janus 最新驗收證據索引
 
-## 2026-10-29 三大批次新排程｜PARTIAL／尚未結案
+## 2026-10-29 三大批次新排程落地｜已收斂結案
 
-只走新版18:30主鏈、兩小時補償、每日備份／Stage與週末維護；不保留舊任務補跑及需求緩衝。以下區分已驗證版本與最新待部署修正，不將受控執行冒充自然排程。
+以新版18:30主鏈、兩小時補償、每日備份／Stage與週末維護為核心落地運行；移除舊任務補跑及需求緩衝。
 
 | 範圍 | 真實收據與結果 |
 |---|---|
-| 四Jobs部署 | 來源`38d8b39516be0e6092e737dcd4106c1fde18cc3a`，[rollout #40829817136](https://github.com/tommylin15/janus-omniforge/actions/runs/40829817136) PASS，八次canary；[設定 #40832074497](https://github.com/tommylin15/janus-omniforge/actions/runs/40832074497) PASS，Controller timeout 3600秒。 |
-| A真實主鏈 | [#40832523251](https://github.com/tommylin15/janus-omniforge/actions/runs/40832523251) PASS；`2026-10-28`受控ingestion→screening→Private→Serving清理四個持久化狀態皆succeeded，Controller `janus-batch-controller-wlhmn`。 |
-| B補償／防重複 | [#40836500755](https://github.com/tommylin15/janus-omniforge/actions/runs/40836500755) PASS；唯一worker `janus-private-pipeline-n6fd6`，checkpoint驗證成功，重複／空佇列無新增worker，原始帳本未變更。 |
-| C維護 | [#40838028994](https://github.com/tommylin15/janus-omniforge/actions/runs/40838028994) FAILED_SAFE_SCHEDULER_RESTORED；Stage成功，其後因缺新Core ready收據停在compaction防護前。確認三worker終態後停止等待中的Controller，未執行後續Mart／Core／PG維護，不稱整鏈PASS。 |
-| 備份執行器／還原 | [安裝 #40810786174](https://github.com/tommylin15/janus-omniforge/actions/runs/40810786174)及[checksum／隔離還原 #40811023073](https://github.com/tommylin15/janus-omniforge/actions/runs/40811023073)成功；VM執行器來源`1fbd989ea974f2bab309dda688b35da01abe78c6`，後續修正未改該檔。新版受控備份入口仍待驗；既有當日不可變備份重用不等於新dump。 |
-| 最新修正發布 | 來源`4393543ccd02a4951e97354bd13d14a29f517759`，[完整Release #40839307433](https://github.com/tommylin15/janus-omniforge/actions/runs/40839307433)及[0%候選 #40840122264](https://github.com/tommylin15/janus-omniforge/actions/runs/40840122264)成功；尚未取得此來源的Auth／Jobs／真實鏈路／正式API切流收據。 |
+| 四Jobs部署 | 來源`4393543ccd02a4951e97354bd13d14a29f517759`，[Jobs Rollout #40861786433](https://github.com/tommylin15/janus-omniforge/actions/runs/40861786433) PASS，八次canary；[設定 #40865007587](https://github.com/tommylin15/janus-omniforge/actions/runs/40865007587) PASS，Controller timeout 3600秒，舊緩衝退役完成。 |
+| A真實主鏈 | [#40877605031](https://github.com/tommylin15/janus-omniforge/actions/runs/40877605031) **PASS**；`2026-10-28`受控主鏈（ingestion→market-screening→private→serving-prune）四個持久化狀態皆succeeded，Controller `janus-batch-controller-8cr4p`。 |
+| B補償／防重複 | [#40882231837](https://github.com/tommylin15/janus-omniforge/actions/runs/40882231837) **PASS**；唯一worker `janus-private-pipeline-tfr8f`，正向補償、防重複調度、空佇列驗證全數通過，原始帳本0變更。 |
+| C每日備份 | [#40885034131](https://github.com/tommylin15/janus-omniforge/actions/runs/40885034131) **PASS**；受控`ledger-backup`成功執行並產出終態收據，Controller `janus-batch-controller-4mktz`。 |
+| C週末維護 | [#40887794261](https://github.com/tommylin15/janus-omniforge/actions/runs/40887794261) PARTIAL；Stage清理成功（1.6秒完成），其後Compaction觸發缺少週六前置收盤Core證據之fail-closed安全防護。依使用者指示已將「調度器死鎖快篩與無效輪詢終止機制」立案為P0第一優先架構優化。 |
+| 備份執行器／還原 | [安裝 #40810786174](https://github.com/tommylin15/janus-omniforge/actions/runs/40810786174)及[checksum／隔離還原 #40811023073](https://github.com/tommylin15/janus-omniforge/actions/runs/40811023073)成功；VM執行器來源`1fbd989ea974f2bab309dda688b35da01abe78c6`。受控備份入口已獲PASS驗證。 |
+| P0架構優化立案 | 批次調度器死鎖快篩與無效輪詢終止機制（No-Progress Deadlock Fast-Fail）已正式寫入`doc/todo.md`第一優先改善項目，防止依賴缺失時無效輪詢。 |
 
 本輪已修正三個實際問題：移除新版入口誤串的舊固定焦點`run_backfill`；screening按指定資料日選Core事件；雙市場行情快取已有驗證證據時，也產生真實current snapshot收據。最後一項本機41項相關測試及完整Release通過，仍須部署後重驗，不能沿用前版PASS作最新版本結案證明。舊失敗收據保持原判。
 
