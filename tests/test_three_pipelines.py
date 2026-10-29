@@ -51,6 +51,23 @@ def test_chain_never_retries_failed_or_unknown_dispatch(monkeypatch, status):
     tick.assert_called_once()
 
 
+def test_chain_fails_fast_on_stalled_pending_occurrences(monkeypatch):
+    """Fail-fast on the second tick if pending occurrences cannot make progress without active workers."""
+    from ingestion_core import __main__ as worker
+    control = MagicMock()
+    # Rows return a pending task, but no dispatching or running worker exists.
+    control.__enter__.return_value.connection.cursor.return_value.__enter__.return_value.fetchall.return_value = [("stalled/key", "pending")]
+    tick = Mock(return_value={"status": "tick_completed", "chain_keys": ["stalled/key"]})
+    monkeypatch.setattr(worker, "_control_plane", lambda: control)
+    monkeypatch.setattr(controller, "run", tick)
+    waits = []
+    monkeypatch.setattr(controller, "sleep", lambda s: waits.append(s))
+    with pytest.raises(RuntimeError, match="pipeline stalled"):
+        controller.run_chain()
+    assert tick.call_count == 2
+    assert waits == [15]
+
+
 @pytest.mark.parametrize("key", ["controlled/postgres-maintenance/2026-10-24/22",
                                   "postgres-maintenance/2026-10-24/22",
                                   "admin/postgres-maintenance/2"])

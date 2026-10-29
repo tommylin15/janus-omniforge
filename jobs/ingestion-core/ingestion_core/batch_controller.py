@@ -114,7 +114,8 @@ def weekly_eod_core_evidence(connection, scheduled_at: datetime, observed_at=Non
                  FROM control.batch_occurrences
                 WHERE state->>'batch'='ingestion'
                   AND state->>'status'='succeeded'
-                  AND scheduled_at >= %s AND scheduled_at <= %s
+                  AND (scheduled_at >= %s OR state->>'origin' = 'controlled')
+                  AND scheduled_at <= %s
                 ORDER BY scheduled_at DESC LIMIT 32""",
             (lower, evidence_at),
         )
@@ -522,7 +523,8 @@ def run(*, now=None, session=None, control=None, controlled=None):
                     connection, datetime.fromisoformat(state.get("source_slot", state["scheduled_at"])),
                     observed_at=now if state.get("origin") == "controlled" else None)
                 if weekly_evidence is None:
-                    record(connection, tick, key, state, "weekly_eod_core_not_verified", update=False)
+                    record(connection, tick, key, {**state, "status": "skipped",
+                           "reason": "missing_weekly_eod_evidence"}, "weekly_eod_core_not_verified")
                     continue
                 record(connection, tick, key, {**state, "core_eod_evidence": weekly_evidence},
                        "weekly_eod_core_attested", update=False)
@@ -645,6 +647,7 @@ def run_chain(*, controlled=None, deadline_seconds=3000):
     if not 1 <= deadline_seconds <= 3000:
         raise ValueError("invalid chain deadline")
     end = monotonic() + deadline_seconds
+    stalled_ticks = 0
     while True:
         result = run(controlled=controlled)
         if result["status"] == "controller_busy":
@@ -672,6 +675,13 @@ def run_chain(*, controlled=None, deadline_seconds=3000):
             raise RuntimeError("pipeline failed or dispatch is ambiguous; inspect persisted state")
         if not any(status in {"pending", "dispatching", "running"} for status in statuses):
             return {**result, "chain_status": "settled"}
+        has_active_workers = any(status in {"dispatching", "running"} for status in statuses)
+        if not has_active_workers and any(status == "pending" for status in statuses):
+            stalled_ticks += 1
+            if stalled_ticks >= 2:
+                raise RuntimeError("pipeline stalled: pending occurrences cannot make progress; inspect persisted dependencies")
+        else:
+            stalled_ticks = 0
         if monotonic() >= end:
             raise RuntimeError("pipeline deadline reached; persisted work retained")
         sleep(15)
