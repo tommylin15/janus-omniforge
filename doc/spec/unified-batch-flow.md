@@ -24,7 +24,7 @@ Cloud Scheduler `30 */2 * * *`，`Asia/Taipei`，唯一目標既有 `janus-batch
 
 ## 3. 收取、清理與資料路線
 
-1. 官方批量日行情與 PE/PB 一次收全市場、重用結果；持股／觀察股另做有界財務與缺口補收，不逐股重抓全市場。
+1. 官方批量日行情與 PE/PB 一次收全市場、重用結果；持股／觀察股沿新版`stock_supplement.run_pending(daily=True)`做有界財務與缺口補收，不逐股重抓全市場。新版主鏈不再呼叫舊`data_supplement.run_backfill`的固定焦點歷史補收；其既有失敗紀錄仍保留為歷史，不轉為成功。
 2. Stage 原始資料與既有來源／取得時間欄位；相同 payload 重用。只驗必要股票代碼、期別、單位、數值與日期；取消的歷史稽核不恢復。
 3. Core 按來源資料鍵 upsert，保留真實資料日期；財報累季／單季、價格還原基準不得混用。
 4. Serving 是 UI 快讀投影；Mart 是因子、篩選、四角色與 Fact Pack。UI 不直接掃 Iceberg。

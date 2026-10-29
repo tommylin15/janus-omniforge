@@ -45,11 +45,16 @@ def test_collection_finishes_canonical_after_supplement(monkeypatch):
     monkeypatch.setattr(data_supplement, "run_backfill", lambda **k: order.append("supplement") or {"status":"partial","failures":[]})
     monkeypatch.setattr(__main__, "run_scheduled_collection", lambda: order.append("core") or {"status":"succeeded"})
     assert unified_collection.run()["status"] == "succeeded"
-    assert order == ["demand","supplement","core"]
+    assert order == ["demand","core"]
     monkeypatch.setattr(data_supplement, "run_backfill", lambda **k: {"failures":[{"dataset":"financials"}]})
-    assert unified_collection.run()["status"] == "partial"
-    # Explicit provider failure cannot be hidden by an empty failures array.
+    assert unified_collection.run()["status"] == "succeeded"
+    # Retired legacy backfill must never affect the new schedule.
     monkeypatch.setattr(data_supplement, "run_backfill", lambda **k: {"status":"failed", "failures":[]})
+    assert unified_collection.run()["status"] == "succeeded"
+    monkeypatch.setattr(stock_supplement, "run_pending", lambda **k: {"status":"partial"})
+    assert unified_collection.run()["status"] == "partial"
+    monkeypatch.setattr(stock_supplement, "run_pending", lambda **k: {"status":"succeeded"})
+    monkeypatch.setattr(__main__, "run_scheduled_collection", lambda: {"status":"partial"})
     assert unified_collection.run()["status"] == "partial"
 
 
