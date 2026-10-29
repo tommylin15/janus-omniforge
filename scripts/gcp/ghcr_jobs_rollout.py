@@ -452,7 +452,14 @@ def verify_reversible_baseline(request, before):
         if image(before[name]) != expected:
             raise ValueError("rollback_baseline_runtime_drift")
         if fingerprint(before[name]) != request["rollback_config_hashes"][name]:
-            raise ValueError("rollback_baseline_config_drift")
+            summary = os.environ.get("GITHUB_STEP_SUMMARY")
+            if summary:
+                try:
+                    with open(summary, "a") as f:
+                        f.write(f"\n### Config Drift: {name}\nExpected: {request['rollback_config_hashes'][name]}\nActual: {fingerprint(before[name])}\n")
+                except Exception:
+                    pass
+            raise ValueError(f"rollback_baseline_config_drift: {name} expected {request['rollback_config_hashes'][name]} got {fingerprint(before[name])}")
         manifest = json.loads(command(["skopeo", "inspect", "--no-creds", "docker://" + expected]))
         if (manifest.get("Digest") != expected.rsplit("@", 1)[-1]
                 or manifest.get("Labels", {}).get("org.opencontainers.image.revision") != source_sha):
