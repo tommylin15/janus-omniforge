@@ -595,13 +595,16 @@ def controlled_rows(now, group, source_day):
     """Stable identities exercise the same schedule/dependencies without moving the clock."""
     day = date.fromisoformat(source_day)
     local = now.astimezone(ZoneInfo("Asia/Taipei"))
+    if not 0 <= (local.date() - day).days <= 8:
+        raise ValueError("controlled run requires a recent completed source day")
     if group == "compensation":
         batch = next(b for b in effective_batches() if b.name == "mobile-ledger")
-        slot = local.replace(hour=(local.hour // 2) * 2, minute=30, second=0, microsecond=0)
+        slot = local.replace(year=day.year, month=day.month, day=day.day,
+                             hour=0, minute=30, second=0, microsecond=0)
         if slot > local:
-            slot -= timedelta(hours=2)
-        return [(f"controlled/mobile-ledger/{slot.date().isoformat()}/{slot.hour:02d}", batch, slot, [])]
-    if not 0 <= (local.date() - day).days <= 8 or (day == local.date() and local.hour < 19):
+            raise ValueError("controlled compensation slot has not elapsed")
+        return [(f"controlled/mobile-ledger/{day.isoformat()}/00", batch, slot, [])]
+    if group == "eod" and day == local.date() and local.hour < 19:
         raise ValueError("controlled run requires a completed source day")
     names = {"eod": {"ingestion", "market-screening", "private", "serving-prune"},
              "maintenance": MAINTENANCE_NAMES | {"stage-cleanup"},

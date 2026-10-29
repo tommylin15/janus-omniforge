@@ -112,9 +112,12 @@ class StockServingProjection:
             cursor.execute("SET LOCAL statement_timeout='60000ms'")
             cursor.execute("""WITH targets AS (
                 SELECT symbol FROM control.mart_ai_target_symbols((now() AT TIME ZONE 'Asia/Taipei')::date)
+                UNION SELECT unnest(%s::text[])
             ) DELETE FROM control.stock_serving_recent s WHERE dataset_id='ohlcv'
               AND sort_at < now() - CASE WHEN symbol IN (SELECT symbol FROM targets)
-                  THEN interval '750 days' ELSE interval '120 days' END""")
+                  THEN interval '750 days' ELSE interval '120 days' END""",
+                (["2330", "2317", "2454", "2382", "2308", "2882", "2881", "2603",
+                  "6488", "8069", "5347", "3293"],))
             deleted = cursor.rowcount
             cursor.execute("""DELETE FROM control.market_serving_recent WHERE dataset_id='financials' AND
                 ((payload_json->>'metric'='monthly_revenue' AND sort_at < now()-interval '24 months')

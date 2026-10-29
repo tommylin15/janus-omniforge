@@ -53,7 +53,7 @@ def maintain_postgres():
         ORDER BY scheduled_at FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING occurrence_id""")
     if not key:
         return {'status': 'idle'}
-    if not re.fullmatch(r'(controlled/)?postgres-maintenance/[0-9]{4}-[0-9]{2}-[0-9]{2}/22', key):
+    if not re.fullmatch(r'(?:(controlled/)?postgres-maintenance/[0-9]{4}-[0-9]{2}-[0-9]{2}/22|admin/postgres-maintenance/[1-9][0-9]{0,18})', key):
         raise ValueError('invalid maintenance occurrence')
     completed = subprocess.run(['docker', 'exec', '-i', '--user', 'postgres', 'janus-postgres',
         'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-d', 'janus_control'],

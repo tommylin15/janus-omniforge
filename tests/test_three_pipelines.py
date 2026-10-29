@@ -51,12 +51,15 @@ def test_chain_never_retries_failed_or_unknown_dispatch(monkeypatch, status):
     tick.assert_called_once()
 
 
-def test_vm_vacuum_consumes_only_controller_request_and_keeps_terminal_receipt(monkeypatch):
+@pytest.mark.parametrize("key", ["controlled/postgres-maintenance/2026-10-24/22",
+                                  "postgres-maintenance/2026-10-24/22",
+                                  "admin/postgres-maintenance/2"])
+def test_vm_vacuum_consumes_only_controller_request_and_keeps_terminal_receipt(monkeypatch, key):
     module = runpy.run_path(str(Path("scripts/gcp/ledger_backup_executor.py")))
     statements = []
     def sql(statement):
         statements.append(statement)
-        return "controlled/postgres-maintenance/2026-10-24/22" if len(statements) == 1 else ""
+        return key if len(statements) == 1 else ""
     module["maintain_postgres"].__globals__["sql"] = sql
     command = Mock(return_value=SimpleNamespace(returncode=0))
     monkeypatch.setattr(module["subprocess"], "run", command)
@@ -75,6 +78,9 @@ def test_prune_limits_deletion_to_rebuildable_serving(monkeypatch):
     assert result == {"status": "succeeded", "ohlcv_deleted": 0, "financial_deleted": 0}
     sql = " ".join(call.args[0] for call in cursor.execute.call_args_list)
     assert "750 days" in sql and "120 days" in sql and "24 months" in sql
+    deletion = next(call for call in cursor.execute.call_args_list if "WITH targets" in call.args[0])
+    assert "UNION SELECT unnest" in deletion.args[0]
+    assert {"2317", "2454", "6488", "8069"} <= set(deletion.args[1][0])
     assert "DELETE FROM private." not in sql and "DELETE FROM control.stock_serving_recent" in sql
 
 
@@ -94,8 +100,9 @@ def test_acceptance_dispatch_unknown_is_not_retried(monkeypatch):
 def test_controlled_compensation_uses_elapsed_slot_without_changing_day_clock():
     now = datetime(2026, 10, 29, 1, 10, tzinfo=timezone.utc)
     row = controller.controlled_rows(now, "compensation", "2026-10-29")[0]
-    assert row[0] == "controlled/mobile-ledger/2026-10-29/08"
-    assert row[2].hour == 8 and row[2].minute == 30
+    assert row[0] == "controlled/mobile-ledger/2026-10-29/00"
+    assert row[2].hour == 0 and row[2].minute == 30
+    assert row == controller.controlled_rows(now.replace(hour=4), "compensation", "2026-10-29")[0]
 
 
 @pytest.mark.parametrize("sheet_unavailable", [False, True])
@@ -121,3 +128,8 @@ def test_compensation_processes_durable_queue_even_when_sheet_is_empty(monkeypat
     else:
         runtime.main()
     worker.assert_called_once()
+
+
+def test_admin_includes_new_pipeline_steps():
+    from packages.admin_api.batch_dashboard import TASKS
+    assert {"serving-prune", "postgres-maintenance"} <= set(TASKS)
