@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "380c369605e2476e4aca35797cc228621ad92da5",
+  "sha": "680b5c66f31f73cb6bbf71a8bcd4fbc93a3f657f",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "個股頁整頁重構與四模型歷史對照：完整 Release #40657065451 與 0% 候選 #40657951569 均 SUCCESS。唯讀驗證同來源 OAuth discovery/S256/refresh metadata、User/Admin/MCP 未登入拒絕與 build identity；不變更 GCP。",
-  "request_attempt": 19
+  "purpose": "三大批次管線：完整 Release 40801272801、0% 候選 40801858351 成功；唯讀驗證同來源 OAuth discovery、PKCE／refresh metadata、未登入 User/Admin/MCP 拒絕及 build identity，不切正式流量。",
+  "request_attempt": 20
 }
