@@ -46,15 +46,7 @@ jobs:
       - name: Inspect previous Controller execution
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          LATEST=$(gcloud run jobs executions list --job=janus-batch-controller \
-            --project=gen-lang-client-0593591102 --region=us-central1 \
-            --limit=1 --format='value(name.basename())') || true
-          echo "Previous Latest: $LATEST"
-          LOGS=$(gcloud logging read "resource.type=\"cloud_run_job\" AND labels.\"run.googleapis.com/execution_name\"=\"$LATEST\"" \
-            --project=gen-lang-client-0593591102 --limit=100 --format='value(timestamp,textPayload,jsonPayload.message)') || true
-          BODY=$(printf "### Previous Execution Logs (%s)\n\`\`\`\n%s\n\`\`\`" "$LATEST" "$LOGS")
-          gh api repos/tommylin15/janus-omniforge/commits/${GITHUB_SHA}/comments -f body="$BODY" || true
+        run: python scripts/gcp/diagnostic_acceptance.py "Pre-Acceptance Diagnostic"
       - name: Check compensation acceptance guards
         run: python -m pytest -q tests/test_three_pipeline_compensation_acceptance.py
       - name: Execute the existing Dev pipeline with persistent dispatch fences
@@ -71,17 +63,9 @@ jobs:
           retention-days: 14
       - name: Report failure logs on failure
         if: failure()
-        run: |
-          echo "## Checking recent executions on failure"
-          LATEST=$(gcloud run jobs executions list --job=janus-batch-controller \
-            --project=gen-lang-client-0593591102 --region=us-central1 \
-            --limit=1 --format='value(name.basename())') || true
-          if [ -n "$LATEST" ]; then
-            LOGS=$(gcloud logging read "resource.type=\"cloud_run_job\" AND labels.\"run.googleapis.com/execution_name\"=\"$LATEST\"" \
-              --project=gen-lang-client-0593591102 --limit=100 --format='value(timestamp,textPayload,jsonPayload.message)') || true
-            BODY=$(printf "### Controller Failed Logs (%s)\n\`\`\`\n%s\n\`\`\`" "$LATEST" "$LOGS")
-            gh api repos/tommylin15/janus-omniforge/commits/${GITHUB_SHA}/comments -f body="$BODY" || true
-          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/gcp/diagnostic_acceptance.py "Post-Failure Diagnostic"
       - name: Report receipt on success
         if: success()
         run: |
