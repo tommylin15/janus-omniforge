@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "1fbd989ea974f2bab309dda688b35da01abe78c6",
+  "sha": "ab2d2e208114fcdf5c9fed51ba5936898c0013d9",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "新排程 Release 40810051267 與 0% 候選 40810823597 成功；唯讀驗證同來源 Auth 邊界及 build identity。",
-  "request_attempt": 21
+  "purpose": "移除舊固定焦點補收：Release40822451536、0%候選40823054382成功；唯讀驗證同來源Auth與build identity。",
+  "request_attempt": 22
 }
