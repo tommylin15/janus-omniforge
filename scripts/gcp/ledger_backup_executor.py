@@ -44,6 +44,28 @@ def retain(day):
         return "failed"
 
 
+def maintain_postgres():
+    """Consume one Controller-approved maintenance request on the existing VM."""
+    key = sql("""UPDATE control.batch_occurrences SET state=state || '{"vm_claimed":true}'::jsonb,
+        updated_at=now() WHERE occurrence_id=(SELECT occurrence_id FROM control.batch_occurrences
+        WHERE state->>'batch'='postgres-maintenance' AND state->>'status'='running'
+          AND state->>'executor'='existing_postgres_vm' AND NOT (state ? 'vm_claimed')
+        ORDER BY scheduled_at FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING occurrence_id""")
+    if not key:
+        return {'status': 'idle'}
+    if not re.fullmatch(r'(controlled/)?postgres-maintenance/[0-9]{4}-[0-9]{2}-[0-9]{2}/22', key):
+        raise ValueError('invalid maintenance occurrence')
+    completed = subprocess.run(['docker', 'exec', '-i', '--user', 'postgres', 'janus-postgres',
+        'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-d', 'janus_control'],
+        input="SET lock_timeout='5s'; SET statement_timeout='300000ms'; VACUUM (ANALYZE);\n",
+        text=True, capture_output=True, timeout=330)
+    status = 'succeeded' if completed.returncode == 0 else 'failed'
+    sql(f"""UPDATE control.batch_occurrences SET state=state ||
+        '{{"status":"{status}","vacuum_analyze":"{status}"}}'::jsonb,
+        updated_at=now() WHERE occurrence_id='{key}' AND state->>'status'='running'""")
+    return {'operation': 'postgres-maintenance', 'status': status}
+
+
 def run():
     # A crashed claim remains running. Do not blindly repeat an unknown backup.
     day = sql("""UPDATE control.ledger_backup_requests SET status='running',started_at=now()
@@ -51,7 +73,7 @@ def run():
                    WHERE status='queued' ORDER BY backup_date FOR UPDATE SKIP LOCKED LIMIT 1)
                  RETURNING backup_date""")
     if not day:
-        return {'status': 'idle'}
+        return maintain_postgres()
     date.fromisoformat(day)
     try:
         completed = subprocess.run(

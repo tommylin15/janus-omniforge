@@ -1,4 +1,4 @@
-"""Two-hour dev controller; never wait for or cancel child jobs."""
+"""Two-hour dev controller with bounded, lock-free waits between chain steps."""
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
@@ -9,6 +9,7 @@ import re
 from uuid import NAMESPACE_URL, uuid5
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
+from time import monotonic, sleep
 
 from packages.mobile_ledger_queue import MobileLedgerQueueError, probe_mobile_ledger_queue
 
@@ -36,13 +37,16 @@ class Batch:
 
 BATCHES = (
     Batch("ledger-backup", "janus-batch-controller", (0,)),
-    Batch("ingestion", "janus-ingestion-core", (2,), env=(("JANUS_UNIFIED_COLLECTION", "true"), ("INGESTION_DATASETS", ""), ("INGESTION_DATE", ""), ("JANUS_DATA_SUPPLEMENT_MODE", ""), ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
-    Batch("market-screening", "janus-intelligence-mart", (4,), tuple(range(5)), ("ingestion",),
+    Batch("ingestion", "janus-ingestion-core", (18,), tuple(range(5)), env=(("JANUS_UNIFIED_COLLECTION", "true"), ("INGESTION_DATASETS", ""), ("INGESTION_DATE", ""), ("JANUS_DATA_SUPPLEMENT_MODE", ""), ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
+    Batch("market-screening", "janus-intelligence-mart", (18,), tuple(range(5)), ("ingestion",),
           (("MART_OPERATION", "market-cycle"), ("QUEUE_EXECUTION_ID", ""), ("MART_OOS_EVALUATION", "false"),
            ("MART_AI_ENABLED", "false"), ("MART_RISK_SHADOW_ENABLED", "false")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
-    Batch("private", "janus-private-pipeline", (6,), tuple(range(5)),
+    Batch("private", "janus-private-pipeline", (18,), tuple(range(5)),
           ("market-screening",)),
+    Batch("serving-prune", "janus-ingestion-core", (18,), tuple(range(5)), ("private",),
+          (("JANUS_SERVING_PRUNE", "true"),)),
+    Batch("postgres-maintenance", "janus-batch-controller", (22,), (5,), ("core-cleanup",)),
     # Independent daily 48h Stage TTL: reuse existing ingestion Job, not weekly Iceberg scans.
     Batch("stage-cleanup", "janus-ingestion-core", (22,),
           env=(("ICEBERG_MAINTENANCE_MODE", "stage-only-apply"),
@@ -75,7 +79,7 @@ BATCHES = (
 )
 
 
-MAINTENANCE_NAMES = frozenset({"iceberg-compaction", "mart-cleanup", "core-cleanup"})
+MAINTENANCE_NAMES = frozenset({"iceberg-compaction", "mart-cleanup", "core-cleanup", "postgres-maintenance"})
 
 
 def weekly_maintenance_enabled() -> bool:
@@ -95,15 +99,16 @@ def effective_batches():
                  if batch.name in MAINTENANCE_NAMES else batch for batch in BATCHES)
 
 
-def weekly_eod_core_evidence(connection, scheduled_at: datetime):
-    """Require a recent immutable Core receipt from a completed pre-open ingestion.
+def weekly_eod_core_evidence(connection, scheduled_at: datetime, observed_at=None):
+    """Require a recent immutable Core receipt from a completed EOD ingestion.
 
-    The Saturday 02:30 collection covers Friday's last completed session,
-    so the occurrence date and actual Core analysis date must not be conflated.
+    Friday 18:30 collection covers Friday; older pre-open receipts remain readable.
     Missing receipts fail closed without deleting any current Iceberg files.
     """
     local_day = scheduled_at.astimezone(ZoneInfo("Asia/Taipei")).date()
-    first_day = local_day - timedelta(days=8)
+    evidence_at = observed_at or scheduled_at
+    evidence_day = evidence_at.astimezone(ZoneInfo("Asia/Taipei")).date()
+    first_day = evidence_day - timedelta(days=8)
     if local_day.weekday() != 5:
         raise ValueError("weekly maintenance requires Saturday occurrence")
     with connection.cursor() as cursor:
@@ -115,14 +120,15 @@ def weekly_eod_core_evidence(connection, scheduled_at: datetime):
                   AND scheduled_at >= %s AND scheduled_at <= %s
                 ORDER BY scheduled_at DESC LIMIT 32""",
             (datetime.combine(first_day, datetime.min.time(), tzinfo=ZoneInfo("Asia/Taipei")),
-             scheduled_at),
+             evidence_at),
         )
         ingestions = cursor.fetchall()
     for key, slot in ingestions:
         if slot.tzinfo is None:
             raise RuntimeError("weekly EOD timestamp lacks timezone")
-        day = slot.astimezone(ZoneInfo("Asia/Taipei")).date()
-        if key != f"ingestion/{day.isoformat()}/02":
+        day = (date.fromisoformat(key.split("/")[2]) if key.startswith("controlled/")
+               else slot.astimezone(ZoneInfo("Asia/Taipei")).date())
+        if key.removeprefix("controlled/") not in {f"ingestion/{day.isoformat()}/{hour}" for hour in ("02", "18")}:
             continue
         # Match a real receipt written after this scheduled collection began,
         # rather than guessing that analysisAsOf equals the calendar day.
@@ -131,9 +137,9 @@ def weekly_eod_core_evidence(connection, scheduled_at: datetime):
                 """SELECT payload->>'coreSnapshotId',payload->>'coreSnapshotUri',payload->>'analysisAsOf'
                      FROM control.core_ready_events
                     WHERE created_at >= %s AND created_at <= %s
-                      AND payload->>'analysisAsOf' < %s
+                      AND payload->>'analysisAsOf' <= %s
                     ORDER BY created_at DESC LIMIT 32""",
-                (slot, scheduled_at, day.isoformat()),
+                (slot, evidence_at, day.isoformat()),
             )
             receipts = cursor.fetchall()
         for snapshot_id, uri, as_of in receipts:
@@ -141,7 +147,7 @@ def weekly_eod_core_evidence(connection, scheduled_at: datetime):
                 source_day = date.fromisoformat(as_of)
             except (TypeError, ValueError):
                 continue
-            if not (0 < (day - source_day).days <= 8):
+            if not (0 <= (day - source_day).days <= 8):
                 continue
             if (isinstance(snapshot_id, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", snapshot_id)
                     and isinstance(uri, str) and re.fullmatch(
@@ -198,8 +204,8 @@ def due_batches(now: datetime, batches=None):
 
 
 def prioritize_nightly_private(pending, now: datetime):
-    """Prioritize the current 06:30 private slot over any retired pending slots."""
-    night_key = f"private/{now.astimezone(ZoneInfo('Asia/Taipei')).date().isoformat()}/06"
+    """Prioritize the current EOD private slot over retired pending slots."""
+    night_key = f"private/{now.astimezone(ZoneInfo('Asia/Taipei')).date().isoformat()}/18"
     return sorted(pending, key=lambda row: 0 if row[0] == night_key else 1)
 
 
@@ -303,11 +309,15 @@ def occurrence_env(batch, slot: datetime) -> tuple[tuple[str, str], ...]:
     values = dict(batch.env)
     if batch.job == "janus-ingestion-core":
         values.setdefault("JANUS_UNIFIED_COLLECTION", "false")
+        values.setdefault("JANUS_SERVING_PRUNE", "false")
     if batch.name == "market-screening":
-        # Before market open, use the certified latest completed trading day.
-        values["SCREENING_DATE"] = "latest"
-    # At 02:30 leave INGESTION_DATE empty: ingestion resolves the previous
-    # completed session including weekends and holiday overrides.
+        values["SCREENING_DATE"] = slot.astimezone(ZoneInfo("Asia/Taipei")).date().isoformat()
+    if batch.name == "private":
+        values["VALUATION_DATE"] = slot.astimezone(ZoneInfo("Asia/Taipei")).date().isoformat()
+        values["MOBILE_LEDGER_ONLY"] = "false"
+        values["PRIVATE_RECALC_QUEUE_MODE"] = "false"
+    if batch.name == "ingestion":
+        values["INGESTION_DATE"] = slot.astimezone(ZoneInfo("Asia/Taipei")).date().isoformat()
     return tuple(sorted(values.items()))
 
 
@@ -333,7 +343,7 @@ def record(connection, tick, key, state, action, *, update=True):
         cursor.execute("INSERT INTO control.batch_event_outbox(event_id,payload) VALUES (%s,%s::jsonb) ON CONFLICT DO NOTHING", (event_id, json.dumps(payload)))
 
 
-def run(*, now=None, session=None, control=None):
+def run(*, now=None, session=None, control=None, controlled=None):
     from datetime import timezone
     from .__main__ import _control_plane
     if os.environ.get("GCP_PROJECT_ID") != PROJECT:
@@ -391,7 +401,7 @@ def run(*, now=None, session=None, control=None):
                 state = poll_job(session, {"job": batch.job, "batch": batch.name, "status": "running", "execution": name,
                                           "dependencies": dependencies, "scheduled_at": slot.isoformat(), "origin": "previous_scheduler"})
                 with connection.transaction(), connection.cursor() as cursor:
-                    cursor.execute("INSERT INTO control.batch_occurrences(occurrence_id,scheduled_at,state) VALUES (%s,%s,%s::jsonb) ON CONFLICT DO NOTHING", (key, slot, json.dumps(state)))
+                    cursor.execute("INSERT INTO control.batch_occurrences(occurrence_id,scheduled_at,state) VALUES (%s,%s,%s::jsonb) ON CONFLICT DO NOTHING", (key, now if controlled else slot, json.dumps(state)))
                 record(connection, tick, key, state, "adopt_previous_scheduler", update=False)
             return {"status": "seeded", "exported_events": 0, "iceberg_audit_disabled": True, "model_calls": 0}
         with connection.cursor() as cursor:
@@ -404,6 +414,8 @@ def run(*, now=None, session=None, control=None):
                 if state.get('batch') == 'ledger-backup':
                     from .ledger_backup import poll_backup
                     updated = poll_backup(connection, state)
+                elif state.get("batch") == "postgres-maintenance":
+                    continue  # Existing VM executor persists its own terminal state.
                 else:
                     updated = poll_job(session, state)
                 if updated.get("reason") == "admin_stopped" and updated.get("queued_execution_id"):
@@ -426,11 +438,18 @@ def run(*, now=None, session=None, control=None):
         except MobileLedgerQueueError:
             mobile_pending = None
             record(connection, tick, "mobile-ledger", {"status": "unavailable"}, "mobile_queue_unavailable", update=False)
-        for key, batch, slot, dependencies in scheduled_batches(now, mobile_pending is True):
-            if slot < not_before or batch.name in paused:
+        private_pending = bool(connection.execute(
+            "SELECT EXISTS (SELECT 1 FROM private.recalculation_requests WHERE status='QUEUED')").fetchone()[0])
+        if private_pending:
+            mobile_pending = True
+        rows = controlled_rows(now, *controlled) if controlled else scheduled_batches(now, mobile_pending is True)
+        for key, batch, slot, dependencies in rows:
+            if (not controlled and slot < not_before) or batch.name in paused:
                 continue
             state = {"job": batch.job, "batch": batch.name, "status": "pending", "dependencies": dependencies,
-                     "scheduled_at": slot.isoformat(), "env": list(occurrence_env(batch, slot))}
+                     "scheduled_at": (now if controlled else slot).isoformat(), "env": list(occurrence_env(batch, slot)),
+                     **({"origin": "controlled", "source_slot": slot.isoformat(),
+                         "policy_key": key.removeprefix("controlled/")} if controlled else {})}
             with connection.transaction(), connection.cursor() as cursor:
                 cursor.execute("INSERT INTO control.batch_occurrences(occurrence_id,scheduled_at,state) VALUES (%s,%s,%s::jsonb) ON CONFLICT DO NOTHING", (key, slot, json.dumps(state)))
         # Persisted pending slots survive midnight and controller restarts.
@@ -463,12 +482,12 @@ def run(*, now=None, session=None, control=None):
             if batch.name in paused and state.get("origin") != "admin":
                 record(connection, tick, key, state, "admin_paused", update=False)
                 continue
-            if batch.name == "market-screening":
+            if batch.name in {"ingestion", "market-screening"}:
                 setting = control.get_admin_setting("schedule")
                 if not setting or not isinstance(setting[0], dict):
                     record(connection, tick, key, state, "market_calendar_unavailable", update=False)
                     continue
-                day = datetime.fromisoformat(state["scheduled_at"]).date().isoformat()
+                day = datetime.fromisoformat(state.get("source_slot", state["scheduled_at"])).astimezone(ZoneInfo("Asia/Taipei")).date().isoformat()
                 if day in setting[0].get("holiday_overrides", ()):
                     record(connection, tick, key, {**state, "status": "skipped", "reason": "market_holiday"}, "market_holiday")
                     continue
@@ -482,15 +501,16 @@ def run(*, now=None, session=None, control=None):
                     continue
             dependencies = state["dependencies"]
             # Reconcile scheduled pending slots created before a dependency-policy change.
-            policy_time = state.get("source_slot") if state.get("origin") == "admin" else state["scheduled_at"]
-            policy_key = state.get("policy_key") if state.get("origin") == "admin" else key
+            policy_time = state.get("source_slot") if state.get("origin") in {"admin", "controlled"} else state["scheduled_at"]
+            policy_key = state.get("policy_key") if state.get("origin") in {"admin", "controlled"} else key
             due_row = ((key, batch, datetime.fromisoformat(policy_time), []) if batch.manual_only else
                        next((row for row in due_batches(datetime.fromisoformat(policy_time)) if row[0] == policy_key), None))
             if due_row is None:
                 record(connection, tick, key, {**state, "status": "skipped", "reason": "schedule_superseded"},
                        "schedule_superseded")
                 continue
-            dependencies = due_row[3]
+            dependencies = (["controlled/" + dep for dep in due_row[3]]
+                            if state.get("origin") == "controlled" else due_row[3])
             expected_env = list(occurrence_env(batch, due_row[2]))
             if batch.manual_only and state.get("queued_execution_id"):
                 expected_env.append(("QUEUE_EXECUTION_ID", state["queued_execution_id"]))
@@ -504,15 +524,14 @@ def run(*, now=None, session=None, control=None):
                     statuses = dict(cursor.fetchall())
                 cursor.execute("SELECT 1 FROM control.batch_occurrences WHERE state->>'job'=%s AND state->>'status' IN ('dispatching','running','ambiguous') LIMIT 1", (batch.job,))
                 busy = cursor.fetchone() is not None
-            # If the 04:30 upstream failed or was skipped (holiday), the
-            # dependent 06:30 private batch cannot run; do not strand pending rows.
-            if batch.name == "private" and state.get("status") == "pending" and any(
+            # Failed or holiday-skipped upstream work must not strand dependent rows.
+            if batch.dependencies and state.get("status") == "pending" and any(
                     statuses.get(dependency) in {"failed", "skipped"} for dependency in dependencies):
                 reason = ("upstream_market_skipped" if any(statuses.get(dep) == "skipped" for dep in dependencies)
                           else "upstream_ingestion_failed")
                 record(connection, tick, key,
                        {**state, "status": "skipped", "reason": reason},
-                       "private_upstream_failed")
+                       "private_upstream_failed" if batch.name == "private" else "upstream_failed")
                 continue
             if any(statuses.get(dependency) != "succeeded" for dependency in dependencies):
                 record(connection, tick, key, state, "waiting_dependency", update=False)
@@ -520,12 +539,17 @@ def run(*, now=None, session=None, control=None):
             weekly_evidence = None
             if batch.name == "iceberg-compaction" and weekly_maintenance_enabled():
                 weekly_evidence = weekly_eod_core_evidence(
-                    connection, datetime.fromisoformat(state["scheduled_at"]))
+                    connection, datetime.fromisoformat(state.get("source_slot", state["scheduled_at"])),
+                    observed_at=now if state.get("origin") == "controlled" else None)
                 if weekly_evidence is None:
                     record(connection, tick, key, state, "weekly_eod_core_not_verified", update=False)
                     continue
                 record(connection, tick, key, {**state, "core_eod_evidence": weekly_evidence},
                        "weekly_eod_core_attested", update=False)
+            if batch.name == "postgres-maintenance":
+                record(connection, tick, key, {**state, "status": "running",
+                       "executor": "existing_postgres_vm"}, "postgres_maintenance_request")
+                continue
             if batch.name == 'ledger-backup':
                 from .ledger_backup import request_backup
                 record(connection, tick, key, request_backup(connection, state), 'backup_request')
@@ -557,6 +581,8 @@ def run(*, now=None, session=None, control=None):
                "execution": os.environ.get("CLOUD_RUN_EXECUTION", "")}, "tick", update=False)
         publish_runtime(connection, now, mode, not_before, definitions)
         return {"status": "tick_completed", "tick": tick, "exported_events": 0,
+                "chain_keys": [key for key, batch, _, _ in rows if controlled or batch.name != "mobile-ledger"],
+                "compensation_pending": mobile_pending,
                 "iceberg_audit_disabled": True, "model_calls": 0}
     finally:
         if locked:
@@ -565,9 +591,69 @@ def run(*, now=None, session=None, control=None):
             control.close()
 
 
+def controlled_rows(now, group, source_day):
+    """Stable identities exercise the same schedule/dependencies without moving the clock."""
+    day = date.fromisoformat(source_day)
+    local = now.astimezone(ZoneInfo("Asia/Taipei"))
+    if group == "compensation":
+        batch = next(b for b in effective_batches() if b.name == "mobile-ledger")
+        slot = local.replace(hour=(local.hour // 2) * 2, minute=30, second=0, microsecond=0)
+        if slot > local:
+            slot -= timedelta(hours=2)
+        return [(f"controlled/mobile-ledger/{slot.date().isoformat()}/{slot.hour:02d}", batch, slot, [])]
+    if not 0 <= (local.date() - day).days <= 8 or (day == local.date() and local.hour < 19):
+        raise ValueError("controlled run requires a completed source day")
+    names = {"eod": {"ingestion", "market-screening", "private", "serving-prune"},
+             "maintenance": MAINTENANCE_NAMES | {"stage-cleanup"},
+             "backup": {"ledger-backup"}}.get(group)
+    if names is None:
+        raise ValueError("unsupported controlled pipeline")
+    point = local.replace(year=day.year, month=day.month, day=day.day, hour=23, minute=59)
+    rows = [("controlled/" + key, batch, slot, ["controlled/" + dep for dep in deps])
+            for key, batch, slot, deps in due_batches(point) if batch.name in names]
+    if {batch.name for _, batch, _, _ in rows} != names:
+        raise ValueError("source day does not match pipeline schedule")
+    return rows
+
+
+def run_chain(*, controlled=None, deadline_seconds=3000):
+    """Wait only while chain work exists; every tick releases the shared writer lock."""
+    from .__main__ import _control_plane
+    if not 1 <= deadline_seconds <= 3000:
+        raise ValueError("invalid chain deadline")
+    end = monotonic() + deadline_seconds
+    while True:
+        result = run(controlled=controlled)
+        if result["status"] != "tick_completed":
+            return result
+        with _control_plane() as control:
+            with control.connection.cursor() as cursor:
+                cursor.execute("""SELECT occurrence_id,state->>'status' FROM control.batch_occurrences
+                    WHERE occurrence_id=ANY(%s) ORDER BY scheduled_at LIMIT 101""",
+                    (result.get("chain_keys", []),))
+                rows = cursor.fetchall()
+        if controlled:
+            expected = {row[0] for row in controlled_rows(datetime.now(ZoneInfo("Asia/Taipei")), *controlled)}
+            rows = [(key, status) for key, status in rows if key in expected]
+            if {key for key, _ in rows} != expected:
+                raise RuntimeError("controlled pipeline occurrences missing or paused")
+            if controlled[0] == "eod" and any(status == "skipped" for _, status in rows):
+                raise RuntimeError("controlled EOD skipped; no completed market chain")
+        statuses = [status for _, status in rows]
+        if "ambiguous" in statuses or "failed" in statuses:
+            raise RuntimeError("pipeline failed or dispatch is ambiguous; inspect persisted state")
+        if not any(status in {"pending", "dispatching", "running"} for status in statuses):
+            return {**result, "chain_status": "settled"}
+        if monotonic() >= end:
+            raise RuntimeError("pipeline deadline reached; persisted work retained")
+        sleep(15)
+
+
 if __name__ == "__main__":
     try:
-        print(json.dumps(run(), sort_keys=True))
+        controlled = ((os.environ["BATCH_ACCEPTANCE_GROUP"], os.environ["BATCH_ACCEPTANCE_DATE"])
+                      if os.environ.get("BATCH_ACCEPTANCE_GROUP") else None)
+        print(json.dumps(run_chain(controlled=controlled), sort_keys=True))
     except Exception as error:
         print(json.dumps({"status": "failed", "error_code": type(error).__name__.upper()}))
         raise SystemExit(1) from None

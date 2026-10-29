@@ -110,7 +110,7 @@ def test_projection_writes_bounded_recent_rows_and_strips_raw_payload():
     assert '"raw_payload"' not in row[4]
     assert '"close":"2800"' in row[4]
     assert row[8] == 123
-    assert connection.cursor_value.executed[-1][1] == ("ohlcv", 400)
+    assert connection.cursor_value.executed[-1][1] == ("ohlcv", 750)
 
 
 def test_projection_ignores_non_serving_datasets():

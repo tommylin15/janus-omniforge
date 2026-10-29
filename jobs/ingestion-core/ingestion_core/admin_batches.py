@@ -16,7 +16,7 @@ def publish_runtime(connection, now, mode, not_before, batches):
         (now - timedelta(days=7),)).fetchall()
     value = {"observed_at": now.isoformat(), "mode": mode,
              "scheduler_cron": "30 */2 * * *", "time_zone": "Asia/Taipei",
-             "schedule_version": "unified-20261024",
+             "schedule_version": "three-pipelines-20261029",
              "not_before": not_before.isoformat(),
              "latest_logs": {row[0]: {"at": row[1].isoformat(), "occurrence_id": row[2],
                  "action": row[3], "status": row[4], "reason": row[5]} for row in logs},

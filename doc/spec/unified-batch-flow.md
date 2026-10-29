@@ -16,7 +16,7 @@ Verdict：ACCEPTABLE WITH GUARDRAILS；優先 P1。這是既有系統整併，�
 | 失敗隔離／回復 | 每一階段有持久終態；回復舊 image | Workflow execution 歷史較完整 |
 | 適配性 | 最貼近目前個人研究系統 | 嚴格完成時限、多租戶才有價值 |
 
-選 A。不把整條流程塞進長時間 HTTP 或讓 Controller 常駐等子工作。代價是跨 Worker 最多等下一個兩小時 tick；要更短延遲才重新評估 B。
+選 A。2026-10-29 第12項實作改為既有 Controller Job 有界接續：僅鏈路有工作時每15秒讀取持久終態，每次 tick 後釋放共用鎖，最長50分鐘，Cloud Run timeout 60分鐘。不是長時間 HTTP 或常駐服務；不等下一個兩小時 tick，逾時保留狀態、不盲目重送。此決策取代舊「Controller 不等待子工作」限制，不新增 Workflows／IAM／服務。
 
 ## 2. 唯一入口與執行表
 
@@ -195,4 +195,4 @@ flowchart TD
 
 必要 Release、Jobs／API部署與安全 gate 沿既有流程。最終只交付一張驗收結果表，包含來源 SHA／digest、執行 ID、觸發類型、資料日、各階段起訖／結果、必要 API／DB／物件讀回及具體缺口；不保存 token、Owner 金額或私人 payload。所有上述條件通過且無具體異常，即 `CLOSED／PASS`；未通過只列實際失敗項，不增加自然等待待辦、不重開已取消的 SEQ-04 兩條收據。
 
-本次僅更新文件並 commit／push；未執行程式修改、測試、雲端部署或上述驗收。
+2026-10-29 使用者已授權接手實作、測試、部署與真實驗收直到結案；實際結果依 TODO 與 Operations，不以本契約當作 PASS。B 補償同時檢查既有手機佇列及 PostgreSQL Owner 重算佇列，不虛構本人交易；可用既有有界重算驗收 helper 建立一筆衍生重算 request，驗證同 Owner 防重複及版本追上，帳本保持不變。

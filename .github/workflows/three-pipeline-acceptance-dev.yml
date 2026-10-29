@@ -1,0 +1,53 @@
+name: Janus three pipeline controlled acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      release_run:
+        required: true
+        type: string
+      jobs_run:
+        required: true
+        type: string
+      group:
+        required: true
+        type: choice
+        options: [configure, eod, compensation, backup, maintenance]
+      source_date:
+        required: true
+        type: string
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  acceptance:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_RUN: ${{ inputs.release_run }}
+      JOBS_RUN: ${{ inputs.jobs_run }}
+      PIPELINE_GROUP: ${{ inputs.group }}
+      SOURCE_DATE: ${{ inputs.source_date }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Execute the existing Dev pipeline with persistent dispatch fences
+        run: python scripts/gcp/three_pipeline_acceptance.py --release-run "$RELEASE_RUN" --jobs-run "$JOBS_RUN" --group "$PIPELINE_GROUP" --source-date "$SOURCE_DATE" --receipt /tmp/three-pipeline-receipt.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: three-pipeline-receipt
+          path: /tmp/three-pipeline-receipt.json
+          retention-days: 14

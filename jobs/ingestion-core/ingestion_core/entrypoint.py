@@ -30,6 +30,12 @@ def _core_readiness():
 
 
 def main() -> None:
+    if os.getenv("JANUS_SERVING_PRUNE", "").lower() == "true":
+        from .__main__ import _control_plane
+        from .serving_projection import StockServingProjection
+        with _control_plane():
+            print(json.dumps(StockServingProjection.from_env().prune_tiered(), sort_keys=True))
+        return
     readiness = os.environ.get("JANUS_CICD_READINESS", "").strip()
     if readiness:
         if readiness not in {"check", "apply-missing"}:

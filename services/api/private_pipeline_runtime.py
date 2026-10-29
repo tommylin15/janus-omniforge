@@ -50,14 +50,12 @@ def main() -> None:
             wake_stock_supplement(mobile_repository)
     except (MobileLedgerQueueError, NotFoundError):
         if mobile_only:
-            raise
+            mobile_result["errors"] = 1
+            print(json.dumps({"mobile_ledger": "unavailable", "private_queue": "continuing"}))
         pass
     if mobile_only:
         print(json.dumps({'operation': 'mobile-ledger', **mobile_result}, sort_keys=True))
-        if not mobile_result['processed']:
-            if mobile_result['errors']:
-                raise RuntimeError('mobile ledger rows failed validation')
-            return
+        # The durable Owner queue may still contain work when Sheets is empty.
     market = CorePriceReader.from_env()
     override = os.getenv("VALUATION_DATE") or None
     pipeline = PrivatePipeline(

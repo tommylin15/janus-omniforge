@@ -101,9 +101,26 @@ class StockServingProjection:
                 cursor.execute(
                     f"DELETE FROM control.{table} "
                     "WHERE dataset_id=%s AND sort_at < now() - (%s * interval '1 day')",
-                    (dataset_id, max(self.retention_days,1096) if dataset_id=='financials' else self.retention_days),
+                    (dataset_id, 750 if dataset_id == "ohlcv" else
+                     max(self.retention_days,1096) if dataset_id=='financials' else self.retention_days),
                 )
         return len(prepared)
+
+    def prune_tiered(self):
+        """Prune only rebuildable Serving rows, never Core or Owner records."""
+        with self.connection_factory() as connection, connection.transaction(), connection.cursor() as cursor:
+            cursor.execute("SET LOCAL statement_timeout='60000ms'")
+            cursor.execute("""WITH targets AS (
+                SELECT symbol FROM control.mart_ai_target_symbols((now() AT TIME ZONE 'Asia/Taipei')::date)
+            ) DELETE FROM control.stock_serving_recent s WHERE dataset_id='ohlcv'
+              AND sort_at < now() - CASE WHEN symbol IN (SELECT symbol FROM targets)
+                  THEN interval '750 days' ELSE interval '120 days' END""")
+            deleted = cursor.rowcount
+            cursor.execute("""DELETE FROM control.market_serving_recent WHERE dataset_id='financials' AND
+                ((payload_json->>'metric'='monthly_revenue' AND sort_at < now()-interval '24 months')
+                 OR (payload_json->>'metric'='eps_single_quarter' AND sort_at < now()-interval '3 years'))""")
+            financial_deleted = cursor.rowcount
+        return {"status": "succeeded", "ohlcv_deleted": deleted, "financial_deleted": financial_deleted}
 
     def materialize_home_market_snapshot(self, as_of_date: date | None = None) -> dict[str, Any]:
         """Use the API's canonical serializer and fixed SQL; no second financial calculation."""

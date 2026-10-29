@@ -32,7 +32,7 @@ def test_weekly_maintenance_uses_only_saturday_chain_and_keeps_daily_core_work(m
     assert rows["mart-cleanup"][3] == ["iceberg-compaction/2026-10-17/22"]
     assert rows["core-cleanup"][3] == ["mart-cleanup/2026-10-17/22"]
     assert {row[1].name for row in due_batches(datetime(2026, 10, 18, 15, 30, tzinfo=timezone.utc))}.isdisjoint(weekly)
-    assert any(row[1].name == "ingestion" for row in due_batches(due))
+    assert not any(row[1].name == "ingestion" for row in due_batches(due))
     monkeypatch.setenv("FINOPS_WEEKLY_MAINTENANCE", "invalid")
     with pytest.raises(ValueError, match="FINOPS_WEEKLY_MAINTENANCE"):
         due_batches(due)
@@ -89,36 +89,36 @@ def test_weekly_eod_core_requires_successful_preopen_ingestion_receipt():
 def test_private_pipeline_effective_schedule_is_controller_owned():
     from ingestion_core.batch_controller import BATCHES
     private = next(b for b in BATCHES if b.name == "private")
-    assert private.hours == (6,)
+    assert private.hours == (18,)
     assert private.dependencies == ("market-screening",)
     assert private.independent_hours == ()
-    rows = [r for r in due_batches(datetime(2026, 10, 1, 22, 30, tzinfo=timezone.utc))
+    rows = [r for r in due_batches(datetime(2026, 10, 2, 10, 30, tzinfo=timezone.utc))
             if r[1].name == "private"]
-    assert [r[3] for r in rows] == [["market-screening/2026-10-02/04"]]
+    assert [r[3] for r in rows] == [["market-screening/2026-10-02/18"]]
 
 
 def test_preopen_ingestion_and_screening_use_real_data_date():
     from ingestion_core.batch_controller import BATCHES
     batches = {b.name: b for b in BATCHES}
     assert batches["ledger-backup"].hours == (0,)
-    assert batches["ingestion"].hours == (2,)
-    assert batches["market-screening"].hours == (4,)
-    assert batches["private"].hours == (6,)
-    at_private = datetime(2026, 10, 1, 22, 30, tzinfo=timezone.utc)  # Friday 06:30 Taipei
+    assert batches["ingestion"].hours == (18,)
+    assert batches["market-screening"].hours == (18,)
+    assert batches["private"].hours == (18,)
+    at_private = datetime(2026, 10, 2, 10, 30, tzinfo=timezone.utc)  # Friday 06:30 Taipei
     rows = {row[0]: row for row in due_batches(at_private)}
-    assert rows["market-screening/2026-10-02/04"][3] == ["ingestion/2026-10-02/02"]
-    assert rows["private/2026-10-02/06"][3] == ["market-screening/2026-10-02/04"]
-    ingestion = rows["ingestion/2026-10-02/02"]
-    assert dict(occurrence_env(ingestion[1], ingestion[2]))["INGESTION_DATE"] == ""
-    screening = rows["market-screening/2026-10-02/04"]
-    assert dict(occurrence_env(screening[1], screening[2]))["SCREENING_DATE"] == "latest"
+    assert rows["market-screening/2026-10-02/18"][3] == ["ingestion/2026-10-02/18"]
+    assert rows["private/2026-10-02/18"][3] == ["market-screening/2026-10-02/18"]
+    ingestion = rows["ingestion/2026-10-02/18"]
+    assert dict(occurrence_env(ingestion[1], ingestion[2]))["INGESTION_DATE"] == "2026-10-02"
+    screening = rows["market-screening/2026-10-02/18"]
+    assert dict(occurrence_env(screening[1], screening[2]))["SCREENING_DATE"] == "2026-10-02"
     assert dict(occurrence_env(ingestion[1], ingestion[2]))["JANUS_UNIFIED_COLLECTION"] == "true"
 
 
 def test_weekend_ingestion_and_backup_but_no_market_or_private():
     saturday = datetime(2026, 10, 16, 22, 30, tzinfo=timezone.utc)  # Saturday 06:30 Taipei
     rows = {batch.name for _, batch, _, _ in due_batches(saturday)}
-    assert {"ingestion", "ledger-backup"} <= rows
+    assert "ledger-backup" in rows and "ingestion" not in rows
     assert "market-screening" not in rows and "private" not in rows
 
 
@@ -139,7 +139,7 @@ def test_current_private_slot_prioritized_over_retired_pending():
     now = datetime(2026, 10, 14, 22, 30, tzinfo=timezone.utc)
     rows = [("private/2026-10-15/18", {"status": "pending"}),
             ("private/2026-10-15/06", {"status": "pending"})]
-    assert prioritize_nightly_private(rows, now)[0][0] == "private/2026-10-15/06"
+    assert prioritize_nightly_private(rows, now)[0][0] == "private/2026-10-15/18"
 
 
 @pytest.mark.parametrize("upstream_status, expected_reason", [
@@ -154,15 +154,15 @@ def test_live_tick_closes_private_when_early_market_failed_or_skipped(monkeypatc
     monkeypatch.setenv("BATCH_CONTROLLER_NOT_BEFORE", "2026-10-01T00:00:00Z")
     monkeypatch.setattr(controller, "probe_mobile_ledger_queue",
                         lambda **kwargs: {"pending": False})
-    day = "private/2026-10-15/06"
+    day = "private/2026-10-15/18"
     state = {"batch": "private", "job": "janus-private-pipeline",
-             "status": "pending", "dependencies": ["market-screening/2026-10-15/04"],
-             "scheduled_at": "2026-10-15T06:30:00+08:00", "env": []}
+             "status": "pending", "dependencies": ["market-screening/2026-10-15/18"],
+             "scheduled_at": "2026-10-15T18:30:00+08:00", "env": []}
     db = MagicMock()
     db.execute.return_value.fetchone.return_value = (True,)
     cursor = db.cursor.return_value.__enter__.return_value
     cursor.fetchall.side_effect = [[], [(day, state)],
-                                   [("market-screening/2026-10-15/04", upstream_status)]]
+                                   [("market-screening/2026-10-15/18", upstream_status)]]
     cursor.fetchone.return_value = None
     session = Mock()
     record = Mock()
@@ -369,7 +369,7 @@ def test_old_pending_core_cleanup_waits_for_new_mart_dependency(monkeypatch):
     controller.run(now=datetime(2026, 10, 2, 16, tzinfo=timezone.utc),
                    control=SimpleNamespace(connection=connection, get_admin_setting=lambda key: None), session=session)
     updates = [call.args for call in record.call_args_list if call.args[2] == key]
-    assert [args[4] for args in updates] == ["dependency_policy_updated", "waiting_dependency"]
+    assert [args[4] for args in updates] == ["dependency_policy_updated", "upstream_failed"]
     assert updates[0][3]["dependencies"] == ["mart-cleanup/2026-10-02/22"]
     session.post.assert_not_called()
 
@@ -387,7 +387,7 @@ def test_mobile_ledger_slot_is_current_hour_only_and_conditionally_dispatched():
 
 
 def test_regular_private_slot_suppresses_same_hour_mobile_trigger():
-    rows = scheduled_batches(datetime(2026, 10, 5, 22, 30, tzinfo=timezone.utc), True)
+    rows = scheduled_batches(datetime(2026, 10, 6, 10, 30, tzinfo=timezone.utc), True)
     assert len([r for r in rows if r[1].name == "private"]) == 1
     assert not [r for r in rows if r[1].name == "mobile-ledger"]
 

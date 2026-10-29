@@ -23,7 +23,7 @@ def controller_manifest(source):
     container["command"] = ["python"]
     container["args"] = ["-m", "ingestion_core.batch_controller"]
     container["resources"] = {"limits": {"cpu": "1", "memory": "512Mi"}}
-    task.update(timeoutSeconds="120", maxRetries=0, serviceAccountName=f"ingestion-core@{PROJECT}.iam.gserviceaccount.com")
+    task.update(timeoutSeconds="3600", maxRetries=0, serviceAccountName=f"ingestion-core@{PROJECT}.iam.gserviceaccount.com")
     annotations = source["spec"]["template"].get("metadata", {}).get("annotations", {})
     network = {key: value for key, value in annotations.items() if key in {
         "run.googleapis.com/network-interfaces", "run.googleapis.com/vpc-access-connector", "run.googleapis.com/vpc-access-egress",
@@ -42,5 +42,5 @@ if __name__ == "__main__":
     path.parent.mkdir(exist_ok=True)
     path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     print(json.dumps({"manifest": str(path.resolve()), "job": TARGET, "mode": "observe", "cpu": 1,
-                      "memory_mib": 512, "timeout_seconds": 120, "max_retries": 0,
+                      "memory_mib": 512, "timeout_seconds": 3600, "max_retries": 0,
                       "scheduler_cron": "30 */2 * * *", "time_zone": "Asia/Taipei", "resource_writes": 0}))
