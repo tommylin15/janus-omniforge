@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "680b5c66f31f73cb6bbf71a8bcd4fbc93a3f657f",
+  "sha": "1fbd989ea974f2bab309dda688b35da01abe78c6",
   "digest": "",
-  "release_run": "40801272801",
+  "release_run": "40810051267",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "三大批次管線：完整 Release 40801272801 全部成功；建立同來源 0% API 候選供自動 Auth 邊界驗證，正式 API 流量與四 Jobs 不變。",
-  "request_attempt": 24
+  "purpose": "三大批次新排程：完整 Release 已成功；建立同來源 0% API 候選，供 Auth 邊界驗證。",
+  "request_attempt": 25
 }
