@@ -77,7 +77,9 @@ def test_prune_limits_deletion_to_rebuildable_serving(monkeypatch):
     result = StockServingProjection(lambda: connection).prune_tiered()
     assert result == {"status": "succeeded", "ohlcv_deleted": 0, "financial_deleted": 0}
     sql = " ".join(call.args[0] for call in cursor.execute.call_args_list)
-    assert "750 days" in sql and "120 days" in sql and "24 months" in sql
+    assert "750 days" in sql and "120 days" in sql and "25 months" in sql and "40 months" in sql
+    assert "30 days" not in sql and "stock_supplement_requests" not in sql
+    assert "rank<=150" in sql and "effective_from<=now()" in sql
     deletion = next(call for call in cursor.execute.call_args_list if "WITH targets" in call.args[0])
     assert "UNION SELECT unnest" in deletion.args[0]
     assert {"2317", "2454", "6488", "8069"} <= set(deletion.args[1][0])
@@ -133,3 +135,44 @@ def test_compensation_processes_durable_queue_even_when_sheet_is_empty(monkeypat
 def test_admin_includes_new_pipeline_steps():
     from packages.admin_api.batch_dashboard import TASKS
     assert {"serving-prune", "postgres-maintenance"} <= set(TASKS)
+
+
+def test_retirement_only_removes_pre_cutover_buffers_and_rebuilds_current_demand():
+    connection = MagicMock()
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchone.return_value = (2,)
+    cursor.rowcount = 2
+    now = datetime(2026, 10, 29, 2, tzinfo=timezone.utc)
+    result = controller.retire_legacy(connection, now, now)
+    assert result["status"] == "retired" and result["ledger_writes"] == 0
+    statements = [call.args for call in cursor.execute.call_args_list]
+    mutations = [args for args in statements if args[0].startswith(("DELETE", "UPDATE control.executions"))]
+    assert len(mutations) == 6 and all(now in args[1] for args in mutations)
+    assert all("ledger_events" not in args[0] and "current_positions" not in args[0] for args in mutations)
+    assert any("sync_stock_supplement_demand" in args[0] for args in statements)
+    with pytest.raises(ValueError):
+        controller.retire_legacy(connection, now.replace(day=28), now)
+
+
+def test_retirement_aborts_before_large_buffer_deletion():
+    connection = MagicMock()
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchone.return_value = (10001,)
+    now = datetime(2026, 10, 29, 2, tzinfo=timezone.utc)
+    with pytest.raises(RuntimeError, match="bounded scope"):
+        controller.retire_legacy(connection, now, now)
+    assert not any(call.args[0].startswith("DELETE") for call in cursor.execute.call_args_list)
+
+
+def test_chain_retries_busy_writer_instead_of_claiming_success(monkeypatch):
+    from ingestion_core import __main__ as worker
+    control = MagicMock()
+    control.__enter__.return_value.connection.cursor.return_value.__enter__.return_value.fetchall.return_value = []
+    monkeypatch.setattr(worker, "_control_plane", lambda: control)
+    tick = Mock(side_effect=[{"status": "controller_busy"}, {"status": "tick_completed", "chain_keys": []}])
+    monkeypatch.setattr(controller, "run", tick)
+    wait = Mock()
+    monkeypatch.setattr(controller, "sleep", wait)
+    assert controller.run_chain()["chain_status"] == "settled"
+    assert tick.call_count == 2
+    wait.assert_called_once_with(15)

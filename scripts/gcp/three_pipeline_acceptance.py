@@ -1,7 +1,7 @@
 """Controlled existing-dev pipeline acceptance under the shared deployment lease."""
 import argparse
 from copy import deepcopy
-from datetime import date
+from datetime import date, datetime, timezone
 import json
 from pathlib import Path
 import re
@@ -90,11 +90,23 @@ def run(args):
             current = jobs.job("janus-batch-controller")
             expected = deepcopy(current)
             expected["template"]["template"]["timeout"] = "3600s"
+            cutoff = datetime.now(timezone.utc).isoformat()
+            env = expected["template"]["template"]["containers"][0].setdefault("env", [])
+            activation = next((item for item in env if item["name"] == "BATCH_CONTROLLER_NOT_BEFORE"), None)
+            if activation is None:
+                env.append({"name": "BATCH_CONTROLLER_NOT_BEFORE", "value": cutoff})
+            else:
+                activation["value"] = cutoff
             jobs.command(["gcloud", "run", "jobs", "update", "janus-batch-controller",
-                "--project=" + jobs.PROJECT, "--region=" + jobs.REGION, "--task-timeout=3600s", "--quiet"])
+                "--project=" + jobs.PROJECT, "--region=" + jobs.REGION, "--task-timeout=3600s",
+                "--update-env-vars=BATCH_CONTROLLER_NOT_BEFORE=" + cutoff, "--quiet"])
             expected_hashes["janus-batch-controller"] = jobs.fingerprint(expected)
             jobs.checked_image("janus-batch-controller", jobs.image(current), expected_hashes["janus-batch-controller"])
             proof["controller_timeout_seconds"] = 3600
+            proof["new_schedule_cutoff"] = cutoff
+            save()
+            invoke("janus-batch-controller", {"BATCH_CONTROLLER_MODE": "retire-legacy",
+                "BATCH_CONTROLLER_NOT_BEFORE": cutoff, "BATCH_ACCEPTANCE_GROUP": ""}, proof, save)
         else:
             invoke("janus-batch-controller", {"BATCH_CONTROLLER_MODE": "active",
                 "BATCH_ACCEPTANCE_GROUP": args.group, "BATCH_ACCEPTANCE_DATE": args.source_date}, proof, save)

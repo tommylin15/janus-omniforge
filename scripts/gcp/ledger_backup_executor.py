@@ -70,7 +70,10 @@ def run():
     # A crashed claim remains running. Do not blindly repeat an unknown backup.
     day = sql("""UPDATE control.ledger_backup_requests SET status='running',started_at=now()
                  WHERE backup_date=(SELECT backup_date FROM control.ledger_backup_requests
-                   WHERE status='queued' ORDER BY backup_date FOR UPDATE SKIP LOCKED LIMIT 1)
+                   WHERE status='queued' AND requested_at >= coalesce(
+                     (SELECT (value_json->>'not_before')::timestamptz FROM control.admin_settings
+                       WHERE setting_key='batch_schedule_epoch'),'-infinity'::timestamptz)
+                   ORDER BY backup_date FOR UPDATE SKIP LOCKED LIMIT 1)
                  RETURNING backup_date""")
     if not day:
         return maintain_postgres()

@@ -94,7 +94,7 @@ def test_failed_schedule_update_restores_old_cron_and_keeps_no_double_scheduler(
 
 def test_workflow_is_explicit_and_has_single_global_mutex():
     text = (Path(__file__).parents[1] /
-            ".github/workflows/seq04-two-hour-controller-dev.yml").read_text()
+            ".github/workflows/archive/seq04-two-hour-controller-dev.yml").read_text()
     assert "janus-dev-runtime-writers" in text
     assert "cancel-in-progress: false" in text
     assert "ops/seq04-two-hour-cutover-request.json" in text

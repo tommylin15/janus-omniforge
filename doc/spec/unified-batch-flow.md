@@ -1,44 +1,26 @@
 # 統一批次與資料快照契約
 
-更新：2026-10-28。三大管線目標與有界驗收以 §8 為準；§2、SEQ-01 與舊交接中的 02:30／04:30／06:30 跨 tick 時段屬切換前基線，不是新目標。三大管線尚待實作、部署及驗收；目前狀態見 [唯一 TODO](../todo.md) 與 [Operations](operations-and-testing.md)。
+更新：2026-10-29。只以新版三大管線與本文件的有界驗收為準；舊批次時段、補跑、需求緩衝與自然等待不再形成工作義務。實際部署／驗收狀態見 [唯一 TODO](../todo.md) 與 [Operations](operations-and-testing.md)。
 本文件是批次時段、端到端依賴與備份政策的唯一入口，覆蓋舊每日時段與 GitHub 備份 cron。四個模型按可發布設計；這不是目前 Registry、模型效用或 runtime 已通過的宣告。
 
-## 1. 決策與兩方案
+## 1. 既有 Controller 直接接續
 
-Verdict：ACCEPTABLE WITH GUARDRAILS；優先 P1。這是既有系統整併，不新增服務。
-| 面向 | A：既有 Controller＋既有 Worker | B：新增 Workflows 編排 |
+沿既有 Controller／Worker／PostgreSQL VM，不新增服務、IAM 或付費資源。鏈路有工作時每15秒讀取持久終態，每個 tick 後釋放共用鎖，最長50分鐘，Controller Job timeout 60分鐘；不是長時間 HTTP 或常駐服務。不等下一個兩小時 tick，逾時保留本次狀態、不盲重送。
+
+## 2. 新版唯一入口與執行表
+
+Cloud Scheduler `30 */2 * * *`，`Asia/Taipei`，唯一目標既有 `janus-batch-controller`。不新增 Scheduler／Job／PubSub／Cloud Tasks，GitHub Actions 不執行日常業務 cron。既有 VM 一分鐘 timer 只領取 Controller 已建立的備份／維護 request，不自行建立業務日期工作。
+
+| 管線／實際工作 | 時段 | 執行與依賴 |
 |---|---|---|
-| 業務／架構 | 單一兩小時入口，重用 occurrence | 單入口，服務端步驟鏈 |
-| 複雜度／交付 | 小；沿既有 Python、鎖與 queue | 新部署、IAM、計費與錯誤語意 |
-| Cloud Run／DB／網路 | 只跑到期工作；共享 busy fence | 額外 orchestration API |
-| 安全／成本 | 不擴 IAM；既有有界資源 | 新資源與 IAM 須另評估 |
-| 維運／長期維護 | 一份時段表；無常駐等待 | 兩套編排定義需維護 |
-| 失敗隔離／回復 | 每一階段有持久終態；回復舊 image | Workflow execution 歷史較完整 |
-| 適配性 | 最貼近目前個人研究系統 | 嚴格完成時限、多租戶才有價值 |
+| A：`ingestion`→`market-screening`→`private`→`serving-prune` | 交易日18:30 | 真實收取→Core／Serving→四模型與報告→私人估值→分層修剪；前一步成功後直接接續，休市不捏造行情 |
+| B：`mobile-ledger` | 每偶數小時:30，有工作才派送 | 檢查手機與Owner重算佇列；空佇列不開額外Worker；既有即時記帳不等待cron |
+| C：`ledger-backup` | 每日00:30 | Controller request→既有VM備份、讀回與保留清理 |
+| C：`stage-cleanup` | 每日22:30 | Stage 48h、有效租約與固定generation；不降為每週才清 |
+| C：`iceberg-compaction`→`mart-cleanup`→`core-cleanup`→`postgres-maintenance` | 週六22:30 | 依成功終態直接接續；最後由同一VM消費VACUUM ANALYZE請求；週六Stage不重複派送 |
+| 手動`collection-queue`／`analysis-queue` | 每tick有新工作才派送 | 只派送啟用點後且五天內的請求，保留lease及busy fence，不恢復舊佇列 |
 
-選 A。2026-10-29 第12項實作改為既有 Controller Job 有界接續：僅鏈路有工作時每15秒讀取持久終態，每次 tick 後釋放共用鎖，最長50分鐘，Cloud Run timeout 60分鐘。不是長時間 HTTP 或常駐服務；不等下一個兩小時 tick，逾時保留狀態、不盲目重送。此決策取代舊「Controller 不等待子工作」限制，不新增 Workflows／IAM／服務。
-
-## 2. 唯一入口與執行表
-
-Cloud Scheduler `30 */2 * * *`，`Asia/Taipei`，唯一目標既有 `janus-batch-controller`。
-不新增 Scheduler／Job／PubSub／Cloud Tasks；GitHub Actions 不執行任何日常業務、備份或清理 cron。
-既有 VM 一分鐘 timer 只是領取 Controller 已建立的備份 request，不自行建立日期工作。
-每兩小時喚醒不等於每兩小時全市場重抓。時間均為 due，不是保證完成時間。
-
-| 工作組／實際 batch | Due | 內容與依賴 |
-|---|---|---|
-| 市場收取 `ingestion` | 每日 02:30 | 缺口／增量財務補收 → 正常收取 → Stage → Core → Serving／ready event；同 Worker 順序完成 |
-| 市場分析 `market-screening` | 週一至五 04:30 | 依當日02:30收取成功及實際Core ready資料日期；單次執行全市場screening與有界分析queue，不把凌晨日曆日當已完成交易日；四角色與Fact Pack沿原Mart |
-| 私人資料 `private` | 週一至五 06:30 | 依當日04:30市場分析；上游失敗或休市跳過時記錄skipped，不假造最新值；個人異動仍由即時/`mobile-ledger`處理 |
-| 即時異動補償 `mobile-ledger` | 每個偶數小時 :30，有待處理資料才跑 | 既有 durable queue；User App 寫入與既有即時重算不等待 cron |
-| 私人備份 `ledger-backup` | 每日 00:30 | Controller request → 既有 PG VM dump → daily／weekly／monthly 不可變副本與讀回 → 同執行器保留清理 |
-| Stage 清理 `stage-cleanup` | 每日 22:30 | 48h TTL；有效租約、固定 generation |
-| Iceberg 維護 | 週六 22:30 | compaction → Mart cleanup → Core cleanup；依終態跨 tick，不承諾同日完 |
-| 手動 collection／analysis queue | 每 tick 有工作才派送 | 保留五天窗口、lease、指定 execution，不重放超齡歷史 |
-
-刪除獨立 data-supplement 與 mart 定時定義，不刪其 API／手動能力。三個 Iceberg 子步驟保留，因 writer 與讀者依賴不能安全硬合併成一次刪除。
-每日預期 00:30 PostgreSQL備份、02:30上一已完成交易日增量收取、平日04:30全市場分析、06:30私人更新；上游延遲須按依賴順延／跳過，資料缺值顯示partial，不為準時補造數字。週六02:30可收週五EOD，週維護以實際Core ready日期與收據驗證，不能沿用舊14:30身份。
-日曆依既有 holiday_overrides；週末仍允許財務增量、私人事件補償、備份／清理。
+時段是due，不保證來源當時已完整公布；真實延遲／缺資料須如實呈現。所有原始帳本、現役Core／Mart、有效模型與備份保護仍適用。新版啟用清理與舊需求退役見§8.4，不保留兩套批次相容路線。
 
 ## 3. 收取、清理與資料路線
 
@@ -50,12 +32,12 @@ Cloud Scheduler `30 */2 * * *`，`Asia/Taipei`，唯一目標既有 `janus-batch
 6. Quant、Risk、Fundamental、Valuation 為四模型。Event 是公告事實及舊資料相容欄位，不新增第五模型或新排程。訓練留 Colab，日常只 inference；不自動重訓／切 Registry。
 7. Fact Pack／確定性卡片先落地；CEO 長文沿既有 Gateway 按需產出、保存 Owner history，無每兩小時 LLM 全市場報告。缺模型 artifact 必須顯示 unavailable，不能以 baseline 冒充已發布 ML。
 
-### SEQ-01：狀態與回復邊界（2026-10-25）
+### 狀態與回復邊界
 
-- **輸入與順序**：Controller僅在 `Asia/Taipei` 偶數小時 `:30` 建立到期 occurrence，沿 `not_before`、dependency、持久狀態、busy/lease fence 控制派送。02:30 的同一 ingestion Worker 先處理 demand 股票補缺與有界來源增量，再執行 Stage→Core／Serving→ready；04:30 市場分析一次完成 EOD screening 與有界 queue，使用最近實際可驗Core交易日（不可硬填當天未開市行情），無可用收據時維持未就緒。超過五日的手動 queue 不恢復。
+- **輸入與順序**：依§2執行；行情、篩選與私人估值使用同一真實資料日。新啟用點前的排隊任務與需求緩衝退役，不用舊日期工作為新版補跑；受控驗收有獨立身分與實際執行時間。
 - **來源與輸出狀態**：十五個完整營收月是 target；既有 Core 的 TWD 與 TWD_thousands 等值重用，衝突維持 missing。來源增量 `status=partial` 且 `failures=[]` 僅代表研究 coverage 部分，不單獨阻擋收取；明確 `failed/retrying`、非空 `failures`、demand 實際失敗或正常收取非成功，必回傳 `partial` 並使 ingestion Job 非零結束，不得被後續成功掩蓋。
 - **分析總控**：同一 Mart Job 最多 claim 8 次且開始下一次前檢查900秒；`claimed=false, status=idle` 是正常 queue 空；已 claim 的 `retrying/failed/partial` 停止本輪 drain，保留原狀態並令 Job 非零結束。個別角色資料不足應在報告的 `specialist_status` 留 `partial/missing`，不混同工作執行失敗，亦不假稱四模型 ACTIVE。
-- **清理與恢復**：Stage 每日48h有效租約與固定 generation 是獨立工作，週六 Iceberg compaction→Mart→Core 不替代 Stage 清理。失敗時保留 execution／occurrence 與已落地 artifact，不盲重派 ambiguity；SEQ-04 保存舊 Scheduler／images／VM 設定後統一部署及 live 讀回。離線只驗時間、重複、限額、例外與部分失敗；絕不以 fixture 冒充真實 GCP 驗收。
+- **清理與恢復**：Stage 每日48h有效租約與固定 generation 是獨立工作，週六 Iceberg compaction→Mart→Core 不替代 Stage 清理。失敗時保留 execution／occurrence 與已落地 artifact，不盲重派 ambiguity；部署保留必要映像／設定回復基準並驗證live；此安全基準不代表保留舊批次需求。離線只驗時間、重複、限額、例外與部分失敗；絕不以 fixture 冒充真實 GCP 驗收。
 
 ## 4. 私人操作與 UI 快照
 
@@ -94,7 +76,7 @@ Private snapshot 是 current Iceberg table 的資料列，不是舊 Iceberg snap
 | Quant／Risk／Fundamental／Valuation 的正式模型 artifact 與報告 | 保護現有 ACTIVE／rollback 及正式報告產物；必要時由合法的原有輸入重算 | 原 artifact／報告若 GCS 遺失，不能只靠 PG 復原；須讀回 GCS 物件與實際可載入版本，缺檔列 BLOCKED |
 | Stage payload、manifest、quarantine | 48h TTL；有效租約保護後以現有來源有條件重收 | 不納入長期備份；過期實刪後不假稱能靠 PG dump 完整重播 |
 
-上述矩陣界定備份的**保護範圍，不是宣告每一類已有冗餘異地備份**。對 Private GCS、模型及報告這些不能單由 PG 復原的內容，SEQ-04 必須列物件／catalog 的有界讀回清單及成功／缺口；若使用者未授權新增費用或副本，不新增儲存資源，也不把依賴缺口包裝成 full restore。資料遭刪除時不得盲目重建、覆寫 current 或 Owner 帳本。
+上述矩陣界定備份的**保護範圍，不是宣告每一類已有冗餘異地備份**。對 Private GCS、模型及報告這些不能單由 PG 復原的內容，本項驗收必須列物件／catalog 的有界讀回清單及成功／缺口；若使用者未授權新增費用或副本，不新增儲存資源，也不把依賴缺口包裝成 full restore。資料遭刪除時不得盲目重建、覆寫 current 或 Owner 帳本。
 
 備份既有 bucket／VM／prefix 不變；不新增付費資源或擴大 IAM。現有 VM 沒有 prefix delete 權限則標 BLOCKED，不自動 grant。
 
@@ -109,12 +91,9 @@ Private snapshot 是 current Iceberg table 的資料列，不是舊 Iceberg snap
 
 這些是來源介面與設計借鑑，不代表本輪已連線採集或驗證新增 adapter。現有 Yahoo EPS 補缺能力沿用；不額外引入網頁爬蟲全市場日批。
 
-## 7. 狀態、風險與交付
+## 7. 狀態與交付
 
-- 實作以既有入口與環境參數為主，無新增 IAM／付費 runtime；新 schedule 需部署後才生效。
-- 主要風險：兩小時跨階段延遲、未部署混合版本、來源延遲、備份 executable 未同步、週／月副本尚未形成、模型 artifact 尚未正式接入。
-- 回復：保存切換前 cron／image digest／VM scripts；先停止新入口再恢復舊版，不能雙 Scheduler 並行；不刪現有備份或私人快照。
-- SEQ-01 已執行選擇性 GitHub CI（詳見[Operations](operations-and-testing.md)）；完整離線腳本、Flutter targeted、Release、部署、migration 或 live 驗收尚未執行。後續唯一操作入口依 [TODO](../todo.md) 與 [AI交接 WI](../runbook-unified-batch-ai.md)。
+目前狀態只依TODO與Operations的同來源收據判斷，不以文件或映像完成宣稱已通過真實流程。保留跨run部署鎖、在途fence、固定digest、來源延遲與失敗讀回；回復只作實際故障處置，不恢復舊批次任務與緩衝義務。
 
 ## 分析輸入與報告減頻（2026-10-25）
 
@@ -125,22 +104,6 @@ Private snapshot 是 current Iceberg table 的資料列，不是舊 Iceberg snap
 ## 8. 專案全批次盤點與三大精簡管線收斂（2026-10-27 盤點）
 
 依使用者要求全面盤點專案內全部批次排程，並對重疊與過度切割之工作進行精簡收斂。
-
-### 8.1 現行 11 個批次清單與痛點分析
-
-| 原排程名稱 | 原執行時段 | 原工作內容 | 痛點與重疊分析 |
-|---|---|---|---|
-| `ledger-backup` | 每日 00:30 | PG 邏輯備份至 GCS | 運作良好，獨立保留 |
-| `ingestion` | 每日 02:30 | 收取全市場行情、財報、營收 | 台股 13:30 收盤、18:00 前官方數據已發布完成，延後至凌晨 02:30 造成使用者整晚無法獲得當日收盤與最新資訊 |
-| `market-screening` | 平日 04:30 | 依賴 ingestion，執行四模型與市場週期 | 與前一階段人為間隔 2 小時，白白等待 Cloud Scheduler 喚醒 |
-| `private` | 平日 06:30 | 依賴 screening，計算個人持股估值與異動 | 再次人為間隔 2 小時，導致個人持股估值延遲至次日晨間才更新 |
-| `stage-cleanup` | 每日 22:30 | 清理 >48h GCS Stage 暫存 | 輕量維護，每日執行 |
-| `mobile-ledger` | 每 2 小時 :30 | 消耗手機記帳佇列 | 輕量輪詢，有待處理才跑，無則不派送額外 Worker |
-| `iceberg-compaction` | 週六 22:30 | 合併 Iceberg 小檔案 | 與 Mart/Core 清理同一時段，透過 3 層依賴鏈反覆調度容器 |
-| `mart-cleanup` | 週六 22:30 | Mart 快照修剪 | 同上，過度零碎切割 |
-| `core-cleanup` | 週六 22:30 | Core 歷史修剪 | 同上，過度零碎切割 |
-| `collection-queue` | 手動手動 | 手動重收佇列 | 手動保留 |
-| `analysis-queue` | 手動手動 | 手動分析佇列 | 手動保留 |
 
 ### 8.2 收斂後的三大精簡批次管線架構
 
@@ -169,7 +132,7 @@ flowchart TD
 
 #### 精簡重點說明：
 1. **盤後一條龍直通（Pipeline A）**：
-   - 將原本橫跨 02:30、04:30、06:30 長達 4 小時等待的鏈路，統一收斂至交易日 **18:30**。
+   - 交易日 **18:30** 啟動單一主鏈，不保留舊批次時段相容與補跑。
    - Ingestion 完成後直接鏈式觸發 Intelligence Mart 與 Private Pipeline，App／API 讀取相同資料日的行情、模型與持股估值；19:00 前完成是待實測的時效目標，記錄實際起訖與瓶頸，不先保證。
 2. **四模型因子計算完全零額外批次負擔**：
    - 四個分析師模型（Quant15、Risk12、Fund15、Valuation）所需的因子特徵已內建於 `intelligence_mart.analyst_inputs`。
@@ -191,8 +154,19 @@ flowchart TD
 | 排程與部署 | 讀回單一 Scheduler、Asia/Taipei 時區、Controller／Worker 固定 digest、既有 VM executor 版本 | 每兩小時 :30 喚醒，交易日18:30主鏈、每日00:30備份／22:30 Stage、週六22:30維護定義正確；舊02:30／04:30／06:30鏈及重複業務 cron 停用，手動入口保留；休市日不捏造當日行情 |
 | 重複、失敗與恢復 | 適用離線測試涵蓋重複觸發、上游失敗、來源延遲、執行中斷、回應不明及版本並行變更；live 讀回實際鎖與持久狀態 | 防重複與busy／lease有效；上游失敗不發布假的最新值，保留上次成功內容；中斷可依持久狀態恢復，不盲重派 ambiguous 工作。避免為故障演練破壞 live 資料 |
 
+Serving 修剪依 [歷史保存契約](history-seed-pipeline.md)：Tier 1 保留750日，含持股／關注、既有12檔種子焦點及既有有效排序前150檔；只依目前有效對象計算，不保留舊需求或30天降格緩衝；其他Tier 2保留120日。營收25月、EPS40月為申報余裕，支援24月／12季展示；一般publish也不得先截斷此窗口。依本節新版時段，Serving滾動修剪隨18:30主鏈，舊文件週六02:00等獨立時段不再另派；不變更全市場准入或四模型僅持股／關注深度分析範圍。
+
 「空佇列」只承諾不派送額外 Worker，不宣稱0秒或零成本。備份成功與保留清理成功分列；PG還原不等於GCS／Iceberg完整備份，仍按 §5 的有界現役物件讀回確認依賴。19:00是觀測目標，本項不另設未量測的硬性完成時限。
 
 必要 Release、Jobs／API部署與安全 gate 沿既有流程。最終只交付一張驗收結果表，包含來源 SHA／digest、執行 ID、觸發類型、資料日、各階段起訖／結果、必要 API／DB／物件讀回及具體缺口；不保存 token、Owner 金額或私人 payload。所有上述條件通過且無具體異常，即 `CLOSED／PASS`；未通過只列實際失敗項，不增加自然等待待辦、不重開已取消的 SEQ-04 兩條收據。
 
 2026-10-29 使用者已授權接手實作、測試、部署與真實驗收直到結案；實際結果依 TODO 與 Operations，不以本契約當作 PASS。B 補償同時檢查既有手機佇列及 PostgreSQL Owner 重算佇列，不虛構本人交易；可用既有有界重算驗收 helper 建立一筆衍生重算 request，驗證同 Owner 防重複及版本追上，帳本保持不變。
+
+
+### 8.4 新排程接手與舊工作退役（2026-10-29使用者覆蓋）
+
+只以新排程為主，不保留舊批次任務、舊時段補跑或舊需求緩衝；此決策覆蓋歷史保存契約的30天需求冷卻期及其他相反指示。原始交易／現金／持股、現役canonical、模型及7／4／6備份保護不因此取消。
+
+部署後由共用lease與單一Scheduler暫停保護下的`configure`階段設定新`BATCH_CONTROLLER_NOT_BEFORE`及60分鐘timeout；確認三個Worker無在途執行，再透過既有Controller的`retire-legacy`一次性處置啟用點前的批次與需求緩衝、舊控制設定和私人重算佇列。舊control execution保留必要來源鏈結並標明`RETIRED_BY_NEW_SCHEDULE`，不偽造成功；有效新請求及啟用點後更新不刪。只按目前持股／關注重建去識別需求，不移植舊狀態。
+
+每類上限10,000筆、單次transaction、啟用點須為15分鐘內實際UTC時間；超限／Worker未終態／讀取失敗即停止，不強制取消健康執行。收據列實際退役數與新啟用點；後續正常派送同時遵守啟用點與五天上限。舊SEQ-04工作流已退出active入口，只保留歷史檔案供追溯，不再派送自然收據待辦。

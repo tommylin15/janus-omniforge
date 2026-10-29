@@ -294,7 +294,7 @@ def test_p02_dispatch_five_day_boundary_preserves_safe_lease_checks():
     assert "r.analysis_execution_id=e.execution_id" in sql
     assert "AND e.finished_at IS NULL" in sql
     assert "control.batch_occurrences" in sql
-    assert params == ("analysis",)
+    assert params == ("analysis", None)
 
     with pytest.raises(ValueError, match="historical recovery disabled"):
         enqueue_queued_worker(connection, analysis, NOW, occurrence_env,
@@ -332,4 +332,4 @@ def test_p02_controller_historical_override_is_rejected(monkeypatch):
     enqueue_manual_queues(connection, [collection, analysis], set(), NOW, occurrence_env)
     selectors = [call.args[1] for call in cur.execute.call_args_list
                  if call.args and "SELECT e.execution_id,e.retry_count" in call.args[0]]
-    assert selectors == [("collection",), ("analysis",)]
+    assert selectors == [("collection", None), ("analysis", None)]

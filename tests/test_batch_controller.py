@@ -55,32 +55,32 @@ def test_stage_cleanup_runs_daily_independent_of_weekly_iceberg(monkeypatch):
         "stage-cleanup/2026-10-20/22"]
 
 
-def test_weekly_eod_core_requires_successful_preopen_ingestion_receipt():
+def test_weekly_eod_core_requires_new_eod_receipt():
     from unittest.mock import MagicMock
     from ingestion_core.batch_controller import weekly_eod_core_evidence
     db = MagicMock()
     cursor = db.cursor.return_value.__enter__.return_value
-    saturday_preopen = datetime(2026, 10, 16, 18, 30, tzinfo=timezone.utc)  # Saturday 02:30
+    friday_eod = datetime(2026, 10, 16, 10, 30, tzinfo=timezone.utc)  # Friday 18:30
     slot = datetime(2026, 10, 17, 14, 30, tzinfo=timezone.utc)  # Saturday 22:30
     ready = ("sha256:" + "a" * 64,
              "gs://janus-dev-core/executions/eod-1/core-snapshot.json", "2026-10-16")
     cursor.fetchall.side_effect = [
-        [("ingestion/2026-10-17/02", saturday_preopen)], [ready]]
+        [("ingestion/2026-10-16/18", friday_eod)], [ready]]
     evidence = weekly_eod_core_evidence(db, slot)
     assert evidence == {
-        "source_occurrence": "ingestion/2026-10-17/02", "source_date": "2026-10-16",
+        "source_occurrence": "ingestion/2026-10-16/18", "source_date": "2026-10-16",
         "core_snapshot_id": ready[0], "core_snapshot_uri": ready[1]}
     assert cursor.execute.call_count == 2
     assert "created_at >= %s" in cursor.execute.call_args.args[0]
     cursor.reset_mock()
     cursor.fetchall.side_effect = [
-        [("ingestion/2026-10-17/02", saturday_preopen)],
+        [("ingestion/2026-10-16/18", friday_eod)],
         [("sha256:invalid", ready[1], ready[2])]]
     assert weekly_eod_core_evidence(db, slot) is None
     cursor.fetchall.side_effect = [[], []]
     assert weekly_eod_core_evidence(db, slot) is None
     cursor.fetchall.side_effect = [
-        [("ingestion/2026-10-17/14", saturday_preopen)], [ready]]
+        [("ingestion/2026-10-17/14", friday_eod)], [ready]]
     assert weekly_eod_core_evidence(db, slot) is None
 
 
@@ -133,13 +133,6 @@ def test_private_independent_hour_configuration_rejects_invalid_slots():
         due_batches(datetime(2026, 10, 6, 13, 30, tzinfo=timezone.utc),
                     (Batch("bad", "unused", (21,), independent_hours=(21,)),))
 
-
-def test_current_private_slot_prioritized_over_retired_pending():
-    from ingestion_core.batch_controller import prioritize_nightly_private
-    now = datetime(2026, 10, 14, 22, 30, tzinfo=timezone.utc)
-    rows = [("private/2026-10-15/18", {"status": "pending"}),
-            ("private/2026-10-15/06", {"status": "pending"})]
-    assert prioritize_nightly_private(rows, now)[0][0] == "private/2026-10-15/18"
 
 
 @pytest.mark.parametrize("upstream_status, expected_reason", [
@@ -321,57 +314,6 @@ def test_mart_retention_precedes_core_retention_on_weekdays_and_weekends(monkeyp
     assert saturday["mart-cleanup"] == ["iceberg-compaction/2026-10-03/22"]
     assert saturday["core-cleanup"] == ["mart-cleanup/2026-10-03/22"]
 
-def test_nightly_compaction_reuses_ingestion_job_with_isolated_execution_overrides(monkeypatch):
-    monkeypatch.setenv("FINOPS_WEEKLY_MAINTENANCE", "false")
-    from ingestion_core.batch_controller import BATCHES
-    batches = {batch.name: batch for batch in BATCHES}
-    compaction = batches["iceberg-compaction"]
-    assert compaction.job == "janus-ingestion-core"
-    assert compaction.hours == (22,) and compaction.minute == 30
-    assert compaction.dependencies == ("ingestion",)
-    assert set(compaction.exclusive_jobs) == {
-        "janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline"
-    }
-    overrides = dict(occurrence_env(compaction, datetime(2026, 10, 15, 23, 30, tzinfo=timezone.utc)))
-    assert overrides["ICEBERG_MAINTENANCE_MODE"] == "compact-nightly"
-    assert overrides["QUEUE_CONSUMER"] == "false"
-    assert overrides["MART_JOB"] == ""
-    assert overrides["JANUS_DATA_SUPPLEMENT_MODE"] == ""
-    assert overrides["JANUS_CONTROL_MIGRATION"] == ""
-    assert overrides["JANUS_SERVING_SCHEMA_MIGRATION"] == ""
-    assert "ICEBERG_MAINTENANCE_MODE" not in dict(batches["core-cleanup"].env) or dict(batches["core-cleanup"].env)["ICEBERG_MAINTENANCE_MODE"] == "retention-apply"
-    before = datetime(2026, 10, 15, 14, 29, tzinfo=timezone.utc)  # 23:29 Taipei
-    due = datetime(2026, 10, 15, 15, 30, tzinfo=timezone.utc)  # 23:30 Taipei
-    assert not any(row[1].name == "iceberg-compaction" for row in due_batches(before))
-    assert [key for key, batch, _, _ in due_batches(due) if batch.name == "iceberg-compaction"] == [
-        "iceberg-compaction/2026-10-15/22"
-    ]
-
-
-def test_old_pending_core_cleanup_waits_for_new_mart_dependency(monkeypatch):
-    monkeypatch.setenv("FINOPS_WEEKLY_MAINTENANCE", "false")
-    from unittest.mock import MagicMock, Mock
-    from ingestion_core import batch_controller as controller
-    monkeypatch.setenv("GCP_PROJECT_ID", PROJECT)
-    monkeypatch.setenv("BATCH_CONTROLLER_MODE", "active")
-    monkeypatch.setenv("BATCH_CONTROLLER_NOT_BEFORE", "2026-10-01T00:00:00Z")
-    key = "core-cleanup/2026-10-02/22"
-    state = {"job": "janus-ingestion-core", "batch": "core-cleanup", "status": "pending",
-             "dependencies": ["ingestion/2026-10-02/07"], "scheduled_at": "2026-10-02T22:30:00+08:00"}
-    connection = MagicMock()
-    connection.execute.return_value.fetchone.return_value = (True,)
-    cursor = connection.cursor.return_value.__enter__.return_value
-    cursor.fetchall.side_effect = [[], [(key, state)], [("mart-cleanup/2026-10-02/22", "failed")]]
-    cursor.fetchone.return_value = None
-    record = Mock()
-    monkeypatch.setattr(controller, "record", record)
-    session = Mock()
-    controller.run(now=datetime(2026, 10, 2, 16, tzinfo=timezone.utc),
-                   control=SimpleNamespace(connection=connection, get_admin_setting=lambda key: None), session=session)
-    updates = [call.args for call in record.call_args_list if call.args[2] == key]
-    assert [args[4] for args in updates] == ["dependency_policy_updated", "upstream_failed"]
-    assert updates[0][3]["dependencies"] == ["mart-cleanup/2026-10-02/22"]
-    session.post.assert_not_called()
 
 
 def test_mobile_ledger_slot_is_current_hour_only_and_conditionally_dispatched():
@@ -443,7 +385,7 @@ def test_five_day_queue_policy_limits_selection_and_disables_old_override(monkey
     assert "interval '7 days'" not in sql
     assert "interval '30 days'" not in sql
     assert "OR %s" not in sql
-    assert cursor.execute.call_args_list[0].args[1] == ("analysis",)
+    assert cursor.execute.call_args_list[0].args[1] == ("analysis", None)
     with pytest.raises(ValueError, match="historical recovery disabled"):
         enqueue_queued_worker(connection, batch, now, lambda *_: (),
                               historical_recovery=True,

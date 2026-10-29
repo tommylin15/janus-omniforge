@@ -147,9 +147,10 @@ def queued_execution_is_fresh(connection, execution_id, trigger):
         cursor.execute("""SELECT 1 FROM control.executions
             WHERE execution_id=%s AND trigger_type=%s
               AND requested_at >= now() - interval '5 days'
+              AND requested_at >= coalesce(%s::timestamptz, '-infinity'::timestamptz)
               AND finished_at IS NULL
               AND status IN ('queued','retrying','running')""",
-            (execution_id, trigger))
+            (execution_id, trigger, os.environ.get("BATCH_CONTROLLER_NOT_BEFORE") or None))
         return cursor.fetchone() is not None
 
 
@@ -167,6 +168,7 @@ def enqueue_queued_worker(connection, batch, now, occurrence_env, origin="queue"
         cursor.execute("""SELECT e.execution_id,e.retry_count FROM control.executions e
             WHERE e.trigger_type=%s AND e.finished_at IS NULL
               AND e.requested_at >= now() - interval '5 days'
+              AND e.requested_at >= coalesce(%s::timestamptz, '-infinity'::timestamptz)
               AND EXISTS (SELECT 1 FROM control.collection_configs cfg
                           WHERE cfg.config_id=e.config_id AND cfg.enabled
                             AND (e.trigger_type='collection' OR cfg.analysis_enabled))
@@ -193,7 +195,7 @@ def enqueue_queued_worker(connection, batch, now, occurrence_env, origin="queue"
                    WHERE b.state->>'queued_execution_id'=e.execution_id::text
                      AND b.state->>'status' IN ('pending','dispatching','running','ambiguous'))
             ORDER BY e.requested_at,e.execution_id LIMIT 1""",
-                       (trigger,))
+                       (trigger, os.environ.get("BATCH_CONTROLLER_NOT_BEFORE") or None))
         queued = cursor.fetchone()
         if not queued:
             return "queue_empty"

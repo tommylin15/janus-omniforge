@@ -205,3 +205,13 @@ def test_backfill_checks_planned_bytes_before_reading_parquet():
         )
     assert table.last_scan is not None
     assert table.last_scan.arrow_called is False
+
+
+def test_financial_publish_does_not_expire_quarters_before_lifecycle_prune():
+    connection = Connection()
+    projection = StockServingProjection(lambda: connection)
+    assert projection.publish("financials", [{"symbol": "2330", "fiscal_year": 2026,
+        "fiscal_quarter": 2, "statement_type": "income", "metric": "eps_single_quarter",
+        "availability_at": "2026-08-14T00:00:00Z", "value": "1"}],
+        execution_id="test", provenance_id="source", source_id="mops", core_snapshot_id=1) == 1
+    assert connection.cursor_value.executed[-1][1][1] >= 40 * 31

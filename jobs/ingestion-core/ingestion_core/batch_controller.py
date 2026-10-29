@@ -1,7 +1,7 @@
 """Two-hour dev controller with bounded, lock-free waits between chain steps."""
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 import json
 import os
@@ -58,15 +58,15 @@ BATCHES = (
           env=(("MOBILE_LEDGER_ONLY", "true"),), catch_up=False),
     # This is an execution override of the existing ingestion Job, not another Scheduler or Cloud Run Job.
     # Serial ordering avoids compaction racing with Mart/Core retention at the same 22:30 slot.
-    Batch("iceberg-compaction", "janus-ingestion-core", (22,), dependencies=("ingestion",),
+    Batch("iceberg-compaction", "janus-ingestion-core", (22,), (5,),
           env=(("ICEBERG_MAINTENANCE_MODE", "compact-nightly"), ("QUEUE_CONSUMER", "false"),
                ("MART_JOB", ""), ("JANUS_DATA_SUPPLEMENT_MODE", ""), ("JANUS_CONTROL_MIGRATION", ""),
                ("JANUS_SERVING_SCHEMA_MIGRATION", "")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
-    Batch("core-cleanup", "janus-ingestion-core", (22,), dependencies=("mart-cleanup",),
+    Batch("core-cleanup", "janus-ingestion-core", (22,), (5,), dependencies=("mart-cleanup",),
           env=(("ICEBERG_MAINTENANCE_MODE", "retention-apply"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", "")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
-    Batch("mart-cleanup", "janus-intelligence-mart", (22,), dependencies=("iceberg-compaction",),
+    Batch("mart-cleanup", "janus-intelligence-mart", (22,), (5,), dependencies=("iceberg-compaction",),
           env=(("MART_OPERATION", "retention"), ("MART_RETENTION_MODE", "apply"), ("MART_AI_ENABLED", "false")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
     Batch("collection-queue", "janus-ingestion-core", (0,), manual_only=True,
@@ -83,26 +83,20 @@ MAINTENANCE_NAMES = frozenset({"iceberg-compaction", "mart-cleanup", "core-clean
 
 
 def weekly_maintenance_enabled() -> bool:
-    """Weekly by default; explicit false is retained only for rollback compatibility."""
-    value = os.environ.get("FINOPS_WEEKLY_MAINTENANCE", "true").strip().lower()
-    if value not in {"true", "false"}:
-        raise ValueError("FINOPS_WEEKLY_MAINTENANCE must be true or false")
-    return value == "true"
+    if os.environ.get("FINOPS_WEEKLY_MAINTENANCE", "true").strip().lower() != "true":
+        raise ValueError("FINOPS_WEEKLY_MAINTENANCE must follow the new weekly schedule")
+    return True
 
 
 def effective_batches():
-    """Use Saturday occurrences; the Scheduler only wakes every two hours."""
-    if not weekly_maintenance_enabled():
-        return BATCHES
-    return tuple(replace(batch, weekdays=(5,),
-                         dependencies=() if batch.name == "iceberg-compaction" else batch.dependencies)
-                 if batch.name in MAINTENANCE_NAMES else batch for batch in BATCHES)
+    weekly_maintenance_enabled()
+    return BATCHES
 
 
 def weekly_eod_core_evidence(connection, scheduled_at: datetime, observed_at=None):
     """Require a recent immutable Core receipt from a completed EOD ingestion.
 
-    Friday 18:30 collection covers Friday; older pre-open receipts remain readable.
+    Only the new 18:30 EOD collection can attest the maintenance input.
     Missing receipts fail closed without deleting any current Iceberg files.
     """
     local_day = scheduled_at.astimezone(ZoneInfo("Asia/Taipei")).date()
@@ -111,6 +105,9 @@ def weekly_eod_core_evidence(connection, scheduled_at: datetime, observed_at=Non
     first_day = evidence_day - timedelta(days=8)
     if local_day.weekday() != 5:
         raise ValueError("weekly maintenance requires Saturday occurrence")
+    lower = datetime.combine(first_day, datetime.min.time(), tzinfo=ZoneInfo("Asia/Taipei"))
+    if os.environ.get("BATCH_CONTROLLER_NOT_BEFORE"):
+        lower = max(lower, datetime.fromisoformat(os.environ["BATCH_CONTROLLER_NOT_BEFORE"].replace("Z", "+00:00")))
     with connection.cursor() as cursor:
         cursor.execute(
             """SELECT occurrence_id,scheduled_at
@@ -119,8 +116,7 @@ def weekly_eod_core_evidence(connection, scheduled_at: datetime, observed_at=Non
                   AND state->>'status'='succeeded'
                   AND scheduled_at >= %s AND scheduled_at <= %s
                 ORDER BY scheduled_at DESC LIMIT 32""",
-            (datetime.combine(first_day, datetime.min.time(), tzinfo=ZoneInfo("Asia/Taipei")),
-             evidence_at),
+            (lower, evidence_at),
         )
         ingestions = cursor.fetchall()
     for key, slot in ingestions:
@@ -128,7 +124,7 @@ def weekly_eod_core_evidence(connection, scheduled_at: datetime, observed_at=Non
             raise RuntimeError("weekly EOD timestamp lacks timezone")
         day = (date.fromisoformat(key.split("/")[2]) if key.startswith("controlled/")
                else slot.astimezone(ZoneInfo("Asia/Taipei")).date())
-        if key.removeprefix("controlled/") not in {f"ingestion/{day.isoformat()}/{hour}" for hour in ("02", "18")}:
+        if key.removeprefix("controlled/") != f"ingestion/{day.isoformat()}/18":
             continue
         # Match a real receipt written after this scheduled collection began,
         # rather than guessing that analysisAsOf equals the calendar day.
@@ -202,11 +198,6 @@ def due_batches(now: datetime, batches=None):
             result.append((f"{batch.name}/{local.date().isoformat()}/{hour:02d}", batch, slot, dependencies))
     return sorted(result, key=lambda item: (item[2], item[0]))
 
-
-def prioritize_nightly_private(pending, now: datetime):
-    """Prioritize the current EOD private slot over retired pending slots."""
-    night_key = f"private/{now.astimezone(ZoneInfo('Asia/Taipei')).date().isoformat()}/18"
-    return sorted(pending, key=lambda row: 0 if row[0] == night_key else 1)
 
 
 def scheduled_batches(now: datetime, mobile_pending: bool) -> list[tuple[str, Batch, datetime, list[str]]]:
@@ -350,7 +341,7 @@ def run(*, now=None, session=None, control=None, controlled=None):
         raise ValueError("batch controller is restricted to the existing dev project")
     now = now or datetime.now(timezone.utc)
     mode = os.environ.get("BATCH_CONTROLLER_MODE", "observe")
-    if mode not in {"observe", "active", "seed", "mobile-probe"}:
+    if mode not in {"observe", "active", "retire-legacy", "mobile-probe"}:
         raise ValueError("unsupported controller mode")
     if mode == "mobile-probe":
         try:
@@ -360,7 +351,7 @@ def run(*, now=None, session=None, control=None, controlled=None):
             raise
         return {"status": result["status"], "mobile_ledger_pending": bool(result["pending"])}
     not_before = None
-    if mode == "active":
+    if mode in {"active", "retire-legacy"}:
         not_before = datetime.fromisoformat(os.environ["BATCH_CONTROLLER_NOT_BEFORE"].replace("Z", "+00:00"))
         if not_before.tzinfo is None:
             raise ValueError("controller activation must include a timezone")
@@ -385,25 +376,11 @@ def run(*, now=None, session=None, control=None, controlled=None):
             record(connection, tick, "controller", {"status": "observe", "model_calls": 0}, "tick", update=False)
             return {"status": "observe", "tick": tick, "exported_events": 0,
                     "iceberg_audit_disabled": True, "model_calls": 0}
-        if mode == "seed":
-            seeds = json.loads(os.environ["BATCH_CONTROLLER_SEED_EXECUTIONS"])
-            if not isinstance(seeds, list) or not 1 <= len(seeds) <= 3:
-                raise ValueError("seed requires 1..3 verified existing executions")
-            due = {batch.name: (key, batch, slot, dependencies) for key, batch, slot, dependencies in due_batches(now)
-                   if batch.name in {"ingestion", "mart", "private"}}
-            for seed in seeds:
-                key, batch, slot, dependencies = due[seed["batch"]]
-                name = _identity(seed["execution"], "execution", batch.job)
-                execution = _read(session, name)
-                created = datetime.fromisoformat(execution["createTime"].replace("Z", "+00:00"))
-                if not 0 <= (created - slot).total_seconds() <= 900:
-                    raise ValueError("seed execution does not match the scheduled slot")
-                state = poll_job(session, {"job": batch.job, "batch": batch.name, "status": "running", "execution": name,
-                                          "dependencies": dependencies, "scheduled_at": slot.isoformat(), "origin": "previous_scheduler"})
-                with connection.transaction(), connection.cursor() as cursor:
-                    cursor.execute("INSERT INTO control.batch_occurrences(occurrence_id,scheduled_at,state) VALUES (%s,%s,%s::jsonb) ON CONFLICT DO NOTHING", (key, now if controlled else slot, json.dumps(state)))
-                record(connection, tick, key, state, "adopt_previous_scheduler", update=False)
-            return {"status": "seeded", "exported_events": 0, "iceberg_audit_disabled": True, "model_calls": 0}
+        if mode == "retire-legacy":
+            if any(job_active(session, name) for name in
+                   ("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")):
+                raise RuntimeError("retirement requires terminal workers")
+            return retire_legacy(connection, not_before, now)
         with connection.cursor() as cursor:
             cursor.execute("SELECT occurrence_id,state FROM control.batch_occurrences WHERE state->>'status' IN ('dispatching','running','ambiguous') ORDER BY scheduled_at LIMIT 101")
             active = cursor.fetchall()
@@ -458,7 +435,6 @@ def run(*, now=None, session=None, control=None, controlled=None):
             pending = cursor.fetchall()
         if len(pending) > 100:
             raise RuntimeError("pending occurrence limit exceeded; dispatch blocked")
-        pending = prioritize_nightly_private(pending, now)
         batches = {batch.name: batch for batch in effective_batches()}
         for key, state in pending:
             # Already-persisted rows for removed schedules must never dispatch.
@@ -466,6 +442,10 @@ def run(*, now=None, session=None, control=None, controlled=None):
                 record(connection, tick, key, {**state, "status": "skipped", "reason": "schedule_superseded"}, "schedule_superseded")
                 continue
             batch = batches[state["batch"]]
+            if datetime.fromisoformat(state["scheduled_at"]) < not_before:
+                record(connection, tick, key, {**state, "status": "skipped",
+                    "reason": "retired_before_new_schedule"}, "retired_before_new_schedule")
+                continue
             # A pending queue occurrence can outlive the selection window.
             # Recheck at dispatch; never send >5-day or missing references
             # to a worker, even for an admin-triggered pending occurrence.
@@ -591,6 +571,46 @@ def run(*, now=None, session=None, control=None, controlled=None):
             control.close()
 
 
+def retire_legacy(connection, cutoff, now):
+    """Drop old operational buffers; current Owner/canonical data never enters this scope."""
+    if cutoff.tzinfo is None or not timedelta(0) <= now-cutoff <= timedelta(minutes=15):
+        raise ValueError("retirement cutoff must be the current activation time")
+    statements = {
+        "batch_buffers": ("DELETE FROM control.batch_occurrences WHERE scheduled_at<%s AND (state->>'status' IN ('pending','dispatching','running','ambiguous') OR state->>'origin'='controlled')", (cutoff,)),
+        "queued_executions": ("UPDATE control.executions SET status='failed',error_code='RETIRED_BY_NEW_SCHEDULE',finished_at=now(),claimed_by=NULL,claimed_until=NULL WHERE requested_at<%s AND finished_at IS NULL AND status IN ('queued','retrying','running') AND (claimed_until IS NULL OR claimed_until<=now())", (cutoff,)),
+        "backup_buffers": ("DELETE FROM control.ledger_backup_requests WHERE requested_at<%s AND status='queued'", (cutoff,)),
+        "demand_buffers": ("DELETE FROM control.stock_supplement_requests WHERE updated_at<%s", (cutoff,)),
+        "private_queue_buffers": ("DELETE FROM private.recalculation_requests WHERE requested_at<%s AND updated_at<%s AND status IN ('QUEUED','RUNNING','CANCEL_REQUESTED')", (cutoff, cutoff)),
+        "old_batch_controls": ("DELETE FROM control.admin_settings WHERE setting_key LIKE 'batch_control:%%' AND updated_at<%s", (cutoff,)),
+    }
+    counts = {}
+    with connection.transaction(), connection.cursor() as cursor:
+        cursor.execute("SET LOCAL statement_timeout='60000ms'")
+        cursor.execute("SET LOCAL lock_timeout='5000ms'")
+        cursor.execute("SELECT pg_advisory_xact_lock(1835102836,7)")
+        cursor.execute("""INSERT INTO control.admin_settings(setting_key,value_json,version,updated_at,updated_by)
+            VALUES ('batch_schedule_epoch',jsonb_build_object('not_before',%s::text),1,now(),'batch-controller')
+            ON CONFLICT(setting_key) DO UPDATE SET value_json=EXCLUDED.value_json,
+              version=control.admin_settings.version+1,updated_at=now(),updated_by='batch-controller'""",
+            (cutoff.isoformat(),))
+        for key, (statement, params) in statements.items():
+            where = statement.split(" WHERE ", 1)[1]
+            table = statement.split(" FROM ", 1)[1].split(" WHERE ", 1)[0] if statement.startswith("DELETE") else "control.executions"
+            cursor.execute("SELECT count(*) FROM " + table + " WHERE " + where, params)
+            if cursor.fetchone()[0] > 10000:
+                raise RuntimeError("legacy buffer retirement exceeds bounded scope")
+            cursor.execute(statement, params)
+            if cursor.rowcount > 10000:
+                raise RuntimeError("legacy buffer retirement exceeded bounded scope")
+            counts[key] = cursor.rowcount
+        cursor.execute("""UPDATE private.recalculation_dispatch SET active=false,updated_at=now()
+            WHERE singleton AND NOT EXISTS (SELECT 1 FROM private.recalculation_requests
+              WHERE status IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))""")
+        cursor.execute("SELECT control.sync_stock_supplement_demand()")
+    return {"status": "retired", "cutoff": cutoff.isoformat(), "retired": counts,
+            "current_demand_rebuilt": True, "ledger_writes": 0}
+
+
 def controlled_rows(now, group, source_day):
     """Stable identities exercise the same schedule/dependencies without moving the clock."""
     day = date.fromisoformat(source_day)
@@ -627,6 +647,11 @@ def run_chain(*, controlled=None, deadline_seconds=3000):
     end = monotonic() + deadline_seconds
     while True:
         result = run(controlled=controlled)
+        if result["status"] == "controller_busy":
+            if monotonic() >= end:
+                raise RuntimeError("controller writer lock deadline reached")
+            sleep(15)
+            continue
         if result["status"] != "tick_completed":
             return result
         with _control_plane() as control:

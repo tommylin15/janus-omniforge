@@ -102,7 +102,7 @@ class StockServingProjection:
                     f"DELETE FROM control.{table} "
                     "WHERE dataset_id=%s AND sort_at < now() - (%s * interval '1 day')",
                     (dataset_id, 750 if dataset_id == "ohlcv" else
-                     max(self.retention_days,1096) if dataset_id=='financials' else self.retention_days),
+                     max(self.retention_days,1240) if dataset_id=='financials' else self.retention_days),
                 )
         return len(prepared)
 
@@ -113,6 +113,9 @@ class StockServingProjection:
             cursor.execute("""WITH targets AS (
                 SELECT symbol FROM control.mart_ai_target_symbols((now() AT TIME ZONE 'Asia/Taipei')::date)
                 UNION SELECT unnest(%s::text[])
+                UNION SELECT symbol FROM control.liquid_500_members
+                      WHERE rank<=150 AND version=(SELECT version FROM control.liquid_500_versions
+                        WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)
             ) DELETE FROM control.stock_serving_recent s WHERE dataset_id='ohlcv'
               AND sort_at < now() - CASE WHEN symbol IN (SELECT symbol FROM targets)
                   THEN interval '750 days' ELSE interval '120 days' END""",
@@ -120,8 +123,8 @@ class StockServingProjection:
                   "6488", "8069", "5347", "3293"],))
             deleted = cursor.rowcount
             cursor.execute("""DELETE FROM control.market_serving_recent WHERE dataset_id='financials' AND
-                ((payload_json->>'metric'='monthly_revenue' AND sort_at < now()-interval '24 months')
-                 OR (payload_json->>'metric'='eps_single_quarter' AND sort_at < now()-interval '3 years'))""")
+                ((payload_json->>'metric'='monthly_revenue' AND sort_at < now()-interval '25 months')
+                 OR (payload_json->>'metric'='eps_single_quarter' AND sort_at < now()-interval '40 months'))""")
             financial_deleted = cursor.rowcount
         return {"status": "succeeded", "ohlcv_deleted": deleted, "financial_deleted": financial_deleted}
 
