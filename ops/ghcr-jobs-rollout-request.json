@@ -2,15 +2,15 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "c4605a84eb46257cbf628b33e2156ebc01f5b9ac",
-  "release_run": "40319442822",
+  "sha": "680b5c66f31f73cb6bbf71a8bcd4fbc93a3f657f",
+  "release_run": "40801272801",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:2e7f3f1bc6f0f65a304da1d4eb3414cc583459d1d082550188c9fe10a26cf60e",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:2e7f3f1bc6f0f65a304da1d4eb3414cc583459d1d082550188c9fe10a26cf60e",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:5af128b0cf81897e390a9169ff83865c9945f7709a9cc12fd3de596da34abe76",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:3de0e93e7d5120d65a54c3738633ee41e0dec7b63154347c033538d34e2c4ec0"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:e15aa2fa2aaf241b0399b735d9c98b29791233c4190262363dfb2075beee35a6",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:e15aa2fa2aaf241b0399b735d9c98b29791233c4190262363dfb2075beee35a6",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:e1de859b89027a082480427da45c5aa00bddd4e8bf1f2e148ccd4778821b8f9c",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:23fd51c81ca09393407b1c540cbd225d2898d20fb91b78503b3a5723b3665eeb"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
@@ -18,15 +18,15 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "auth_boundary_run": "40320423764",
-  "request_attempt": 60,
-  "safety": "Existing single two-hour Cloud Scheduler is retained. Fenced four Job image update and canary with immutable SHA/digest/current baseline readback, no new services or IAM",
-  "authorization": "User approved all four new models and direct replacement, no legacy model compatibility or manual reapproval. Existing Dev four Jobs only; rollback images retained for infrastructure safety, not old model restoration.",
+  "auth_boundary_run": "40802236230",
+  "request_attempt": 61,
+  "safety": "保留單一兩小時 Scheduler、共同 Git-ref lease、全分頁在途 fence、8次 canary 與失敗回復；本階段只換四 Job 映像，Controller timeout 另經受控設定階段處理。",
+  "authorization": "使用者明確授權第12項實作、測試、既有 Dev 部署與真實驗收直到完成；衍生 Owner 重算可更新，不虛構交易。",
   "rollback_source_shas": {
-    "janus-batch-controller": "43543ac684f34341265069244b5507f51afd5cff",
-    "janus-ingestion-core": "43543ac684f34341265069244b5507f51afd5cff",
-    "janus-intelligence-mart": "43543ac684f34341265069244b5507f51afd5cff",
-    "janus-private-pipeline": "43543ac684f34341265069244b5507f51afd5cff"
+    "janus-batch-controller": "c4605a84eb46257cbf628b33e2156ebc01f5b9ac",
+    "janus-ingestion-core": "c4605a84eb46257cbf628b33e2156ebc01f5b9ac",
+    "janus-intelligence-mart": "c4605a84eb46257cbf628b33e2156ebc01f5b9ac",
+    "janus-private-pipeline": "c4605a84eb46257cbf628b33e2156ebc01f5b9ac"
   },
-  "purpose": "SEQ08 official TPEx benchmark price-only Core repair: fixed GHCR Release #40319442822, 0%-API #40320190614, OAuth #40320423764 SUCCESS; pre-rollout four Dev Job baseline #40319515607 source 43543ac6 pinned. Controlled existing four Job digests/config/canary; no extra services/Scheduler/Owner writes. Previous images only for infrastructure safety, not old prediction model."
+  "purpose": "三大批次管線落地：同來源完整 Release 40801272801、0% 候選 40801858351、Auth 40802236230 均成功。四個既有 Dev Jobs 受控更新固定映像，各兩次 canary；沿現役 c4605a84 四 Job 的實際固定 digest／設定 hash／公開來源標籤作回復基準。正式 API 流量不變；無新服務、IAM 或帳本事件。"
 }
