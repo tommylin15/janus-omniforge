@@ -10,7 +10,14 @@ import time
 SCRIPT = '''import json
 from ingestion_core.__main__ import _control_plane
 
+clean = {CLEAN_CONTROLLED}
 with _control_plane() as control, control.connection.cursor() as cur:
+    if clean:
+        cur.execute("DELETE FROM control.batch_occurrences WHERE occurrence_id LIKE 'controlled%'")
+        deleted_count = cur.rowcount
+    else:
+        deleted_count = 0
+
     # 1. Recent executions
     cur.execute("""SELECT execution_id, config_id, status, error_code,
                    started_at, finished_at, request_options
@@ -40,6 +47,7 @@ with _control_plane() as control, control.connection.cursor() as cur:
 
 print("=== DB_DIAGNOSTIC_BEGIN ===")
 print(json.dumps({
+    "cleaned_controlled": deleted_count,
     "recent_executions": execs,
     "failed_items": failed_items,
     "controlled_occurrences": controlled_rows,
@@ -49,12 +57,15 @@ print("=== DB_DIAGNOSTIC_END ===")
 '''
 
 def main():
+    clean_controlled = "--clean-controlled" in sys.argv
+    script_text = SCRIPT.replace("{CLEAN_CONTROLLED}", "True" if clean_controlled else "False")
+
     sys.path.insert(0, str(Path(__file__).parent.resolve()))
     from ghcr_jobs_rollout import cloud, job, terminal, ROOT, PROJECT, REGION
 
     source = job('janus-ingestion-core')
     container = source['template']['template']['containers'][0]
-    args = (['python'] if not container.get('command') else []) + ['-c', SCRIPT]
+    args = (['python'] if not container.get('command') else []) + ['-c', script_text]
     override = {'args': args}
     if container.get('name'):
         override['name'] = container['name']
@@ -63,7 +74,7 @@ def main():
         'overrides': {'taskCount': 1, 'timeout': '180s', 'containerOverrides': [override]}
     }
 
-    print("Dispatching diagnostic on janus-ingestion-core...")
+    print(f"Dispatching diagnostic (clean_controlled={clean_controlled}) on janus-ingestion-core...")
     operation = cloud(f'{ROOT}/jobs/janus-ingestion-core:run', payload, 'POST')
     name = operation.get('name', '')
     if not name.startswith(ROOT + '/operations/'):
@@ -97,7 +108,7 @@ def main():
         time.sleep(3)
 
     short_name = execution_name.split("/")[-1]
-    print(f"Reading logs for {short_name}...")
+    print(f"Polling logs for {short_name}...")
     log_cmd = [
         "gcloud", "logging", "read",
         f'labels."run.googleapis.com/execution_name"="{short_name}"',
@@ -106,57 +117,59 @@ def main():
         "--limit=100",
         "--format=json"
     ]
-    res = subprocess.run(log_cmd, capture_output=True, text=True)
-    if res.returncode != 0:
-        print(f"Logging read failed: {res.stderr}")
-        sys.exit(1)
 
-    try:
-        entries = json.loads(res.stdout)
-    except Exception as e:
-        print(f"Failed to parse log entries: {e}\n{res.stdout}")
-        sys.exit(1)
+    data = None
+    # Retry reading logs up to 12 times (60s) for log propagation
+    for attempt in range(12):
+        time.sleep(5)
+        res = subprocess.run(log_cmd, capture_output=True, text=True)
+        if res.returncode == 0 and res.stdout.strip():
+            try:
+                entries = json.loads(res.stdout)
+                full_text = "\n".join((e.get("textPayload") or "") for e in reversed(entries))
+                if "=== DB_DIAGNOSTIC_BEGIN ===" in full_text:
+                    part = full_text.split("=== DB_DIAGNOSTIC_BEGIN ===")[1].split("=== DB_DIAGNOSTIC_END ===")[0].strip()
+                    data = json.loads(part)
+                    break
+            except Exception:
+                pass
 
-    full_text = ""
-    for entry in reversed(entries):
-        text = entry.get("textPayload") or ""
-        full_text += text + "\n"
+    if data is None:
+        print("Diagnostic marker not found in logs after polling.")
+        return
 
-    if "=== DB_DIAGNOSTIC_BEGIN ===" in full_text:
-        part = full_text.split("=== DB_DIAGNOSTIC_BEGIN ===")[1].split("=== DB_DIAGNOSTIC_END ===")[0].strip()
-        data = json.loads(part)
-        print("\n### DATABASE DIAGNOSTIC RESULTS")
-        print(json.dumps(data, indent=2, default=str))
+    print("\n### DATABASE DIAGNOSTIC RESULTS")
+    print(json.dumps(data, indent=2, default=str))
 
-        # Format markdown summary
-        md_lines = ["### Database Diagnostic Findings\n"]
-        md_lines.append("#### Controlled Occurrences")
-        for occ in data.get("controlled_occurrences", []):
-            md_lines.append(f"- `{occ['occurrence_id']}`: status={occ['status']}, reason={occ['reason']}, execution={occ['execution']}")
+    # Format markdown summary
+    md_lines = ["### Database Diagnostic Findings\n"]
+    if clean_controlled:
+        md_lines.append(f"> Cleaned `{data.get('cleaned_controlled', 0)}` previous controlled occurrences.\n")
 
-        md_lines.append("\n#### Recent Executions")
-        for ex in data.get("recent_executions", []):
-            md_lines.append(f"- `{ex['execution_id']}`: config={ex['config_id']}, status={ex['status']}, error={ex['error_code']}")
+    md_lines.append("#### Controlled Occurrences")
+    for occ in data.get("controlled_occurrences", []):
+        md_lines.append(f"- `{occ['occurrence_id']}`: status={occ['status']}, reason={occ['reason']}, execution={occ['execution']}")
 
-        md_lines.append("\n#### Failed Execution Items")
-        for item in data.get("failed_items", []):
-            md_lines.append(f"- `{item['item_key']}` ({item['source_id']}/{item['dataset_id']}): state={item['state']}, error={item['error_code']}, message={item['safe_message']}")
+    md_lines.append("\n#### Recent Executions")
+    for ex in data.get("recent_executions", []):
+        md_lines.append(f"- `{ex['execution_id']}`: config={ex['config_id']}, status={ex['status']}, error={ex['error_code']}")
 
-        md_lines.append("\n#### Supplement Requests")
-        for st, count in data.get("supplements", {}).items():
-            md_lines.append(f"- {st}: {count}")
+    md_lines.append("\n#### Failed Execution Items")
+    for item in data.get("failed_items", []):
+        md_lines.append(f"- `{item['item_key']}` ({item['source_id']}/{item['dataset_id']}): state={item['state']}, error={item['error_code']}, message={item['safe_message']}")
 
-        report = "\n".join(md_lines)
+    md_lines.append("\n#### Supplement Requests")
+    for st, count in data.get("supplements", {}).items():
+        md_lines.append(f"- {st}: {count}")
 
-        # Post to commit comment if CI
-        gh_token = os.environ.get("GH_TOKEN")
-        github_sha = os.environ.get("GITHUB_SHA")
-        if gh_token and github_sha:
-            repo = os.environ.get("GITHUB_REPOSITORY", "tommylin15/janus-omniforge")
-            subprocess.run(["gh", "api", f"repos/{repo}/commits/{github_sha}/comments", "-f", f"body={report}"])
-    else:
-        print("Diagnostic marker not found in logs. Raw text:")
-        print(full_text)
+    report = "\n".join(md_lines)
+
+    # Post to commit comment if CI
+    gh_token = os.environ.get("GH_TOKEN")
+    github_sha = os.environ.get("GITHUB_SHA")
+    if gh_token and github_sha:
+        repo = os.environ.get("GITHUB_REPOSITORY", "tommylin15/janus-omniforge")
+        subprocess.run(["gh", "api", f"repos/{repo}/commits/{github_sha}/comments", "-f", f"body={report}"])
 
 if __name__ == "__main__":
     main()

@@ -141,10 +141,12 @@ def main():
     else:
         lines.append("_No controller logs returned by Cloud Logging in last 2h._")
 
-    # 3. Get logs for failed executions
+    # 3. Get logs for failed executions and recent job executions
+    reported_execs = set()
     for job, name in failed_executions:
         if job == "janus-batch-controller":
             continue
+        reported_execs.add(name)
         lines.append(f"\n#### Failed Execution Logs: `{name}` ({job})")
         exec_logs = get_logs_for_execution(name, freshness="2h", limit=50)
         if exec_logs:
@@ -155,6 +157,20 @@ def main():
             lines.append("```")
         else:
             lines.append(f"_No specific logs for {name}_")
+
+    # Also include latest execution of ingestion-core if not already reported
+    ingestion_execs = get_executions("janus-ingestion-core")
+    if ingestion_execs:
+        latest_ingestion = ingestion_execs[0].get("metadata", {}).get("name")
+        if latest_ingestion and latest_ingestion not in reported_execs:
+            lines.append(f"\n#### Latest Execution Logs: `{latest_ingestion}` (janus-ingestion-core)")
+            exec_logs = get_logs_for_execution(latest_ingestion, freshness="2h", limit=50)
+            if exec_logs:
+                exec_logs.sort(key=lambda x: x.get("timestamp", ""))
+                lines.append("```")
+                for entry in exec_logs[-30:]:
+                    lines.append(format_log_entry(entry))
+                lines.append("```")
 
     report = "\n".join(lines)
     print(report)
