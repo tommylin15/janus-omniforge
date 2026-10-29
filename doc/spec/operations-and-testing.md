@@ -1,5 +1,24 @@
 # Janus 最新驗收證據索引
 
+## 2026-10-29 三大批次新排程｜PARTIAL／尚未結案
+
+只走新版18:30主鏈、兩小時補償、每日備份／Stage與週末維護；不保留舊任務補跑及需求緩衝。以下區分已驗證版本與最新待部署修正，不將受控執行冒充自然排程。
+
+| 範圍 | 真實收據與結果 |
+|---|---|
+| 四Jobs部署 | 來源`38d8b39516be0e6092e737dcd4106c1fde18cc3a`，[rollout #40829817136](https://github.com/tommylin15/janus-omniforge/actions/runs/40829817136) PASS，八次canary；[設定 #40832074497](https://github.com/tommylin15/janus-omniforge/actions/runs/40832074497) PASS，Controller timeout 3600秒。 |
+| A真實主鏈 | [#40832523251](https://github.com/tommylin15/janus-omniforge/actions/runs/40832523251) PASS；`2026-10-28`受控ingestion→screening→Private→Serving清理四個持久化狀態皆succeeded，Controller `janus-batch-controller-wlhmn`。 |
+| B補償／防重複 | [#40836500755](https://github.com/tommylin15/janus-omniforge/actions/runs/40836500755) PASS；唯一worker `janus-private-pipeline-n6fd6`，checkpoint驗證成功，重複／空佇列無新增worker，原始帳本未變更。 |
+| C維護 | [#40838028994](https://github.com/tommylin15/janus-omniforge/actions/runs/40838028994) FAILED_SAFE_SCHEDULER_RESTORED；Stage成功，其後因缺新Core ready收據停在compaction防護前。確認三worker終態後停止等待中的Controller，未執行後續Mart／Core／PG維護，不稱整鏈PASS。 |
+| 備份執行器／還原 | [安裝 #40810786174](https://github.com/tommylin15/janus-omniforge/actions/runs/40810786174)及[checksum／隔離還原 #40811023073](https://github.com/tommylin15/janus-omniforge/actions/runs/40811023073)成功；VM執行器來源`1fbd989ea974f2bab309dda688b35da01abe78c6`，後續修正未改該檔。新版受控備份入口仍待驗；既有當日不可變備份重用不等於新dump。 |
+| 最新修正發布 | 來源`4393543ccd02a4951e97354bd13d14a29f517759`，[完整Release #40839307433](https://github.com/tommylin15/janus-omniforge/actions/runs/40839307433)及[0%候選 #40840122264](https://github.com/tommylin15/janus-omniforge/actions/runs/40840122264)成功；尚未取得此來源的Auth／Jobs／真實鏈路／正式API切流收據。 |
+
+本輪已修正三個實際問題：移除新版入口誤串的舊固定焦點`run_backfill`；screening按指定資料日選Core事件；雙市場行情快取已有驗證證據時，也產生真實current snapshot收據。最後一項本機41項相關測試及完整Release通過，仍須部署後重驗，不能沿用前版PASS作最新版本結案證明。舊失敗收據保持原判。
+
+舊操作緩衝首次退役實測：61筆舊工作、13筆需求、5筆批次控制、1筆批次緩衝；原始帳本寫入0，依有效持股／關注重建需求。[首次設定 #40819576268](https://github.com/tommylin15/janus-omniforge/actions/runs/40819576268)。後續重新啟用點收據依各次設定run判定，不累加猜測退役總數。
+
+文件同步前獨立讀回：唯一Scheduler `janus-ingestion-daily`為`ENABLED`、`30 */2 * * *`、`Asia/Taipei`。正式API最後已驗證來源仍為`380c369605e2476e4aca35797cc228621ad92da5`；新版Admin任務清單尚待切流。剩餘工作以[唯一TODO](../todo.md)為準，不重開已取消的自然收據等待。
+
 ## 2026-10-28 使用者驗收與待辦取消
 
 - 使用者於本輪對話確認原待辦第 15、16、17 項已驗收：MCP 本人現金授權正向讀取、Gemini CLI 與 Antigravity 首次授權／sources 及 Owner 唯讀工具；記為 PASS_USER_CONFIRMED／CLOSED，不保存 token 或私人回應。下方 10/27 同項 NOT_VERIFIED 為當時歷史狀態，已由此回報結清。
