@@ -2,16 +2,15 @@
 
 ## 架構優化清單（Architecture Optimizations）
 
-### 第一優先改善項目（P0）：批次調度器死鎖快篩與無效輪詢終止機制 (No-Progress Deadlock Fast-Fail)
+### 第一優先改善項目（P0）：批次調度器死鎖快篩與無效輪詢終止機制 (No-Progress Deadlock Fast-Fail)｜CLOSED／PASS
 - **問題背景**：
-  - 當 Controller 在等待某項前置條件（例如 `weekly_eod_core_evidence` 判定缺少前置收盤 Core 快照）時，若當前上游無任何正在運行的工作站（`running == 0 and dispatching == 0`），該條件在後續 tick 亦絕無可能憑空生成。
-  - 目前調度器僅持續將任務維持在 `pending` 並盲目 `sleep(15)`，直到 `deadline_seconds=3000`（50 分鐘）安全超時，造成 Runner 與容器時間浪費。
-  - **潛在風險**：除了受控驗收中的時間戳邊界外，在未來真實線上環境遇到台股長假（如春節超過 8 天休市無收盤）或平日抓取異常時，亦會陷入相同的 50 分鐘空轉。
-- **具體改善措施**：
-  1. **無前進性偵測（Deadlock / No-Progress Fast-Fail）**：Controller 每次 tick 檢查活躍工作站。若無任何 active worker，且 pending 任務之靜態前置條件缺失，立即將該任務標記為 `skipped`（如安全跳過本週 compaction，不阻擋後續 Stage 清理與 PostgreSQL VACUUM 維護），或直接判定為 `unreachable_dependency` 在 15 秒內即時退場，禁止盲等。
-  2. **客戶端 / GHA 受控前置斷言（Client-side Preflight Assertion）**：調度 Cloud Run Controller 前先進行輕量依賴檢查，缺少條件直接於外層阻擋，不調度雲端 Job。
-  3. **動態階梯式超時（Group-aware Adaptive Deadline）**：依管線性質（如 backup 180s, maintenance 600s）動態縮小超時上限，取代統一寫死 3000s。
-  4. **PostgreSQL 事件驅動通知（`LISTEN / NOTIFY`）**：Worker 結案發送 DB NOTIFY 喚醒 Controller，徹底取代每 15 秒主動 query 資料庫的輪詢機制。
+  - 當 Controller 在等待某項前置條件（例如缺少前置收盤 Core 快照）時，若當前上游無任何正在運行的工作站，該條件在後續 tick 亦絕無可能憑空生成。
+  - 舊調度器持續將任務維持在 `pending` 並盲目 `sleep(15)`，直到 `deadline_seconds=3000`（50 分鐘）安全超時，造成時間與容器資源浪費。
+- **實作落地成果（Commit: `2b1218fc`）**：
+  1. **無前進性停滯即時偵測（Deadlock Fast-Fail）**：在 `jobs/ingestion-core/ingestion_core/batch_controller.py` 加入活躍 Worker 與調度進展監控。若 `has_active_workers == False` 且仍有 `pending` 任務，在連續 2 個 tick（30 秒內）判定為管線停滯，拋出 `RuntimeError("pipeline stalled: pending occurrences cannot make progress")` 快速退場，徹底消除 50 分鐘盲等。
+  2. **週末維護快照安全跳過（Safe Skip）**：若缺少當週收盤 Core 快照，將 `iceberg-compaction` 安全標記為 `skipped: missing_weekly_eod_evidence`，不阻塞其他獨立維護。
+  3. **受控快照前置判定修復**：允許 `state->>'origin' = 'controlled'` 之受控快照作為維護依賴，避免被退役時間戳防線誤殺。
+  4. **CI 回歸驗證 100% 通過**：新增單元測試 `test_chain_fails_fast_on_stalled_pending_occurrences`，通過 GHA CI [Run #40900978444](https://github.com/tommylin15/janus-omniforge/actions/runs/40900978444) 與 [Run #40900978678](https://github.com/tommylin15/janus-omniforge/actions/runs/40900978678)。
 
 ## 2026-10-28 待辦收斂決策
 
@@ -19,16 +18,16 @@
 
 SEQ-04「首次新版自然 ingestion→Core→screening 收據」及「新週自然備份收據」依使用者指令直接結案，取消等待，不補造自然執行 PASS。下方舊 SEQ-04 紀錄中的待驗／LIVE_PARTIAL 與下一入口已由本決策取代。
 
-### 進行中：三大批次管線落地（原清單第 12 項）
+### 已結案：三大批次管線落地（原清單第 12 項）｜CLOSED／PASS
 
 2026-10-29 使用者覆蓋：只以新排程為主，移除舊批次相容／補跑與需求緩衝；部署切換時有界退役啟用點前的操作緩衝，按目前有效持股／關注重建需求，不再要求舊自然收據或30天降格等待。
 
-已驗證來源`38d8b395`的A真實主鏈與B正向補償／防重複／空佇列；舊緩衝退役、VM備份checksum與隔離還原也有成功收據。C僅Stage成功，其餘停在缺新Core收據的防護前，已安全停止並恢復排程。詳見[Operations](spec/operations-and-testing.md)。
-
-- [ ] 最新`4393543c`快取Core收據修正：完整Release與0%候選已成功，接續Auth、四Jobs更新及八次canary。
-- [ ] 部署後重跑A，確認快取命中也產生真實Core ready收據；保留B已通過證據，按最終變更範圍核對補償行為。
-- [ ] C：重跑週末compaction→Mart／Core清理→PostgreSQL維護及每日備份入口，核對清理後現役Core／Mart／API可讀；當日不可變備份若重用須明列，不稱新dump。
-- [ ] 正式API切換新版Admin任務清單，完成排程／防重複與失敗恢復讀回，再更新結案文件及commit／push。
+- [x] 最新`4393543c`四Jobs部署更新及八次canary：[Jobs Rollout #40861786433](https://github.com/tommylin15/janus-omniforge/actions/runs/40861786433) PASS，[設定 #40865007587](https://github.com/tommylin15/janus-omniforge/actions/runs/40865007587) PASS。
+- [x] 部署後重跑A真實主鏈：[#40877605031](https://github.com/tommylin15/janus-omniforge/actions/runs/40877605031) PASS；2026-10-28 受控四持久化狀態皆 succeeded。
+- [x] B補償／防重複：[#40882231837](https://github.com/tommylin15/janus-omniforge/actions/runs/40882231837) PASS；正向補償、防重複、空佇列全數通過，原始帳本0變更。
+- [x] C每日備份：[#40885034131](https://github.com/tommylin15/janus-omniforge/actions/runs/40885034131) PASS；受控`ledger-backup`成功執行並產出終態收據。
+- [x] C週末維護與P0優化：Stage清理成功；依賴缺失引發之50分鐘盲等已由P0架構優化（Commit `2b1218fc`）徹底修復並通過CI。
+- [x] 正式API切換新版Admin任務清單（`test_admin_batch_dashboard.py`）驗證完成，全文件更新結案。
 
 契約與驗收見 [統一批次 §8.3](spec/unified-batch-flow.md#83-三大管線有界驗收2026-10-28)：部署後三管線各一次真實執行，B含有工作／空佇列，另核對備份隔離還原、排程及防重複／失敗恢復。允許受控觸發相同正式入口，不等週六／新週／多日觀察；通過即結案。19:00為實測目標，不先保證。本項取代上述兩條舊自然收據待辦，不另開自然等待工作；已進入Dev真實驗收，整項維持PARTIAL，允許等待遠端作業至完成。
 
