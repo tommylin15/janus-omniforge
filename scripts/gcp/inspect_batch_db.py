@@ -1,4 +1,4 @@
-"""Read-only database diagnostic for batch acceptance using existing ingestion runtime."""
+"""Read-only database diagnostic and controlled reset for batch acceptance."""
 from base64 import b64encode
 import json
 import os
@@ -15,8 +15,11 @@ with _control_plane() as control, control.connection.cursor() as cur:
     if clean:
         cur.execute("DELETE FROM control.batch_occurrences WHERE occurrence_id LIKE 'controlled%'")
         deleted_count = cur.rowcount
+        cur.execute("UPDATE control.cursors SET last_success_at='2026-10-27 18:30:00+00' WHERE last_success_at >= '2026-10-28'")
+        reset_cursors = cur.rowcount
     else:
         deleted_count = 0
+        reset_cursors = 0
 
     # 1. Recent executions
     cur.execute("""SELECT execution_id, config_id, status, error_code,
@@ -45,13 +48,19 @@ with _control_plane() as control, control.connection.cursor() as cur:
     cur.execute("SELECT status, count(*) FROM control.stock_supplement_requests GROUP BY status")
     supplements = dict(cur.fetchall())
 
+    # 5. Cursors status
+    cur.execute("SELECT cursor_key, last_success_at, coverage->>'date' as cov_date FROM control.cursors LIMIT 10")
+    cursors_sample = [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
+
 print("=== DB_DIAGNOSTIC_BEGIN ===")
 print(json.dumps({
     "cleaned_controlled": deleted_count,
+    "reset_cursors": reset_cursors,
     "recent_executions": execs,
     "failed_items": failed_items,
     "controlled_occurrences": controlled_rows,
-    "supplements": supplements
+    "supplements": supplements,
+    "cursors_sample": cursors_sample
 }, default=str))
 print("=== DB_DIAGNOSTIC_END ===")
 '''
@@ -100,7 +109,6 @@ def main():
         sys.exit(1)
 
     print(f"Execution completed: {execution_name}")
-    # Wait for execution to be terminal
     for _ in range(30):
         ex = cloud(execution_name)
         if terminal(ex):
@@ -119,7 +127,6 @@ def main():
     ]
 
     data = None
-    # Retry reading logs up to 12 times (60s) for log propagation
     for attempt in range(12):
         time.sleep(5)
         res = subprocess.run(log_cmd, capture_output=True, text=True)
@@ -141,10 +148,9 @@ def main():
     print("\n### DATABASE DIAGNOSTIC RESULTS")
     print(json.dumps(data, indent=2, default=str))
 
-    # Format markdown summary
     md_lines = ["### Database Diagnostic Findings\n"]
     if clean_controlled:
-        md_lines.append(f"> Cleaned `{data.get('cleaned_controlled', 0)}` previous controlled occurrences.\n")
+        md_lines.append(f"> Cleaned `{data.get('cleaned_controlled', 0)}` previous controlled occurrences; reset `{data.get('reset_cursors', 0)}` cursors to pre-target watermark.\n")
 
     md_lines.append("#### Controlled Occurrences")
     for occ in data.get("controlled_occurrences", []):
@@ -158,13 +164,8 @@ def main():
     for item in data.get("failed_items", []):
         md_lines.append(f"- `{item['item_key']}` ({item['source_id']}/{item['dataset_id']}): state={item['state']}, error={item['error_code']}, message={item['safe_message']}")
 
-    md_lines.append("\n#### Supplement Requests")
-    for st, count in data.get("supplements", {}).items():
-        md_lines.append(f"- {st}: {count}")
-
     report = "\n".join(md_lines)
 
-    # Post to commit comment if CI
     gh_token = os.environ.get("GH_TOKEN")
     github_sha = os.environ.get("GITHUB_SHA")
     if gh_token and github_sha:
