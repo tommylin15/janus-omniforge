@@ -727,11 +727,20 @@ def main():
         else:
             run(args.release_run, args.receipt)
         print(json.dumps({"result": "PASS", "receipt": args.receipt.name}))
+        try:
+            command(["gh", "api", f"repos/tommylin15/janus-omniforge/commits/{os.environ.get('GITHUB_SHA', 'HEAD')}/comments", "-f", "body=Rollout SUCCESS"])
+        except Exception:
+            pass
         return 0
     except Exception as error:
         # Never print exception text from cloud, database or registry responses.
         reason = str(error) if re.fullmatch(r"[a-z][a-z0-9_]{3,100}", str(error)) else "control_failure"
         print(json.dumps({"result": "BLOCKED_OR_FAILED", "error_type": type(error).__name__, "reason": reason}))
+        try:
+            msg = f"Rollout Failed: {type(error).__name__}: {str(error)}"
+            command(["gh", "api", f"repos/tommylin15/janus-omniforge/commits/{os.environ.get('GITHUB_SHA', 'HEAD')}/comments", "-f", f"body={msg}"])
+        except Exception:
+            pass
         return 78
 
 

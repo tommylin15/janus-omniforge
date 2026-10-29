@@ -19,7 +19,7 @@
     "janus-batch-controller": "0fa391a7b42391edd63f2ca12c34675ccba06ba4c4fd4633d6b25ab60c767f64"
   },
   "auth_boundary_run": "40859089696",
-  "request_attempt": 65,
+  "request_attempt": 66,
   "safety": "保留單一兩小時 Scheduler、共同 Git-ref lease、全分頁在途 fence、8次 canary 與失敗回復；本階段只換四 Job 映像，Controller timeout 另經受控設定階段處理。",
   "authorization": "使用者明確授權第12項實作、測試、既有 Dev 部署與真實驗收直到完成；衍生 Owner 重算可更新，不虛構交易。",
   "rollback_source_shas": {
