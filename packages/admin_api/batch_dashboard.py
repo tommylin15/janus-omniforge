@@ -5,8 +5,6 @@ from zoneinfo import ZoneInfo
 TASKS = {
     "ledger-backup": ("日週月備份與清理", "既有VM執行7日／4週／6月副本與有界清理。"),
     "ingestion": ("市場收取與補齊", "同一工作完成增量補收、Stage、Core與快讀資料。"),
-    "data-supplement": ("補齊缺漏資料", "依現有資料補收實際缺少的期別。"),
-    "mart": ("更新分析結果", "將已收集資料轉成可供網站使用的分析結果。"),
     "market-screening": ("市場分析與四分析師", "共用Mart處理篩選、分析佇列與報告投影。"),
     "private": ("更新個人損益", "用已入帳交易與合格行情更新私人損益。"),
     "serving-prune": ("修剪快讀歷史", "保留持股、關注及既有焦點股長歷史，淘汰其他過期快取。"),
@@ -52,8 +50,6 @@ def dashboard(runtime, latest, settings, now=None):
     rows = []
     for name, (title, purpose) in TASKS.items():
         schedule = schedules.get(name)
-        if name in {"data-supplement", "mart"} and schedule is None:
-            continue
         setting, version = settings.get(name, ({}, 0))
         observed_run = latest.get(name)
         recent = observed_run

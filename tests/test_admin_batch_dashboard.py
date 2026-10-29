@@ -333,3 +333,12 @@ def test_p02_controller_historical_override_is_rejected(monkeypatch):
     selectors = [call.args[1] for call in cur.execute.call_args_list
                  if call.args and "SELECT e.execution_id,e.retry_count" in call.args[0]]
     assert selectors == [("collection", None), ("analysis", None)]
+
+
+@pytest.mark.parametrize("name", ["data-supplement", "mart"])
+def test_retired_independent_batches_cannot_be_requested(name):
+    from unittest.mock import Mock
+    control = Mock()
+    with pytest.raises(AdminValidationError, match="unsupported batch action"):
+        AdminService(control).batch_action(name, "start", 0, actor="operator")
+    control.put_admin_setting.assert_not_called()
