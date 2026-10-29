@@ -53,10 +53,8 @@ jobs:
           echo "Previous Latest: $LATEST"
           LOGS=$(gcloud logging read "resource.type=\"cloud_run_job\" AND labels.\"run.googleapis.com/execution_name\"=\"$LATEST\"" \
             --project=gen-lang-client-0593591102 --limit=100 --format='value(timestamp,textPayload,jsonPayload.message)') || true
-          gh api repos/tommylin15/janus-omniforge/commits/${GITHUB_SHA}/comments -f body="### Previous Execution Logs ($LATEST)
-\`\`\`
-$LOGS
-\`\`\`" || true
+          BODY=$(printf "### Previous Execution Logs (%s)\n\`\`\`\n%s\n\`\`\`" "$LATEST" "$LOGS")
+          gh api repos/tommylin15/janus-omniforge/commits/${GITHUB_SHA}/comments -f body="$BODY" || true
       - name: Check compensation acceptance guards
         run: python -m pytest -q tests/test_three_pipeline_compensation_acceptance.py
       - name: Execute the existing Dev pipeline with persistent dispatch fences
@@ -81,18 +79,14 @@ $LOGS
           if [ -n "$LATEST" ]; then
             LOGS=$(gcloud logging read "resource.type=\"cloud_run_job\" AND labels.\"run.googleapis.com/execution_name\"=\"$LATEST\"" \
               --project=gen-lang-client-0593591102 --limit=100 --format='value(timestamp,textPayload,jsonPayload.message)') || true
-            gh api repos/tommylin15/janus-omniforge/commits/${GITHUB_SHA}/comments -f body="### Controller Failed Logs ($LATEST)
-\`\`\`
-$LOGS
-\`\`\`" || true
+            BODY=$(printf "### Controller Failed Logs (%s)\n\`\`\`\n%s\n\`\`\`" "$LATEST" "$LOGS")
+            gh api repos/tommylin15/janus-omniforge/commits/${GITHUB_SHA}/comments -f body="$BODY" || true
           fi
       - name: Report receipt on success
         if: success()
         run: |
           if [ -f /tmp/three-pipeline-receipt.json ]; then
             RECEIPT=$(cat /tmp/three-pipeline-receipt.json)
-            gh api repos/tommylin15/janus-omniforge/commits/${GITHUB_SHA}/comments -f body="### Acceptance Receipt (${PIPELINE_GROUP})
-\`\`\`json
-$RECEIPT
-\`\`\`" || true
+            BODY=$(printf "### Acceptance Receipt (%s)\n\`\`\`json\n%s\n\`\`\`" "${PIPELINE_GROUP}" "$RECEIPT")
+            gh api repos/tommylin15/janus-omniforge/commits/${GITHUB_SHA}/comments -f body="$BODY" || true
           fi
