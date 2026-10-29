@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "ab2d2e208114fcdf5c9fed51ba5936898c0013d9",
+  "sha": "38d8b39516be0e6092e737dcd4106c1fde18cc3a",
   "digest": "",
-  "release_run": "40822451536",
+  "release_run": "40828650255",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "新排程移除舊固定焦點補收：完整Release 40822451536成功、2050測試通過；同來源0%候選。",
-  "request_attempt": 26
+  "purpose": "指定資料日screening修正：完整Release40828650255成功；建立同來源0%候選，保留正式API與現役Jobs。",
+  "request_attempt": 27
 }
