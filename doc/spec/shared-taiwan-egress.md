@@ -1,11 +1,11 @@
 # Life／Janus 共用台灣出口（2026-10-30）
 
-## 2026-10-30｜七檔 Owner 報價修正版候選與 OAuth 邊界：PASS／正式切流未執行
+## 2026-10-30｜七檔 Owner 報價修正版 API-only 正式切流：CLOSED／PASS；Owner E2E PARTIAL
 
 - 完整 Python、Flutter、四 GHCR digest [Release #41018544303](https://github.com/tommylin15/janus-omniforge/actions/runs/41018544303) PASS，exact source `1bed368a66e8fdcd2eb61e99d1b9b6921edd0ae6`。
 - [0% Candidate #41022750896](https://github.com/tommylin15/janus-omniforge/actions/runs/41022750896) PASS：建立 `ghcr-1bed368a66e8` 候選 tag，固定來源／digest、Ready、health、未登入 401、build SHA、部署 lease 與既有正式 100% 流量不變均通過。
 - [同版 Read-only Auth Boundary #41023923246](https://github.com/tommylin15/janus-omniforge/actions/runs/41023923246) PASS：OAuth metadata 200、Owner／Admin 未登入 401、MCP Bearer challenge 401、Candidate build SHA matched；`no_gcp_mutation=true`。此收據不涵蓋登入 Owner 的真正七檔更新、當日損益、OAuth callback 或 owner isolation 正向。
-- **目前正式 100% 仍是舊版 `janus-api-00634-nop`，新版 Candidate 仍為 0%。** 需要另行 API-only 100% 發布收據、實際價格日期與來源讀回；未取得不得宣稱行情恢復，也不修改 Jobs/Scheduler/IAM。
+- **API-only 100% Dev promotion [#41025046594](https://github.com/tommylin15/janus-omniforge/actions/runs/41025046594) PASS**：GitHub Actions `promote-api-only` success，已下載保護性 artifact `ghcr-api-only-promote.json` 並核對 `phase=PASS_API_ONLY_100_PERCENT`、`traffic_mutation=true`、`lease_released=true`，新版正式 Revision `janus-api-00636-lek`、來源 SHA `1bed368a66e8fdcd2eb61e99d1b9b6921edd0ae6`、不可變映像 `ghcr.io/tommylin15/janus-api@sha256:e8f86fbc258def1e185e3d2f5d10408bdf0c3e924929f4776c793c9b70ae9369`。正式切流前舊版 `janus-api-00634-nop`／`ea6466738d25a5f86772b34f0366e0b1fd34040f` 經 live preflight 驗證後保留作 rollback 基準。此直接切流的收據顯示 `rollback_exercised=false`（本次未要求演練），`jobs_mutated=false`、`scheduler_mutated=false`、`storage_mutated=false`、`iam_mutated=false`。**使用者要求先切流，稍後再驗收 Owner 七檔持股**：登入後實際行情／前收盤／損益／UI 均 NOT_VERIFIED／PARTIAL；安全發布成功不等於報價已更新。
 
 ## 2026-10-30｜Janus API × Life 台灣代理部署後獨立讀回：API 切換 CLOSED／PASS
 
