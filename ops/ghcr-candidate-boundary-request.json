@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "4393543ccd02a4951e97354bd13d14a29f517759",
+  "sha": "ea6466738d25a5f86772b34f0366e0b1fd34040f",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "快取Core收據修正：Release40839307433、0%候選40840122264成功；唯讀驗證同來源Auth及build identity。",
-  "request_attempt": 24
+  "purpose": "Shared Taiwan proxy MIS private service-identity candidate; Release #41010601470 PASS and 0%-candidate #41011762417 PASS; verify exact candidate authorization and build-id read-only.",
+  "request_attempt": 25
 }
