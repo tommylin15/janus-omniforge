@@ -1,5 +1,15 @@
 # Janus — 唯一 Active TODO
 
+## P0｜Life／Janus 共用台灣出口：安全接線與 Live 驗收｜PARTIAL
+
+- 2026-10-30 使用者一次性核准 Life／Janus 既有 dev 跨專案工程；不得新增獨立代理或付費資源。架構、安全及驗收依 [共用出口 SPEC](spec/shared-taiwan-egress.md)。
+- [x] Life 現有 `tw-activity-proxy` 在 `asia-east1`，Live IAM 無公開 Invoker，原 Life VM 可呼叫；Janus API 的 service account 已唯讀確認。
+- [x] Life Proxy 限制來源、TLS、GET、禁止任意轉址與過大回應；Life Caller 改走 service identity token，移除源碼內靜態密鑰；源碼及測試已提交 `tommylin15/life_assistant/main`。
+- [x] Janus MIS 故障時僅對 HTTP 403/5xx 提供台灣 private proxy 備援；不轉送 429；新增 `tests/test_shared_tw_proxy.py`，選擇性 CI PASS（依各 SHA 的 Actions readback）。
+- [ ] Life 受控發布 [Actions #41010130172](https://github.com/tommylin15/life_assistant/actions/runs/41010130172)：確認 service-specific IAM、0% candidate、無舊 secret 環境參考、MIS 源頭 200、未登入 401/403、SSRF 400、正式 100% traffic 及回滾可行；CI PASS 不可取代 Live PASS。
+- [ ] Janus 完整 Release／Candidate／Dev promotion，runtime 觀察真實 MIS transport 與 Owner 7 檔持股本交易日 quote/previous close/day-change；驗收 Life 原有活動來源未退化。缺證時保持 PARTIAL，不得稱恢復盤中。
+
+
 ## P0｜持股盤中行情 HTTPError（2026-10-30）｜PARTIAL／LIVE_NOT_RECOVERED
 
 - **真實異常**：2026-10-30 13:13 Asia/Taipei 使用者持股頁仍顯示 2026-10-29 上市股收盤價格，當日損益全數「待行情」；Owner 已保存價格日期由 Janus MCP 唯讀核對。不能把 UI `checked_at` 誤作行情時間。
