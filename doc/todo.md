@@ -33,7 +33,7 @@
 - **真實異常**：2026-10-30 13:13 Asia/Taipei 使用者持股頁仍顯示 2026-10-29 上市股收盤價格，當日損益全數「待行情」；Owner 已保存價格日期由 Janus MCP 唯讀核對。不能把 UI `checked_at` 誤作行情時間。
 - **Dev 證據**：Cloud Run 100% serving revision `janus-api-00627-yox` Ready，`JANUS_MIS_QUOTES_ENABLED=true`；[read-only run #41008292453](https://github.com/tommylin15/janus-omniforge/actions/runs/41008292453) 查到 2026-10-30 UTC 零時之後 7 筆 `quote refresh unavailable: HTTPError`；從 GitHub runner 向相同官方 MIS endpoint 試探取得 HTTP 200、`rtcode=0000`。**不能從 CI 可達推論 Cloud Run 可達**；實際 HTTP status 與原因尚缺，不能判成功修復。
 - **已完成局部修正**：Flutter 持股頁將「查詢時間」與真正價格日期分離，顯示來源未啟用／刷新失敗／部分標的未取得今日報價；Flutter 測試與 CI [#41007790393](https://github.com/tommylin15/janus-omniforge/actions/runs/41007790393) PASS。此時尚未在 GCP live 發布該 UI。
-- [ ] **查明 Cloud Run outbound MIS HTTP status**（403／429／5xx 等），使用唯讀且不揭露 OAuth、Owner 資料或外部 raw payload 的方法；先排除暫時性 HTTP 錯誤與原始 API 授權政策，再決定有界重試／現役合法行情路由。不得以錯誤日期或未驗證第三方假造盤中價格。
+- **歷史未追溯的 HTTPError 診斷**：舊版 Cloud Run `HTTPError` 的逐筆 HTTP status（403／429／5xx）仍沒有獨立完整機器證據；此為舊事件資訊缺口，非本次已由使用者確認完成的七檔行情／損益 UAT 的待辦前置。未來如再現實際源站錯誤，另立有界故障排查；不得以不實日期或未核准來源造價、不得繞過 429。
 - [x] **Owner 實際功能正向驗收**：使用者 2026-10-30 回報七檔持股行情及損益完整驗收完成，按本人 UAT 確認結案。此項不聲稱逐檔 API 回應、price_date/source/損益數字已獨立保存於技術收據；先前故障及來源日期相關診斷保留歷史紀錄。
 - [x] CI／Release、Dev API 100% traffic/image/readback 有固定 Actions 收據；Owner UAT 已由使用者回報完成。**狀態限定**：實際操作結果 PASS，不補造獨立逐檔 raw quote 收據；任何未來新發的官方 MIS 403/429/5xx 應作新事件處理，既有 429 不繞過規則維持。
 
