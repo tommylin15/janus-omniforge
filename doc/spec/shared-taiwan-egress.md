@@ -32,3 +32,9 @@
 - Janus API：完整 GHCR [#41010601470](https://github.com/tommylin15/janus-omniforge/actions/runs/41010601470)、0% 候選 [#41011762417](https://github.com/tommylin15/janus-omniforge/actions/runs/41011762417)、auth boundary [#41012042952](https://github.com/tommylin15/janus-omniforge/actions/runs/41012042952)、可回復 API-only promotion [#41012198081](https://github.com/tommylin15/janus-omniforge/actions/runs/41012198081) PASS；後讀回 [#41012409231](https://github.com/tommylin15/janus-omniforge/actions/runs/41012409231) 100% revision `janus-api-00634-nop`、source SHA `ea6466738d25a5f86772b34f0366e0b1fd34040f`、`JANUS_MIS_QUOTES_ENABLED=true`。
 - Life 官方觀光署來源 `media.taiwan.net.tw` 在新版私有代理仍回 `502 upstream_unavailable / ConnectError`；保護性新候選 [#41011718029](https://github.com/tommylin15/life_assistant/actions/runs/41011718029) 因未通過 Life 正向資料門檻而 FAIL，不改現役流量。不允許使用 `verify=False` 解除 TLS 安全限制。
 - **維持 PARTIAL**：Janus 真正七檔持股本日行情及 day-change 的 OAuth Owner E2E 尚未取得；Life 活動 ZIP 正向及 Life VM 新 Client 實際任務未驗。每個來源需獨立成功證據，勿把 Cloud Run Ready 或 MIS 測通稱為全部來源可用。
+
+### 2026-10-30 Life 官方來源 TLS 差異收據
+
+- Life 新 0% 候選 [#41012831462](https://github.com/tommylin15/life_assistant/actions/runs/41012831462) 對 `media.taiwan.net.tw` 返回 `tls_certificate`；GitHub runner [#41012955722](https://github.com/tommylin15/life_assistant/actions/runs/41012955722) 以 OpenSSL 驗證同網站為 PASS，不能推論各出口／CA store 相同。
+- 安全 OS CA context 測試 PASS，但候選 [#41013128130](https://github.com/tommylin15/life_assistant/actions/runs/41013128130) Life ZIP 仍 502、MIS PASS，故發布 FAIL；保留既有 Live Proxy 100% `tw-activity-proxy-00006-dep`。此來源 **PARTIAL／BLOCKED**，未擅自關閉 TLS 或新增付費資源。
+- Janus API 100% `janus-api-00634-nop` 與 private IAM 已獨立 readback PASS；Owner 7 檔本交易日 quote/損益仍需本人登入正向驗收。Janus MCP positions 的 `as_of=2026-10-29` 僅為最近已發布持股快照，不是 intraday-refresh 端點，不能據此聲稱新路徑故障或已恢復。
