@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "ea6466738d25a5f86772b34f0366e0b1fd34040f",
+  "sha": "1bed368a66e8fdcd2eb61e99d1b9b6921edd0ae6",
   "digest": "",
-  "release_run": "41010601470",
+  "release_run": "41018544303",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Life shared Taiwan egress recovery: full GHCR release 41010601470 SUCCESS. Build 0%-traffic Janus API candidate; no Jobs, Scheduler or traffic changes.",
-  "request_attempt": 29
+  "purpose": "Janus owner seven-holdings manual quote refresh in all off-session periods (premarket/night/weekend/holiday): 0%-traffic fixed SHA+GHCR digest candidate only. Full Python+Flutter GHCR Release #41018544303 SUCCESS, source 1bed368a66e8fdcd2eb61e99d1b9b6921edd0ae6. Verify health/build-id/anonymous rejection and preserve existing 100% API traffic, jobs, scheduler, IAM and rollback baseline. No traffic promotion.",
+  "request_attempt": 30
 }
