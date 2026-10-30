@@ -2,17 +2,17 @@
   "intent": "promote-existing-dev-api-only-fixed-ghcr",
   "approved": true,
   "scope": "existing-dev-janus-api-only",
-  "source_sha": "1fbd989ea974f2bab309dda688b35da01abe78c6",
-  "release_run": "40810051267",
-  "candidate_run": "40810823597",
-  "auth_boundary_run": "40811227085",
+  "source_sha": "ea6466738d25a5f86772b34f0366e0b1fd34040f",
+  "release_run": "41010601470",
+  "candidate_run": "41011762417",
+  "auth_boundary_run": "41012042952",
   "prior_serving_sha": "380c369605e2476e4aca35797cc228621ad92da5",
   "rollback_mode": "reversible_ghcr",
   "no_jobs_mutation": true,
   "no_scheduler_mutation": true,
   "no_storage_mutation": true,
   "no_iam_mutation": true,
-  "purpose": "三大批次新排程 Admin 任務：同來源 Release、0%候選與Auth成功；實際讀回正式API為380c3696。以既有API-only流程切換新版，舊mart/data-supplement任務拒絕，只列新版任務。保留現役API固定映像回復；Jobs由獨立rollout管理。",
+  "purpose": "Bounded shared Taiwan MIS fallback Dev rollout: release, 0% GHCR candidate, OAuth boundary PASS; existing API serving SHA readback 380c369605. API only; no changes to Jobs, Scheduler, storage, IAM. Preserve rollback revision.",
   "traffic_validation_mode": "direct",
-  "request_attempt": 13
+  "request_attempt": 14
 }
