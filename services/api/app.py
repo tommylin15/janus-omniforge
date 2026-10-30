@@ -368,12 +368,11 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         authorized = os.getenv("JANUS_MIS_QUOTES_ENABLED", "false").lower() == "true"
         prices, refresh = quote_router.resolve(
             identities,
-            # Manual refresh remains useful after the 13:30 close while
-            # the 14:30 official EOD projection is pending. Never start
-            # automatic polling outside the regular market session.
-            refresh=bool(mis) and authorized and (
-                phase == "regular" or (force and phase == "closing_pending_eod")
-            ),
+            # Manual refresh is an explicit, 10-second-throttled request:
+            # it remains available after market close and while an EOD
+            # projection is late. The MIS tick date stays authoritative and
+            # old observations remain STALE; only regular hours auto-refresh.
+            refresh=bool(mis) and authorized and (phase == "regular" or force),
             force=force, now=current,
         )
         # Official TPEx OpenAPI provides *EOD only*, never an intraday
