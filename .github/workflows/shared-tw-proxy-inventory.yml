@@ -29,6 +29,9 @@ jobs:
           live_sha="$(curl -fsS --max-time 15 "$base/app/build-id.txt")"
           [[ "$live_sha" =~ ^[0-9a-f]{40}$ ]]
           echo "janus_live_source_sha=$live_sha"
+          jq -r '"janus_mis_enabled=" + ([.spec.template.spec.containers[]?.env[]? | select(.name=="JANUS_MIS_QUOTES_ENABLED") | .value] | first // "unset"),
+                 "janus_proxy_fallback=" + ([.spec.template.spec.containers[]?.env[]? | select(.name=="JANUS_TW_PROXY_ENABLED") | .value] | first // "default")' /tmp/janus.json
+          jq -e '[.status.traffic[]? | select((.percent//0)>0)] | length==1 and .[0].percent==100' /tmp/janus.json
           gcloud run services describe tw-activity-proxy --project="$project" --region=asia-east1 --format=json >/tmp/proxy.json
           jq -r '"proxy_service_url=" + (.status.url // "unknown"),
                  "proxy_ready=" + ([.status.conditions[]? | select(.type=="Ready") | .status] | first // "unknown"),
