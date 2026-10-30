@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "1253a7fb993a2035ae6d77a0c6bb085a143ec602",
-  "purpose": "Re-run full Python/Flutter GHCR Release for Admin shared Google login after updating usage-analytics test to explicitly enforce Admin allowlist rather than obsolete audience prohibition. Preserve current Dev API, MCP tags, Jobs and Scheduler; no traffic mutation.",
+  "sha": "2634ca9e596181d40c8ffb9cb6887c0c5eb6612d",
+  "purpose": "Cross-project Life Taiwan egress security integration: full offline release for existing Janus API code and Flutter quote freshness. No API or Job traffic change; candidate and promotion require separate verified gates.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 26
+  "request_attempt": 27
 }
