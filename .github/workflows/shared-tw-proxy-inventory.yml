@@ -32,3 +32,5 @@ jobs:
           gcloud run services get-iam-policy tw-activity-proxy --project="$project" --region=asia-east1 --format=json >/tmp/iam.json
           jq -r '[.bindings[]? | select(.role=="roles/run.invoker") | .members[]?] | map(select(.=="allUsers" or .=="allAuthenticatedUsers")) | length | "proxy_public_invoker_count=" + tostring' /tmp/iam.json
           jq -r '[.bindings[]? | select(.role=="roles/run.invoker") | .members[]? | select(startswith("serviceAccount:"))] | unique | .[] | "proxy_invoker=" + .' /tmp/iam.json
+
+# Recheck after Life proxy source release; audit current IAM only.
