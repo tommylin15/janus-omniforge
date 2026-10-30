@@ -106,6 +106,51 @@ Finder get stockScroll => find.descendant(
     matching: find.byType(Scrollable)).first;
 
 void main() {
+  test('holdings quote caption never treats API read time as live trade time', () {
+    final now = DateTime(2026, 10, 30, 13, 13);
+    final oldPosition = {
+      'symbol': '2382', 'price_date': '2026-10-29',
+      'price_status': 'available', 'price_source': 'core_ohlcv',
+      'quote_state': 'eod_final',
+    };
+    final blocked = holdingsQuoteStatusCaption({
+      'session': 'regular', 'refresh_status': 'blocked',
+      'checked_at': '2026-10-30T13:13:13+08:00',
+      'positions': [oldPosition],
+    }, now);
+    expect(blocked, contains('盤中來源未啟用'));
+    expect(blocked, contains('當日價 0/1'));
+    expect(blocked, contains('最近價日 2026-10-29'));
+    expect(blocked, contains('非報價時間'));
+
+    final unavailable = holdingsQuoteStatusCaption({
+      'session': 'regular', 'refresh_status': 'unavailable',
+      'positions': [oldPosition],
+    }, now);
+    expect(unavailable, contains('盤中來源更新失敗'));
+
+    final partial = holdingsQuoteStatusCaption({
+      'session': 'regular', 'refresh_status': 'updated',
+      'positions': [
+        oldPosition,
+        {
+          'symbol': '2327', 'price_date': '2026-10-30',
+          'price_status': 'available', 'price_source': 'twse_mis',
+          'quote_state': 'intraday',
+        },
+      ],
+    }, now);
+    expect(partial, contains('部分持股未取得今日盤中報價'));
+    expect(partial, contains('當日價 1/2'));
+    expect(partial, contains('最近價日 2026-10-30'));
+
+    final closed = holdingsQuoteStatusCaption({
+      'session': 'closed', 'positions': [oldPosition],
+    }, now);
+    expect(closed, contains('正式／休市'));
+  });
+
+
   testWidgets('Today keeps unvalidated research collapsed behind official market facts', (tester) async {
     mobileView(tester);
     final api = FinalFakeApi({
