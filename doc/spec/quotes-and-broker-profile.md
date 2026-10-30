@@ -131,7 +131,9 @@ cash_strategy（reserve／balanced／invested）、declared_cash／cash_as_of（
 
 舊 Private Iceberg summary schema 不含 `stale_price_count` 欄位（查讀為 null，不是確定值 0）。接受 `aggregate_status=available` 的根據是 deterministic `calculate_risk_marts()` 同時計算缺價與 stale 數，任何一項大於零即把 aggregate 設成 withheld；因此必須聯合核對 `missing_price_count=0`、`affected_symbol_count=0` 與總 PnL 完整，不准把缺失欄位直接填零或因不存在而誤判持股缺價。若未來要在 serving 實際顯示 `stale_price_count`，需獨立加入 Private Iceberg 的 additive schema evolution 並以同版 deployment／資料讀回驗收；目前未聲稱該欄位已發佈。P0 backend PASS 不代表最新交易日或正式 App UI 已 PASS。
 
-## 2026-10-30｜Owner 全非盤中時段手動報價契約（Source 已提交，Live 未驗證）
+## 2026-10-30｜Owner 全非盤中時段手動報價契約（使用者操作 UAT PASS；七檔逐項驗收仍待）
+
+- **2026-10-30 使用者 UAT 結果：PASS**：使用者回報正式版「非盤中手動更新，操作驗收無誤」。這是使用者實機操作確認，與 GitHub CI／API 切流收據分開標記；因未提供確切驗收時間、每個非盤中時段的實測結果或七檔逐筆來源值，不得稱全時段已逐一實測，也不代表七檔的行情日期、前收盤價、損益及 ETF 缺值已完成驗收。這些仍屬 Owner 後續整批 UAT（PARTIAL／NOT_VERIFIED），無需因本次 PASS 重複部署。
 
 - **適用全部非盤中時段**：交易日 00:00–08:59、13:30–23:59、週六／週日、國定休市日／管理員設定的休市日，以及任何 `session=closed`／`closing_pending_eod`。持股畫面的「更新持股股價」明確呼叫 `POST /api/v1/me/portfolio/quotes/refresh`，`force=true` 才會嘗試官方 MIS，維持 10 秒硬節流與來源/標的 allowlist。不存在市況新報價時使用官方最近一次可核實的 `quote_at`／`price_date`；舊值必須標示 `stale`、無法確認的當日損益維持 `null`。此功能代表使用者可主動查詢最後可取得行情，**不保證休市時會有新的成交價格**。
 - Flutter 只將持股股價 API 的等待由 9 秒改為 28 秒，容納直連 5 秒失敗後的服務身分 Token 與私有台灣代理 12 秒；其他 API timeout 不變。
