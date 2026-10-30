@@ -182,7 +182,10 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       final result = await (force
               ? widget.api.post('/api/v1/me/portfolio/quotes/refresh', const {})
               : widget.api.get('/api/v1/me/portfolio/quotes'))
-          .timeout(const Duration(seconds: 9));
+          // A rejected US-region MIS request may require the private Taiwan
+          // Cloud Run hop (5s direct + identity + 12s proxy + DB round-trip).
+          // A 9s client deadline discarded otherwise successful refreshes.
+          .timeout(const Duration(seconds: 28));
       if (mounted && generation == quoteGeneration && quotesActive) {
         final local = taipeiNow;
         setState(() {
