@@ -2,6 +2,8 @@
 
 ## P0｜Owner 七檔持股股價未更新／全部非盤中手動刷新｜SOURCE FIX，LIVE_NOT_RECOVERED
 
+- **2026-10-30 新版候選驗收**：[完整 GHCR Release #41018544303](https://github.com/tommylin15/janus-omniforge/actions/runs/41018544303)、[0% Candidate #41022750896](https://github.com/tommylin15/janus-omniforge/actions/runs/41022750896)、[同版 OAuth／Private Boundary #41023923246](https://github.com/tommylin15/janus-omniforge/actions/runs/41023923246) 均 PASS。新版固定 SHA `1bed368a66e8fdcd2eb61e99d1b9b6921edd0ae6`，Candidate 0%，正式 `janus-api-00634-nop` 100% 不變；OAuth metadata、未登入 Owner/Admin 401、MCP challenge 與 build SHA 驗證通過。**這是認證負向測試，不是已登入 Owner 正向、七檔股價或損益實測**。下一個發布 gate 為 Owner 正向／API-only 100% traffic promotion；目前不得標示 LIVE_RECOVERED。
+
 - **真實回報**：台灣私有 Proxy 與 Janus API 已部署但 Owner 七檔價格仍未更新；Proxy MIS 200 不是 Owner 實際更新成功。
 - **已核對符合新決策（全部非盤中時段）**：`resolve_prices` 現在使用 `phase == regular or force`；使用者手動 POST 可在盤前、盤後、夜間、週末、指定休市日嘗試官方最後可取得的 MIS 報價（含 10 秒硬節流），但非盤中的普通 GET 不自動呼叫 MIS，也不新增高頻 Scheduler。休市沒有新交易時只可呈現最後來源日期與 `stale`／缺值，不能用查詢時間冒充最新成交。新增盤前、夜間、週末、休市日的正負回歸測試。
 - **根因二**：Flutter 持股 `refreshQuotes` 原等 9 秒，但 GCP MIS 直連 5 秒後私有台灣代理 12 秒，導致前端先逾時；已限改持股行情請求為 28 秒。
