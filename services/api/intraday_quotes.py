@@ -7,6 +7,7 @@ import re
 from threading import Lock
 from time import monotonic
 from urllib.parse import urlencode
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 TAIPEI = timezone(timedelta(hours=8))
@@ -80,8 +81,19 @@ class MisQuotes:
                         "Referer": "https://mis.twse.com.tw/stock/index.jsp",
                     },
                 )
-                with urlopen(request, timeout=5) as response:
-                    payload = json.load(response)
+                via_tw_proxy = False
+                try:
+                    with urlopen(request, timeout=5) as response:
+                        payload = json.load(response)
+                except HTTPError as error:
+                    # Respect rate limits: 429 is not an invitation to reroute.
+                    # The Taiwan hop is a service-identity authenticated
+                    # fallback for upstream gateway/region access errors.
+                    if error.code not in {403, 500, 502, 503, 504}:
+                        raise
+                    from .tw_proxy_client import fetch_mis_via_tw_proxy
+                    payload = fetch_mis_via_tw_proxy(request.full_url)
+                    via_tw_proxy = True
                 if payload.get("rtcode") != "0000" or not isinstance(payload.get("msgArray"), list):
                     raise ValueError("MIS quote response unavailable")
                 self.market_date = max((str(row.get("d", "")) for row in payload["msgArray"]), default="")
@@ -116,6 +128,7 @@ class MisQuotes:
                         "previous_close": str(previous) if previous is not None else None,
                         "quote_at": at.isoformat(),
                         "received_at": received_at,
+                        "transport": "tw_proxy" if via_tw_proxy else "direct",
                     }
                     self.fetched_at[symbol] = now
             return {symbol: dict(self.cache[symbol]) for symbol in channels if symbol in self.cache}
