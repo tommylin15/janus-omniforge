@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "ed19da88fbe781fe5a808d091f97461b869e71c3",
-  "purpose": "Final fix for owner holdings quotes not refreshing: explicit user request may refresh MIS even after 14:30 if EOD late; keep public quote GET no polling after session; 28-second UI grace for 5+2+12-second private Taiwan hop; safe HTTP diagnostics. Full Python+Flutter GHCR gates, API only, no Jobs changes.",
+  "sha": "c9e1b72bec710a7ea2e7bb0e44e6d17b021fc007",
+  "purpose": "Final P0 fix for owner seven-position stale quotes: manual MIS refresh even outside market hours; only passive GET triggers official TPEx EOD to avoid serial 24-second delay; UI 28s private Taiwan hop; safe diagnostics; complete pinned API+Flutter Release, no Jobs/traffic write before separate candidate/promotion.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 29
+  "request_attempt": 30
 }
