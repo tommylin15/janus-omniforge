@@ -368,7 +368,12 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         authorized = os.getenv("JANUS_MIS_QUOTES_ENABLED", "false").lower() == "true"
         prices, refresh = quote_router.resolve(
             identities,
-            refresh=bool(mis) and authorized and phase == "regular",
+            # Manual refresh remains useful after the 13:30 close while
+            # the 14:30 official EOD projection is pending. Never start
+            # automatic polling outside the regular market session.
+            refresh=bool(mis) and authorized and (
+                phase == "regular" or (force and phase == "closing_pending_eod")
+            ),
             force=force, now=current,
         )
         # Official TPEx OpenAPI provides *EOD only*, never an intraday
