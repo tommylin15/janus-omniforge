@@ -1,5 +1,12 @@
 # Life／Janus 共用台灣出口（2026-10-30）
 
+## 2026-10-30｜Janus API × Life 台灣代理部署後獨立讀回：API 切換 CLOSED／PASS
+
+- Janus 官方 API 早已由 [API-only promotion #41012198081](https://github.com/tommylin15/janus-omniforge/actions/runs/41012198081) 完成一次正式切流；沒有必要為 Life Proxy 改版而重複部署既有 GHCR API image。
+- Life TLS 修復後，新的 [唯讀 Live 收據 #41015413975](https://github.com/tommylin15/janus-omniforge/actions/runs/41015413975) 驗證 Janus `janus-api-00634-nop` 是唯一 100% serving revision、`/app/build-id.txt` 為 `ea6466738d25a5f86772b34f0366e0b1fd34040f`、`JANUS_MIS_QUOTES_ENABLED=true`、Life 共用代理 `tw-activity-proxy-00011-zip` Ready、兩個明確 `roles/run.invoker` service identities、無 `allUsers`／`allAuthenticatedUsers`，未登入 Owner quote API 正確拒絕（401／403）。
+- Janus `JANUS_TW_PROXY_ENABLED` 未特別設定，使用程式預設 true；Life Proxy URL 未改變，直接指向新版代理，不需要重建 Janus candidate 或新 GCP 資源。這個功能設定推論不等於已取得 owner 的當日成交行情。
+- **本工項完成邊界**：Dev API 安全升流與跨服務目前版本／權限讀回 CLOSED／PASS；**Owner 七檔盤中即時行情／當日損益 E2E 仍是獨立 PARTIAL，尚無登入後真實資料驗收**。不能把未登入負向測試算成 Owner 正向。
+
 **最新狀態：Life 官方觀光署來源可信 TLS 連線已恢復，100% 現役 Proxy `tw-activity-proxy-00011-zip`。** 安全發布 [#41014398927](https://github.com/tommylin15/life_assistant/actions/runs/41014398927) 與正式讀回 [#41014672520](https://github.com/tommylin15/life_assistant/actions/runs/41014672520) 均 PASS；官方 ZIP 200／503922 bytes／有效，MIS、私有 IAM 與無舊 Secret PASS。先前 502、BLOCKED 內容為歷史事件。**Janus Owner 七檔盤中報價與損益驗收仍屬獨立待辦**，不因本次結案自動判 PASS。
 
 ## 目的與責任
