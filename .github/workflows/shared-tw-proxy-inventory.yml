@@ -1,0 +1,34 @@
+name: Shared TW proxy read-only inventory
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/shared-tw-proxy-inventory.yml'
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Inspect Janus caller and existing Taiwan proxy
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          project=gen-lang-client-0593591102
+          gcloud run services describe janus-api --project="$project" --region=us-central1 --format=json >/tmp/janus.json
+          jq -r '"janus_service_account=" + (.spec.template.spec.serviceAccountName // "unknown")' /tmp/janus.json
+          gcloud run services describe tw-activity-proxy --project="$project" --region=asia-east1 --format=json >/tmp/proxy.json
+          jq -r '"proxy_service_url=" + (.status.url // "unknown"),
+                 "proxy_ready=" + ([.status.conditions[]? | select(.type=="Ready") | .status] | first // "unknown"),
+                 "proxy_active_revision=" + ([.status.traffic[]? | select((.percent//0)>0) | .revisionName] | first // "unknown"),
+                 "proxy_ingress=" + (.metadata.annotations["run.googleapis.com/ingress"] // "default"),
+                 "proxy_invoker_iam_check=" + (.metadata.annotations["run.googleapis.com/invoker-iam-disabled"] // "default")' /tmp/proxy.json
+          gcloud run services get-iam-policy tw-activity-proxy --project="$project" --region=asia-east1 --format=json >/tmp/iam.json
+          jq -r '[.bindings[]? | select(.role=="roles/run.invoker") | .members[]?] | map(select(.=="allUsers" or .=="allAuthenticatedUsers")) | length | "proxy_public_invoker_count=" + tostring' /tmp/iam.json
+          jq -r '[.bindings[]? | select(.role=="roles/run.invoker") | .members[]? | select(startswith("serviceAccount:"))] | unique | .[] | "proxy_invoker=" + .' /tmp/iam.json
