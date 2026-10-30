@@ -1,5 +1,7 @@
 # Life／Janus 共用台灣出口（2026-10-30）
 
+**最新狀態：Life 官方觀光署來源可信 TLS 連線已恢復，100% 現役 Proxy `tw-activity-proxy-00011-zip`。** 安全發布 [#41014398927](https://github.com/tommylin15/life_assistant/actions/runs/41014398927) 與正式讀回 [#41014672520](https://github.com/tommylin15/life_assistant/actions/runs/41014672520) 均 PASS；官方 ZIP 200／503922 bytes／有效，MIS、私有 IAM 與無舊 Secret PASS。先前 502、BLOCKED 內容為歷史事件。**Janus Owner 七檔盤中報價與損益驗收仍屬獨立待辦**，不因本次結案自動判 PASS。
+
 ## 目的與責任
 
 - 重用 Life 現有 `tw-activity-proxy`（`gen-lang-client-0593591102`、`asia-east1`）；禁止另建同功能的付費服務、DB、Scheduler 或常駐實例。
@@ -38,3 +40,10 @@
 - Life 新 0% 候選 [#41012831462](https://github.com/tommylin15/life_assistant/actions/runs/41012831462) 對 `media.taiwan.net.tw` 返回 `tls_certificate`；GitHub runner [#41012955722](https://github.com/tommylin15/life_assistant/actions/runs/41012955722) 以 OpenSSL 驗證同網站為 PASS，不能推論各出口／CA store 相同。
 - 安全 OS CA context 測試 PASS，但候選 [#41013128130](https://github.com/tommylin15/life_assistant/actions/runs/41013128130) Life ZIP 仍 502、MIS PASS，故發布 FAIL；保留既有 Live Proxy 100% `tw-activity-proxy-00006-dep`。此來源 **PARTIAL／BLOCKED**，未擅自關閉 TLS 或新增付費資源。
 - Janus API 100% `janus-api-00634-nop` 與 private IAM 已獨立 readback PASS；Owner 7 檔本交易日 quote/損益仍需本人登入正向驗收。Janus MCP positions 的 `as_of=2026-10-29` 僅為最近已發布持股快照，不是 intraday-refresh 端點，不能據此聲稱新路徑故障或已恢復。
+
+### 2026-10-30 Life 官方 TLS 修復：CLOSED／PASS
+
+- [鏈驗證比對 #41014131479](https://github.com/tommylin15/life_assistant/actions/runs/41014131479)：嚴格 Python X.509 檢查對官方 `media.taiwan.net.tw` 回 `verify_code=86 / Missing Subject Key Identifier`，不是失去可信根 CA；[相容性探測 #41014255690](https://github.com/tommylin15/life_assistant/actions/runs/41014255690) 只取消該格式檢查的 `VERIFY_X509_STRICT` 可建立經 CA／hostname 驗證的 TLS，憑證 Issuer TWCA。
+- Life `_origin_tls_context(host)` 僅對精確觀光署主機調整舊式憑證 SKI 延伸欄位的嚴格格式判斷；MIS 與其他 Life host 保持完整嚴格模式。仍有 TLS 1.2+、CA 鏈、簽章、有效期限與 Hostname 驗證；不使用 `verify=False`，也不引入未知根憑證。專用 CI [#41014344340](https://github.com/tommylin15/life_assistant/actions/runs/41014344340) PASS。
+- [受控發布 #41014398927](https://github.com/tommylin15/life_assistant/actions/runs/41014398927)：先 0% 候選，Life ZIP／MIS 真實正向、無授權與 SSRF 負向全 PASS，之後才將 `tw-activity-proxy-00011-zip` 切至 100%。[獨立 Live readback #41014672520](https://github.com/tommylin15/life_assistant/actions/runs/41014672520)：ZIP HTTP 200／503922 bytes／有效 ZIP、MIS PASS、無公開 Invoker、原靜態憑證環境變數不存在。
+- 完成邊界：**代理讀取 Life 觀光署官方來源的可信 TLS 已修復**；Life VM 排程自身版本／下游匯入與 Janus Owner 七檔報價仍未驗，不得借此聲稱兩個應用全面驗收完成。
