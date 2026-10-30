@@ -131,9 +131,12 @@ cash_strategy（reserve／balanced／invested）、declared_cash／cash_as_of（
 
 舊 Private Iceberg summary schema 不含 `stale_price_count` 欄位（查讀為 null，不是確定值 0）。接受 `aggregate_status=available` 的根據是 deterministic `calculate_risk_marts()` 同時計算缺價與 stale 數，任何一項大於零即把 aggregate 設成 withheld；因此必須聯合核對 `missing_price_count=0`、`affected_symbol_count=0` 與總 PnL 完整，不准把缺失欄位直接填零或因不存在而誤判持股缺價。若未來要在 serving 實際顯示 `stale_price_count`，需獨立加入 Private Iceberg 的 additive schema evolution 並以同版 deployment／資料讀回驗收；目前未聲稱該欄位已發佈。P0 backend PASS 不代表最新交易日或正式 App UI 已 PASS。
 
-## 2026-10-30｜Owner 手動報價的收盤後容錯契約（Source 已提交，Live 未驗證）
+## 2026-10-30｜Owner 全非盤中時段手動報價契約（Source 已提交，Live 未驗證）
 
-- 原先 `resolve_prices` 只在 regular 呼叫 MIS，即使使用者於 13:30 後按 `POST /api/v1/me/portfolio/quotes/refresh` 仍不產生官方行情請求。現在讓 force=true 維持有界 MIS 手動查詢，原有每 10 秒節流，永遠保存來源真實交易日期，不以當日查詢時間取代報價日期；一般 GET 非 regular 不自動調 MIS。
+- **適用全部非盤中時段**：交易日 00:00–08:59、13:30–23:59、週六／週日、國定休市日／管理員設定的休市日，以及任何 `session=closed`／`closing_pending_eod`。持股畫面的「更新持股股價」明確呼叫 `POST /api/v1/me/portfolio/quotes/refresh`，`force=true` 才會嘗試官方 MIS，維持 10 秒硬節流與來源/標的 allowlist。不存在市況新報價時使用官方最近一次可核實的 `quote_at`／`price_date`；舊值必須標示 `stale`、無法確認的當日損益維持 `null`。此功能代表使用者可主動查詢最後可取得行情，**不保證休市時會有新的成交價格**。
 - Flutter 只將持股股價 API 的等待由 9 秒改為 28 秒，容納直連 5 秒失敗後的服務身分 Token 與私有台灣代理 12 秒；其他 API timeout 不變。
 - 強制 MIS 刷新不再同一 HTTP request 串行發送 TPEx OpenAPI EOD 兩階段 12 秒查詢；非強制 GET 維持 TPEx 合法 EOD handoff。TPEx ETF 未取得來源可證的當日 tick 仍必須標 stale／missing／partial，不偽造價格或當日損益。
 - 版本化測試、完整 Python/Flutter Release、GHCR pinned candidate、Dev 100% promotion、登入後七檔實測須分別保存證據；程式提交不等於 LIVE_RECOVERED。
+
+- **非盤中不輪詢 MIS**：普通 `GET /api/v1/me/portfolio/quotes`、持股頁重進或 14:30 EOD 單次讀取不會在非盤中自動觸發 MIS。維持非盤中的 cache／官方 TPEx EOD 按需讀取，與使用者按鈕的手動 MIS 獨立；沒有新增 Cloud Scheduler 或定時高頻任務。
+- **驗收矩陣**：盤前 06:10／08:59、夜間 22:15、週六 11:00、週日 03:05、管理員指定休市日 10:20，以 Owner API 模擬正負行為。每例一般 GET 必須沒有 MIS 網路呼叫，使用者 POST 必須有且僅有明確的 MIS 查詢，來源舊報價日期不改成查詢日。只有完整 Release、Dev 正式流量與實際登入後七檔讀回驗證通過，才可標記 LIVE_RECOVERED。
