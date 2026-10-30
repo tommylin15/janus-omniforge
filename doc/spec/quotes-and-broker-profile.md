@@ -131,14 +131,16 @@ cash_strategy（reserve／balanced／invested）、declared_cash／cash_as_of（
 
 舊 Private Iceberg summary schema 不含 `stale_price_count` 欄位（查讀為 null，不是確定值 0）。接受 `aggregate_status=available` 的根據是 deterministic `calculate_risk_marts()` 同時計算缺價與 stale 數，任何一項大於零即把 aggregate 設成 withheld；因此必須聯合核對 `missing_price_count=0`、`affected_symbol_count=0` 與總 PnL 完整，不准把缺失欄位直接填零或因不存在而誤判持股缺價。若未來要在 serving 實際顯示 `stale_price_count`，需獨立加入 Private Iceberg 的 additive schema evolution 並以同版 deployment／資料讀回驗收；目前未聲稱該欄位已發佈。P0 backend PASS 不代表最新交易日或正式 App UI 已 PASS。
 
-## 2026-10-30｜Owner 全非盤中時段手動報價契約（使用者操作 UAT PASS；七檔逐項驗收仍待）
+## 2026-10-30｜Owner 全非盤中手動更新與七檔行情損益（使用者完整 UAT PASS）
 
-- **2026-10-30 使用者 UAT 結果：PASS**：使用者回報正式版「非盤中手動更新，操作驗收無誤」。這是使用者實機操作確認，與 GitHub CI／API 切流收據分開標記；因未提供確切驗收時間、每個非盤中時段的實測結果或七檔逐筆來源值，不得稱全時段已逐一實測，也不代表七檔的行情日期、前收盤價、損益及 ETF 缺值已完成驗收。這些仍屬 Owner 後續整批 UAT（PARTIAL／NOT_VERIFIED），無需因本次 PASS 重複部署。
+- **2026-10-30 Owner 七檔行情與損益 UAT：使用者確認完成／CLOSED／PASS。** 繼非盤中手動刷新操作 PASS 後，使用者明確回報「七檔持股行情與損益的完整驗收，完成」。這是正式 App 的使用者操作驗收回報，不是 GitHub workflow 執行後自動生成的逐檔市場資料比對；使用者未附每檔價格、前收、漲跌、資料日期或截圖，技術面不推定已留存 7/7 machine-level price/pnl receipts。API Release、Candidate、Auth Boundary、100% Traffic 的機器證據分別為 [#41018544303](https://github.com/tommylin15/janus-omniforge/actions/runs/41018544303)、[#41022750896](https://github.com/tommylin15/janus-omniforge/actions/runs/41022750896)、[#41023923246](https://github.com/tommylin15/janus-omniforge/actions/runs/41023923246)、[#41025046594](https://github.com/tommylin15/janus-omniforge/actions/runs/41025046594)。本次只是驗收回報及文件更新，未更動應用、行情來源或現役 GCP 服務。
+
+- **2026-10-30 非盤中手動刷新使用者 UAT：PASS**：使用者先行回報正式版「非盤中手動更新，操作驗收無誤」；隨後再確認「七檔持股行情與損益的完整驗收，完成」。前者單獨確認操作功能，後者確認 Owner 七檔行情與損益 UAT 完成。未附逐時段或逐檔原始數字，因此不宣稱有獨立完整機器驗算；無須因本次操作驗收重複部署。
 
 - **適用全部非盤中時段**：交易日 00:00–08:59、13:30–23:59、週六／週日、國定休市日／管理員設定的休市日，以及任何 `session=closed`／`closing_pending_eod`。持股畫面的「更新持股股價」明確呼叫 `POST /api/v1/me/portfolio/quotes/refresh`，`force=true` 才會嘗試官方 MIS，維持 10 秒硬節流與來源/標的 allowlist。不存在市況新報價時使用官方最近一次可核實的 `quote_at`／`price_date`；舊值必須標示 `stale`、無法確認的當日損益維持 `null`。此功能代表使用者可主動查詢最後可取得行情，**不保證休市時會有新的成交價格**。
 - Flutter 只將持股股價 API 的等待由 9 秒改為 28 秒，容納直連 5 秒失敗後的服務身分 Token 與私有台灣代理 12 秒；其他 API timeout 不變。
 - 強制 MIS 刷新不再同一 HTTP request 串行發送 TPEx OpenAPI EOD 兩階段 12 秒查詢；非強制 GET 維持 TPEx 合法 EOD handoff。TPEx ETF 未取得來源可證的當日 tick 仍必須標 stale／missing／partial，不偽造價格或當日損益。
-- 版本化測試、完整 Python/Flutter Release、GHCR pinned candidate、Dev 100% promotion、登入後七檔實測須分別保存證據；程式提交不等於 LIVE_RECOVERED。
+- 版本化測試、完整 Python/Flutter Release、GHCR pinned candidate、Dev 100% promotion 已有專用 GitHub 收據；登入後七檔實際功能則以 2026-10-30 使用者確認完成的 UAT 作為驗收依據。缺逐檔原始數字及 machine-level receipts 的事實保持明列，不捏造獨立自動行情比對結果。
 
 - **非盤中不輪詢 MIS**：普通 `GET /api/v1/me/portfolio/quotes`、持股頁重進或 14:30 EOD 單次讀取不會在非盤中自動觸發 MIS。維持非盤中的 cache／官方 TPEx EOD 按需讀取，與使用者按鈕的手動 MIS 獨立；沒有新增 Cloud Scheduler 或定時高頻任務。
-- **驗收矩陣**：盤前 06:10／08:59、夜間 22:15、週六 11:00、週日 03:05、管理員指定休市日 10:20，以 Owner API 模擬正負行為。每例一般 GET 必須沒有 MIS 網路呼叫，使用者 POST 必須有且僅有明確的 MIS 查詢，來源舊報價日期不改成查詢日。只有完整 Release、Dev 正式流量與實際登入後七檔讀回驗證通過，才可標記 LIVE_RECOVERED。
+- **驗收矩陣**：盤前 06:10／08:59、夜間 22:15、週六 11:00、週日 03:05、管理員指定休市日 10:20，以 Owner API 模擬正負行為。每例一般 GET 必須沒有 MIS 網路呼叫，使用者 POST 必須有且僅有明確的 MIS 查詢，來源舊報價日期不改成查詢日。完整 Release 與 Dev 100% 流量收據已 PASS，登入 Owner 的七檔行情與損益完整 UAT 已由使用者確認 PASS；後續如需逐檔價格的機器級稽核，應另立驗證，不回頭把人工驗收改寫成不存在的自動收據。
