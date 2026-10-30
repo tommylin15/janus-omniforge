@@ -62,6 +62,30 @@ jobs:
                   counts[found.group(1)] += 1
           print('quote_error_classes=' + (','.join(f'{key}:{value}' for key, value in sorted(counts.items())) or 'unclassified'))
           PY
+      - name: Read bounded recent 2-hour quote error diagnostics without owner data
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -Eeuo pipefail
+          since="$(date -u -d '2 hours ago' '+%Y-%m-%dT%H:%M:%SZ')"
+          filter="resource.type=\\\"cloud_run_revision\\\" AND resource.labels.service_name=\\\"janus-api\\\" AND timestamp>=\\\"$since\\\" AND (textPayload:\\\"quote refresh\\\" OR jsonPayload.message:\\\"quote refresh\\\")"
+          gcloud logging read "$filter" --project=gen-lang-client-0593591102 --limit=50 --format=json >/tmp/quote-recent.json
+          python - <<'PY'
+          import json,re,collections
+          arr=json.load(open('/tmp/quote-recent.json'))
+          counts=collections.Counter()
+          for row in arr:
+              message=(row.get('textPayload') or (row.get('jsonPayload') or {}).get('message') or '')
+              if 'quote refresh yielded no accepted rows' in message:
+                  counts['no_accepted_rows']+=1
+              if 'quote refresh unavailable' in message:
+                  matched=re.search(r'quote refresh unavailable:\\s*([A-Za-z_]+)',message)
+                  counts['exception_'+(matched.group(1) if matched else 'unknown')]+=1
+                  status=re.search(r'http_status=(\\d{3})',message)
+                  if status:
+                      counts['http_'+status.group(1)]+=1
+          print('last_2h_quote_diagnostics='+str(dict(sorted(counts.items()))))
+          PY
       - name: Probe MIS public API from CI network (diagnostic only; not GCP)
         shell: bash
         continue-on-error: true
