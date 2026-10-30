@@ -1,6 +1,8 @@
 # Janus — 唯一 Active TODO
 
-## P0｜Owner 七檔持股股價未更新／全部非盤中手動刷新｜SOURCE FIX，LIVE_NOT_RECOVERED
+## P0｜Owner 七檔持股行情｜非盤中手動 UAT PASS；全七檔行情 PARTIAL
+
+- [x] **2026-10-30｜使用者操作驗收：非盤中手動更新 PASS。** 使用者在正式 App 實際操作並回報「非盤中手動更新，操作驗收無誤」。此為使用者提供的正向 UAT 收據，已可結束此操作功能的待驗事項；沒有記錄確切測試時刻、各時段逐一測試或每檔來源價格，故不自行推定盤前、週末、休市日均已逐一實測。既有 Python/Flutter CI、API-only 100% Release 證據獨立保留。**七檔持股最新報價／price_date／previous_close／當日損益／缺值逐檔驗收仍為 PARTIAL／NOT_VERIFIED。**
 
 - **2026-10-30 API-only 正式切流：CLOSED／PASS**：[完整 Release #41018544303](https://github.com/tommylin15/janus-omniforge/actions/runs/41018544303)、[0% Candidate #41022750896](https://github.com/tommylin15/janus-omniforge/actions/runs/41022750896)、[OAuth／Private Boundary #41023923246](https://github.com/tommylin15/janus-omniforge/actions/runs/41023923246) 和 [API-only promotion #41025046594](https://github.com/tommylin15/janus-omniforge/actions/runs/41025046594) 全部 PASS。GHCR `sha256:e8f86fbc258def1e185e3d2f5d10408bdf0c3e924929f4776c793c9b70ae9369`、正式 100% revision `janus-api-00636-lek`、來源 `1bed368a66e8fdcd2eb61e99d1b9b6921edd0ae6`；上一版 `janus-api-00634-nop`／SHA `ea6466738d25a5f86772b34f0366e0b1fd34040f` 保留作可回復基準。原始 artifact 記錄 `phase=PASS_API_ONLY_100_PERCENT`、`lease_released=true`、Jobs／Scheduler／storage／IAM 全部 `mutated=false`；direct promotion 未執行 rollback rehearsal，不能稱回復演練 PASS。**使用者明確指定先切流、稍後一併 Owner 驗收：七檔實際價格／日期／前收盤／損益及登入後 UI 仍為 NOT_VERIFIED／PARTIAL，不得聲稱行情已恢復。**
 
