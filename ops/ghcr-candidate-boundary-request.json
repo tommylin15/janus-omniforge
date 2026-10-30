@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "ea6466738d25a5f86772b34f0366e0b1fd34040f",
+  "sha": "1bed368a66e8fdcd2eb61e99d1b9b6921edd0ae6",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Shared Taiwan proxy MIS private service-identity candidate; Release #41010601470 PASS and 0%-candidate #41011762417 PASS; verify exact candidate authorization and build-id read-only.",
-  "request_attempt": 25
+  "purpose": "Read-only OAuth metadata, private Owner/Admin API denial, MCP challenge and build SHA on Janus 0%-traffic candidate ghcr-1bed368a66e8. Candidate #41022750896 PASS, full GHCR Release #41018544303 PASS. Keep existing API 100% unchanged, no Jobs/Scheduler or IAM mutation; not a logged-in owner seven-holdings positive test.",
+  "request_attempt": 26
 }
