@@ -1,5 +1,14 @@
 # Janus — 唯一 Active TODO
 
+## P0｜Owner 七檔持股股價未更新｜SOURCE FIX，LIVE_NOT_RECOVERED
+
+- **真實回報**：台灣私有 Proxy 與 Janus API 已部署但 Owner 七檔價格仍未更新；Proxy MIS 200 不是 Owner 實際更新成功。
+- **根因一**：`resolve_prices` 原僅 regular 時段 refresh；13:30 後手動按更新原本仍不打 MIS。已修改 force=true 在任何 session 可走有界 MIS，保留每 10 秒節流，不冒充 EOD 或當日未有的交易值；被動 GET 仍只在 regular 自動抓 MIS。
+- **根因二**：Flutter 持股 `refreshQuotes` 原等 9 秒，但 GCP MIS 直連 5 秒後私有台灣代理 12 秒，導致前端先逾時；已限改持股行情請求為 28 秒。
+- **根因三**：手動 MIS 失敗備援後，API 可能接著串行執行 TPEx 每段 12 秒官方 EOD，超過 UI 時限。已在 force 路徑跳過同次 TPEx EOD，僅非強制 GET 執行官方 EOD handoff。B ETF 不可假造盤中價。
+- **驗證**：追加收盤後手動更新／10 秒節流／14:30 後／TPEx 不串行回歸測試；只記錄來源 HTTP status、成功筆數的安全診斷。[唯讀診斷 #41017222188](https://github.com/tommylin15/janus-omniforge/actions/runs/41017222188) 說明舊 7 筆 HTTPError 均屬原始時段；06:08Z 新 API 切流後沒有相同錯誤訊息，並不代表成功取得報價。
+- **完成門檻**：完整 Python＋Flutter GHCR Release → 既有 0% candidate → OAuth/private boundary → API-only Dev promotion 與真正 build/revision 讀回 → Owner 授權登入並實測七檔最新報價、價格日期、前收盤、當日損益／ETF 欠缺值語意。尚無這些 Live 正向收據，維持 PARTIAL，不把 CI 當結案。
+
 ## P0｜Life／Janus 共用台灣出口：安全接線與 Live 驗收｜PARTIAL
 
 - 2026-10-30 使用者一次性核准 Life／Janus 既有 dev 跨專案工程；不得新增獨立代理或付費資源。架構、安全及驗收依 [共用出口 SPEC](spec/shared-taiwan-egress.md)。
