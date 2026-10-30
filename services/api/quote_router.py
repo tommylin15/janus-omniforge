@@ -188,6 +188,13 @@ class QuoteRouter:
                     "source": "twse_mis",
                     "route_version": ROUTE_VERSION,
                 }
+            if not successful:
+                # Bounded operational counts only: no symbols, owner IDs,
+                # source bodies, token content or private holdings in logs.
+                LOGGER.warning(
+                    "quote refresh yielded no accepted rows: requested=%d parsed=%d",
+                    len(due), len(rows),
+                )
             if successful:
                 writer = getattr(self.repository, "save_last_quotes", None)
                 if writer is None:
@@ -195,7 +202,13 @@ class QuoteRouter:
                 writer(successful)
             return {"status": "updated" if successful else "unavailable", "requested": len(due), "updated": len(successful)}
         except Exception as error:
-            LOGGER.warning("quote refresh unavailable: %s", type(error).__name__)
+            # Preserve the HTTP *status* when the direct/proxy source fails.
+            # Never log the URL, raw body or exception string (which could
+            # expose account details or service tokens).
+            from urllib.error import HTTPError
+            code = error.code if isinstance(error, HTTPError) else None
+            LOGGER.warning("quote refresh unavailable: %s http_status=%s",
+                           type(error).__name__, code if code is not None else "none")
             return {"status": "unavailable", "requested": len(due), "updated": 0}
 
 
