@@ -378,7 +378,12 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         # Official TPEx OpenAPI provides *EOD only*, never an intraday
         # tick. A single owner-demand batch after the EOD handoff is enough;
         # existing last-success stays visible when that source is blocked.
-        if phase != "regular":
+        # A forced Owner request may already include a 5s MIS direct
+        # attempt + the private Taiwan proxy fallback. Do not serially add
+        # up to two 12s TPEx EOD probes to that interactive request and
+        # cause the UI to timeout. The next non-forced GET performs the
+        # independent official TPEx EOD handoff.
+        if phase != "regular" and not force:
             tpex = quote_router.refresh_tpex(identities, now=current)
             if tpex["updated"]:
                 prices = quote_router.read(identities, now=current)
