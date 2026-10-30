@@ -1,17 +1,19 @@
 # Janus — 唯一 Active TODO
 
-## P0｜Owner 七檔持股行情｜非盤中手動 UAT PASS；全七檔行情 PARTIAL
+## P0｜Owner 七檔持股行情與損益｜使用者完整 UAT CLOSED／PASS（2026-10-30）
 
-- [x] **2026-10-30｜使用者操作驗收：非盤中手動更新 PASS。** 使用者在正式 App 實際操作並回報「非盤中手動更新，操作驗收無誤」。此為使用者提供的正向 UAT 收據，已可結束此操作功能的待驗事項；沒有記錄確切測試時刻、各時段逐一測試或每檔來源價格，故不自行推定盤前、週末、休市日均已逐一實測。既有 Python/Flutter CI、API-only 100% Release 證據獨立保留。**七檔持股最新報價／price_date／previous_close／當日損益／缺值逐檔驗收仍為 PARTIAL／NOT_VERIFIED。**
+- [x] **2026-10-30｜使用者確認：七檔持股行情與損益完整驗收完成（Owner UAT PASS）。** 使用者於正式 API-only 100% 發布、非盤中手動刷新 UAT PASS 後，明確回報「七檔持股行情與損益的完整驗收，完成」。本工項按**使用者操作驗收結果**結案，涵蓋七檔持股行情與損益的 Owner 功能驗收，不重新部署、不執行額外輪詢。實際逐檔 quote_at、price_date、previous_close、day-change、aggregate coverage 的原始數字／驗收截圖未附於該回報，因此**不宣稱已另取得七檔逐筆自動讀回或市場資料完整率的機器收據**；原本技術發布的證據仍以 GHCR Actions 與 Cloud Run 收據為準。
 
-- **2026-10-30 API-only 正式切流：CLOSED／PASS**：[完整 Release #41018544303](https://github.com/tommylin15/janus-omniforge/actions/runs/41018544303)、[0% Candidate #41022750896](https://github.com/tommylin15/janus-omniforge/actions/runs/41022750896)、[OAuth／Private Boundary #41023923246](https://github.com/tommylin15/janus-omniforge/actions/runs/41023923246) 和 [API-only promotion #41025046594](https://github.com/tommylin15/janus-omniforge/actions/runs/41025046594) 全部 PASS。GHCR `sha256:e8f86fbc258def1e185e3d2f5d10408bdf0c3e924929f4776c793c9b70ae9369`、正式 100% revision `janus-api-00636-lek`、來源 `1bed368a66e8fdcd2eb61e99d1b9b6921edd0ae6`；上一版 `janus-api-00634-nop`／SHA `ea6466738d25a5f86772b34f0366e0b1fd34040f` 保留作可回復基準。原始 artifact 記錄 `phase=PASS_API_ONLY_100_PERCENT`、`lease_released=true`、Jobs／Scheduler／storage／IAM 全部 `mutated=false`；direct promotion 未執行 rollback rehearsal，不能稱回復演練 PASS。**使用者明確指定先切流、稍後一併 Owner 驗收：七檔實際價格／日期／前收盤／損益及登入後 UI 仍為 NOT_VERIFIED／PARTIAL，不得聲稱行情已恢復。**
+- [x] **2026-10-30｜使用者操作驗收：非盤中手動更新 PASS。** 使用者在正式 App 實際操作並回報「非盤中手動更新，操作驗收無誤」。此為使用者提供的正向 UAT 收據，已可結束此操作功能的待驗事項；沒有記錄確切測試時刻、各時段逐一測試或每檔來源價格，故不自行推定盤前、週末、休市日均已逐一實測。既有 Python/Flutter CI、API-only 100% Release 證據獨立保留。**七檔持股行情／損益已於後續使用者完整 UAT 回報中確認完成；本次較早的待驗說明僅作歷史範圍紀錄。**
+
+- **2026-10-30 API-only 正式切流：CLOSED／PASS**：[完整 Release #41018544303](https://github.com/tommylin15/janus-omniforge/actions/runs/41018544303)、[0% Candidate #41022750896](https://github.com/tommylin15/janus-omniforge/actions/runs/41022750896)、[OAuth／Private Boundary #41023923246](https://github.com/tommylin15/janus-omniforge/actions/runs/41023923246) 和 [API-only promotion #41025046594](https://github.com/tommylin15/janus-omniforge/actions/runs/41025046594) 全部 PASS。GHCR `sha256:e8f86fbc258def1e185e3d2f5d10408bdf0c3e924929f4776c793c9b70ae9369`、正式 100% revision `janus-api-00636-lek`、來源 `1bed368a66e8fdcd2eb61e99d1b9b6921edd0ae6`；上一版 `janus-api-00634-nop`／SHA `ea6466738d25a5f86772b34f0366e0b1fd34040f` 保留作可回復基準。原始 artifact 記錄 `phase=PASS_API_ONLY_100_PERCENT`、`lease_released=true`、Jobs／Scheduler／storage／IAM 全部 `mutated=false`；direct promotion 未執行 rollback rehearsal，不能稱回復演練 PASS。**本行為部署時點的待驗記錄；之後使用者已確認七檔行情與損益完整 UAT 完成。逐檔原始數字未另外納入機器收據，不以部署收據取代 UAT。**
 
 - **真實回報**：台灣私有 Proxy 與 Janus API 已部署但 Owner 七檔價格仍未更新；Proxy MIS 200 不是 Owner 實際更新成功。
 - **已核對符合新決策（全部非盤中時段）**：`resolve_prices` 現在使用 `phase == regular or force`；使用者手動 POST 可在盤前、盤後、夜間、週末、指定休市日嘗試官方最後可取得的 MIS 報價（含 10 秒硬節流），但非盤中的普通 GET 不自動呼叫 MIS，也不新增高頻 Scheduler。休市沒有新交易時只可呈現最後來源日期與 `stale`／缺值，不能用查詢時間冒充最新成交。新增盤前、夜間、週末、休市日的正負回歸測試。
 - **根因二**：Flutter 持股 `refreshQuotes` 原等 9 秒，但 GCP MIS 直連 5 秒後私有台灣代理 12 秒，導致前端先逾時；已限改持股行情請求為 28 秒。
 - **根因三**：手動 MIS 失敗備援後，API 可能接著串行執行 TPEx 每段 12 秒官方 EOD，超過 UI 時限。已在 force 路徑跳過同次 TPEx EOD，僅非強制 GET 執行官方 EOD handoff。B ETF 不可假造盤中價。
 - **驗證**：追加收盤後手動更新／10 秒節流／14:30 後／TPEx 不串行回歸測試；只記錄來源 HTTP status、成功筆數的安全診斷。[唯讀診斷 #41017222188](https://github.com/tommylin15/janus-omniforge/actions/runs/41017222188) 說明舊 7 筆 HTTPError 均屬原始時段；06:08Z 新 API 切流後沒有相同錯誤訊息，並不代表成功取得報價。
-- **完成門檻**：完整 Python＋Flutter GHCR Release → 既有 0% candidate → OAuth/private boundary → API-only Dev promotion 與真正 build/revision 讀回 → Owner 授權登入並實測七檔最新報價、價格日期、前收盤、當日損益／ETF 欠缺值語意。尚無這些 Live 正向收據，維持 PARTIAL，不把 CI 當結案。
+- **結案來源**：完整 Python＋Flutter GHCR Release → 0% candidate → OAuth/private boundary → API-only 100% promotion 已有 Actions/runtime 收據；Owner 七檔行情與損益 UAT 已由使用者於 2026-10-30 確認完成。未附逐檔行情、損益機器讀回或截圖，故僅結案**使用者功能驗收範圍**，不得冒充獨立的逐檔資料稽核報告。
 
 ## P0｜Life／Janus 共用台灣出口：安全接線與 Live 驗收｜PARTIAL
 
@@ -23,17 +25,17 @@
 - [x] Janus 完整 Release [#41010601470](https://github.com/tommylin15/janus-omniforge/actions/runs/41010601470)、0% candidate [#41011762417](https://github.com/tommylin15/janus-omniforge/actions/runs/41011762417)、Auth boundary [#41012042952](https://github.com/tommylin15/janus-omniforge/actions/runs/41012042952)、API-only Dev promotion [#41012198081](https://github.com/tommylin15/janus-omniforge/actions/runs/41012198081) 全 PASS。部署後唯讀 [#41012409231](https://github.com/tommylin15/janus-omniforge/actions/runs/41012409231)：100% API revision `janus-api-00634-nop`、build SHA `ea6466738d25a5f86772b34f0366e0b1fd34040f`、MIS flag true、代理仍 private、Life/Janus Invoker 確認。
 - [x] Life 官方觀光署來源 TLS **CLOSED／LIVE PASS**：根因嚴格 Python X.509 code 86 缺少 SKI，僅官方 hostname 做精確相容，CA/hostname 保留；[Life 安全發布 #41014398927](https://github.com/tommylin15/life_assistant/actions/runs/41014398927) 與 [正式讀回 #41014672520](https://github.com/tommylin15/life_assistant/actions/runs/41014672520) PASS，100% `tw-activity-proxy-00011-zip`，ZIP HTTP 200／503922 bytes／有效、MIS/私有 IAM PASS。Life VM 排程與匯入另待驗；舊 502／BLOCKED 只是歷史階段。
 - [x] **Janus API 切換與 Life 新 Proxy 正式對接：CLOSED／PASS。** [API-only promotion #41012198081](https://github.com/tommylin15/janus-omniforge/actions/runs/41012198081) 已將固定 GHCR source `ea6466738d25a5f86772b34f0366e0b1fd34040f` 切至正式 100%；Life TLS 新版代理上線後 [唯讀驗收 #41015413975](https://github.com/tommylin15/janus-omniforge/actions/runs/41015413975) 確認 Janus `janus-api-00634-nop` 100% Ready、MIS 啟用、Life `tw-activity-proxy-00011-zip` Ready、Janus/Life 指定 IAM、匿名持股 API 拒絕及 public Invoker 0。既有服務地址不變，不需重新部署 Janus 或建立新資源；不取代 Owner 盤中七檔正向驗收。
-- [ ] **Janus Owner 盤中正向驗收**：使用本人登入／真實市場來源確認七檔持股價格日期、previous close、day-change 與缺值/盤中 UI。Janus API 版本與 Life 官方 ZIP 已恢復不等於七檔 Owner 情境已驗證；Life VM 的活動來源定時任務及下游匯入另列驗收。
+- [x] **Janus Owner 七檔行情與損益完整操作驗收：使用者 UAT PASS（2026-10-30）**。使用者已確認驗收完成；未提供每檔來源與數字的獨立機器讀回，不假裝已有。Life VM 活動來源定時任務與下游匯入仍屬不同工作線，不因 Janus UAT 結案而被標記 PASS。
 
 
-## P0｜持股盤中行情 HTTPError（2026-10-30）｜PARTIAL／LIVE_NOT_RECOVERED
+## 歷史事件｜持股盤中行情 HTTPError（2026-10-30）｜原故障紀錄；後續 Owner UAT CLOSED／PASS
 
 - **真實異常**：2026-10-30 13:13 Asia/Taipei 使用者持股頁仍顯示 2026-10-29 上市股收盤價格，當日損益全數「待行情」；Owner 已保存價格日期由 Janus MCP 唯讀核對。不能把 UI `checked_at` 誤作行情時間。
 - **Dev 證據**：Cloud Run 100% serving revision `janus-api-00627-yox` Ready，`JANUS_MIS_QUOTES_ENABLED=true`；[read-only run #41008292453](https://github.com/tommylin15/janus-omniforge/actions/runs/41008292453) 查到 2026-10-30 UTC 零時之後 7 筆 `quote refresh unavailable: HTTPError`；從 GitHub runner 向相同官方 MIS endpoint 試探取得 HTTP 200、`rtcode=0000`。**不能從 CI 可達推論 Cloud Run 可達**；實際 HTTP status 與原因尚缺，不能判成功修復。
 - **已完成局部修正**：Flutter 持股頁將「查詢時間」與真正價格日期分離，顯示來源未啟用／刷新失敗／部分標的未取得今日報價；Flutter 測試與 CI [#41007790393](https://github.com/tommylin15/janus-omniforge/actions/runs/41007790393) PASS。此時尚未在 GCP live 發布該 UI。
 - [ ] **查明 Cloud Run outbound MIS HTTP status**（403／429／5xx 等），使用唯讀且不揭露 OAuth、Owner 資料或外部 raw payload 的方法；先排除暫時性 HTTP 錯誤與原始 API 授權政策，再決定有界重試／現役合法行情路由。不得以錯誤日期或未驗證第三方假造盤中價格。
-- [ ] **正向恢復驗收**：同一正式 Dev 來源取得本交易日的真實 quote timestamp、source、price_date（上市及實際可支持的上櫃／ETF 分開）；持股 API `refresh_status`、`updated`、前收盤價、當日損益、aggregate coverage 正確，並以 Owner 授權頁面實機驗證；真價不可覆寫 Core EOD 或原交易帳本。
-- [ ] 完成版本化 CI／Release、Dev traffic／image readback、Owner runtime acceptance 與必要文件更新後才標記 CLOSED／PASS。若官方 MIS 對 Cloud Run 明確拒絕，自動切換至另一供應者前先確認 source authorization、成本與資料語意。
+- [x] **Owner 實際功能正向驗收**：使用者 2026-10-30 回報七檔持股行情及損益完整驗收完成，按本人 UAT 確認結案。此項不聲稱逐檔 API 回應、price_date/source/損益數字已獨立保存於技術收據；先前故障及來源日期相關診斷保留歷史紀錄。
+- [x] CI／Release、Dev API 100% traffic/image/readback 有固定 Actions 收據；Owner UAT 已由使用者回報完成。**狀態限定**：實際操作結果 PASS，不補造獨立逐檔 raw quote 收據；任何未來新發的官方 MIS 403/429/5xx 應作新事件處理，既有 429 不繞過規則維持。
 
 
 ## 架構優化清單（Architecture Optimizations）
