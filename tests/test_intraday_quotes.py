@@ -148,7 +148,9 @@ def test_manual_owner_quote_refresh_works_during_closing_eod_handoff():
     api = TestClient(create_app(repo, Store(), lambda *_: claims, audience="user-client",
                                 quotes=source, admin_service=Calendar()))
     with patch("services.api.app.datetime", FrozenDateTime), \
-         patch.dict("os.environ", {"JANUS_MIS_QUOTES_ENABLED": "true"}):
+         patch.dict("os.environ", {"JANUS_MIS_QUOTES_ENABLED": "true"}), \
+         patch("services.api.quote_router.QuoteRouter.refresh_tpex",
+               return_value={"status": "idle", "requested": 0, "updated": 0}) as tpex_calls:
         passive = api.get("/api/v1/me/portfolio/quotes", headers=auth())
         assert passive.status_code == 200
         assert source.calls == 0
@@ -158,6 +160,9 @@ def test_manual_owner_quote_refresh_works_during_closing_eod_handoff():
         assert manual.json()["positions"][0]["market_price"] == "102.5"
         assert source.calls == 1
         assert manual.json()["positions"][0]["quote_state"] == "closing_pending_eod"
+        # Non-force GET is the EOD handoff; manual POST does not serially
+        # block on TPEx's pair of 12s official endpoints.
+        assert tpex_calls.call_count == 1
         # Repeat manual call within 10-second persistent throttle is a no-op.
         api.post("/api/v1/me/portfolio/quotes/refresh", json={}, headers=auth())
         assert source.calls == 1
@@ -170,3 +175,4 @@ def test_manual_owner_quote_refresh_works_during_closing_eod_handoff():
         assert source.calls == 2
         assert late.json()["positions"][0]["price_date"] == "2026-10-30"
         assert late.json()["positions"][0]["quote_state"] == "closing_pending_eod"
+        assert tpex_calls.call_count == 1
