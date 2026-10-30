@@ -49,3 +49,36 @@ jobs:
           set -Eeuo pipefail
           gcloud logging read             'resource.type="cloud_run_revision" AND resource.labels.service_name="janus-api" AND timestamp>="2026-10-30T00:00:00Z" AND (textPayload:"quote refresh unavailable" OR jsonPayload.message:"quote refresh unavailable" OR textPayload:"latest price resolver unavailable")'             --project=gen-lang-client-0593591102 --limit=50 --format=json > /tmp/quote-errors.json
           jq -r 'length | "recent_quote_error_records=\(.)"' /tmp/quote-errors.json
+          python - <<'PY'
+          import collections
+          import json
+          import re
+          rows = json.load(open('/tmp/quote-errors.json'))
+          counts = collections.Counter()
+          for row in rows:
+              message = row.get('textPayload') or (row.get('jsonPayload') or {}).get('message') or ''
+              found = re.search(r'quote refresh unavailable:\\s*([A-Za-z_][A-Za-z0-9_]*)', str(message))
+              if found:
+                  counts[found.group(1)] += 1
+          print('quote_error_classes=' + (','.join(f'{key}:{value}' for key, value in sorted(counts.items())) or 'unclassified'))
+          PY
+      - name: Probe MIS public API from CI network (diagnostic only; not GCP)
+        shell: bash
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import json
+          from urllib.error import HTTPError, URLError
+          from urllib.request import Request, urlopen
+          url = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_2382.tw&json=1&delay=0'
+          req = Request(url, headers={'User-Agent':'JanusPersonalResearch/1.0','Referer':'https://mis.twse.com.tw/stock/index.jsp'})
+          try:
+              with urlopen(req, timeout=6) as response:
+                  payload = json.load(response)
+                  rows = payload.get('msgArray')
+                  print('ci_mis_http=', response.status, 'rtcode=', payload.get('rtcode'), 'row_count=', len(rows) if isinstance(rows,list) else 'invalid')
+          except HTTPError as e:
+              print('ci_mis_error_class=HTTPError; http_status=', e.code)
+          except (URLError, ValueError, OSError) as e:
+              print('ci_mis_error_class=', type(e).__name__)
+          PY
