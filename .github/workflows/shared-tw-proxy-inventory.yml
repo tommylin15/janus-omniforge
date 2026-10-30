@@ -29,6 +29,10 @@ jobs:
           live_sha="$(curl -fsS --max-time 15 "$base/app/build-id.txt")"
           [[ "$live_sha" =~ ^[0-9a-f]{40}$ ]]
           echo "janus_live_source_sha=$live_sha"
+          # Live negative authorization check; never touch Owner sessions.
+          quote_http="$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' "$base/api/v1/me/portfolio/quotes")"
+          test "$quote_http" = "401" -o "$quote_http" = "403"
+          echo "janus_owner_quote_anonymous_denied=PASS"
           jq -r '"janus_mis_enabled=" + ([.spec.template.spec.containers[]?.env[]? | select(.name=="JANUS_MIS_QUOTES_ENABLED") | .value] | first // "unset"),
                  "janus_proxy_fallback=" + ([.spec.template.spec.containers[]?.env[]? | select(.name=="JANUS_TW_PROXY_ENABLED") | .value] | first // "default")' /tmp/janus.json
           jq -e '[.status.traffic[]? | select((.percent//0)>0)] | length==1 and .[0].percent==100' /tmp/janus.json
@@ -41,5 +45,11 @@ jobs:
           gcloud run services get-iam-policy tw-activity-proxy --project="$project" --region=asia-east1 --format=json >/tmp/iam.json
           jq -r '[.bindings[]? | select(.role=="roles/run.invoker") | .members[]?] | map(select(.=="allUsers" or .=="allAuthenticatedUsers")) | length | "proxy_public_invoker_count=" + tostring' /tmp/iam.json
           jq -r '[.bindings[]? | select(.role=="roles/run.invoker") | .members[]? | select(startswith("serviceAccount:"))] | unique | .[] | "proxy_invoker=" + .' /tmp/iam.json
+          jq -e '[.bindings[]? | select(.role=="roles/run.invoker") | .members[]?] as $members |
+              ($members | index("allUsers") == null) and
+              ($members | index("allAuthenticatedUsers") == null) and
+              ($members | index("serviceAccount:janus-user-api@gen-lang-client-0593591102.iam.gserviceaccount.com") != null) and
+              ($members | index("serviceAccount:postgres-vm@gen-lang-client-0593591102.iam.gserviceaccount.com") != null)' /tmp/iam.json
+          echo "private_shared_proxy_invokers=PASS"
 
 # Recheck after Life proxy source release; audit current IAM only.
