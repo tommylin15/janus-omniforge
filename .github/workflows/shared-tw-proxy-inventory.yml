@@ -23,6 +23,12 @@ jobs:
           project=gen-lang-client-0593591102
           gcloud run services describe janus-api --project="$project" --region=us-central1 --format=json >/tmp/janus.json
           jq -r '"janus_service_account=" + (.spec.template.spec.serviceAccountName // "unknown")' /tmp/janus.json
+          echo "janus_active_revision=$(jq -r '[.status.traffic[]? | select((.percent // 0)>0) | .revisionName] | first // "unknown"' /tmp/janus.json)"
+          base="$(jq -r '.status.url // empty' /tmp/janus.json)"
+          test -n "$base"
+          live_sha="$(curl -fsS --max-time 15 "$base/app/build-id.txt")"
+          [[ "$live_sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "janus_live_source_sha=$live_sha"
           gcloud run services describe tw-activity-proxy --project="$project" --region=asia-east1 --format=json >/tmp/proxy.json
           jq -r '"proxy_service_url=" + (.status.url // "unknown"),
                  "proxy_ready=" + ([.status.conditions[]? | select(.type=="Ready") | .status] | first // "unknown"),
