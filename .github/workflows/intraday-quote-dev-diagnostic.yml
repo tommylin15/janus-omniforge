@@ -57,7 +57,7 @@ jobs:
           counts = collections.Counter()
           for row in rows:
               message = row.get('textPayload') or (row.get('jsonPayload') or {}).get('message') or ''
-              found = re.search(r'quote refresh unavailable:\\s*([A-Za-z_][A-Za-z0-9_]*)', str(message))
+              found = re.search(r'quote refresh unavailable:\s*([A-Za-z_][A-Za-z0-9_]*)', str(message))
               if found:
                   counts[found.group(1)] += 1
           print('quote_error_classes=' + (','.join(f'{key}:{value}' for key, value in sorted(counts.items())) or 'unclassified'))
