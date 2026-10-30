@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "4393543ccd02a4951e97354bd13d14a29f517759",
+  "sha": "ea6466738d25a5f86772b34f0366e0b1fd34040f",
   "digest": "",
-  "release_run": "40839307433",
+  "release_run": "41010601470",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "已驗證快取EOD也產生真實Core收據：完整Release40839307433成功，建立同來源0%候選。",
-  "request_attempt": 28
+  "purpose": "Life shared Taiwan egress recovery: full GHCR release 41010601470 SUCCESS. Build 0%-traffic Janus API candidate; no Jobs, Scheduler or traffic changes.",
+  "request_attempt": 29
 }
