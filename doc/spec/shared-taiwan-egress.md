@@ -25,3 +25,10 @@
 - Janus fallback：`services/api/tw_proxy_client.py` 和 `services/api/intraday_quotes.py`，環境 `JANUS_TW_PROXY_ENABLED` 可停用，預設只在原官方來源允許的 HTTPError 時嘗試。
 - Life Proxy：`services/tw_activity_proxy/main.py`；Life caller：`backend/app/services/tw_request_router.py`。
 - Life 的一次性受控發布：`.github/workflows/shared-tw-proxy-release.yml`；未完成真實 smoke 前不得切流量。
+
+## 2026-10-30 Live 交付狀態
+
+- Proxy：Life `asia-east1` 既有服務安全發布 [#41010462296](https://github.com/tommylin15/life_assistant/actions/runs/41010462296) PASS，100% `tw-activity-proxy-00006-dep`、MIS private request 200/rtcode 0000、SSRF 負向與未登入拒絕 PASS。授予 Janus API 本身的 Cloud Run Invoker，無 public Invoker。
+- Janus API：完整 GHCR [#41010601470](https://github.com/tommylin15/janus-omniforge/actions/runs/41010601470)、0% 候選 [#41011762417](https://github.com/tommylin15/janus-omniforge/actions/runs/41011762417)、auth boundary [#41012042952](https://github.com/tommylin15/janus-omniforge/actions/runs/41012042952)、可回復 API-only promotion [#41012198081](https://github.com/tommylin15/janus-omniforge/actions/runs/41012198081) PASS；後讀回 [#41012409231](https://github.com/tommylin15/janus-omniforge/actions/runs/41012409231) 100% revision `janus-api-00634-nop`、source SHA `ea6466738d25a5f86772b34f0366e0b1fd34040f`、`JANUS_MIS_QUOTES_ENABLED=true`。
+- Life 官方觀光署來源 `media.taiwan.net.tw` 在新版私有代理仍回 `502 upstream_unavailable / ConnectError`；保護性新候選 [#41011718029](https://github.com/tommylin15/life_assistant/actions/runs/41011718029) 因未通過 Life 正向資料門檻而 FAIL，不改現役流量。不允許使用 `verify=False` 解除 TLS 安全限制。
+- **維持 PARTIAL**：Janus 真正七檔持股本日行情及 day-change 的 OAuth Owner E2E 尚未取得；Life 活動 ZIP 正向及 Life VM 新 Client 實際任務未驗。每個來源需獨立成功證據，勿把 Cloud Run Ready 或 MIS 測通稱為全部來源可用。
