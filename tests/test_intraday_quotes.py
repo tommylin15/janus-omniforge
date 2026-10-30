@@ -161,3 +161,12 @@ def test_manual_owner_quote_refresh_works_during_closing_eod_handoff():
         # Repeat manual call within 10-second persistent throttle is a no-op.
         api.post("/api/v1/me/portfolio/quotes/refresh", json={}, headers=auth())
         assert source.calls == 1
+        # After 14:30 a late EOD projection must not disable explicit owner
+        # refresh. MIS still carries its actual trade date (not a fake EOD).
+        now = datetime(2026, 10, 30, 15, 10, tzinfo=TAIPEI)
+        late = api.post("/api/v1/me/portfolio/quotes/refresh", json={}, headers=auth())
+        assert late.status_code == 200
+        assert late.json()["refresh_status"] == "updated"
+        assert source.calls == 2
+        assert late.json()["positions"][0]["price_date"] == "2026-10-30"
+        assert late.json()["positions"][0]["quote_state"] == "closing_pending_eod"
