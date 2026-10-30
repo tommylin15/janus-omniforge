@@ -1,0 +1,53 @@
+name: Janus intraday quote dev diagnostic
+on:
+  push:
+    paths:
+      - '.github/workflows/intraday-quote-dev-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read effective live service config without printing secrets
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          project=gen-lang-client-0593591102
+          region=us-central1
+          gcloud run services describe janus-api --project="$project" --region="$region" --format=json >/tmp/svc.json
+          revision="$(jq -r '[.status.traffic[]? | select((.percent // 0) > 0) | .revisionName] | first // empty' /tmp/svc.json)"
+          test -n "$revision"
+          gcloud run revisions describe "$revision" --project="$project" --region="$region" --format=json > /tmp/rev.json
+          jq -r --arg rev "$revision" '
+            "active_revision=\($rev)",
+            "ready=\([.status.conditions[]? | select(.type == \"Ready\") | .status] | first // \"unknown\")"
+          ' /tmp/svc.json
+          jq -r '
+            [.spec.containers[]?.env[]? | select(.name == "JANUS_MIS_QUOTES_ENABLED")
+             | if (.value // "") == "true" then "true"
+               elif (.value // "") == "false" then "false"
+               elif (.valueFrom != null) then "secret_ref"
+               else "unknown" end] | first // "missing"
+             | "effective_mis_quotes_enabled=\(.)"
+          ' /tmp/rev.json
+          jq -r '
+            [.spec.containers[]?.env[]? | select(.name == "JANUS_MIS_QUOTES_ENABLED")] | length
+            | "effective_mis_env_count=\(.)"
+          ' /tmp/rev.json
+      - name: Count recent quote resolver errors if logging permission exists
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -Eeuo pipefail
+          gcloud logging read             'resource.type="cloud_run_revision" AND resource.labels.service_name="janus-api" AND timestamp>="2026-10-30T00:00:00Z" AND (textPayload:"quote refresh unavailable" OR jsonPayload.message:"quote refresh unavailable" OR textPayload:"latest price resolver unavailable")'             --project=gen-lang-client-0593591102 --limit=50 --format=json > /tmp/quote-errors.json
+          jq -r 'length | "recent_quote_error_records=\(.)"' /tmp/quote-errors.json
