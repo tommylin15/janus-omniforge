@@ -6,8 +6,9 @@
 - [x] Life 現有 `tw-activity-proxy` 在 `asia-east1`，Live IAM 無公開 Invoker，原 Life VM 可呼叫；Janus API 的 service account 已唯讀確認。
 - [x] Life Proxy 限制來源、TLS、GET、禁止任意轉址與過大回應；Life Caller 改走 service identity token，移除源碼內靜態密鑰；源碼及測試已提交 `tommylin15/life_assistant/main`。
 - [x] Janus MIS 故障時僅對 HTTP 403/5xx 提供台灣 private proxy 備援；不轉送 429；新增 `tests/test_shared_tw_proxy.py`，選擇性 CI PASS（依各 SHA 的 Actions readback）。
-- [ ] Life 受控發布 [Actions #41010130172](https://github.com/tommylin15/life_assistant/actions/runs/41010130172)：確認 service-specific IAM、0% candidate、無舊 secret 環境參考、MIS 源頭 200、未登入 401/403、SSRF 400、正式 100% traffic 及回滾可行；CI PASS 不可取代 Live PASS。
-- [ ] Janus 完整 Release／Candidate／Dev promotion，runtime 觀察真實 MIS transport 與 Owner 7 檔持股本交易日 quote/previous close/day-change；驗收 Life 原有活動來源未退化。缺證時保持 PARTIAL，不得稱恢復盤中。
+- [x] Life 共用 Proxy 安全版 [#41010462296](https://github.com/tommylin15/life_assistant/actions/runs/41010462296) 已發布至 `tw-activity-proxy-00006-dep`；私有 IAM、無舊執行環境憑證、MIS 真實 200/rtcode=0000、未授權拒絕及 SSRF 負向皆 PASS。Life 原有觀光署 ZIP 來源仍 `502 ConnectError`，後續候選 [#41011718029](https://github.com/tommylin15/life_assistant/actions/runs/41011718029) 因來源正向不通被阻擋，沒有切流。Life 單一來源整合維持 PARTIAL。
+- [x] Janus 完整 Release [#41010601470](https://github.com/tommylin15/janus-omniforge/actions/runs/41010601470)、0% candidate [#41011762417](https://github.com/tommylin15/janus-omniforge/actions/runs/41011762417)、Auth boundary [#41012042952](https://github.com/tommylin15/janus-omniforge/actions/runs/41012042952)、API-only Dev promotion [#41012198081](https://github.com/tommylin15/janus-omniforge/actions/runs/41012198081) 全 PASS。部署後唯讀 [#41012409231](https://github.com/tommylin15/janus-omniforge/actions/runs/41012409231)：100% API revision `janus-api-00634-nop`、build SHA `ea6466738d25a5f86772b34f0366e0b1fd34040f`、MIS flag true、代理仍 private、Life/Janus Invoker 確認。
+- [ ] **未完成 Live 功能驗收**：以真實 owner session／實際可證台灣 MIS 報價驗證持股 7 檔的行情日期、previous close、day-change、部分缺值、盤中狀態與頁面；API release 不等於 Owner 7 檔讀取已恢復。另須 Life 官方來源 ZIP 完整讀取正向驗收；無法連線不能以關閉 TLS 驗證繞過。
 
 
 ## P0｜持股盤中行情 HTTPError（2026-10-30）｜PARTIAL／LIVE_NOT_RECOVERED
