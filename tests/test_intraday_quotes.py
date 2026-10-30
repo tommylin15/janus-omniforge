@@ -176,3 +176,78 @@ def test_manual_owner_quote_refresh_works_during_closing_eod_handoff():
         assert late.json()["positions"][0]["price_date"] == "2026-10-30"
         assert late.json()["positions"][0]["quote_state"] == "closing_pending_eod"
         assert tpex_calls.call_count == 1
+
+
+def test_owner_off_session_manual_refresh_all_hours_without_background_mis():
+    """Early morning, evening, weekend and holidays permit only explicit refresh.
+
+    Last exchange observation can be prior-day: response must not label it as
+    today's intraday tick, and must not invent today's price change.
+    """
+    from unittest.mock import patch
+    import pytest
+    from tests.test_quote_router_broker import QuoteRepository
+
+    scenarios = [
+        ("2026-10-30T06:10:00+08:00", False, "closed"),  # premarket
+        ("2026-10-30T08:59:00+08:00", False, "closed"),
+        ("2026-10-30T22:15:00+08:00", False, "closed"),  # evening
+        ("2026-10-31T11:00:00+08:00", False, "closed"),  # Saturday
+        ("2026-11-01T03:05:00+08:00", False, "closed"),  # Sunday night
+        ("2026-10-30T10:20:00+08:00", True, "closed"),   # calendar holiday
+    ]
+    for timestamp, holiday, expected_session in scenarios:
+        simulated = datetime.fromisoformat(timestamp)
+
+        class FrozenDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return simulated.astimezone(tz or TAIPEI)
+
+        class Source:
+            calls = 0
+
+            def prices(self, identities):
+                self.calls += 1
+                assert set(identities) == {"2330"}
+                return {"2330": {
+                    "price": "101.25",
+                    "previous_close": "101.00",
+                    "quote_at": "2026-10-29T13:23:00+08:00",
+                }}
+
+        class Calendar:
+            def setting(self, name):
+                assert name == "schedule"
+                return {"value": {"holiday_overrides": ["2026-10-30"] if holiday else []}}
+
+        source = Source()
+        claims = {"iss": "https://accounts.google.com", "aud": "user-client",
+                  "sub": "google-a", "email": "owner@example.com",
+                  "email_verified": True, "exp": 1_900_000_000}
+        api = TestClient(create_app(QuoteRepository(), Store(),
+                                    lambda *_: claims, audience="user-client",
+                                    quotes=source, admin_service=Calendar()))
+        with patch("services.api.app.datetime", FrozenDateTime), \
+             patch.dict("os.environ", {"JANUS_MIS_QUOTES_ENABLED": "true"}), \
+             patch("services.api.quote_router.QuoteRouter.refresh_tpex",
+                   return_value={"status": "idle", "requested": 0, "updated": 0}):
+            normal = api.get("/api/v1/me/portfolio/quotes", headers=auth())
+            assert normal.status_code == 200
+            assert normal.json()["session"] == expected_session
+            assert normal.json()["market_open"] is False
+            assert source.calls == 0, timestamp  # no periodic/off-hours MIS
+            assert api.get("/api/v1/me/portfolio/quotes", headers=auth()).status_code == 200
+            assert source.calls == 0
+
+            manual = api.post("/api/v1/me/portfolio/quotes/refresh",
+                              json={}, headers=auth())
+            assert manual.status_code == 200
+            assert manual.json()["refresh_status"] == "updated"
+            assert source.calls == 1, timestamp
+            p = manual.json()["positions"][0]
+            assert p["price_date"] == "2026-10-29"
+            assert p["quote_state"] == "stale"
+            assert p["market_price"] == "101.25"
+            assert p["day_change_amount"] is None
+            assert manual.json()["market_open"] is False
