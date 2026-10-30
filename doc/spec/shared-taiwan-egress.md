@@ -1,5 +1,12 @@
 # Life／Janus 共用台灣出口（2026-10-30）
 
+## 2026-10-30｜七檔 Owner 報價修正版候選與 OAuth 邊界：PASS／正式切流未執行
+
+- 完整 Python、Flutter、四 GHCR digest [Release #41018544303](https://github.com/tommylin15/janus-omniforge/actions/runs/41018544303) PASS，exact source `1bed368a66e8fdcd2eb61e99d1b9b6921edd0ae6`。
+- [0% Candidate #41022750896](https://github.com/tommylin15/janus-omniforge/actions/runs/41022750896) PASS：建立 `ghcr-1bed368a66e8` 候選 tag，固定來源／digest、Ready、health、未登入 401、build SHA、部署 lease 與既有正式 100% 流量不變均通過。
+- [同版 Read-only Auth Boundary #41023923246](https://github.com/tommylin15/janus-omniforge/actions/runs/41023923246) PASS：OAuth metadata 200、Owner／Admin 未登入 401、MCP Bearer challenge 401、Candidate build SHA matched；`no_gcp_mutation=true`。此收據不涵蓋登入 Owner 的真正七檔更新、當日損益、OAuth callback 或 owner isolation 正向。
+- **目前正式 100% 仍是舊版 `janus-api-00634-nop`，新版 Candidate 仍為 0%。** 需要另行 API-only 100% 發布收據、實際價格日期與來源讀回；未取得不得宣稱行情恢復，也不修改 Jobs/Scheduler/IAM。
+
 ## 2026-10-30｜Janus API × Life 台灣代理部署後獨立讀回：API 切換 CLOSED／PASS
 
 - Janus 官方 API 早已由 [API-only promotion #41012198081](https://github.com/tommylin15/janus-omniforge/actions/runs/41012198081) 完成一次正式切流；沒有必要為 Life Proxy 改版而重複部署既有 GHCR API image。
