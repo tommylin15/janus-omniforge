@@ -110,3 +110,54 @@ def test_authenticated_quotes_read_only_owned_snapshot_and_pending_ledger_blocks
         assert holiday.json()['positions'][0]['market_price'] == '123.45'
     repository.latest_ledger_version = lambda owner: 8
     assert api.get('/api/v1/me/portfolio/quotes',headers=auth()).status_code == 409
+
+
+def test_manual_owner_quote_refresh_works_during_closing_eod_handoff():
+    """13:30-14:30 explicit POST must refresh MIS; GET must not poll."""
+    from services.api.app import create_app
+    from tests.test_quote_router_broker import QuoteRepository
+    from unittest.mock import patch
+
+    now = datetime(2026, 10, 30, 14, 5, tzinfo=TAIPEI)
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now.astimezone(tz or TAIPEI)
+
+    repo = QuoteRepository()
+    class Quotes:
+        def __init__(self):
+            self.calls = 0
+        def prices(self, identities):
+            self.calls += 1
+            assert set(identities) == {"2330"}
+            return {"2330": {
+                "price": "102.5",
+                "previous_close": "100.0",
+                "quote_at": "2026-10-30T13:25:00+08:00",
+                "received_at": "2026-10-30T14:05:00+08:00",
+            }}
+
+    class Calendar:
+        def setting(self, _):
+            return {"value": {}}
+
+    source = Quotes()
+    claims = {"iss": "https://accounts.google.com", "aud": "user-client", "sub": "google-a",
+              "email": "owner@example.com", "email_verified": True, "exp": 1900000000}
+    api = TestClient(create_app(repo, Store(), lambda *_: claims, audience="user-client",
+                                quotes=source, admin_service=Calendar()))
+    with patch("services.api.app.datetime", FrozenDateTime), \
+         patch.dict("os.environ", {"JANUS_MIS_QUOTES_ENABLED": "true"}):
+        passive = api.get("/api/v1/me/portfolio/quotes", headers=auth())
+        assert passive.status_code == 200
+        assert source.calls == 0
+        manual = api.post("/api/v1/me/portfolio/quotes/refresh", json={}, headers=auth())
+        assert manual.status_code == 200
+        assert manual.json()["refresh_status"] == "updated"
+        assert manual.json()["positions"][0]["market_price"] == "102.5"
+        assert source.calls == 1
+        assert manual.json()["positions"][0]["quote_state"] == "closing_pending_eod"
+        # Repeat manual call within 10-second persistent throttle is a no-op.
+        api.post("/api/v1/me/portfolio/quotes/refresh", json={}, headers=auth())
+        assert source.calls == 1
