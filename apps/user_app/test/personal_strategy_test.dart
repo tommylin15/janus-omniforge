@@ -145,8 +145,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('個人策略設定'), findsOneWidget);
-    expect(find.text('選擇策略學派樣板'), findsOneWidget);
-    expect(find.text('預覽策略'), findsOneWidget);
+    expect(find.text('1. 操作策略'), findsOneWidget);
+    expect(find.text('預覽策略與風險限制'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

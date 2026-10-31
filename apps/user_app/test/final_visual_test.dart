@@ -364,7 +364,8 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api, now: () => DateTime.utc(2026, 10, 1, 6))));
     await tester.pumpAndSettle();
 
-    expect(find.text('記帳／筆記'), findsOneWidget);
+    expect(find.text('持股／記帳'), findsOneWidget);
+    expect(find.text('筆記'), findsNothing);
     expect(find.text('持股市值'), findsOneWidget);
     expect(find.text('本年已實現損益'), findsOneWidget);
     expect(find.text('待更新／尚未確認'), findsOneWidget);
@@ -1737,11 +1738,7 @@ void main() {
       isNot(contains('/api/v1/me/portfolio/performance?year=$year')),
     );
     expect(api.reads, isNot(contains('/api/v1/me/notes')));
-
-    await tester.tap(find.text('筆記'));
-    await tester.pumpAndSettle();
-
-    expect(api.reads, contains('/api/v1/me/notes'));
+    expect(find.text('筆記'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -1804,9 +1801,7 @@ void main() {
     await tester.tap(find.text('報表'));
     await tester.pump();
     expect(find.text('持股市值'), findsNothing);
-    await tester.tap(find.text('筆記'));
-    await tester.pump();
-    expect(find.text('持股市值'), findsNothing);
+    expect(find.text('筆記'), findsNothing);
     expect(tester.takeException(), isNull);
     // Release the intentionally blocked history Future to cancel its timeout
     // timer before the widget test finishes; normal UI must not await it.
