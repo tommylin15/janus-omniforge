@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "aa24c4cbaa0e339da86b7f2db116ec2a461e09e1",
-  "purpose": "Owner quote manual refresh all non-trading hours (preopen, evenings, weekends, official holidays) with no off-session automatic MIS polling. Preserve original exchange quote dates, ten-second throttle, private Taiwan proxy and EOD semantics. Full Python+Flutter GHCR release for existing dev API only; no Jobs or traffic changes without subsequent gates.",
+  "sha": "5655f2604ce382f73ddaa837d35dea4d11765a2d",
+  "purpose": "Personal strategy, S/A/B/C tiered watchlists, and Flash research reports implementation; full Python and Flutter release.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 31
+  "request_attempt": 32
 }
