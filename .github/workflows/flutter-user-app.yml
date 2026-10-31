@@ -38,12 +38,13 @@ jobs:
           status=$?
           cat /tmp/flutter_test.log
           if [ $status -ne 0 ]; then
-            echo "### Flutter Test Failures" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            grep -B 2 -A 10 "\[E\]" /tmp/flutter_test.log | head -100 >> $GITHUB_STEP_SUMMARY || true
-            grep -B 2 -A 10 "FAILED" /tmp/flutter_test.log | head -100 >> $GITHUB_STEP_SUMMARY || true
-            tail -n 60 /tmp/flutter_test.log >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
+            python3 - <<'PY'
+            with open('/tmp/flutter_test.log', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('[E]') or 'FAILED' in line or 'Expected:' in line or 'Actual:' in line or '══╡ EXCEPTION' in line or 'Which:' in line:
+                        print(f"::error title=TestFailure::{line[:400]}")
+            PY
             exit $status
           fi
       - run: grep -Fq 'Janus · OmniForge' web/index.html
