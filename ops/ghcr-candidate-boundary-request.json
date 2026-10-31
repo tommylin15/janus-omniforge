@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "1bed368a66e8fdcd2eb61e99d1b9b6921edd0ae6",
+  "sha": "28385c788d55d13aa628e30b3fb21a2233df6868",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Read-only OAuth metadata, private Owner/Admin API denial, MCP challenge and build SHA on Janus 0%-traffic candidate ghcr-1bed368a66e8. Candidate #41022750896 PASS, full GHCR Release #41018544303 PASS. Keep existing API 100% unchanged, no Jobs/Scheduler or IAM mutation; not a logged-in owner seven-holdings positive test.",
-  "request_attempt": 26
+  "purpose": "Read-only OAuth metadata, private Owner/Admin API denial, MCP challenge and build SHA on Janus 0%-traffic candidate ghcr-28385c788d55. Candidate #41209182824 PASS, full GHCR Release #41208739248 PASS. Keep existing API 100% unchanged, no Jobs/Scheduler or IAM mutation.",
+  "request_attempt": 27
 }
