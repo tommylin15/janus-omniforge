@@ -383,6 +383,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                 spacing: 7,
                 runSpacing: 7,
                 children: [
+                  if (row['held'] == true) fvTag('已持有', icon: Icons.account_balance_wallet_outlined),
                   if (row['held'] == true) fvTag('研究 ${row['tier'] ?? 'C'}'),
                   if (row['tier_confirmed'] != true) fvTag('待確認分類'),
                   if (row['sync_locked'] == true) fvTag('已鎖定'),

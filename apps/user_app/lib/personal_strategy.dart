@@ -214,59 +214,68 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
     child: TextField(controller: c, enabled: !busy, keyboardType: const TextInputType.numberWithOptions(decimal: true),
       decoration: InputDecoration(labelText: '$label（%）'), onChanged: (_) => changed()));
   @override
-  Widget build(BuildContext context) => Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('個人策略設定', style: Theme.of(context).textTheme.titleLarge),
-      const Text('先選操作策略，再選風險。每台北時間週一重置，每週成功產出一次。'),
-      if (error != null) Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-      if (!loaded) TextButton(onPressed: load, child: const Text('載入設定')),
-      if (loaded) ...[
-        DropdownButtonFormField<String>(initialValue: template, isExpanded: true, decoration: const InputDecoration(labelText: '1. 操作策略'),
-          items: templates.map((t) => DropdownMenuItem(value: '${t['id']}', child: Text('${t['name']}', overflow: TextOverflow.ellipsis))).toList(),
-          onChanged: busy ? null : (v) { template = v!; changed(); }),
-        TextField(controller: custom, enabled: !busy, minLines: 3, maxLines: 8,
-          decoration: const InputDecoration(labelText: '自訂規則／個人補充（進場、退出、A/B/C條件）'), onChanged: (_) => changed()),
-        DropdownButtonFormField<String>(initialValue: tolerance, decoration: const InputDecoration(labelText: '2. 風險特性'),
-          items: const [DropdownMenuItem(value: 'conservative', child: Text('保守')), DropdownMenuItem(value: 'moderate', child: Text('平衡')), DropdownMenuItem(value: 'aggressive', child: Text('積極'))],
-          onChanged: busy ? null : (v) { tolerance = v!; changed(); }),
-        DropdownButtonFormField<String>(initialValue: horizon, decoration: const InputDecoration(labelText: '操作期限'),
-          items: const [DropdownMenuItem(value: 'short', child: Text('短期')), DropdownMenuItem(value: 'medium', child: Text('中期')), DropdownMenuItem(value: 'long', child: Text('長期'))],
-          onChanged: busy ? null : (v) { horizon = v!; changed(); }),
-        number(cash, '最低現金'), number(position, '單股上限'), number(sector, '產業上限'), number(loss, '單筆損失預算'), number(drawdown, '可承受總損失'),
-        TextField(controller: liquidity, enabled: !busy, decoration: const InputDecoration(labelText: '資金需求／不可動用資金'), onChanged: (_) => changed()),
-        TextField(controller: protected, enabled: !busy, decoration: const InputDecoration(labelText: '保護池股票代號（逗號分隔）'), onChanged: (_) => changed()),
-        CheckboxListTile(contentPadding: EdgeInsets.zero, title: const Text('同意將必要持股、現金與策略送 Gemini 分析；公開搜尋不傳數量與成本'),
-          value: consent, onChanged: busy ? null : (v) { consent = v!; changed(); }),
-        OutlinedButton(onPressed: busy ? null : () => action(false), child: const Text('預覽策略與風險限制')),
-        if (prepared != null) ...[
-          ResearchMarkdown('${prepared!['markdown']}'),
-          Text('風險限制：${jsonEncode(_map(prepared!['rules'])['risk'])}'),
-          for (final warning in _list(prepared!['warnings'])) Text('• $warning'),
-        ],
-        if (summary['strategy_locked'] == true) Text('本週已使用；下次可變更：${summary['next_change_at']}'),
-        FilledButton(onPressed: busy || prepared == null || prepared!['blocked'] == true || !consent || summary['strategy_locked'] == true || summary['enabled'] != true
-          ? null : () => action(true), child: const Text('產出個人策略並生效（每週一次）')),
-        TextButton(onPressed: busy ? null : () async {
-          try { final result = await widget.api.get('$_root/export'); await Clipboard.setData(ClipboardData(text: jsonEncode(result))); }
-          catch (e) { if (mounted) setState(() => error = '$e'); }
-        }, child: const Text('複製策略與報告匯出資料')),
-        TextButton(onPressed: busy ? null : () async {
-          final text = await legacy.textDialog(context, '匯入私人Markdown種子', '貼上原文（保留原文，不改帳本）');
-          if (text == null || text.isEmpty || !mounted) return;
-          final body = {'documents': {'股市.md': text}};
-          try {
-            final result = await widget.api.post('$_root/seed/preview', body);
-            if (!mounted) return;
-            final apply = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('匯入預覽'),
-              content: Text('${result['note']}'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('保存原文'))]));
-            if (apply == true) {
-              await widget.api.post('$_root/seed/apply', body);
-              if (mounted && text.length <= 12000) { custom.text = text; changed(); }
-              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('原文已保存；設定預覽並產出後才會生效。超過12000字請選取操作條文。')));
-            }
-          } catch (e) { if (mounted) setState(() => error = '$e'); }
-        }, child: const Text('私人Markdown種子匯入')),
-      ],
-    ])));
+  Widget build(BuildContext context) => SingleChildScrollView(
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('個人策略設定', style: Theme.of(context).textTheme.titleLarge),
+                const Text('先選操作策略，再選風險。每台北時間週一重置，每週成功產出一次。'),
+                if (error != null) Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                if (!loaded) TextButton(onPressed: load, child: const Text('載入設定')),
+                if (loaded) ...[
+                  DropdownButtonFormField<String>(initialValue: template, isExpanded: true, decoration: const InputDecoration(labelText: '1. 操作策略'),
+                    items: templates.map((t) => DropdownMenuItem(value: '${t['id']}', child: Text('${t['name']}', overflow: TextOverflow.ellipsis))).toList(),
+                    onChanged: busy ? null : (v) { template = v!; changed(); }),
+                  TextField(controller: custom, enabled: !busy, minLines: 3, maxLines: 8,
+                    decoration: const InputDecoration(labelText: '自訂規則／個人補充（進場、退出、A/B/C條件）'), onChanged: (_) => changed()),
+                  DropdownButtonFormField<String>(initialValue: tolerance, decoration: const InputDecoration(labelText: '2. 風險特性'),
+                    items: const [DropdownMenuItem(value: 'conservative', child: Text('保守')), DropdownMenuItem(value: 'moderate', child: Text('平衡')), DropdownMenuItem(value: 'aggressive', child: Text('積極'))],
+                    onChanged: busy ? null : (v) { tolerance = v!; changed(); }),
+                  DropdownButtonFormField<String>(initialValue: horizon, decoration: const InputDecoration(labelText: '操作期限'),
+                    items: const [DropdownMenuItem(value: 'short', child: Text('短期')), DropdownMenuItem(value: 'medium', child: Text('中期')), DropdownMenuItem(value: 'long', child: Text('長期'))],
+                    onChanged: busy ? null : (v) { horizon = v!; changed(); }),
+                  number(cash, '最低現金'), number(position, '單股上限'), number(sector, '產業上限'), number(loss, '單筆損失預算'), number(drawdown, '可承受總損失'),
+                  TextField(controller: liquidity, enabled: !busy, decoration: const InputDecoration(labelText: '資金需求／不可動用資金'), onChanged: (_) => changed()),
+                  TextField(controller: protected, enabled: !busy, decoration: const InputDecoration(labelText: '保護池股票代號（逗號分隔）'), onChanged: (_) => changed()),
+                  CheckboxListTile(contentPadding: EdgeInsets.zero, title: const Text('同意將必要持股、現金與策略送 Gemini 分析；公開搜尋不傳數量與成本'),
+                    value: consent, onChanged: busy ? null : (v) { consent = v!; changed(); }),
+                  OutlinedButton(onPressed: busy ? null : () => action(false), child: const Text('預覽策略與風險限制')),
+                  if (prepared != null) ...[
+                    ResearchMarkdown('${prepared!['markdown']}'),
+                    Text('風險限制：${jsonEncode(_map(prepared!['rules'])['risk'])}'),
+                    for (final warning in _list(prepared!['warnings'])) Text('• $warning'),
+                  ],
+                  if (summary['strategy_locked'] == true) Text('本週已使用；下次可變更：${summary['next_change_at']}'),
+                  FilledButton(onPressed: busy || prepared == null || prepared!['blocked'] == true || !consent || summary['strategy_locked'] == true || summary['enabled'] != true
+                    ? null : () => action(true), child: const Text('產出個人策略並生效（每週一次）')),
+                  TextButton(onPressed: busy ? null : () async {
+                    try { final result = await widget.api.get('$_root/export'); await Clipboard.setData(ClipboardData(text: jsonEncode(result))); }
+                    catch (e) { if (mounted) setState(() => error = '$e'); }
+                  }, child: const Text('複製策略與報告匯出資料')),
+                  TextButton(onPressed: busy ? null : () async {
+                    final text = await legacy.textDialog(context, '匯入私人Markdown種子', '貼上原文（保留原文，不改帳本）');
+                    if (text == null || text.isEmpty || !mounted) return;
+                    final body = {'documents': {'股市.md': text}};
+                    try {
+                      final result = await widget.api.post('$_root/seed/preview', body);
+                      if (!mounted) return;
+                      final apply = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('匯入預覽'),
+                        content: Text('${result['note']}'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+                          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('保存原文'))]));
+                      if (apply == true) {
+                        await widget.api.post('$_root/seed/apply', body);
+                        if (mounted && text.length <= 12000) { custom.text = text; changed(); }
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('原文已保存；設定預覽並產出後才會生效。超過12000字請選取操作條文。')));
+                      }
+                    } catch (e) { if (mounted) setState(() => error = '$e'); }
+                  }, child: const Text('私人Markdown種子匯入')),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
 }

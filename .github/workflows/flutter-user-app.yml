@@ -31,16 +31,7 @@ jobs:
           python3 tool/generate_brand_assets.py
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos lib test
-      - name: Run flutter test
-        run: |
-          set +e
-          flutter test --reporter expanded > /tmp/flutter_test.log 2>&1
-          status=$?
-          cat /tmp/flutter_test.log
-          if [ $status -ne 0 ]; then
-            grep -E "(\[E\]|FAILED|Expected:|Actual:|Which:)" /tmp/flutter_test.log | sed 's/^/::error::/'
-            exit $status
-          fi
+      - run: flutter test
       - run: grep -Fq 'Janus · OmniForge' web/index.html
       - name: Validate PWA metadata
         run: |
