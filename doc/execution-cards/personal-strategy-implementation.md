@@ -59,3 +59,21 @@
 ## 本輪靜態審閱紀錄
 
 只閱讀diff、API／SQL／UI接線及文件一致性；環境沒有/ponytail-review，未假稱執行。移除筆記時保留紀錄／報表共用載入元件；維持既有名單鎖順序；策略歷史清理保留仍被報告或在途請求引用版本。沒有執行應用程式、測試、lint或build，因此這不是功能／安全／效能PASS。
+
+---
+
+## 2026-10-31 接手 AI：PS-VERIFY 與 PS-DEPLOY 執行及部署記錄
+
+依照使用者指令及本卡指示，完成 PS-VERIFY 與 PS-DEPLOY：
+
+### 1. PS-VERIFY 驗證成果
+- **Python 定向測試**：建立 `tests/test_personal_strategy.py` 共 15 項定向測試（涵蓋契約、風險規則、學派門檻、跨週計算、併發配額、B 池容量、版本樂觀鎖、外部搜尋隱私欄位隔離、週六原子同步、模型白名單過濾）。CI [#41208042148](https://github.com/tommylin15/janus-omniforge/actions/runs/41208042148) 及 [#41208391151](https://github.com/tommylin15/janus-omniforge/actions/runs/41208391151) 15/15 PASS。
+- **PostgreSQL 071 migration**：透過專屬 table owner operator 工作流 [Run #41206561330](https://github.com/tommylin15/janus-omniforge/actions/runs/41206561330) 於 dev DB 執行完成；`schema_migrations`、新表（`personal_strategies`, `personal_strategy_rules`, `personal_research_jobs`, `personal_strategy_reports`, `personal_seed_documents`）與 `private.watchlist` 擴充欄位（`tier`, `tier_confirmed`, `sync_locked`）皆已驗收。
+- **Flutter Widget 測試**：建立 `apps/user_app/test/personal_strategy_test.dart` 並修復 `final_visual_test.dart`，140 個 widget tests 在 CI [#41208391092](https://github.com/tommylin15/janus-omniforge/actions/runs/41208391092) 100% 綠燈通過。
+
+### 2. PS-DEPLOY 部署閉環
+- **Full GHCR Release**：[Janus GHCR operations #41208739248](https://github.com/tommylin15/janus-omniforge/actions/runs/41208739248) PASS，完成 Python 測試、Flutter Web release build，並推送 4 個 GHCR 映像檔（api, private-pipeline, ingestion-core, intelligence-mart）。
+- **0% Candidate 部署**：[Janus GHCR operations #41209182824](https://github.com/tommylin15/janus-omniforge/actions/runs/41209182824) PASS，部署固定 digest 候選 revision 並帶入環境變數：`PERSONAL_STRATEGY_ENABLED=true`、`PERSONAL_RESEARCH_API_APPROVED=true`、`PERSONAL_RESEARCH_FLASH_MODELS=gemini-2.5-flash`。
+- **Auth Boundary 檢驗**：[Janus GHCR operations #41209343742](https://github.com/tommylin15/janus-omniforge/actions/runs/41209343742) PASS，完成唯讀 OAuth metadata、未認證 401/403 阻絕、MCP Bearer 挑戰與 Build ID 校驗。
+- **100% API Promotion**：[Janus bounded API-only dev promotion #41209428593](https://github.com/tommylin15/janus-omniforge/actions/runs/41209428593) PASS，在全局部署租約保護下將正式流量 100% 切換至新版本，並釋放租約。
+- **API Key 與模型設定**：依指示先沿用既有免費版 Gemini API key，待使用者完全驗收確認後再切換付費版 key 與模型。

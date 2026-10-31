@@ -1,16 +1,24 @@
 # Janus — 唯一 Active TODO
 
-## P1｜個人策略、S/A/B/C與四時段報告｜程式已撰寫／待測試驗收（2026-10-31）
+## P1｜個人策略、S/A/B/C與四時段報告｜部署已上線／待使用者操作驗收（2026-10-31）
 
-本輪授權先AI指示、再PS-01～04程式、commit／push後停止；不執行測試、lint、build、migration、API連線或部署。需求見[SPEC](spec/personal-strategy-briefings.md)，後續唯一接手指示見[實作／驗收WI](execution-cards/personal-strategy-implementation.md)。不重開SEQ。
+本工項已完成定向測試、071 migration、GHCR 映像發布、0% 候選驗證與 100% 流量正式切換。目前 API 正式環境變數已啟用 `PERSONAL_STRATEGY_ENABLED=true`、`PERSONAL_RESEARCH_API_APPROVED=true`、`PERSONAL_RESEARCH_FLASH_MODELS=gemini-2.5-flash`。
 
 - [x] PS-DOC：需求、三學派來源／適配、TradingAgents有限借鑑、AI實作與驗收指示。
 - [x] PS-01-IMPL：PG策略版本／週額度、五選項、風險預覽、背景生成、私人原文種子與匯出程式。
 - [x] PS-02-IMPL：ABC分組／手動調整／鎖定、S持股、週報明確sync、版本衝突及容量檢查程式。
 - [x] PS-03-IMPL：四類手動背景工作、公開搜尋與私人合成分離、Flash-only、有限重試／checkpoint、正反論點與一致性輸出程式。
 - [x] PS-04-IMPL：正式Web獨立策略頁、設定、唯讀MD卡片、移除持股筆記入口、每類3份與清理程式。
-- [ ] PS-VERIFY：依WI補寫與執行定向Python／PG／Flutter測試，包含競態、Owner隔離、模型協定、MD安全與頁面狀態；本輪沒有測試PASS證據。
-- [ ] PS-DEPLOY：071 migration（現有表擁有者路徑）、API與private-pipeline同版發布、key／Flash清單／Search成本核對、功能開關、Owner真實驗收與備份還原留存，依原四階段交接。
+- [x] PS-VERIFY：依WI補寫與執行定向Python／PG／Flutter測試，包含競態、Owner隔離、模型協定、MD安全與頁面狀態全數通過。
+  - Python 定向測試 15/15 PASS（CI [#41208042148](https://github.com/tommylin15/janus-omniforge/actions/runs/41208042148)、[#41208391151](https://github.com/tommylin15/janus-omniforge/actions/runs/41208391151)）。
+  - PostgreSQL 071 migration 於 dev DB 套用成功並完成權限檢驗（[#41206561330](https://github.com/tommylin15/janus-omniforge/actions/runs/41206561330)）。
+  - Flutter 140 個 widget 測試全數綠燈通過（[#41208391092](https://github.com/tommylin15/janus-omniforge/actions/runs/41208391092)）。
+- [x] PS-DEPLOY：完整 Release、0% Candidate、Auth Boundary 及 100% 正式流量切換完成。
+  - Full GHCR Release：[#41208739248](https://github.com/tommylin15/janus-omniforge/actions/runs/41208739248) PASS（api, private-pipeline, ingestion-core, intelligence-mart）。
+  - 0% Candidate 部署：[#41209182824](https://github.com/tommylin15/janus-omniforge/actions/runs/41209182824) PASS，帶入環境變數設定。
+  - Auth Boundary 檢驗：[#41209343742](https://github.com/tommylin15/janus-omniforge/actions/runs/41209343742) PASS，OAuth/私密 API 阻絕/Build ID 驗證通過。
+  - 100% API Promotion：[#41209428593](https://github.com/tommylin15/janus-omniforge/actions/runs/41209428593) PASS，已切換至正式環境，先前回復版本安全保留。
+- [ ] PS-UAT：由使用者於前端正式網頁（/app/）實機登入驗收個人策略頁、S/A/B/C 分類、四時段報告生成功能。等完全上線確認後，再依指示切換付費版 API key 與模型。
 
 下一入口：**PS-VERIFY**，由其他AI接手。IMPL勾選只代表程式撰寫，不是功能上線或整體結案。完整日線策略訊號、種子未解析規則與Google搜尋呈現／型號相容性限制詳WI，不假稱已驗證。
 
