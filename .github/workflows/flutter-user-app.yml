@@ -38,13 +38,7 @@ jobs:
           status=$?
           cat /tmp/flutter_test.log
           if [ $status -ne 0 ]; then
-            python3 - <<'PY'
-            with open('/tmp/flutter_test.log', encoding='utf-8', errors='ignore') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith('[E]') or 'FAILED' in line or 'Expected:' in line or 'Actual:' in line or '══╡ EXCEPTION' in line or 'Which:' in line:
-                        print(f"::error title=TestFailure::{line[:400]}")
-            PY
+            grep -E "(\[E\]|FAILED|Expected:|Actual:|Which:)" /tmp/flutter_test.log | sed 's/^/::error::/'
             exit $status
           fi
       - run: grep -Fq 'Janus · OmniForge' web/index.html
