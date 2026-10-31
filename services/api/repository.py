@@ -911,6 +911,7 @@ class PostgresWorkspaceRepository:
     def follow(self, user_id: UUID, value: WatchlistIn, key: str) -> dict[str, Any]:
         with self._connection() as connection:
             connection.execute("SELECT pg_advisory_xact_lock(hashtext('private-watchlist-symbol-limit'))")
+            connection.execute("SELECT user_id FROM private.users WHERE user_id=%s FOR UPDATE", (user_id,))
             replay=self._mutation(connection,user_id,key)
             if replay:
                 row=connection.execute("SELECT * FROM private.watchlist WHERE user_id=%s AND symbol=%s",(user_id,replay["entity_id"])).fetchone()
@@ -947,6 +948,8 @@ class PostgresWorkspaceRepository:
 
     def unfollow(self, user_id: UUID, symbol: str, key: str) -> None:
         with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext('private-watchlist-symbol-limit'))")
+            connection.execute("SELECT user_id FROM private.users WHERE user_id=%s FOR UPDATE", (user_id,))
             if self._mutation(connection,user_id,key): return
             existing=connection.execute("SELECT active,idempotency_key FROM private.watchlist WHERE user_id=%s AND symbol=%s FOR UPDATE",(user_id,symbol)).fetchone()
             if existing and not existing["active"] and existing["idempotency_key"]==key: return
@@ -959,6 +962,8 @@ class PostgresWorkspaceRepository:
 
     def reorder(self, user_id: UUID, symbols: list[str], expected: int, key: str) -> list[dict[str, Any]]:
         with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext('private-watchlist-symbol-limit'))")
+            connection.execute("SELECT user_id FROM private.users WHERE user_id=%s FOR UPDATE", (user_id,))
             if self._mutation(connection,user_id,key): return self.watchlist(user_id)
             current=connection.execute("SELECT symbol,version,idempotency_key FROM private.watchlist WHERE user_id=%s AND active FOR UPDATE",(user_id,)).fetchall()
             if set(symbols)!={row["symbol"] for row in current}: raise ConflictError("order must contain the active watchlist")
@@ -1503,7 +1508,7 @@ class PostgresWorkspaceRepository:
             connection.execute("DELETE FROM private.assistant_threads WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_state WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_revisions WHERE user_id=%s",(user_id,))
-            for table in ("analysis_feedback","change_log","mutation_keys","note_index","watchlist","mcp_servers","mcp_oauth_refresh_tokens","mcp_oauth_codes","broker_profile_revisions","investment_profiles","cash_balance_snapshots","current_positions","ledger_events","users"):
+            for table in ("personal_reports","personal_research_requests","personal_strategy_state","personal_strategies","personal_strategy_seeds","analysis_feedback","change_log","mutation_keys","note_index","watchlist","mcp_servers","mcp_oauth_refresh_tokens","mcp_oauth_codes","broker_profile_revisions","investment_profiles","cash_balance_snapshots","current_positions","ledger_events","users"):
                 connection.execute(f"DELETE FROM private.{table} WHERE user_id=%s",(user_id,))
             self._sync_supplement_demand(connection)
             connection.execute("""UPDATE private.deletion_requests SET status='COMPLETED',cleanup_pending='{}',completed_at=now()

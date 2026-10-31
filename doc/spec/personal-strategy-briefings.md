@@ -1,6 +1,6 @@
 # 個人策略、S/A/B/C 與四時段報告契約
 
-版本：2.1｜2026-10-31｜狀態：文件設計完成；程式、migration、測試、部署與驗收均未執行。
+版本：3.0｜2026-10-31｜狀態：文件與程式已撰寫；migration僅建立檔案，未套用；測試、部署與驗收均未執行。
 本契約取代2026-10-30方案中「先由風險推選學派」及「報告放今日頁」的設計。使用者先選操作策略，再設定風險特性；「股市」本身就是完整策略。工作順序只見[TODO](../todo.md)，交接見[工程卡](../execution-cards/personal-strategy.md)。
 
 ## 1. 核定需求與本版解釋
@@ -188,7 +188,7 @@ Gemini僅允許已核准、可用且通過搜尋／結構化能力檢查的Flash
 | 備份 | 沿既有PG日週月備份 | 另需物件／catalog與保留契約 |
 | 適合用途 | 線上私人工作資料 | 未來大規模離線分析，現在無需求 |
 
-邏輯實體（提案，尚無migration）：strategy_templates（公開通用）、personal_strategy_versions（私人MD＋規則JSON）、strategy_weekly_slots、watchlist的tier／locked／version擴充、briefing_requests、portfolio_briefings（MD＋metadata＋當次輸入版本＋同步結果）。優先重用既有profile/watchlist，避免平行帳本。
+邏輯實體（對應071 migration，尚未套用）：strategy_templates（公開通用）、personal_strategy_versions（私人MD＋規則JSON）、strategy_weekly_slots、watchlist的tier／locked／version擴充、briefing_requests、portfolio_briefings（MD＋metadata＋當次輸入版本＋同步結果）。優先重用既有profile/watchlist，避免平行帳本。
 提案API：個人策略選項／草稿／generate／current、watchlist tier與lock更新、briefings create/list/detail/export。Owner只來自認證，不接受前端替換Owner。週策略與日報額度分離。
 
 每owner＋type只留最近3份已發布READY/PARTIAL報告，依published_at與ID排序；第4份完整保存成功後，在同Owner/type鎖內移除最舊一份正文與附屬外部摘要，不移去Iceberg／GCS暗留全文。失敗工作不擠掉有效報告。當日額度／request_id與最小同步收據獨立留存，不能因刪報告繞過限制；操作工作紀錄沿既有保留政策、不保存整份已刪報告。
@@ -204,11 +204,24 @@ Gemini僅允許已核准、可用且通過搜尋／結構化能力檢查的Flash
 
 ## 10. 權威與交接
 
-GitHub程式及runtime為實作現況；本文件是待開發契約。已讀main規則／TODO／UI及analysis.py、analysis_models.py；本輪沒有runtime驗證。2026-10-31使用者指定的Drive「股市」本次作為策略來源例外，僅讀00／03／04／07／08，沒有修改原檔：
+GitHub程式及runtime為實作現況；本文件是功能契約；已撰寫程式的接線與未執行驗證見工程交接。已讀main規則／TODO／UI及analysis.py、analysis_models.py；本輪沒有runtime驗證。2026-10-31使用者指定的Drive「股市」本次作為策略來源例外，僅讀00／03／04／07／08，沒有修改原檔：
 [股市總控](https://drive.google.com/file/d/1kTUnVHRWVzRrYb9wDoYxm_rGz1gobBjG/view)、
 [候選池](https://drive.google.com/file/d/14amOtyoEgibb5qgiVEQGYpJCB-vC0yJs/view)、
 [規則](https://drive.google.com/file/d/1H51FNQNLjG5zCE4JVYPASi9w_WnCRTBd/view)、
 [日報](https://drive.google.com/file/d/1bPp1Ov2WGxoGMXbU2o2c84t8lwGPLGrM/view)、
 [週報](https://drive.google.com/file/d/14wT6wTmQtfI7qEMhJ-cxUEvdPGVnwCfF/view)。
 
-舊2026-10-30方案保留為版本歷史；正式接手只走本SPEC → WBS → TODO → 工程卡。本次只文件與commit／push；後續開發、測試、驗收、部署待使用者啟動。
+舊2026-10-30方案保留為版本歷史；正式接手只走本SPEC → WBS → TODO → 工程卡。本輪已授權先AI指示再程式，提交後停止；測試、驗收、migration與部署交下一位AI，見[實作與接手WI](../execution-cards/personal-strategy-implementation.md)。
+
+
+## 11. TradingAgents借鑑與實作接線（2026-10-31）
+
+採用公開資料整理→私人解讀→一輪支持／反對／失效／策略一致性→後端規則檢查→報告。只借鑑研究流程，不導入整套TradingAgents或LangGraph、不複製程式、不新增長期反思記憶／自動交易。參考：https://github.com/TauricResearch/TradingAgents 。
+
+實作路徑、環境設定、交接驗收矩陣見[WI](../execution-cards/personal-strategy-implementation.md)。新API統一`/api/v1/me/personal-strategy`；模板在版本化程式、私人策略／請求／報告／種子在PG；本輪沒有新增Iceberg表或Scheduler。
+
+個人策略生成與四報告共用持久請求，每請求最多2次worker claim；失敗不取代active或刪報告，當日／當週重試限原請求。模型固定且checkpoint恢復，成功移除工作內部副本；配額與最小同步結果獨立保留。策略每週額度、A/B/C手動調整、每類每日報告額度彼此獨立。
+
+資料不足只產生待確認研究，不製造可成交訊號。趨勢原始可比較日線未提供時不計算均線；價值／GARP數據缺失同理。私人種子無損保存與匯出，不自動把未解析條文改成可執行規則；使用者透過設定預覽後套用。
+
+Google API依公開models.list與部署核准穩定Flash清單交集選新版，使用generateContent Google Search／JSON schema；協定文件：https://ai.google.dev/api/models 、https://ai.google.dev/gemini-api/docs/google-search 。程式已接線不代表真實key、搜尋呈現要求、額度或各型號兼容性已通過驗收。

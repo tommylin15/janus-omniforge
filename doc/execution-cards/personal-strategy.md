@@ -1,10 +1,10 @@
 # 個人策略與四時段報告工程卡
 
-更新：2026-10-31。依[正式SPEC](../spec/personal-strategy-briefings.md)執行；唯一狀態在[TODO](../todo.md)。本輪只完成文件與commit／push，沒有授權開始程式、migration、測試驗收或部署。以下均為後續操作指示，不是完成證據。
+更新：2026-10-31。依[正式SPEC](../spec/personal-strategy-briefings.md)執行；唯一狀態在[TODO](../todo.md)。本輪已獲准先AI指示再實作程式並提交，程式已撰寫；測試驗收／migration／部署未執行。最新具體接手入口見[實作與驗收WI](personal-strategy-implementation.md)。下表保留各工項階段責任，不是測試完成證據。
 
 ## 順序與責任
 
-| 工項 | 文件設計 | 程式開發（待執行） | 測試驗收（待執行） | 部署（待執行） |
+| 工項 | 文件設計 | 程式開發（已撰寫／未驗證） | 測試驗收（待執行） | 部署（待執行） |
 |---|---|---|---|---|
 | PS-01 策略樣板與每週產出 | SPEC §2–3、8；先股市／自訂，再價值／GARP／趨勢三學派，依§3資料門檻 | PG策略版本／每週額度；先選策略後風險；生成與active保存 | 相容性、草稿不生效、每ISO週一次、多裝置、失敗不替換、Owner隔離 | 有界migration與既有API／Worker；真實生成讀回 |
 | PS-02 S與A/B/C及週同步 | SPEC §4–5；依PS-01 | watchlist欄位／UI／遷移預覽；週報delta apply契約，待PS-03串接 | S僅來自帳本、tier去重、50總額度、鎖定股、明確sync選擇、版本衝突／重試不重套 | 向前相容migration；不覆寫舊資料；實際調池由整合階段驗收 |
@@ -20,7 +20,7 @@
 先選策略再風險；股市是獨立完整樣板、自訂文字不得當系統指令。公開樣板不得帶入個人持股／成本／現金或特定股票豁免。策略每ISO週成功啟用一次，觀察手動調整與週同步不耗策略週額度。日報／週報仍全手動且每日每類一次。
 週批開始前取得sync明確選擇；選否不寫，選是可套用通過檢查的delta，但鎖定與併發衝突必須跳過，禁止修改S／帳本／策略。四報告各保留3份（最多12），第4份成功才清最舊；失敗／重送不新增報告與同步副作用。
 個人策略頁只讀AI報告和生效策略，個人設定才提供輸入；持股筆記只移除UI，不能順手刪資料。
-依獲准階段執行定向測試、CI、既有Dev發布與有界Live驗收；本次文件commit不是執行授權。費用／權限擴張列具體需求，不能以已買AI Pro推定API免費。
+依獲准階段執行定向測試、CI、既有Dev發布與有界Live驗收；本次程式commit不是測試／部署完成證據。費用／權限擴張列具體需求，不能以已買AI Pro推定API免費。
 
 ## 後續驗收清單（本輪全部未執行）
 
@@ -38,4 +38,4 @@
 
 ## 文件提交檢查界線
 
-本輪僅可審查文件diff、連結、需求一致性與GitHub回讀；不跑應用測試／lint／build、CI dispatch、migration或runtime驗收。環境無 /ponytail-review 指令時按PROJECT_RULES §1.4／12.4採人工diff／契約／連結檢查替代，不偽稱執行該命令。commit標記[skip ci]避免不必要push CI；不修改workflow。
+本輪僅作程式／文件靜態閱讀、diff、連結、需求一致性與GitHub回讀；不跑應用測試／lint／build、CI dispatch、migration或runtime驗收。環境無 /ponytail-review 指令時按PROJECT_RULES §1.4／12.4採人工diff／契約／連結檢查替代，不偽稱執行該命令。commit標記[skip ci]避免不必要push CI；不修改workflow。

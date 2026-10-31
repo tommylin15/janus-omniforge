@@ -199,10 +199,32 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     }
   }
 
+  Future<void> editPool(Map<String, dynamic> row) async {
+    var tier = '${row['tier'] ?? 'C'}';
+    var locked = row['sync_locked'] == true;
+    final save = await showDialog<bool>(context: context, builder: (context) => StatefulBuilder(
+      builder: (context, update) => AlertDialog(title: Text('${row['symbol']} 觀察池'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          DropdownButton<String>(value: tier, isExpanded: true,
+            items: ['A', 'B', 'C'].map((v) => DropdownMenuItem(value: v, child: Text('$v 池'))).toList(),
+            onChanged: (v) => update(() => tier = v!)),
+          CheckboxListTile(title: const Text('鎖定，不被週批調整'), value: locked,
+            onChanged: (v) => update(() => locked = v!)),
+          if (row['tier_confirmed'] != true) const Text('原名單暫列C，請確認分類；不影響原資料。'),
+        ]), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('儲存'))])));
+    if (save != true || !mounted) return;
+    try {
+      await widget.api.put('/api/v1/me/personal-strategy/watchlist/${Uri.encodeComponent('${row['symbol']}')}',
+        {'tier': tier, 'locked': locked, 'expected_version': row['version']});
+      reload();
+    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'))); }
+  }
+
   Widget header(BuildContext context, int? count, {int followups = 0}) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          fvPageTitle(context, '關注', subtitle: '我的關注清單與待追蹤事項'),
+          fvPageTitle(context, '關注', subtitle: 'A／B／C 觀察池；S 為實際持股'),
           fvPanel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,6 +310,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                       ],
                     ),
                   ),
+                  IconButton(tooltip: '調整觀察池與鎖定', onPressed: () => editPool(row), icon: Icon(row['sync_locked'] == true ? Icons.lock : Icons.tune)),
                   IconButton(
                     tooltip: '移除關注',
                     onPressed: () async {
@@ -360,7 +383,10 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                 spacing: 7,
                 runSpacing: 7,
                 children: [
-                  fvTag(row['held'] == true ? '已持有' : '未持有',
+                  if (row['held'] == true) fvTag('研究 ${row['tier'] ?? 'C'}'),
+                  if (row['tier_confirmed'] != true) fvTag('待確認分類'),
+                  if (row['sync_locked'] == true) fvTag('已鎖定'),
+                  fvTag(row['held'] == true ? 'S 持股' : '${row['tier'] ?? 'C'} 池',
                       icon: row['held'] == true ? Icons.account_balance_wallet_outlined : Icons.bookmark_outline),
                   fvTag(row['target_price'] == null
                       ? '目標價未設定'
@@ -388,7 +414,8 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
           child: FutureBuilder<dynamic>(
             future: data,
             builder: (context, snapshot) {
-              final rows = fvRows(snapshot.data ?? lastGoodData);
+              final rows = List<dynamic>.from(fvRows(snapshot.data ?? lastGoodData));
+              rows.sort((a,b) { final x = '${fvMap(a)['tier'] ?? 'C'}'.compareTo('${fvMap(b)['tier'] ?? 'C'}'); return x != 0 ? x : fvInt(fvMap(a)['sort_order']).compareTo(fvInt(fvMap(b)['sort_order'])); });
               if (snapshot.connectionState != ConnectionState.done && lastGoodData == null) {
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
@@ -443,7 +470,11 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                 itemBuilder: (context, index) => ReorderableDelayedDragStartListener(
                   key: ValueKey('watch-${fvMap(rows[index])['symbol']}'),
                   index: index,
-                  child: card(fvMap(rows[index])),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    if (index == 0 || fvMap(rows[index])['tier'] != fvMap(rows[index-1])['tier'])
+                      Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Text('${fvMap(rows[index])['tier'] ?? 'C'} 觀察池', style: Theme.of(context).textTheme.titleLarge)),
+                    card(fvMap(rows[index])),
+                  ]),
                 ),
               );
             },

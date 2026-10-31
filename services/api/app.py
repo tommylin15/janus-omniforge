@@ -1772,6 +1772,8 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     api.include_router(public_router)
     api.include_router(private)
+    from .personal_strategy import router as personal_strategy_router
+    api.include_router(personal_strategy_router(repository, user))
     api.include_router(admin)
     api.include_router(legacy_core)
     return api

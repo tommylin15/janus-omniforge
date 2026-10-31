@@ -1,3 +1,4 @@
+import 'personal_strategy.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -215,7 +216,7 @@ class Api implements AdminApi {
   Future<dynamic> _sendRequest(String method, String path,
       [Map<String, dynamic>? body]) async {
     final journalWrite =
-        method == 'POST' && path.startsWith('/api/v1/me/journal/events');
+        method == 'POST' && (path.startsWith('/api/v1/me/journal/events') || path == '/api/v1/me/personal-strategy/generate' || path == '/api/v1/me/personal-strategy/reports');
     String? operation;
     if (journalWrite) {
       final identity = Map<String, dynamic>.from(body ?? {});
@@ -2193,6 +2194,7 @@ class ProfilePage extends StatelessWidget {
         PortfolioDashboard(api),
         CashPositionCard(api),
         BrokerProfileCard(api),
+        PersonalStrategySettings(api),
         UsagePrivacy(api.usage),
         const Divider(),
         const ListTile(title: Text('外觀')),

@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'admin.dart';
 import 'final_perf.dart';
+import 'personal_strategy.dart';
 import 'usage.dart';
 import 'final_visual_pages.dart';
 import 'main.dart' as legacy;
@@ -264,7 +265,7 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
 
   void selectPage(int value) {
     widget.api.usage
-        .select(['today', 'watchlist', 'journal', 'profile'][value]);
+        .select(['today', 'watchlist', 'journal', 'profile', 'profile'][value]);
     final restoring = value != page && visited.contains(value);
     final stopwatch = restoring ? (Stopwatch()..start()) : null;
     setState(() {
@@ -308,12 +309,14 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
       FinalTodayPage(widget.api, active: page == 0, onOpenStock: openStock),
       FinalWatchlistPage(widget.api, active: page == 1, onOpenStock: openStock),
       FinalLedgerPage(widget.api, active: page == 2, onOpenStock: openStock),
+      PersonalStrategyPage(widget.api, active: page == 3),
       legacy.ProfilePage(api: widget.api, email: widget.email, onTheme: widget.onTheme),
     ];
     const destinations = [
       NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: '今日'),
       NavigationDestination(icon: Icon(Icons.star_outline), selectedIcon: Icon(Icons.star), label: '關注'),
-      NavigationDestination(icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: '記帳／筆記'),
+      NavigationDestination(icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: '持股／記帳'),
+      NavigationDestination(icon: Icon(Icons.psychology_outlined), selectedIcon: Icon(Icons.psychology), label: '個人策略'),
       NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: '我的'),
     ];
     return LayoutBuilder(builder: (context, constraints) {
@@ -341,7 +344,8 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
                         NavigationRailDestination(
                             icon: Icon(Icons.edit_note_outlined),
                             selectedIcon: Icon(Icons.edit_note),
-                            label: Text('記帳／筆記')),
+                            label: Text('持股／記帳')),
+                        NavigationRailDestination(icon: Icon(Icons.psychology_outlined), label: Text('個人策略')),
                         NavigationRailDestination(
                             icon: Icon(Icons.person_outline),
                             selectedIcon: Icon(Icons.person),

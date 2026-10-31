@@ -16,6 +16,17 @@ from .store import PrivateIcebergStore
 
 
 def main() -> None:
+    if os.getenv("PERSONAL_RESEARCH_REQUEST_ID"):
+        from uuid import UUID
+        from .personal_research_worker import Worker
+        load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
+            "PRIVATE_DATABASE_URL": "database_url", "GEMINI_API_KEY": "gemini_api_key",
+        })
+        result = Worker(repository_from_env()).run(UUID(os.environ["PERSONAL_RESEARCH_REQUEST_ID"]))
+        print(json.dumps({"personal_research": result}, sort_keys=True))
+        if result.get("status") == "FAILED":
+            raise RuntimeError("personal research failed; private details omitted")
+        return
     if os.getenv("MOBILE_LEDGER_PROBE_ONLY", "").strip().lower() == "true":
         load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
             "PRIVATE_DATABASE_URL": ("pipeline_database_url", "database_url"),

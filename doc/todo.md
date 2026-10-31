@@ -1,17 +1,19 @@
 # Janus — 唯一 Active TODO
 
-## P1｜個人策略、S/A/B/C與四時段報告｜文件完成／待開發（2026-10-31）
+## P1｜個人策略、S/A/B/C與四時段報告｜程式已撰寫／待測試驗收（2026-10-31）
 
-使用者本輪只授權需求整併、文件與工作事項更新及commit／push；**不得接續寫程式、migration、測試驗收或部署**。正式需求見[SPEC](spec/personal-strategy-briefings.md)，四階段／AI指示見[工程卡](execution-cards/personal-strategy.md)。不重開已結案SEQ，也不改其他工作優先序。
+本輪授權先AI指示、再PS-01～04程式、commit／push後停止；不執行測試、lint、build、migration、API連線或部署。需求見[SPEC](spec/personal-strategy-briefings.md)，後續唯一接手指示見[實作／驗收WI](execution-cards/personal-strategy-implementation.md)。不重開SEQ。
 
-- [x] PS-DOC：先策略後風險；股市完整樣板與自訂；每週限一次；S持股／A-B-C觀察及週批同步選擇；獨立唯讀MD卡片；PG儲存與**每類3份、總計最多12份**契約。
-- [x] PS-DOC-學派：以價值投資、Lynch／GARP、趨勢追蹤三主題取代泛用分類；來源、資料門檻、適配差異及規則草案見SPEC §3。僅文件完成，沒有績效或runtime驗證。
-- [ ] PS-01：先核對三學派必要欄位／日線門檻，再完成策略樣板、風險套用、每週一次個人策略生成與保存（開發／測試驗收／部署待執行）。
-- [ ] PS-02：觀察池A/B/C手動調整、S帳本推導、鎖定與週批sync契約（依PS-01；開發／測試驗收／部署待執行）。
-- [ ] PS-03：四類手動背景報告，持股＋完整觀察＋個人策略＋當次外部資訊，Flash-only、配額及週同步接線（依PS-02；開發／測試驗收／部署待執行）。
-- [ ] PS-04：移除持股筆記UI、新增個人策略唯讀頁、rich Markdown、各類最近3份與匯出（依PS-03；開發／測試驗收／部署待執行）。
+- [x] PS-DOC：需求、三學派來源／適配、TradingAgents有限借鑑、AI實作與驗收指示。
+- [x] PS-01-IMPL：PG策略版本／週額度、五選項、風險預覽、背景生成、私人原文種子與匯出程式。
+- [x] PS-02-IMPL：ABC分組／手動調整／鎖定、S持股、週報明確sync、版本衝突及容量檢查程式。
+- [x] PS-03-IMPL：四類手動背景工作、公開搜尋與私人合成分離、Flash-only、有限重試／checkpoint、正反論點與一致性輸出程式。
+- [x] PS-04-IMPL：正式Web獨立策略頁、設定、唯讀MD卡片、移除持股筆記入口、每類3份與清理程式。
+- [ ] PS-VERIFY：依WI補寫與執行定向Python／PG／Flutter測試，包含競態、Owner隔離、模型協定、MD安全與頁面狀態；本輪沒有測試PASS證據。
+- [ ] PS-DEPLOY：071 migration（現有表擁有者路徑）、API與private-pipeline同版發布、key／Flash清單／Search成本核對、功能開關、Owner真實驗收與備份還原留存，依原四階段交接。
 
-本功能下一工程入口為PS-01，待使用者啟動。四報告仍全手動；本輪「批次」不代表恢復自動定時。每週同步只改觀察池，不改策略／持股帳本。
+下一入口：**PS-VERIFY**，由其他AI接手。IMPL勾選只代表程式撰寫，不是功能上線或整體結案。完整日線策略訊號、種子未解析規則與Google搜尋呈現／型號相容性限制詳WI，不假稱已驗證。
+
 ## P0｜Owner 七檔持股行情與損益｜使用者完整 UAT CLOSED／PASS（2026-10-30）
 
 - [x] **2026-10-30｜使用者確認：七檔持股行情與損益完整驗收完成（Owner UAT PASS）。** 使用者於正式 API-only 100% 發布、非盤中手動刷新 UAT PASS 後，明確回報「七檔持股行情與損益的完整驗收，完成」。本工項按**使用者操作驗收結果**結案，涵蓋七檔持股行情與損益的 Owner 功能驗收，不重新部署、不執行額外輪詢。實際逐檔 quote_at、price_date、previous_close、day-change、aggregate coverage 的原始數字／驗收截圖未附於該回報，因此**不宣稱已另取得七檔逐筆自動讀回或市場資料完整率的機器收據**；原本技術發布的證據仍以 GHCR Actions 與 Cloud Run 收據為準。

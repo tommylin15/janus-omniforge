@@ -1,8 +1,8 @@
 # Janus — AI 基礎作業規則
 
-## 0.5 個人策略規劃範圍（2026-10-31）
+## 0.5 個人策略本輪授權（2026-10-31）
 
-本次使用者核定[個人策略SPEC](spec/personal-strategy-briefings.md)：先策略再風險、支援股市及自訂樣板、每週產出／變更一次、S持股與A/B/C觀察、週批前選是否同步、獨立唯讀報告頁、每類報告留3份。本輪**只修改文件／工作事項並commit／push，不寫程式、不執行測試驗收／migration／部署**；先前其他工項工程授權不擴張本輪。指定Drive「股市」僅為本需求策略樣板／私人種子來源例外，不擴大其他Drive範圍或授權寫回。既有四報告全手動決策維持；詳情由SPEC管理，不在此重複規則。
+使用者已將本對話的文件方案授權為：先完成AI指示，再實作PS-01～04程式並commit／push，隨後停止。**本輪不執行測試、lint、build、migration、Gemini付費呼叫、驗收或部署**；後續交其他AI依[實作／驗收交接指示](execution-cards/personal-strategy-implementation.md)接手。本條覆蓋此前本功能「只文件」限制，不擴張其他工項。需求與TradingAgents有限借鑑見[個人策略SPEC](spec/personal-strategy-briefings.md)。保留四報告全手動、每類3份、Flash-only、PG與Owner隔離。指定Drive股市僅為私人種子來源例外，不授權寫回或自動下單。
 
 所有 Janus／OmniForge 工作遵守本文件。文件角色先看 [`README.md`](README.md)。
 

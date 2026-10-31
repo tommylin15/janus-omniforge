@@ -215,7 +215,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   void didUpdateWidget(FinalLedgerPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.active != widget.active) {
-      if (widget.active) widget.api.usage.select(section == 3 ? 'notes' : 'journal');
+      if (widget.active) widget.api.usage.select('journal');
       quoteGeneration++;
       quoteBusy = false;
       quoteTimer?.cancel();
@@ -314,7 +314,6 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
           cached('/api/v1/me/journal/monthly-summary?year=$year'),
           cached('/api/v1/me/journal/history?year=$year'),
         ]),
-      3 => Future.wait([cached('/api/v1/me/notes')]),
       _ => Future.value(const <dynamic>[]),
     };
   }
@@ -566,21 +565,6 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       }
     } finally {
       if (mounted) setState(() => pnlRecalcBusy = false);
-    }
-  }
-
-  Future<void> addNote() async {
-    final body = await legacy.textDialog(context, '新增筆記', '筆記內容');
-    if (body == null || body.trim().isEmpty) return;
-    try {
-      await widget.api.post('/api/v1/me/notes', {'body': body.trim()});
-      reload();
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('筆記尚未儲存')),
-        );
-      }
     }
   }
 
@@ -1278,52 +1262,6 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     );
   }
 
-  Widget notes(List<dynamic> values) {
-    final rows = fvNewestRows(values, fields: const ['updated_at', 'created_at']);
-    return Column(
-        children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: addNote,
-              icon: const Icon(Icons.add),
-              label: const Text('新增筆記'),
-            ),
-          ),
-          if (rows.isEmpty) fvBoundedState('近兩年沒有筆記'),
-          for (final (index, item) in rows.indexed)
-            Builder(builder: (context) {
-              final row = fvMap(item);
-              return fvPanel(
-                color: fvDatedRowColor(index),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      fvText(
-                        row['body'] ?? row['text'] ?? row['content'],
-                        missing: '筆記內容不可用',
-                      ),
-                      style: const TextStyle(color: fvInk, height: 1.45),
-                    ),
-                    if (row['symbol'] != null || row['needs_follow_up'] == true) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 7,
-                        runSpacing: 7,
-                        children: [
-                          if (row['symbol'] != null) fvTag('${row['symbol']}'),
-                          if (row['needs_follow_up'] == true) fvTag('待追蹤'),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              );
-            }),
-        ],
-      );
-  }
 
   Widget lazySection(
     Future<List<dynamic>>? future,
@@ -1465,7 +1403,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       Expanded(
                         child: fvPageTitle(
                           context,
-                          '記帳／筆記',
+                          '持股／記帳',
                           subtitle: '持股、交易與正式報表使用同一資料語意',
                         ),
                       ),
@@ -1679,14 +1617,6 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       );
                     }),
                   ],
-                  if (section == 3) ...[
-                    fvSectionTitle(context, '筆記'),
-                    lazySection(sectionData, '筆記載入中', (detail) {
-                      final noteRows =
-                          fvRows(detail.isNotEmpty ? detail[0] : null);
-                      return notes(noteRows);
-                    }),
-                  ],
                 ],
               );
               return Column(children: [
@@ -1697,12 +1627,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       ButtonSegment(value: 0, label: Text('持股')),
                       ButtonSegment(value: 1, label: Text('紀錄')),
                       ButtonSegment(value: 2, label: Text('報表')),
-                      ButtonSegment(value: 3, label: Text('筆記')),
                     ],
                     selected: {section},
                     onSelectionChanged: (value) {
                       final next = value.first;
-                      widget.api.usage.select(next == 3 ? 'notes' : 'journal');
+                      widget.api.usage.select('journal');
                       quoteGeneration++;
                       quoteBusy = false;
                       quoteTimer?.cancel();
