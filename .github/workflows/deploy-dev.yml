@@ -405,6 +405,7 @@ jobs:
           tests/test_portfolio_api_completeness.py
           tests/test_quote_router_broker.py
           tests/test_intraday_quotes.py
+          tests/test_personal_strategy.py
           tests/test_portfolio_revaluation.py
           tests/test_container_build_contract.py
 

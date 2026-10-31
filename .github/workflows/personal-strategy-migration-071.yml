@@ -1,0 +1,85 @@
+name: Apply 071 personal strategy migration to dev PostgreSQL
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - apply
+          - readback
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+
+jobs:
+  migrate-071:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    env:
+      GCP_PROJECT_ID: gen-lang-client-0593591102
+      GCP_ZONE: us-central1-a
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Prepare SSH key for IAP tunnel
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$HOME/.ssh"
+          ssh-keygen -q -t rsa -b 3072 -N '' -f "$HOME/.ssh/google_compute_engine"
+      - name: Apply 071 migration via table owner operator path
+        if: github.event.inputs.action == 'apply'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -s infra/postgres/migrations/071_personal_strategy.sql
+          gcloud compute scp infra/postgres/migrations/071_personal_strategy.sql \
+            janus-postgres-dev:/tmp/janus-071_personal_strategy.sql \
+            --project="$GCP_PROJECT_ID" --zone="$GCP_ZONE" --tunnel-through-iap --quiet
+          gcloud compute ssh janus-postgres-dev \
+            --project="$GCP_PROJECT_ID" --zone="$GCP_ZONE" --tunnel-through-iap --quiet \
+            --command='set -eu
+              test -s /tmp/janus-071_personal_strategy.sql
+              sudo docker exec -i --user postgres janus-postgres \
+                psql -X -v ON_ERROR_STOP=1 -U postgres -d janus_control \
+                < /tmp/janus-071_personal_strategy.sql
+              rm -f /tmp/janus-071_personal_strategy.sql
+            '
+      - name: Verify migration 071 schema readback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud compute ssh janus-postgres-dev \
+            --project="$GCP_PROJECT_ID" --zone="$GCP_ZONE" --tunnel-through-iap --quiet \
+            --command="set -eu
+              echo '=== MIGRATION VERSION ==='
+              sudo docker exec --user postgres janus-postgres \
+                psql -X -qAt -U postgres -d janus_control \
+                -c \"SELECT version FROM control.schema_migrations WHERE version='071_personal_strategy';\" | grep -Fx 071_personal_strategy
+
+              echo '=== WATCHLIST COLUMNS ==='
+              sudo docker exec --user postgres janus-postgres \
+                psql -X -qAt -U postgres -d janus_control \
+                -c \"SELECT column_name, data_type, column_default FROM information_schema.columns WHERE table_schema='private' AND table_name='watchlist' AND column_name IN ('tier','tier_confirmed','sync_locked') ORDER BY column_name;\"
+
+              echo '=== NEW TABLES ==='
+              sudo docker exec --user postgres janus-postgres \
+                psql -X -qAt -U postgres -d janus_control \
+                -c \"SELECT table_name FROM information_schema.tables WHERE table_schema='private' AND table_name LIKE 'personal_%' ORDER BY table_name;\"
+
+              echo '=== PERMISSIONS GRANTED ==='
+              sudo docker exec --user postgres janus-postgres \
+                psql -X -qAt -U postgres -d janus_control \
+                -c \"SELECT grantee, table_name, privilege_type FROM information_schema.role_table_grants WHERE table_schema='private' AND table_name LIKE 'personal_%' AND grantee='janus_private_api' ORDER BY table_name, privilege_type;\"
+            "
+          echo '071_PERSONAL_STRATEGY_MIGRATION=VERIFIED_PASS' >> "$GITHUB_STEP_SUMMARY"
