@@ -1,5 +1,6 @@
 # Janus — UI Specification
 
+> **2026-10-31 使用者覆蓋：**個人設定採「策略／自訂 → 風險 → 產出並保存，每週一次」；新增獨立個人策略唯讀頁，四模式MD rich卡片每類各3份；觀察頁A/B/C、S由帳本推導；持股頁移除筆記UI但保留歷史資料。依[正式SPEC](spec/personal-strategy-briefings.md)覆蓋舊筆記入口／平面觀察呈現，不是UI已實作宣告。
 > 排程、備份與資料快照依 [統一批次契約](spec/unified-batch-flow.md)；部署狀態與未完成驗收以 [唯一 TODO](todo.md) 為準。
 
 版本：1.12

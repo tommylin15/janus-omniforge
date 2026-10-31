@@ -1,5 +1,8 @@
 # Janus — 工作責任與順序
 
+## 個人策略功能順序（2026-10-31）
+
+新增本功能PS-01→PS-02→PS-03→PS-04，角色／依賴／四階段出口見[工程卡](execution-cards/personal-strategy.md)，正式契約見[SPEC](spec/personal-strategy-briefings.md)。唯一狀態仍在[TODO](todo.md)，本輪只有文件完成，程式／測試驗收／部署均待執行。PS依序涵蓋策略樣板與週額度、S/A/B/C及同步、四模式背景報告、獨立唯讀頁與每類3份留存；不重開SEQ。
 更新：2026-10-25。唯一狀態及排序在 [TODO](todo.md)，操作見 [逐項AI指示](execution-cards/sequential-delivery.md)。原多線並行分派停止適用；以下新SEQ只整併舊工作，不增加第二組待辦。
 
 | 順序 | 工作／角色 | 原工作對照 | 依賴與交付邊界 |
