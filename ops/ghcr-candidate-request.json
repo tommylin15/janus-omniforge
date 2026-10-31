@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "1bed368a66e8fdcd2eb61e99d1b9b6921edd0ae6",
+  "sha": "28385c788d55d13aa628e30b3fb21a2233df6868",
   "digest": "",
-  "release_run": "41018544303",
+  "release_run": "41208739248",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Janus owner seven-holdings manual quote refresh in all off-session periods (premarket/night/weekend/holiday): 0%-traffic fixed SHA+GHCR digest candidate only. Full Python+Flutter GHCR Release #41018544303 SUCCESS, source 1bed368a66e8fdcd2eb61e99d1b9b6921edd0ae6. Verify health/build-id/anonymous rejection and preserve existing 100% API traffic, jobs, scheduler, IAM and rollback baseline. No traffic promotion.",
-  "request_attempt": 30
+  "purpose": "Personal strategy, S/A/B/C tiered watchlists, and Flash research reports: 0%-traffic candidate deployment for Janus API. Verified full GHCR Release #41208739248 PASS. Verify candidate health, build-id and OAuth negative boundaries while preserving existing 100% traffic.",
+  "request_attempt": 31
 }
