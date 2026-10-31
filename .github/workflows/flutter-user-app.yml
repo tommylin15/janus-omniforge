@@ -32,7 +32,20 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos lib test
       - name: Run flutter test
-        run: flutter test --reporter expanded
+        run: |
+          set +e
+          flutter test --reporter expanded > /tmp/flutter_test.log 2>&1
+          status=$?
+          cat /tmp/flutter_test.log
+          if [ $status -ne 0 ]; then
+            echo "### Flutter Test Failures" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            grep -B 2 -A 10 "\[E\]" /tmp/flutter_test.log | head -100 >> $GITHUB_STEP_SUMMARY || true
+            grep -B 2 -A 10 "FAILED" /tmp/flutter_test.log | head -100 >> $GITHUB_STEP_SUMMARY || true
+            tail -n 60 /tmp/flutter_test.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit $status
+          fi
       - run: grep -Fq 'Janus · OmniForge' web/index.html
       - name: Validate PWA metadata
         run: |
