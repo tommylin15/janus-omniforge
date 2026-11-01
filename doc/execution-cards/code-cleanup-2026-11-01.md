@@ -40,7 +40,11 @@
 - 修改檔 Python syntax、文件檔案路徑及 `git diff --check` PASS；本輪 I/O／DuckDB／建置契約定向 45 項 PASS。
 - 初輪 Windows suite 的環境差異（缺依賴、Pandas 3）、readiness 新 limit 預期與本機產生檔案檢查均已收斂；未把初輪失敗冒充成功，也未透過刪除功能測試讓結果變綠。
 
-**下一步：完整 Linux Release CI／隔離 PostgreSQL／容器 build，之後依既有 gate 進行 Dev 部署與真實驗收。** 本輪優化尚未部署；未量測 live p50／p95，不標整體 CLOSED／PASS。
+2026-11-01 完整 Release [#41265528911](https://github.com/tommylin15/janus-omniforge/actions/runs/41265528911) **PASS**，精確來源 `daf9636e34c3a35b9359ed8c741e01b16bffb4ff`：Linux／隔離 PostgreSQL **2082 passed、2 skipped、2 deselected**（73.75 秒），Flutter 與 API／ingestion-core／intelligence-mart／private-pipeline 四映像建置全部成功，匿名 GHCR digest 讀回成功。新增官方行情批次 SQL 的真實 PG 不可變／整批回滾測試已納入本次 gate。
+
+API 固定 digest：`sha256:849ce46e339f4fa861e6fbd8624315bac06850af2fa646443f87601b9d242072`；四映像其餘 digest 以同 run 的 `ghcr-digest-readback` artifact 為準。候選請求已固定本來源／Release／digest，只允許 API 0% 候選，不切正式流量、不改 Jobs；另以既有唯讀 workflow 取得四 Job 回復基準。
+
+**下一步：0% 候選 → OAuth／private boundary → 四 Jobs 可回復 rollout → API direct promotion 與真實讀回。** 新版尚未承接正式流量；未量測 live p50／p95，不標整體 CLOSED／PASS。
 
 
 ## 提交前 review

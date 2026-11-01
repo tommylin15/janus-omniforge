@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "28385c788d55d13aa628e30b3fb21a2233df6868",
-  "digest": "",
-  "release_run": "41208739248",
+  "sha": "daf9636e34c3a35b9359ed8c741e01b16bffb4ff",
+  "digest": "sha256:849ce46e339f4fa861e6fbd8624315bac06850af2fa646443f87601b9d242072",
+  "release_run": "41265528911",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Personal strategy, S/A/B/C tiered watchlists, and Flash research reports: 0%-traffic candidate deployment for Janus API. Verified full GHCR Release #41208739248 PASS. Verify candidate health, build-id and OAuth negative boundaries while preserving existing 100% traffic.",
-  "request_attempt": 31
+  "purpose": "全專案程式清理與 I/O／SQL／UI 更新：完整 Release 41265528911 已通過 Linux／PostgreSQL 2082 項測試、Flutter 與四映像公開 digest 驗證。僅部署同來源固定映像的 API 0% 候選，保留既有 100% 流量，候選通過後另行驗證 OAuth／private boundary 及四 Jobs。",
+  "request_attempt": 32
 }
