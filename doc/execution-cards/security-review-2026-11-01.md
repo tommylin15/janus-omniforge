@@ -38,3 +38,8 @@
 本機最終完整回歸：**2065 passed、21 skipped、8 deselected，exit 0**（124.53 秒）。21 skip 為既有 19 項未配置本機隔離 PG 與 2 項外部 Valuation frozen fixture；8 deselect 為 Release 原有 2 項及 Windows GNU date／signal／resource／環境長度限制 6 項，另 B8 Linux resource module 由 Linux CI 驗證。第一次新 Pillow 安裝選到 CPython 3.14 wheel，已修正為實際 Python 3.12 wheel並重跑，不修改功能測試遮掩錯誤。
 
 提交前 `/ponytail-review` 已追查五個 protocol endpoint、static FileResponse／SPA fallback、OAuth Google／PKCE／refresh／revoke 及 Owner resolver，核對全部 dependency version diff 與新增回歸。以個人 Dev 現役負載為界，沒有未解決 Must fix；可提交進入完整 Linux Release，但不取代 live 證據。
+
+
+完整 Release [#41278063624](https://github.com/tommylin15/janus-omniforge/actions/runs/41278063624) **PASS**，來源 `60b84395b8fe4edacd7e054f4f3b145d0b298cc0`：Linux／隔離 PG **2095 passed、2 skipped、2 deselected**（87.27 秒），Flutter、四映像建置與公開 fixed digest 驗證成功。selective CI [#41278045887](https://github.com/tommylin15/janus-omniforge/actions/runs/41278045887) 與 PG／runtime contracts [#41278045873](https://github.com/tommylin15/janus-omniforge/actions/runs/41278045873) 也成功。
+
+四 Jobs 唯讀基準 [#41278364781](https://github.com/tommylin15/janus-omniforge/actions/runs/41278364781) PASS，`gcp_writes=0`，來源均為先前 `daf9636e`，image／完整 config hash 保存在該 run 的 `ghcr-jobs-baseline` artifact。下一步僅部署 0% API 候選；尚未以新版承接正式流量。
