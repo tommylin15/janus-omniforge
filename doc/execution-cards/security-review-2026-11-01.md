@@ -52,3 +52,6 @@
 舊 `ghcr-daf9636e34c3` 公開網址對不存在的 encoded absolute 越界路徑仍回 200（舊 SPA fallback），對照同來源原始碼與新版候選 404，證明只切主流量不會移除這條未修補入口。此為具體現役安全暴露，不是重開無證據的歷史資產清理。
 
 既有 MCP route workflow 增加明確 opt-in `seal_legacy_tags`：只能在本次已驗證候選正式單一 100% 後執行；退役其他 `ghcr-*` 公開 tags，將既有固定名稱 URL（含 MCP／Preview）導向修補 revision，保留 revision 與映像本體作回復。不改正式流量百分比、runtime template、Jobs、Scheduler、IAM 或 Owner 資料；保留精確舊 tag map，執行前再次核對基準，失敗完整回復並驗證，未知狀態保留 owned lease。正常只修兩個 MCP tags 的預設行為不變。此輪新增部署工具回歸 **47 PASS**，包含 0% 拒絕／無變更 lease 安全釋放、正式 100% 條件、固定別名保留、設定漂移、成功與精確回復／鎖保留。工具修改不改變已完整 Release 的 runtime image 來源 `60b84395`。
+
+
+OAuth／private boundary [#41279149226](https://github.com/tommylin15/janus-omniforge/actions/runs/41279149226) **PASS**，同 runtime 來源 `60b84395`；metadata、PKCE／refresh 廣告與未登入 User／Admin／MCP 拒絕均成功。新路由工具 selective CI [#41279149267](https://github.com/tommylin15/janus-omniforge/actions/runs/41279149267) PASS。提交前已對路由工具與 Jobs 請求分別執行 `/ponytail-review`，核對新版正式 100% 前置、既有固定 URL 保留、完整 tag 回復／未知狀態留鎖，以及固定回復 image／hash；沒有未解決阻擋項。
