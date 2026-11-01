@@ -1,10 +1,5 @@
 # Janus — 唯一 Active TODO
 
-## 全專案程式清理與效能優化（2026-11-01）｜完整 Release 通過／待 Dev 發布驗收
-
-使用者授權盤點全專案、清理冗餘、優化 I/O／查詢／操作／UI，完成程式與文件後集中測試與驗收。範圍、修改與證據統一記在 [清理工作單](execution-cards/code-cleanup-2026-11-01.md)；未通過必要驗證前不標整體 PASS。
-
-
 ## P1｜個人策略、S/A/B/C與四時段報告｜部署已上線／待使用者操作驗收（2026-10-31）
 
 本工項已完成定向測試、071 migration、GHCR 映像發布、0% 候選驗證與 100% 流量正式切換。目前 API 正式環境變數已啟用 `PERSONAL_STRATEGY_ENABLED=true`、`PERSONAL_RESEARCH_API_APPROVED=true`、`PERSONAL_RESEARCH_FLASH_MODELS=gemini-2.5-flash`。

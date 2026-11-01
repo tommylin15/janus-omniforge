@@ -1,4 +1,4 @@
-# 全專案程式清理與效能優化
+# 全專案程式清理與效能優化｜CLOSED／PASS（工程發布與自動驗收）
 
 2026-11-01 使用者授權：先完成程式盤點、清理、I/O／查詢／操作／UI 優化與文件更新，再集中整體測試及驗收。既有 Dev 為個人真實服務；不新增付費資源或權限，不刪除真實業務資料。
 
@@ -65,3 +65,16 @@ rollout 改用 Cloud Run v2 PATCH 帶原 etag 與完整可寫設定，僅改 ima
 修復後四 Jobs [#41269766095](https://github.com/tommylin15/janus-omniforge/actions/runs/41269766095) **PASS**：固定來源 `daf9636e`，八個 distinct canary（每 Job 兩次）全部成功，四 Job config hash 不變，Scheduler `ENABLED`／`30 */2 * * *`，部署 lease 已釋放；回復映像可用，沒有另做舊映像切回演練。部署工具 selective CI [#41269766117](https://github.com/tommylin15/janus-omniforge/actions/runs/41269766117) PASS。API direct promotion 請求已固定此 Jobs run 與原先正式 API `00638-ban`／`28385c78` 回復基準；同步原本 inert templates，保留 `approved=false`。
 
 同時發現既有手動 `p02-controller-diagnostic.yml` 的未縮排 commit-comment 多行字串使每次 push 都產生 workflow syntax failure。移除未被引用的自動留言段與對 Git 的寫權限，保留手動唯讀診斷；YAML parse PASS。本輪不執行或發送該舊診斷留言。
+
+
+## 最終 Dev 發布與獨立 live 驗收（2026-11-01）
+
+- API direct promotion [#41270980235](https://github.com/tommylin15/janus-omniforge/actions/runs/41270980235) **PASS**：`janus-api-00640-jam`，來源 `daf9636e34c3a35b9359ed8c741e01b16bffb4ff`，單一正式流量 100%，固定 API digest `849ce46e…`。舊 `00638-ban`／`28385c78` 及其固定 GHCR image 保留；`rollback_rehearsal=NOT_REQUESTED`，不冒稱執行過切回演練。
+- MCP 既有兩個固定路由同步 [#41271191754](https://github.com/tommylin15/janus-omniforge/actions/runs/41271191754) **PASS**：`mcp-oauth`／`mcp-adapter` 均到同一 `00640-jam`；正式 100% 路由不變，固定 tag 的 build SHA／OAuth／唯讀工具與未登入 guard 通過。
+- 部署完成後獨立 GCP 讀回：四 Job 皆為本輪 Release 固定 digest，完整 config hash 不變；唯一 Scheduler `ENABLED`／`30 */2 * * *`／Asia/Taipei，API 單一 100% 及 MCP tags 均正確；全域 lease 讀回 404（已釋放）。沒有新付費資源、IAM 擴權或 Owner／canonical 資料清理。
+- 獨立 HTTP smoke：`/health`、`/api/v1/public/health`、`/app/`、JS bundle 均 200，build-id 精確為 `daf9636e`；profile／today-changes／positions／pnl／portfolio summary／Admin 均未登入 401。OAuth discovery／S256、唯讀 MCP tools 與退役 write tool 拒絕通過。完整 hashed JS 與版本化 bootstrap 另讀回 200／正確 JS MIME。
+- 已授權 Janus MCP 正向唯讀：`watchlist`、`positions` 各 `limit=1` 成功返回；兩者狀態如實為 `partial`／`truncated=true`，這是有界讀取，不冒稱完整帳本或 PnL 正確性驗證，也未保存私人 payload。
+- 正式瀏覽器 reload 後確認新版 Flutter 登入頁、Google 登入入口、品牌圖文及無障礙語意可呈現。初期空白後已實際載入成功；不將載入中的工具觀察誤判為 App 永久空白。真人 Google callback／登入後逐頁操作暫未取得證據，不作本次自動 Release 的必經 gate；既有個人策略使用者操作驗收仍依原 TODO。
+- 同步前最新 selective CI [#41270980131](https://github.com/tommylin15/janus-omniforge/actions/runs/41270980131) **PASS**。最終狀態為本輪程式清理、完整測試、既有 Dev 發布與上述有界 live 自動驗收 **CLOSED／PASS**，從 active TODO 移除。
+
+未量測 live p50／p95，不宣稱整體延遲改善百分比；未呼叫付費模型生成報告、不重做歷史模型校準／前瞻效用、全帳本 PnL 或 Owner A/B/A 真人操作。原先外部 frozen fixture skip／Release 既有 deselect 如前列，不改寫為全情境皆已驗證。

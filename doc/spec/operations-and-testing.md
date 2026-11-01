@@ -1,5 +1,20 @@
 # Janus 最新驗收證據索引
 
+## 2026-11-01 全專案清理｜工程發布與自動驗收 CLOSED／PASS
+
+來源 `daf9636e34c3a35b9359ed8c741e01b16bffb4ff`，執行程式淨減 665 行，清理無引用 UI／批次函式，減少行情 SQL、GCS metadata、Iceberg scan 與重複 UI 請求；修正前景恢復／背景輪詢。完整修改與限制見[封存收據](../archive/code-cleanup-2026-11-01.md)。
+
+| 驗收 | 真實結果 |
+|---|---|
+| 完整 Release | [#41265528911](https://github.com/tommylin15/janus-omniforge/actions/runs/41265528911) PASS：Linux／隔離 PG 2082 passed、2 skipped、2 deselected；Flutter 142 tests、analyze、web build 及四個固定 digest 映像通過。 |
+| 候選／OAuth | [候選 #41268189186](https://github.com/tommylin15/janus-omniforge/actions/runs/41268189186)、[邊界 #41268434252](https://github.com/tommylin15/janus-omniforge/actions/runs/41268434252) PASS。 |
+| 四 Jobs | [#41269766095](https://github.com/tommylin15/janus-omniforge/actions/runs/41269766095) PASS，8 個 distinct canary、原設定 hash 保留、Scheduler ENABLED。首輪 gcloud client-version 漂移已精確回復並改用保留設定的 v2 PATCH；不放寬 hash guard。 |
+| API／MCP | [切流 #41270980235](https://github.com/tommylin15/janus-omniforge/actions/runs/41270980235)、[MCP #41271191754](https://github.com/tommylin15/janus-omniforge/actions/runs/41271191754) PASS，同一 `janus-api-00640-jam`；API 100%、舊 revision 可回復，lease 已釋放。 |
+| 獨立 live | 新 SHA／健康／Web asset 200、私密與 Admin 未登入 401；既有 OAuth 授權的 watchlist／positions 各 1 筆正向唯讀成功，回應 `partial/truncated` 如實保留；新版正式登入 UI 可呈現。 |
+
+這是清理版本的有界工程驗收；未量測 live 延遲百分比、未演練舊映像切回、未呼叫付費報告生成或重做真人逐頁／全帳本 PnL 驗收。既有個人策略使用者 UAT 不因此自動結案。下方較舊 API／Jobs 版本皆為當時歷史收據。
+
+
 ## 2026-10-29 三大批次新排程落地｜已收斂結案
 
 以新版18:30主鏈、兩小時補償、每日備份／Stage與週末維護為核心落地運行；移除舊任務補跑及需求緩衝。
