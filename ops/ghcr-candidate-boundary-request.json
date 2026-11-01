@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "28385c788d55d13aa628e30b3fb21a2233df6868",
+  "sha": "daf9636e34c3a35b9359ed8c741e01b16bffb4ff",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Read-only OAuth metadata, private Owner/Admin API denial, MCP challenge and build SHA on Janus 0%-traffic candidate ghcr-28385c788d55. Candidate #41209182824 PASS, full GHCR Release #41208739248 PASS. Keep existing API 100% unchanged, no Jobs/Scheduler or IAM mutation.",
-  "request_attempt": 27
+  "purpose": "程式清理版本的 0% 候選 41268189186 已通過；僅對 ghcr-daf9636e34c3 驗證 OAuth discovery／PKCE／refresh metadata、Owner／Admin 拒絕、MCP Bearer challenge 與 build SHA，不更動 GCP 設定或流量。",
+  "request_attempt": 28
 }

@@ -44,7 +44,9 @@
 
 API 固定 digest：`sha256:849ce46e339f4fa861e6fbd8624315bac06850af2fa646443f87601b9d242072`；四映像其餘 digest 以同 run 的 `ghcr-digest-readback` artifact 為準。候選請求已固定本來源／Release／digest，只允許 API 0% 候選，不切正式流量、不改 Jobs；另以既有唯讀 workflow 取得四 Job 回復基準。
 
-**下一步：0% 候選 → OAuth／private boundary → 四 Jobs 可回復 rollout → API direct promotion 與真實讀回。** 新版尚未承接正式流量；未量測 live p50／p95，不標整體 CLOSED／PASS。
+API 0% 候選 [#41268189186](https://github.com/tommylin15/janus-omniforge/actions/runs/41268189186) PASS，原正式 100% 流量保留、health／build SHA／負向 Owner guard 與部署 lease 釋放均通過。四 Jobs 唯讀回復基準 [#41268094614](https://github.com/tommylin15/janus-omniforge/actions/runs/41268094614) PASS（`gcp_writes=0`），現役來源為 `4393543ccd02a4951e97354bd13d14a29f517759`，固定 image／config hash 以該 run 的 baseline artifact 為準。
+
+使用者已明確要求本任務代為等待候選、OAuth 邊界、Jobs rollout、正式切流量與 live 驗收，直到整體結束；不受一般遠端等待交接規則中途停止。下一步為 OAuth／private boundary → 四 Jobs 可回復 rollout → API direct promotion 與真實讀回。新版尚未承接正式流量；未量測 live p50／p95，不標整體 CLOSED／PASS。
 
 
 ## 提交前 review
