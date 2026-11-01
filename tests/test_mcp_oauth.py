@@ -17,6 +17,7 @@ from services.api.mcp_oauth import (
 class McpOAuthTests(unittest.TestCase):
     def setUp(self):
         self.now = 1_700_000_000
+        self.google_nonce = None
         self.settings = OAuthSettings(
             issuer="https://api.example.test",
             resource="https://api.example.test/mcp",
@@ -32,8 +33,38 @@ class McpOAuthTests(unittest.TestCase):
             google_verify=lambda _token, _audience: {
                 "iss": "https://accounts.google.com", "sub": "google-sub", "email": "owner@example.com",
                 "email_verified": True, "exp": self.now + 600,
+                "nonce": self.google_nonce,
             },
         )
+        begin = self.oauth.begin_authorization
+
+        def begin_with_google_nonce(params):
+            response = begin(params)
+            self.google_nonce = parse_qs(urlsplit(response.headers['location']).query).get('nonce', [None])[0]
+            return response
+
+        self.oauth.begin_authorization = begin_with_google_nonce
+
+    def test_google_identity_must_be_bound_to_the_same_authorization_flow(self):
+        from unittest.mock import Mock
+        response = self.oauth.begin_authorization({
+            'response_type': 'code', 'client_id': MCP_CLIENT_ID, 'redirect_uri': MCP_REDIRECT_URI,
+            'scope': 'janus.private.read', 'resource': self.settings.resource, 'state': 'client-state',
+            'code_challenge_method': 'S256', 'code_challenge': 'x' * 43,
+        })
+        query = parse_qs(urlsplit(response.headers['location']).query)
+        self.assertIn('nonce', query)
+        signed_state = query['state'][0]
+        self.assertEqual(query['nonce'][0], self.oauth._unsigned(signed_state, 'google')['nonce'])
+        claims = dict(self.oauth.google_verify('id-token', self.settings.google_client_id))
+        self.oauth.resolve_user = Mock()
+        for nonce in (None, 'different-flow'):
+            with self.subTest(nonce=nonce):
+                self.oauth.google_verify = lambda *_: {**claims, 'nonce': nonce}
+                denied = self.oauth.google_callback({'state': signed_state, 'code': 'valid-code-from-other-flow'})
+                self.assertEqual(denied.status_code, 302)
+                self.assertEqual(parse_qs(urlsplit(denied.headers['location']).query)['error'], ['access_denied'])
+                self.oauth.resolve_user.assert_not_called()
 
     def test_metadata_is_resource_bound_and_pkce_capable(self):
         protected = self.oauth.protected_resource_metadata()

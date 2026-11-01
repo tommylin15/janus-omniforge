@@ -208,6 +208,15 @@ def _flutter_asset_headers(path: str = "") -> dict[str, str]:
     return headers
 
 
+async def _bounded_body(request: Request, limit: int) -> bytes:
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > limit:
+            raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "Request too large")
+        body.extend(chunk)
+    return bytes(body)
+
+
 class _Lazy:
     def __init__(self, factory: Callable[[], Any]) -> None:
         self.factory, self.value = factory, None
@@ -461,9 +470,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @api.post("/oauth/register", status_code=status.HTTP_201_CREATED)
     async def mcp_register(request: Request) -> Response:
         try:
-            if len(await request.body()) > 4096:
-                raise ValueError("registration too large")
-            metadata = await request.json()
+            metadata = json.loads(await _bounded_body(request, 4096))
             if not isinstance(metadata, dict):
                 raise ValueError("invalid metadata")
             result = oauth_service().register_client(metadata)
@@ -482,23 +489,26 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     @api.post("/oauth/authorize/complete")
     async def mcp_authorize_complete(request: Request) -> Response:
-        form = parse_form(request, await request.body())
+        form = parse_form(request, await _bounded_body(request, 16_384))
         return oauth_service().complete_authorization(form.get("token", ""), form.get("approved") == "true")
 
     @api.post("/oauth/token")
     async def mcp_token(request: Request) -> Response:
-        return JSONResponse(oauth_service().exchange_token(parse_form(request, await request.body())),
+        form = parse_form(request, await _bounded_body(request, 16_384))
+        return JSONResponse(oauth_service().exchange_token(form),
                             headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
 
     @api.post("/oauth/revoke", status_code=status.HTTP_200_OK)
     async def mcp_revoke(request: Request) -> Response:
-        oauth_service().revoke_token(parse_form(request, await request.body()))
+        form = parse_form(request, await _bounded_body(request, 16_384))
+        oauth_service().revoke_token(form)
         return Response(status_code=status.HTTP_200_OK, headers={"Cache-Control": "no-store"})
 
     @api.post("/mcp")
     async def mcp_endpoint(request: Request) -> Response:
-        body = await request.body()
-        if len(body) > 65_536:
+        try:
+            body = await _bounded_body(request, 65_536)
+        except HTTPException:
             return JSONResponse({"jsonrpc":"2.0","id":None,
                                  "error":{"code":-32600,"message":"Request too large"}}, status_code=413)
         try: value = json.loads(body)
@@ -567,7 +577,9 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     @api.get("/app/{path:path}", include_in_schema=False)
     def flutter_app(path: str):
-        candidate = flutter_dir / path
+        candidate = (flutter_dir / path).resolve()
+        if not candidate.is_relative_to(flutter_dir.resolve()):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
         if candidate.is_file():
             return FileResponse(candidate, headers=_flutter_asset_headers(path))
         shell = "admin-index.html" if path.startswith("admin/") else "index.html"

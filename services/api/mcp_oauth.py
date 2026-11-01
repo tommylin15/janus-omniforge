@@ -229,17 +229,18 @@ class McpOAuth:
         challenge = params.get("code_challenge", "")
         if params.get("code_challenge_method") != "S256" or not self._valid_challenge(challenge):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "S256 PKCE code challenge is required")
+        nonce = secrets.token_urlsafe(24)
         state = self._sign({
             "kind": "google", "client_id": client_id, "redirect_uri": redirect_uri,
             "resource": self.settings.resource, "scope": scope, "challenge": challenge,
             "state": params.get("state", ""), "exp": self._now() + self.settings.authorization_ttl,
-            "nonce": secrets.token_urlsafe(24),
+            "nonce": nonce,
         })
         query = urlencode({
             "client_id": self.settings.google_client_id,
             "redirect_uri": f"{self.settings.issuer}/oauth/google/callback",
             "response_type": "code", "scope": "openid email", "access_type": "online",
-            "prompt": "select_account", "state": state,
+            "prompt": "select_account", "state": state, "nonce": nonce,
         })
         return Response(status_code=status.HTTP_302_FOUND, headers={"Location": f"{_GOOGLE_AUTHORIZE}?{query}"})
 
@@ -257,6 +258,9 @@ class McpOAuth:
                 raise ValueError("unverified Google identity")
             if int(claims.get("exp", 0)) <= self._now():
                 raise ValueError("expired Google identity")
+            if (not isinstance(claims.get("nonce"), str)
+                    or not hmac.compare_digest(claims["nonce"], state["nonce"])):
+                raise ValueError("Google identity belongs to another authorization flow")
             subject, email = str(claims.get("sub", "")).strip(), str(claims.get("email", "")).strip().lower()
             if not subject or email not in self.settings.allowed_emails:
                 raise ValueError("Google account is not allowed")
