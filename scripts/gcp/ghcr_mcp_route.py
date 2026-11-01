@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Repair only the two existing dev MCP tags under the shared release lease."""
+"""Repair existing dev tags, optionally closing old public security bypasses."""
 from __future__ import annotations
 
 import argparse
@@ -63,6 +63,26 @@ def validate(before, after, candidate, restored=False):
         expected.update({tag: (candidate, 0) for tag in TAGS})
     if new_tags != expected:
         raise ValueError("unexpected_tag_change")
+
+
+def sealed_tags(before, candidate, sha):
+    active, existing = routes(before)
+    current = "ghcr-" + sha[:12]
+    if active != [(candidate, 100)] or existing.get(current, (None,))[0] != candidate:
+        raise ValueError("security_seal_requires_accepted_100_percent_candidate")
+    return {tag: candidate for tag in existing if not tag.startswith("ghcr-") or tag == current}
+
+
+def validate_sealed(before, after, candidate, sha, restored=False):
+    if not ready_and_reconciled(after) or after.get("metadata", {}).get("name") != SERVICE:
+        raise ValueError("service_not_reconciled")
+    old_active, old_tags = routes(before)
+    new_active, new_tags = routes(after)
+    desired = sealed_tags(before, candidate, sha)
+    expected = {tag: row[0] for tag, row in old_tags.items()} if restored else desired
+    if (new_active != old_active or {tag: row[0] for tag, row in new_tags.items()} != expected
+            or before.get("spec", {}).get("template") != after.get("spec", {}).get("template")):
+        raise ValueError("public_security_routes_or_configuration_drift")
 
 
 def describe():
@@ -151,6 +171,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--release-run", required=True)
     parser.add_argument("--baseline", type=Path, required=True)
+    parser.add_argument("--seal-legacy-tags", action="store_true")
     args = parser.parse_args()
     sha = json.loads(Path("ops/ghcr-candidate-request.json").read_text())["sha"]
     if not re.fullmatch(r"[0-9a-f]{40}", sha) or not re.fullmatch(r"[0-9]+", args.release_run):
@@ -176,6 +197,7 @@ def main():
         validate(before, before, candidate, restored=True)
         if existing[tag][1] != (100 if candidate == active[0][0] else 0):
             raise ValueError("candidate_traffic_identity_mismatch")
+        desired = sealed_tags(before, candidate, sha) if args.seal_legacy_tags else None
         # Persist only bounded routing metadata for independent recovery after crash.
         args.baseline.write_text(json.dumps({"source_sha": sha, "candidate": candidate,
             "active": active, "tags": existing}, sort_keys=True))
@@ -204,19 +226,29 @@ def main():
         phase = "candidate_probe"
         probe(candidate_url, sha)
         command(LEASE + ["assert"])
+        if desired is not None:
+            validate_sealed(before, describe(), candidate, sha, restored=True)
         mutation = True
         phase = "tag_update"
+        flag = ("--set-tags=" + ",".join(f"{name}={revision}" for name, revision in desired.items())
+                if desired is not None else
+                "--update-tags=" + ",".join(f"{name}={candidate}" for name in TAGS))
         command(["gcloud", "run", "services", "update-traffic", SERVICE, f"--project={PROJECT}",
-            f"--region={REGION}", "--update-tags=" + ",".join(f"{tag}={candidate}" for tag in TAGS), "--quiet"])
-        validate(before, describe(), candidate)
+            f"--region={REGION}", flag, "--quiet"])
+        if desired is None:
+            validate(before, describe(), candidate)
+        else:
+            validate_sealed(before, describe(), candidate, sha)
         phase = "fixed_tag_probe"
-        for tag in TAGS:
+        for tag in (*TAGS, *(("preview",) if desired is not None and "preview" in desired else ())):
             probe("https://" + tag + "---" + urlsplit(BASE).netloc, sha)
         command(LEASE + ["assert"])
         command(LEASE + ["release", "--safe-to-release"])
         print(json.dumps({"result": "PASS", "source_sha": sha, "revision": candidate,
             "image": image, "tags": TAGS, "canonical_traffic_unchanged": True,
-            "codex_prelogin_gate": "PASS", "authenticated_mcp": "PENDING"}, sort_keys=True))
+            "codex_prelogin_gate": "PASS", "authenticated_mcp": "PENDING",
+            "legacy_public_tags_sealed": desired is not None,
+            "removed_versioned_tags": len(existing) - len(desired) if desired is not None else 0}, sort_keys=True))
         return 0
     except Exception as failure:
         # Only code-owned phase names cross the diagnostic boundary.
@@ -231,9 +263,15 @@ def main():
             command(LEASE + ["assert"])
             if mutation:
                 old_tags = routes(before)[1]
+                restore = ("--set-tags=" + ",".join(f"{t}={row[0]}" for t, row in old_tags.items())
+                           if args.seal_legacy_tags else
+                           "--update-tags=" + ",".join(f"{t}={old_tags[t][0]}" for t in TAGS))
                 command(["gcloud", "run", "services", "update-traffic", SERVICE, f"--project={PROJECT}",
-                    f"--region={REGION}", "--update-tags=" + ",".join(f"{t}={old_tags[t][0]}" for t in TAGS), "--quiet"])
-            validate(before, describe(), "", restored=True)
+                    f"--region={REGION}", restore, "--quiet"])
+            if args.seal_legacy_tags and mutation:
+                validate_sealed(before, describe(), candidate, sha, restored=True)
+            else:
+                validate(before, describe(), "", restored=True)
             command(LEASE + ["release", "--safe-to-release"])
         except Exception:
             raise RuntimeError("recovery_unknown_lease_retained") from None

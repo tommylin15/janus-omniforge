@@ -43,3 +43,12 @@
 完整 Release [#41278063624](https://github.com/tommylin15/janus-omniforge/actions/runs/41278063624) **PASS**，來源 `60b84395b8fe4edacd7e054f4f3b145d0b298cc0`：Linux／隔離 PG **2095 passed、2 skipped、2 deselected**（87.27 秒），Flutter、四映像建置與公開 fixed digest 驗證成功。selective CI [#41278045887](https://github.com/tommylin15/janus-omniforge/actions/runs/41278045887) 與 PG／runtime contracts [#41278045873](https://github.com/tommylin15/janus-omniforge/actions/runs/41278045873) 也成功。
 
 四 Jobs 唯讀基準 [#41278364781](https://github.com/tommylin15/janus-omniforge/actions/runs/41278364781) PASS，`gcp_writes=0`，來源均為先前 `daf9636e`，image／完整 config hash 保存在該 run 的 `ghcr-jobs-baseline` artifact。下一步僅部署 0% API 候選；尚未以新版承接正式流量。
+
+
+0% 候選 [#41278547341](https://github.com/tommylin15/janus-omniforge/actions/runs/41278547341) PASS，主流量保留原版、lease `SAFE_TO_RELEASE`。候選獨立安全讀回 PASS：可達的 encoded absolute 越界路徑 404，dot path 在 GCP 邊緣正規化轉址後 404；MCP 413／registration 400／OAuth forms 413，Google authorize nonce 與已簽名 state 一致。只用不存在的檔名與一次有界請求，無 Owner／canonical writes。
+
+### 追加發現：舊公開 tag 仍暴露舊程式
+
+舊 `ghcr-daf9636e34c3` 公開網址對不存在的 encoded absolute 越界路徑仍回 200（舊 SPA fallback），對照同來源原始碼與新版候選 404，證明只切主流量不會移除這條未修補入口。此為具體現役安全暴露，不是重開無證據的歷史資產清理。
+
+既有 MCP route workflow 增加明確 opt-in `seal_legacy_tags`：只能在本次已驗證候選正式單一 100% 後執行；退役其他 `ghcr-*` 公開 tags，將既有固定名稱 URL（含 MCP／Preview）導向修補 revision，保留 revision 與映像本體作回復。不改正式流量百分比、runtime template、Jobs、Scheduler、IAM 或 Owner 資料；保留精確舊 tag map，執行前再次核對基準，失敗完整回復並驗證，未知狀態保留 owned lease。正常只修兩個 MCP tags 的預設行為不變。此輪新增部署工具回歸 **47 PASS**，包含 0% 拒絕／無變更 lease 安全釋放、正式 100% 條件、固定別名保留、設定漂移、成功與精確回復／鎖保留。工具修改不改變已完整 Release 的 runtime image 來源 `60b84395`。

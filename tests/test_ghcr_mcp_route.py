@@ -36,6 +36,97 @@ def test_only_two_mcp_tags_change_and_rollback_restores_original_routes():
         route.validate(baseline(), switched(), "", restored=True)
 
 
+def serving_baseline():
+    before = baseline()
+    before['status']['traffic'][0]['percent'] = 0
+    before['status']['traffic'][1]['percent'] = 100
+    before['status']['traffic'] += [
+        {'tag': 'ghcr-old-source', 'revisionName': 'old-revision'},
+        {'tag': 'preview', 'revisionName': 'old-preview'}]
+    return before
+
+
+def sealed(before):
+    after = copy.deepcopy(before)
+    after['status']['traffic'] = [before['status']['traffic'][0]] + [
+        {'tag': tag, 'revisionName': revision,
+         'percent': 100 if tag == 'ghcr-' + SOURCE_SHA[:12] else 0}
+        for tag, revision in route.sealed_tags(before, 'candidate', SOURCE_SHA).items()]
+    return after
+
+
+def test_security_seal_requires_serving_candidate_and_preserves_named_urls():
+    with pytest.raises(ValueError, match='accepted_100_percent'):
+        route.sealed_tags(baseline(), 'candidate', SOURCE_SHA)
+    before = serving_baseline()
+    desired = route.sealed_tags(before, 'candidate', SOURCE_SHA)
+    assert set(desired) == {'ghcr-' + SOURCE_SHA[:12], 'mcp-oauth', 'mcp-adapter', 'unrelated', 'preview'}
+    assert set(desired.values()) == {'candidate'}
+    after = sealed(before)
+    route.validate_sealed(before, after, 'candidate', SOURCE_SHA)
+    route.validate_sealed(before, before, 'candidate', SOURCE_SHA, restored=True)
+    after['spec'] = {'template': {'changed': True}}
+    with pytest.raises(ValueError, match='configuration_drift'):
+        route.validate_sealed(before, after, 'candidate', SOURCE_SHA)
+
+
+def test_security_seal_at_zero_percent_releases_only_verified_unmodified_lease(tmp_path):
+    calls = []
+    metadata = {'headSha': SOURCE_SHA, 'status': 'completed', 'conclusion': 'success',
+                'workflowName': 'Janus GHCR full-test image publication', 'jobs': [
+                    {'name': name, 'conclusion': 'success'} for name in
+                    ('python-tests', 'flutter-tests', 'publish (api)', 'public-pull-gate')]}
+
+    def command(args):
+        calls.append(args)
+        return route.json.dumps(metadata) if args[:3] == ['gh', 'run', 'view'] else ''
+
+    with patch.object(sys, 'argv', ['repair', '--release-run', '123', '--baseline', str(tmp_path / 'baseline.json'), '--seal-legacy-tags']), \
+         patch.object(route, 'command', side_effect=command), patch.object(route, 'describe', return_value=baseline()):
+        with pytest.raises(RuntimeError, match='baseline_verified'):
+            route.main()
+    assert route.LEASE + ['release', '--safe-to-release'] in calls
+    assert not any(call[:4] == ['gcloud', 'run', 'services', 'update-traffic'] for call in calls)
+
+
+@pytest.mark.parametrize('failure,recovery_safe', [(False, True), (True, True), (True, False)])
+def test_security_seal_has_exact_full_tag_rollback_and_owned_lease(tmp_path, failure, recovery_safe):
+    before = serving_baseline()
+    before['status']['traffic'][1]['url'] = 'https://candidate.test'
+    after = sealed(before)
+    calls = []
+
+    def command(args):
+        calls.append(args)
+        if args[:3] == ['gh', 'run', 'view']:
+            return route.json.dumps({'headSha': SOURCE_SHA, 'status': 'completed', 'conclusion': 'success',
+                'workflowName': 'Janus GHCR full-test image publication', 'jobs': [
+                    {'name': name, 'conclusion': 'success'} for name in
+                    ('python-tests', 'flutter-tests', 'publish (api)', 'public-pull-gate')]})
+        if args[:3] == ['gcloud', 'builds', 'triggers'] or args[:3] == ['gcloud', 'builds', 'list']:
+            return '[]'
+        if args[:4] == ['gcloud', 'run', 'revisions', 'describe']:
+            return route.json.dumps({'spec': {'containers': [{'image': 'ghcr.io/tommylin15/janus-api@sha256:' + 'a' * 64}]},
+                'status': {'conditions': [{'type': 'Ready', 'status': 'True'}]}})
+        return ''
+
+    snapshots = [before, before, after] + ([before if recovery_safe else after] if failure else [])
+    with patch.object(sys, 'argv', ['repair', '--release-run', '123', '--baseline', str(tmp_path / 'baseline.json'), '--seal-legacy-tags']), \
+         patch.object(route, 'command', side_effect=command), patch.object(route, 'describe', side_effect=snapshots), \
+         patch.object(route, 'probe', side_effect=[None, ValueError('probe failure')] if failure else None):
+        if failure:
+            with pytest.raises(RuntimeError, match='baseline_verified' if recovery_safe else 'lease_retained'):
+                route.main()
+        else:
+            assert route.main() == 0
+    updates = [arg for call in calls for arg in call if arg.startswith('--set-tags=')]
+    assert len(updates) == (2 if failure else 1)
+    assert 'ghcr-old-source=' not in updates[0] and 'unrelated=candidate' in updates[0]
+    if failure:
+        assert updates[1] == '--set-tags=' + ','.join(f'{tag}={row[0]}' for tag, row in route.routes(before)[1].items())
+    assert (route.LEASE + ['release', '--safe-to-release'] in calls) is (not failure or recovery_safe)
+
+
 @pytest.mark.parametrize("change", ["traffic", "unrelated", "missing", "duplicate", "generation", "ready"])
 def test_readback_rejects_incomplete_or_unrelated_runtime_changes(change):
     after = switched()

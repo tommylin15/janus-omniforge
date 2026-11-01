@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "daf9636e34c3a35b9359ed8c741e01b16bffb4ff",
+  "sha": "60b84395b8fe4edacd7e054f4f3b145d0b298cc0",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "程式清理版本的 0% 候選 41268189186 已通過；僅對 ghcr-daf9636e34c3 驗證 OAuth discovery／PKCE／refresh metadata、Owner／Admin 拒絕、MCP Bearer challenge 與 build SHA，不更動 GCP 設定或流量。",
-  "request_attempt": 28
+  "purpose": "資安版本 0% 候選 41278547341 PASS；候選獨立讀回檔案越界 404、MCP／OAuth body guard、Google nonce 綁定 PASS。此請求僅驗證同來源 OAuth discovery／PKCE／refresh metadata、Owner／Admin 未登入拒絕、MCP challenge 與 build SHA，不更動 GCP。",
+  "request_attempt": 29
 }

@@ -6,6 +6,10 @@ on:
         description: Successful full-test GHCR publication run for the requested candidate SHA
         required: true
         type: string
+      seal_legacy_tags:
+        description: '在新版已正式 100% 後，退役舊 ghcr tag 並將既有固定別名導向修復版本'
+        type: boolean
+        default: false
 permissions:
   contents: write
   actions: read
@@ -39,10 +43,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_RUN: ${{ inputs.release_run }}
           BASELINE: ${{ runner.temp }}/mcp-route-baseline.json
+          SEAL_LEGACY_TAGS: ${{ inputs.seal_legacy_tags }}
         run: |
           set -Eeuo pipefail
           test "$GITHUB_REF" = refs/heads/main
-          python scripts/gcp/ghcr_mcp_route.py --release-run "$RELEASE_RUN" --baseline "$BASELINE" | tee /tmp/mcp-route-result.json
+          extra_args=()
+          if [[ "$SEAL_LEGACY_TAGS" == "true" ]]; then extra_args+=(--seal-legacy-tags); fi
+          python scripts/gcp/ghcr_mcp_route.py --release-run "$RELEASE_RUN" --baseline "$BASELINE" "${extra_args[@]}" | tee /tmp/mcp-route-result.json
           cat /tmp/mcp-route-result.json >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
