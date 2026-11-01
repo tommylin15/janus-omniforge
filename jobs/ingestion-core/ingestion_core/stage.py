@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+from threading import Lock
+from time import monotonic
 from typing import Protocol
 from urllib.error import HTTPError
 from urllib.parse import quote
@@ -80,14 +82,25 @@ class GcsObjectStore:
         if release_event_based_hold and bucket != "gen-lang-client-0593591102-dev-core":
             raise ValueError("hold release is restricted to approved dev Core cleanup")
         self.release_event_based_hold = release_event_based_hold
+        self._access_token = ""
+        self._token_expires_at = 0.0
+        self._token_lock = Lock()
 
     def _token(self) -> str:
-        request = Request(
-            "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
-            headers={"Metadata-Flavor": "Google"},
-        )
-        with urlopen(request, timeout=self.timeout_seconds) as response:
-            return json.load(response)["access_token"]
+        with self._token_lock:
+            if self._access_token and monotonic() < self._token_expires_at:
+                return self._access_token
+            requested_at = monotonic()
+            request = Request(
+                "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+                headers={"Metadata-Flavor": "Google"},
+            )
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                payload = json.load(response)
+            self._access_token = payload["access_token"]
+            # Refresh early; unknown expiry keeps the original uncached behavior.
+            self._token_expires_at = requested_at + max(0, int(payload.get("expires_in", 0)) - 60)
+            return self._access_token
 
     def create(self, name: str, payload: bytes, content_type: str) -> bool:
         endpoint = (

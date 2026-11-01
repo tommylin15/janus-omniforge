@@ -83,13 +83,3 @@ def evaluate_outcome(candidate: dict[str, Any], ohlcv: list[dict[str, Any]],
                 "provenance_id": _provenance(candidate, horizon, evidence, "valid")}
     return {**common, "status": "excluded", "exclusion_reason": reason,
             "provenance_id": _provenance(candidate, horizon, evidence, reason)}
-
-
-def collect_pilot_outcomes(publication: Any, datasets: dict[str, list[dict[str, Any]]]) -> int:
-    symbols = sorted({str(row.get("symbol")) for row in datasets.get("ohlcv", []) if row.get("symbol")})
-    if not symbols:
-        return 0
-    rows = [evaluate_outcome(candidate, datasets.get("ohlcv", []), datasets.get("benchmark", []))
-            for candidate in publication.pending_outcomes(symbols)]
-    publication.save_outcomes(rows)
-    return len(rows)

@@ -123,10 +123,7 @@ class DuckDBEngine:
             select_columns = []
             for column in columns:
                 name = self._identifier(column)
-                if column in keys:
-                    select_columns.append(f"coalesce(i.{name}, e.{name}) AS {name}")
-                else:
-                    select_columns.append(f"coalesce(i.{name}, e.{name}) AS {name}")
+                select_columns.append(f"coalesce(i.{name}, e.{name}) AS {name}")
             conditions = " AND ".join(
                 f"i.{self._identifier(key)} IS NOT DISTINCT FROM e.{self._identifier(key)}" for key in keys
             )

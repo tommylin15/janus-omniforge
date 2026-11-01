@@ -232,3 +232,24 @@ def test_concurrent_cash_resets_commit_only_one_expected_version(ledger):
     assert repo.cash_position(owner)['cash_version'] == 1
     assert repo.latest_ledger_version(owner) == 0
     assert repo.cash_position(other)['cash_status'] == 'not_configured'
+
+
+def test_official_history_bulk_write_is_immutable_and_atomic(ledger):
+    from services.api.tpex_quotes import TPEX_OFFICIAL_EOD_URL
+    repo, _ = ledger
+    with repo._connection() as connection:
+        connection.execute("CREATE SCHEMA control")
+        connection.execute("""CREATE TABLE control.official_tpex_eod_history (
+            symbol text NOT NULL, trade_date date NOT NULL, price numeric NOT NULL,
+            source_uri text NOT NULL, record_sha256 text NOT NULL,
+            PRIMARY KEY(symbol,trade_date))""")
+    def quote(price):
+        return {'price_date':'2026-10-30', 'price':price, 'source':'tpex_openapi_eod',
+                'source_uri':TPEX_OFFICIAL_EOD_URL, 'record_sha256':'a'*64}
+    assert repo.save_official_eod_quotes({'00719B':[quote('31.11')]}) == 1
+    assert repo.save_official_eod_quotes({'00719B':[quote('31.110')]}) == 1
+    with pytest.raises(ValueError, match='immutable price conflict'):
+        repo.save_official_eod_quotes({'0000':[quote('10')], '00719B':[quote('32')]})
+    with repo._connection() as connection:
+        rows = connection.execute('SELECT symbol,price FROM control.official_tpex_eod_history').fetchall()
+    assert rows == [{'symbol':'00719B', 'price':Decimal('31.11')}]

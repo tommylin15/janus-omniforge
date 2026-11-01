@@ -420,57 +420,6 @@ def build_financial_samples(datasets, symbols, as_of, snapshot, horizon_days, ro
     return output, dict(exclusions)
 
 
-def evaluate_core_history(datasets, symbols, as_of, snapshot):
-    results = []
-    for horizon in (5, 20, 60, 120):
-        samples, exclusions = build_quant_samples(datasets, symbols, as_of, snapshot, horizon)
-        for model in ("linear", "lightgbm", "catboost", "qlib_double_ensemble"):
-            evaluation = walk_forward(samples, model_name=model, features=["momentum_5d", "momentum_20d", "momentum_60d"],
-                                      cost_bps=30, horizon_days=horizon)
-            evaluation.pop("output_hash")
-            evaluation.update(core_snapshot_id=snapshot, analysis_as_of=as_of, exclusions=exclusions,
-                              cost_semantics="research_sensitivity_30bps_not_actual_broker_cost",
-                              cohort_semantics="current_deep_coverage_research_cohort_not_historical_population",
-                              missing_evaluations=["historical_membership_replay", "ic_decay", "calibration", "regime_stability", "qlib_double_ensemble"])
-            if model == "qlib_double_ensemble":
-                evaluation["upstream_version"] = "microsoft/qlib-v0.9.7-bounded-adapter"
-                evaluation["missing_evaluations"].remove("qlib_double_ensemble")
-            if any(item["rank_ic"] is not None for value in evaluation["metrics"]["ic_decay"].values()
-                   for item in value["time_series_by_symbol"].values()):
-                evaluation["missing_evaluations"].remove("ic_decay")
-            calibration = evaluation["metrics"]["probability_calibration"]
-            if isinstance(calibration, dict) and calibration["status"] == "evaluated":
-                evaluation["missing_evaluations"].remove("calibration")
-            evaluation["output_hash"] = digest(evaluation)
-            results.append(evaluation)
-        for role, models in (("fundamental", ("lightgbm",)), ("valuation", ("lightgbm", "catboost"))):
-            financial_samples, financial_exclusions = build_financial_samples(datasets, symbols, as_of, snapshot, horizon, role)
-            for model in (("zero", "financial_rule", *models) if role == "fundamental" else models):
-                evaluation = walk_forward(financial_samples, model_name=model, features=ROLE_FEATURES[role],
-                                          cost_bps=30, horizon_days=horizon, allow_missing_features=role == "valuation")
-                evaluation.pop("output_hash")
-                evaluation.update(specialist_role=role, core_snapshot_id=snapshot, analysis_as_of=as_of,
-                    exclusions=financial_exclusions, cost_semantics="research_sensitivity_30bps_not_actual_broker_cost",
-                    cohort_semantics="current_deep_coverage_research_cohort_not_historical_population")
-                if role == "fundamental":
-                    history = financial_training_history(datasets.get("financials", []))
-                    bases = defaultdict(int)
-                    for row in history:
-                        if row.get("metric") in ROLE_FEATURES[role]:
-                            bases[row.get("financial_training_time_basis", "unknown")] += 1
-                    evaluation["financial_history_policy"] = {**FINANCIAL_HISTORY_POLICY, "feature_time_basis_counts": dict(bases)}
-                evaluation["output_hash"] = digest(evaluation)
-                results.append(evaluation)
-    from .specialists import validated_inputs, price_series
-    benchmark_rows, _, _ = validated_inputs(datasets, sorted(symbols)[0], as_of, snapshot) if symbols else ({}, [], [])
-    series = price_series(benchmark_rows.get("benchmark", []))
-    values = list(series.values())
-    returns = [b / a - 1 for a, b in zip(values, values[1:])]
-    results.append({"model_name": "statsmodels_markov_regime", "core_snapshot_id": snapshot,
-                    "analysis_as_of": as_of, **fit_regime_challenger(returns, dates=list(series)[1:])})
-    return results
-
-
 def fit_regime_challenger(returns, *, dates=None):
     """Monthly research fit only; filtered final-state probability has no promotion authority."""
     if dates is not None and (len(dates) != len(returns) or dates != sorted(set(dates))):

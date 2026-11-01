@@ -106,6 +106,18 @@ Finder get stockScroll => find.descendant(
     matching: find.byType(Scrollable)).first;
 
 void main() {
+  testWidgets('watchlist resume reuses an unfinished automatic read', (tester) async {
+    final api = StalledWatchlistApi();
+    await tester.pumpWidget(MaterialApp(home: FinalWatchlistPage(api)));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(api.reads.where((p) => p == '/api/v1/me/watchlist').length, 1);
+    api.stalled.complete(const []);
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox());
+  });
+
   test('holdings quote caption never treats API read time as live trade time', () {
     final now = DateTime(2026, 10, 30, 13, 13);
     final oldPosition = {

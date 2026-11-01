@@ -15,8 +15,8 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from .control import (
     AuthorizationStatus, CacheMetadata, CollectionConfig, ControlPlaneError, CoverageMembership, CoverageTier, Cursor, DataState,
-    Execution, ExecutionItem, ExecutionStatus, InvalidTransitionError, SOURCE_AUTHORIZATION, SOURCE_REVIEW_CHECKS, Stock,
-    StockInUseError, TriggerType, _analysis_options, _analysis_request, _iso, _parse_time, _symbol, utc_now,
+    Execution, ExecutionItem, ExecutionStatus, InvalidTransitionError, SOURCE_AUTHORIZATION, Stock,
+    StockInUseError, TriggerType, _analysis_options, _analysis_request, _iso, _parse_time, _symbol, source_review_approved, utc_now,
 )
 
 
@@ -402,15 +402,7 @@ class PostgreSQLControlPlane:
         if not setting or not isinstance(setting[0], dict):
             return False
         review = setting[0]
-        checks = review.get("checks")
-        return bool(
-            review.get("status") == AuthorizationStatus.APPROVED_FALLBACK.value
-            and isinstance(checks, dict) and all(checks.get(key) is True for key in SOURCE_REVIEW_CHECKS)
-            and isinstance(review.get("evidence_url"), str) and review["evidence_url"].startswith("https://")
-            and isinstance(review.get("reviewer"), str) and review["reviewer"].strip()
-            and isinstance(review.get("reason"), str) and review["reason"].strip()
-            and isinstance(review.get("decided_at"), str) and review["decided_at"]
-        )
+        return source_review_approved(review)
 
     def get_execution(self, execution_id: str) -> Execution:
         with self.connection.cursor() as cur:

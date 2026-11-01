@@ -81,6 +81,18 @@ SOURCE_REVIEW_CHECKS = (
 )
 
 
+def source_review_approved(review: dict[str, Any]) -> bool:
+    checks = review.get("checks")
+    return bool(
+        review.get("status") == AuthorizationStatus.APPROVED_FALLBACK.value
+        and isinstance(checks, dict) and all(checks.get(key) is True for key in SOURCE_REVIEW_CHECKS)
+        and isinstance(review.get("evidence_url"), str) and review["evidence_url"].startswith("https://")
+        and isinstance(review.get("reviewer"), str) and review["reviewer"].strip()
+        and isinstance(review.get("reason"), str) and review["reason"].strip()
+        and isinstance(review.get("decided_at"), str) and review["decided_at"]
+    )
+
+
 class ControlPlaneError(RuntimeError):
     """Base class for safe, user-facing control-plane errors."""
 
@@ -683,15 +695,7 @@ class SQLiteControlPlane:
         if not setting or not isinstance(setting[0], dict):
             return False
         review = setting[0]
-        checks = review.get("checks")
-        return bool(
-            review.get("status") == AuthorizationStatus.APPROVED_FALLBACK.value
-            and isinstance(checks, dict) and all(checks.get(key) is True for key in SOURCE_REVIEW_CHECKS)
-            and isinstance(review.get("evidence_url"), str) and review["evidence_url"].startswith("https://")
-            and isinstance(review.get("reviewer"), str) and review["reviewer"].strip()
-            and isinstance(review.get("reason"), str) and review["reason"].strip()
-            and isinstance(review.get("decided_at"), str) and review["decided_at"]
-        )
+        return source_review_approved(review)
 
     def get_execution(self, execution_id: str) -> Execution:
         row = self.connection.execute("SELECT * FROM executions WHERE execution_id=?", (execution_id,)).fetchone()

@@ -24,7 +24,7 @@ class _AdminAnalysisPageState extends State<AdminAnalysisPage> {
   }
 
   void reload() =>
-      setState(() => data = widget.api.get('/api/v1/admin/analysis'));
+      setState(() { data = widget.api.get('/api/v1/admin/analysis'); });
 
   Future<void> editCapability() async {
     final email = TextEditingController(), reason = TextEditingController();

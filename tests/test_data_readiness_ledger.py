@@ -122,11 +122,11 @@ def test_readiness_unfiltered_financial_scan_omits_none_predicate():
     assert rows == [{"symbol": "2330", "metric": "eps"}]
     assert snapshot_id == "123"
     table.scan.assert_called_once_with(
-        snapshot_id=123, selected_fields=("symbol", "metric"))
+        snapshot_id=123, selected_fields=("symbol", "metric"), limit=150001)
 
     sentinel = object()
     table.scan.reset_mock()
     _scan(core, "financials", ("symbol", "metric"), row_filter=sentinel)
     table.scan.assert_called_once_with(
         snapshot_id=123, selected_fields=("symbol", "metric"),
-        row_filter=sentinel)
+        row_filter=sentinel, limit=150001)

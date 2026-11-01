@@ -57,30 +57,39 @@ class _PersonalStrategyPageState extends State<PersonalStrategyPage> with Widget
   bool busy = false, loading = true;
   Timer? timer;
   int generation = 0;
+  bool foreground = true;
   @override
-  void initState() { super.initState(); WidgetsBinding.instance.addObserver(this); load(); }
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    foreground = WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    load();
+  }
   @override
   void dispose() { timer?.cancel(); WidgetsBinding.instance.removeObserver(this); super.dispose(); }
   @override
   void didUpdateWidget(PersonalStrategyPage old) {
     super.didUpdateWidget(old);
-    if (old.api != widget.api) { summary = {}; reports = []; }
+    if (old.api != widget.api) { generation++; summary = {}; reports = []; error = null; loading = true; }
     if (widget.active && (old.active != widget.active || old.api != widget.api)) load();
     if (!widget.active) timer?.cancel();
   }
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) { timer?.cancel(); }
+    foreground = state == AppLifecycleState.resumed;
+    if (!foreground) { timer?.cancel(); }
     else if (widget.active) { load(); }
   }
   Future<void> load() async {
     final ticket = ++generation;
     timer?.cancel();
     try {
-      final result = await Future.wait([widget.api.get(_root), widget.api.get('$_root/reports/$type')]);
+      final result = await Future.wait([widget.api.get(_root), widget.api.get('$_root/reports/$type')])
+          .timeout(const Duration(seconds: 25));
       if (!mounted || ticket != generation) return;
       setState(() { summary = _map(result[0]); reports = _list(_map(result[1])['items']); error = null; loading = false; });
-      if (widget.active && _list(summary['requests']).any((v) => ['QUEUED', 'RUNNING'].contains(v['status']))) {
+      if (widget.active && foreground && _list(summary['requests']).any((v) => ['QUEUED', 'RUNNING'].contains(v['status']))) {
         timer = Timer(const Duration(seconds: 8), load);
       }
     } catch (e) { if (mounted && ticket == generation) setState(() { error = '$e'; loading = false; }); }

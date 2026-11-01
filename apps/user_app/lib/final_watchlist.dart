@@ -21,6 +21,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
   late Future<dynamic> data = _load();
   dynamic lastGoodData;
   int loadGeneration = 0;
+  Future<dynamic>? pendingLoad;
   Timer? quoteTimer;
   bool foreground = true;
 
@@ -51,7 +52,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
         if (!quotesActive || !marketHours) {
           quoteTimer?.cancel();
         } else {
-          reload();
+          reload(force: false);
         }
       });
     }
@@ -63,11 +64,11 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     if (!identical(oldWidget.api, widget.api)) {
       // Owner/API token transitions must never reuse another owner's snapshot.
       lastGoodData = null;
-      data = _load();
+      data = _load(force: true);
     }
     if (oldWidget.active != widget.active) {
       if (widget.active) {
-        reload();
+        reload(force: false);
         _startQuoteTimer();
       } else {
         quoteTimer?.cancel();
@@ -80,7 +81,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     foreground = state == AppLifecycleState.resumed;
     if (foreground) {
       if (widget.active) {
-        reload();
+        reload(force: false);
         _startQuoteTimer();
       }
     } else {
@@ -95,7 +96,17 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     super.dispose();
   }
 
-  Future<dynamic> _load() async {
+  Future<dynamic> _load({bool force = false}) {
+    if (!force && pendingLoad != null) return pendingLoad!;
+    late final Future<dynamic> request;
+    request = _read().whenComplete(() {
+      if (identical(pendingLoad, request)) pendingLoad = null;
+    });
+    pendingLoad = request;
+    return request;
+  }
+
+  Future<dynamic> _read() async {
     final generation = ++loadGeneration;
     final stopwatch = Stopwatch()..start();
     try {
@@ -111,7 +122,8 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     }
   }
 
-  void reload() => setState(() => data = _load());
+  void reload({bool force = true}) =>
+      setState(() { data = _load(force: force); });
 
   Future<void> add() async {
     final query = await legacy.textDialog(

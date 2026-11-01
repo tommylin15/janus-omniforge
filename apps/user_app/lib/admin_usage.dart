@@ -70,11 +70,11 @@ class _AdminUsagePageState extends State<AdminUsagePage> {
             maxLength: 100,
             decoration:
                 const InputDecoration(labelText: '查詢使用者 Email 或 user ID'),
-            onSubmitted: (_) => setState(() => users = widget.api.get(
-                '/api/v1/admin/usage/users?q=${Uri.encodeQueryComponent(query.text)}'))),
+            onSubmitted: (_) => setState(() { users = widget.api.get(
+                '/api/v1/admin/usage/users?q=${Uri.encodeQueryComponent(query.text)}'); })),
         TextButton(
-            onPressed: () => setState(() => users = widget.api.get(
-                '/api/v1/admin/usage/users?q=${Uri.encodeQueryComponent(query.text)}')),
+            onPressed: () => setState(() { users = widget.api.get(
+                '/api/v1/admin/usage/users?q=${Uri.encodeQueryComponent(query.text)}'); }),
             child: const Text('查詢使用者')),
         if (users != null)
           FutureBuilder<dynamic>(

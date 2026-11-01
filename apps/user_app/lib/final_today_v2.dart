@@ -60,7 +60,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         if (!marketActive || !marketHours) {
           marketTimer?.cancel();
         } else {
-          if (!marketBusy) setState(() => market = _loadMarketWithoutPerf());
+          if (!marketBusy) setState(() { market = _loadMarketWithoutPerf(); });
         }
       });
     }
@@ -91,7 +91,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     }
     if (oldWidget.active != widget.active) {
       if (widget.active) {
-        setState(() => market = _loadMarketWithoutPerf());
+        setState(() { market = _loadMarketWithoutPerf(); });
         _startMarketTimer();
       } else {
         marketTimer?.cancel();
@@ -104,7 +104,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     foreground = state == AppLifecycleState.resumed;
     if (foreground) {
       if (widget.active) {
-        setState(() => market = _loadMarketWithoutPerf());
+        setState(() { market = _loadMarketWithoutPerf(); });
         _startMarketTimer();
       }
     } else {
@@ -509,7 +509,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           fvPanel(child: Row(children: [
             Expanded(child: Text(lastGoodMarket == null ? '市場基礎資料暫時無法使用' : '更新失敗，保留上次資料與日期')),
             TextButton(
-              onPressed: () => setState(() => market = _readCoreMarket()),
+              onPressed: () => setState(() { market = _readCoreMarket(); }),
               child: const Text('重試'),
             ),
           ])),
@@ -542,7 +542,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           children: [
             const Text('完成模型驗證後才啟用整合報告'),
             TextButton(
-              onPressed: () => setState(() => brief = _read('/api/v1/public/daily-brief')),
+              onPressed: () => setState(() { brief = _read('/api/v1/public/daily-brief'); }),
               child: const Text('重試'),
             ),
           ],
@@ -558,7 +558,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           fvPanel(child: Row(children: [
             const Expanded(child: Text('研究內容尚未就緒')),
             TextButton(
-              onPressed: () => setState(() => brief = _read('/api/v1/public/daily-brief')),
+              onPressed: () => setState(() { brief = _read('/api/v1/public/daily-brief'); }),
               child: const Text('重試'),
             ),
           ]))

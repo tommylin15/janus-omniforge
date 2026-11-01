@@ -531,7 +531,7 @@ class WatchlistPage extends StatefulWidget {
 class _WatchlistPageState extends State<WatchlistPage> {
   late Future<dynamic> items = widget.api.get('/api/v1/me/watchlist');
   void reload() =>
-      setState(() => items = widget.api.get('/api/v1/me/watchlist'));
+      setState(() { items = widget.api.get('/api/v1/me/watchlist'); });
   Future<void> add() async {
     final query = await textDialog(context, '搜尋關注股票', '股票代號或中文名稱');
     if (query == null || query.trim().isEmpty) return;

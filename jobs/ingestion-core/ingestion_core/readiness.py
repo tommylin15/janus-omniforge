@@ -38,17 +38,13 @@ def _scan(core, dataset, columns, *, row_filter=None, limit=150000):
     # PyIceberg interprets an explicitly passed None as a non-expression
     # during binder traversal; omit the option to use its AlwaysTrue default.
     # This matters for financials' unfiltered, snapshot-pinned census.
-    options = {"snapshot_id": snapshot.snapshot_id, "selected_fields": tuple(columns)}
+    options = {"snapshot_id": snapshot.snapshot_id, "selected_fields": tuple(columns), "limit": limit + 1}
     if row_filter is not None:
         options["row_filter"] = row_filter
     rows = table.scan(**options).to_arrow().to_pylist()
     if len(rows) > limit:
         raise ValueError("readiness_bounded_scan_exceeded")
     return rows, str(snapshot.snapshot_id)
-
-
-def _published_rows(core, dataset, columns, **kwargs):
-    return _scan(core, dataset, columns, **kwargs)
 
 
 def summarize_readiness(members, benchmark, prices, financials, focused_prices, focus,

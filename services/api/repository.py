@@ -701,7 +701,6 @@ class PostgresWorkspaceRepository:
         Do not update Core canonical data, users, or private Mart.
         """
         from .tpex_quotes import TPEX_OFFICIAL_EOD_URL, TPEX_OFFICIAL_DATED_URL
-        from hashlib import sha256 as _sha256
         import re
         bounded = []
         if len(history) > 250:
@@ -722,20 +721,34 @@ class PostgresWorkspaceRepository:
                     not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)):
                     raise ValueError("unverified official EOD record")
                 bounded.append((symbol, target, price, uri, digest))
+        if not bounded:
+            return 0
+        unique = {}
+        for record in bounded:
+            key = record[:2]
+            if key in unique and unique[key][2] != record[2]:
+                raise ValueError("official EOD immutable price conflict")
+            unique.setdefault(key, record)
+        symbols, days, prices, uris, digests = map(list, zip(*unique.values()))
         with self._connection() as connection:
-            for symbol, day, price, uri, digest in bounded:
-                connection.execute(
-                    """INSERT INTO control.official_tpex_eod_history
-                       (symbol,trade_date,price,source_uri,record_sha256)
-                       VALUES (%s,%s,%s,%s,%s) ON CONFLICT (symbol,trade_date) DO NOTHING""",
-                    (symbol, day, price, uri, digest),
-                )
-                prior = connection.execute(
-                    """SELECT price FROM control.official_tpex_eod_history
-                       WHERE symbol=%s AND trade_date=%s""", (symbol, day),
-                ).fetchone()
-                if prior is None or Decimal(str(prior["price"])) != price:
-                    raise ValueError("official EOD immutable price conflict")
+            connection.execute(
+                """INSERT INTO control.official_tpex_eod_history
+                   (symbol,trade_date,price,source_uri,record_sha256)
+                   SELECT * FROM unnest(%s::text[],%s::date[],%s::numeric[],%s::text[],%s::text[]) WHERE true
+                   ON CONFLICT (symbol,trade_date) DO NOTHING""",
+                (symbols, days, prices, uris, digests),
+            )
+            # Separate statement sees a concurrent insert after ON CONFLICT waits.
+            conflict = connection.execute(
+                """SELECT 1 FROM unnest(%s::text[],%s::date[],%s::numeric[])
+                       AS expected(symbol,trade_date,price)
+                   LEFT JOIN control.official_tpex_eod_history saved
+                     USING (symbol,trade_date)
+                   WHERE saved.price IS DISTINCT FROM expected.price LIMIT 1""",
+                (symbols, days, prices),
+            ).fetchone()
+            if conflict:
+                raise ValueError("official EOD immutable price conflict")
         return len(bounded)
 
     def save_last_quotes(self, quotes, chunk_size: int = 250) -> int:

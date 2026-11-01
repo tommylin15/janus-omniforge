@@ -6,7 +6,6 @@ from datetime import date, datetime, time, timezone, timedelta
 from hashlib import sha256
 import json
 from math import isfinite
-from statistics import fmean
 from typing import Any, Iterable
 from urllib.parse import quote, urlparse
 
@@ -223,13 +222,6 @@ def validate_evidence(items: Iterable[dict[str, Any]], analysis_as_of: date, *,
     return valid, rejected, sorted(blockers)
 
 
-def _scope_rows(datasets: dict[str, list[dict[str, Any]]], symbols: frozenset[str]) -> dict[str, list[dict[str, Any]]]:
-    if not symbols:
-        return datasets
-    return {name: [row for row in rows if not row.get("symbol") or str(row["symbol"]) in symbols]
-            for name, rows in datasets.items()}
-
-
 def _research_rows(datasets: dict[str, list[dict[str, Any]]], as_of: date, *,
                    preserve_financial_basis: bool = False) -> dict[str, list[dict[str, Any]]]:
     """Select PIT financial revisions and the matching market benchmark before feature calculation."""
@@ -263,15 +255,6 @@ def _research_rows(datasets: dict[str, list[dict[str, Any]]], as_of: date, *,
     if any(len(rows) > 5000 * max(1, len(symbols)) for rows in result.values()):
         raise ValueError("research scope exceeds bounded dataset row limit")
     return result
-
-
-def _series(rows: Iterable[dict[str, Any]], field: str, *, total: bool = False) -> list[float]:
-    grouped: dict[datetime, list[float]] = {}
-    for row in rows:
-        observed, number = _value_time(row), _number(row.get(field))
-        if observed is not None and number is not None:
-            grouped.setdefault(observed, []).append(number)
-    return [sum(grouped[when]) if total else fmean(grouped[when]) for when in sorted(grouped)]
 
 
 def _change(values: list[float], window: int) -> float | None:
@@ -333,5 +316,3 @@ def _financial_features_v2(rows):
                             "eps_trend_percent": trend(eps) if eps_basis_known else None,
                             "monthly_revenue_history_12": history, "missing_reasons": reasons},
             "valuation": {"debt_to_equity": debt, "roe": _number(roe_rows[-1].get("value")) if roe_rows else None}}
-
-

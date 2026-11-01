@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:janus_user_app/main.dart';
@@ -81,7 +82,32 @@ class MockStrategyApi extends Api {
   }
 }
 
+class DelayedStrategyApi extends MockStrategyApi {
+  final response = Completer<dynamic>();
+  @override
+  Future<dynamic> get(String path) {
+    if (path == '/api/v1/me/personal-strategy') {
+      calls.add('GET $path');
+      return response.future;
+    }
+    return super.get(path);
+  }
+}
+
 void main() {
+  testWidgets('in-flight strategy read cannot restart polling in background', (tester) async {
+    final api = DelayedStrategyApi();
+    api.summary['requests'] = [{'kind': 'premarket', 'status': 'RUNNING'}];
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PersonalStrategyPage(api))));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    api.response.complete(api.summary);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 9));
+    expect(api.calls.where((p) => p == 'GET /api/v1/me/personal-strategy').length, 1);
+    await tester.pumpWidget(const SizedBox());
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+  });
+
   testWidgets('ResearchMarkdown renders headings, bold spans, and external links safely', (tester) async {
     const text = '# 主標題\n一般文字 **粗體重點**\nhttps://example.com/twse\n---';
     await tester.pumpWidget(const MaterialApp(

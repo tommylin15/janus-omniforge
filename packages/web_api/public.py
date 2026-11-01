@@ -10,19 +10,13 @@ from threading import Lock
 from typing import Any, Callable
 from urllib.parse import urlsplit
 
-
-_FORBIDDEN_PAYLOAD_KEYS = frozenset({
-    "artifact_ref", "artifact_uri", "authorization", "credential", "gcs_uri", "object_path",
-    "password", "raw_payload", "secret", "storage_uri", "token", "traceback",
-})
-_FORBIDDEN_PAYLOAD_SUFFIXES = ("_credential", "_password", "_secret", "_token", "_uri", "_path")
+from .core import _is_hidden_key
 
 
 def _validate_public_payload(value: Any) -> None:
     if isinstance(value, dict):
         for key, item in value.items():
-            normalized = str(key).lower()
-            if normalized in _FORBIDDEN_PAYLOAD_KEYS or normalized.endswith(_FORBIDDEN_PAYLOAD_SUFFIXES):
+            if _is_hidden_key(key):
                 raise ValueError("public artifact contains a forbidden field")
             _validate_public_payload(item)
     elif isinstance(value, list):

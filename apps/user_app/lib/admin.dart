@@ -1259,7 +1259,7 @@ class _AdminEffectiveBatchesState extends State<AdminEffectiveBatches> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('${result['message'] ?? '請求已保存，等待總控處理'}')));
-        setState(() => data = load());
+        setState(() { data = load(); });
       }
     } catch (_) {
       if (mounted)
@@ -1278,7 +1278,7 @@ class _AdminEffectiveBatchesState extends State<AdminEffectiveBatches> {
           return Column(children: [
             const Text('批次狀況暫時無法讀取'),
             TextButton(
-                onPressed: () => setState(() => data = load()),
+                onPressed: () => setState(() { data = load(); }),
                 child: const Text('重新讀取'))
           ]);
         if (!snapshot.hasData)
@@ -1291,7 +1291,7 @@ class _AdminEffectiveBatchesState extends State<AdminEffectiveBatches> {
               subtitle: const Text('總控每兩小時檢查到期工作；顯示最近7天最新紀錄。資料日期以實際產物為準。'),
               trailing: IconButton(
                   tooltip: '重新整理',
-                  onPressed: busy ? null : () => setState(() => data = load()),
+                  onPressed: busy ? null : () => setState(() { data = load(); }),
                   icon: const Icon(Icons.refresh))),
           if (root['controller_fresh'] != true)
             const ListTile(
@@ -1451,7 +1451,7 @@ class _AdminGovernancePageState extends State<AdminGovernancePage> {
     super.dispose();
   }
 
-  void _reload() => setState(() => data = _load());
+  void _reload() => setState(() { data = _load(); });
 
   Future<void> _scanGcs() async {
     if (gcsScanning) return;

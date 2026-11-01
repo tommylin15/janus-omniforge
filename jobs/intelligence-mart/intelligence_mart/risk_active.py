@@ -6,14 +6,13 @@ and are never copied to all-market screening or canonical OHLCV.
 """
 from __future__ import annotations
 
-from hashlib import sha256
 from urllib.error import HTTPError
 import json
 
 from scripts.gcp.risk_registry_cas import (ACTIVE_OBJECT, MODEL_SHA256, MODEL_VERSION,
-                                           FEATURE_VERSION, MODEL_OBJECT, BUCKET,
+                                           FEATURE_VERSION, BUCKET,
                                            validate_pointer)
-from .risk_shadow import load_model_from_pinned_store, predict_core_shadow
+from .risk_shadow import predict_core_shadow
 from .specialists import digest
 
 
@@ -87,23 +86,6 @@ def build_risk_active_artifact(rows, *, targets, ordinary_symbols,
     return payload
 
 
-def materialize_active_predictions(store, *, bucket, rows, targets,
-                                    ordinary_symbols, as_of, core_snapshot_id,
-                                    core_manifest_hash, active_pointer, model=None):
-    if active_pointer is None:
-        return None
-    if model is None:
-        model = load_model_from_pinned_store(store)
-    artifact = build_risk_active_artifact(rows, targets=targets,
-        ordinary_symbols=ordinary_symbols, as_of=as_of,
-        core_snapshot_id=core_snapshot_id, core_manifest_hash=core_manifest_hash,
-        model=model, active_pointer=active_pointer)
-    from .runtime import _write_immutable_json
-    name = f"risk-active/{artifact['output_hash'][7:]}.json"
-    ref = _write_immutable_json(store, bucket, name, artifact)
-    if json.loads(store.read(name)) != artifact:
-        raise RuntimeError("Risk ACTIVE artifact readback mismatch")
-    return ref
 
 
 def validate_risk_active_artifact(artifact, manifest):

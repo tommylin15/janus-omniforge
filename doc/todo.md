@@ -1,5 +1,10 @@
 # Janus — 唯一 Active TODO
 
+## 全專案程式清理與效能優化（2026-11-01）｜本機驗證通過／待 CI 與 Dev 驗收
+
+使用者授權盤點全專案、清理冗餘、優化 I/O／查詢／操作／UI，完成程式與文件後集中測試與驗收。範圍、修改與證據統一記在 [清理工作單](execution-cards/code-cleanup-2026-11-01.md)；未通過必要驗證前不標整體 PASS。
+
+
 ## P1｜個人策略、S/A/B/C與四時段報告｜部署已上線／待使用者操作驗收（2026-10-31）
 
 本工項已完成定向測試、071 migration、GHCR 映像發布、0% 候選驗證與 100% 流量正式切換。目前 API 正式環境變數已啟用 `PERSONAL_STRATEGY_ENABLED=true`、`PERSONAL_RESEARCH_API_APPROVED=true`、`PERSONAL_RESEARCH_FLASH_MODELS=gemini-2.5-flash`。
@@ -20,7 +25,7 @@
   - 100% API Promotion：[#41209428593](https://github.com/tommylin15/janus-omniforge/actions/runs/41209428593) PASS，已切換至正式環境，先前回復版本安全保留。
 - [ ] PS-UAT：由使用者於前端正式網頁（/app/）實機登入驗收個人策略頁、S/A/B/C 分類、四時段報告生成功能。等完全上線確認後，再依指示切換付費版 API key 與模型。
 
-下一入口：**PS-VERIFY**，由其他AI接手。IMPL勾選只代表程式撰寫，不是功能上線或整體結案。完整日線策略訊號、種子未解析規則與Google搜尋呈現／型號相容性限制詳WI，不假稱已驗證。
+下一入口：**PS-UAT**，由使用者進行正式頁面操作驗收。PS-VERIFY／PS-DEPLOY 收據如上；完整日線策略訊號、種子未解析規則與 Google 搜尋呈現／型號相容性限制詳 WI，不假稱已驗證。
 
 ## P0｜Owner 七檔持股行情與損益｜使用者完整 UAT CLOSED／PASS（2026-10-30）
 

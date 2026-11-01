@@ -262,11 +262,3 @@ class ServingSession:
                 "source_analyst_input_hash": analyst_inputs["output_hash"],
                 "owner_fields_exposed": False, "publication_authority": False,
                 "rows": [results[r["symbol"]] for r in rows]}
-
-
-def materialize_four_model_serving(store, bucket, analyst_inputs, execution_id, *, risk_active=False):
-    from .runtime import _write_immutable_json
-    artifact = ServingSession(store, bucket).run(analyst_inputs, risk_active=risk_active)
-    artifact["output_hash"] = fingerprint(artifact)
-    name = f"executions/{execution_id}/four-model-serving.json"
-    return _write_immutable_json(store, bucket, name, artifact)

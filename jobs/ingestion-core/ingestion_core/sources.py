@@ -100,10 +100,6 @@ def twse_ohlcv_adapter(transport: Callable[[str], bytes] | None = None) -> Excha
     return ExchangeOhlcvAdapter("twse", "TWSE", "https://www.twse.com.tw/exchangeReport/STOCK_DAY", parse_twse, transport)
 
 
-def tpex_ohlcv_adapter(transport: Callable[[str], bytes] | None = None) -> ExchangeOhlcvAdapter:
-    return ExchangeOhlcvAdapter("tpex", "TPEX", "https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes", parse_tpex, transport)
-
-
 @dataclass
 class MarketVolumeAdapter:
     """One official market response per day; preserve the full payload in Stage."""
