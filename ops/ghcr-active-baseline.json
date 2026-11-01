@@ -1,25 +1,25 @@
 {
   "status": "VERIFIED_PUBLIC_GHCR_ROLLBACK_BASELINE",
-  "source_sha": "cf69def50209ec590e464fcc7298ca4ece44bc6f",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:7a4c41bf1207606cc0f5773de331603ac1e8f8b5e975efd89c92f46c97f76ff7",
-  "validation_run": "40087061995",
-  "job_source_sha": "032871a38b1dffd11c7bf0cc833563c0c3091841",
+  "source_sha": "28385c788d55d13aa628e30b3fb21a2233df6868",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:501845db0755a257cb75d280132b8745eaf1b58289468c6c00041affe096a1a2",
+  "validation_run": "41209428593",
+  "job_source_sha": "4393543ccd02a4951e97354bd13d14a29f517759",
   "job_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:6c36cb26e64398ca07b981d9b13563c2864457066fa0e25929eb48cfb04ff15d",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:6c36cb26e64398ca07b981d9b13563c2864457066fa0e25929eb48cfb04ff15d",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:86b999bdf7a0350a01728cf8864a073f6c76c13a3c0ff982e975e030a747f0a0",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:50536c3ac7cccf2e426149e78c5a2bd4411f2e2ba6f3f0a23b983e03123090fc"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:043f9c8cc37be5e216d8b0027e5eb17d6493557579c5cb30c1524ab251f29441",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:043f9c8cc37be5e216d8b0027e5eb17d6493557579c5cb30c1524ab251f29441",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:e347e03b692adcd9d9458a61067628770136df87ebb5611bfa3a7ce7a998e386",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:334ef05b71a3d3a2377ea583ecb0070e60dd0008a9535a3aab782483864d6bf1"
   },
   "job_config_hashes": {
-    "janus-batch-controller": "b2626546050a938c89a3ce4c257a8df01bffdbc07bed75b4aab8936e1e253048",
+    "janus-batch-controller": "2a12f1d6ae5d2dc3dc3c208b12bfc1e32e2ac87f02ff68462a935bc056b19acc",
     "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
   "private_historical_config_parity": "NOT_VERIFIED",
   "old_ar_rollback_exercised": false,
-  "observed_evidence": "2026-10-24 API-only promotion #40087061995 immutable GHCR digest and 100% route janus-api-00603-vev; 2026-10-25 API candidate #40155492159 preflight saw that same 100% route unchanged; SEQ-04 four Dev Jobs #40155713885 phase=PASS, eight distinct canaries, immutable target images, Scheduler baseline resumed. Previous rollback images/config remain separately in its artifact.",
-  "semantics": "Pre-SEQ-04 API traffic rollback baseline for new source 032871a38b1dffd11c7bf0cc833563c0c3091841. The API remains 100% on cf69def5 pending exact-release promotion. Four Jobs already at new 032871a3. Retain immutable old API digest for reversible promotion; no assertion that API has promoted or that old images were exercised.",
-  "api_revision": "janus-api-00603-vev",
+  "observed_evidence": "API-only promotion 41209428593 PASS；本輪候選 41268189186 preflight 與 build-id 公開讀回再次確認正式 100% janus-api-00638-ban／28385c78。四 Jobs rollout 前的固定映像與設定 hash 由唯讀 41268094614 確認。",
+  "semantics": "本輪 daf9636e API direct promotion 的實際先前 API 回復基準；Job 欄為本輪 rollout 前的獨立回復快照，不冒稱它們目前仍使用該映像。保留原本 private historical parity NOT_VERIFIED 與 old AR rollback 未演練語意。",
+  "api_revision": "janus-api-00638-ban",
   "traffic_percent": 100
 }

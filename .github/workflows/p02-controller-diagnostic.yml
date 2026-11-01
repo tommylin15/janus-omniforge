@@ -2,7 +2,7 @@ name: P0-2 Controller dispatch diagnostic
 on:
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
   id-token: write
 jobs:
   check:
@@ -17,8 +17,6 @@ jobs:
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
       - name: Check latest Controller execution logs
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           echo "## Latest Controller Execution"
           LATEST=$(gcloud run jobs executions list --job=janus-batch-controller \
@@ -28,10 +26,6 @@ jobs:
           LOGS=$(gcloud logging read "resource.type=\"cloud_run_job\" AND labels.\"run.googleapis.com/execution_name\"=\"$LATEST\"" \
             --project=gen-lang-client-0593591102 --limit=100 --format='value(timestamp,textPayload,jsonPayload.message)')
           echo "$LOGS"
-          gh api repos/tommylin15/janus-omniforge/commits/${GITHUB_SHA}/comments -f body="### Controller Logs ($LATEST)
-\`\`\`
-$LOGS
-\`\`\`" 
       - name: Check batch_occurrences for data-supplement
         run: |
           echo "## Looking for data-supplement dispatch decisions"

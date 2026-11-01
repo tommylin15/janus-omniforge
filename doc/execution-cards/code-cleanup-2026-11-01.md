@@ -60,3 +60,8 @@ API 0% 候選 [#41268189186](https://github.com/tommylin15/janus-omniforge/actio
 已由本機既有 GCP／GitHub 身分執行一次精確 terminal-owner recovery：固定失敗 run／HEAD／annotated lease tag，兩次全頁 execution fence、舊 API 單一 100% 與各 Job 原 image／config hash 核對。private-pipeline 透過 v2 PATCH 回復原 image 與 568 metadata；四 Job 原 hash 全數一致，Scheduler `ENABLED`，最後再次驗證 terminal owner 才刪除該精確 abandoned lease。收據 `PASS`，API 流量不變、Owner／canonical writes=0。
 
 rollout 改用 Cloud Run v2 PATCH 帶原 etag 與完整可寫設定，僅改 image；不使用不存在的 updateMask，不重播 execution token、不放寬 hash guard。新增 metadata／設定保留、未知／失敗 operation 與 bounded polling 回歸；API／Jobs／lease 定向 **108 PASS**。映像來源仍為已完整 Release 的 `daf9636e`；這次修改只影響部署操作工具。
+
+
+修復後四 Jobs [#41269766095](https://github.com/tommylin15/janus-omniforge/actions/runs/41269766095) **PASS**：固定來源 `daf9636e`，八個 distinct canary（每 Job 兩次）全部成功，四 Job config hash 不變，Scheduler `ENABLED`／`30 */2 * * *`，部署 lease 已釋放；回復映像可用，沒有另做舊映像切回演練。部署工具 selective CI [#41269766117](https://github.com/tommylin15/janus-omniforge/actions/runs/41269766117) PASS。API direct promotion 請求已固定此 Jobs run 與原先正式 API `00638-ban`／`28385c78` 回復基準；同步原本 inert templates，保留 `approved=false`。
+
+同時發現既有手動 `p02-controller-diagnostic.yml` 的未縮排 commit-comment 多行字串使每次 push 都產生 workflow syntax failure。移除未被引用的自動留言段與對 Git 的寫權限，保留手動唯讀診斷；YAML parse PASS。本輪不執行或發送該舊診斷留言。
