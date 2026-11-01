@@ -52,3 +52,11 @@ API 0% 候選 [#41268189186](https://github.com/tommylin15/janus-omniforge/actio
 ## 提交前 review
 
 已依 `/ponytail-review` skill 檢視完整 diff、相依呼叫／正式入口、回歸測試、來源／Owner 隔離、GCS token 到期、SQL 不可變衝突與交易回滾。以既有個人 Dev 負載為界，未發現須先修正的程式問題；此判定允許提交供 CI 驗證，不取代 Linux／PostgreSQL／Dev 的驗收 gate。執行程式碼統計：22 檔、增加 117 行／移除 782 行，淨減 665 行（不含測試／文件）。
+
+### Jobs rollout 修復收據
+
+首次 [#41268808459](https://github.com/tommylin15/janus-omniforge/actions/runs/41268808459) 在 private-pipeline image 更新後，因 gcloud 591 將 `template.clientVersion` 從 568 改寫而觸發完整 config guard，自動 rollback 也因該差異拒絕。Cloud Audit request 比對及將唯一差異還原後的精確 hash 讀回確認原因；沒有 canary／Owner／canonical 寫入。
+
+已由本機既有 GCP／GitHub 身分執行一次精確 terminal-owner recovery：固定失敗 run／HEAD／annotated lease tag，兩次全頁 execution fence、舊 API 單一 100% 與各 Job 原 image／config hash 核對。private-pipeline 透過 v2 PATCH 回復原 image 與 568 metadata；四 Job 原 hash 全數一致，Scheduler `ENABLED`，最後再次驗證 terminal owner 才刪除該精確 abandoned lease。收據 `PASS`，API 流量不變、Owner／canonical writes=0。
+
+rollout 改用 Cloud Run v2 PATCH 帶原 etag 與完整可寫設定，僅改 image；不使用不存在的 updateMask，不重播 execution token、不放寬 hash guard。新增 metadata／設定保留、未知／失敗 operation 與 bounded polling 回歸；API／Jobs／lease 定向 **108 PASS**。映像來源仍為已完整 Release 的 `daf9636e`；這次修改只影響部署操作工具。

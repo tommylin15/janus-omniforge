@@ -19,7 +19,7 @@
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
   "auth_boundary_run": "41268434252",
-  "request_attempt": 68,
+  "request_attempt": 69,
   "safety": "保留單一兩小時 Scheduler、共同 Git-ref lease、全分頁在途 fence、8次 canary 與失敗回復；本階段只換四 Job 映像，Controller timeout 另經受控設定階段處理。",
   "authorization": "使用者已明確要求候選驗證、OAuth 邊界、Jobs rollout、正式切流量與 live 驗收整個做到結束，包含等待與必要修正。",
   "rollback_source_shas": {
@@ -28,5 +28,5 @@
     "janus-intelligence-mart": "4393543ccd02a4951e97354bd13d14a29f517759",
     "janus-private-pipeline": "4393543ccd02a4951e97354bd13d14a29f517759"
   },
-  "purpose": "程式清理版本既有 Dev 四 Jobs 可回復 image-only rollout。完整 Release 41265528911、0% 候選 41268189186、OAuth 邊界 41268434252 已通過；回復基準來自唯讀 41268094614。保留 Scheduler／在途 fence／固定 digest／每 Job 兩次真實 canary／失敗回復，不修改其他設定。"
+  "purpose": "清理版本既有四 Jobs 可回復 rollout。前次 41268808459 因 gcloud 改寫 template.clientVersion 停止，已在精確 terminal owner／lease／全頁 execution fence 下回復原 image 與全部 config hash，Scheduler ENABLED、API 原 100%、安全釋放 lease；本次改用 v2 PATCH 保留現有完整設定，只替換 image，不重播 execution token。"
 }

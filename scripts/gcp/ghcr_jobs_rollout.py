@@ -286,28 +286,24 @@ def update(name, target, expected_hash):
     if scheduler()["state"] != "PAUSED":
         raise ValueError("scheduler_not_paused")
     wait_for_terminal_executions()
-    if fingerprint(job(name)) != expected_hash:
+    data = job(name)
+    if fingerprint(data) != expected_hash:
         raise ValueError("preupdate_configuration_drift")
-    args = ["gcloud", "run", "jobs", "update", name, f"--project={PROJECT}",
-            f"--region={REGION}", "--image=" + target, "--quiet"]
-    result = subprocess.run(args, capture_output=True, text=True,
-                            check=False, timeout=300)
-    if result.returncode != 0:
-        # No raw gcloud output, image URL, runtime config, or credentials in logs.
-        error = (result.stderr + "\n" + result.stdout).lower()
-        if "permission_denied" in error or "permission denied" in error or "403" in error:
-            code = "job_update_permission_denied"
-        elif "not found" in error or "not_found" in error or "404" in error:
-            code = "job_update_image_or_job_not_found"
-        elif "image" in error and ("import" in error or "registry" in error or "manifest" in error):
-            code = "job_update_registry_import_failed"
-        elif "invalid" in error or "unrecognized arguments" in error:
-            code = "job_update_invalid_configuration"
-        elif "service account" in error:
-            code = "job_update_service_identity_blocked"
-        else:
-            code = "job_update_unknown_rejection"
-        raise RuntimeError(code)
+    # gcloud also rewrites execution-template client metadata; patch only images.
+    body = {key: deepcopy(data[key]) for key in (
+        "name", "etag", "template", "labels", "annotations", "client", "clientVersion",
+        "launchStage", "binaryAuthorization") if key in data}
+    body["template"]["template"]["containers"][0]["image"] = target
+    operation = cloud(f"{ROOT}/jobs/{name}", body, "PATCH")
+    operation_name = operation.get("name")
+    if not isinstance(operation_name, str) or not operation_name.startswith(ROOT + "/operations/"):
+        raise ValueError("job_update_operation_unknown")
+    deadline = time.monotonic() + 300
+    while not operation.get("done") and time.monotonic() < deadline:
+        time.sleep(5)
+        operation = cloud(operation_name)
+    if not operation.get("done") or operation.get("error"):
+        raise ValueError("job_update_failed_or_unknown")
     checked_image(name, target, expected_hash)
 
 
