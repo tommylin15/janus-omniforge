@@ -46,7 +46,7 @@ API 固定 digest：`sha256:849ce46e339f4fa861e6fbd8624315bac06850af2fa646443f87
 
 API 0% 候選 [#41268189186](https://github.com/tommylin15/janus-omniforge/actions/runs/41268189186) PASS，原正式 100% 流量保留、health／build SHA／負向 Owner guard 與部署 lease 釋放均通過。四 Jobs 唯讀回復基準 [#41268094614](https://github.com/tommylin15/janus-omniforge/actions/runs/41268094614) PASS（`gcp_writes=0`），現役來源為 `4393543ccd02a4951e97354bd13d14a29f517759`，固定 image／config hash 以該 run 的 baseline artifact 為準。
 
-使用者已明確要求本任務代為等待候選、OAuth 邊界、Jobs rollout、正式切流量與 live 驗收，直到整體結束；不受一般遠端等待交接規則中途停止。下一步為 OAuth／private boundary → 四 Jobs 可回復 rollout → API direct promotion 與真實讀回。新版尚未承接正式流量；未量測 live p50／p95，不標整體 CLOSED／PASS。
+使用者已明確要求本任務代為等待候選、OAuth 邊界、Jobs rollout、正式切流量與 live 驗收，直到整體結束；不受一般遠端等待交接規則中途停止。OAuth／private boundary [#41268434252](https://github.com/tommylin15/janus-omniforge/actions/runs/41268434252) 已 PASS，僅代表同來源候選的 metadata／未登入拒絕與 MCP challenge；不冒稱真人登入或 Owner 正向讀取。四 Jobs rollout 請求已更新為本輪來源、已成功 Auth run 與唯讀回復基準。下一步為四 Jobs 可回復 rollout → API direct promotion 與真實讀回。新版尚未承接正式流量；未量測 live p50／p95，不標整體 CLOSED／PASS。
 
 
 ## 提交前 review
