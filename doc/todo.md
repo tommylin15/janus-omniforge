@@ -3,7 +3,8 @@
 ## P1｜個人策略參數保存修正（2026-11-02）
 
 - [x] Owner 私有草稿儲存／讀回、未填完欄位保存、預覽時一併保存、儲存狀態提示；草稿不等於生效策略。
-- [ ] Release／隔離 PG owner roundtrip、072 migration、候選／OAuth／API-only 切流、登入頁保存→重載讀回驗收。
+- [ ] Release／隔離 PG owner roundtrip、072 migration、候選／OAuth／Jobs／API 切流、登入頁保存→重載讀回驗收。
+- [ ] 使用者更正：策略生成改走 OmniAgent gateway；現 private Job 缺少 market caller 的 OpenID token grant，須先完成程式／review，再取得明確 IAM 授權。只授權簽發該 caller 的 ID token，不新增 key／付費路由；無模型 canary 先驗證，真生成另依使用者操作。
 
 ## 個人策略設定表單修正｜工程與線上預覽驗收 CLOSED／PASS（2026-11-02）
 

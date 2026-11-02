@@ -350,7 +350,7 @@ jobs:
             echo "Reused existing 0% GHCR digest candidate: $existing_revision" >> "$GITHUB_STEP_SUMMARY"
           else
             gcloud run deploy "$SERVICE" --project="$PROJECT" --region="$REGION" --image="$GHCR_PUBLIC_IMAGE" --no-traffic --tag="$tag" \
-              --update-env-vars="PERSONAL_STRATEGY_ENABLED=true,PERSONAL_RESEARCH_API_APPROVED=true,PERSONAL_RESEARCH_FLASH_MODELS=gemini-2.5-flash" \
+              --update-env-vars="PERSONAL_STRATEGY_ENABLED=true,PERSONAL_RESEARCH_API_APPROVED=true,PERSONAL_RESEARCH_FLASH_MODELS=gemini-3.5-flash-lite" \
               --quiet > /dev/null
           fi
           gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json > /tmp/service-candidate.json

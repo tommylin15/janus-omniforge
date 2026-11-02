@@ -468,21 +468,8 @@ class OmniGatewayGeminiProvider:
 
     @classmethod
     def _mint_token(cls) -> str:
-        import google.auth
-        from google.auth import impersonated_credentials
-        from google.auth.transport.requests import Request as GoogleAuthRequest
-        source, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
-        target = impersonated_credentials.Credentials(
-            source_credentials=source, target_principal=cls._principal,
-            target_scopes=["https://www.googleapis.com/auth/cloud-platform"], lifetime=300,
-        )
-        credentials = impersonated_credentials.IDTokenCredentials(
-            target_credentials=target, target_audience=cls._audience, include_email=True,
-        )
-        credentials.refresh(GoogleAuthRequest())
-        if not credentials.token:
-            raise ValueError("gateway_identity_unavailable")
-        return credentials.token
+        from packages.omni_gateway import mint_gateway_token
+        return mint_gateway_token()
 
     def bind_context(self, *, owner_id: str, request_id: str) -> None:
         from uuid import UUID

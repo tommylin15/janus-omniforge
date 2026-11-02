@@ -1,11 +1,13 @@
 """Bounded Flash-only report worker on the existing private pipeline Job."""
 import json
-import os
+import hashlib
 import re
 from datetime import datetime, timedelta
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
-from uuid import uuid4
+from urllib.error import HTTPError
+from packages.omni_gateway import AUDIENCE, mint_gateway_token
+from uuid import UUID, uuid4, uuid5
 from .personal_strategy import PersonalStrategyService, encoded
 from .personal_strategy_contract import TAIPEI, DAILY, WEEKLY, ReportOutput, period
 
@@ -25,58 +27,92 @@ def safe_url(value):
         return False
 
 
-class FlashClient:
-    def __init__(self):
-        self.key=os.getenv('GEMINI_API_KEY','')
-        if not self.key or os.getenv('PERSONAL_RESEARCH_API_APPROVED','false')!='true':
-            raise RuntimeError('GEMINI_SETUP_REQUIRED')
-        self.model=None
+class GatewayError(RuntimeError):
+    pass
 
-    def http(self, path, payload=None):
-        request=Request('https://generativelanguage.googleapis.com/v1beta/'+path,
-            data=encoded(payload).encode() if payload is not None else None,
-            headers={'x-goog-api-key':self.key,'Content-Type':'application/json'})
-        with urlopen(request,timeout=90) as response:
-            raw=response.read(2_000_001)
-        if len(raw)>2_000_000: raise ValueError('MODEL_RESPONSE_TOO_LARGE')
-        return json.loads(raw)
+
+class FlashClient:
+    """Gateway-only text contract; no API key or direct-provider fallback."""
+    MODEL = 'gemini-3.5-flash-lite'
+
+    def __init__(self):
+        self.model = None
+        self.owner = None
+        self.request_id = None
+
+    def bind_context(self, owner, request_id):
+        self.owner = str(UUID(str(owner)))
+        self.request_id = UUID(str(request_id))
 
     def select(self, pinned=None):
-        # Explicit release-tested allowlist, intersected with provider discovery.
-        approved=set(os.getenv('PERSONAL_RESEARCH_FLASH_MODELS','gemini-2.5-flash').split(','))
-        approved={m.strip() for m in approved if re.fullmatch(r'gemini-\d+(?:\.\d+)?-flash(?:-lite)?',m.strip())}
-        models=[]; token=None
-        for _ in range(4):
-            query={'pageSize':1000}
-            if token: query['pageToken']=token
-            data=self.http('models?'+urlencode(query))
-            models.extend(m['name'].removeprefix('models/') for m in data.get('models',[])
-                if 'generateContent' in m.get('supportedGenerationMethods',[]))
-            token=data.get('nextPageToken')
-            if not token: break
-        candidates=approved.intersection(models)
-        if not candidates: raise ValueError('NO_APPROVED_FLASH_MODEL')
-        if pinned:
-            if pinned not in candidates: raise ValueError('PINNED_MODEL_UNAVAILABLE')
-            self.model=pinned
-            return pinned
-        self.model=max(candidates,key=lambda m:(tuple(map(int,re.search(r'\d+(?:\.\d+)?',m)[0].split('.'))), 'lite' not in m))
+        if pinned and pinned != self.MODEL:
+            raise GatewayError('GATEWAY_MODEL_UNAVAILABLE')
+        self.model = self.MODEL
         return self.model
 
     def generate(self, prompt, *, search=False, schema=None):
-        if not self.model: self.select()
-        body={'systemInstruction':{'parts':[{'text':SYSTEM}]},
-              'contents':[{'role':'user','parts':[{'text':prompt}]}],
-              'generationConfig':{'temperature':0,'maxOutputTokens':16000}}
-        if search: body['tools']=[{'google_search':{}}]
+        if search:
+            raise GatewayError('GATEWAY_SEARCH_UNSUPPORTED')
+        if not self.owner or not self.request_id:
+            raise GatewayError('GATEWAY_CONTEXT_REQUIRED')
+        if not self.model:
+            self.select()
+        prompt = SYSTEM + '\n' + prompt
         if schema:
-            body['generationConfig'].update(responseMimeType='application/json',responseJsonSchema=schema)
-        data=self.http('models/'+self.model+':generateContent',body)
-        candidate=data.get('candidates',[{}])[0]
-        if candidate.get('finishReason')!='STOP': raise ValueError('INCOMPLETE_MODEL_OUTPUT')
-        text=''.join(p.get('text','') for p in candidate.get('content',{}).get('parts',[]) if not p.get('thought'))
-        if not text.strip(): raise ValueError('EMPTY_MODEL_OUTPUT')
-        return text,candidate.get('groundingMetadata',{})
+            prompt += '\n只輸出符合以下JSON Schema的JSON，不加Markdown圍欄：\n' + encoded(schema)
+        if len(prompt.encode('utf-8')) > 32768:
+            raise GatewayError('GATEWAY_PROMPT_TOO_LARGE')
+        # Stable per-step identity; a report can have distinct synthesis calls.
+        call_id = str(uuid5(self.request_id, hashlib.sha256(prompt.encode()).hexdigest()))
+        body = encoded({'project': 'market-mart', 'ownerId': self.owner,
+                        'requestId': call_id, 'prompt': prompt, 'model': self.model}).encode()
+        if len(body) > 131072:
+            raise GatewayError('GATEWAY_PROMPT_TOO_LARGE')
+        try:
+            token = mint_gateway_token()
+        except Exception:
+            raise GatewayError('GATEWAY_IDENTITY_UNAVAILABLE') from None
+        request = Request(AUDIENCE + '/v1/gemini/execute', data=body, method='POST',
+                          headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'})
+        try:
+            with urlopen(request, timeout=65) as response:
+                raw = response.read(65537)
+        except HTTPError as error:
+            reason = 'GATEWAY_AUTH_DENIED' if error.code in (401, 403) else 'GATEWAY_QUOTA' if error.code == 429 else 'GATEWAY_UNAVAILABLE'
+            raise GatewayError(reason) from None
+        except Exception:
+            raise GatewayError('GATEWAY_UNAVAILABLE') from None
+        try:
+            if len(raw) > 65536:
+                raise ValueError()
+            document = json.loads(raw)
+            if (document.get('status') != 'completed' or document.get('project') != 'market-mart'
+                    or document.get('ownerId') != self.owner or document.get('requestId') != call_id
+                    or document.get('model') != self.model):
+                raise ValueError()
+            text = document['result']['text']
+            if not isinstance(text, str) or not text.strip() or len(text) > 32000:
+                raise ValueError()
+        except (ValueError, KeyError, TypeError, AttributeError):
+            raise GatewayError('GATEWAY_INVALID_RESPONSE') from None
+        return text, {}
+
+
+_GATEWAY_ERRORS = {
+    'GATEWAY_IDENTITY_UNAVAILABLE': 'OmniAgent gateway 呼叫身分尚未授權；請先完成管理設定，再重試原請求。',
+    'GATEWAY_AUTH_DENIED': 'OmniAgent gateway 拒絕呼叫權限；請先檢查服務身分授權。',
+    'GATEWAY_QUOTA': 'OmniAgent gateway 額度或併發已達上限；本次未完成，請勿連續重送。',
+    'GATEWAY_UNAVAILABLE': 'OmniAgent gateway 暫時無法完成；請先確認原請求狀態再有限重試。',
+    'GATEWAY_PROMPT_TOO_LARGE': '策略或研究內容超過 OmniAgent gateway 容量，請縮減補充內容。',
+    'GATEWAY_INVALID_RESPONSE': 'OmniAgent gateway 回覆不完整或識別不符；未發布策略／報告。',
+    'GATEWAY_MODEL_UNAVAILABLE': '原請求模型不符合 OmniAgent gateway 的 Flash-Lite 路由。',
+}
+
+
+def safe_error(error):
+    if isinstance(error, GatewayError):
+        return _GATEWAY_ERRORS.get(str(error), 'OmniAgent gateway 設定尚未就緒；未發布策略／報告。')
+    return '分析未完成；可於原時段有限重試（'+type(error).__name__+'）'
 
 
 class Worker:
@@ -103,6 +139,7 @@ class Worker:
         try:
             if request['period_start'] != period(request['kind']): raise ValueError('REQUEST_EXPIRED')
             client=self.client_factory()
+            client.bind_context(request['user_id'],request['request_id'])
             model=client.select(request.get('model'))
             state=dict(request['checkpoint'])
             self.checkpoint(request,token,state,model)
@@ -165,7 +202,7 @@ class Worker:
             with self.repo._connection() as c:
                 c.execute('''UPDATE private.personal_research_requests SET status='FAILED',lease_until=NULL,
                     safe_error=%s,finished_at=now() WHERE request_id=%s AND lease_token=%s AND status='RUNNING' ''',
-                    ('分析未完成；可於原時段有限重試（'+type(error).__name__+'）',request_id,token))
+                    (safe_error(error),request_id,token))
             # Do not log raw provider errors/prompts/private data.
             return {'status':'FAILED','error_class':type(error).__name__}
 

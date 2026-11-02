@@ -224,7 +224,11 @@ GitHub程式及runtime為實作現況；本文件是功能契約；已撰寫程�
 
 資料不足只產生待確認研究，不製造可成交訊號。趨勢原始可比較日線未提供時不計算均線；價值／GARP數據缺失同理。私人種子無損保存與匯出，不自動把未解析條文改成可執行規則；使用者透過設定預覽後套用。
 
-Google API依公開models.list與部署核准穩定Flash清單交集選新版，使用generateContent Google Search／JSON schema；協定文件：https://ai.google.dev/api/models 、https://ai.google.dev/gemini-api/docs/google-search 。程式已接線不代表真實key、搜尋呈現要求、額度或各型號兼容性已通過驗收。
+依 2026-11-02 使用者更正，個人策略與四報告只走既有 OmniAgent gateway，不在 Janus 持有 Gemini key 或回退直連。既有 market-mart gateway 固定 `gemini-3.5-flash-lite`、32 KiB prompt、128 KiB envelope、2048 output tokens、單次呼叫且無自動 provider retry；回覆須核對 project／Owner／request／model，結構化報告仍由 Janus Pydantic 嚴格驗證。
+
+上游目前為文字契約，**不支援 Google Search／grounding 或原生 response JSON Schema**。schema 可作為提示但不能冒充原生強制；搜尋明確標為未取得，不能生成假來源。完整四報告搜尋與長篇輸出不因接線就宣稱 PASS。契約來源：[OmniAgent shared Gemini](https://github.com/tommylin15/omniAgent/blob/main/docs/shared-gemini-vertical-slice.md)。
+
+執行 Job 使用本身的既有身分，申請受限的 `roles/iam.serviceAccountOpenIdTokenCreator` 於 Janus market caller 單一 service account，不能借用 CEO Job 身分或擴大 project IAM。依 AGENTS §5.2，新增此 binding 必須先取得使用者明確授權。部署 canary 以 authenticated malformed body 僅接受 400 invalid_request，證明連通而不執行模型。
 
 ## 設定表單驗證修正（2026-11-02）
 

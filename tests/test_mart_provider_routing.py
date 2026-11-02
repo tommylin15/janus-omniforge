@@ -433,7 +433,7 @@ def test_omni_gateway_full_32k_multibyte_prompt_passes_without_truncation(monkey
     assert result.status == "succeeded" and len(called) == 1
 
 
-@pytest.mark.parametrize("oversize", ["a" * 32769, "台" * 10923])
+@pytest.mark.parametrize("oversize", ["a" * 32769, "台" * 10923], ids=["ascii", "utf8"])
 def test_omni_gateway_above_32k_rejects_before_identity(monkeypatch, oversize):
     import intelligence_mart.provider_routing as routing
     assert len(oversize.encode("utf-8")) > 32768

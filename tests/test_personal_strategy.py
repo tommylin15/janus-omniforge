@@ -333,29 +333,11 @@ def test_safe_url_validation():
 
 
 def test_flash_client_model_whitelist(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "dummy_key")
-    monkeypatch.setenv("PERSONAL_RESEARCH_API_APPROVED", "true")
-    monkeypatch.setenv("PERSONAL_RESEARCH_FLASH_MODELS", "gemini-2.5-flash")
-
+    monkeypatch.delenv('GEMINI_API_KEY', raising=False)
     client = FlashClient()
-
-    # Mock provider models discovery
-    fake_discovery = {
-        "models": [
-            {"name": "models/gemini-2.5-flash", "supportedGenerationMethods": ["generateContent"]},
-            {"name": "models/gemini-2.5-pro", "supportedGenerationMethods": ["generateContent"]},
-            {"name": "models/gemini-3.0-flash-preview", "supportedGenerationMethods": ["generateContent"]},
-        ]
-    }
-    client.http = lambda path, payload=None: fake_discovery
-
-    # Must select gemini-2.5-flash
-    selected = client.select()
-    assert selected == "gemini-2.5-flash"
-
-    # Pro models or unapproved models must fail
-    with pytest.raises(ValueError, match="PINNED_MODEL_UNAVAILABLE"):
-        client.select(pinned="gemini-2.5-pro")
+    assert client.select() == 'gemini-3.5-flash-lite'
+    with pytest.raises(RuntimeError, match='GATEWAY_MODEL_UNAVAILABLE'):
+        client.select(pinned='gemini-2.5-pro')
 
 
 def test_external_search_query_privacy_isolation():
@@ -364,6 +346,7 @@ def test_external_search_query_privacy_isolation():
     prompt_sent = []
 
     class MockFlashClient:
+        def bind_context(self, owner, request_id): pass
         def select(self, pinned=None): return "gemini-2.5-flash"
         def generate(self, prompt, *, search=False, schema=None):
             prompt_sent.append((prompt, search))
@@ -466,3 +449,69 @@ def test_draft_preserves_partial_input_but_bounds_untrusted_content():
         StrategyDraft(**{**value.model_dump(), 'user_id': str(uuid4())})
     with pytest.raises(ValueError):
         StrategyDraft(**{**value.model_dump(), 'cash': '1' * 33})
+
+
+def test_gateway_client_binds_owner_and_rejects_wrong_reply_without_direct_fallback(monkeypatch):
+    import services.api.personal_research_worker as module
+    owner, request_id = uuid4(), uuid4()
+    client = FlashClient()
+    client.bind_context(owner, request_id)
+    calls = []
+    monkeypatch.setattr(module, 'mint_gateway_token', lambda: 'test-token')
+    wrong_owner = False
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def read(self, limit):
+            body = calls[-1]
+            return encoded({'status': 'completed', 'project': 'market-mart',
+                            'ownerId': str(uuid4()) if wrong_owner else str(owner),
+                            'requestId': body['requestId'], 'model': body['model'],
+                            'result': {'text': '# 策略'}}).encode()
+    def opener(request, timeout):
+        assert request.full_url == module.AUDIENCE + '/v1/gemini/execute'
+        assert request.get_header('Authorization') == 'Bearer test-token'
+        assert timeout == 65
+        calls.append(json.loads(request.data))
+        return Response()
+    monkeypatch.setattr(module, 'urlopen', opener)
+    assert client.generate('測試規則')[0] == '# 策略'
+    assert calls[0]['ownerId'] == str(owner) and calls[0]['project'] == 'market-mart'
+    wrong_owner = True
+    with pytest.raises(module.GatewayError, match='GATEWAY_INVALID_RESPONSE'):
+        client.generate('測試規則')
+    assert calls[0]['requestId'] == calls[1]['requestId']
+    with pytest.raises(module.GatewayError, match='GATEWAY_SEARCH_UNSUPPORTED'):
+        client.generate('搜尋', search=True)
+    assert len(calls) == 2
+
+
+def test_gateway_limits_and_safe_diagnostics_before_network(monkeypatch):
+    import services.api.personal_research_worker as module
+    client = FlashClient()
+    client.bind_context(uuid4(), uuid4())
+    def forbidden(): raise AssertionError('must reject before token/network')
+    monkeypatch.setattr(module, 'mint_gateway_token', forbidden)
+    with pytest.raises(module.GatewayError, match='GATEWAY_PROMPT_TOO_LARGE'):
+        client.generate('中' * 12000)
+    assert '尚未授權' in module.safe_error(module.GatewayError('GATEWAY_IDENTITY_UNAVAILABLE'))
+    assert 'private-provider-body' not in module.safe_error(RuntimeError('private-provider-body'))
+
+
+@pytest.mark.parametrize('status', [400, 403])
+def test_gateway_canary_requires_authenticated_invalid_request(monkeypatch, status):
+    import io
+    from urllib.error import HTTPError
+    import urllib.request
+    import packages.omni_gateway as gateway
+    monkeypatch.setattr(gateway, 'mint_gateway_token', lambda: 'test-token')
+    def opener(request, timeout):
+        assert request.full_url == gateway.AUDIENCE + '/v1/gemini/execute'
+        assert request.data == b'{}' and timeout == 15
+        raise HTTPError(request.full_url, status, 'test', {}, io.BytesIO(b'{"error":"invalid_request"}'))
+    monkeypatch.setattr(urllib.request, 'urlopen', opener)
+    if status == 400:
+        gateway.probe_gateway()
+    else:
+        with pytest.raises(ValueError, match='gateway_authenticated_probe_failed'):
+            gateway.probe_gateway()

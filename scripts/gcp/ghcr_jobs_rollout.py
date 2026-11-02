@@ -315,7 +315,9 @@ with psycopg.connect(os.environ['PRIVATE_DATABASE_URL'],sslmode='require',connec
     connection.execute("SET LOCAL statement_timeout='15000ms'")
     connection.execute('SELECT event_id FROM private.ledger_events LIMIT 1').fetchall()
     connection.execute('SELECT user_id FROM private.current_positions LIMIT 1').fetchall()
-print('Read-only private database canary PASS')
+from packages.omni_gateway import probe_gateway
+probe_gateway()
+print('Read-only private database and authenticated no-model gateway canary PASS')
 """
 
 
