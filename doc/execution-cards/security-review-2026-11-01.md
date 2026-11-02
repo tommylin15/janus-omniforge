@@ -68,3 +68,6 @@ API-only 部署工具 review 發現原 gate 只檢查整體／job 綠燈，沒�
 
 
 最後 API 路徑補強來源 `753a44d1cd40711dc240e6c7388e0fe693b5ba5f` 完整 Release [#41369212296](https://github.com/tommylin15/janus-omniforge/actions/runs/41369212296) **PASS**：Linux／隔離 PG **2103 passed、2 skipped、2 deselected**（88.42 秒），Flutter 與四映像成功；實際只需套用新 API，四 Jobs 的 runtime 程式／依賴未變，保留前述60b映像與八次 canary證據。
+
+
+最終 API 0% 候選 [#41369871792](https://github.com/tommylin15/janus-omniforge/actions/runs/41369871792) **PASS**，獨立安全 smoke 再確認 753a44d1 的檔案邊界／body limit／nonce PASS，正式流量尚未變。路由工具另補上 Cloud Run「正式流量 100% 但同 revision 的 tag 可標示 0%」合法狀態（tag URL 不由主流量百分比決定），防止安全收斂後誤判；6 個回復分支先重現再修正。部署工具總計 **153 PASS**；本次提交前再執行 `/ponytail-review`，正常流量、完整 tag map 回復與未知狀態留鎖均保留，沒有阻擋項。

@@ -195,7 +195,7 @@ def main():
         active, existing = routes(before)
         candidate = existing[tag][0]
         validate(before, before, candidate, restored=True)
-        if existing[tag][1] != (100 if candidate == active[0][0] else 0):
+        if existing[tag][1] not in ({0, 100} if candidate == active[0][0] else {0}):
             raise ValueError("candidate_traffic_identity_mismatch")
         desired = sealed_tags(before, candidate, sha) if args.seal_legacy_tags else None
         # Persist only bounded routing metadata for independent recovery after crash.

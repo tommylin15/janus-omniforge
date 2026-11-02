@@ -199,7 +199,7 @@ def test_workflow_is_manual_and_shared_lease_fences_tag_mutation():
 
 
 @pytest.mark.parametrize("recovery_safe", [True, False])
-@pytest.mark.parametrize("already_serving", [True, False])
+@pytest.mark.parametrize("already_serving", [True, False, "untagged"])
 @pytest.mark.parametrize("triggers", [[], [{"disabled": True}], [{"disabled": False}]])
 def test_failed_live_probe_restores_tags_and_only_releases_after_verified_recovery(tmp_path, recovery_safe, already_serving, triggers, capsys):
     sha = route.json.loads((ROOT / "ops/ghcr-candidate-request.json").read_text())["sha"]
@@ -228,8 +228,8 @@ def test_failed_live_probe_restores_tags_and_only_releases_after_verified_recove
     if already_serving:
         for snapshot in (before, after, restored):
             snapshot["status"]["traffic"][0]["revisionName"] = "candidate"
-            snapshot["status"]["traffic"][0]["percent"] = 0
-            snapshot["status"]["traffic"][1]["percent"] = 100
+            snapshot["status"]["traffic"][0]["percent"] = 100 if already_serving == "untagged" else 0
+            snapshot["status"]["traffic"][1]["percent"] = 0 if already_serving == "untagged" else 100
     active_trigger = any(trigger.get("disabled") is not True for trigger in triggers)
     with patch.object(sys, "argv", ["repair", "--release-run", "123", "--baseline", str(tmp_path / "baseline.json")]), \
          patch.object(route, "command", side_effect=command), \
