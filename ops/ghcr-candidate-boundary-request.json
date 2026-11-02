@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "753a44d1cd40711dc240e6c7388e0fe693b5ba5f",
+  "sha": "3890ba62219b7d9f79e6197d8e489c420a7797fe",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "最終資安 API source 753a44d1 的 0% 候選 41369871792 及獨立路徑／body／nonce live 讀回 PASS。僅驗證同來源 OAuth discovery、PKCE／refresh metadata、Owner／Admin 未登入拒絕、MCP challenge 與 build SHA，不更動GCP。",
-  "request_attempt": 30
+  "purpose": "個人策略設定修補來源3890ba62，Release41372987736；核對0%候選41373618403的OAuth discovery、Owner未登入拒絕、MCP challenge與build SHA。只讀，不變更GCP。",
+  "request_attempt": 31
 }
