@@ -1941,7 +1941,6 @@ class PortfolioDashboard extends StatefulWidget {
 
 class _PortfolioDashboardState extends State<PortfolioDashboard> {
   Map<String, dynamic>? profile;
-  List<dynamic> summary = [], exposure = [], performance = [], stress = [];
   String risk = 'moderate', horizon = 'medium', goal = 'growth';
   double minimumCash = .1;
   bool aiContext = false, busy = false;
@@ -1959,16 +1958,9 @@ class _PortfolioDashboardState extends State<PortfolioDashboard> {
       error = null;
     });
     try {
-      final year = DateTime.now().year;
-      final values = await Future.wait([
-        widget.api.get('/api/v1/me/investment-profile'),
-        widget.api.get('/api/v1/me/portfolio/summary'),
-        widget.api.get('/api/v1/me/portfolio/exposure'),
-        widget.api.get('/api/v1/me/portfolio/performance?year=$year'),
-        widget.api.get('/api/v1/me/portfolio/stress-tests')
-      ]);
+      final next = await widget.api.get('/api/v1/me/investment-profile')
+          as Map<String, dynamic>;
       if (!mounted) return;
-      final next = values[0] as Map<String, dynamic>;
       setState(() {
         profile = next;
         risk = next['risk_tolerance'] ?? 'moderate';
@@ -1977,12 +1969,6 @@ class _PortfolioDashboardState extends State<PortfolioDashboard> {
         minimumCash =
             double.tryParse('${next['minimum_cash_ratio'] ?? .1}') ?? .1;
         aiContext = next['ai_context_opt_in'] == true;
-        summary = (values[1] as Map<String, dynamic>)['items'] as List<dynamic>;
-        exposure =
-            (values[2] as Map<String, dynamic>)['items'] as List<dynamic>;
-        performance =
-            (values[3] as Map<String, dynamic>)['items'] as List<dynamic>;
-        stress = (values[4] as Map<String, dynamic>)['items'] as List<dynamic>;
       });
     } catch (value) {
       if (mounted) setState(() => error = value);
@@ -2014,10 +2000,6 @@ class _PortfolioDashboardState extends State<PortfolioDashboard> {
         });
     }
   }
-
-  String money(dynamic value) => value == null
-      ? '資料不足'
-      : '${double.tryParse('$value')?.toStringAsFixed(0) ?? value}';
 
   @override
   Widget build(BuildContext context) {
@@ -2112,65 +2094,6 @@ class _PortfolioDashboardState extends State<PortfolioDashboard> {
                           onPressed: busy ? null : save,
                           icon: const Icon(Icons.save_outlined),
                           label: const Text('儲存投資屬性'))),
-                  const Divider(height: 32),
-                  for (final row in summary.cast<Map<String, dynamic>>())
-                    ListTile(
-                        title: Text('${row['currency']} 投資組合'),
-                        subtitle: row['aggregate_status'] == 'withheld'
-                            ? Text(
-                                '總額暫不發布・受影響 ${row['affected_symbol_count'] ?? _asList(row['affected_symbols']).length} 檔${_asList(row['affected_symbols']).isEmpty ? '' : '：${_asList(row['affected_symbols']).join('、')}'}')
-                            : Text.rich(TextSpan(children: [
-                                TextSpan(text: '市值 ${money(row['market_value'])}・未實現 '),
-                                TextSpan(
-                                  text: money(row['unrealized_pnl']),
-                                  style: TextStyle(
-                                    color: profitLossColor(row['unrealized_pnl']),
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const TextSpan(text: '・未實現報酬 '),
-                                TextSpan(
-                                  text: portfolioReturnLabel(row['unrealized_return']),
-                                  style: TextStyle(
-                                    color: profitLossColor(row['unrealized_return']),
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ])),
-                        trailing: Text(
-                            row['cash_safety_status'] == 'insufficient_data'
-                                ? '現金資料不足'
-                                : '${row['cash_ratio']}')),
-                  ExpansionTile(title: const Text('產業曝險'), children: [
-                    for (final row in exposure.cast<Map<String, dynamic>>())
-                      ListTile(
-                          title: Text('${row['industry']}'),
-                          trailing: Text(
-                              '${money(row['portfolio_ratio'] == null ? null : double.parse('${row['portfolio_ratio']}') * 100)}%'))
-                  ]),
-                  ExpansionTile(title: const Text('年度 XIRR'), children: [
-                    for (final row in performance.cast<Map<String, dynamic>>())
-                      ListTile(
-                          title: Text('${row['year']} ${row['currency']}'),
-                          trailing: Text(
-                            row['xirr_status'] == 'available'
-                                ? portfolioReturnLabel(row['xirr'])
-                                : '資料不足',
-                            style: row['xirr_status'] == 'available'
-                                ? TextStyle(
-                                    color: profitLossColor(row['xirr']),
-                                    fontWeight: FontWeight.w700,
-                                  )
-                                : null,
-                          ))
-                  ]),
-                  ExpansionTile(title: const Text('壓力測試'), children: [
-                    for (final row in stress.cast<Map<String, dynamic>>())
-                      ListTile(
-                          title: Text('${row['scenario_id']}'),
-                          trailing: Text(money(row['loss'])))
-                  ]),
-                  const Text('壓力測試為固定情境估算，不構成投資建議；AI 不會改寫計算結果。')
                 ])));
   }
 }

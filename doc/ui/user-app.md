@@ -228,6 +228,10 @@ cash flow 與 PnL 不得混為同義。交易類型目前為買進、賣出、�
 - MIS 只寫 long-lived operational PostgreSQL last-success；正式 EOD serving 由 canonical Core projection 重建。MIS 絕不寫 canonical Core OHLCV。
 - source、quote time、receive time、price date、state、final flag 必須可判讀；missing／stale 不補 0、不拿掛單價冒充成交。
 
+## 2026-11-02「我的」投資組合區塊移除
+
+依使用者截圖要求，移除「我的」中的投資組合摘要（含現金資料不足提示）、產業曝險、年度 XIRR、壓力測試及其說明；同時停止該元件的四個 portfolio 讀取。投資屬性表單仍使用 investment-profile 讀寫。此決策覆蓋下方要求在「我的」呈現該組區塊的舊契約；其他頁面的既有資料用途依原契約。
+
 ## 5.6 資產與風險
 
 - 顯示總資產、現金水位、持股、估值日期與缺價狀態；正式數值只讀 Private Mart。

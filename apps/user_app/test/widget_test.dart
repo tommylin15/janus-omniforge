@@ -706,9 +706,7 @@ void main() {
     expect(api.writes.single, containsPair('feedback', 'misleading'));
   });
 
-  testWidgets(
-      'portfolio dashboard renders persisted marts without recalculation',
-      (tester) async {
+  testWidgets('investment settings omit unused portfolio panels and reads', (tester) async {
     final api = FakeApi({
       '/api/v1/me/investment-profile': {
         'risk_tolerance': 'moderate',
@@ -716,45 +714,22 @@ void main() {
         'primary_goal': 'growth',
         'minimum_cash_ratio': '0.1',
         'ai_context_opt_in': false,
-        'version': 1
-      },
-      '/api/v1/me/portfolio/summary': {
-        'items': [
-          {
-            'currency': 'TWD',
-            'market_value': '1200',
-            'unrealized_pnl': '200',
-            'cash_safety_status': 'insufficient_data'
-          }
-        ]
-      },
-      '/api/v1/me/portfolio/exposure': {
-        'items': [
-          {'industry': 'semiconductor', 'portfolio_ratio': '1'}
-        ]
-      },
-      '/api/v1/me/portfolio/performance?year=${DateTime.now().year}': {
-        'items': [
-          {
-            'year': DateTime.now().year,
-            'currency': 'TWD',
-            'xirr_status': 'available',
-            'xirr': .1
-          }
-        ]
-      },
-      '/api/v1/me/portfolio/stress-tests': {
-        'items': [
-          {'scenario_id': 'broad_market_down_20', 'loss': '-240'}
-        ]
+        'version': 1,
       },
     });
-    await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-            body: SingleChildScrollView(child: PortfolioDashboard(api)))));
+    await tester.pumpWidget(MaterialApp(home: Scaffold(
+      body: SingleChildScrollView(child: PortfolioDashboard(api)))));
     await tester.pumpAndSettle();
     expect(find.text('資產與風險'), findsOneWidget);
-    expect(find.textContaining('市值 1200'), findsOneWidget);
-    expect(find.textContaining('不構成投資建議'), findsOneWidget);
+    expect(find.textContaining('投資組合'), findsNothing);
+    expect(find.text('產業曝險'), findsNothing);
+    expect(find.text('年度 XIRR'), findsNothing);
+    expect(find.text('壓力測試'), findsNothing);
+    expect(find.textContaining('不構成投資建議'), findsNothing);
+    expect(api.reads, ['/api/v1/me/investment-profile']);
+    await tester.tap(find.text('儲存投資屬性'));
+    await tester.pumpAndSettle();
+    expect(api.writes.single, containsPair('expected_version', 1));
+    expect(api.reads.every((path) => path == '/api/v1/me/investment-profile'), isTrue);
   });
 }
