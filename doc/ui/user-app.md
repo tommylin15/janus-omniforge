@@ -232,6 +232,11 @@ cash flow 與 PnL 不得混為同義。交易類型目前為買進、賣出、�
 
 依使用者截圖要求，移除「我的」中的投資組合摘要（含現金資料不足提示）、產業曝險、年度 XIRR、壓力測試及其說明；同時停止該元件的四個 portfolio 讀取。投資屬性表單仍使用 investment-profile 讀寫。此決策覆蓋下方要求在「我的」呈現該組區塊的舊契約；其他頁面的既有資料用途依原契約。
 
+發布驗收（2026-11-02）：[Release 41415772781](https://github.com/tommylin15/janus-omniforge/actions/runs/41415772781)、[0% 候選 41416582647](https://github.com/tommylin15/janus-omniforge/actions/runs/41416582647)、[OAuth 41416960217](https://github.com/tommylin15/janus-omniforge/actions/runs/41416960217)、[API-only 100% 41417151859](https://github.com/tommylin15/janus-omniforge/actions/runs/41417151859)、[入口同步 41417527735](https://github.com/tommylin15/janus-omniforge/actions/runs/41417527735) 全 PASS。程式來源 `9b5a5c9021f20e511aaa23f637b2ef499c8d6a46`，revision `janus-api-00653-xod`，digest `sha256:9633b57b56033ffc4c24341d593897ddbf5d57874af55f784a74e376cbddc67c`。
+
+Flutter 完整 147 項／定向 21 項 PASS，分析無 error／warning；回歸測試確認只讀 investment-profile 且仍可儲存。已登入正式頁重載後，摘要、三個區塊及說明皆不存在，設定表單正常載入。獨立安全 HTTP 讀回 PASS；四 Jobs 映像與完整設定 hash 不變，Scheduler ENABLED／排程不變，19 個入口均指向新版。未做 migration 或重跑模型／Jobs workload，API-only receipt 的 Jobs／Scheduler／storage／IAM mutated 均為 false。
+
+
 ## 5.6 資產與風險
 
 - 顯示總資產、現金水位、持股、估值日期與缺價狀態；正式數值只讀 Private Mart。

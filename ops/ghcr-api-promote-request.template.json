@@ -6,8 +6,8 @@
   "release_run": "38153154441",
   "jobs_run": "",
   "rollback_mode": "reversible_ghcr",
-  "baseline_source_sha": "5fdcdd9288d6305758935d4413f5ab92776a735e",
+  "baseline_source_sha": "9b5a5c9021f20e511aaa23f637b2ef499c8d6a46",
   "allow_legacy_forward_only": false,
-  "gate": "INERT approved=false; current serving 00650-koz/5fdcdd92 verified by promotion41380286035 and independent live readback. Future promotion requires fresh runtime rollback and full release/jobs/auth gates.",
+  "gate": "INERT approved=false; current serving 00653-xod/9b5a5c90 verified by API-only41417151859 and independent live/UI readback. Future promotion requires fresh rollback and full release/jobs/auth gates.",
   "auth_boundary_run": ""
 }
