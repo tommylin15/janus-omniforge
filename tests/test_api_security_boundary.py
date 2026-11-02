@@ -1,5 +1,7 @@
 """Public HTTP boundaries use harmless local files and bounded fake streams."""
 import asyncio
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -43,6 +45,16 @@ def test_public_assets_reject_symlink_escape(web):
     except OSError:
         pytest.skip('Creating symlinks requires local OS privilege; Linux CI covers this.')
     assert client.get('/app/link.txt').status_code == 404
+
+
+@pytest.mark.parametrize('path', ['/outside', '../outside', '//untrusted.invalid/share/file'])
+def test_invalid_asset_paths_are_rejected_before_filesystem_access(web, path):
+    client, _, _ = web
+    endpoint = next(r.endpoint for r in client.app.routes if getattr(r, 'path', None) == '/app/{path:path}')
+    with patch.object(Path, 'resolve', side_effect=AssertionError('untrusted path reached filesystem')):
+        with pytest.raises(module.HTTPException) as error:
+            endpoint(path)
+    assert error.value.status_code == 404
 
 
 @pytest.mark.parametrize('path,limit,status', [('/mcp', 65536, 413), ('/oauth/register', 4096, 400),

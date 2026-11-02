@@ -577,7 +577,11 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     @api.get("/app/{path:path}", include_in_schema=False)
     def flutter_app(path: str):
-        candidate = (flutter_dir / path).resolve()
+        relative = Path(path)
+        # Reject Windows UNC/drive paths before resolve can touch a remote share.
+        if relative.anchor or ".." in relative.parts:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+        candidate = (flutter_dir / relative).resolve()
         if not candidate.is_relative_to(flutter_dir.resolve()):
             raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
         if candidate.is_file():

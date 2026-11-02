@@ -55,3 +55,8 @@
 
 
 OAuth／private boundary [#41279149226](https://github.com/tommylin15/janus-omniforge/actions/runs/41279149226) **PASS**，同 runtime 來源 `60b84395`；metadata、PKCE／refresh 廣告與未登入 User／Admin／MCP 拒絕均成功。新路由工具 selective CI [#41279149267](https://github.com/tommylin15/janus-omniforge/actions/runs/41279149267) PASS。提交前已對路由工具與 Jobs 請求分別執行 `/ponytail-review`，核對新版正式 100% 前置、既有固定 URL 保留、完整 tag 回復／未知狀態留鎖，以及固定回復 image／hash；沒有未解決阻擋項。
+
+
+2026-11-02 續接：四 Jobs rollout [#41279333435](https://github.com/tommylin15/janus-omniforge/actions/runs/41279333435) **PASS**，精確來源 `60b84395`、8 distinct canary、完整 config hash 保留、Scheduler 恢復，回復可用；全域 lease 已釋放。
+
+續接路徑 review 另確認，Windows UNC／只有 root 的路徑應在 `Path.resolve()` 前拒絕，避免目錄檢查本身觸碰遠端 share；新增 3 個 mock 檔案 I/O 禁止案例均先重現。已以 `Path.anchor`／`..` 的字面拒絕補強，再保留 resolve 後的 symlink 邊界。這次僅改 API 檔案路由與測試，不更動 worker 或依賴；故後續使用既有 API-only promotion，保留已完成新版依賴 rollout 的四 Jobs，不重複執行它們。最新 API runtime source 必須重新完整 Release、0% 候選與 OAuth gate；舊 60b API 不先切主流量。
