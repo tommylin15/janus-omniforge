@@ -71,3 +71,6 @@ API-only 部署工具 review 發現原 gate 只檢查整體／job 綠燈，沒�
 
 
 最終 API 0% 候選 [#41369871792](https://github.com/tommylin15/janus-omniforge/actions/runs/41369871792) **PASS**，獨立安全 smoke 再確認 753a44d1 的檔案邊界／body limit／nonce PASS，正式流量尚未變。路由工具另補上 Cloud Run「正式流量 100% 但同 revision 的 tag 可標示 0%」合法狀態（tag URL 不由主流量百分比決定），防止安全收斂後誤判；6 個回復分支先重現再修正。部署工具總計 **153 PASS**；本次提交前再執行 `/ponytail-review`，正常流量、完整 tag map 回復與未知狀態留鎖均保留，沒有阻擋項。
+
+
+最終 API 同來源 OAuth [#41370164512](https://github.com/tommylin15/janus-omniforge/actions/runs/41370164512) 與工具 selective CI [#41370164738](https://github.com/tommylin15/janus-omniforge/actions/runs/41370164738) **PASS**。API-only 請求固定最終753a44d1／Release41369212296／候選41369871792／Auth41370164512，原API回復來源daf9636e，四Jobs保留已驗證60b84395。active baseline／inert templates同步記錄這個API前狀態，`approved=false`範本不會自動啟動。提交前 `/ponytail-review` 核對精確來源綁定、切換一次／實際失敗才回復、Jobs不變、模板仍inert；沒有阻擋項。

@@ -6,12 +6,12 @@
   "release_run": "38153154441",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "4393543ccd02a4951e97354bd13d14a29f517759",
+  "baseline_source_sha": "60b84395b8fe4edacd7e054f4f3b145d0b298cc0",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:043f9c8cc37be5e216d8b0027e5eb17d6493557579c5cb30c1524ab251f29441",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:043f9c8cc37be5e216d8b0027e5eb17d6493557579c5cb30c1524ab251f29441",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:e347e03b692adcd9d9458a61067628770136df87ebb5611bfa3a7ce7a998e386",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:334ef05b71a3d3a2377ea583ecb0070e60dd0008a9535a3aab782483864d6bf1"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:880c4a85fbf11ecd934e8f5fa437fab021be83de8bd29f3414235538822c9663",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:880c4a85fbf11ecd934e8f5fa437fab021be83de8bd29f3414235538822c9663",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:866c6c3949811fe7aa5db0766b574d9cf793ca2e6825b108c5f3fdfa037a9914",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:2ffe62644d57fbc5acb60e0bd52f30e8f6a9c11589a750eb49c598284eefea9c"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "2a12f1d6ae5d2dc3dc3c208b12bfc1e32e2ac87f02ff68462a935bc056b19acc",
@@ -20,7 +20,7 @@
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
   "request_attempt": 0,
-  "safety": "INERT approved=false; mirrors the verified pre-cleanup rollback snapshot from 41268094614. Future requests require fresh live baseline and all gates.",
+  "safety": "INERT approved=false; reflects already accepted security Jobs 60b84395 from 41279333435. Future requests require fresh runtime baseline and full gates.",
   "auth_boundary_run": "",
   "automated_oauth_requirement": "For a new release, require its own same-source authenticated candidate boundary run. Manual user OAuth consent is not an ordinary release gate."
 }

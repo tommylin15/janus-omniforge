@@ -6,8 +6,8 @@
   "release_run": "38153154441",
   "jobs_run": "",
   "rollback_mode": "reversible_ghcr",
-  "baseline_source_sha": "28385c788d55d13aa628e30b3fb21a2233df6868",
+  "baseline_source_sha": "daf9636e34c3a35b9359ed8c741e01b16bffb4ff",
   "allow_legacy_forward_only": false,
-  "gate": "INERT approved=false; previous serving API 28385c78 at janus-api-00638-ban from 41209428593, reconfirmed 41268189186. Future promotion requires fresh runtime rollback and full release/jobs/auth gates.",
+  "gate": "INERT approved=false; previous serving 00640-jam/daf9636e from 41270980235 reconfirmed by 41278547341. Future promotion requires fresh runtime rollback and full release/jobs/auth gates.",
   "auth_boundary_run": ""
 }
