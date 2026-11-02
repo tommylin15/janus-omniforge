@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "3890ba62219b7d9f79e6197d8e489c420a7797fe",
-  "digest": "sha256:7f86358216651a314d7c470e9ea32be87d307d79b45f4cd6cbf2fe04ccfce58d",
-  "release_run": "41372987736",
+  "sha": "5fdcdd9288d6305758935d4413f5ab92776a735e",
+  "digest": "sha256:a83b35f4b1fe2c24fcffc0d1b3f03e3090f98e0ff19d5f9f44379217c2ab54a9",
+  "release_run": "41376716082",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "修正個人策略設定表單：完整 Release 41372987736 PASS。僅部署 API 0% 候選，驗證 UI build 與 OAuth 邊界；不變更 Jobs、Scheduler 或資料。",
-  "request_attempt": 35
+  "purpose": "個人策略參數草稿與OmniAgent gateway修補；完整Release41376716082與072 migration41376788029 PASS。僅API 0%候選，後續同來源Jobs及真實身分無模型gateway canary獨立驗證。",
+  "request_attempt": 36
 }
