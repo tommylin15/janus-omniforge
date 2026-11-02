@@ -1,14 +1,14 @@
 {
   "status": "VERIFIED_PUBLIC_GHCR_ROLLBACK_BASELINE",
-  "source_sha": "daf9636e34c3a35b9359ed8c741e01b16bffb4ff",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:849ce46e339f4fa861e6fbd8624315bac06850af2fa646443f87601b9d242072",
-  "validation_run": "41270980235",
-  "job_source_sha": "60b84395b8fe4edacd7e054f4f3b145d0b298cc0",
+  "source_sha": "3890ba62219b7d9f79e6197d8e489c420a7797fe",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:7f86358216651a314d7c470e9ea32be87d307d79b45f4cd6cbf2fe04ccfce58d",
+  "validation_run": "41374045030",
+  "job_source_sha": "5fdcdd9288d6305758935d4413f5ab92776a735e",
   "job_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:880c4a85fbf11ecd934e8f5fa437fab021be83de8bd29f3414235538822c9663",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:880c4a85fbf11ecd934e8f5fa437fab021be83de8bd29f3414235538822c9663",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:866c6c3949811fe7aa5db0766b574d9cf793ca2e6825b108c5f3fdfa037a9914",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:2ffe62644d57fbc5acb60e0bd52f30e8f6a9c11589a750eb49c598284eefea9c"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:57d981ce49e2b176092fdb371c8510d0ff9399a6cb614e3ad91df216de0f39b3",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:57d981ce49e2b176092fdb371c8510d0ff9399a6cb614e3ad91df216de0f39b3",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:6e9be75c201ec18406975951ac527f51d71a01add71fc1fca5e97ab1a66ab050",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:899e2084c1ad2c012507681d17737972a94c850c34a310b2597cb51547f78206"
   },
   "job_config_hashes": {
     "janus-batch-controller": "2a12f1d6ae5d2dc3dc3c208b12bfc1e32e2ac87f02ff68462a935bc056b19acc",
@@ -18,8 +18,8 @@
   },
   "private_historical_config_parity": "NOT_VERIFIED",
   "old_ar_rollback_exercised": false,
-  "observed_evidence": "API前次41270980235 PASS，候選41369871792 preflight及正式build-id確認00640-jam／daf9636e。Jobs 41279333435 PASS，8 distinct canary與原完整config hash均已核對。",
-  "semantics": "最終 API-only source753a44d1的實際先前API回復基準00640-jam／daf9636e；Job欄為API切流前已完成依賴修復的60b84395快照，41279333435 PASS8canary。API與Jobs來源各自記錄，不冒稱同一SHA；歷史private parity／舊AR回復演練語意不變。",
-  "api_revision": "janus-api-00640-jam",
+  "observed_evidence": "正式API3890ba62／00647-dul／7f863582已以build-id、Ready revision與GHCR release digest核對；前次API-only41374045030 PASS。本輪Jobs41377891528 PASS8canary，Scheduler恢復、完整config hashes不變。",
+  "semantics": "本輪API5fdcdd92正式切流之前的實際可回復API基準3890ba62；Jobs欄記錄已通過8canary的當前5fdcdd92。不改寫歷史private parity或舊AR回復演練語意。",
+  "api_revision": "janus-api-00647-dul",
   "traffic_percent": 100
 }

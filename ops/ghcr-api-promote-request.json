@@ -10,7 +10,7 @@
   "allow_legacy_forward_only": false,
   "auth_boundary_run": "41377736095",
   "api_image": "ghcr.io/tommylin15/janus-api@sha256:a83b35f4b1fe2c24fcffc0d1b3f03e3090f98e0ff19d5f9f44379217c2ab54a9",
-  "purpose": "個人策略草稿保存及OmniAgent gateway修補正式API切流；精確來源5fdcdd92／Release41376716082／候選41377424872／OAuth41377736095／072 migration41376788029。Jobs41377891528已PASS，8個distinct canary及Scheduler恢復均已驗證，包含private Job本人gateway無模型授權probe。保留API3890ba62固定映像回復，不自動重送使用者策略生成。",
-  "request_attempt": 10,
+  "purpose": "個人策略草稿保存及OmniAgent gateway修補正式API切流；精確來源5fdcdd92／Release41376716082／候選41377424872／OAuth41377736095／072 migration41376788029。Jobs41377891528已PASS，8個distinct canary及Scheduler恢復均已驗證，包含private Job本人gateway無模型授權probe。保留API3890ba62固定映像回復，不自動重送使用者策略生成。 前次41379840074在寫流量前因active-baseline仍是舊daf而被拒；已讀回並更新目前3890ba62基準，不放寬guard。",
+  "request_attempt": 11,
   "traffic_validation_mode": "direct"
 }
