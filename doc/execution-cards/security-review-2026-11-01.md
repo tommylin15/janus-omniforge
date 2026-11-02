@@ -60,3 +60,8 @@ OAuth／private boundary [#41279149226](https://github.com/tommylin15/janus-omni
 2026-11-02 續接：四 Jobs rollout [#41279333435](https://github.com/tommylin15/janus-omniforge/actions/runs/41279333435) **PASS**，精確來源 `60b84395`、8 distinct canary、完整 config hash 保留、Scheduler 恢復，回復可用；全域 lease 已釋放。
 
 續接路徑 review 另確認，Windows UNC／只有 root 的路徑應在 `Path.resolve()` 前拒絕，避免目錄檢查本身觸碰遠端 share；新增 3 個 mock 檔案 I/O 禁止案例均先重現。已以 `Path.anchor`／`..` 的字面拒絕補強，再保留 resolve 後的 symlink 邊界。這次僅改 API 檔案路由與測試，不更動 worker 或依賴；故後續使用既有 API-only promotion，保留已完成新版依賴 rollout 的四 Jobs，不重複執行它們。最新 API runtime source 必須重新完整 Release、0% 候選與 OAuth gate；舊 60b API 不先切主流量。
+
+
+API-only 部署工具 review 發現原 gate 只檢查整體／job 綠燈，沒有將 Release HEAD 與候選歷史請求綁定到目標 source；已用 3 個「舊綠燈／錯來源」案例重現。現在重用既有 canonical operation identity／main branch／完整 Release job gate，驗證 Release HEAD、候選當時的 source／release_run／promotion=false 與祖先關係，並重用同來源 OAuth 歷史收據核對。正常正向與拒絕／回復相關 **147 tests PASS**；這是部署工具修改，不改 runtime image。
+
+2026-11-02 重新掃描 API 59、ingestion 43、Mart 84、opt-in probe 26、root 3 個鎖定套件（各環境分別計算，非去重總數），5 份 lock 仍均無已知漏洞回報。最新路徑補強 API／OAuth／授權定向 **115 PASS**。

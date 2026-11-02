@@ -44,15 +44,18 @@ def approved_request(payload: dict) -> dict:
     return payload
 
 
-def check_run(number: str, job_name: str) -> None:
+def check_run(number: str, job_name: str) -> dict:
     result = json.loads(command(["gh", "run", "view", number,
-                                 "--json", "status,conclusion,workflowName,jobs"]))
+                                 "--json", "headSha,status,conclusion,workflowName,jobs"]))
     if result.get("status") != "completed" or result.get("conclusion") != "success":
         raise ValueError("upstream_run_not_successful")
     jobs = result.get("jobs", [])
     matching = [j for j in jobs if j.get("name") == job_name]
     if len(matching) != 1 or matching[0].get("conclusion") != "success":
         raise ValueError("upstream_job_receipt_invalid")
+    if not SHA_RE.fullmatch(result.get("headSha", "")):
+        raise ValueError("upstream_source_receipt_invalid")
+    return result
 
 
 def preflight(payload: dict) -> None:
@@ -66,11 +69,21 @@ def preflight(payload: dict) -> None:
             or boundary.get("sha") != source
             or boundary.get("no_gcp_mutation") is not True):
         raise ValueError("candidate_boundary_source_not_matching")
-    check_run(payload["release_run"], "release-verify")
-    for name in ("release-flutter", "release-tests"):
-        check_run(payload["release_run"], name)
-    check_run(payload["candidate_run"], "candidate")
-    check_run(payload["auth_boundary_run"], "auth-boundary")
+    release = check_run(payload["release_run"], "release-verify")
+    if (release["headSha"] != source or release.get("workflowName") != "Janus GHCR operations"
+            or not api.jobs.successful_operation(release, payload["release_run"], "", "release")):
+        raise ValueError("release_source_receipt_invalid")
+    candidate_run = check_run(payload["candidate_run"], "candidate")
+    if (candidate_run.get("workflowName") != "Janus GHCR operations"
+            or not api.jobs.successful_operation(candidate_run, payload["candidate_run"], "", "candidate")):
+        raise ValueError("candidate_source_receipt_invalid")
+    recorded = json.loads(command(["git", "show",
+        candidate_run["headSha"] + ":ops/ghcr-candidate-request.json"]))
+    if (recorded.get("sha") != source or recorded.get("release_run") != payload["release_run"]
+            or recorded.get("promotion") is not False):
+        raise ValueError("candidate_source_receipt_invalid")
+    command(["git", "merge-base", "--is-ancestor", candidate_run["headSha"], "HEAD"])
+    api.jobs.automated_oauth_acceptance(source, payload["auth_boundary_run"])
     manifest = json.loads(command(["skopeo", "inspect", "--no-creds",
                                    "docker://ghcr.io/tommylin15/janus-api:sha-" + source]))
     digest = manifest.get("Digest")

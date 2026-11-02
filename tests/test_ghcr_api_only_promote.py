@@ -30,6 +30,46 @@ def test_request_exact_dev_api_only_controls():
             p.approved_request(bad)
 
 
+@pytest.mark.parametrize('mismatch', ['release-source', 'candidate-source', 'candidate-release', None])
+def test_preflight_binds_green_receipts_to_exact_source_and_historical_request(monkeypatch, mismatch):
+    import json
+    from unittest.mock import Mock
+    req = approved()
+    current = {'sha': req['source_sha'], 'release_run': req['release_run'], 'promotion': False,
+               'no_gcp_mutation': True, 'scope': 'read-only'}
+    monkeypatch.setattr(p.Path, 'read_text', lambda *_args, **_kwargs: json.dumps(current))
+    monkeypatch.setattr(p.api.jobs, 'successful_operation', lambda *_: True)
+    oauth = Mock(return_value={'status': 'PASS'})
+    monkeypatch.setattr(p.api.jobs, 'automated_oauth_acceptance', oauth)
+
+    def command(args):
+        if args[:3] == ['gh', 'run', 'view']:
+            head = req['source_sha'] if args[3] == req['release_run'] else 'c' * 40
+            if mismatch == 'release-source' and args[3] == req['release_run']:
+                head = 'd' * 40
+            return json.dumps({'headSha': head, 'status': 'completed', 'conclusion': 'success',
+                'workflowName': 'Janus GHCR operations', 'jobs': [
+                    {'name': name, 'conclusion': 'success'} for name in
+                    ('release-verify', 'release-tests', 'release-flutter', 'candidate', 'auth-boundary')]})
+        if args[:2] == ['git', 'show']:
+            historical = dict(current)
+            if mismatch == 'candidate-source': historical['sha'] = 'd' * 40
+            if mismatch == 'candidate-release': historical['release_run'] = '999999999'
+            return json.dumps(historical)
+        if args[0] == 'skopeo':
+            return json.dumps({'Digest': 'sha256:' + 'e' * 64,
+                               'Labels': {'org.opencontainers.image.revision': req['source_sha']}})
+        return ''
+
+    monkeypatch.setattr(p, 'command', command)
+    if mismatch:
+        with pytest.raises(ValueError, match='source|receipt'):
+            p.preflight(req)
+    else:
+        p.preflight(req)
+        oauth.assert_called_once_with(req['source_sha'], req['auth_boundary_run'])
+
+
 def test_upstream_failure_and_missing_job_are_rejected(monkeypatch):
     import json
     monkeypatch.setattr(p, "command", lambda args: json.dumps({
