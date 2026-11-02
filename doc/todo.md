@@ -1,10 +1,13 @@
 # Janus — 唯一 Active TODO
 
-## P1｜個人策略設定表單修正（2026-11-02）
+## 個人策略設定表單修正｜工程與線上預覽驗收 CLOSED／PASS（2026-11-02）
 
-- [x] 修正空白資金需求、非有限／越界百分比、風險交叉限制、自訂策略與保護池格式的前端驗證；中文欄位錯誤、風險百分比預覽、產出停用原因、避免背景產出時重送。
-- [ ] 完整 Flutter 測試／分析／Web build、發布與候選／OAuth／API-only live 讀回；收據完成後更新。
-- [ ] 使用者操作驗收；本輪不自動產出付費 Gemini 策略，也不替使用者猜測資金需求或修改風險數值。
+- [x] 空白資金需求、非有限／越界百分比、風險交叉限制、自訂策略與保護池格式先於前端驗證；中文欄位錯誤、風險百分比預覽、停用原因、背景產出防重送及保留草稿的狀態更新。
+- [x] 完整 Flutter 146 項、定向 8 項、分析無 error／warning；Release Linux／隔離 PG 2113 passed、2 skipped、2 deselected，Flutter／Web build／四映像 PASS。
+- [x] [Release #41372987736](https://github.com/tommylin15/janus-omniforge/actions/runs/41372987736) → [0% 候選 #41373618403](https://github.com/tommylin15/janus-omniforge/actions/runs/41373618403) → [OAuth #41373877474](https://github.com/tommylin15/janus-omniforge/actions/runs/41373877474) → [API-only 100% #41374045030](https://github.com/tommylin15/janus-omniforge/actions/runs/41374045030) → [入口同步 #41374206459](https://github.com/tommylin15/janus-omniforge/actions/runs/41374206459) 全 PASS。來源 `3890ba62219b7d9f79e6197d8e489c420a7797fe`，revision `janus-api-00647-dul`。
+- [x] 已登入正式頁面重現兩項欄位錯誤、合法 API 預覽、中文百分比、同意停用提示與修改後清除預覽；測試內容移除，不產出或啟用策略。四 Jobs／Scheduler 設定不變。完整範圍與限制見 [收據](archive/personal-strategy-settings-2026-11-02.md)。
+
+付費 Gemini 產出及整體 PS-UAT 仍依下方待驗項；表單修復不等於四報告或全部個人策略 UAT 完成。資金需求與風險數值由使用者決定，不代填或猜測。
 
 ## P1｜個人策略、S/A/B/C與四時段報告｜部署已上線／待使用者操作驗收（2026-10-31）
 
