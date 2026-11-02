@@ -65,3 +65,6 @@ OAuth／private boundary [#41279149226](https://github.com/tommylin15/janus-omni
 API-only 部署工具 review 發現原 gate 只檢查整體／job 綠燈，沒有將 Release HEAD 與候選歷史請求綁定到目標 source；已用 3 個「舊綠燈／錯來源」案例重現。現在重用既有 canonical operation identity／main branch／完整 Release job gate，驗證 Release HEAD、候選當時的 source／release_run／promotion=false 與祖先關係，並重用同來源 OAuth 歷史收據核對。正常正向與拒絕／回復相關 **147 tests PASS**；這是部署工具修改，不改 runtime image。
 
 2026-11-02 重新掃描 API 59、ingestion 43、Mart 84、opt-in probe 26、root 3 個鎖定套件（各環境分別計算，非去重總數），5 份 lock 仍均無已知漏洞回報。最新路徑補強 API／OAuth／授權定向 **115 PASS**。
+
+
+最後 API 路徑補強來源 `753a44d1cd40711dc240e6c7388e0fe693b5ba5f` 完整 Release [#41369212296](https://github.com/tommylin15/janus-omniforge/actions/runs/41369212296) **PASS**：Linux／隔離 PG **2103 passed、2 skipped、2 deselected**（88.42 秒），Flutter 與四映像成功；實際只需套用新 API，四 Jobs 的 runtime 程式／依賴未變，保留前述60b映像與八次 canary證據。

@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "60b84395b8fe4edacd7e054f4f3b145d0b298cc0",
-  "digest": "sha256:ff6907f05c655c5a282ab2e0e4a3c10b7372dd3467e3c3de66d83893fe718895",
-  "release_run": "41278063624",
+  "sha": "753a44d1cd40711dc240e6c7388e0fe693b5ba5f",
+  "digest": "sha256:328816d9718e3a467d3129d64f19a8c273bb74cae206109f916b2d8a553d5029",
+  "release_run": "41369212296",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "資安修補完整 Release 41278063624 PASS：Linux／PG 2095 passed、2 skipped、2 deselected，Flutter 與四映像成功。僅部署精確固定映像的 API 0% 候選，保留現役 100%，另驗證檔案越界、body guard 與 OIDC nonce，再走 Auth／Jobs／正式切流。",
-  "request_attempt": 33
+  "purpose": "資安最後路徑補強版本：完整 Release 41369212296 PASS，Linux／隔離 PG 2103 passed、2 skipped、2 deselected，Flutter／四映像通過；只建 API 0% 候選並驗證越界字面拒絕、body bound、OIDC nonce。已驗證四 Jobs 保留60b84395，不在此更動。",
+  "request_attempt": 34
 }
