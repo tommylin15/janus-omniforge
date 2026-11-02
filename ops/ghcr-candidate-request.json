@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "753a44d1cd40711dc240e6c7388e0fe693b5ba5f",
-  "digest": "sha256:328816d9718e3a467d3129d64f19a8c273bb74cae206109f916b2d8a553d5029",
-  "release_run": "41369212296",
+  "sha": "3890ba62219b7d9f79e6197d8e489c420a7797fe",
+  "digest": "sha256:7f86358216651a314d7c470e9ea32be87d307d79b45f4cd6cbf2fe04ccfce58d",
+  "release_run": "41372987736",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "資安最後路徑補強版本：完整 Release 41369212296 PASS，Linux／隔離 PG 2103 passed、2 skipped、2 deselected，Flutter／四映像通過；只建 API 0% 候選並驗證越界字面拒絕、body bound、OIDC nonce。已驗證四 Jobs 保留60b84395，不在此更動。",
-  "request_attempt": 34
+  "purpose": "修正個人策略設定表單：完整 Release 41372987736 PASS。僅部署 API 0% 候選，驗證 UI build 與 OAuth 邊界；不變更 Jobs、Scheduler 或資料。",
+  "request_attempt": 35
 }
