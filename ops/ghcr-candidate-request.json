@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "5fdcdd9288d6305758935d4413f5ab92776a735e",
-  "digest": "sha256:a83b35f4b1fe2c24fcffc0d1b3f03e3090f98e0ff19d5f9f44379217c2ab54a9",
-  "release_run": "41376716082",
+  "sha": "9b5a5c9021f20e511aaa23f637b2ef499c8d6a46",
+  "digest": "sha256:9633b57b56033ffc4c24341d593897ddbf5d57874af55f784a74e376cbddc67c",
+  "release_run": "41415772781",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "個人策略參數草稿與OmniAgent gateway修補；完整Release41376716082與072 migration41376788029 PASS。僅API 0%候選，後續同來源Jobs及真實身分無模型gateway canary獨立驗證。",
-  "request_attempt": 36
+  "purpose": "移除我的頁投資組合摘要／產業曝險／年度XIRR／壓力測試及四個多餘請求；完整Release41415772781 PASS。僅API 0%候選，不更新Jobs或資料。",
+  "request_attempt": 37
 }
