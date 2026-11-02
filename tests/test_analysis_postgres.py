@@ -346,3 +346,34 @@ def test_p0v_five_role_synthetic_ceo_full_validator_to_isolated_postgres_to_owne
         connection.execute("SET ROLE janus_mart_publication")
         with pytest.raises(psycopg.errors.RaiseException, match="immutable"):
             connection.execute("UPDATE private.ceo_requests SET status='FAILED' WHERE request_id=%s",(request_id,))
+
+
+def test_personal_strategy_draft_roundtrip_is_owner_scoped_and_preserves_active_state(database):
+    from services.api.personal_strategy import PersonalStrategyService
+    from services.api.personal_strategy_contract import StrategyDraft
+    with psycopg.connect(database, autocommit=True) as c:
+        c.execute('SET ROLE janus_control')
+        c.execute("""CREATE TABLE IF NOT EXISTS private.personal_strategy_state (
+            user_id uuid PRIMARY KEY, active_version uuid, paused boolean NOT NULL DEFAULT false,
+            updated_at timestamptz NOT NULL DEFAULT now())""")
+        c.execute('RESET ROLE')
+        migration = (Path(__file__).parents[1] / 'infra/postgres/migrations/072_personal_strategy_draft.sql').read_text()
+        sql = '\n'.join(line for line in migration.splitlines() if not line.startswith('\\'))
+        c.execute(sql)
+        c.execute(sql)
+        c.execute('GRANT SELECT,INSERT,UPDATE ON private.personal_strategy_state TO janus_private_api')
+    owner, other, version = uuid4(), uuid4(), uuid4()
+    service = PersonalStrategyService(Repository(database, owner))
+    draft = StrategyDraft(template_id='stock', tolerance='moderate', horizon='medium', cash='35', loss='20')
+    with service.repo._connection() as c:
+        c.execute('INSERT INTO private.personal_strategy_state(user_id,active_version,paused) VALUES(%s,%s,true)', (owner,version))
+    assert service.save_draft(owner, draft) == {'saved': True}
+    with service.repo._connection() as c:
+        assert service.draft(c, owner) == draft.model_dump()
+        assert service.draft(c, other) is None
+        row = c.execute('SELECT active_version,paused FROM private.personal_strategy_state WHERE user_id=%s', (owner,)).fetchone()
+        assert row['active_version'] == version and row['paused'] is True
+    service.save_draft(other, draft.model_copy(update={'cash': '10'}))
+    with service.repo._connection() as c:
+        assert service.draft(c, owner)['cash'] == '35'
+        assert service.draft(c, other)['cash'] == '10'

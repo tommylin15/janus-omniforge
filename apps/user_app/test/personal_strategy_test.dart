@@ -77,6 +77,7 @@ class MockStrategyApi extends Api {
   @override
   Future<dynamic> put(String path, Map<String, dynamic> body) async {
     calls.add('PUT $path');
+    if (path == '/api/v1/me/personal-strategy/draft') { summary = {...summary, 'draft': Map<String, dynamic>.from(body)}; return {'saved': true}; }
     if (path == '/api/v1/me/personal-strategy/pause') {
       (summary['active'] as Map<String, dynamic>)['paused'] = body['paused'];
       return {'paused': body['paused']};
@@ -245,6 +246,30 @@ void main() {
     expect(find.text('策略正在產出；請至個人策略頁查看進度或重試原請求。'), findsNothing);
     expect(find.text('保留草稿'), findsOneWidget);
     expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, '產出個人策略並生效（每週一次）')).onPressed, isNull);
+  });
+
+  testWidgets('saved incomplete strategy draft survives widget recreation without generation', (tester) async {
+    final api = MockStrategyApi();
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PersonalStrategySettings(api))));
+    await tester.pumpAndSettle();
+    final loss = find.widgetWithText(TextFormField, '單筆損失預算（%）');
+    await tester.ensureVisible(loss);
+    await tester.enterText(loss, '20');
+    final liquidity = find.widgetWithText(TextFormField, '資金需求／不可動用資金（必填）');
+    await tester.ensureVisible(liquidity);
+    await tester.enterText(liquidity, '');
+    await tester.ensureVisible(find.text('儲存設定草稿（不產出策略）'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('儲存設定草稿（不產出策略）'));
+    await tester.pumpAndSettle();
+    expect(find.text('設定草稿已儲存；重新登入會自動帶回。尚未變更生效策略。'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PersonalStrategySettings(api))));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextFormField>(loss).controller!.text, '20');
+    expect(tester.widget<TextFormField>(liquidity).controller!.text, '');
+    expect(api.calls.where((c) => c.startsWith('POST')), isEmpty);
+    expect(api.summary['active']['rules']['risk']['loss_budget_ratio'], 0.05);
   });
 
 }

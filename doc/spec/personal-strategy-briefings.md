@@ -233,3 +233,11 @@ Google API依公開models.list與部署核准穩定Flash清單交集選新版，
 - 自訂策略至少 20 字、個人補充至多 12000 字；保護池去重後最多 50 個代號，每個限 1～16 個英數字、點或連字號。
 - 錯誤顯示於欄位，預覽風險以中文名稱及百分比呈現；修改內容即清除舊預覽。未預覽、未同意、預覽衝突、服務未啟用、本週已成功或背景產出中，均說明無法產出的原因。
 - 不修改已生效策略、週額度、帳本或後端 Owner／風險邊界；測試不呼叫付費 Gemini。
+
+## 設定草稿保存（2026-11-02）
+
+- 「儲存設定草稿（不產出策略）」將目前表單存於 Owner 私有 PostgreSQL；「預覽」也先保存，再驗證。允許欄位未填完或風險仍衝突，避免重輸；產出前仍嚴格驗證 StrategyInput。
+- `PUT /api/v1/me/personal-strategy/draft` 使用有長度界限、禁止額外欄位的 StrategyDraft；百分比保存原始字串（百分比單位），不當成已核准風險規則。GET summary 的 draft 與專屬 export 供該 Owner 讀回，不能指定其他 Owner。
+- 讀取順序：草稿優先，其次生效策略，最後既有投資設定；空白草稿欄位不猜測填補。畫面明示已儲存／尚未儲存，離開前須按儲存或預覽。
+- 草稿與生效策略隔離，不呼叫 Gemini、不用週額度、不改帳本／active_version／paused；私人資料刪除沿既有 state 刪除路徑涵蓋草稿。不寫入公開 log 或瀏覽器 localStorage。
+- 072 migration 只新增 nullable draft jsonb，舊 API 可繼續使用；先套 migration，再發布新版 API。舊版 rollback 不需刪草稿欄位。

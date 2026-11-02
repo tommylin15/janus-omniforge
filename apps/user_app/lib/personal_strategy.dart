@@ -170,7 +170,7 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
   String template = 'stock', tolerance = 'moderate', horizon = 'medium';
   final custom = TextEditingController(), liquidity = TextEditingController(), protected = TextEditingController();
   final cash = TextEditingController(), position = TextEditingController(), sector = TextEditingController(), loss = TextEditingController(), drawdown = TextEditingController();
-  bool consent = false, busy = false, loaded = false;
+  bool consent = false, busy = false, loaded = false, draftSaved = false;
   String? error;
   Map<String, dynamic>? prepared;
   @override
@@ -196,6 +196,14 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
         percent(cash, risk['minimum_cash_ratio'] ?? old['minimum_cash_ratio']);
         percent(position, risk['max_position_ratio']); percent(sector, risk['max_sector_ratio']);
         percent(loss, risk['loss_budget_ratio']); percent(drawdown, risk['max_drawdown_ratio']);
+        final draft = _map(summary['draft']);
+        if (draft.isNotEmpty) {
+          template = draft['template_id']; tolerance = draft['tolerance']; horizon = draft['horizon'];
+          custom.text = draft['custom_text']; liquidity.text = draft['liquidity_need']; protected.text = draft['protected_symbols'];
+          cash.text = draft['cash']; position.text = draft['position']; sector.text = draft['sector'];
+          loss.text = draft['loss']; drawdown.text = draft['drawdown']; consent = draft['private_ai_consent'] == true;
+        }
+        draftSaved = draft.isNotEmpty;
         loaded = true; prepared = null; error = null;
       });
     } catch (e) { if (mounted) setState(() => error = settingsError(e)); }
@@ -206,7 +214,23 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
       'minimum_cash_ratio': double.parse(cash.text) / 100, 'max_position_ratio': double.parse(position.text) / 100,
       'max_sector_ratio': double.parse(sector.text) / 100, 'loss_budget_ratio': double.parse(loss.text) / 100,
       'max_drawdown_ratio': double.parse(drawdown.text) / 100}};
-  void changed() => setState(() { prepared = null; error = null; });
+  Map<String, dynamic> draftPayload() => {
+    'template_id': template, 'tolerance': tolerance, 'horizon': horizon,
+    'custom_text': custom.text, 'liquidity_need': liquidity.text, 'protected_symbols': protected.text,
+    'cash': cash.text, 'position': position.text, 'sector': sector.text, 'loss': loss.text, 'drawdown': drawdown.text,
+    'private_ai_consent': consent,
+  };
+  Future<void> persistDraft() async {
+    await widget.api.put('$_root/draft', draftPayload());
+    if (mounted) setState(() => draftSaved = true);
+  }
+  Future<void> saveDraft() async {
+    setState(() { busy = true; error = null; });
+    try { await persistDraft(); }
+    catch (e) { if (mounted) setState(() => error = '草稿未儲存：${settingsError(e)}'); }
+    finally { if (mounted) setState(() => busy = false); }
+  }
+  void changed() => setState(() { prepared = null; error = null; draftSaved = false; });
   String settingsError(Object e) {
     final message = e.toString().replaceFirst('Exception: ', '');
     if (message.contains('loc:') || message.contains('FormatException')) return '設定格式不符，請檢查必填欄位與風險限制後重新預覽。';
@@ -236,9 +260,11 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
     return null;
   }
   Future<void> action(bool generate) async {
-    if (!form.currentState!.validate() || (generate && generationBlock != null)) return;
+    if (generate && generationBlock != null) return;
     setState(() { busy = true; error = null; });
     try {
+      await persistDraft();
+      if (!mounted || !form.currentState!.validate()) return;
       final body = payload();
       final result = await widget.api.post('$_root/${generate ? 'generate' : 'preview'}', body);
       if (!mounted) return;
@@ -288,6 +314,8 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
                     }, decoration: const InputDecoration(labelText: '保護池股票代號（逗號分隔）'), onChanged: (_) => changed()),
                   CheckboxListTile(contentPadding: EdgeInsets.zero, title: const Text('同意將必要持股、現金與策略送 Gemini 分析；公開搜尋不傳數量與成本'),
                     value: consent, onChanged: busy ? null : (v) { consent = v!; changed(); }),
+                  OutlinedButton(onPressed: busy ? null : saveDraft, child: const Text('儲存設定草稿（不產出策略）')),
+                  Text(draftSaved ? '設定草稿已儲存；重新登入會自動帶回。尚未變更生效策略。' : '目前填寫內容尚未儲存；請儲存草稿或按預覽一併儲存。'),
                   OutlinedButton(onPressed: busy ? null : () => action(false), child: const Text('預覽策略與風險限制')),
                   if (prepared != null) ...[
                     ResearchMarkdown('${prepared!['markdown']}'),

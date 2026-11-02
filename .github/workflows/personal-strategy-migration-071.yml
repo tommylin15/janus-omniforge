@@ -1,4 +1,4 @@
-name: Apply 071 personal strategy migration to dev PostgreSQL
+name: Apply personal strategy migrations to dev PostgreSQL
 on:
   workflow_dispatch:
     inputs:
@@ -9,6 +9,14 @@ on:
         options:
           - apply
           - readback
+      migration:
+        description: 'Versioned migration to apply/read back'
+        required: true
+        type: choice
+        default: '071_personal_strategy'
+        options:
+          - '071_personal_strategy'
+          - '072_personal_strategy_draft'
 permissions:
   contents: read
   id-token: write
@@ -25,6 +33,7 @@ jobs:
     env:
       GCP_PROJECT_ID: gen-lang-client-0593591102
       GCP_ZONE: us-central1-a
+      MIGRATION: ${{ inputs.migration || '071_personal_strategy' }}
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
@@ -37,24 +46,25 @@ jobs:
           set -Eeuo pipefail
           mkdir -p "$HOME/.ssh"
           ssh-keygen -q -t rsa -b 3072 -N '' -f "$HOME/.ssh/google_compute_engine"
-      - name: Apply 071 migration via table owner operator path
+      - name: Apply selected migration via table owner operator path
         if: github.event.inputs.action == 'apply'
         shell: bash
         run: |
           set -Eeuo pipefail
-          test -s infra/postgres/migrations/071_personal_strategy.sql
-          gcloud compute scp infra/postgres/migrations/071_personal_strategy.sql \
-            janus-postgres-dev:/tmp/janus-071_personal_strategy.sql \
+          case "$MIGRATION" in 071_personal_strategy|072_personal_strategy_draft) ;; *) exit 1 ;; esac
+          test -s infra/postgres/migrations/${MIGRATION}.sql
+          gcloud compute scp infra/postgres/migrations/${MIGRATION}.sql \
+            janus-postgres-dev:/tmp/janus-${MIGRATION}.sql \
             --project="$GCP_PROJECT_ID" --zone="$GCP_ZONE" --tunnel-through-iap --quiet
           gcloud compute ssh janus-postgres-dev \
             --project="$GCP_PROJECT_ID" --zone="$GCP_ZONE" --tunnel-through-iap --quiet \
-            --command='set -eu
-              test -s /tmp/janus-071_personal_strategy.sql
+            --command="set -eu
+              test -s /tmp/janus-${MIGRATION}.sql
               sudo docker exec -i --user postgres janus-postgres \
                 psql -X -v ON_ERROR_STOP=1 -U postgres -d janus_control \
-                < /tmp/janus-071_personal_strategy.sql
-              rm -f /tmp/janus-071_personal_strategy.sql
-            '
+                < /tmp/janus-${MIGRATION}.sql
+              rm -f /tmp/janus-${MIGRATION}.sql
+            "
       - name: Verify migration 071 schema readback
         shell: bash
         run: |
@@ -65,7 +75,7 @@ jobs:
               echo '=== MIGRATION VERSION ==='
               sudo docker exec --user postgres janus-postgres \
                 psql -X -qAt -U postgres -d janus_control \
-                -c \"SELECT version FROM control.schema_migrations WHERE version='071_personal_strategy';\" | grep -Fx 071_personal_strategy
+                -c \"SELECT version FROM control.schema_migrations WHERE version='$MIGRATION';\" | grep -Fx "$MIGRATION"
 
               echo '=== WATCHLIST COLUMNS ==='
               sudo docker exec --user postgres janus-postgres \
@@ -82,4 +92,9 @@ jobs:
                 psql -X -qAt -U postgres -d janus_control \
                 -c \"SELECT grantee, table_name, privilege_type FROM information_schema.role_table_grants WHERE table_schema='private' AND table_name LIKE 'personal_%' AND grantee='janus_private_api' ORDER BY table_name, privilege_type;\"
             "
-          echo '071_PERSONAL_STRATEGY_MIGRATION=VERIFIED_PASS' >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$MIGRATION" == '072_personal_strategy_draft' ]]; then
+            gcloud compute ssh janus-postgres-dev \
+              --project="$GCP_PROJECT_ID" --zone="$GCP_ZONE" --tunnel-through-iap --quiet \
+              --command="sudo docker exec --user postgres janus-postgres psql -X -qAt -U postgres -d janus_control -c \"SELECT count(*) FROM information_schema.columns WHERE table_schema='private' AND table_name='personal_strategy_state' AND column_name='draft' AND data_type='jsonb';\"" | grep -Fx 1
+          fi
+          echo "$MIGRATION=VERIFIED_PASS" >> "$GITHUB_STEP_SUMMARY"

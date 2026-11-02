@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import Field
 from .personal_strategy_contract import (TAIPEI, TYPES, TEMPLATES, StrategyInput, ReportInput,
-    TierInput, SeedInput, Strict, period, preview)
+    TierInput, SeedInput, StrategyDraft, Strict, period, preview)
 
 
 def encoded(value):
@@ -37,17 +37,28 @@ class PersonalStrategyService:
             JOIN private.personal_strategies p ON p.version_id=s.active_version AND p.user_id=s.user_id
             WHERE s.user_id=%s''', (owner,)).fetchone()
 
+    def draft(self, c, owner):
+        row = c.execute('SELECT draft FROM private.personal_strategy_state WHERE user_id=%s', (owner,)).fetchone()
+        return row['draft'] if row else None
+
+    def save_draft(self, owner, value):
+        with self.repo._connection() as c:
+            c.execute("""INSERT INTO private.personal_strategy_state(user_id,draft) VALUES(%s,%s::jsonb)
+                ON CONFLICT(user_id) DO UPDATE SET draft=EXCLUDED.draft""", (owner, encoded(value.model_dump())))
+        return {'saved': True}
+
     def summary(self, owner):
         week = period('strategy')
         today = datetime.now(TAIPEI).date()
         with self.repo._connection() as c:
             active = self.active(c, owner)
+            draft = self.draft(c, owner)
             requests = c.execute('''SELECT request_id,kind,status,period_start,attempts,safe_error,lease_until
                 FROM private.personal_research_requests WHERE user_id=%s
                 AND ((kind='strategy' AND period_start=%s) OR (kind<>'strategy' AND period_start=%s))
                 ORDER BY requested_at DESC''', (owner, week, today)).fetchall()
             used = c.execute('SELECT 1 FROM private.personal_strategies WHERE user_id=%s AND week_start=%s', (owner, week)).fetchone()
-        return {'active': active, 'requests': requests, 'strategy_locked': bool(used),
+        return {'active': active, 'draft': draft, 'requests': requests, 'strategy_locked': bool(used),
                 'next_change_at': f'{week+timedelta(days=7)}T00:00:00+08:00',
                 'saturday': today.weekday()==5,
                 'enabled': os.getenv('PERSONAL_STRATEGY_ENABLED', 'false') == 'true'}
@@ -205,9 +216,10 @@ class PersonalStrategyService:
     def export(self, owner):
         with self.repo._connection() as c:
             active=self.active(c,owner)
+            draft=self.draft(c,owner)
             seed=c.execute('SELECT documents FROM private.personal_strategy_seeds WHERE user_id=%s',(owner,)).fetchone()
             reports=c.execute('SELECT kind,markdown,created_at FROM private.personal_reports WHERE user_id=%s ORDER BY created_at DESC LIMIT 12',(owner,)).fetchall()
-        return {'strategy':active,'seed_documents':seed['documents'] if seed else {},'reports':reports}
+        return {'strategy':active,'draft':draft,'seed_documents':seed['documents'] if seed else {},'reports':reports}
 
 
 class PersonalResearchTrigger:
@@ -231,6 +243,9 @@ def router(repository, user_dependency, trigger=None):
         return {'items':[{'id':k,**v} for k,v in TEMPLATES.items()]}
     @routes.get('')
     def summary(current=Depends(user_dependency)): return jsonable_encoder(service.summary(current.user_id))
+    @routes.put('/draft')
+    def save_draft(value:StrategyDraft,current=Depends(user_dependency)):
+        return service.save_draft(current.user_id,value)
     @routes.post('/preview')
     def draft(value:StrategyInput,current=Depends(user_dependency)): return preview(value)
     @routes.post('/generate',status_code=202)

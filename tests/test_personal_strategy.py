@@ -455,3 +455,14 @@ def test_saturday_sync_locked_and_atomic():
     res = worker.apply_delta(cur, uuid4(), output, {"b_capacity": 8})
     assert res["status"] == "SKIPPED"
     assert "包含鎖定股票" in res["reason"]
+
+
+def test_draft_preserves_partial_input_but_bounds_untrusted_content():
+    from services.api.personal_strategy_contract import StrategyDraft
+    value = StrategyDraft(template_id='stock', tolerance='moderate', horizon='medium',
+                          cash='35', position='', loss='20', drawdown='15')
+    assert value.position == '' and value.loss == '20' and value.liquidity_need == ''
+    with pytest.raises(ValueError):
+        StrategyDraft(**{**value.model_dump(), 'user_id': str(uuid4())})
+    with pytest.raises(ValueError):
+        StrategyDraft(**{**value.model_dump(), 'cash': '1' * 33})

@@ -79,6 +79,21 @@ class StrategyInput(Strict):
             raise ValueError('自訂策略需包含目的、進場、退出與分級條件')
         return self
 
+class StrategyDraft(Strict):
+    template_id: Literal['stock', 'value', 'garp', 'trend', 'custom']
+    tolerance: Literal['conservative', 'moderate', 'aggressive']
+    horizon: Literal['short', 'medium', 'long']
+    custom_text: str = Field(default='', max_length=12000)
+    liquidity_need: str = Field(default='', max_length=500)
+    protected_symbols: str = Field(default='', max_length=1000)
+    cash: str = Field(default='', max_length=32)
+    position: str = Field(default='', max_length=32)
+    sector: str = Field(default='', max_length=32)
+    loss: str = Field(default='', max_length=32)
+    drawdown: str = Field(default='', max_length=32)
+    private_ai_consent: bool = False
+
+
 class ReportInput(Strict):
     report_type: Literal['premarket', 'intraday', 'postmarket', 'saturday']
     sync_watchlist: bool | None = None
