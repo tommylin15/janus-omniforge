@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "5fdcdd9288d6305758935d4413f5ab92776a735e",
+  "sha": "9b5a5c9021f20e511aaa23f637b2ef499c8d6a46",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "草稿保存與OmniAgent gateway來源5fdcdd92，Release41376716082、0%候選41377424872及獨立安全讀回PASS。只讀驗證同來源OAuth、Owner負向與MCP challenge；不變更GCP。",
-  "request_attempt": 32
+  "purpose": "移除我的頁冗餘統計區塊：Release41415772781、0%候選41416582647與獨立安全讀回PASS。只讀驗證同來源OAuth、Owner負向、MCP與build SHA，不變更GCP。",
+  "request_attempt": 33
 }
