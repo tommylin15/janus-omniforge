@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "3890ba62219b7d9f79e6197d8e489c420a7797fe",
+  "sha": "5fdcdd9288d6305758935d4413f5ab92776a735e",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "個人策略設定修補來源3890ba62，Release41372987736；核對0%候選41373618403的OAuth discovery、Owner未登入拒絕、MCP challenge與build SHA。只讀，不變更GCP。",
-  "request_attempt": 31
+  "purpose": "草稿保存與OmniAgent gateway來源5fdcdd92，Release41376716082、0%候選41377424872及獨立安全讀回PASS。只讀驗證同來源OAuth、Owner負向與MCP challenge；不變更GCP。",
+  "request_attempt": 32
 }
