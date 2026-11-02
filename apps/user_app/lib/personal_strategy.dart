@@ -164,6 +164,7 @@ class PersonalStrategySettings extends StatefulWidget {
   State<PersonalStrategySettings> createState() => _PersonalStrategySettingsState();
 }
 class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
+  final form = GlobalKey<FormState>();
   List<dynamic> templates = [];
   Map<String, dynamic> summary = {};
   String template = 'stock', tolerance = 'moderate', horizon = 'medium';
@@ -178,7 +179,7 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
   void dispose() { for (final c in [custom, liquidity, protected, cash, position, sector, loss, drawdown]) { c.dispose(); } super.dispose(); }
   Future<void> load() async {
     try {
-      final result = await Future.wait([widget.api.get('$_root/templates'), widget.api.get(_root), widget.api.get('/api/v1/me/investment-profile')]);
+      final result = await Future.wait([widget.api.get('$_root/templates'), widget.api.get(_root), widget.api.get('/api/v1/me/investment-profile')]).timeout(const Duration(seconds: 25));
       if (!mounted) return;
       summary = _map(result[1]);
       final rules = _map(_map(summary['active'])['rules']);
@@ -195,18 +196,47 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
         percent(cash, risk['minimum_cash_ratio'] ?? old['minimum_cash_ratio']);
         percent(position, risk['max_position_ratio']); percent(sector, risk['max_sector_ratio']);
         percent(loss, risk['loss_budget_ratio']); percent(drawdown, risk['max_drawdown_ratio']);
-        loaded = true; error = null;
+        loaded = true; prepared = null; error = null;
       });
-    } catch (e) { if (mounted) setState(() => error = '$e'); }
+    } catch (e) { if (mounted) setState(() => error = settingsError(e)); }
   }
-  Map<String, dynamic> payload() => {'template_id': template, 'custom_text': custom.text,
+  Map<String, dynamic> payload() => {'template_id': template, 'custom_text': custom.text.trim(),
     'private_ai_consent': consent, 'protected_symbols': protected.text.split(RegExp(r'[,，\s]+')).where((s) => s.isNotEmpty).toSet().toList(),
-    'risk': {'tolerance': tolerance, 'horizon': horizon, 'liquidity_need': liquidity.text,
+    'risk': {'tolerance': tolerance, 'horizon': horizon, 'liquidity_need': liquidity.text.trim(),
       'minimum_cash_ratio': double.parse(cash.text) / 100, 'max_position_ratio': double.parse(position.text) / 100,
       'max_sector_ratio': double.parse(sector.text) / 100, 'loss_budget_ratio': double.parse(loss.text) / 100,
       'max_drawdown_ratio': double.parse(drawdown.text) / 100}};
-  void changed() => setState(() => prepared = null);
+  void changed() => setState(() { prepared = null; error = null; });
+  String settingsError(Object e) {
+    final message = e.toString().replaceFirst('Exception: ', '');
+    if (message.contains('loc:') || message.contains('FormatException')) return '設定格式不符，請檢查必填欄位與風險限制後重新預覽。';
+    if (e is TimeoutException) return '服務回應逾時；產出狀態請至個人策略頁確認，避免重複送出。';
+    return message;
+  }
+  String? get generationBlock {
+    if (busy) return '處理中，請稍候。';
+    if (summary['enabled'] != true) return '個人策略產出服務目前未啟用。';
+    if (summary['strategy_locked'] == true) return '本週已成功產出，請於下週重置後變更。';
+    if (_list(summary['requests']).any((r) => r['kind'] == 'strategy' && ['QUEUED', 'RUNNING'].contains(r['status']))) {
+      return '策略正在產出；請至個人策略頁查看進度或重試原請求。';
+    }
+    if (prepared == null) return '請先完成欄位並預覽策略與風險限制。';
+    if (prepared!['blocked'] == true) return '請依預覽提示修正策略，再重新預覽。';
+    if (!consent) return '產出前請勾選 Gemini 私人資料分析同意。';
+    return null;
+  }
+  String? percentageError(TextEditingController c) {
+    final value = double.tryParse(c.text.trim());
+    final max = c == loss ? 20 : 100;
+    if (value == null || !value.isFinite || value > max || (c == cash ? value < 0 : value <= 0)) {
+      return c == cash ? '請輸入 0～100 的百分比' : '請輸入大於 0、至多 $max 的百分比';
+    }
+    if (c == position && value > (double.tryParse(sector.text.trim()) ?? double.infinity)) return '單股上限不得高於產業上限';
+    if (c == loss && value > (double.tryParse(drawdown.text.trim()) ?? double.infinity)) return '單筆損失預算不得高於可承受總損失';
+    return null;
+  }
   Future<void> action(bool generate) async {
+    if (!form.currentState!.validate() || (generate && generationBlock != null)) return;
     setState(() { busy = true; error = null; });
     try {
       final body = payload();
@@ -216,18 +246,18 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
         await load();
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('策略已送出；請至個人策略頁查看進度')));
       } else { setState(() => prepared = _map(result)); }
-    } catch (e) { if (mounted) setState(() => error = '$e'); }
+    } catch (e) { if (mounted) setState(() => error = settingsError(e)); }
     finally { if (mounted) setState(() => busy = false); }
   }
   Widget number(TextEditingController c, String label) => Padding(padding: const EdgeInsets.only(bottom: 8),
-    child: TextField(controller: c, enabled: !busy, keyboardType: const TextInputType.numberWithOptions(decimal: true),
+    child: TextFormField(controller: c, enabled: !busy, validator: (_) => percentageError(c), keyboardType: const TextInputType.numberWithOptions(decimal: true),
       decoration: InputDecoration(labelText: '$label（%）'), onChanged: (_) => changed()));
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
         child: Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Column(
+            child: Form(key: form, child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text('個人策略設定', style: Theme.of(context).textTheme.titleLarge),
@@ -238,7 +268,8 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
                   DropdownButtonFormField<String>(initialValue: template, isExpanded: true, decoration: const InputDecoration(labelText: '1. 操作策略'),
                     items: templates.map((t) => DropdownMenuItem(value: '${t['id']}', child: Text('${t['name']}', overflow: TextOverflow.ellipsis))).toList(),
                     onChanged: busy ? null : (v) { template = v!; changed(); }),
-                  TextField(controller: custom, enabled: !busy, minLines: 3, maxLines: 8,
+                  TextFormField(controller: custom, enabled: !busy, minLines: 3, maxLines: 8,
+                    validator: (v) => (v ?? '').trim().length > 12000 ? '個人補充最多 12000 字' : template == 'custom' && (v ?? '').trim().length < 20 ? '自訂策略至少 20 字，需含目的、進場、退出與分級條件' : null,
                     decoration: const InputDecoration(labelText: '自訂規則／個人補充（進場、退出、A/B/C條件）'), onChanged: (_) => changed()),
                   DropdownButtonFormField<String>(initialValue: tolerance, decoration: const InputDecoration(labelText: '2. 風險特性'),
                     items: const [DropdownMenuItem(value: 'conservative', child: Text('保守')), DropdownMenuItem(value: 'moderate', child: Text('平衡')), DropdownMenuItem(value: 'aggressive', child: Text('積極'))],
@@ -247,22 +278,36 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
                     items: const [DropdownMenuItem(value: 'short', child: Text('短期')), DropdownMenuItem(value: 'medium', child: Text('中期')), DropdownMenuItem(value: 'long', child: Text('長期'))],
                     onChanged: busy ? null : (v) { horizon = v!; changed(); }),
                   number(cash, '最低現金'), number(position, '單股上限'), number(sector, '產業上限'), number(loss, '單筆損失預算'), number(drawdown, '可承受總損失'),
-                  TextField(controller: liquidity, enabled: !busy, decoration: const InputDecoration(labelText: '資金需求／不可動用資金'), onChanged: (_) => changed()),
-                  TextField(controller: protected, enabled: !busy, decoration: const InputDecoration(labelText: '保護池股票代號（逗號分隔）'), onChanged: (_) => changed()),
+                  TextFormField(controller: liquidity, enabled: !busy,
+                    validator: (v) => (v ?? '').trim().isEmpty ? '請填寫資金需求；無需求請明確填「無」' : v!.trim().length > 500 ? '資金需求最多 500 字' : null,
+                    decoration: const InputDecoration(labelText: '資金需求／不可動用資金（必填）', helperText: '請說明用途、金額與時間；無需求請填「無」。'), onChanged: (_) => changed()),
+                  TextFormField(controller: protected, enabled: !busy,
+                    validator: (v) {
+                      final symbols = (v ?? '').split(RegExp(r'[,，\s]+')).where((s) => s.isNotEmpty).toSet();
+                      return symbols.length > 50 ? '保護池最多 50 個代號' : symbols.any((s) => !RegExp(r'^[A-Za-z0-9.-]{1,16}$').hasMatch(s)) ? '代號限 1～16 個英文字母、數字、點或連字號' : null;
+                    }, decoration: const InputDecoration(labelText: '保護池股票代號（逗號分隔）'), onChanged: (_) => changed()),
                   CheckboxListTile(contentPadding: EdgeInsets.zero, title: const Text('同意將必要持股、現金與策略送 Gemini 分析；公開搜尋不傳數量與成本'),
                     value: consent, onChanged: busy ? null : (v) { consent = v!; changed(); }),
                   OutlinedButton(onPressed: busy ? null : () => action(false), child: const Text('預覽策略與風險限制')),
                   if (prepared != null) ...[
                     ResearchMarkdown('${prepared!['markdown']}'),
-                    Text('風險限制：${jsonEncode(_map(prepared!['rules'])['risk'])}'),
+                    for (final field in const {'minimum_cash_ratio': '最低現金', 'max_position_ratio': '單股上限', 'max_sector_ratio': '產業上限', 'loss_budget_ratio': '單筆損失預算', 'max_drawdown_ratio': '可承受總損失'}.entries)
+                      if (_map(_map(prepared!['rules'])['risk'])[field.key] is num)
+                        Text('${field.value}：${((_map(_map(prepared!['rules'])['risk'])[field.key] as num) * 100).toStringAsFixed(2)}%'),
                     for (final warning in _list(prepared!['warnings'])) Text('• $warning'),
                   ],
                   if (summary['strategy_locked'] == true) Text('本週已使用；下次可變更：${summary['next_change_at']}'),
-                  FilledButton(onPressed: busy || prepared == null || prepared!['blocked'] == true || !consent || summary['strategy_locked'] == true || summary['enabled'] != true
-                    ? null : () => action(true), child: const Text('產出個人策略並生效（每週一次）')),
+                  if (generationBlock != null) Text(generationBlock!),
+                  TextButton(onPressed: busy ? null : () async {
+                    try {
+                      final result = await widget.api.get(_root).timeout(const Duration(seconds: 25));
+                      if (mounted) setState(() { summary = _map(result); error = null; });
+                    } catch (e) { if (mounted) setState(() => error = settingsError(e)); }
+                  }, child: const Text('更新產出狀態（保留目前填寫內容）')),
+                  FilledButton(onPressed: generationBlock != null ? null : () => action(true), child: const Text('產出個人策略並生效（每週一次）')),
                   TextButton(onPressed: busy ? null : () async {
                     try { final result = await widget.api.get('$_root/export'); await Clipboard.setData(ClipboardData(text: jsonEncode(result))); }
-                    catch (e) { if (mounted) setState(() => error = '$e'); }
+                    catch (e) { if (mounted) setState(() => error = settingsError(e)); }
                   }, child: const Text('複製策略與報告匯出資料')),
                   TextButton(onPressed: busy ? null : () async {
                     final text = await legacy.textDialog(context, '匯入私人Markdown種子', '貼上原文（保留原文，不改帳本）');
@@ -279,11 +324,11 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
                         if (mounted && text.length <= 12000) { custom.text = text; changed(); }
                         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('原文已保存；設定預覽並產出後才會生效。超過12000字請選取操作條文。')));
                       }
-                    } catch (e) { if (mounted) setState(() => error = '$e'); }
+                    } catch (e) { if (mounted) setState(() => error = settingsError(e)); }
                   }, child: const Text('私人Markdown種子匯入')),
                 ],
               ],
-            ),
+            )),
           ),
         ),
       );

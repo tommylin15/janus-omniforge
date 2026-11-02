@@ -7,6 +7,7 @@ import 'package:janus_user_app/personal_strategy.dart';
 class MockStrategyApi extends Api {
   MockStrategyApi() : super('test');
   final List<String> calls = [];
+  final List<Map<String, dynamic>> bodies = [];
   Map<String, dynamic> summary = {
     'active': {
       'version_id': '00000000-0000-0000-0000-000000000001',
@@ -68,6 +69,8 @@ class MockStrategyApi extends Api {
   @override
   Future<dynamic> post(String path, Map<String, dynamic> body) async {
     calls.add('POST $path ${body['report_type'] ?? ''}');
+    bodies.add(body);
+    if (path.endsWith('/preview')) return {'markdown': '# 預覽策略', 'rules': body, 'blocked': false, 'warnings': []};
     return {'request_id': '00000000-0000-0000-0000-000000000003', 'status': 'QUEUED'};
   }
 
@@ -175,4 +178,73 @@ void main() {
     expect(find.text('預覽策略與風險限制'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('settings validates missing liquidity and conflicting loss before API calls', (tester) async {
+    final api = MockStrategyApi();
+    final risk = api.summary['active']['rules']['risk'] as Map<String, dynamic>;
+    risk['liquidity_need'] = '';
+    risk['loss_budget_ratio'] = 0.20;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PersonalStrategySettings(api))));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('預覽策略與風險限制'));
+    await tester.tap(find.text('預覽策略與風險限制'));
+    await tester.pumpAndSettle();
+    expect(find.text('請填寫資金需求；無需求請明確填「無」'), findsOneWidget);
+    expect(find.text('單筆損失預算不得高於可承受總損失'), findsOneWidget);
+    expect(api.calls.where((c) => c.startsWith('POST')), isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('settings rejects nonfinite percentages and explains generation gate', (tester) async {
+    final api = MockStrategyApi();
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PersonalStrategySettings(api))));
+    await tester.pumpAndSettle();
+    final field = find.widgetWithText(TextFormField, '最低現金（%）');
+    await tester.ensureVisible(field);
+    await tester.enterText(field, 'NaN');
+    await tester.ensureVisible(find.text('預覽策略與風險限制'));
+    await tester.tap(find.text('預覽策略與風險限制'));
+    await tester.pumpAndSettle();
+    expect(find.text('請輸入 0～100 的百分比'), findsOneWidget);
+    expect(find.text('請先完成欄位並預覽策略與風險限制。'), findsOneWidget);
+    expect(api.calls.where((c) => c.startsWith('POST')), isEmpty);
+  });
+
+  testWidgets('valid settings preview shows percentages and edits invalidate generation', (tester) async {
+    final api = MockStrategyApi();
+    api.summary['active']['rules']['private_ai_consent'] = true;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PersonalStrategySettings(api))));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('預覽策略與風險限制'));
+    await tester.tap(find.text('預覽策略與風險限制'));
+    await tester.pumpAndSettle();
+    expect(find.text('最低現金：20.00%'), findsOneWidget);
+    expect(api.bodies.single['risk']['minimum_cash_ratio'], 0.2);
+    final generate = find.widgetWithText(FilledButton, '產出個人策略並生效（每週一次）');
+    expect(tester.widget<FilledButton>(generate).onPressed, isNotNull);
+    final field = find.widgetWithText(TextFormField, '單股上限（%）');
+    await tester.ensureVisible(field);
+    await tester.enterText(field, '40');
+    await tester.pump();
+    expect(tester.widget<FilledButton>(generate).onPressed, isNull);
+    expect(find.text('最低現金：20.00%'), findsNothing);
+  });
+
+  testWidgets('queued strategy blocks duplicate generation with a useful message', (tester) async {
+    final api = MockStrategyApi();
+    api.summary['requests'] = [{'kind': 'strategy', 'status': 'QUEUED'}];
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PersonalStrategySettings(api))));
+    await tester.pumpAndSettle();
+    expect(find.text('策略正在產出；請至個人策略頁查看進度或重試原請求。'), findsOneWidget);
+    final field = find.widgetWithText(TextFormField, '資金需求／不可動用資金（必填）');
+    await tester.ensureVisible(field);
+    await tester.enterText(field, '保留草稿');
+    api.summary = {...api.summary, 'requests': []};
+    await tester.ensureVisible(find.text('更新產出狀態（保留目前填寫內容）'));
+    await tester.tap(find.text('更新產出狀態（保留目前填寫內容）'));
+    await tester.pumpAndSettle();
+    expect(find.text('策略正在產出；請至個人策略頁查看進度或重試原請求。'), findsNothing);
+    expect(find.text('保留草稿'), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, '產出個人策略並生效（每週一次）')).onPressed, isNull);
+  });
+
 }

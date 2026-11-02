@@ -1,5 +1,11 @@
 # Janus — 唯一 Active TODO
 
+## P1｜個人策略設定表單修正（2026-11-02）
+
+- [x] 修正空白資金需求、非有限／越界百分比、風險交叉限制、自訂策略與保護池格式的前端驗證；中文欄位錯誤、風險百分比預覽、產出停用原因、避免背景產出時重送。
+- [ ] 完整 Flutter 測試／分析／Web build、發布與候選／OAuth／API-only live 讀回；收據完成後更新。
+- [ ] 使用者操作驗收；本輪不自動產出付費 Gemini 策略，也不替使用者猜測資金需求或修改風險數值。
+
 ## P1｜個人策略、S/A/B/C與四時段報告｜部署已上線／待使用者操作驗收（2026-10-31）
 
 本工項已完成定向測試、071 migration、GHCR 映像發布、0% 候選驗證與 100% 流量正式切換。目前 API 正式環境變數已啟用 `PERSONAL_STRATEGY_ENABLED=true`、`PERSONAL_RESEARCH_API_APPROVED=true`、`PERSONAL_RESEARCH_FLASH_MODELS=gemini-2.5-flash`。
