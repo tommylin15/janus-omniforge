@@ -1,10 +1,5 @@
 # Janus — 唯一 Active TODO
 
-## P0｜資安 review 修補（2026-11-01）｜程式已修補／待完整驗證與 Dev 發布
-
-修補公開檔案目錄越界、有界 request body、OIDC nonce 綁定與現役 Python 依賴公告漏洞；證據集中於[資安工作單](execution-cards/security-review-2026-11-01.md)。完成必要 Release、既有 Dev rollout 與 live 安全讀回後才結案。
-
-
 ## P1｜個人策略、S/A/B/C與四時段報告｜部署已上線／待使用者操作驗收（2026-10-31）
 
 本工項已完成定向測試、071 migration、GHCR 映像發布、0% 候選驗證與 100% 流量正式切換。目前 API 正式環境變數已啟用 `PERSONAL_STRATEGY_ENABLED=true`、`PERSONAL_RESEARCH_API_APPROVED=true`、`PERSONAL_RESEARCH_FLASH_MODELS=gemini-2.5-flash`。

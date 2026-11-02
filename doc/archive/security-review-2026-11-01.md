@@ -1,4 +1,4 @@
-# 資安 Code Review 與修補（2026-11-01）
+# 資安 Code Review 與修補｜CLOSED／PASS（2026-11-02）
 
 範圍以 GitHub main `77097946` 與現役個人 Dev 為界：公開 API／Flutter 檔案、Google OIDC／MCP OAuth、Owner／Admin 授權、私人查詢 selector、SQL identifiers、前端不可信內容及現役 Python lock 檔。只修補可重現或有正式安全公告的問題；不新增權限／付費資源、不讀取或刪除真實 Owner 資料來示範漏洞。
 
@@ -74,3 +74,19 @@ API-only 部署工具 review 發現原 gate 只檢查整體／job 綠燈，沒�
 
 
 最終 API 同來源 OAuth [#41370164512](https://github.com/tommylin15/janus-omniforge/actions/runs/41370164512) 與工具 selective CI [#41370164738](https://github.com/tommylin15/janus-omniforge/actions/runs/41370164738) **PASS**。API-only 請求固定最終753a44d1／Release41369212296／候選41369871792／Auth41370164512，原API回復來源daf9636e，四Jobs保留已驗證60b84395。active baseline／inert templates同步記錄這個API前狀態，`approved=false`範本不會自動啟動。提交前 `/ponytail-review` 核對精確來源綁定、切換一次／實際失敗才回復、Jobs不變、模板仍inert；沒有阻擋項。
+
+
+## 最終 Dev 與 live 驗收（2026-11-02）
+
+| 範圍 | 最終收據 |
+|---|---|
+| API 正式切流 | [#41370460809](https://github.com/tommylin15/janus-omniforge/actions/runs/41370460809) `PASS_API_ONLY_100_PERCENT`：`janus-api-00644-yud`、source `753a44d1cd40711dc240e6c7388e0fe693b5ba5f`、image `sha256:328816d9718e3a467d3129d64f19a8c273bb74cae206109f916b2d8a553d5029`；Jobs／Scheduler／storage／IAM mutations 均 false，lease 已釋放。 |
+| 舊公開入口封閉 | [#41370665008](https://github.com/tommylin15/janus-omniforge/actions/runs/41370665008) **PASS**：退役 **90 個舊版本 tag**；保留本次 `ghcr-753a44d1cd40` 與18個固定名稱別名，合計 **19 個 tag 全指向00644-yud**，含 MCP／Preview。正式100% revision與runtime template不變；舊revision／映像本體未刪。 |
+| 獨立安全 HTTP 讀回 | 正式 source753a44d1、越界路徑404、MCP413／registration400／OAuth forms413、Google nonce與signed state一致；OAuth唯讀工具契約通過。`/health`／public health 200，未登入User／Admin401；舊 `ghcr-daf9636e34c3` 與 `ghcr-60b84395b8fe` 的build-id網址均404。 |
+| 獨立控制面讀回 | API單一100%、所有19個tag對同一修復revision；唯一Scheduler `ENABLED`／`30 */2 * * *`／Asia/Taipei，四Jobs維持已驗證60b84395固定digest且完整config hash不變，owned deployment lease讀回404（不存在）。 |
+| 已授權 Owner 唯讀 | 新MCP固定路由上，watchlist／positions各limit=1皆成功返回1筆，無錯誤；如實為`partial/truncated=true`，不是全帳本／PnL數學驗收，未保存私人payload、未作Owner mutation。 |
+| 最後控制工具 CI | [#41370460719](https://github.com/tommylin15/janus-omniforge/actions/runs/41370460719) **PASS**；runtime完整Release與工具153項定向證據如上，不混稱每份映像都採同一source。 |
+
+本輪確認的程式漏洞、現役lock依賴安全公告與舊公開路由暴露已修復並完成上述有界live驗收，**CLOSED／PASS**，從active TODO移除。API source753a44d1、四Jobs source60b84395各自如實記錄；後者runtime程式／依賴不受最後API路徑補強影響，不為相同Jobs重跑部署。
+
+未進行外部滲透／容器OS與Git全歷史完整掃描、真人Google重新授權／A→B→A、付費報告生成或全帳本PnL再計算；不據此宣稱不存在未知漏洞。舊revision僅保留緊急回復，重新對外給tag或切回舊revision會重新引入舊漏洞，不能視為安全修復版本；本輪未做切回演練。沒有新增付費資源、擴大IAM／OAuth scope或刪除真實Owner／canonical資料。

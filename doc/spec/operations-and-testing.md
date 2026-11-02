@@ -1,5 +1,17 @@
 # Janus 最新驗收證據索引
 
+## 2026-11-02 資安 code review 修補｜CLOSED／PASS
+
+修補公開靜態檔案越界（含UNC／root在檔案I/O前拒絕）、OAuth／MCP有界body、Google OIDC nonce綁定，以及API-only發布收據的精確來源核對。7個有已知公告的Python套件升級，5份現役／操作用lock於11/02重掃均無已知漏洞回報；不代表外部滲透或容器OS掃描。完整finding／限制與歷程見[資安封存收據](../archive/security-review-2026-11-01.md)。
+
+- 最終API source `753a44d1cd40711dc240e6c7388e0fe693b5ba5f`，完整[Release #41369212296](https://github.com/tommylin15/janus-omniforge/actions/runs/41369212296) PASS：Linux／隔離PG **2103 passed、2 skipped、2 deselected**，Flutter／四映像成功；[候選 #41369871792](https://github.com/tommylin15/janus-omniforge/actions/runs/41369871792)、[OAuth #41370164512](https://github.com/tommylin15/janus-omniforge/actions/runs/41370164512)、獨立安全HTTP讀回PASS。
+- 四Jobs依賴修復 source `60b84395`，[#41279333435](https://github.com/tommylin15/janus-omniforge/actions/runs/41279333435) PASS／8 distinct canary，完整config hash不變；最後API-only路徑補強不重複更換它們。
+- [正式API #41370460809](https://github.com/tommylin15/janus-omniforge/actions/runs/41370460809) PASS：`janus-api-00644-yud` 單一100%，image `sha256:328816d9718e3a467d3129d64f19a8c273bb74cae206109f916b2d8a553d5029`；[公開路由 #41370665008](https://github.com/tommylin15/janus-omniforge/actions/runs/41370665008) PASS，退役90個舊版本tag，剩餘19個公開tag（含MCP／Preview）全指同一修復revision；舊revision本體只保留緊急回復。
+- 獨立live：新版SHA／health200、越界404、超限413（registration400）、User／Admin未登入401、舊版本網址404；Owner watchlist／positions各1筆唯讀成功，狀態`partial/truncated`如實保留。Scheduler ENABLED／兩小時、Jobs設定不變、全域lease不存在。
+
+沒有Owner／canonical清理、付費報告呼叫或IAM／OAuth scope擴張。真人重新授權、Owner A/B/A、全帳本PnL與外部滲透／容器OS全盤掃描不在本次PASS範圍；舊revision若重新切回會重新引入舊漏洞。下方較舊API／Jobs／公開tag狀態皆為當時歷史收據。
+
+
 ## 2026-11-01 全專案清理｜工程發布與自動驗收 CLOSED／PASS
 
 來源 `daf9636e34c3a35b9359ed8c741e01b16bffb4ff`，執行程式淨減 665 行，清理無引用 UI／批次函式，減少行情 SQL、GCS metadata、Iceberg scan 與重複 UI 請求；修正前景恢復／背景輪詢。完整修改與限制見[封存收據](../archive/code-cleanup-2026-11-01.md)。
