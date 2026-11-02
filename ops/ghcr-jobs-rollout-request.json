@@ -2,15 +2,15 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "60b84395b8fe4edacd7e054f4f3b145d0b298cc0",
-  "release_run": "41278063624",
+  "sha": "5fdcdd9288d6305758935d4413f5ab92776a735e",
+  "release_run": "41376716082",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:c728efcbb94a9bd5eebd2838febfc3aa3433a098f89e862ac0b54adef5643faf",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:c728efcbb94a9bd5eebd2838febfc3aa3433a098f89e862ac0b54adef5643faf",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:57ca75f91c67b4cbccef0751de01ade9d586f27654ba8aa13ea6735c75d91bbf",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:e862241d03952e988277a95c88aca9fdfc7ab2c7c7a54b437458430c82ac6320"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:880c4a85fbf11ecd934e8f5fa437fab021be83de8bd29f3414235538822c9663",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:880c4a85fbf11ecd934e8f5fa437fab021be83de8bd29f3414235538822c9663",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:866c6c3949811fe7aa5db0766b574d9cf793ca2e6825b108c5f3fdfa037a9914",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:2ffe62644d57fbc5acb60e0bd52f30e8f6a9c11589a750eb49c598284eefea9c"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "2a12f1d6ae5d2dc3dc3c208b12bfc1e32e2ac87f02ff68462a935bc056b19acc",
@@ -18,15 +18,15 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "auth_boundary_run": "41279149226",
-  "request_attempt": 70,
-  "safety": "保留單一兩小時 Scheduler、共同 Git-ref lease、全分頁在途 fence、8次 canary 與失敗回復；本階段只換四 Job 映像，Controller timeout 另經受控設定階段處理。",
-  "authorization": "使用者要求 code review 並修補資安漏洞；延續既有 Dev 工程閉環與候選、OAuth、Jobs、正式流量、live 驗收做到結束的授權。",
+  "auth_boundary_run": "41377736095",
+  "request_attempt": 71,
+  "safety": "保留單一兩小時Scheduler、共同Git-ref lease、全分頁在途fence、8次唯讀canary與固定映像失敗回復；只更新映像，完整Job設定hash維持不變。",
+  "authorization": "延續使用者完成Jobs／正式切流／live閉環授權；本次另明確批准private-pipeline對單一market caller的roles/iam.serviceAccountOpenIdTokenCreator。無新付費路由、無自動重送策略生成。",
   "rollback_source_shas": {
-    "janus-batch-controller": "daf9636e34c3a35b9359ed8c741e01b16bffb4ff",
-    "janus-ingestion-core": "daf9636e34c3a35b9359ed8c741e01b16bffb4ff",
-    "janus-intelligence-mart": "daf9636e34c3a35b9359ed8c741e01b16bffb4ff",
-    "janus-private-pipeline": "daf9636e34c3a35b9359ed8c741e01b16bffb4ff"
+    "janus-batch-controller": "60b84395b8fe4edacd7e054f4f3b145d0b298cc0",
+    "janus-ingestion-core": "60b84395b8fe4edacd7e054f4f3b145d0b298cc0",
+    "janus-intelligence-mart": "60b84395b8fe4edacd7e054f4f3b145d0b298cc0",
+    "janus-private-pipeline": "60b84395b8fe4edacd7e054f4f3b145d0b298cc0"
   },
-  "purpose": "資安修補既有四 Jobs 的可回復 image-only rollout；同來源完整 Release／0% 候選／安全 live 讀回／OAuth gate 已 PASS。固定舊 daf9636e 映像與完整 hash，使用保留設定的 v2 PATCH、八次唯讀 canary、Scheduler pause/resume 與 owned lease。"
+  "purpose": "同來源草稿保存／OmniAgent gateway修補的既有四Jobs image-only rollout。072及完整Release已PASS，OAuth gate須PASS。使用者已明確授權private Job的限定OpenID token binding，實際policy讀回PASS；private canary額外驗證本人Job身分到gateway的authenticated malformed-body 400，不呼叫模型。8次canary、Scheduler pause/resume、固定舊60b84395映像及完整設定hash回復。"
 }
