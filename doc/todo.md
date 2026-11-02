@@ -1,23 +1,10 @@
 # Janus — 唯一 Active TODO
 
-## P1｜個人策略參數保存修正（2026-11-02）
-
-- [x] Owner 私有草稿儲存／讀回、未填完欄位保存、預覽時一併保存、儲存狀態提示；草稿不等於生效策略。
-- [ ] Release／隔離 PG owner roundtrip、072 migration、候選／OAuth／Jobs／API 切流、登入頁保存→重載讀回驗收。
-- [ ] 使用者更正：策略生成改走 OmniAgent gateway；現 private Job 缺少 market caller 的 OpenID token grant，須先完成程式／review，再取得明確 IAM 授權。只授權簽發該 caller 的 ID token，不新增 key／付費路由；無模型 canary 先驗證，真生成另依使用者操作。
-
-## 個人策略設定表單修正｜工程與線上預覽驗收 CLOSED／PASS（2026-11-02）
-
-- [x] 空白資金需求、非有限／越界百分比、風險交叉限制、自訂策略與保護池格式先於前端驗證；中文欄位錯誤、風險百分比預覽、停用原因、背景產出防重送及保留草稿的狀態更新。
-- [x] 完整 Flutter 146 項、定向 8 項、分析無 error／warning；Release Linux／隔離 PG 2113 passed、2 skipped、2 deselected，Flutter／Web build／四映像 PASS。
-- [x] [Release #41372987736](https://github.com/tommylin15/janus-omniforge/actions/runs/41372987736) → [0% 候選 #41373618403](https://github.com/tommylin15/janus-omniforge/actions/runs/41373618403) → [OAuth #41373877474](https://github.com/tommylin15/janus-omniforge/actions/runs/41373877474) → [API-only 100% #41374045030](https://github.com/tommylin15/janus-omniforge/actions/runs/41374045030) → [入口同步 #41374206459](https://github.com/tommylin15/janus-omniforge/actions/runs/41374206459) 全 PASS。來源 `3890ba62219b7d9f79e6197d8e489c420a7797fe`，revision `janus-api-00647-dul`。
-- [x] 已登入正式頁面重現兩項欄位錯誤、合法 API 預覽、中文百分比、同意停用提示與修改後清除預覽；測試內容移除，不產出或啟用策略。四 Jobs／Scheduler 設定不變。完整範圍與限制見 [收據](archive/personal-strategy-settings-2026-11-02.md)。
-
-付費 Gemini 產出及整體 PS-UAT 仍依下方待驗項；表單修復不等於四報告或全部個人策略 UAT 完成。資金需求與風險數值由使用者決定，不代填或猜測。
-
 ## P1｜個人策略、S/A/B/C與四時段報告｜部署已上線／待使用者操作驗收（2026-10-31）
 
-本工項已完成定向測試、071 migration、GHCR 映像發布、0% 候選驗證與 100% 流量正式切換。目前 API 正式環境變數已啟用 `PERSONAL_STRATEGY_ENABLED=true`、`PERSONAL_RESEARCH_API_APPROVED=true`、`PERSONAL_RESEARCH_FLASH_MODELS=gemini-2.5-flash`。
+本工項已完成定向測試、071 migration、GHCR 映像發布、0% 候選驗證與 100% 流量正式切換。目前 API 正式環境變數已啟用 `PERSONAL_STRATEGY_ENABLED=true`、`PERSONAL_RESEARCH_API_APPROVED=true`、`PERSONAL_RESEARCH_FLASH_MODELS=gemini-3.5-flash-lite`（策略 Worker 依使用者更正走 OmniAgent gateway 固定 Lite 路由）。
+
+最新修復（2026-11-02）：參數草稿保存／跨分頁重開讀回與 OmniAgent gateway 接線已發布，source `5fdcdd92`、revision `janus-api-00650-koz`；[保存與 gateway 收據](archive/personal-strategy-draft-gateway-2026-11-02.md)、[前輪表單收據](archive/personal-strategy-settings-2026-11-02.md)。已結案工程移至收據；下方 **PS-UAT** 仍保留真實生成／四報告驗收，不以無模型連通通過取代。
 
 - [x] PS-DOC：需求、三學派來源／適配、TradingAgents有限借鑑、AI實作與驗收指示。
 - [x] PS-01-IMPL：PG策略版本／週額度、五選項、風險預覽、背景生成、私人原文種子與匯出程式。

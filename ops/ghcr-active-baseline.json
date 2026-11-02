@@ -1,8 +1,8 @@
 {
   "status": "VERIFIED_PUBLIC_GHCR_ROLLBACK_BASELINE",
-  "source_sha": "3890ba62219b7d9f79e6197d8e489c420a7797fe",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:7f86358216651a314d7c470e9ea32be87d307d79b45f4cd6cbf2fe04ccfce58d",
-  "validation_run": "41374045030",
+  "source_sha": "5fdcdd9288d6305758935d4413f5ab92776a735e",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:a83b35f4b1fe2c24fcffc0d1b3f03e3090f98e0ff19d5f9f44379217c2ab54a9",
+  "validation_run": "41380286035",
   "job_source_sha": "5fdcdd9288d6305758935d4413f5ab92776a735e",
   "job_images": {
     "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:57d981ce49e2b176092fdb371c8510d0ff9399a6cb614e3ad91df216de0f39b3",
@@ -18,8 +18,8 @@
   },
   "private_historical_config_parity": "NOT_VERIFIED",
   "old_ar_rollback_exercised": false,
-  "observed_evidence": "正式API3890ba62／00647-dul／7f863582已以build-id、Ready revision與GHCR release digest核對；前次API-only41374045030 PASS。本輪Jobs41377891528 PASS8canary，Scheduler恢復、完整config hashes不變。",
-  "semantics": "本輪API5fdcdd92正式切流之前的實際可回復API基準3890ba62；Jobs欄記錄已通過8canary的當前5fdcdd92。不改寫歷史private parity或舊AR回復演練語意。",
-  "api_revision": "janus-api-00647-dul",
+  "observed_evidence": "API 41380286035 PASS，100% revision00650-koz／source5fdcdd92／digest a83b35f4；獨立安全HTTP讀回與19個tag一致讀回PASS。Jobs41377891528 PASS8 distinct canary，Scheduler ENABLED，完整config hashes不變。",
+  "semantics": "完成本輪發布後的目前API／Jobs回復基準，均為5fdcdd92。下次發布前必須重新讀回；不改寫歷史private parity或舊AR回復演練語意。",
+  "api_revision": "janus-api-00650-koz",
   "traffic_percent": 100
 }
