@@ -409,6 +409,18 @@ class PostgresWorkspaceRepository:
                 "SELECT * FROM private.current_positions WHERE user_id=%s ORDER BY symbol", (user_id,)
             ).fetchall()]
 
+    def ledger_for_fast_pnl(self, user_id: UUID) -> list[dict[str, Any]]:
+        """Bounded, owner-only ledger projection: no market prices or Iceberg reads."""
+        with self._connection() as connection:
+            return [dict(row) for row in connection.execute(
+                """SELECT user_id,event_id,ledger_version,event_action,event_type,
+                          trade_date,symbol,currency,shares,price,cash_amount,fee,tax,
+                          reverses_event_id,replaces_event_id
+                   FROM private.ledger_events WHERE user_id=%s
+                   ORDER BY trade_date,ledger_version LIMIT 20001""",
+                (user_id,),
+            ).fetchall()]
+
     def annual_pnl(self, user_id: UUID, year: int) -> list[dict[str, Any]]:
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(

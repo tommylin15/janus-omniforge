@@ -64,3 +64,12 @@
 預設稅則來源：[證交所投資指南](https://www.twse.com.tw/zh/about/company/guide.html)／[ETF 交易規則](https://www.twse.com.tw/zh/products/securities/etf/overview/rules.html)。這些是本產品自動計算的版本化預設，不宣稱等同券商逐筆實際結算。
 
 每筆新交易保存費稅規則及券商版本快照。設定後續修改不自動重寫歷史；此次使用者明確授權的歷史修正，以單 owner／固定 ledger 及 profile checkpoint、有界預覽、單一 PostgreSQL transaction 的 reversal／replacement 執行，原紀錄保留。更正保留原交易的同日先後順序，Private Core／Mart 與即時持股投影須一致。回補後驗證所有有效交易費稅、股數、成本、各年度損益及冪等重跑；本人帳本不新增虛構成交。
+
+
+## 2026-11-03｜年度已實現損益快速路徑
+
+- `GET /api/v1/me/journal/pnl?year=YYYY` 改讀 PostgreSQL 本人帳本，沿用 `calculate_marts` 的 moving-average、賣出費稅、現金股利與 reversal/replacement 規則，不以行情或 Iceberg 的刷新時間決定已實現數值。
+- 限 20,000 筆 Owner 帳本事件；請求只讀必要欄位，cache 依 Owner／年度／`ledger_version` 分隔，上限 256 條、服務重啟即失效。無有效事件的年度回傳空列代表已確認 0，不能混同 API 錯誤。
+- `POST /api/v1/me/journal/recalculate` 直接同步運算同一年度，回 `SUCCEEDED,mode=inline,ledger_version,items`，不啟動 Cloud Run Job；交易資料剛更新則至多嘗試三次，仍變動回 409，不以舊數字冒充最新版本。
+- 原有 mutation 後 Private Mart 背景同步與其他報表 pipeline **保留**；年度損益計算不再等待該佇列。Flutter 先渲染年度損益，歷史與 queue 非同步獨立更新。
+- 必須驗收：讀取數值與原 `calculate_marts` 一致、修正及作廢、歷年移動平均、跨 Owner 隔離、版本失效、無交易年 0、手動操作無新增 Job；Dev API 實際延遲量測後才能判定 P95 達標。此項不代表所有 Private Mart 報告已即時更新。

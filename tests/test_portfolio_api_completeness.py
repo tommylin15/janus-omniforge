@@ -24,6 +24,17 @@ class Repository:
     def latest_ledger_version(self, user_id):
         return 7
 
+    def ledger_for_fast_pnl(self, user_id):
+        from datetime import date
+        return [{
+            "user_id": user_id, "event_id": "event-7", "ledger_version": 7,
+            "event_action": "ORIGINAL", "event_type": "BUY",
+            "trade_date": date(2026, 1, 2), "symbol": "2330",
+            "currency": "TWD", "shares": Decimal("1"), "price": Decimal("100"),
+            "cash_amount": None, "fee": Decimal("0"), "tax": Decimal("0"),
+            "reverses_event_id": None, "replaces_event_id": None,
+        }]
+
 
 class Store:
     def __init__(self):
@@ -302,3 +313,22 @@ def test_private_store_returns_current_snapshot_unchanged():
     store = private_store_with({"mart_user_annual_pnl": [row]}, OperationalFreshness(2))
 
     assert store.mart("mart_user_annual_pnl", USER_ID, year=2026) == [row]
+
+
+def test_annual_pnl_is_inline_and_never_reads_private_iceberg_mart():
+    api, _, store = make_client()
+    response = api.get("/api/v1/me/journal/pnl?year=2026", headers=auth())
+    assert response.status_code == 200
+    assert response.json()[0]["year"] == 2026
+    assert response.json()[0]["realized_pnl"] == "0"
+    assert not any(name == "mart_user_annual_pnl" for name, _, _ in store.calls)
+
+
+def test_manual_annual_pnl_recalculation_returns_sync_without_job():
+    api, _, store = make_client()
+    response = api.post("/api/v1/me/journal/recalculate", headers=auth())
+    assert response.status_code == 200
+    assert response.json()["mode"] == "inline"
+    assert response.json()["status"] == "SUCCEEDED"
+    assert response.json()["ledger_version"] == 7
+    assert not any(name == "mart_user_annual_pnl" for name, _, _ in store.calls)

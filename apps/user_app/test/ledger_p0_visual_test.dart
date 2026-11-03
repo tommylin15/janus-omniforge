@@ -298,7 +298,7 @@ void main() {
     await tester.tap(recalc);
     await tester.pump();
     expect(api.posts, contains('/api/v1/me/journal/recalculate'));
-    expect(find.text('損益已排入重新計算'), findsOneWidget);
+    expect(find.text('本年已實現損益已更新'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

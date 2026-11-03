@@ -41,6 +41,7 @@ from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSumm
                      GovernanceDiffIn, GovernanceEditIn, MembershipEditIn)
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
 from .private_pipeline import ledger_net_cash_flow, stock_identity
+from .fast_annual_pnl import FastPnlTooLarge, FastPnlVersionMoved, read_annual_pnl
 from .private_recalc_queue import CloudRunPrivateRecalcTrigger, QueuedPrivateRecalculator
 from .public_runtime import build_admin_service, build_core_service, build_pipeline_service, build_public_service
 from .store import PrivateIcebergStore
@@ -987,16 +988,19 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         background_tasks.add_task(recalculate_private_mart_safely,current.user_id)
         return jsonable_encoder(result)
 
-    @private.post("/journal/recalculate", status_code=202)
+    @private.post("/journal/recalculate")
     def recalculate_ledger(current: AuthenticatedUser = Depends(user)):
+        """Recompute yearly realized PnL inline, without a Cloud Run Job."""
+        year = datetime.now(TAIPEI).year
         try:
-            result=recalculate_private_mart(current.user_id, "manual")
-        except Exception as error:
-            LOGGER.warning("manual private recalculation enqueue/dispatch failed: %s",type(error).__name__)
-            raise HTTPException(status_code=503,detail="損益重新計算暫時無法使用") from error
+            rows, version = read_annual_pnl(repository, current.user_id, year)
+        except FastPnlTooLarge as error:
+            raise HTTPException(status_code=409, detail="交易筆數超出即時計算範圍，請使用完整報表重建") from error
+        except FastPnlVersionMoved as error:
+            raise HTTPException(status_code=409, detail="交易紀錄更新中，請重新整理後重試") from error
         return jsonable_encoder({
-            **result,
-            "ledger_version":repository.latest_ledger_version(current.user_id),
+            "status": "SUCCEEDED", "mode": "inline", "year": year,
+            "ledger_version": version, "items": rows, "already_active": False,
         })
 
     @private.get("/journal/recalculation-status")
@@ -1246,9 +1250,13 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     @private.get("/journal/pnl")
     def pnl(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
-        rows=store.mart("mart_user_annual_pnl",current.user_id,year=year)
-        if rows and max(row.get("ledger_version",0) for row in rows)!=repository.latest_ledger_version(current.user_id):
-            rows=[]
+        # Realized PnL depends only on executed ledger events, not market quotes.
+        try:
+            rows, _ = read_annual_pnl(repository, current.user_id, year)
+        except FastPnlTooLarge as error:
+            raise HTTPException(status_code=409, detail="交易筆數超出即時計算範圍，請使用完整報表重建") from error
+        except FastPnlVersionMoved as error:
+            raise HTTPException(status_code=409, detail="交易紀錄更新中，請重新整理後重試") from error
         return jsonable_encoder(rows)
 
     @private.get("/journal/monthly-summary", response_model=MonthlyLedgerSummaryOut)

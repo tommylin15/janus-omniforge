@@ -285,17 +285,26 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     }
   }
 
+  // Render annual PnL as soon as it arrives; history/queue must not block it.
   void loadDeferredCore() {
     final generation = ++deferredGeneration;
     final currentYear = DateTime.now().year;
-    coreData.then((_) async {
-      final result = await Future.wait([
-        cached('/api/v1/me/journal/pnl?year=$currentYear'),
-        cached('/api/v1/me/journal/history?year=$currentYear'),
-        cached('/api/v1/me/journal/recalculation-status'),
-      ]);
-      if (mounted && generation == deferredGeneration) {
-        setState(() => deferredCore = result);
+    coreData.then((_) {
+      final paths = [
+        '/api/v1/me/journal/pnl?year=$currentYear',
+        '/api/v1/me/journal/history?year=$currentYear',
+        '/api/v1/me/journal/recalculation-status',
+      ];
+      for (var index = 0; index < paths.length; index++) {
+        final slot = index;
+        unawaited(cached(paths[slot]).then((value) {
+          if (!mounted || generation != deferredGeneration) return;
+          setState(() {
+            final next = List<dynamic>.from(deferredCore ?? [null, null, null]);
+            next[slot] = value;
+            deferredCore = next;
+          });
+        }));
       }
     });
   }
@@ -505,8 +514,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
 
   String recalcLabel(Map<String, dynamic>? value) {
     return switch (value?['status']) {
-      'QUEUED' => '已排隊，等待重算',
-      'RUNNING' => '損益重算中…',
+      'QUEUED' => '完整報表同步排隊中（不影響年度損益）',
+      'RUNNING' => '完整報表背景同步中（不影響年度損益）',
       'CANCEL_REQUESTED' => '正在中止重算…',
       'FAILED' => '重算失敗：${fvText(value?['message'], missing: '可重新嘗試')}',
       'CANCELLED' => '本次重算已中止：${fvText(value?['message'], missing: '可重新嘗試')}',
@@ -546,16 +555,21 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   }
 
   Future<void> recalculatePnl() async {
-    if (pnlRecalcBusy || recalcActive(recalcStatus)) return;
+    if (pnlRecalcBusy) return;
     setState(() => pnlRecalcBusy = true);
     try {
       final result =
           await widget.api.post('/api/v1/me/journal/recalculate', const {});
       if (!mounted) return;
       setState(() => recalcStatus = Map<String, dynamic>.from(result as Map));
-      startRecalcPolling();
+      if (recalcActive(recalcStatus)) {
+        startRecalcPolling();
+      } else {
+        recalcTimer?.cancel();
+        reload();
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('損益已排入重新計算')),
+        const SnackBar(content: Text('本年已實現損益已更新')),
       );
     } catch (_) {
       if (mounted) {
@@ -1375,18 +1389,13 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                           aggregate['unrealized_return'],
                         );
               final pnlUnavailable = deferredCore == null || deferredCore![0] == null;
-              final historyUnavailable = deferredCore == null || deferredCore![1] == null;
-              final ytd = deferredCore == null
+              final ytd = pnlUnavailable
                   ? '載入中'
-                  : pnlUnavailable || historyUnavailable
-                      ? '資料不足'
-                      : currentPnl.isNotEmpty
-                          ? currentPnl.length == 1
-                              ? summaryMoney(fvText(fvMap(currentPnl.first)['currency'], missing: 'TWD'), fvMap(currentPnl.first)['realized_pnl'])
-                              : '多幣別'
-                          : currentHistory.isNotEmpty
-                              ? '待更新／尚未確認'
-                              : '0.0 萬元';
+                  : currentPnl.isNotEmpty
+                      ? currentPnl.length == 1
+                          ? summaryMoney(fvText(fvMap(currentPnl.first)['currency'], missing: 'TWD'), fvMap(currentPnl.first)['realized_pnl'])
+                          : '多幣別'
+                      : '0.0 萬元';
               final ytdAmount = currentPnl.length == 1
                   ? fvMap(currentPnl.first)['realized_pnl']
                   : null;
@@ -1444,21 +1453,15 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       alignment: Alignment.centerLeft,
                       child: OutlinedButton.icon(
                         key: const Key('recalculate-pnl'),
-                        onPressed: pnlRecalcBusy ||
-                                recalcActive(effectiveRecalcStatus)
-                            ? null
-                            : recalculatePnl,
+                        onPressed: pnlRecalcBusy ? null : recalculatePnl,
                         icon: const Icon(Icons.calculate_outlined, size: 18),
                         label: Text(
                           pnlRecalcBusy
-                              ? '排入中'
-                              : recalcActive(effectiveRecalcStatus)
-                                  ? '重算進行中'
-                                  : effectiveRecalcStatus['status'] == 'FAILED' ||
-                                          effectiveRecalcStatus['status'] ==
-                                              'CANCELLED'
-                                      ? '重新嘗試'
-                                      : '重新計算損益',
+                              ? '計算中'
+                              : effectiveRecalcStatus['status'] == 'FAILED' ||
+                                        effectiveRecalcStatus['status'] == 'CANCELLED'
+                                  ? '重新嘗試'
+                                  : '重新計算年度損益',
                         ),
                       ),
                     ),
