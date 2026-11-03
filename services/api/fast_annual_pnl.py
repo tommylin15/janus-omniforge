@@ -6,11 +6,11 @@ is keyed by owner/year/ledger version and is NOT a canonical publication.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from functools import lru_cache
 from typing import Any
 
-from .private_pipeline import calculate_marts
+from .private_pipeline import TAIPEI, calculate_marts
 
 
 class FastPnlTooLarge(ValueError):
@@ -45,5 +45,9 @@ def read_annual_pnl(repository: Any, user_id: Any, year: int) -> tuple[list[dict
         except FastPnlVersionMoved:
             continue
         if int(repository.latest_ledger_version(user_id)) == version:
-            return [dict(row) for row in rows], version
+            # Annual PnL is trade-derived.  Never label a current-year
+            # response as the future December 31 valuation date; update the
+            # displayed as-of day even when cached numbers are unchanged.
+            as_of = min(datetime.now(TAIPEI).date(), date(year, 12, 31))
+            return [{**dict(row), "valuation_date": as_of.isoformat()} for row in rows], version
     raise FastPnlVersionMoved("ledger advanced during inline calculation")
