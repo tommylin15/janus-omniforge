@@ -319,7 +319,7 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
-  testWidgets('390px Ledger puts canonical aggregate first and never invents YTD zero',
+  testWidgets('390px Ledger keeps withheld valuation separate from confirmed buy-only YTD zero',
       (tester) async {
     mobileView(tester);
     final year = DateTime.now().year;
@@ -380,9 +380,9 @@ void main() {
     expect(find.text('筆記'), findsNothing);
     expect(find.text('持股市值'), findsOneWidget);
     expect(find.text('本年已實現損益'), findsOneWidget);
-    expect(find.text('待更新／尚未確認'), findsOneWidget);
+    expect(find.text('0.0 萬元'), findsOneWidget);
     expect(find.byKey(const Key('recalculate-pnl')), findsOneWidget);
-    expect(find.text('重新計算損益'), findsOneWidget);
+    expect(find.text('重新計算年度損益'), findsOneWidget);
     expect(find.text('總額暫不發布'), findsWidgets);
     expect(find.text('持股'), findsWidgets);
     expect(find.text('紀錄'), findsOneWidget);
@@ -390,7 +390,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Ledger disables duplicate recalc while owner request is active',
+  testWidgets('Ledger permits inline YTD calculation during background Mart queue',
       (tester) async {
     mobileView(tester);
     final year = DateTime.now().year;
