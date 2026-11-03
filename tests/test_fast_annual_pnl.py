@@ -82,9 +82,10 @@ def test_owner_isolation_and_empty_year_zero_not_missing():
         OTHER: [row(1, "SELL", date(2026, 1, 1), 1, 150, owner=OTHER)],
     })
     assert read_annual_pnl(repo, USER, 2026)[0] == []
-    # The second owner is deliberately not queried using USER's cache entry.
-    with pytest.raises(Exception):
-        read_annual_pnl(repo, OTHER, 2026)
+    # The second owner must use its own trade set, not USER's cached zero.
+    other, version = read_annual_pnl(repo, OTHER, 2026)
+    assert version == 1
+    assert other[0]["realized_pnl"] == Decimal("150")
 
 
 def test_bounded_rejection_and_racing_version_are_explicit():
