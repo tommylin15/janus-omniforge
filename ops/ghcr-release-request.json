@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "5655f2604ce382f73ddaa837d35dea4d11765a2d",
-  "purpose": "Personal strategy, S/A/B/C tiered watchlists, and Flash research reports implementation; full Python and Flutter release.",
+  "sha": "2bd15e376cc2f43f72498ffb102d2d3b18174b58",
+  "purpose": "2026-11-03 annual realized PnL inline from owner ledger, independent of Private Mart queue; full Python and Flutter gates; publish immutable GHCR only, no Dev traffic or Jobs mutation.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 32
+  "request_attempt": 33
 }
