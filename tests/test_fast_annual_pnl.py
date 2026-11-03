@@ -1,10 +1,12 @@
 """Fast realized PnL: exact accounting and versioned no-job cache."""
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
 import pytest
+
+from services.api.private_pipeline import TAIPEI
 
 from services.api.fast_annual_pnl import (
     FastPnlTooLarge, FastPnlVersionMoved, _cached_rows, read_annual_pnl,
@@ -54,6 +56,9 @@ def test_cross_year_moving_average_fees_and_cash_dividend():
     assert result[0]["taxes"] == Decimal("3")
     assert result[0]["cash_dividends"] == Decimal("50")
     assert result[0]["ledger_version"] == 3
+    assert result[0]["valuation_date"] == min(
+        datetime.now(TAIPEI).date(), date(2026, 12, 31)
+    ).isoformat()
     again, _ = read_annual_pnl(repo, USER, 2026)
     assert again == result
     assert repo.reads == 1
