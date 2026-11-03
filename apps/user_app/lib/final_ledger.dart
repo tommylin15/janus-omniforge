@@ -564,8 +564,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       final result =
           await widget.api.post('/api/v1/me/journal/recalculate', const {});
       if (!mounted) return;
-      setState(() => recalcStatus = Map<String, dynamic>.from(result as Map));
-      if (recalcActive(recalcStatus)) {
+      final nextStatus = Map<String, dynamic>.from(result as Map);
+      setState(() => recalcStatus = recalcActive(nextStatus) ? nextStatus : null);
+      if (recalcActive(nextStatus)) {
         startRecalcPolling();
       } else {
         recalcTimer?.cancel();
