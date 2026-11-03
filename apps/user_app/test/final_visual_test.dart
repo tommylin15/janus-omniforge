@@ -454,9 +454,10 @@ void main() {
 
     final button =
         tester.widget<OutlinedButton>(find.byKey(const Key('recalculate-pnl')));
-    expect(button.onPressed, isNull);
-    expect(find.text('重算進行中'), findsOneWidget);
-    expect(find.text('已排隊，等待重算'), findsOneWidget);
+    // The background Mart queue does not lock the inline annual calculation.
+    expect(button.onPressed, isNotNull);
+    expect(find.text('重新計算年度損益'), findsOneWidget);
+    expect(find.text('完整報表同步排隊中（不影響年度損益）'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -508,9 +509,9 @@ void main() {
         'can_retry': true,
       },
       '/api/v1/me/journal/recalculate': {
-        'request_id': 'recalc-2',
-        'requested_ledger_version': 163,
-        'status': 'QUEUED',
+        'status': 'SUCCEEDED',
+        'mode': 'inline',
+        'ledger_version': 163,
         'already_active': false,
       },
       '/api/v1/me/portfolio/quotes': {
@@ -543,7 +544,7 @@ void main() {
     await tester.tap(find.text('重新嘗試'));
     await tester.pumpAndSettle();
     expect(api.posts, contains('/api/v1/me/journal/recalculate'));
-    expect(find.text('損益已排入重新計算'), findsOneWidget);
+    expect(find.text('本年已實現損益已更新'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
