@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "e7ec20c627cffd17be202aa6ff0b28e7955442a7",
+  "sha": "0139feff5bda7cfcbf4b9e4c90c6b13f784de44e",
   "digest": "",
-  "release_run": "41575043061",
+  "release_run": "41576348945",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-03 年度已實現損益 API 直接計算：完整 Release 41575043061 PASS，僅建立既有 Dev API 0% Candidate，不更新 Jobs、排程、Storage 或正式流量。",
-  "request_attempt": 38
+  "purpose": "2026-11-03 年度損益快速計算日期修正版：Release #41576348945 完整 PASS，既有 Dev API 0% Candidate，禁止 Jobs／正式流量變更。",
+  "request_attempt": 39
 }
