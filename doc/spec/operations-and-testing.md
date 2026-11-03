@@ -1,5 +1,14 @@
 # Janus 最新驗收證據索引
 
+
+## 2026-11-03 本年已實現損益快速計算｜Release／Dev API-only 切流 PASS；Owner 體感效能待驗
+
+- **正式應用映像來源** `0139feff5bda7cfcbf4b9e4c90c6b13f784de44e`：[完整 Release #41576348945](https://github.com/tommylin15/janus-omniforge/actions/runs/41576348945) 成功（Python 全套、Flutter 測試＋Web build、四個 GHCR 固定映像、匿名 digest 驗證），[0% Candidate #41577013912](https://github.com/tommylin15/janus-omniforge/actions/runs/41577013912) 成功，[OAuth／Private Boundary #41577301941](https://github.com/tommylin15/janus-omniforge/actions/runs/41577301941) 成功，[API-only 100% Promotion #41577418993](https://github.com/tommylin15/janus-omniforge/actions/runs/41577418993) 成功。前次已驗證 `e7ec20c627cffd17be202aa6ff0b28e7955442a7` 可作回復基準；本次未修改四個 Jobs、Scheduler、Storage、IAM 或 Owner 帳本。
+- **實作**：`GET /api/v1/me/journal/pnl?year=YYYY` 以 Owner PostgreSQL 交易事件及同版移動平均成本公式即時計算、依 Owner／年度／Ledger Version 做有界記憶體快取；`POST /api/v1/me/journal/recalculate` 直接回傳本年結果，不因按鈕操作啟動 Cloud Run Job。保留交易變更後其他 Private Mart 報表之背景同步。Flutter 年度損益、交易歷史與背景狀態分別載入，API 回傳錯誤不冒作零損益；當年資料日期不得提前顯示年底。
+- **離線驗收**：歷年移動平均、費稅、股利、作廢／替換、Owner 隔離、快取版本失效、資料超上限、資料寫入競態及 Flutter 快速顯示均納入測試；完整 Release 的所有 required gates PASS。歷史兩次 Release 對舊測試假設／數字格式的失敗為既有修復歷程，不覆蓋最終成功收據。
+- **驗收邊界**：既有授權 Janus MCP 可唯讀讀回 Owner 年度 PnL v369，但其資料源是 `janus-private-mart`，**不能取代**本次新 `/journal/pnl` API 的直接登入正向驗收。這輪沒有實際登入 App 量測冷熱 P50／P95，也沒有完成「手動重算後畫面立即更新」的本人操作測試，故 **ENGINEERING_RELEASE=PASS，OWNER_INLINE_API／P95=NOT_VERIFIED**；不宣稱已達 200ms／2秒目標。
+
+
 ## 2026-11-02 資安 code review 修補｜CLOSED／PASS
 
 修補公開靜態檔案越界（含UNC／root在檔案I/O前拒絕）、OAuth／MCP有界body、Google OIDC nonce綁定，以及API-only發布收據的精確來源核對。7個有已知公告的Python套件升級，5份現役／操作用lock於11/02重掃均無已知漏洞回報；不代表外部滲透或容器OS掃描。完整finding／限制與歷程見[資安封存收據](../archive/security-review-2026-11-01.md)。
