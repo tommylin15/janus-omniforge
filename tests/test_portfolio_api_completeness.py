@@ -320,7 +320,7 @@ def test_annual_pnl_is_inline_and_never_reads_private_iceberg_mart():
     response = api.get("/api/v1/me/journal/pnl?year=2026", headers=auth())
     assert response.status_code == 200
     assert response.json()[0]["year"] == 2026
-    assert response.json()[0]["realized_pnl"] == "0"
+    assert Decimal(str(response.json()[0]["realized_pnl"])) == Decimal("0")
     assert not any(name == "mart_user_annual_pnl" for name, _, _ in store.calls)
 
 
