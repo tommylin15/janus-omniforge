@@ -1306,7 +1306,6 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               final summary = fvRows(values[0]);
               final canonicalPositions = fvRows(values[1]);
               final currentPnl = fvRows(deferredCore == null ? null : deferredCore![0]);
-              final currentHistory = fvRows(deferredCore == null ? null : deferredCore![1]);
               final loadedRecalcStatus = deferredCore != null && deferredCore![2] is Map
                   ? Map<String, dynamic>.from(deferredCore![2] as Map)
                   : <String, dynamic>{'status': 'IDLE', 'can_retry': false};
