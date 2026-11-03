@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "9b5a5c9021f20e511aaa23f637b2ef499c8d6a46",
+  "sha": "e7ec20c627cffd17be202aa6ff0b28e7955442a7",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "移除我的頁冗餘統計區塊：Release41415772781、0%候選41416582647與獨立安全讀回PASS。只讀驗證同來源OAuth、Owner負向、MCP與build SHA，不變更GCP。",
-  "request_attempt": 33
+  "purpose": "2026-11-03 年度已實現損益 API 快速計算 0% Candidate #41575562866 PASS；執行 OAuth metadata／匿名私有 API 阻絕／MCP 授權邊界唯讀驗證，無 GCP 變更。",
+  "request_attempt": 34
 }
