@@ -87,6 +87,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   bool pnlRecalcBusy = false;
   bool recalcPollBusy = false;
   Map<String, dynamic>? recalcStatus;
+  bool pnlRequestFinished = false;
   bool foreground = true;
   int quoteGeneration = 0;
   DateTime? offSessionQuoteDate;
@@ -303,6 +304,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
             final next = List<dynamic>.from(deferredCore ?? [null, null, null]);
             next[slot] = value;
             deferredCore = next;
+            if (slot == 0) pnlRequestFinished = true;
           });
         }));
       }
@@ -333,6 +335,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     setState(() {
       requestCache.clear();
       deferredCore = null;
+      pnlRequestFinished = false;
       coreData = loadCore();
       sectionData = section == 0 ? null : loadSection(section, yearFilter);
       intraday = null;
@@ -1388,9 +1391,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                           aggregate['unrealized_return'],
                         );
               final pnlUnavailable = deferredCore == null || deferredCore![0] == null;
-              final ytd = pnlUnavailable
+              final ytd = !pnlRequestFinished
                   ? '載入中'
-                  : currentPnl.isNotEmpty
+                  : pnlUnavailable
+                      ? '資料不足'
+                      : currentPnl.isNotEmpty
                       ? currentPnl.length == 1
                           ? summaryMoney(fvText(fvMap(currentPnl.first)['currency'], missing: 'TWD'), fvMap(currentPnl.first)['realized_pnl'])
                           : '多幣別'
