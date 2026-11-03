@@ -1,5 +1,16 @@
 # Janus — 唯一 Active TODO
 
+
+## P1｜年度已實現損益快速路徑｜工程切流 PASS／Owner 體感與 P95 待驗（2026-11-03）
+
+- [x] `GET /api/v1/me/journal/pnl` 走 PostgreSQL Owner 事件＋既有移動平均算法／版本化小快取，脫離 Iceberg／市場報價等待；同年度無交易確認後正常顯示 0，API 錯誤不能顯示 0。
+- [x] `POST /api/v1/me/journal/recalculate` API 內直接計算，不另排 Cloud Run Job；原交易異動後 Private Mart 背景同步與其他報表保持不變。Flutter 拆開年度損益與歷史／背景佇列請求，修正台灣本年日期不使用未到來年底。
+- [x] [完整 Release #41576348945](https://github.com/tommylin15/janus-omniforge/actions/runs/41576348945) → [0% Candidate #41577013912](https://github.com/tommylin15/janus-omniforge/actions/runs/41577013912) → [Auth Boundary #41577301941](https://github.com/tommylin15/janus-omniforge/actions/runs/41577301941) → [API-only 100% #41577418993](https://github.com/tommylin15/janus-omniforge/actions/runs/41577418993)，來源 `0139feff5bda7cfcbf4b9e4c90c6b13f784de44e`，均 PASS；Job／Scheduler／私有原始資料未更動。
+- [ ] **Owner 正向效能驗收**：本人登入正式 `/app/` 持股頁，確認本年已實現損益不再等佇列、手動重算立即回應；以有界冷暖樣本量測 API 與 UI P50/P95，核對 Ledger Version 及數字與既有 Mart 對應。尚無此類實測證據，不宣稱延遲達標。
+
+詳細證據與限制見 [Operations](spec/operations-and-testing.md)。本項不重開已由使用者確認完成的七檔行情 UAT。
+
+
 ## P1｜個人策略、S/A/B/C與四時段報告｜部署已上線／待使用者操作驗收（2026-10-31）
 
 本工項已完成定向測試、071 migration、GHCR 映像發布、0% 候選驗證與 100% 流量正式切換。目前 API 正式環境變數已啟用 `PERSONAL_STRATEGY_ENABLED=true`、`PERSONAL_RESEARCH_API_APPROVED=true`、`PERSONAL_RESEARCH_FLASH_MODELS=gemini-3.5-flash-lite`（策略 Worker 依使用者更正走 OmniAgent gateway 固定 Lite 路由）。
