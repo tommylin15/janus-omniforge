@@ -43,6 +43,12 @@ class Repository:
                 "reverses_event_id":event_id,"record_version":1,"ledger_version":2}
     def ledger_history(self,user_id,symbol,year): return [{"user_id":user_id,"symbol":symbol or "2330"}]
     def latest_ledger_version(self,user_id): return 1
+    def ledger_for_fast_pnl(self,user_id):
+        return [{"user_id":user_id,"event_id":"evt-1","ledger_version":1,
+                 "event_action":"ORIGINAL","event_type":"BUY","trade_date":date(2026,9,4),
+                 "symbol":"2330","currency":"TWD","shares":Decimal("10"),
+                 "price":Decimal("100"),"cash_amount":None,"fee":Decimal("0"),
+                 "tax":Decimal("0"),"reverses_event_id":None,"replaces_event_id":None}]
     def recalculation_status(self,user_id): return self.recalc_status
     def watchlist(self,user_id): return [{"user_id":user_id,"symbol":"2330"}]
     def follow(self,user_id,value,key): self.calls.append((user_id,value,key)); return {"user_id":user_id,"symbol":value.symbol}
@@ -441,13 +447,16 @@ def test_ledger_mutation_triggers_immediate_recalculation_and_manual_retry_is_ow
     assert recalculator.calls==[USER_ID]
 
     recalculated=api.post("/api/v1/me/journal/recalculate",headers=auth())
-    assert recalculated.status_code==202
-    assert recalculated.json()=={"status":"updated","valuation_date":"2026-09-05","ledger_version":1}
-    assert recalculator.calls==[USER_ID,USER_ID]
+    assert recalculated.status_code==200
+    assert recalculated.json()["status"]=="SUCCEEDED"
+    assert recalculated.json()["mode"]=="inline"
+    assert recalculated.json()["ledger_version"]==1
+    # A manual annual calculation is independent of the Private Mart queue.
+    assert recalculator.calls==[USER_ID]
     assert repo.latest_ledger_version(USER_ID)==1
 
 
-def test_ledger_mutation_survives_immediate_recalculation_failure_and_manual_retry_reports_unavailable():
+def test_ledger_mutation_survives_background_job_failure_and_manual_annual_pnl_still_works():
     recalculator=Recalculator(fail=True)
     api,_,_=client(private_recalculator=recalculator)
     payload={"event_type":"BUY","trade_date":"2026-09-04","symbol":"2330","shares":"10","price":"100"}
@@ -455,9 +464,11 @@ def test_ledger_mutation_survives_immediate_recalculation_failure_and_manual_ret
     assert created.status_code==201
     assert recalculator.calls==[USER_ID]
 
-    failed=api.post("/api/v1/me/journal/recalculate",headers=auth())
-    assert failed.status_code==503
-    assert failed.json()=={"detail":"損益重新計算暫時無法使用"}
+    manual=api.post("/api/v1/me/journal/recalculate",headers=auth())
+    assert manual.status_code==200
+    assert manual.json()["status"]=="SUCCEEDED"
+    assert manual.json()["mode"]=="inline"
+    assert recalculator.calls==[USER_ID]
 
 
 def test_recalculation_status_is_owner_scoped_and_exposes_safe_failure_only():
@@ -510,11 +521,12 @@ def test_monthly_journal_summary_is_typed_and_owner_scoped():
     assert "user_id" not in result.json()["items"][0]
 
 
-def test_annual_pnl_waits_for_the_latest_ledger_version():
+def test_annual_pnl_rejects_a_moving_ledger_version_instead_of_publishing_stale_data():
     api,repo,_=client()
     repo.latest_ledger_version=lambda _user_id: 2
     result=api.get("/api/v1/me/journal/pnl?year=2026",headers=auth())
-    assert result.status_code==200 and result.json()==[]
+    assert result.status_code==409
+    assert "交易紀錄更新中" in result.json()["detail"]
 
 
 def test_monthly_journal_summary_waits_for_the_latest_ledger_version():
