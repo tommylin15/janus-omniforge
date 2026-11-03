@@ -79,13 +79,16 @@ def test_reversal_replacement_and_new_version_invalidate_cache():
 def test_owner_isolation_and_empty_year_zero_not_missing():
     repo = Repository({
         USER: [row(1, "BUY", date(2025, 1, 1), 1, 100)],
-        OTHER: [row(1, "SELL", date(2026, 1, 1), 1, 150, owner=OTHER)],
+        OTHER: [
+            row(1, "BUY", date(2025, 12, 1), 1, 100, owner=OTHER),
+            row(2, "SELL", date(2026, 1, 1), 1, 150, owner=OTHER),
+        ],
     })
     assert read_annual_pnl(repo, USER, 2026)[0] == []
     # The second owner must use its own trade set, not USER's cached zero.
     other, version = read_annual_pnl(repo, OTHER, 2026)
-    assert version == 1
-    assert other[0]["realized_pnl"] == Decimal("150")
+    assert version == 2
+    assert other[0]["realized_pnl"] == Decimal("50")
 
 
 def test_bounded_rejection_and_racing_version_are_explicit():
