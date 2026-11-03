@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "3c7ca81c9f928cceb3034ef3ae030783bab33b94",
-  "purpose": "2026-11-03 fast annual PnL inline, numerical JSON test corrected. Full Python/Flutter and GHCR release; no Dev traffic or Job mutation.",
+  "sha": "4c2aa34b1ee1472ba1c505129d037d4eb5bce1ff",
+  "purpose": "2026-11-03 fast annual realized PnL as-of date fix and Flutter background queue semantics. Full Python+Flutter immutable GHCR release; no direct Dev traffic/Job changes.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 35
+  "request_attempt": 36
 }
