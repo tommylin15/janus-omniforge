@@ -335,7 +335,7 @@ void main() {
     await tester.tap(find.text('儲存'));
     await tester.pumpAndSettle();
     expect(result, isNull);
-    expect(find.text('請從下拉選項選取股票；無結果時請修改輸入重試'), findsOneWidget);
+    expect(find.text('請從下拉選項選取標的；若查無結果請稍後重試'), findsOneWidget);
   });
 
   testWidgets('journal exposes holdings, records, reports, and notes',
