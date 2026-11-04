@@ -584,6 +584,49 @@ jobs:
             echo "**Not verified:** a real logged-in owner, OAuth callback, PnL correctness, refresh token, or owner isolation."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Read-only quote routing smoke on the 0%-traffic candidate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request
+          from datetime import datetime, timedelta, timezone
+          base = os.environ["JANUS_CANDIDATE_URL"].rstrip("/")
+          now = datetime.now(timezone(timedelta(hours=8)))
+          regular = now.weekday() < 5 and 9 * 60 <= now.hour * 60 + now.minute < 13 * 60 + 30
+          day = now.date().isoformat()
+
+          def read(path):
+              req = urllib.request.Request(base + path, headers={"Accept":"application/json"})
+              with urllib.request.urlopen(req, timeout=35) as response:
+                  assert response.status == 200
+                  return json.loads(response.read(250000))
+
+          home = read("/api/v1/public/market-home")
+          section = (home.get("sections") or {}).get("taiex") or {}
+          provenance = section.get("provenance") or {}
+          stock = read("/api/v1/public/stock-header/2330")
+          data = section.get("data") or {}
+          report = {
+              "scope":"public_quote_read_only",
+              "mode":"regular" if regular else "off_session",
+              "taiex_as_of":section.get("as_of"),
+              "taiex_source":provenance.get("source"),
+              "stock_price_date":stock.get("trade_date"),
+              "stock_source":stock.get("price_source"),
+              "stock_quote_state":stock.get("quote_state"),
+              "minute_points":len(data.get("intraday_points") or []),
+              "no_owner_data":True,
+          }
+          if regular:
+              assert section.get("as_of") == day, "index_quote_not_today"
+              assert provenance.get("source") in {"shioaji","twse_mis"}, "index_source_not_intraday"
+              assert stock.get("trade_date") == day, "stock_quote_not_today"
+              assert stock.get("price_source") in {"shioaji","twse_mis"}, "stock_source_not_intraday"
+              assert stock.get("quote_state") == "intraday", "stock_quote_stale"
+          print(json.dumps(report,ensure_ascii=False,sort_keys=True))
+          PY
+
   jobs-baseline:
     needs: detect
     if: needs.detect.outputs.operation == 'jobs-baseline'
