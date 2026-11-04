@@ -69,6 +69,7 @@ def test_official_code_lookup_only_uses_exact_match(monkeypatch):
     catalog._lookup_cached.cache_clear()
     record = OfficialEtf("0050", "元大台灣50", "TWSE", date(2003, 6, 30))
     monkeypatch.setattr(catalog, "fetch_market_etfs", lambda market, **kw: [record] if market == "TWSE" else [])
+    monkeypatch.setattr(catalog, "fetch_isin_etfs", lambda market, **kw: [])
     assert find_official_etf("0050") == record
     assert find_official_etf("005") is None
     assert find_official_etf("2330") is None
