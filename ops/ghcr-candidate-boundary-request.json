@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "60b10da3e2ed4a5b5de3933e592cd8c246f0dcb8",
+  "sha": "daaa49b286c12f00034ef9dddd90897141080403",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-04 ETF 0050/006208/00878 Dev API candidate, GHCR Release 41787167591 PASS and 0% Candidate 41787850394 PASS. Read-only OAuth metadata, owner/Admin/MCP unauthenticated rejection, public quotes and exact build identity; no traffic changes.",
-  "request_attempt": 40
+  "purpose": "LIVE-HOME-01 Today live intraday index and Owner holdings: Dev migration 076 PASS #41807779405; full GHCR Release PASS #41807949511; 0%-traffic Candidate PASS #41808789288. Read-only OAuth metadata, unauthenticated Owner/Admin/MCP denial and candidate-vs-active public market quote comparison before Dev cutover.",
+  "request_attempt": 41
 }
