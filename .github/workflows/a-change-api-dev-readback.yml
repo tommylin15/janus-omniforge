@@ -57,6 +57,7 @@ jobs:
           for path in ("/app/","/health","/api/v1/public/health"):
               assert get(path)[0]==200,path
           protected=("/api/v1/me/profile",
+                     "/api/v1/me/portfolio/intraday?symbol=2330",
                      "/api/v1/me/today-changes?session=postmarket",
                      "/api/v1/me/analysis/2330/changes",
                      "/api/v1/admin/batch-dashboard")
@@ -65,6 +66,12 @@ jobs:
               code,_=get(path)
               assert code in (401,403),(path,code)
               codes[path.split("?")[0]]=code
+          market_code,market_raw=get("/api/v1/public/market-home")
+          assert market_code==200,"market_home_unavailable"
+          market_json=json.loads(market_raw) if market_raw else {}
+          sections=(market_json.get("sections") or {}) if isinstance(market_json,dict) else {}
+          minutes=((sections.get("taiex") or {}).get("data") or {}).get("intraday_points") or []
+          assert isinstance(minutes,list),"index_minutes_schema_invalid"
           public_code,public_data=get("/api/v1/public/history/2330?limit=1&offset=0")
           public_rows=None
           if public_code==200:
@@ -77,6 +84,9 @@ jobs:
                   "active_revision":active[0]["revisionName"],
                   "active_percent":100,"immutable_image_digest":image.rsplit("@",1)[-1],
                   "health_and_app":True,"anonymous_owner_admin":codes,
+                  "public_market_home_http":market_code,
+                  "taiex_observed_minute_count":len(minutes),
+                  "anonymous_stock_minutes":codes.get("/api/v1/me/portfolio/intraday"),
                   "public_stock_http":public_code,"public_rows_present":public_rows,
                   "owner_authenticated_positive":"NOT_VERIFIED_NO_USER_SESSION",
                   "owner_change_business_rows":"UNKNOWN",
