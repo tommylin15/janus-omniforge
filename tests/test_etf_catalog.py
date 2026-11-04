@@ -183,4 +183,8 @@ def test_migration_is_owner_only_and_research_universe_unchanged():
     assert "-- PHASE: control-finalize" in sql
     assert "-- PHASE: acceptance" in sql
     assert "GRANT CREATE ON SCHEMA control TO janus_private_api" in sql
+    assert "register_verified_etf('0050'" in sql
+    assert "register_verified_etf('006208'" in sql
+    assert "register_verified_etf('00878'" in sql
+
     assert "REVOKE CREATE ON SCHEMA control FROM janus_private_api" in sql
