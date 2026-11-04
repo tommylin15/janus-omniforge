@@ -566,13 +566,21 @@ class PostgresWorkspaceRepository:
             return []
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(
-                """SELECT s.symbol,s.name AS stock_name FROM control.stock_master s
-                   JOIN control.market_universe_members m ON m.symbol=s.symbol
-                   WHERE s.market IN ('TWSE','TPEX') AND s.enabled AND m.version=(
-                     SELECT version FROM control.market_universe_versions
-                     WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)
+                """SELECT s.symbol,s.name AS stock_name,s.market,
+                          COALESCE(ip.instrument_kind,'EQUITY') AS instrument_kind
+                   FROM control.stock_master s
+                   LEFT JOIN control.official_instrument_identity_provenance ip
+                     ON ip.symbol=s.symbol
+                   WHERE s.market IN ('TWSE','TPEX') AND s.enabled
+                     AND (EXISTS(
+                       SELECT 1 FROM control.market_universe_members m
+                       WHERE m.symbol=s.symbol AND m.version=(
+                         SELECT version FROM control.market_universe_versions
+                         WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)
+                     ) OR ip.instrument_kind IN ('ETF','BOND_ETF'))
                    AND (strpos(lower(s.symbol),lower(%s))>0 OR strpos(s.name,%s)>0)
-                   ORDER BY s.symbol LIMIT %s""", (query, query, min(limit, 20)),
+                   ORDER BY (lower(s.symbol)=lower(%s)) DESC,s.symbol LIMIT %s""",
+                (query, query, query, min(limit, 20)),
             ).fetchall()]
 
     def search_trade_instruments(self, query: str) -> list[dict[str, Any]]:
@@ -581,14 +589,27 @@ class PostgresWorkspaceRepository:
             return []
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(
-                """SELECT symbol,name AS stock_name,market,enabled
-                   FROM control.stock_master
-                   WHERE market IN ('TWSE','TPEX')
-                   AND (strpos(lower(symbol),lower(%s))>0 OR strpos(name,%s)>0)
-                   ORDER BY (lower(symbol)=lower(%s)) DESC,
-                            (strpos(name,%s)=1) DESC,symbol LIMIT 20""",
+                """SELECT sm.symbol,sm.name AS stock_name,sm.market,sm.enabled,
+                          COALESCE(ip.instrument_kind,'EQUITY') AS instrument_kind
+                   FROM control.stock_master sm
+                   LEFT JOIN control.official_instrument_identity_provenance ip
+                     ON ip.symbol=sm.symbol
+                   WHERE sm.market IN ('TWSE','TPEX') AND sm.enabled
+                   AND (strpos(lower(sm.symbol),lower(%s))>0 OR strpos(sm.name,%s)>0)
+                   ORDER BY (lower(sm.symbol)=lower(%s)) DESC,
+                            (strpos(sm.name,%s)=1) DESC,sm.symbol LIMIT 20""",
                 (query, query, query, query),
             ).fetchall()]
+
+    def register_verified_etf(self, identity: Any) -> None:
+        """Only the official-code resolver is allowed to reach the bounded DB function."""
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT control.register_verified_etf(%s,%s,%s,%s) AS accepted",
+                (identity.symbol, identity.name, identity.market, identity.listed_on),
+            ).fetchone()
+            if not row or row["accepted"] is not True:
+                raise ConflictError("verified ETF registration was rejected")
 
     def investment_profile(self, user_id: UUID) -> dict[str, Any]:
         with self._connection() as connection:
@@ -999,11 +1020,16 @@ class PostgresWorkspaceRepository:
             if existing and existing["idempotency_key"]==key: return dict(existing)
             if not existing or not existing["active"]:
                 eligible = connection.execute(
-                    """SELECT 1 FROM control.market_universe_members m
-                       JOIN control.stock_master s ON s.symbol=m.symbol
-                       WHERE m.symbol=%s AND s.market IN ('TWSE','TPEX') AND m.version=(
-                         SELECT version FROM control.market_universe_versions
-                         WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)""",
+                    """SELECT 1 FROM control.stock_master s
+                       LEFT JOIN control.official_instrument_identity_provenance ip
+                         ON ip.symbol=s.symbol
+                       WHERE s.symbol=%s AND s.enabled
+                       AND s.market IN ('TWSE','TPEX')
+                       AND (ip.instrument_kind IN ('ETF','BOND_ETF') OR EXISTS(
+                         SELECT 1 FROM control.market_universe_members m
+                         WHERE m.symbol=s.symbol AND m.version=(
+                           SELECT version FROM control.market_universe_versions
+                           WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)))""",
                     (value.symbol,),
                 ).fetchone()
                 if not eligible: raise ConflictError("stock is not in the current listed/OTC universe")
@@ -1020,7 +1046,14 @@ class PostgresWorkspaceRepository:
             ).fetchone()
             change_version=self._next_change_version(connection,user_id); self._change(connection,user_id,change_version,"watchlist",value.symbol,None)
             self._record_mutation(connection,user_id,key,"watchlist",value.symbol)
-            connection.execute("SELECT control.record_deep_tracking_demand(%s)", (value.symbol,))
+            # ETFs are tradable Owner instruments, not automatic equity-model demand.
+            is_etf = connection.execute(
+                """SELECT 1 FROM control.official_instrument_identity_provenance
+                   WHERE symbol=%s AND instrument_kind IN ('ETF','BOND_ETF')""",
+                (value.symbol,),
+            ).fetchone()
+            if not is_etf:
+                connection.execute("SELECT control.record_deep_tracking_demand(%s)", (value.symbol,))
             self._sync_supplement_demand(connection)
             return dict(row)
 
