@@ -1,4 +1,4 @@
-\\set ON_ERROR_STOP on
+\set ON_ERROR_STOP on
 BEGIN;
 SET ROLE janus_control;
 
@@ -70,6 +70,17 @@ $$;
 REVOKE ALL ON FUNCTION control.register_verified_etf(text,text,text,date,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION control.register_verified_etf(text,text,text,date,text)
   TO janus_private_api, janus_web_control;
+
+-- Seed three verified listed ETFs for the 0050 Owner UAT even when
+-- the official catalogue temporarily blocks an overseas Cloud Run egress.
+-- Sources: TWSE official ISIN directory, listed dates checked 2026-11-04.
+-- Idempotent; disabled instruments remain disabled. No Owner ledger writes.
+SELECT control.register_verified_etf('0050','元大台灣50','TWSE',
+                                     DATE '2003-06-30','twse_isin_etf');
+SELECT control.register_verified_etf('006208','富邦台50','TWSE',
+                                     DATE '2012-07-17','twse_isin_etf');
+SELECT control.register_verified_etf('00878','國泰永續高股息','TWSE',
+                                     DATE '2020-07-20','twse_isin_etf');
 
 -- No grants to public API; model research universe remains untouched.
 -- Temporarily permit existing function owner to replace its own function.
