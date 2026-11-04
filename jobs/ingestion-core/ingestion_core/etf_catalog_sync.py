@@ -34,8 +34,8 @@ def run_weekly() -> dict[str, object]:
                 return {"status": "skipped", "reason": "concurrent_sync"}
             for etf in records:
                 cur.execute(
-                    "SELECT control.register_verified_etf(%s,%s,%s,%s)",
-                    (etf.symbol, etf.name, etf.market, etf.listed_on),
+                    "SELECT control.register_verified_etf(%s,%s,%s,%s,%s)",
+                    (etf.symbol, etf.name, etf.market, etf.listed_on, etf.source_id),
                 )
             cur.execute(
                 """UPDATE control.etf_catalog_sync_state
