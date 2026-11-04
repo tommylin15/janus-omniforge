@@ -12,9 +12,9 @@
 ## P0｜盤中 Shioaji simulation-only 統一接線與多人 singleflight（2026-11-04）
 
 - [x] 需求／SPEC：盤中僅前景／可見頁面 60 秒刷新；不新增 Scheduler／Job；強制 `simulation=True`、不允許下單；官方 Shioaji Quote 訂閱、TAIEX IX0001、來源時間與日期不可偽造。
-- [ ] CODE／TEST：完成 Proxy 訂閱快取與 Shioaji-only 初始化、統一 Janus QuoteRouter 與 PostgreSQL 跨實例鎖、minute chart migration／Flutter 接線，取得同一 main SHA 的全部測試結果。
-- [ ] DEPLOY：完成 migration 073、Proxy Cloud Run `max-instances=1`、Janus API + App Dev 發布，讀回 traffic/revision/config 並保留 rollback 基線。
-- [ ] LIVE ACCEPTANCE：登入 App 正向與 20 concurrent session 同股去重、非盤中／錯誤降級、按需停止及分鐘資料實際讀回 PASS；只依實際證據關閉。
+- [x] CODE／TEST：Proxy `Shioaji(simulation=True)` 及 Quote Callback、Janus QuoteRouter／PG 跨實例 Singleflight、TAIEX 分時點、Flutter 前景按需更新；20 讀者同股僅一次上游刷新 **mock 並發測試 PASS**。完整 Python＋Flutter＋GHCR Release [#41784423406](https://github.com/tommylin15/janus-omniforge/actions/runs/41784423406) PASS，固定來源 `e413957d2bdbbf284a6c2680d7617b563a529de9`。
+- [x] DEPLOY／獨立讀回：073 [#41772753209](https://github.com/tommylin15/janus-omniforge/actions/runs/41772753209)、074 [#41773449030](https://github.com/tommylin15/janus-omniforge/actions/runs/41773449030) PASS；Proxy Revision `shioaji-quote-proxy-00010-4lt` `max-instances=1` [#41782300793](https://github.com/tommylin15/janus-omniforge/actions/runs/41782300793) PASS；API 0% Candidate [#41785490464](https://github.com/tommylin15/janus-omniforge/actions/runs/41785490464)、Auth [#41785676133](https://github.com/tommylin15/janus-omniforge/actions/runs/41785676133)、API-only 100% 切流 [#41786193958](https://github.com/tommylin15/janus-omniforge/actions/runs/41786193958)、獨立 postcut [#41786464368](https://github.com/tommylin15/janus-omniforge/actions/runs/41786464368) PASS：`janus-api-00663-qiv` 現役 100%，保留舊版 `0139feff5bda7cfcbf4b9e4c90c6b13f784de44e` 作回復基準。Jobs／Scheduler／IAM 未改。
+- [ ] LIVE ACCEPTANCE（未結，**不能以部署成功冒充**）：已驗到休市時 `market-home`／2330 HTTP 200，當日 `twse_mis`、`closing_pending_eod`，TAIEX 分鐘點 **0**（按需模式沒有訪問就不採集）；尚需交易時段 09:00–13:30 真實 60 秒多輪行情（2330／TAIEX／TPEx）、私有 Proxy `/health` 實際 `simulation=true`、Owner 登入今日／關注／持股／個股及實際 20 concurrent Session 去重、離頁停止／故障降級、有效分鐘點讀回。CI 身分目前不能直接呼叫私有 Proxy，不擅自擴 IAM；並行 ETF 075 另案驗收。
 
 
 
@@ -22,7 +22,7 @@
 
 - [x] **架構移轉至 janus-omniforge**：建立專屬服務目錄 [`services/shioaji_quote_proxy/`](file:///home/tommylin15_gmail_com/.gemini/antigravity-cli/scratch/janus-omniforge/services/shioaji_quote_proxy/)，統一股市即時行情治理。
 - [x] **憑證注入（零重複密鑰）**：Cloud Run 直接掛載既有 Secret Manager `janus-runtime-bundle:latest`，執行階段自動解析 `shioaji_api_key`、`shioaji_secret_key`。
-- [x] **雙軌轉發設計**：以 Shioaji 原生 Snapshot 查詢為主軌，在地 TWSE MIS 為備援軌，提供 `/health`、`/quotes`、`/quote/{symbol}` 端點。
+- [x] **雙軌轉發設計**：以 Shioaji `Quote` 訂閱／共用快取為主軌，在地 TWSE MIS 為按需備援軌，提供 `/health`、`/quotes`、`/quote/{symbol}` 端點。
 - [x] **私有 IAM 權限**：Cloud Run `--no-allow-unauthenticated`，授權 `postgres-vm@gen-lang-client-0593591102.iam.gserviceaccount.com` 與 `janus-user-api@gen-lang-client-0593591102.iam.gserviceaccount.com`。
 - [x] **自動化發布與驗證**：建立工作流程 [`.github/workflows/deploy-shioaji-quote-proxy.yml`](file:///home/tommylin15_gmail_com/.gemini/antigravity-cli/scratch/janus-omniforge/.github/workflows/deploy-shioaji-quote-proxy.yml)，服務已在 `asia-east1` 正式上線（URL: `https://shioaji-quote-proxy-131494961796.asia-east1.run.app`），本機 VM 實測 `/quotes?symbols=2382,2327,5876` 取得即時報價 PASS。
 - 完整設計與調用規範詳見 [Shioaji Quote Proxy SPEC](spec/shioaji-quote-proxy.md)。
