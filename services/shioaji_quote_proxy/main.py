@@ -92,12 +92,24 @@ class ShioajiManager:
 
         try:
             import shioaji as sj
-            self.api = sj.Shioaji()
-            LOGGER.info("Connecting to Shioaji...")
-            accounts = self.api.login(
-                api_key=self.api_key,
-                secret_key=self.secret_key,
-            )
+            LOGGER.info("Connecting to Shioaji (Production mode)...")
+            self.api = sj.Shioaji(simulation=False)
+            try:
+                accounts = self.api.login(
+                    api_key=self.api_key,
+                    secret_key=self.secret_key,
+                )
+            except Exception as prod_err:
+                if "production permission" in str(prod_err).lower():
+                    LOGGER.info("Production permission denied, trying Shioaji simulation mode...")
+                    self.api = sj.Shioaji(simulation=True)
+                    accounts = self.api.login(
+                        api_key=self.api_key,
+                        secret_key=self.secret_key,
+                    )
+                else:
+                    raise prod_err
+
             self.logged_in = True
             self.login_error = None
             LOGGER.info("Shioaji login successful. Accounts: %s", len(accounts) if accounts else 0)
