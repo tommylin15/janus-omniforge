@@ -1255,6 +1255,23 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def portfolio_quotes(current: AuthenticatedUser = Depends(user)):
         return resolved_portfolio_quotes(current)
 
+    @private.get("/portfolio/intraday")
+    def portfolio_intraday(symbol: str = Query(..., pattern=r"^[0-9A-Z]{4,10}$"),
+                           current: AuthenticatedUser = Depends(user)):
+        """Owner-only persisted observations; never triggers an upstream quote."""
+        owned = repository.positions(current.user_id)
+        if not any(str(p.get("symbol")) == symbol and
+                   p.get("currency") == "TWD" and
+                   Decimal(str(p.get("shares") or 0)) > 0 for p in owned):
+            raise HTTPException(status_code=404, detail="未持有此標的")
+        today = datetime.now(TAIPEI).date()
+        rows = repository.stock_intraday_points(symbol, trade_date=today)
+        return jsonable_encoder({
+            "symbol": symbol, "as_of": today.isoformat(), "items": rows,
+            "observation_kind": "page_demanded_minutes",
+            "is_full_day": False, "count": len(rows),
+        })
+
     @private.post("/portfolio/quotes/refresh")
     def refresh_portfolio_quotes(current: AuthenticatedUser = Depends(user)):
         return resolved_portfolio_quotes(current, force=True)
