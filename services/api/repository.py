@@ -605,8 +605,8 @@ class PostgresWorkspaceRepository:
         """Only the official-code resolver is allowed to reach the bounded DB function."""
         with self._connection() as connection:
             row = connection.execute(
-                "SELECT control.register_verified_etf(%s,%s,%s,%s) AS accepted",
-                (identity.symbol, identity.name, identity.market, identity.listed_on),
+                "SELECT control.register_verified_etf(%s,%s,%s,%s,%s) AS accepted",
+                (identity.symbol, identity.name, identity.market, identity.listed_on, identity.source_id),
             ).fetchone()
             if not row or row["accepted"] is not True:
                 raise ConflictError("verified ETF registration was rejected")
