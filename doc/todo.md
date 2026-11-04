@@ -4,7 +4,8 @@
 
 - [x] SPEC／CODE：以普通股研究母體外的交易標的資料接入 ETF；本地優先、官方即時解析、每週附掛既有收集、外幣與錯誤 fail-closed；實作於 [ETF 名冊 SPEC](spec/etf-tradeable-catalog.md)。
 - [x] 單元測試案例已提交：TWSE 官方 OpenAPI／ISIN 解析、精確代碼、失效源與非 TWD 類別；**尚不將案例提交視為 PASS**。
-- [ ] TEST／CI：在同一 `main` SHA 執行 `tests/test_etf_catalog.py`、API／Flutter 相關測試並讀回結果。
+- [x] ETF 定向 Python TEST／CI：`main` `57eb9c821092ea1a4e3e3f117e6e9029b3d1a50d` 的 [Janus V2 selective CI #41785361458](https://github.com/tommylin15/janus-omniforge/actions/runs/41785361458) PASS（含 `tests/test_etf_catalog.py`）；此收據不等於資料庫、Flutter 實機或 Dev API 已部署驗收。
+- [ ] Flutter／整合與真實來源：在 075 migration 與同版 Dev 部署後，驗證前端下拉選項、Owner 錯誤處理與官方連線可達。
 - [ ] DEV MIGRATION／DEPLOY：套用 `075_etf_tradeable_catalog.sql`，確認 DB 函式權限與資料不混入模型母體，再以固定 digest 發布 API／App／ingestion-core；不建立新排程。
 - [ ] LIVE UAT：Owner 登入搜尋 `0050`／`006208`／`00878`，能選取試算，取消不入帳；驗證普通股不退化、官方來源不可用時無虛構代碼、兩市場週同步讀回。**尚未驗收前不標完成。**
 
