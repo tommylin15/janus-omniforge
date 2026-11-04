@@ -7,7 +7,7 @@ import pytest
 from packages import etf_catalog as catalog
 from packages.etf_catalog import (
     EtfCatalogUnavailable, OfficialEtf, looks_like_etf_code,
-    parse_isin_etfs, find_official_etf, weekly_official_catalogue,
+    parse_isin_etfs, parse_twse_openapi_etfs, find_official_etf, weekly_official_catalogue,
 )
 
 
@@ -42,6 +42,22 @@ def test_strict_official_etf_classification_and_market():
     assert not looks_like_etf_code("0050' OR 1=1")
 
 
+
+def test_twse_openapi_uses_explicit_listing_date_and_preserves_source():
+    rows = [
+        {"基金代號": "0050", "基金簡稱": "元大台灣50", "上市日期": "2003/06/30"},
+        {"基金代號": "00687C", "基金簡稱": "美元加掛", "上市日期": "2025/01/10"},
+        {"基金代號": "2330", "基金簡稱": "非ETF", "上市日期": "1994/01/01"},
+        {"基金代號": "00999", "基金簡稱": "尚未上市", "上市日期": "2027/01/01"},
+    ]
+    found = parse_twse_openapi_etfs(rows, as_of=date(2026, 11, 4))
+    assert found == [OfficialEtf("0050", "元大台灣50", "TWSE", date(2003, 6, 30), "twse_openapi_etf")]
+
+
+def test_foreign_currency_classes_are_not_twd_ledger_options():
+    with pytest.raises(EtfCatalogUnavailable):
+        parse_isin_etfs(_html([_row("00687C", "美元加掛")]), market="TWSE")
+
 def test_missing_or_corrupt_source_fails_closed():
     with pytest.raises(EtfCatalogUnavailable):
         parse_isin_etfs("<html>blocked</html>", market="TWSE")
@@ -52,7 +68,7 @@ def test_missing_or_corrupt_source_fails_closed():
 def test_official_code_lookup_only_uses_exact_match(monkeypatch):
     catalog._lookup_cached.cache_clear()
     record = OfficialEtf("0050", "元大台灣50", "TWSE", date(2003, 6, 30))
-    monkeypatch.setattr(catalog, "fetch_isin_etfs", lambda market: [record] if market == "TWSE" else [])
+    monkeypatch.setattr(catalog, "fetch_market_etfs", lambda market, **kw: [record] if market == "TWSE" else [])
     assert find_official_etf("0050") == record
     assert find_official_etf("005") is None
     assert find_official_etf("2330") is None
@@ -61,7 +77,7 @@ def test_official_code_lookup_only_uses_exact_match(monkeypatch):
 
 
 def test_weekly_requires_both_markets(monkeypatch):
-    monkeypatch.setattr(catalog, "fetch_isin_etfs", lambda market, **kw: [
+    monkeypatch.setattr(catalog, "fetch_market_etfs", lambda market, **kw: [
         OfficialEtf(f"00{i:03d}", f"ETF-{i}", market, date(2020, 1, 1))
         for i in range(10)
     ] if market == "TWSE" else [])
