@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "595f805bf1978991855c538ef17e5a07d6683a06",
+  "sha": "5806520681b51c262846253a45ec212078284ca7",
   "digest": "",
-  "release_run": "41772990262",
+  "release_run": "41774247442",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-04 Simulation-only Shioaji 共用報價接線及 073/074 migration 後的 API 0% candidate，保留現役 100% 回復基準，無 Job/Scheduler 變更。",
-  "request_attempt": 40
+  "purpose": "2026-11-04 Final simulation=True Shioaji quote bridge, 60s demand-driven multi-user singleflight, Shioaji Owner PnL source, hidden-tab guard and TAIEX intraday chart; exact GHCR release #41774247442, 0% candidate only.",
+  "request_attempt": 41
 }
