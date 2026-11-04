@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "2d0e874ce3efdee03e344370d7b6bde09dc54d87",
-  "promotion_run": "40059471185",
+  "source_sha": "daaa49b286c12f00034ef9dddd90897141080403",
+  "promotion_run": "41809140720",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "Existing dev 100% source, source image, build-id and app; Owner private + GET-only Admin batch-dashboard must return anonymous 401/403; public history is optional. Corrected method contract; zero GCP writes or API re-deploy.",
-  "request_attempt": 3
+  "purpose": "2026-11-04 LIVE-HOME-01 independent read-only postcut verification: 100% source SHA and immutable GHCR image; public market-home with actual minute list; private Owner stock-minute API 401 to unauthenticated clients; no user, trade, GCP or traffic mutations.",
+  "request_attempt": 4
 }
