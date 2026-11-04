@@ -2,6 +2,10 @@
 
 # Janus — 工作責任與順序
 
+## LIVE-HOME-01｜今日盤中即時線圖與持股摘要（2026-11-04）
+
+依使用者要求單一工程批次執行至 Dev 發布後再集中驗收：參考 [今日首頁線圖 V1 SPEC](spec/today-live-home-2026-11-04.md)；橫跨 WBS 6（Flutter 今日頁）、4J（Owner 私有報價）、3（非 canonical 分鐘觀測）、8（測試／發布）。按 SPEC → Migration 076／API／UI → 定向＋完整測試 → Dev migration → 同版 Release／0% Candidate → Auth Boundary → 100% Promotion → Live acceptance 執行。**沿用既有 Shioaji simulation=true、QuoteRouter singleflight、60 秒可見頁面刷新，不新增模型／作業排程。** 未取得真實行情證據的子項維持待驗收，唯一進度以 [TODO](todo.md) 為準。
+
 ## ETF-01｜交易標的名冊修復（2026-11-04）
 
 跨 WBS 3（既有資料收集）、4J（Owner 交易）、6（API／App）及 8（測試／發版）的有界功能修復；規格在 [ETF 可交易名冊](spec/etf-tradeable-catalog.md)，**唯一進度**在 [TODO](todo.md)。順序：SPEC → ETF 來源解析／DB 權限與 API／UI → 定向 CI → 075 Dev migration → 同版部署 → Owner 搜尋／試算與週同步 live UAT。不得另開 Scheduler，亦不得將 ETF 併入普通股模型母體。程式完成不代表 migration 或驗收完成。
