@@ -1,13 +1,15 @@
 # Janus — 唯一 Active TODO
 
-## P1｜ETF 可交易名冊／0050 新增交易（2026-11-04）
+## 已結案｜ETF 可交易名冊／0050 新增交易｜程式／Dev 發布／Owner 驗收 PASS（2026-11-04）
 
-- [x] SPEC／CODE：以普通股研究母體外的交易標的資料接入 ETF；本地優先、官方即時解析、每週附掛既有收集、外幣與錯誤 fail-closed；實作於 [ETF 名冊 SPEC](spec/etf-tradeable-catalog.md)。
-- [x] 單元測試案例已提交：TWSE 官方 OpenAPI／ISIN 解析、精確代碼、失效源與非 TWD 類別；**尚不將案例提交視為 PASS**。
-- [x] ETF 定向 Python TEST／CI：`main` `57eb9c821092ea1a4e3e3f117e6e9029b3d1a50d` 的 [Janus V2 selective CI #41785361458](https://github.com/tommylin15/janus-omniforge/actions/runs/41785361458) PASS（含 `tests/test_etf_catalog.py`）；此收據不等於資料庫、Flutter 實機或 Dev API 已部署驗收。
-- [ ] Flutter／整合與真實來源：在 075 migration 與同版 Dev 部署後，驗證前端下拉選項、Owner 錯誤處理與官方連線可達。
-- [ ] DEV MIGRATION／DEPLOY：套用 `075_etf_tradeable_catalog.sql`，確認 DB 函式權限與資料不混入模型母體，再以固定 digest 發布 API／App／ingestion-core；不建立新排程。
-- [ ] LIVE UAT：Owner 登入搜尋 `0050`／`006208`／`00878`，能選取試算，取消不入帳；驗證普通股不退化、官方來源不可用時無虛構代碼、兩市場週同步讀回。**尚未驗收前不標完成。**
+- [x] SPEC／CODE：ETF 與一般股票共用交易／關注標的搜尋，本地名冊優先、查無再查 TWSE OpenAPI／ISIN；ETF 不因登錄而混入普通股模型研究母體。詳見 [ETF 名冊規格](spec/etf-tradeable-catalog.md)。
+- [x] Python／Flutter 與整版 GHCR Release [#41787167591](https://github.com/tommylin15/janus-omniforge/actions/runs/41787167591) PASS，固定發佈來源 `60b10da3e2ed4a5b5de3933e592cd8c246f0dcb8`。
+- [x] Dev Migration 075 [#41786939582](https://github.com/tommylin15/janus-omniforge/actions/runs/41786939582) PASS；含官方確認的 0050／006208／00878 名冊種子，原交易資料未改寫。
+- [x] API 零流量 Candidate [#41787850394](https://github.com/tommylin15/janus-omniforge/actions/runs/41787850394)、Auth／Owner 負向邊界 [#41788086913](https://github.com/tommylin15/janus-omniforge/actions/runs/41788086913)、Dev API 100% 切流 [#41788208137](https://github.com/tommylin15/janus-omniforge/actions/runs/41788208137) 均 PASS。
+- [x] 四 Jobs rollout [#41788625133](https://github.com/tommylin15/janus-omniforge/actions/runs/41788625133) PASS；80 項 rollout 契約測試、固定映像與 rollback 基準保留。前次 [#41788439610](https://github.com/tommylin15/janus-omniforge/actions/runs/41788439610) 因 rollback digest 格式錯誤在執行前失敗，重試成功。
+- [x] **Owner UAT 使用者確認 PASS（2026-11-04）**：使用者回覆「驗收完畢」，確認本次 ETF 新增交易功能可結案；未附各測項的獨立畫面／逐項收據，不把此口頭驗收延伸為官方來源故障注入、週期自然執行或所有市場商品的驗證。
+- [ ] **後續維運觀察（不阻擋本次 Owner 功能結案）**：既有 `unified_collection` 七天 ETF 名冊同步已透過 Jobs rollout 上線，仍需首次自然觸發後讀回 `control.etf_catalog_sync_state.last_success_at`、`last_count`、官方來源可達性、成功／降級收據；未取得此證據前不宣稱週同步 live success。
+
 
 ## P0｜盤中 Shioaji simulation-only 統一接線與多人 singleflight（2026-11-04）
 
