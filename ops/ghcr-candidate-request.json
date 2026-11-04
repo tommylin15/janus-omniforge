@@ -7,6 +7,6 @@
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-04 retry zero-traffic fixed e413957d Shioaji quote candidate; exact full release 41784423406 PASS; prior try 41785097058 BLOCKED at current-main lease with zero GCP writes; no traffic or jobs mutation.",
-  "request_attempt": 44
+  "purpose": "2026-11-04 zero traffic Shioaji e413957d verified full release; third retry after concurrent ETF main updates invalidated lease source (previous both zero mutations); keep strict lease, no bypass, no scheduler/Jobs/traffic mutation.",
+  "request_attempt": 45
 }
