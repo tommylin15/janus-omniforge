@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "bc3f53bcb9a52b67e52e3eb0ae1cc15155a13cd5",
+  "sha": "e413957d2bdbbf284a6c2680d7617b563a529de9",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-04 corrected Shioaji simulation-only candidate #41776394106. Require OAuth/private boundary PASS plus live public TAIEX/2330 quote readback compared with active before any traffic cutover.",
-  "request_attempt": 38
+  "purpose": "2026-11-04 Shioaji simulation=True shared quote release 41784423406, zero-traffic candidate 41785490464 PASS. Read-only exact build, OAuth/MCP/private denial, market-home and 2330 quote compared with current active. Off-session quote may remain stale; no fake intraday freshness.",
+  "request_attempt": 39
 }
