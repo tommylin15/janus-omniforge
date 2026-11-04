@@ -1,5 +1,13 @@
 # Janus — 唯一 Active TODO
 
+## P0｜今日首頁即時線圖重構（2026-11-04）
+
+- [x] SPEC：移除過期「今天值得看」與盤前／盤後卡；今日頁預設加權指數盤中線、觀測高低時間／區間位階；持股前三檔摘要、可選個股分鐘線。正式規格見 [今日首頁 V1](spec/today-live-home-2026-11-04.md)。
+- [x] CODE：沿用 Shioaji `simulation=True` 與現有 QuoteRouter singleflight；新增 `076_operational_stock_minutes`、Owner-only `/portfolio/intraday`、Flutter 首頁按需分鐘線／非即時降級、系列圖極值標記及定向測試。此項僅代表程式提交，**不代表驗收完成**。
+- [ ] TEST：同版 Python／Flutter 全量測試與 GHCR 發布讀回；確認 `today-changes` 不再由首頁請求，持股資料失聯、不可見頁面與來源時間無法偽裝為即時。
+- [ ] DEV MIGRATION／DEPLOY：既有 Dev 資料庫套用 076 → 0% Candidate → OAuth／Owner 邊界 → 固定映像 API／Flutter 100% 切流；保留 rollback，無新 Scheduler／Job／付費資源。
+- [ ] FINAL ACCEPTANCE：Live 讀回今日公開大盤與 Owner 個股分鐘點；交易時段至少兩筆真實分鐘觀測才可確認極值時間與 60 秒更新。未取得真人登入或盤中資料者維持 PARTIAL，集中一次回報，不分段要求使用者操作。
+
 ## 已結案｜ETF 可交易名冊／0050 新增交易｜程式／Dev 發布／Owner 驗收 PASS（2026-11-04）
 
 - [x] SPEC／CODE：ETF 與一般股票共用交易／關注標的搜尋，本地名冊優先、查無再查 TWSE OpenAPI／ISIN；ETF 不因登錄而混入普通股模型研究母體。詳見 [ETF 名冊規格](spec/etf-tradeable-catalog.md)。
