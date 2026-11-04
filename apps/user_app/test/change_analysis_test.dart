@@ -120,27 +120,21 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('homepage changes precede market and session switch is read only',
+  testWidgets('homepage removes stale today-changes while keeping market first',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final api = ChangesApi();
-    String? selected;
-    await tester.pumpWidget(MaterialApp(
-        home: FinalTodayPage(api, onOpenStock: (s) => selected = s)));
+    await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
     await tester.pumpAndSettle();
-    final change = find.textContaining('2330 · 增強');
-    expect(change, findsOneWidget);
-    expect(tester.getTopLeft(change).dy,
-        lessThan(tester.getTopLeft(find.text('加權指數')).dy));
-    await tester.tap(change);
-    expect(selected, '2330');
-    await tester.tap(find.text('盤前'));
-    await tester.pumpAndSettle();
-    expect(api.calls.where((p) => p.contains('today-changes')).length, 2);
-    expect(api.calls.last, '/api/v1/me/today-changes?session=premarket');
+    expect(find.textContaining('2330 · 增強'), findsNothing);
+    expect(find.text('今天值得看'), findsNothing);
+    expect(find.text('盤前'), findsNothing);
+    expect(find.text('盤後'), findsNothing);
+    expect(find.text('加權指數'), findsOneWidget);
+    expect(api.calls.where((p) => p.contains('today-changes')), isEmpty);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
