@@ -150,7 +150,7 @@ jobs:
       - name: SEQ-01 full offline Python and shell regressions
         run: |
           bash scripts/test-unified-batch.sh
-          python -m pytest -q tests/test_shioaji_quote_integration.py tests/test_quote_router_broker.py tests/test_home_market_snapshot.py
+          PYTHONPATH=jobs/ingestion-core:jobs/intelligence-mart:. python -m pytest -q tests/test_shioaji_quote_integration.py tests/test_quote_router_broker.py tests/test_home_market_snapshot.py
 
   seq01-flutter-admin:
     needs: plan
