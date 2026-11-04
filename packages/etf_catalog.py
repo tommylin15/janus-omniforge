@@ -177,11 +177,19 @@ def fetch_market_etfs(market: str, *, timeout_seconds: float = 4.0) -> list[Offi
 
 @lru_cache(maxsize=8)
 def _lookup_cached(symbol: str, hour_bucket: int) -> OfficialEtf | None:
-    # At most two bounded official reads per cold-cache hour; no fuzzy ticker admission.
+    # A failed listed-market source must not prevent an OTC ETF from resolving.
+    unavailable = False
     for market in MARKETS:
-        for record in fetch_market_etfs(market):
+        try:
+            records = fetch_market_etfs(market)
+        except EtfCatalogUnavailable:
+            unavailable = True
+            continue
+        for record in records:
             if record.symbol == symbol:
                 return record
+    if unavailable:
+        raise EtfCatalogUnavailable("one or more official ETF markets unavailable")
     return None
 
 
