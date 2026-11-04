@@ -64,3 +64,19 @@
 - 工作流程檔：[`.github/workflows/deploy-shioaji-quote-proxy.yml`](file:///home/tommylin15_gmail_com/.gemini/antigravity-cli/scratch/janus-omniforge/.github/workflows/deploy-shioaji-quote-proxy.yml)
 - 觸發條件：`services/shioaji_quote_proxy/**` 異動時自動觸發。
 - 驗收項目：單元測試、Cloud Build 容器構建、Cloud Run 部署、IAM 授權綁定與 OIDC Smoke Test。
+
+---
+
+## 6. 強制 Shioaji Simulation 模式（2026-11-04 使用者決策）
+
+本規範適用於 `shioaji-quote-proxy` 現有服務及後續 Janus 全盤中行情統一接線、多人共用、按需更新的所有實作，優先於其他未明列 Simulation 模式的說明。
+
+1. Shioaji Client **必須明確初始化為 `sj.Shioaji(simulation=True)`**。不可依賴套件預設值，不得透過環境變數、fallback、重新登入或其他程式碼路徑將其改成 `simulation=False`；無法確認模式時 fail closed，不使用未確認模式的 Shioaji 連線。
+2. Proxy 僅可使用行情讀取／訂閱 API（例如 `quote.subscribe`、`quote.unsubscribe`、`ticks`、`kbars`、`snapshots`），**禁止實作或呼叫任何下單、改單、取消單、帳戶交易功能**。Simulation 不等於 API 不存在下單能力，仍須保留程式級禁止交易邊界。
+3. 必須讓私有 health／診斷結果可讀回 `simulation=true` 的實際 Client 初始化模式；啟動、重連、重啟及部署後驗收都核對它，不能僅以文件或設定宣稱已生效。
+4. 與盤中按需架構配合：頁面前景有效時每 60 秒 revalidate，關閉或背景停止；跨使用者／API instance 依 shared quote cache + distributed singleflight/lease 去重；不可因多人進入頁面重複建立 Shioaji login／訂閱。不得新增每分鐘 Cloud Scheduler／Job。行情模式及價格來源須分開標記，模擬交易模式不等於行情價格可虛構。
+5. Shioaji 官方提醒 `snapshots()` 不得盤中反覆輪詢當即時 feed，正式每分鐘 UI 讀取應建立在受控的 `quote.subscribe()` 訂閱快取上；只有取得合法實際行情時才能呈現，缺值保留 missing／stale，不能拿昨收假冒當日成交。
+
+**實作／驗收狀態：**本節是使用者核准的強制設計要求，僅回寫 SPEC。現有 `services/shioaji_quote_proxy/main.py` 的 `sj.Shioaji()` 尚未改為明確 `simulation=True`；不能因文檔更新宣稱目前 Runtime 已符合。本節修改不觸發部署；後續工程需補程式、測試、CI、Cloud Run Live 讀回才可關閉。
+
+參考：[Shioaji 官方 Simulation Mode](https://sinotrade.github.io/tutor/simulation/)；[官方 Snapshot 使用限制](https://sinotrade.github.io/zh/tutor/market_data/snapshot/)。
