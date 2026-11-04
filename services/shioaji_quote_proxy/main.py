@@ -131,14 +131,26 @@ class ShioajiManager:
         LOGGER.info("Shioaji contracts background callback received for %s", security_type)
 
     def get_quotes(self, symbols: List[str]) -> Dict[str, Any]:
-        """Shared quote subscriptions; any missing items use bounded MIS fallback."""
-        with self._connection_lock:
-            if not self.logged_in:
-                self.initialize()
-            if self.logged_in and not hasattr(self, "_stream_cache"):
-                from .streaming import StreamCache
-                self._stream_cache = StreamCache(self.api)
-        quotes = self._stream_cache.read(symbols) if hasattr(self, "_stream_cache") else {}
+        """Shared demand-driven quotes, with bounded MIS fallback on stream errors."""
+        quotes: Dict[str, Any] = {}
+        try:
+            with self._connection_lock:
+                if not self.logged_in:
+                    self.initialize()
+                if self.logged_in and not hasattr(self, "_stream_cache"):
+                    # Docker runs "uvicorn main:app" from /app, not as a
+                    # package. CI imports services.shioaji_quote_proxy.main.
+                    if __package__:
+                        from .streaming import StreamCache
+                    else:
+                        from streaming import StreamCache
+                    self._stream_cache = StreamCache(self.api)
+            if hasattr(self, "_stream_cache"):
+                quotes = self._stream_cache.read(symbols)
+        except Exception as error:
+            # Never leak broker account/session data in exceptions or responses.
+            # A stream SDK failure must not turn the entire /quotes API into 500.
+            LOGGER.warning("Shioaji streaming unavailable: %s", type(error).__name__)
         now = monotonic()
         # Fallback stays inside this proxy. A missing stream quote is never
         # filled by yesterday's close or claimed as Shioaji.
