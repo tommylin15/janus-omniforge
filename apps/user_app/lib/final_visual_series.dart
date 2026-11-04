@@ -10,7 +10,7 @@ enum FvTableSummary { latest, sum, average }
 class FvVisualSeriesChart extends StatefulWidget {
   const FvVisualSeriesChart({required this.rows, required this.label, required this.unit,
     this.height = 175, this.bars = false, this.dailyTable = false,
-    this.intraday = false, this.showTable = true,
+    this.intraday = false, this.showTable = true, this.markExtrema = false,
     this.tableSummary = FvTableSummary.latest, super.key});
   final List<dynamic> rows;
   final String label;
@@ -20,6 +20,7 @@ class FvVisualSeriesChart extends StatefulWidget {
   final bool dailyTable;
   final bool intraday;
   final bool showTable;
+  final bool markExtrema;
   final FvTableSummary tableSummary;
   @override
   State<FvVisualSeriesChart> createState() => _FvVisualSeriesChartState();
@@ -58,9 +59,17 @@ class _FvVisualSeriesChartState extends State<FvVisualSeriesChart> {
       highlighted!.clamp(0, points.length - 1);
     final unit = const {'times': '倍', 'percent': '%', 'shares': '股',
       'TWD_thousands': '千元', 'TWD_per_share': '元／股'}[widget.unit] ?? widget.unit;
-    String stamp(DateTime value) => widget.intraday
-        ? "${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}"
-        : value.toIso8601String().substring(0, 10);
+    String stamp(DateTime value) {
+      if (!widget.intraday) return value.toIso8601String().substring(0, 10);
+      final taipei = value.toUtc().add(const Duration(hours: 8));
+      return "${taipei.hour.toString().padLeft(2, '0')}:${taipei.minute.toString().padLeft(2, '0')}";
+    }
+    final highest = points.reduce((a, b) => a.$2 >= b.$2 ? a : b);
+    final lowest = points.reduce((a, b) => a.$2 <= b.$2 ? a : b);
+    final range = highest.$2 - lowest.$2;
+    final currentLevel = range > 0
+        ? (100 * (points.last.$2 - lowest.$2) / range).clamp(0.0, 100.0)
+        : null;
     return fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(child: Text(widget.label, style: const TextStyle(color: fvInk, fontWeight: FontWeight.w800))),
@@ -72,6 +81,23 @@ class _FvVisualSeriesChartState extends State<FvVisualSeriesChart> {
       if (samples.any((sample) => sample.$2 == null))
         const Text('部分日期缺值，圖線不跨越缺口',
           style: TextStyle(color: fvMuted, fontSize: 11)),
+      if (widget.intraday && widget.markExtrema) ...[
+        const SizedBox(height: 8),
+        Wrap(spacing: 14, runSpacing: 5, children: [
+          Text('觀測高 ${legacy.accountingNumber(highest.$2, decimals: 2)} · ${stamp(highest.$1)}',
+            key: const Key('intraday-observed-high'),
+            style: const TextStyle(color: fvGain, fontWeight: FontWeight.w700, fontSize: 12)),
+          Text('觀測低 ${legacy.accountingNumber(lowest.$2, decimals: 2)} · ${stamp(lowest.$1)}',
+            key: const Key('intraday-observed-low'),
+            style: const TextStyle(color: fvLoss, fontWeight: FontWeight.w700, fontSize: 12)),
+          Text(currentLevel == null
+              ? '區間位階：待形成高低區間'
+              : '區間位階：${currentLevel.toStringAsFixed(1)}%',
+            style: const TextStyle(color: fvInk, fontSize: 12)),
+        ]),
+        const Text('僅為頁面觸發後收集的分鐘點；未取樣時段不補點，不代表全天高低。',
+            style: TextStyle(fontSize: 11, color: fvMuted)),
+      ],
       const SizedBox(height: 10),
       LayoutBuilder(builder: (context, bounds) => GestureDetector(
         onTapDown: (detail) {
@@ -83,7 +109,8 @@ class _FvVisualSeriesChartState extends State<FvVisualSeriesChart> {
           label: '${widget.label}，可點選歷史日期和數值',
           child: SizedBox(height: widget.height, width: double.infinity,
             child: CustomPaint(key: const Key('fv-visual-series-chart'),
-              painter: _SeriesPainter(points, index, breakBefore, widget.bars))),
+              painter: _SeriesPainter(points, index, breakBefore, widget.bars,
+                  widget.intraday && widget.markExtrema))),
         ),
       )),
       const SizedBox(height: 8),
@@ -163,11 +190,12 @@ class _SeriesTable extends StatelessWidget {
 }
 
 class _SeriesPainter extends CustomPainter {
-  const _SeriesPainter(this.points, this.highlight, this.breakBefore, this.bars);
+  const _SeriesPainter(this.points, this.highlight, this.breakBefore, this.bars, this.markExtrema);
   final List<(DateTime, double)> points;
   final int highlight;
   final Set<int> breakBefore;
   final bool bars;
+  final bool markExtrema;
   @override
   void paint(Canvas canvas, Size size) {
     final values = points.map((e) => e.$2);
@@ -211,12 +239,22 @@ class _SeriesPainter extends CustomPainter {
     }
     canvas.drawPath(path, Paint()..color = fvTeal..strokeWidth = 2.5
       ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
+    if (markExtrema) {
+      var highIndex = 0, lowIndex = 0;
+      for (var i = 1; i < points.length; i++) {
+        if (points[i].$2 > points[highIndex].$2) highIndex = i;
+        if (points[i].$2 < points[lowIndex].$2) lowIndex = i;
+      }
+      canvas.drawCircle(coord(highIndex), 5, Paint()..color = fvGain);
+      canvas.drawCircle(coord(lowIndex), 5, Paint()..color = fvLoss);
+    }
     canvas.drawCircle(coord(highlight), 4.5, Paint()..color = fvTeal);
     canvas.drawCircle(coord(highlight), 2, Paint()..color = Colors.white);
   }
   @override
   bool shouldRepaint(covariant _SeriesPainter old) {
-    if (bars != old.bars || highlight != old.highlight || points.length != old.points.length ||
+    if (bars != old.bars || markExtrema != old.markExtrema ||
+        highlight != old.highlight || points.length != old.points.length ||
         breakBefore.length != old.breakBefore.length) return true;
     for (final index in breakBefore) {
       if (!old.breakBefore.contains(index)) return true;
