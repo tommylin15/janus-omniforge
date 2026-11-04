@@ -2,6 +2,10 @@
 
 # Janus — 工作責任與順序
 
+## ETF-01｜交易標的名冊修復（2026-11-04）
+
+跨 WBS 3（既有資料收集）、4J（Owner 交易）、6（API／App）及 8（測試／發版）的有界功能修復；規格在 [ETF 可交易名冊](spec/etf-tradeable-catalog.md)，**唯一進度**在 [TODO](todo.md)。順序：SPEC → ETF 來源解析／DB 權限與 API／UI → 定向 CI → 075 Dev migration → 同版部署 → Owner 搜尋／試算與週同步 live UAT。不得另開 Scheduler，亦不得將 ETF 併入普通股模型母體。程式完成不代表 migration 或驗收完成。
+
 ## 個人策略功能順序（2026-10-31）
 
 新增本功能PS-01→PS-02→PS-03→PS-04，角色／依賴／四階段出口見[工程卡](execution-cards/personal-strategy.md)，正式契約見[SPEC](spec/personal-strategy-briefings.md)。唯一狀態仍在[TODO](todo.md)，本輪文件及程式已撰寫，測試驗收／migration／部署均待其他AI執行。PS依序涵蓋策略樣板與週額度、S/A/B/C及同步、四模式背景報告、獨立唯讀頁與每類3份留存；不重開SEQ。
