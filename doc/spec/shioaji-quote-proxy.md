@@ -17,7 +17,7 @@
   - 重用既有 GCP Secret Manager 的 `janus-runtime-bundle:latest`，絕不重複建立冗餘密鑰或在程式庫中明文存放憑證。
   - 容器於啟動時由環境變數讀取 JSON Bundle，自動提取 `shioaji_api_key`、`shioaji_secret_key` 等憑證。
 - **雙軌行情備援設計**：
-  1. **主軌（Shioaji 原生）**：容器連線永豐金證券 API，下載股票合約快取，透過 `api.snapshots()` 取得高頻即時行情。
+  1. **主軌（Shioaji 原生）**：容器連線永豐金證券 API，下載股票合約快取，透過受控的 `quote.subscribe()` 回調更新共用行情快取；UI 每 60 秒按需讀取，不在盤中高頻輪詢 `api.snapshots()`。
   2. **備援軌（在地 TWSE MIS）**：若遇非交易時段、合約未及下載或券商伺服器維護，由位於台灣的容器直接向 `mis.twse.com.tw` 發送請求並解析五檔與成交數據，確保轉發 API 100% 可用。
 
 ---
@@ -77,7 +77,7 @@
 4. 與盤中按需架構配合：頁面前景有效時每 60 秒 revalidate，關閉或背景停止；跨使用者／API instance 依 shared quote cache + distributed singleflight/lease 去重；不可因多人進入頁面重複建立 Shioaji login／訂閱。不得新增每分鐘 Cloud Scheduler／Job。行情模式及價格來源須分開標記，模擬交易模式不等於行情價格可虛構。
 5. Shioaji 官方提醒 `snapshots()` 不得盤中反覆輪詢當即時 feed，正式每分鐘 UI 讀取應建立在受控的 `quote.subscribe()` 訂閱快取上；只有取得合法實際行情時才能呈現，缺值保留 missing／stale，不能拿昨收假冒當日成交。
 
-**實作／驗收狀態：**本節是使用者核准的強制設計要求，僅回寫 SPEC。現有 `services/shioaji_quote_proxy/main.py` 的 `sj.Shioaji()` 尚未改為明確 `simulation=True`；不能因文檔更新宣稱目前 Runtime 已符合。本節修改不觸發部署；後續工程需補程式、測試、CI、Cloud Run Live 讀回才可關閉。
+**實作／驗收狀態（2026-11-04 更新）：**程式已改為明確 `sj.Shioaji(simulation=True)`，移除正式登入回退，Proxy CI 與 asia-east1 Cloud Run 部署通過；尚缺以授權身分實際讀回私有 Proxy `/health` 的 `simulation=true` 與交易時段逐分鐘真行情，因此不可把程式／部署證據替代端到端報價驗收。詳見第 8 節。
 
 參考：[Shioaji 官方 Simulation Mode](https://sinotrade.github.io/tutor/simulation/)；[官方 Snapshot 使用限制](https://sinotrade.github.io/zh/tutor/market_data/snapshot/)。
 
@@ -100,3 +100,21 @@
 3. 訂閱上限保守 150，Proxy 單次請求最多 30 檔；Janus 分批查詢，跨使用者去重仍受 API 共享鎖及 persistent TTL 節流。
 4. CI 必須驗證只初始化 `Shioaji(simulation=True)`、禁止 `simulation=False` 與盤中 `snapshots()`、指數 `IX0001`、同代號多次請求只訂閱一次、MIS 缺成交不補昨收、TSE/OTC 隔離、Owner 讀價與 singleflight 正反例。
 5. Dev 上線須有 migration 073、Proxy/Janus API/Flutter 的同版 CI 與部署實際收據；並驗證登入後 Today、關注、持股、個股，20 個同時 Owner session 相同標的僅單一上游更新，以及休市／背景／斷線的停用與降級。**文件、commit 或 Proxy Ready 不是全案驗收完成證據。**
+
+## 8. 2026-11-04 Dev 發布收據及未結驗收
+
+**已完成（PASS）**：
+- `Shioaji(simulation=True)` 明確初始化、禁止正式模式回退、Push Quote 訂閱和 MIS 有界備援；Proxy 測試（含獨立 Cloud Run 匯入與完整交易時戳）通過。Proxy [部署 #41782300793](https://github.com/tommylin15/janus-omniforge/actions/runs/41782300793) SUCCESS；Cloud Run `asia-east1` 實際 Ready Revision `shioaji-quote-proxy-00010-4lt`、`max-instances=1`。
+- Janus API PostgreSQL 共享 `singleflight`、60 秒 TTL、20 名 concurrent *mock* 使用者同股只有一次 upstream 呼叫、實際已觀測的 TAIEX 分時點與 Flutter 前景顯示均納入 [完整 Release #41784423406](https://github.com/tommylin15/janus-omniforge/actions/runs/41784423406) 的 Python/Flutter PASS，固定發布 SHA `e413957d2bdbbf284a6c2680d7617b563a529de9`。
+- Migration 073（`control.operational_index_minutes`）[Dev #41772753209](https://github.com/tommylin15/janus-omniforge/actions/runs/41772753209) PASS；Migration 074（`shioaji` source 約束）[Dev #41773449030](https://github.com/tommylin15/janus-omniforge/actions/runs/41773449030) PASS。
+- [0% Candidate #41785490464](https://github.com/tommylin15/janus-omniforge/actions/runs/41785490464) PASS；[OAuth／公開行情邊界 #41785676133](https://github.com/tommylin15/janus-omniforge/actions/runs/41785676133) PASS；[API-only Dev 100% Promotion #41786193958](https://github.com/tommylin15/janus-omniforge/actions/runs/41786193958) PASS，前一版回復來源 `0139feff5bda7cfcbf4b9e4c90c6b13f784de44e`。
+- [獨立 post-promotion readback #41786464368](https://github.com/tommylin15/janus-omniforge/actions/runs/41786464368) PASS：現役 Revision `janus-api-00663-qiv`，實際 100% 流量，`/app/build-id.txt` 與固定發布 SHA 一致；`/health`、`market-home`、`stock-header/2330` HTTP 200。休市時源顯示 `twse_mis`、`closing_pending_eod`，TAIEX 真實分鐘點讀回為 0，**不可標註為逐分鐘行情通過**。
+
+**保持 OPEN／UNKNOWN（不得包裝成 PASS）**：
+1. 台灣時間 09:00–13:30 交易時段實際訂閱與 60 秒多輪報價：核對 2330、TAIEX、TPEX 股票 `trade_time`、`received_at`、漲跌及缺價標示；實際來源可為 `shioaji` 或已明示的 `twse_mis` 備援，不得將同一舊報價反覆回傳當作更新。
+2. 實際授權 Owner：今日／關注／持股／個股頁正向 UI 與 20 個同時已登入的真 Session 之上游去重、離頁／背景停止（目前僅離線並發測試 PASS）。
+3. 私有 Proxy `/health` 的登入後 `simulation=true` 讀回尚無 CI IAM 呼叫能力；維持原 IAM，不能擴權冒充驗收。程式層固定 True 和部署 PASS 屬不同層級證據。
+4. 使用時才累積 TAIEX 分鐘點，頁面無人訪問時不保證全天軌跡完整；分鐘點為 0 須顯示缺值，不補造資料。
+5. 並行 ETF Migration 075 是另一張工程卡，本輪行情 Dev Release 不代表該 migration 或 ETF 手機驗收完成。
+
+**治理：** Dev 真實 parallel-live，保留既有 Job／Scheduler／IAM／原始資料不變；僅針對已確認失敗的環節修正，並維持已核准可回復版本。任何 Live 項目缺乏正向證據均保留 UNKNOWN／OPEN。
