@@ -266,7 +266,7 @@ void main() {
 
     await tester.tap(find.text('開啟'));
     await tester.pumpAndSettle();
-    for (final label in ['交易類型', '交易日期', '股票代號或名稱', '股數', '成交單價', '備註', '幣別']) {
+    for (final label in ['交易類型', '交易日期', '股票／ETF 代號或名稱', '股數', '成交單價', '備註', '幣別']) {
       expect(find.text(label), findsOneWidget);
     }
     expect(find.text('2330'), findsOneWidget);
@@ -274,7 +274,7 @@ void main() {
     expect(find.text('1000'), findsOneWidget);
 
     await tester.enterText(
-        find.widgetWithText(TextFormField, '股票代號或名稱'), '2317');
+        find.widgetWithText(TextFormField, '股票／ETF 代號或名稱'), '2317');
     await tester.pumpAndSettle();
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
@@ -312,7 +312,7 @@ void main() {
                 child: const Text('開啟')))));
     await tester.tap(find.text('開啟'));
     await tester.pumpAndSettle();
-    final field = find.widgetWithText(TextFormField, '股票代號或名稱');
+    final field = find.widgetWithText(TextFormField, '股票／ETF 代號或名稱');
     await tester.enterText(field, '元');
     await tester.pumpAndSettle();
     expect(find.text('元大美債1-3（00719B）'), findsOneWidget);
