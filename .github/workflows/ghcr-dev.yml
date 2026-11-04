@@ -584,47 +584,58 @@ jobs:
             echo "**Not verified:** a real logged-in owner, OAuth callback, PnL correctness, refresh token, or owner isolation."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Read-only quote routing smoke on the 0%-traffic candidate
+      - name: Compare candidate and active public quote routes before any traffic cutover
         shell: bash
         run: |
           set -Eeuo pipefail
           python3 - <<'PY'
-          import json, os, urllib.request
+          import json, os, urllib.error, urllib.request
           from datetime import datetime, timedelta, timezone
-          base = os.environ["JANUS_CANDIDATE_URL"].rstrip("/")
+          candidate = os.environ["JANUS_CANDIDATE_URL"].rstrip("/")
+          active = "https://janus-api-2oo7qbkd5q-uc.a.run.app"
           now = datetime.now(timezone(timedelta(hours=8)))
-          regular = now.weekday() < 5 and 9 * 60 <= now.hour * 60 + now.minute < 13 * 60 + 30
+          regular = now.weekday() < 5 and 540 <= now.hour * 60 + now.minute < 810
           day = now.date().isoformat()
 
-          def read(path):
+          def request(base, path):
               req = urllib.request.Request(base + path, headers={"Accept":"application/json"})
-              with urllib.request.urlopen(req, timeout=35) as response:
-                  assert response.status == 200
-                  return json.loads(response.read(250000))
+              try:
+                  with urllib.request.urlopen(req, timeout=30) as resp:
+                      return resp.status, json.loads(resp.read(250000))
+              except urllib.error.HTTPError as exc:
+                  # Bounded public status only; no exception URLs or auth bodies.
+                  return exc.code, {}
+              except Exception as exc:
+                  return type(exc).__name__, {}
 
-          home = read("/api/v1/public/market-home")
-          section = (home.get("sections") or {}).get("taiex") or {}
-          provenance = section.get("provenance") or {}
-          stock = read("/api/v1/public/stock-header/2330")
-          data = section.get("data") or {}
-          report = {
-              "scope":"public_quote_read_only",
-              "mode":"regular" if regular else "off_session",
-              "taiex_as_of":section.get("as_of"),
-              "taiex_source":provenance.get("source"),
-              "stock_price_date":stock.get("trade_date"),
-              "stock_source":stock.get("price_source"),
-              "stock_quote_state":stock.get("quote_state"),
-              "minute_points":len(data.get("intraday_points") or []),
-              "no_owner_data":True,
-          }
+          result = {}
+          for name, base in (("candidate", candidate), ("active", active)):
+              home_status, home = request(base, "/api/v1/public/market-home")
+              stock_status, stock = request(base, "/api/v1/public/stock-header/2330")
+              section = (home.get("sections") or {}).get("taiex") or {}
+              data = section.get("data") or {}
+              result[name] = {
+                  "home_http":home_status,
+                  "taiex_as_of":section.get("as_of"),
+                  "taiex_source":(section.get("provenance") or {}).get("source"),
+                  "minute_points":len(data.get("intraday_points") or []),
+                  "stock_http":stock_status,
+                  "stock_date":stock.get("trade_date"),
+                  "stock_source":stock.get("price_source"),
+                  "stock_state":stock.get("quote_state"),
+              }
+          print(json.dumps({"scope":"anonymous_public_quotes_only",
+                            "session":"regular" if regular else "off_session",
+                            "as_of":day,"results":result},ensure_ascii=False,sort_keys=True))
+          cand = result["candidate"]
           if regular:
-              assert section.get("as_of") == day, "index_quote_not_today"
-              assert provenance.get("source") in {"shioaji","twse_mis"}, "index_source_not_intraday"
-              assert stock.get("trade_date") == day, "stock_quote_not_today"
-              assert stock.get("price_source") in {"shioaji","twse_mis"}, "stock_source_not_intraday"
-              assert stock.get("quote_state") == "intraday", "stock_quote_stale"
-          print(json.dumps(report,ensure_ascii=False,sort_keys=True))
+              assert cand["home_http"] == 200, "candidate_market_home_unavailable"
+              assert cand["taiex_as_of"] == day, "candidate_index_not_today"
+              assert cand["taiex_source"] in {"shioaji", "twse_mis"}, "candidate_index_source_not_live"
+              assert cand["stock_http"] == 200, "candidate_stock_header_unavailable"
+              assert cand["stock_date"] == day, "candidate_stock_quote_not_today"
+              assert cand["stock_source"] in {"shioaji", "twse_mis"}, "candidate_stock_source_not_live"
+              assert cand["stock_state"] == "intraday", "candidate_stock_state_not_intraday"
           PY
 
   jobs-baseline:
