@@ -1,5 +1,13 @@
 # Janus — 唯一 Active TODO
 
+## P1｜ETF 可交易名冊／0050 新增交易（2026-11-04）
+
+- [x] SPEC／CODE：以普通股研究母體外的交易標的資料接入 ETF；本地優先、官方即時解析、每週附掛既有收集、外幣與錯誤 fail-closed；實作於 [ETF 名冊 SPEC](spec/etf-tradeable-catalog.md)。
+- [x] 單元測試案例已提交：TWSE 官方 OpenAPI／ISIN 解析、精確代碼、失效源與非 TWD 類別；**尚不將案例提交視為 PASS**。
+- [ ] TEST／CI：在同一 `main` SHA 執行 `tests/test_etf_catalog.py`、API／Flutter 相關測試並讀回結果。
+- [ ] DEV MIGRATION／DEPLOY：套用 `075_etf_tradeable_catalog.sql`，確認 DB 函式權限與資料不混入模型母體，再以固定 digest 發布 API／App／ingestion-core；不建立新排程。
+- [ ] LIVE UAT：Owner 登入搜尋 `0050`／`006208`／`00878`，能選取試算，取消不入帳；驗證普通股不退化、官方來源不可用時無虛構代碼、兩市場週同步讀回。**尚未驗收前不標完成。**
+
 ## P0｜盤中 Shioaji simulation-only 統一接線與多人 singleflight（2026-11-04）
 
 - [x] 需求／SPEC：盤中僅前景／可見頁面 60 秒刷新；不新增 Scheduler／Job；強制 `simulation=True`、不允許下單；官方 Shioaji Quote 訂閱、TAIEX IX0001、來源時間與日期不可偽造。
