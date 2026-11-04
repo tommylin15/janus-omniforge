@@ -140,3 +140,55 @@ def test_mis_no_last_close_fake_quote(monkeypatch):
         def get(self, *args, **kwargs): return Response()
     monkeypatch.setattr("services.shioaji_quote_proxy.main.httpx.Client", Client)
     assert fetch_twse_mis(["2330"]) == {}
+
+
+def test_standalone_cloud_run_main_imports_streaming(monkeypatch):
+    """uvicorn main:app loads a flat module, not services.shioaji_quote_proxy."""
+    from pathlib import Path
+    import importlib.util
+    import sys
+    from types import SimpleNamespace
+
+    folder = Path(__file__).resolve().parent
+    monkeypatch.syspath_prepend(str(folder))
+    spec = importlib.util.spec_from_file_location("shioaji_proxy_flat_main", folder / "main.py")
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.__package__ == ""
+
+    class Client:
+        contracts = SimpleNamespace(get=lambda code: code)
+        def set_on_quote_stk_v1_callback(self, callback): self.stock_callback = callback
+        def set_on_quote_idx_v1_callback(self, callback): self.index_callback = callback
+        def subscribe(self, contract, *, quote_type): pass
+        def unsubscribe(self, contract, *, quote_type): pass
+
+    monkeypatch.setitem(sys.modules, "shioaji",
+                        SimpleNamespace(QuoteType=SimpleNamespace(Quote="quote")))
+    manager = module.ShioajiManager()
+    manager.logged_in = True
+    manager.api = Client()
+    monkeypatch.setattr(module, "fetch_twse_mis", lambda symbols: {})
+    assert manager.get_quotes(["2330"]) == {}
+    assert hasattr(manager, "_stream_cache")
+
+
+def test_stream_failure_falls_back_without_500(monkeypatch):
+    from types import SimpleNamespace
+
+    class UnsupportedClient:
+        def set_on_quote_stk_v1_callback(self, callback):
+            raise RuntimeError("mock client subscription broken")
+
+    manager = ShioajiManager()
+    manager.logged_in = True
+    manager.api = UnsupportedClient()
+    calls = []
+    expected = {"2330": {"symbol": "2330", "source": "twse_mis", "close": 101}}
+    def mis(symbols):
+        calls.append(symbols)
+        return expected
+    monkeypatch.setattr("services.shioaji_quote_proxy.main.fetch_twse_mis", mis)
+    assert manager.get_quotes(["2330"]) == expected
+    assert calls == [["2330"]]
