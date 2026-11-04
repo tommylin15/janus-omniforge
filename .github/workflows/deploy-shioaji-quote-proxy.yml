@@ -1,0 +1,102 @@
+name: Deploy Shioaji Quote Proxy to Cloud Run (asia-east1)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'services/shioaji_quote_proxy/**'
+      - '.github/workflows/deploy-shioaji-quote-proxy.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-shioaji-quote-proxy
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: gen-lang-client-0593591102
+  REGION: asia-east1
+  SERVICE_NAME: shioaji-quote-proxy
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies & run unit tests
+        run: |
+          pip install -r services/shioaji_quote_proxy/requirements.txt pytest
+          PYTHONPATH=. pytest -v services/shioaji_quote_proxy/test_shioaji_proxy.py
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy Shioaji Quote Proxy to Cloud Run
+        run: |
+          set -Eeuo pipefail
+          echo "Deploying ${SERVICE_NAME} to ${REGION} in ${PROJECT_ID}..."
+          gcloud run deploy "${SERVICE_NAME}" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --source=services/shioaji_quote_proxy \
+            --no-allow-unauthenticated \
+            --service-account="janus-user-api@${PROJECT_ID}.iam.gserviceaccount.com" \
+            --update-secrets="JANUS_RUNTIME_BUNDLE=janus-runtime-bundle:latest" \
+            --timeout=60s \
+            --memory=1Gi \
+            --min-instances=0 \
+            --max-instances=3 \
+            --concurrency=80 \
+            --quiet
+
+      - name: Configure Invoker IAM bindings
+        run: |
+          set -Eeuo pipefail
+          echo "Granting invoker permissions to VM and Janus service accounts..."
+          gcloud run services add-iam-policy-binding "${SERVICE_NAME}" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --role="roles/run.invoker" \
+            --member="serviceAccount:postgres-vm@${PROJECT_ID}.iam.gserviceaccount.com" \
+            --quiet
+          gcloud run services add-iam-policy-binding "${SERVICE_NAME}" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --role="roles/run.invoker" \
+            --member="serviceAccount:janus-user-api@${PROJECT_ID}.iam.gserviceaccount.com" \
+            --quiet
+
+      - name: Describe Service URL
+        id: service_info
+        run: |
+          URL="$(gcloud run services describe "${SERVICE_NAME}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.url)')"
+          echo "Service deployed successfully at ${URL}"
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Mint Caller Token and Smoke Test
+        run: |
+          set -Eeuo pipefail
+          URL="${{ steps.service_info.outputs.url }}"
+          TOKEN="$(gcloud auth print-identity-token --audiences="${URL}")"
+          echo "Testing health check on ${URL}/health..."
+          STATUS="$(curl -s -o /tmp/health.json -w '%{http_code}' "${URL}/health" -H "Authorization: Bearer ${TOKEN}")"
+          echo "Health check HTTP status: ${STATUS}"
+          cat /tmp/health.json
+          test "${STATUS}" = "200"
+          echo "Smoke test passed successfully!"
