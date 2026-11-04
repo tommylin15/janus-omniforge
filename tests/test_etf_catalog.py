@@ -117,12 +117,39 @@ def test_twse_falls_back_to_isin_with_explicit_provenance(monkeypatch):
     assert catalog.fetch_market_etfs("TWSE") == [bond]
 
 def test_weekly_requires_both_markets(monkeypatch):
+    monkeypatch.setattr(catalog, "fetch_isin_etfs", lambda market, **kw: [])
     monkeypatch.setattr(catalog, "fetch_market_etfs", lambda market, **kw: [
         OfficialEtf(f"00{i:03d}", f"ETF-{i}", market, date(2020, 1, 1))
         for i in range(10)
     ] if market == "TWSE" else [])
     with pytest.raises(EtfCatalogUnavailable):
         weekly_official_catalogue()
+
+
+def test_weekly_adds_new_listed_etf_from_isin(monkeypatch):
+    def monthly(market, **kwargs):
+        return [
+            OfficialEtf(f"00{i:03d}", f"monthly-{i}", market, date(2020, 1, 1))
+            for i in range(10)
+        ]
+
+    fresh = OfficialEtf("00999", "新上市ETF", "TWSE", date(2026, 11, 3))
+    monkeypatch.setattr(catalog, "fetch_market_etfs", monthly)
+    monkeypatch.setattr(
+        catalog, "fetch_isin_etfs",
+        lambda market, **kwargs: [fresh] if market == "TWSE" else [],
+    )
+    with pytest.raises(EtfCatalogUnavailable):
+        # Same codes for OTC and TWSE in the fake dataset are inconsistent.
+        weekly_official_catalogue()
+
+    monkeypatch.setattr(catalog, "fetch_market_etfs", lambda market, **kwargs: [
+        OfficialEtf(f"00{i:03d}" if market == "TWSE" else f"01{i:03d}",
+                    f"monthly-{i}", market, date(2020, 1, 1))
+        for i in range(10)
+    ])
+    records = weekly_official_catalogue()
+    assert any(item == fresh for item in records)
 
 
 def test_migration_is_owner_only_and_research_universe_unchanged():
