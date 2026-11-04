@@ -36,6 +36,7 @@ try:
    if private is not None: private.close()
    with control.connection.transaction(),control.connection.cursor() as cursor:
     cursor.execute('REVOKE CREATE ON SCHEMA private FROM janus_private_api')
+    cursor.execute('REVOKE CREATE ON SCHEMA control FROM janus_private_api')
   prepare=finalize_sql
  if '-- PHASE: publication' in prepare:
   control_sql,publication_sql=prepare.split('-- PHASE: publication',1)
