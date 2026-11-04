@@ -9,7 +9,7 @@
   "rollback_images": {
     "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:57d981ce49e2b176092fdb371c8510d0ff9399a6cb614e3ad91df216de0f39b3",
     "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:57d981ce49e2b176092fdb371c8510d0ff9399a6cb614e3ad91df216de0f39b3",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:6e9be75c201ec18406975951ac527f51d71a01add71fc1fca5e97ab1a66b050",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:6e9be75c201ec18406975951ac527f51d71a01add71fc1fca5e97ab1a66ab050",
     "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:899e2084c1ad2c012507681d17737972a94c850c34a310b2597cb51547f78206"
   },
   "rollback_config_hashes": {
@@ -19,7 +19,7 @@
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
   "auth_boundary_run": "41788086913",
-  "request_attempt": 72,
+  "request_attempt": 73,
   "safety": "保留單一兩小時Scheduler、共同Git-ref lease、全分頁在途fence、8次唯讀canary與固定映像失敗回復；只更新映像，完整Job設定hash維持不變。",
   "authorization": "User 2026-11-04 request '接著做' authorizes existing dev release/test/rollout; no production/new paid resources. Operator-owned true ledger data and rollback path retained.",
   "rollback_source_shas": {
@@ -28,5 +28,5 @@
     "janus-intelligence-mart": "5fdcdd9288d6305758935d4413f5ab92776a735e",
     "janus-private-pipeline": "5fdcdd9288d6305758935d4413f5ab92776a735e"
   },
-  "purpose": "2026-11-04 ETF weekly official catalog ingestion hook release, after Migration 075 PASS #41786939582, full release PASS #41787167591, 0%-candidate PASS #41787850394, OAuth boundary PASS #41788086913 and API-only 100% promotion PASS #41788208137. Existing four Dev Jobs exact-image rollout with original config preserved and reversible baseline; no new Scheduler/resources."
+  "purpose": "2026-11-04 ETF weekly ingestion: rerun existing Dev four-Job rollout after first request rejected at preflight (one manually transcribed Mart digest missing a hex character). Exact rollback_images, hashes, and sources copied from read-only #41787651378; no Job/Scheduler mutations were made by prior rejection."
 }
