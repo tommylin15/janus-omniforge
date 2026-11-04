@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "0139feff5bda7cfcbf4b9e4c90c6b13f784de44e",
+  "sha": "5806520681b51c262846253a45ec212078284ca7",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-03 年度損益快速計算日期修正版：0% Candidate #41577013912 PASS；OAuth metadata、匿名私有 API、MCP 授權邊界唯讀確認。",
-  "request_attempt": 35
+  "purpose": "2026-11-04 final Shioaji simulation-only 0% candidate #41774859658: validate OAuth/Owner/Admin negative boundaries and demand-driven public TAIEX/2330 live quote readback before Dev promotion.",
+  "request_attempt": 36
 }
