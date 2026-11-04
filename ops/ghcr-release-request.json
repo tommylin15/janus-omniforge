@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "3a6dd775eaa8c364cccf1b41a615b504d950687f",
-  "purpose": "2026-11-04 ETF 0050/006208/00878 tradeable instrument catalog: corrected official ISIN filter and bounded lookup, source-verified migration 075 seed, shared journal/watchlist search, weekly ingestion hook, regression tests. Immutable full Dev release only; no GCP traffic/Job/Scheduler changes until explicit acceptance.",
+  "sha": "84b5e2c4b0aa958a2e2433dce592b42d13fc4f04",
+  "purpose": "2026-11-04 LIVE-HOME-01 Today UI replacement: remove expired Today highlights; TAIEX intraday chart default, observed high/low and Taipei event time/range position; Owner top-three live holdings and persisted stock minute chart. Additive migration 076, strict simulation=True Shioaji existing shared quote route; deploy image only after Python+Flutter full test pass; no changes to Jobs/Scheduler/market models or private ledger.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 42
+  "request_attempt": 43
 }
