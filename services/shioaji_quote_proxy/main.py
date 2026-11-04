@@ -97,7 +97,6 @@ class ShioajiManager:
             accounts = self.api.login(
                 api_key=self.api_key,
                 secret_key=self.secret_key,
-                contracts_cb=self._on_contracts_fetched,
             )
             self.logged_in = True
             self.login_error = None

@@ -1,6 +1,16 @@
 # Janus — 唯一 Active TODO
 
 
+## P0｜Janus Shioaji 專屬報價轉發 API（asia-east1）｜部署與驗收（2026-11-04）
+
+- [x] **架構移轉至 janus-omniforge**：建立專屬服務目錄 [`services/shioaji_quote_proxy/`](file:///home/tommylin15_gmail_com/.gemini/antigravity-cli/scratch/janus-omniforge/services/shioaji_quote_proxy/)，統一股市即時行情治理。
+- [x] **憑證注入（零重複密鑰）**：Cloud Run 直接掛載既有 Secret Manager `janus-runtime-bundle:latest`，執行階段自動解析 `shioaji_api_key`、`shioaji_secret_key`。
+- [x] **雙軌轉發設計**：以 Shioaji 原生 Snapshot 查詢為主軌，在地 TWSE MIS 為備援軌，提供 `/health`、`/quotes`、`/quote/{symbol}` 端點。
+- [x] **私有 IAM 權限**：Cloud Run `--no-allow-unauthenticated`，授權 `postgres-vm@gen-lang-client-0593591102.iam.gserviceaccount.com` 與 `janus-user-api@gen-lang-client-0593591102.iam.gserviceaccount.com`。
+- [x] **自動化發布與驗證**：建立工作流程 [`.github/workflows/deploy-shioaji-quote-proxy.yml`](file:///home/tommylin15_gmail_com/.gemini/antigravity-cli/scratch/janus-omniforge/.github/workflows/deploy-shioaji-quote-proxy.yml)，服務已在 `asia-east1` 正式上線（URL: `https://shioaji-quote-proxy-131494961796.asia-east1.run.app`），本機 VM 實測 `/quotes?symbols=2382,2327,5876` 取得即時報價 PASS。
+- 完整設計與調用規範詳見 [Shioaji Quote Proxy SPEC](spec/shioaji-quote-proxy.md)。
+
+
 ## 已結案｜年度已實現損益快速路徑｜工程與 Owner UAT CLOSED／PASS（2026-11-03）
 
 - [x] `GET /api/v1/me/journal/pnl` 走 PostgreSQL Owner 事件＋既有移動平均算法／版本化小快取，脫離 Iceberg／市場報價等待；同年度無交易確認後正常顯示 0，API 錯誤不能顯示 0。
