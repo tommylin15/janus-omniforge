@@ -173,3 +173,51 @@ def test_intraday_index_writer_uses_dict_row_for_optional_table(monkeypatch):
                for query, _ in statements)
     assert len(batches) == 1
     assert batches[0][1][0][5] == "shioaji"
+
+
+def test_twenty_concurrent_quote_readers_singleflight():
+    """20 concurrent page readers must produce one upstream quote refresh."""
+    from concurrent.futures import ThreadPoolExecutor
+    from contextlib import contextmanager
+    from threading import Barrier, Event, Lock
+
+    class ConcurrentRepo(SharedRepo):
+        def __init__(self):
+            super().__init__()
+            self.mutex = Lock()
+        @contextmanager
+        def quote_refresh_guard(self):
+            acquired = self.mutex.acquire(blocking=False)
+            try:
+                yield acquired
+            finally:
+                if acquired:
+                    self.mutex.release()
+
+    started, release = Event(), Event()
+    repo = ConcurrentRepo()
+    class Source:
+        def __init__(self):
+            self.calls = 0
+        def prices(self, identities):
+            self.calls += 1
+            started.set()
+            assert release.wait(timeout=5)
+            now = datetime.now(TZ).isoformat()
+            return {"2330": {"price":"100", "source":"shioaji",
+                             "quote_at":now, "received_at":now}}
+    source = Source()
+    router = QuoteRouter(repo, source)
+    identities = {"2330":{"market":"TWSE","enabled":True}}
+    barrier = Barrier(20)
+    def visit(_):
+        barrier.wait(timeout=5)
+        return router.refresh(identities)
+    with ThreadPoolExecutor(max_workers=20) as pool:
+        futures = [pool.submit(visit, i) for i in range(20)]
+        assert started.wait(timeout=5)
+        release.set()
+        results = [f.result(timeout=8) for f in futures]
+    assert source.calls == 1
+    assert sum(row["status"] == "updated" for row in results) == 1
+    assert all(row["status"] in {"updated","fresh","in_flight"} for row in results)
