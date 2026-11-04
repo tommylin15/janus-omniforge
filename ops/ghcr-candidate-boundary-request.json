@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "5806520681b51c262846253a45ec212078284ca7",
+  "sha": "bc3f53bcb9a52b67e52e3eb0ae1cc15155a13cd5",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-04 Retry read-only candidate/active comparison following HTTP503 on market-home. No traffic/owner/GCP mutation; exact candidate GHCR source 58065206.",
-  "request_attempt": 37
+  "purpose": "2026-11-04 corrected Shioaji simulation-only candidate #41776394106. Require OAuth/private boundary PASS plus live public TAIEX/2330 quote readback compared with active before any traffic cutover.",
+  "request_attempt": 38
 }
