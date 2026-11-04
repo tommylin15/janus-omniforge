@@ -22,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from packages.observability import redact
+from packages.etf_catalog import EtfCatalogUnavailable, find_official_etf, looks_like_etf_code
 from packages.admin_api import AdminConflictError, AdminValidationError
 from packages.web_api import (PublicReportNotFound, PublicReportWaiting, PublicStockNotFound,
                               QueryValidationError)
@@ -1353,15 +1354,37 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         today = datetime.now(ZoneInfo("Asia/Taipei")).date()
         return jsonable_encoder(_owner_today_relevant(rows, today))
 
+    def _owner_tradeable_search(query: str, *, for_watchlist: bool = False) -> dict[str, Any]:
+        """Shared Owner resolver; verified ETF-only miss path, no ticker guessing."""
+        q = query.strip()
+        search = repository.search_watchlist_stocks if for_watchlist else repository.search_trade_instruments
+        rows = search(q)
+        status = "local"
+        if looks_like_etf_code(q) and not any(
+            str(row.get("symbol", "")).upper() == q.upper() for row in rows
+        ):
+            try:
+                identity = find_official_etf(q)
+                if identity is not None:
+                    repository.register_verified_etf(identity)
+                    rows = search(q)
+                    status = "official_imported"
+                else:
+                    status = "official_not_found"
+            except Exception as exc:
+                LOGGER.warning("ETF identity resolution unavailable: %s", type(exc).__name__)
+                status = "official_unavailable"
+        return {"items": rows, "lookup_status": status}
+
     @private.get("/journal/instruments")
     def trade_instruments(q: str = Query(..., min_length=1, max_length=80),
                           current: AuthenticatedUser = Depends(user)):
-        return jsonable_encoder({"items": repository.search_trade_instruments(q)})
+        return jsonable_encoder(_owner_tradeable_search(q))
 
     @private.get("/watchlist/search")
     def watchlist_search(q: str = Query(..., min_length=1, max_length=80),
                          current: AuthenticatedUser = Depends(user)):
-        return jsonable_encoder({"items": repository.search_watchlist_stocks(q.strip())})
+        return jsonable_encoder(_owner_tradeable_search(q, for_watchlist=True))
 
     def refresh_watchlist_quotes_safely(identities: dict[str, dict[str, Any]]) -> None:
         # A slow exchange provider or quote persistence must never hold up an
