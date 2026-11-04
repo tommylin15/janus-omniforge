@@ -1,12 +1,15 @@
 # Janus — 唯一 Active TODO
 
-## P0｜今日首頁即時線圖重構（2026-11-04）
+## P0｜今日首頁即時線圖重構｜Dev 程式／測試／部署 PASS，待最後一次 Owner 盤中驗收（2026-11-04）
 
-- [x] SPEC：移除過期「今天值得看」與盤前／盤後卡；今日頁預設加權指數盤中線、觀測高低時間／區間位階；持股前三檔摘要、可選個股分鐘線。正式規格見 [今日首頁 V1](spec/today-live-home-2026-11-04.md)。
-- [x] CODE：沿用 Shioaji `simulation=True` 與現有 QuoteRouter singleflight；新增 `076_operational_stock_minutes`、Owner-only `/portfolio/intraday`、Flutter 首頁按需分鐘線／非即時降級、系列圖極值標記及定向測試。此項僅代表程式提交，**不代表驗收完成**。
-- [ ] TEST：同版 Python／Flutter 全量測試與 GHCR 發布讀回；確認 `today-changes` 不再由首頁請求，持股資料失聯、不可見頁面與來源時間無法偽裝為即時。
-- [ ] DEV MIGRATION／DEPLOY：既有 Dev 資料庫套用 076 → 0% Candidate → OAuth／Owner 邊界 → 固定映像 API／Flutter 100% 切流；保留 rollback，無新 Scheduler／Job／付費資源。
-- [ ] FINAL ACCEPTANCE：Live 讀回今日公開大盤與 Owner 個股分鐘點；交易時段至少兩筆真實分鐘觀測才可確認極值時間與 60 秒更新。未取得真人登入或盤中資料者維持 PARTIAL，集中一次回報，不分段要求使用者操作。
+- [x] SPEC：移除過期「今天值得看」與盤前／盤後卡；今日頁預設加權指數盤中分鐘線、觀測高低時間／區間位階；持股前三檔摘要、可選個股分鐘線。正式規格見 [今日首頁 V1](spec/today-live-home-2026-11-04.md)。
+- [x] CODE：沿用 Shioaji `simulation=True`、QuoteRouter 共享 60 秒 TTL／PG singleflight；新增 `076_operational_stock_minutes`、Owner-only `/portfolio/intraday` 與 Flutter 今日畫面，改用分鐘觀測極值而非虛構全天高低。
+- [x] TEST：Flutter 全量 149 項 [#41807675862](https://github.com/tommylin15/janus-omniforge/actions/runs/41807675862) PASS，含舊卡片移除、真實分鐘點高低、持股畫面降級。Python 全量＋Flutter build＋四映像固定 GHCR Full Release [#41807949511](https://github.com/tommylin15/janus-omniforge/actions/runs/41807949511) PASS，固定程式來源 `daaa49b286c12f00034ef9dddd90897141080403`。本版**只切 API/App**，四個 Jobs 仍沿用既有服務版本。
+- [x] DEV MIGRATION：076 [#41807779405](https://github.com/tommylin15/janus-omniforge/actions/runs/41807779405) PASS，既有 ingestion Job 套用，`traffic_changed=false`、`image_changed=false`，不改 Owner 帳本、模型或排程。
+- [x] DEPLOY：0% GHCR Candidate [#41808789288](https://github.com/tommylin15/janus-omniforge/actions/runs/41808789288) PASS、OAuth／Owner 負向邊界 [#41808975077](https://github.com/tommylin15/janus-omniforge/actions/runs/41808975077) PASS、API-only 100% Promotion [#41809140720](https://github.com/tommylin15/janus-omniforge/actions/runs/41809140720) PASS，保留前一版 `60b10da3e2ed4a5b5de3933e592cd8c246f0dcb8` 作 rollback。
+- [x] 獨立無寫入 Runtime [#41809409248](https://github.com/tommylin15/janus-omniforge/actions/runs/41809409248) PASS：正式 URL 100% 來源與 immutable image、健康檢查、公開 market-home 資料結構、未登入 Owner 分鐘線 401/403 保護；`owner_authenticated_positive=NOT_VERIFIED` 不作假。
+- [ ] **唯一剩餘：Owner 盤中 UAT**（一次性集中驗收，不重複分階段驗收）：交易日台北時間 09:00–13:30 登入 Dev App「今日」，確認舊卡片不見、大盤 60 秒兩輪以上有效觀測、持股三檔價格與時間、個股分鐘線與高低時刻、切換頁／背景後停止及回前景刷新。當天未開啟頁面或觀測少於兩點時顯示不足屬符合規格，不可宣稱整日真正高低；目前尚無登入 Owner 真實行情收據。
+
 
 ## 已結案｜ETF 可交易名冊／0050 新增交易｜程式／Dev 發布／Owner 驗收 PASS（2026-11-04）
 
