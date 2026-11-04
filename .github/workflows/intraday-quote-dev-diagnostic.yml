@@ -80,9 +80,9 @@ jobs:
               if 'quote refresh yielded no accepted rows' in message:
                   counts['no_accepted_rows']+=1
               if 'quote refresh unavailable' in message:
-                  matched=re.search(r'quote refresh unavailable:\\s*([A-Za-z_]+)',message)
+                  matched=re.search(r'quote refresh unavailable:\s*([A-Za-z_]+)',message)
                   counts['exception_'+(matched.group(1) if matched else 'unknown')]+=1
-                  status=re.search(r'http_status=(\\d{3})',message)
+                  status=re.search(r'http_status=(\d{3})',message)
                   if status:
                       counts['http_'+status.group(1)]+=1
           print('last_2h_quote_diagnostics='+str(dict(sorted(counts.items()))))
@@ -117,9 +117,9 @@ jobs:
               if 'quote refresh unavailable' in message:
                 categories[name+':quote_refresh_unavailable']+=1
                 import re
-                match=re.search(r'quote refresh unavailable:\\s*([A-Za-z_][A-Za-z0-9_]*)',message)
+                match=re.search(r'quote refresh unavailable:\s*([A-Za-z_][A-Za-z0-9_]*)',message)
                 categories[name+':exception_'+(match.group(1) if match else 'unknown')]+=1
-                status=re.search(r'http_status=(\\d{3})',message)
+                status=re.search(r'http_status=(\d{3})',message)
                 if status: categories[name+':http_status_'+status.group(1)]+=1
               if 'quote refresh yielded no accepted rows' in message: categories[name+':no_accepted_rows']+=1
               if 'Shioaji simulation login failed' in message: categories[name+':simulation_login_failed']+=1
