@@ -192,3 +192,35 @@ def test_stream_failure_falls_back_without_500(monkeypatch):
     monkeypatch.setattr("services.shioaji_quote_proxy.main.fetch_twse_mis", mis)
     assert manager.get_quotes(["2330"]) == expected
     assert calls == [["2330"]]
+
+
+def test_mis_trade_time_preserves_dated_timestamp_for_janus(monkeypatch):
+    """Janus refuses undated HH:MM:SS timestamps; Proxy must send ISO 8601."""
+    from datetime import datetime, timedelta, timezone
+    from services.shioaji_quote_proxy.main import fetch_twse_mis
+    today = datetime.now(timezone(timedelta(hours=8)))
+    class Response:
+        status_code = 200
+        def json(self):
+            return {"msgArray": [{
+                "ex": "tse", "c": "2330", "z": "101.5", "y": "100",
+                "d": today.strftime("%Y%m%d"), "t": "10:01:30",
+            }, {
+                "ex": "tse", "c": "t00", "z": "23456.78", "y": "23000",
+                "d": today.strftime("%Y%m%d"), "t": "10:02:30",
+            }]}
+    class Client:
+        def __init__(self, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def get(self, *args, **kwargs): return Response()
+    monkeypatch.setattr("services.shioaji_quote_proxy.main.httpx.Client", Client)
+    quotes = fetch_twse_mis(["2330", "TAIEX"])
+    assert set(quotes) == {"2330", "TAIEX"}
+    for symbol in quotes:
+        row = quotes[symbol]
+        observed = datetime.fromisoformat(row["trade_time"])
+        assert observed.tzinfo is not None
+        assert observed.date() == today.date()
+        assert row["received_at"] and row["exchange"] == "TSE"
+    assert quotes["TAIEX"]["close"] == 23456.78
