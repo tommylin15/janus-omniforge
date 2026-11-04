@@ -22,12 +22,14 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   late Future<dynamic> market;
   late Future<dynamic> brief;
   late Future<dynamic> personal;
-  late Future<dynamic> changes;
+  late Future<dynamic> ownerQuotes;
+  Future<dynamic>? stockMinutes;
+  String? selectedHolding;
+  dynamic lastGoodOwnerQuotes;
   late Future<dynamic> assets;
-  String changeSession = 'postmarket';
   Timer? marketTimer;
   bool foreground = true;
-  int historyDays = 20;
+  int historyDays = 0;
   dynamic lastGoodMarket;
   bool marketBusy = false;
   int marketGeneration = 0;
@@ -50,7 +52,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     market = widget.active ? _readCoreMarket() : Future<dynamic>.value(null);
     brief = widget.active ? _read('/api/v1/public/daily-brief') : Future<dynamic>.value(null);
     personal = widget.active ? _read('/api/v1/me/today-relevant') : Future<dynamic>.value(null);
-    changes = widget.active ? _read('/api/v1/me/today-changes?session=postmarket') : Future<dynamic>.value(null);
+    ownerQuotes = widget.active
+        ? market.then((_) => _loadOwnerQuotes())
+        : Future<dynamic>.value(null);
     assets = widget.active ? _read('/api/v1/me/portfolio/snapshot') : Future<dynamic>.value(null);
     WidgetsBinding.instance.addObserver(this);
     foreground = WidgetsBinding.instance.lifecycleState == null ||
@@ -67,7 +71,10 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         if (!marketActive || !marketHours) {
           marketTimer?.cancel();
         } else {
-          if (!marketBusy) setState(() { market = _loadMarketWithoutPerf(); });
+          if (!marketBusy) setState(() {
+            market = _loadMarketWithoutPerf();
+            ownerQuotes = market.then((_) => _loadOwnerQuotes());
+          });
         }
       });
     }
@@ -93,7 +100,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       market = widget.active ? _readCoreMarket() : Future<dynamic>.value(null);
       brief = widget.active ? _read('/api/v1/public/daily-brief') : Future<dynamic>.value(null);
       personal = widget.active ? _read('/api/v1/me/today-relevant') : Future<dynamic>.value(null);
-      changes = widget.active ? _read('/api/v1/me/today-changes?session=$changeSession') : Future<dynamic>.value(null);
+      ownerQuotes = widget.active
+          ? market.then((_) => _loadOwnerQuotes())
+          : Future<dynamic>.value(null);
       assets = widget.active ? _read('/api/v1/me/portfolio/snapshot') : Future<dynamic>.value(null);
     }
     if (oldWidget.active != widget.active) {
@@ -102,7 +111,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           market = _loadMarketWithoutPerf();
           brief = _read('/api/v1/public/daily-brief');
           personal = _read('/api/v1/me/today-relevant');
-          changes = _read('/api/v1/me/today-changes?session=$changeSession');
+          ownerQuotes = market.then((_) => _loadOwnerQuotes());
           assets = _read('/api/v1/me/portfolio/snapshot');
         });
         _startMarketTimer();
@@ -117,7 +126,10 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     foreground = state == AppLifecycleState.resumed;
     if (foreground) {
       if (widget.active) {
-        setState(() { market = _loadMarketWithoutPerf(); });
+        setState(() {
+          market = _loadMarketWithoutPerf();
+          ownerQuotes = market.then((_) => _loadOwnerQuotes());
+        });
         _startMarketTimer();
       }
     } else {
@@ -149,6 +161,27 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     } catch (_) {
       return null;
     }
+  }
+
+  Future<dynamic> _loadOwnerQuotes() async {
+    final result = await _read('/api/v1/me/portfolio/quotes',
+        timeout: const Duration(seconds: 24));
+    if (!mounted || !widget.active || result is! Map) return result;
+    if (result['positions'] is List) {
+      lastGoodOwnerQuotes = result;
+      final positions = fvRows(result['positions']).map(fvMap)
+          .where((row) => row['currency'] == 'TWD' && row['symbol'] != null)
+          .toList();
+      if (selectedHolding == null ||
+          !positions.any((row) => row['symbol'] == selectedHolding)) {
+        selectedHolding = positions.isEmpty ? null : '${positions.first['symbol']}';
+      }
+      if (selectedHolding != null) {
+        stockMinutes = _read(
+          '/api/v1/me/portfolio/intraday?symbol=$selectedHolding');
+      }
+    }
+    return result;
   }
 
   String _freshness(Map<String, dynamic> section) {
@@ -243,12 +276,12 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         child: Row(children: [
           const Icon(Icons.show_chart, color: fvTeal, size: 19),
           const SizedBox(width: 7),
-          const Expanded(child: Text('大盤歷史走勢',
+          const Expanded(child: Text('加權指數走勢',
               style: TextStyle(color: fvInk, fontWeight: FontWeight.w800,
                   fontSize: 17))),
           IconButton(
             key: const Key('today-taiex-expand'),
-            tooltip: '放大加權指數歷史走勢',
+            tooltip: '放大加權指數走勢',
             icon: const Icon(Icons.open_in_full, color: fvTeal),
             onPressed: () => showDialog<void>(context: context,
               builder: (dialogContext) => Dialog(
@@ -257,7 +290,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                   padding: const EdgeInsets.all(12),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     Row(children: [
-                      const Expanded(child: Text('加權指數 · 官方收盤走勢',
+                      Expanded(child: Text(historyDays == 0
+                          ? '加權指數 · 今日分鐘觀測' : '加權指數 · 官方收盤走勢',
                         style: TextStyle(color: fvInk, fontWeight: FontWeight.w800))),
                       IconButton(icon: const Icon(Icons.close),
                         tooltip: '關閉大盤走勢', onPressed: () => Navigator.pop(dialogContext)),
@@ -265,8 +299,10 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                     InteractiveViewer(
                       minScale: 1, maxScale: 3,
                       child: FvVisualSeriesChart(
-                        rows: usable, label: '加權指數', unit: '點', height: 235,
-                        dailyTable: true),
+                        rows: historyDays == 0 ? intraday : usable,
+                        label: '加權指數', unit: '點', height: 235,
+                        intraday: historyDays == 0, markExtrema: historyDays == 0,
+                        dailyTable: historyDays != 0, showTable: historyDays != 0),
                     ),
                   ]),
                 ),
@@ -287,7 +323,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       if (historyDays == 0)
         intraday.length >= 2
           ? FvVisualSeriesChart(rows: intraday, label: '加權指數 · 盤中',
-              unit: '點', height: 160, intraday: true, showTable: false)
+              unit: '點', height: 190, intraday: true,
+              markExtrema: true, showTable: false)
           : fvBoundedState('今日盤中資料收集中；僅保留實際取得的分鐘點，不補造缺口')
       else
         FvVisualSeriesChart(rows: shown, label: '加權指數 · 收盤',
@@ -457,57 +494,100 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         ]));
       });
 
-  Widget _changes() => FutureBuilder<dynamic>(
-      future: changes,
-      builder: (context, snapshot) {
-        final value = fvMap(snapshot.data);
-        final items = fvRows(value['items']);
-        return fvPanel(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('今天值得看',
-              style: TextStyle(
-                  color: fvInk, fontSize: 20, fontWeight: FontWeight.w800)),
-          Wrap(spacing: 8, children: [
-            for (final session
-                in const {'premarket': '盤前', 'postmarket': '盤後'}.entries)
-              ChoiceChip(
-                  label: Text(session.value),
-                  selected: changeSession == session.key,
-                  onSelected: (_) => setState(() {
-                        changeSession = session.key;
-                        changes = _read(
-                            '/api/v1/me/today-changes?session=$changeSession');
-                      })),
-          ]),
-          if (items.isEmpty)
-            Text(snapshot.connectionState != ConnectionState.done
-                ? '異動資料載入中'
-                : value['status'] == 'available'
-                    ? '目前沒有新的重要變化'
-                    : '異動資料暫未更新'),
-          if (snapshot.connectionState == ConnectionState.done &&
-              value['status'] != 'available')
-            TextButton(
-                onPressed: () => setState(() => changes =
-                    _read('/api/v1/me/today-changes?session=$changeSession')),
-                child: const Text('重試')),
-          for (final raw in items.take(3))
+  Widget _liveHoldings() => FutureBuilder<dynamic>(
+    future: ownerQuotes,
+    builder: (context, snapshot) {
+      final response = fvMap(snapshot.data ?? lastGoodOwnerQuotes);
+      final positions = fvRows(response['positions']).map(fvMap)
+          .where((row) => row['currency'] == 'TWD').take(3).toList();
+      if (positions.isEmpty && snapshot.connectionState == ConnectionState.done
+          && response.isEmpty) {
+        return fvPanel(child: const Text('持股即時摘要暫時無法讀取；不使用舊報價冒充盤中資料',
+            style: TextStyle(color: fvMuted)));
+      }
+      if (positions.isEmpty) return const SizedBox.shrink();
+      final taipei = DateTime.now().toUtc().add(const Duration(hours: 8));
+      final today = '${taipei.year.toString().padLeft(4, '0')}-'
+          '${taipei.month.toString().padLeft(2, '0')}-'
+          '${taipei.day.toString().padLeft(2, '0')}';
+      return fvPanel(child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('持股即時摘要', style: TextStyle(
+              color: fvInk, fontSize: 19, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text(marketHours ? '頁面可見時每分鐘更新 · 最多顯示 3 檔'
+                           : '非盤中：保留最後有效行情，明確標示原始日期',
+              style: const TextStyle(color: fvMuted, fontSize: 11)),
+          for (final row in positions)
             Builder(builder: (context) {
-              final row = fvMap(raw);
+              final symbol = fvText(row['symbol']);
+              final quoteDate = fvText(row['price_date'], missing: '');
+              final live = response['market_open'] == true &&
+                  row['quote_state'] == 'intraday' &&
+                  row['price_status'] == 'available' &&
+                  quoteDate == today &&
+                  (row['price_source'] == 'shioaji' ||
+                   row['price_source'] == 'twse_mis');
+              final price = row['market_price'];
+              final change = live ? row['change_percent'] : null;
+              final pnl = live ? row['day_change_amount'] : null;
               return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                      '${fvText(row['symbol'])} · ${fvText(row['state_label'])}｜${fvText(row['headline'])}'),
-                  subtitle: Text(
-                      '資料期 ${fvText(row['period'])} · 截止 ${fvText(row['cutoff_at'])}\n下一觀察：${fvText(row['next_check'])}'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => widget.onOpenStock?.call(fvText(row['symbol'])));
+                key: Key('today-live-holding-$symbol'),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                selected: selectedHolding == symbol,
+                title: Text('$symbol · ${fvText(row['stock_name'], missing: '持股')}',
+                    style: const TextStyle(color: fvInk, fontWeight: FontWeight.w700)),
+                subtitle: Text(live
+                    ? '盤中 · ${fvText(row['quote_at'])} · 今日損益 ${pnl == null ? '缺值' : legacy.accountingNumber(pnl, decimals: 0)} 元'
+                    : '非即時行情 · 價格日 ${quoteDate.isEmpty ? '缺值' : quoteDate}'),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Column(mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(price == null ? '—' : legacy.accountingNumber(price, decimals: 2),
+                        style: const TextStyle(color: fvInk, fontWeight: FontWeight.w800)),
+                    Text(change == null ? '—' : fvSignedPercent(change),
+                        style: TextStyle(color: change == null ? fvMuted : fvSignedColor(change))),
+                  ]),
+                  IconButton(
+                    tooltip: '開啟 $symbol 個股詳情',
+                    icon: const Icon(Icons.chevron_right),
+                    onPressed: () => widget.onOpenStock?.call(symbol),
+                  ),
+                ]),
+                onTap: () => setState(() {
+                  selectedHolding = symbol;
+                  stockMinutes = _read(
+                      '/api/v1/me/portfolio/intraday?symbol=$symbol');
+                }),
+              );
             }),
-          Text(fvText(value['basis_note'], missing: '依已保存資料，缺值不代表沒有變化。'),
-              style: const TextStyle(color: fvMuted, fontSize: 12)),
-        ]));
-      });
+          if (selectedHolding != null) ...[
+            const Divider(height: 14),
+            Text('$selectedHolding · 今日觀測走勢',
+                style: const TextStyle(color: fvInk, fontWeight: FontWeight.w800)),
+            FutureBuilder<dynamic>(
+              future: stockMinutes,
+              builder: (context, state) {
+                final data = fvMap(state.data);
+                final points = fvRows(data['items']);
+                if (points.length < 2) {
+                  return fvBoundedState('已收集分鐘點不足，尚無法繪線；未開啟頁面時不會補抓歷史點');
+                }
+                return FvVisualSeriesChart(rows: points,
+                    label: '$selectedHolding · 已收集分鐘點',
+                    unit: '元／股', height: 170, intraday: true,
+                    markExtrema: true, showTable: false);
+              },
+            ),
+          ],
+          const Text('資料來自 Shioaji／官方行情路由。日內變動與損益僅在可驗證的當日盤中報價下顯示。',
+              style: TextStyle(color: fvMuted, fontSize: 11)),
+        ],
+      ));
+    },
+  );
 
   Widget _market() => FutureBuilder<dynamic>(
     future: market,
@@ -515,6 +595,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       final root = fvMap(snapshot.data ?? lastGoodMarket);
       final sections = fvMap(root['sections']);
       return Column(children: [
+        fvSectionTitle(context, marketHours ? '盤中即時' : '行情與最近觀測',
+            trailing: marketHours ? '頁面可見時約每60秒更新' : '休市不自動輪詢'),
         IntrinsicHeight(
           child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             _benchmark('加權指數', Icons.show_chart, sections['taiex']),
@@ -668,10 +750,10 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         key: const Key('final-today-scroll'),
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
         children: [
-          fvPageTitle(context, '今日', subtitle: '先看與你相關的變化，再看市場位置'),
+          fvPageTitle(context, '今日', subtitle: '先看市場即時走勢與持股，再看其他資訊'),
           _assets(),
-          _changes(),
           _market(),
+          _liveHoldings(),
           _personal(),
           _brief(),
           const Padding(
