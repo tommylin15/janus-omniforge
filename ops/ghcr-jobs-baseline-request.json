@@ -3,7 +3,7 @@
   "environment": "dev",
   "risk_candidate_sha256": "36c77d0168a1d667223ab915c9b08fd2c1c6608f9f7db2fc046204e922854044",
   "no_gcp_writes": true,
-  "source": "Owner watchlist bugfix release: read-only existing dev four-Job rollback baseline before any optional same-source rollout.",
-  "purpose": "Capture exact active job images, source SHAs and configuration hashes with zero GCP mutations. Backend/API/UI bugfix should not alter canonical data, models or Scheduler.",
-  "request_attempt": 17
+  "source": "2026-11-04 ETF 0050 trading support: read existing Dev four-Job images/hashes before any ingestion-core weekly catalog rollout.",
+  "purpose": "Read-only rollback baseline to ensure scheduled Jobs retain prior configuration and source identity; no GCP mutations, Scheduler changes, or Owner ledger writes.",
+  "request_attempt": 18
 }
