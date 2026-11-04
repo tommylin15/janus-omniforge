@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "055749aab35cdcaf77c3dee4e693158ef6c6ac17",
-  "purpose": "2026-11-04 Shioaji simulation=True demand-only quote final candidate: dated MIS trade_time, 18s bounded proxy fetch, 20-reader singleflight test, TAIEX minute chart and Owner source support; immutable Dev API-only release, no Jobs/Scheduler/traffic mutation.",
+  "sha": "bf85eb4a38a13ba384ce724560380d3eb81dd802",
+  "purpose": "2026-11-04 final demand-driven Shioaji simulation-only intraday integration: 20 concurrent readers, strict quote timestamps, visible-only Flutter quote refresh; release from current passing ETF/Quote code, no API traffic/Jobs/Scheduler changes.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 40
+  "request_attempt": 41
 }
