@@ -105,7 +105,7 @@ def parse_isin_etfs(html: str, *, market: str, as_of: date | None = None) -> lis
 def fetch_isin_etfs(market: str, *, timeout_seconds: float = 4.0, opener=urlopen) -> list[OfficialEtf]:
     if market not in MARKETS:
         raise ValueError("invalid ETF market")
-    url = f"{ISIN_URL}?Page=1&chklike=Y&issuetype=3&market={MARKETS[market]}"
+    url = f"{ISIN_URL}?Page=1&chklike=Y&issuetype=I&market={MARKETS[market]}"
     request = Request(url, headers={"User-Agent": "Janus-Research/1.0", "Accept": "text/html"})
     try:
         with opener(request, timeout=timeout_seconds) as response:
@@ -181,7 +181,7 @@ def _lookup_cached(symbol: str, hour_bucket: int) -> OfficialEtf | None:
     unavailable = False
     for market in MARKETS:
         try:
-            records = fetch_market_etfs(market)
+            records = fetch_market_etfs(market, timeout_seconds=2.0)
         except EtfCatalogUnavailable:
             unavailable = True
             continue
@@ -192,7 +192,7 @@ def _lookup_cached(symbol: str, hour_bucket: int) -> OfficialEtf | None:
             # The official fund OpenAPI is monthly: a newly listed ETF may
             # appear on ISIN before the monthly file is refreshed.
             try:
-                for record in fetch_isin_etfs("TWSE"):
+                for record in fetch_isin_etfs("TWSE", timeout_seconds=2.0):
                     if record.symbol == symbol:
                         return record
             except EtfCatalogUnavailable:
