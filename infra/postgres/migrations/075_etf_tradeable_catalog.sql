@@ -72,6 +72,8 @@ GRANT EXECUTE ON FUNCTION control.register_verified_etf(text,text,text,date,text
   TO janus_private_api, janus_web_control;
 
 -- No grants to public API; model research universe remains untouched.
+-- Temporarily permit existing function owner to replace its own function.
+GRANT CREATE ON SCHEMA control TO janus_private_api;
 
 -- PHASE: private-api
 -- Owner ETF watchlist positions must not become equity-model supplement requests.
@@ -112,7 +114,7 @@ BEGIN
 END;
 $$;
 -- PHASE: control-finalize
-SELECT 1;
+REVOKE CREATE ON SCHEMA control FROM janus_private_api;
 
 -- PHASE: acceptance
 SELECT to_regclass('control.etf_catalog_sync_state') IS NOT NULL,
