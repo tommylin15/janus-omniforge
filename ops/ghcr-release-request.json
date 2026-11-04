@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "4c2aa34b1ee1472ba1c505129d037d4eb5bce1ff",
-  "purpose": "2026-11-03 fast annual realized PnL as-of date fix and Flutter background queue semantics. Full Python+Flutter immutable GHCR release; no direct Dev traffic/Job changes.",
+  "sha": "4322d97434a426431dbd0e34e52a1c020bf7582b",
+  "purpose": "2026-11-04 simulation-only Shioaji demand-driven streaming, Janus shared quote singleflight and intraday index chart; full Python/Flutter GHCR release for bounded Dev API-only rollout, no Job/Scheduler mutation.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 36
+  "request_attempt": 37
 }
