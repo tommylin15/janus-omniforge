@@ -67,7 +67,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.byKey(const Key('today-trend-5')), 180,
       scrollable: find.byType(Scrollable).first);
-    expect(find.text('大盤歷史走勢'), findsOneWidget);
+    expect(find.text('加權指數走勢'), findsOneWidget);
     expect(find.textContaining('正式收盤截至 2026-09-30'), findsOneWidget);
     final before = api.requests.length;
     await tester.tap(find.byKey(const Key('today-trend-5')));
@@ -86,6 +86,40 @@ void main() {
     expect(api.requests.length, before);
     await tester.tap(find.byTooltip('關閉大盤走勢'));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+
+  testWidgets('Today hides stale highlights and marks actual observed intraday extrema',
+      (tester) async {
+    _mobile(tester);
+    final local = DateTime.now().toUtc().add(const Duration(hours: 8));
+    final day = '${local.year.toString().padLeft(4, '0')}-'
+        '${local.month.toString().padLeft(2, '0')}-'
+        '${local.day.toString().padLeft(2, '0')}';
+    final api = TodayApiStub({
+      'sections': {
+        'taiex': {'status': 'available', 'as_of': day,
+          'data': {'close': '43000', 'intraday_points': [
+            {'date': '${day}T09:00:00+08:00', 'value': '42800'},
+            {'date': '${day}T09:01:00+08:00', 'value': '43000'},
+            {'date': '${day}T09:02:00+08:00', 'value': '42500'},
+          ], 'history_points': [
+            {'date': '2026-10-29', 'value': '42000'},
+            {'date': '2026-10-30', 'value': '42500'},
+          ]}},
+      },
+    });
+    await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
+    await tester.pumpAndSettle();
+    expect(find.text('今天值得看'), findsNothing);
+    expect(api.requests.where((p) => p.contains('today-changes')), isEmpty);
+    expect(find.byKey(const Key('today-trend-0')), findsOneWidget);
+    await tester.scrollUntilVisible(find.byKey(const Key('intraday-observed-high')), 150,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.textContaining('09:01'), findsWidgets);
+    expect(find.textContaining('09:02'), findsWidgets);
+    expect(find.textContaining('區間位階：'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
@@ -112,7 +146,7 @@ void main() {
     expect(find.text('大盤資料仍在讀取；其他資訊可先使用'), findsOneWidget);
     api.marketResponse.complete(api.market);
     await tester.pumpAndSettle();
-    expect(find.text('大盤歷史走勢'), findsOneWidget);
+    expect(find.text('加權指數走勢'), findsOneWidget);
     expect(find.text('加權指數'), findsOneWidget);
     expect(api.requests.where((p) => p == '/api/v1/public/market-home').length, 1);
     expect(tester.takeException(), isNull);
