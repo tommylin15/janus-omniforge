@@ -78,7 +78,7 @@ GRANT EXECUTE ON FUNCTION control.register_verified_etf(text,text,text,date,text
 -- This function is owned by the existing private-api role (migration 066).
 SET ROLE janus_private_api;
 CREATE OR REPLACE FUNCTION control.sync_stock_supplement_demand()
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE target record; active_symbols text[];
 BEGIN
     PERFORM pg_advisory_xact_lock(1835102836, 7);
@@ -110,7 +110,7 @@ BEGIN
       generation=generation+1,lease_token=NULL,updated_at=now()
       WHERE demanded AND NOT(symbol=ANY(coalesce(active_symbols,ARRAY[]::text[])));
 END;
-$;
+$$;
 -- PHASE: control-finalize
 SELECT 1;
 
