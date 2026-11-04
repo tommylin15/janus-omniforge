@@ -76,7 +76,9 @@ class ShioajiQuotes:
             batch = symbols[start:start + 30]
             uri = self.base_url + "/quotes?" + urlencode({"symbols": ",".join(batch)})
             request = Request(uri, headers={"Authorization": "Bearer " + token, "Accept": "application/json"})
-            with urlopen(request, timeout=8) as response:
+            # Cold simulation login + first quote callback + bounded MIS fallback
+            # can exceed 8 seconds. Keep a finite response deadline.
+            with urlopen(request, timeout=18) as response:
                 data = response.read(MAX_BYTES + 1)
             if len(data) > MAX_BYTES:
                 raise ValueError("oversized quote response")
