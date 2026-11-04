@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "bc3f53bcb9a52b67e52e3eb0ae1cc15155a13cd5",
+  "sha": "e413957d2bdbbf284a6c2680d7617b563a529de9",
   "digest": "",
-  "release_run": "41775776451",
+  "release_run": "41784423406",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-04 corrected dict_row quote guard and TAIEX minute writer, full GHCR release 41775776451 success; 0% candidate, no current traffic changes.",
-  "request_attempt": 42
+  "purpose": "2026-11-04 Final simulation=True demand-only quotes / shared 60-second refresh, 20-reader singleflight, index-minute trend, source and stock detail visibility. Immutable full release #41784423406 PASS; deploy new 0% Candidate only, preserve 100% active and Jobs/Scheduler.",
+  "request_attempt": 43
 }
