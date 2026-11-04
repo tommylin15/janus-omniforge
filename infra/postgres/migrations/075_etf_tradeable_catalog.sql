@@ -68,14 +68,12 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION control.register_verified_etf(text,text,text,date,text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION control.register_verified_etf(text,text,text,date)
+GRANT EXECUTE ON FUNCTION control.register_verified_etf(text,text,text,date,text)
   TO janus_private_api, janus_web_control;
 
 -- No grants to public API; model research universe remains untouched.
-INSERT INTO control.schema_migrations(version) VALUES
-  ('075_etf_tradeable_catalog') ON CONFLICT DO NOTHING;
-RESET ROLE;
 
+-- PHASE: private-api
 -- Owner ETF watchlist positions must not become equity-model supplement requests.
 -- This function is owned by the existing private-api role (migration 066).
 SET ROLE janus_private_api;
@@ -113,5 +111,18 @@ BEGIN
       WHERE demanded AND NOT(symbol=ANY(coalesce(active_symbols,ARRAY[]::text[])));
 END;
 $;
+-- PHASE: control-finalize
+SELECT 1;
+
+-- PHASE: acceptance
+SELECT to_regclass('control.etf_catalog_sync_state') IS NOT NULL,
+       has_function_privilege('janus_private_api',
+         'control.register_verified_etf(text,text,text,date,text)','EXECUTE'),
+       NOT has_function_privilege('janus_public_api',
+         'control.register_verified_etf(text,text,text,date,text)','EXECUTE'),
+       has_table_privilege('janus_private_api',
+         'control.official_instrument_identity_provenance','SELECT');
+INSERT INTO control.schema_migrations(version) VALUES
+  ('075_etf_tradeable_catalog') ON CONFLICT DO NOTHING;
 RESET ROLE;
 COMMIT;
