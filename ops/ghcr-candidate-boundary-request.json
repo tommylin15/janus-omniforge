@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "e413957d2bdbbf284a6c2680d7617b563a529de9",
+  "sha": "60b10da3e2ed4a5b5de3933e592cd8c246f0dcb8",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-04 Shioaji simulation=True shared quote release 41784423406, zero-traffic candidate 41785490464 PASS. Read-only exact build, OAuth/MCP/private denial, market-home and 2330 quote compared with current active. Off-session quote may remain stale; no fake intraday freshness.",
-  "request_attempt": 39
+  "purpose": "2026-11-04 ETF 0050/006208/00878 Dev API candidate, GHCR Release 41787167591 PASS and 0% Candidate 41787850394 PASS. Read-only OAuth metadata, owner/Admin/MCP unauthenticated rejection, public quotes and exact build identity; no traffic changes.",
+  "request_attempt": 40
 }
