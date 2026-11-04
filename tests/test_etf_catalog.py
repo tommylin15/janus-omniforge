@@ -76,6 +76,29 @@ def test_official_code_lookup_only_uses_exact_match(monkeypatch):
     catalog._lookup_cached.cache_clear()
 
 
+
+def test_otc_official_lookup_continues_when_twse_unavailable(monkeypatch):
+    catalog._lookup_cached.cache_clear()
+    bond = OfficialEtf("00697B", "元大美債7-10", "TPEX", date(2017, 6, 23))
+
+    def fetch(market, **kwargs):
+        if market == "TWSE":
+            raise EtfCatalogUnavailable("TWSE unavailable")
+        return [bond]
+
+    monkeypatch.setattr(catalog, "fetch_market_etfs", fetch)
+    assert find_official_etf("00697B") == bond
+    catalog._lookup_cached.cache_clear()
+
+
+def test_twse_falls_back_to_isin_with_explicit_provenance(monkeypatch):
+    bond = OfficialEtf("0050", "元大台灣50", "TWSE", date(2003, 6, 30))
+    def unavailable(**kwargs):
+        raise EtfCatalogUnavailable("blocked")
+    monkeypatch.setattr(catalog, "fetch_twse_openapi_etfs", unavailable)
+    monkeypatch.setattr(catalog, "fetch_isin_etfs", lambda market, **kwargs: [bond])
+    assert catalog.fetch_market_etfs("TWSE") == [bond]
+
 def test_weekly_requires_both_markets(monkeypatch):
     monkeypatch.setattr(catalog, "fetch_market_etfs", lambda market, **kw: [
         OfficialEtf(f"00{i:03d}", f"ETF-{i}", market, date(2020, 1, 1))
@@ -92,3 +115,9 @@ def test_migration_is_owner_only_and_research_universe_unchanged():
     assert "janus_private_api" in sql
     assert "control.market_universe_members" in sql
     assert "ip.instrument_kind IS DISTINCT FROM 'ETF'" in sql
+    assert sql.count("$") == 4
+    assert "-- PHASE: private-api" in sql
+    assert "-- PHASE: control-finalize" in sql
+    assert "-- PHASE: acceptance" in sql
+    assert "GRANT CREATE ON SCHEMA control TO janus_private_api" in sql
+    assert "REVOKE CREATE ON SCHEMA control FROM janus_private_api" in sql
