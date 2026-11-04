@@ -15,6 +15,8 @@ INSERT INTO control.etf_catalog_sync_state(singleton) VALUES(true)
   ON CONFLICT(singleton) DO NOTHING;
 GRANT SELECT, UPDATE ON control.etf_catalog_sync_state TO janus_web_control;
 GRANT SELECT ON control.etf_catalog_sync_state TO janus_private_api;
+-- Existing ETF identity read paths also need the provenance JOIN.
+GRANT SELECT ON control.official_instrument_identity_provenance TO janus_private_api, janus_web_control;
 
 CREATE OR REPLACE FUNCTION control.register_verified_etf(
   p_symbol text, p_name text, p_market text, p_listed_on date
@@ -68,5 +70,44 @@ GRANT EXECUTE ON FUNCTION control.register_verified_etf(text,text,text,date)
 -- No grants to public API; model research universe remains untouched.
 INSERT INTO control.schema_migrations(version) VALUES
   ('075_etf_tradeable_catalog') ON CONFLICT DO NOTHING;
+RESET ROLE;
+
+-- Owner ETF watchlist positions must not become equity-model supplement requests.
+-- This function is owned by the existing private-api role (migration 066).
+SET ROLE janus_private_api;
+CREATE OR REPLACE FUNCTION control.sync_stock_supplement_demand()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $
+DECLARE target record; active_symbols text[];
+BEGIN
+    PERFORM pg_advisory_xact_lock(1835102836, 7);
+    SELECT array_agg(symbol ORDER BY symbol) INTO active_symbols FROM (
+      SELECT desired.symbol FROM (
+        SELECT symbol FROM private.watchlist WHERE active
+        UNION SELECT symbol FROM private.current_positions WHERE shares>0
+      ) desired
+      JOIN control.stock_master sm ON sm.symbol=desired.symbol
+      LEFT JOIN control.official_instrument_identity_provenance ip
+        ON ip.symbol=sm.symbol
+      WHERE sm.enabled AND sm.market IN ('TWSE','TPEX')
+        AND ip.instrument_kind IS DISTINCT FROM 'ETF'
+        AND ip.instrument_kind IS DISTINCT FROM 'BOND_ETF'
+    ) ordinary_equity;
+    IF cardinality(active_symbols)>1000 THEN RAISE EXCEPTION 'supplement demand limit exceeded'; END IF;
+    FOR target IN SELECT sm.symbol FROM control.stock_master sm
+      WHERE sm.enabled AND sm.market IN ('TWSE','TPEX') AND sm.symbol=ANY(coalesce(active_symbols,ARRAY[]::text[]))
+      ORDER BY sm.symbol
+    LOOP
+      INSERT INTO control.stock_supplement_requests(symbol,demanded,status)
+      VALUES(target.symbol,true,'pending')
+      ON CONFLICT(symbol) DO UPDATE SET demanded=true,
+        generation=control.stock_supplement_requests.generation+1,
+        status='pending',attempts=0,next_attempt_at=now(),lease_token=NULL,updated_at=now()
+      WHERE NOT control.stock_supplement_requests.demanded;
+    END LOOP;
+    UPDATE control.stock_supplement_requests SET demanded=false,status='cancelled',
+      generation=generation+1,lease_token=NULL,updated_at=now()
+      WHERE demanded AND NOT(symbol=ANY(coalesce(active_symbols,ARRAY[]::text[])));
+END;
+$;
 RESET ROLE;
 COMMIT;
