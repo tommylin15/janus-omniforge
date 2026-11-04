@@ -43,6 +43,24 @@ def test_strict_official_etf_classification_and_market():
 
 
 
+def test_isin_uses_official_etf_filter(monkeypatch):
+    class _Headers:
+        def get_content_charset(self): return "utf-8"
+    class _Response:
+        headers = _Headers()
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def read(self, _): return _html([_row()]).encode("utf-8")
+    seen = []
+    def fake_open(request, timeout):
+        seen.append((request.full_url, timeout))
+        return _Response()
+    rows = catalog.fetch_isin_etfs("TWSE", opener=fake_open)
+    assert rows[0].symbol == "0050"
+    assert "issuetype=I&market=1" in seen[0][0]
+    assert seen[0][1] <= 4
+
+
 def test_twse_openapi_uses_explicit_listing_date_and_preserves_source():
     rows = [
         {"基金代號": "0050", "基金簡稱": "元大台灣50", "上市日期": "2003/06/30"},
