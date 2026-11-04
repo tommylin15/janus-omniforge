@@ -18,6 +18,42 @@ class TodayApiStub extends legacy.Api {
   }
 }
 
+class TodayHoldingsApiStub extends TodayApiStub {
+  TodayHoldingsApiStub(super.market);
+
+  @override
+  Future<dynamic> get(String path) async {
+    if (path == '/api/v1/me/portfolio/quotes') {
+      requests.add(path);
+      return {
+        'market_open': false,
+        'positions': [
+          {'symbol': '2330', 'stock_name': '台積電', 'currency': 'TWD',
+           'price_date': '2026-11-03', 'market_price': '1000',
+           'quote_state': 'stale', 'price_status': 'stale',
+           'price_source': 'shioaji'},
+          {'symbol': '2327', 'stock_name': '國巨', 'currency': 'TWD',
+           'price_date': '2026-11-03', 'market_price': '550',
+           'quote_state': 'stale', 'price_status': 'stale',
+           'price_source': 'shioaji'},
+        ],
+      };
+    }
+    if (path == '/api/v1/me/portfolio/intraday?symbol=2330') {
+      requests.add(path);
+      return {
+        'symbol': '2330', 'as_of': '2026-11-04',
+        'observation_kind': 'page_demanded_minutes',
+        'items': [
+          {'date': '2026-11-04T09:01:00+08:00', 'value': '1010'},
+          {'date': '2026-11-04T09:02:00+08:00', 'value': '990'},
+        ],
+      };
+    }
+    return super.get(path);
+  }
+}
+
 class DeferredTodayApiStub extends TodayApiStub {
   DeferredTodayApiStub(super.market);
   final marketResponse = Completer<dynamic>();
@@ -120,6 +156,34 @@ void main() {
     expect(find.textContaining('09:01'), findsWidgets);
     expect(find.textContaining('09:02'), findsWidgets);
     expect(find.textContaining('區間位階：'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Owner holdings summary uses dated quotes and bounded minute series',
+      (tester) async {
+    _mobile(tester);
+    final api = TodayHoldingsApiStub({
+      'sections': {
+        'taiex': {'status': 'available', 'data': {'close': '43000',
+          'intraday_points': [
+            {'date': '2026-11-04T09:01:00+08:00', 'value': '43000'},
+            {'date': '2026-11-04T09:02:00+08:00', 'value': '42900'},
+          ]}},
+      },
+    });
+    await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('持股即時摘要'), 180,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('持股即時摘要'), findsOneWidget);
+    expect(find.byKey(const Key('today-live-holding-2330')), findsOneWidget);
+    expect(find.textContaining('非即時 · 價格日 2026-11-03'), findsWidgets);
+    expect(api.requests.where((p) => p == '/api/v1/me/portfolio/intraday?symbol=2330').length, 1);
+    await tester.scrollUntilVisible(find.textContaining('2330 · 已收集分鐘點'), 140,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.textContaining('09:01'), findsWidgets);
+    expect(find.textContaining('09:02'), findsWidgets);
+    expect(find.text('今天值得看'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
