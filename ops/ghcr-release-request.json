@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "aa4f686634000b412aa658bdda7b4b9d5d04deff",
-  "purpose": "2026-11-04 final simulation-only Shioaji intraday integration; hidden IndexedStack pages stop implicit quote demand, Shioaji proper owner PnL source, Proxy safe fallback, 073/074 migrations completed; immutable release only, no direct Dev traffic/Jobs/Scheduler mutation.",
+  "sha": "a009567478eee8b8d06787f80e8a6cab66ac91ab",
+  "purpose": "2026-11-04 corrected Shioaji bridge after true 0% candidate HTTP503 root cause: psycopg dict_row keyed advisory lock and TAIEX table check, regression tests; preserves simulation=True, demand-only 60s and no scheduler. Existing-dev immutable API release only.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 38
+  "request_attempt": 39
 }
