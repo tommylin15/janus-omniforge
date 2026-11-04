@@ -19,11 +19,11 @@ class FinalTodayPage extends StatefulWidget {
 }
 
 class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObserver {
-  late Future<dynamic> market = _readCoreMarket();
-  late Future<dynamic> brief = _read('/api/v1/public/daily-brief');
-  late Future<dynamic> personal = _read('/api/v1/me/today-relevant');
-  late Future<dynamic> changes = _read('/api/v1/me/today-changes?session=postmarket');
-  late Future<dynamic> assets = _read('/api/v1/me/portfolio/snapshot');
+  late Future<dynamic> market;
+  late Future<dynamic> brief;
+  late Future<dynamic> personal;
+  late Future<dynamic> changes;
+  late Future<dynamic> assets;
   String changeSession = 'postmarket';
   Timer? marketTimer;
   bool foreground = true;
@@ -45,6 +45,13 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   @override
   void initState() {
     super.initState();
+    // IndexedStack creates every tab up front. Hidden tabs must not trigger
+    // an upstream quote request until the user actually selects this page.
+    market = widget.active ? _readCoreMarket() : Future<dynamic>.value(null);
+    brief = widget.active ? _read('/api/v1/public/daily-brief') : Future<dynamic>.value(null);
+    personal = widget.active ? _read('/api/v1/me/today-relevant') : Future<dynamic>.value(null);
+    changes = widget.active ? _read('/api/v1/me/today-changes?session=postmarket') : Future<dynamic>.value(null);
+    assets = widget.active ? _read('/api/v1/me/portfolio/snapshot') : Future<dynamic>.value(null);
     WidgetsBinding.instance.addObserver(this);
     foreground = WidgetsBinding.instance.lifecycleState == null ||
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
@@ -83,15 +90,21 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.api, widget.api)) {
       lastGoodMarket = null;
-      market = _readCoreMarket();
-      brief = _read('/api/v1/public/daily-brief');
-      personal = _read('/api/v1/me/today-relevant');
-      changes = _read('/api/v1/me/today-changes?session=$changeSession');
-      assets = _read('/api/v1/me/portfolio/snapshot');
+      market = widget.active ? _readCoreMarket() : Future<dynamic>.value(null);
+      brief = widget.active ? _read('/api/v1/public/daily-brief') : Future<dynamic>.value(null);
+      personal = widget.active ? _read('/api/v1/me/today-relevant') : Future<dynamic>.value(null);
+      changes = widget.active ? _read('/api/v1/me/today-changes?session=$changeSession') : Future<dynamic>.value(null);
+      assets = widget.active ? _read('/api/v1/me/portfolio/snapshot') : Future<dynamic>.value(null);
     }
     if (oldWidget.active != widget.active) {
       if (widget.active) {
-        setState(() { market = _loadMarketWithoutPerf(); });
+        setState(() {
+          market = _loadMarketWithoutPerf();
+          brief = _read('/api/v1/public/daily-brief');
+          personal = _read('/api/v1/me/today-relevant');
+          changes = _read('/api/v1/me/today-changes?session=$changeSession');
+          assets = _read('/api/v1/me/portfolio/snapshot');
+        });
         _startMarketTimer();
       } else {
         marketTimer?.cancel();

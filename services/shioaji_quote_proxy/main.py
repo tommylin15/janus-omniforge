@@ -143,10 +143,11 @@ class ShioajiManager:
         # Fallback stays inside this proxy. A missing stream quote is never
         # filled by yesterday's close or claimed as Shioaji.
         pending = []
-        for symbol in symbols:
-            if symbol not in quotes and now - self._fallback_checked.get(symbol, -1e12) >= 60:
-                self._fallback_checked[symbol] = now
-                pending.append(symbol)
+        with self._connection_lock:
+            for symbol in symbols:
+                if symbol not in quotes and now - self._fallback_checked.get(symbol, -1e12) >= 60:
+                    self._fallback_checked[symbol] = now
+                    pending.append(symbol)
         if pending:
             quotes.update(fetch_twse_mis(pending))
         return quotes

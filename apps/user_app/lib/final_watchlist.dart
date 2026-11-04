@@ -18,7 +18,7 @@ class FinalWatchlistPage extends StatefulWidget {
 }
 
 class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBindingObserver {
-  late Future<dynamic> data = _load();
+  late Future<dynamic> data;
   dynamic lastGoodData;
   int loadGeneration = 0;
   Future<dynamic>? pendingLoad;
@@ -37,6 +37,9 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
   @override
   void initState() {
     super.initState();
+    // Avoid triggering the GET -> BackgroundTasks quote refresh while this
+    // IndexedStack tab has never been opened.
+    data = widget.active ? _load() : Future<dynamic>.value(null);
     WidgetsBinding.instance.addObserver(this);
     foreground = WidgetsBinding.instance.lifecycleState == null ||
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
@@ -64,7 +67,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     if (!identical(oldWidget.api, widget.api)) {
       // Owner/API token transitions must never reuse another owner's snapshot.
       lastGoodData = null;
-      data = _load(force: true);
+      data = widget.active ? _load(force: true) : Future<dynamic>.value(null);
     }
     if (oldWidget.active != widget.active) {
       if (widget.active) {
