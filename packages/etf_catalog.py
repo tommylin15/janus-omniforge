@@ -188,6 +188,15 @@ def _lookup_cached(symbol: str, hour_bucket: int) -> OfficialEtf | None:
         for record in records:
             if record.symbol == symbol:
                 return record
+        if market == "TWSE":
+            # The official fund OpenAPI is monthly: a newly listed ETF may
+            # appear on ISIN before the monthly file is refreshed.
+            try:
+                for record in fetch_isin_etfs("TWSE"):
+                    if record.symbol == symbol:
+                        return record
+            except EtfCatalogUnavailable:
+                unavailable = True
     if unavailable:
         raise EtfCatalogUnavailable("one or more official ETF markets unavailable")
     return None
