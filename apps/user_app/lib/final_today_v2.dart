@@ -523,7 +523,10 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
             Builder(builder: (context) {
               final symbol = fvText(row['symbol']);
               final quoteDate = fvText(row['price_date'], missing: '');
+              final observedAt = DateTime.tryParse(fvText(row['quote_at'], missing: ''));
+              final age = observedAt == null ? null : DateTime.now().difference(observedAt);
               final live = response['market_open'] == true &&
+                  age != null && !age.isNegative && age.inSeconds <= 120 &&
                   row['quote_state'] == 'intraday' &&
                   row['price_status'] == 'available' &&
                   quoteDate == today &&
@@ -532,16 +535,21 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
               final price = row['market_price'];
               final change = live ? row['change_percent'] : null;
               final pnl = live ? row['day_change_amount'] : null;
+              final taipeiStamp = observedAt?.toUtc().add(const Duration(hours: 8));
+              final quoteTime = taipeiStamp == null
+                  ? '時間缺值'
+                  : '${taipeiStamp.hour.toString().padLeft(2, '0')}:${taipeiStamp.minute.toString().padLeft(2, '0')}';
               return ListTile(
                 key: Key('today-live-holding-$symbol'),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 selected: selectedHolding == symbol,
                 title: Text('$symbol · ${fvText(row['stock_name'], missing: '持股')}',
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: fvInk, fontWeight: FontWeight.w700)),
                 subtitle: Text(live
-                    ? '盤中 · ${fvText(row['quote_at'])} · 今日損益 ${pnl == null ? '缺值' : legacy.accountingNumber(pnl, decimals: 0)} 元'
-                    : '非即時行情 · 價格日 ${quoteDate.isEmpty ? '缺值' : quoteDate}'),
+                    ? '盤中 $quoteTime · 今日變化 ${pnl == null ? '缺值' : legacy.accountingNumber(pnl, decimals: 0)} 元'
+                    : '非即時 · 價格日 ${quoteDate.isEmpty ? '缺值' : quoteDate}'),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   Column(mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end, children: [
