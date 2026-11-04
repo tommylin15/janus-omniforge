@@ -97,3 +97,23 @@ def test_distributed_singleflight_reuses_last_success():
     assert router.refresh(identities, force=True, now=now)["status"] == "in_flight"
     assert source.calls == 1
     assert router.read(identities, now=now)["2330"]["source"] == "shioaji"
+
+
+def test_shioaji_is_an_authorized_source_for_owner_reference_valuation():
+    from services.api.intraday_quotes import value_holdings
+    now = datetime(2026, 11, 4, 10, 15, tzinfo=TZ)
+    rows = [{"symbol": "2330", "currency": "TWD", "shares": "10",
+             "average_cost": "100"}]
+    quotes = {"2330": {
+        "price": "105", "source": "shioaji", "state": "intraday",
+        "quote_at": now.isoformat(), "received_at": now.isoformat(),
+        "price_date": now.date().isoformat(), "is_final": False
+    }}
+    result = value_holdings(rows, quotes, now=now)
+    row = result["positions"][0]
+    assert row["reference_eligible"] is True
+    assert row["market_price"] == "105"
+    assert row["unrealized_pnl"] == "50"
+    assert row["price_source"] == "shioaji"
+    assert row["price_status"] == "available"
+    assert result["items"][0]["aggregate_status"] == "available"

@@ -649,7 +649,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                                   crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
                                     Text(
-                                      '${header['price_source'] == 'twse_mis' ? '盤中最新價' : '正式收盤價'} · 行情日 ${fvText(header['trade_date'])}',
+                                      '${(header['price_source'] == 'twse_mis' || header['price_source'] == 'shioaji') ? '盤中最新價' : '正式收盤價'} · 行情日 ${fvText(header['trade_date'])}',
                                       style: const TextStyle(
                                           color: fvMuted, fontSize: 12),
                                     ),

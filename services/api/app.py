@@ -648,7 +648,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                     "freshness_days": 0,
                     "row_count": 1,
                     "coverage": {"requested_symbols": 1, "received_symbols": 1},
-                    "provenance": {"source": "twse_mis", "route_version": ROUTE_VERSION},
+                    "provenance": {"source": quote.get("source"), "route_version": ROUTE_VERSION},
                     # MIS quote is a distinct, non-final observation. Preserve
                     # official Core close-history; never splice MIS into EOD line.
                     "data": {**(section.get("data") or {}),

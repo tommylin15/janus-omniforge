@@ -171,7 +171,7 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
             observed_day = date.fromisoformat(str(price_date)[:10]) if price_date else None
         except ValueError:
             observed_day = None
-        source_ok = source in {"twse_mis", "core_ohlcv", "tpex_openapi_eod"} or (
+        source_ok = source in {"twse_mis", "shioaji", "core_ohlcv", "tpex_openapi_eod"} or (
             # Local legacy quote fixtures may lack a source, but the runtime
             # QuoteRouter always stamps authorized provenance.
             source is None and state in {"intraday", "closing_pending_eod", "eod_final", "stale"}
