@@ -117,3 +117,59 @@ def test_shioaji_is_an_authorized_source_for_owner_reference_valuation():
     assert row["price_source"] == "shioaji"
     assert row["price_status"] == "available"
     assert result["items"][0]["aggregate_status"] == "available"
+
+
+def test_pg_session_advisory_guard_reads_dict_row_by_name(monkeypatch):
+    """Psycopg Repository uses dict_row, never positional fetchone()[0]."""
+    from contextlib import contextmanager
+    from services.api.repository import PostgresWorkspaceRepository
+    seen = []
+    class FakeConn:
+        def execute(self, query, params):
+            seen.append((query, params))
+            return self
+        def fetchone(self):
+            return {"acquired": True}
+    @contextmanager
+    def fake_connection():
+        yield FakeConn()
+    repo = PostgresWorkspaceRepository("postgresql://example.invalid/test")
+    monkeypatch.setattr(repo, "_connection", fake_connection)
+    with repo.quote_refresh_guard() as acquired:
+        assert acquired is True
+        assert "pg_try_advisory_lock" in seen[0][0]
+    assert "pg_advisory_unlock" in seen[1][0]
+    assert len(seen) == 2
+
+
+def test_intraday_index_writer_uses_dict_row_for_optional_table(monkeypatch):
+    """The migration-ready table check must not use fetchone()[0]."""
+    from contextlib import contextmanager
+    from services.api.repository import PostgresWorkspaceRepository
+    statements = []
+    batches = []
+    class Conn:
+        def execute(self, query, params=None):
+            statements.append((query, params))
+            return self
+        def fetchone(self):
+            return {"table_name": "control.operational_index_minutes"}
+        def cursor(self):
+            return self
+        def executemany(self, query, rows):
+            batches.append((query, rows))
+    @contextmanager
+    def fake_connection():
+        yield Conn()
+    repo = PostgresWorkspaceRepository("postgresql://example.invalid/test")
+    monkeypatch.setattr(repo, "_connection", fake_connection)
+    now = datetime(2026, 11, 4, 10, 15, tzinfo=TZ).isoformat()
+    quote = {"TAIEX": {"price": "43227.63", "quote_at": now,
+             "received_at": now, "session": "regular",
+             "source": "shioaji", "route_version": "latest-price.v2",
+             "previous_close": "43000"}}
+    assert repo.save_last_quotes(quote) == 1
+    assert any("operational_index_minutes" in query and "INSERT" in query
+               for query, _ in statements)
+    assert len(batches) == 1
+    assert batches[0][1][0][5] == "shioaji"

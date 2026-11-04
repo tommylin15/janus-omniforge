@@ -603,9 +603,9 @@ class PostgresWorkspaceRepository:
         """Nonblocking distributed quote singleflight with PG session lock."""
         with self._connection() as connection:
             acquired = bool(connection.execute(
-                "SELECT pg_try_advisory_lock(hashtext(%s))",
+                "SELECT pg_try_advisory_lock(hashtext(%s)) AS acquired",
                 ("janus-shared-live-quotes-v1",),
-            ).fetchone()[0])
+            ).fetchone()["acquired"])
             try:
                 yield acquired
             finally:
@@ -811,8 +811,8 @@ class PostgresWorkspaceRepository:
             index = quotes.get("TAIEX")
             if (index and index.get("source") in {"shioaji", "twse_mis"}
                 and connection.execute(
-                    "SELECT to_regclass('control.operational_index_minutes')"
-                ).fetchone()[0] is not None):
+                    "SELECT to_regclass('control.operational_index_minutes') AS table_name"
+                ).fetchone()["table_name"] is not None):
                 # Migration may be deployed after API; never block ordinary
                 # quote persistence merely because the optional chart is absent.
                 connection.execute(
