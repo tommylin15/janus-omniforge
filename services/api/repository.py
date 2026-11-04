@@ -817,6 +817,25 @@ class PostgresWorkspaceRepository:
         return [{"date": row["minute_at"].isoformat(), "value": str(row["price"])}
                 for row in rows]
 
+    def stock_intraday_points(self, symbol: str, trade_date=None) -> list[dict[str, str]]:
+        """Same-day real minute observations; callers must enforce Owner scope."""
+        from datetime import datetime, time, timedelta, timezone
+        import re
+        if not re.fullmatch(r"[0-9A-Z]{4,10}", symbol):
+            raise ValueError("invalid intraday symbol")
+        taipei = timezone(timedelta(hours=8))
+        day = trade_date or datetime.now(taipei).date()
+        start = datetime.combine(day, time.min, tzinfo=taipei)
+        with self._connection() as connection:
+            rows = connection.execute(
+                """SELECT minute_at,price FROM control.operational_symbol_minutes
+                   WHERE symbol=%s AND minute_at >= %s AND minute_at < %s
+                   ORDER BY minute_at ASC LIMIT 270""",
+                (symbol, start, start + timedelta(days=1)),
+            ).fetchall()
+        return [{"date": row["minute_at"].astimezone(taipei).isoformat(),
+                 "value": str(row["price"])} for row in rows]
+
     def save_last_quotes(self, quotes, chunk_size: int = 250) -> int:
         if not quotes:
             return 0
@@ -849,6 +868,35 @@ class PostgresWorkspaceRepository:
                     (index["quote_at"], index["quote_at"], index["price"],
                      index["received_at"], index["source"]),
                 )
+            symbol_minutes = [
+                (symbol, row["quote_at"], row["quote_at"], row["price"],
+                 row["received_at"], row["source"])
+                for symbol, row in quotes.items()
+                if symbol != "TAIEX" and row.get("session") == "regular"
+                and row.get("source") in {"shioaji", "twse_mis"}
+            ]
+            if (symbol_minutes and connection.execute(
+                    "SELECT to_regclass('control.operational_symbol_minutes') AS relation"
+                ).fetchone()["relation"] is not None):
+                # Bounded three-day storage; no mock ticks, no unattended sampler.
+                connection.execute(
+                    "DELETE FROM control.operational_symbol_minutes "
+                    "WHERE minute_at < now() - interval '3 days'"
+                )
+                for offset in range(0, len(symbol_minutes), chunk_size):
+                    connection.cursor().executemany(
+                        """INSERT INTO control.operational_symbol_minutes
+                           (symbol,minute_at,quote_at,price,received_at,source)
+                           VALUES (%s,date_trunc('minute',%s::timestamptz),%s,%s,%s,%s)
+                           ON CONFLICT(symbol,minute_at) DO UPDATE
+                              SET quote_at=EXCLUDED.quote_at,
+                                  price=EXCLUDED.price,
+                                  received_at=EXCLUDED.received_at,
+                                  source=EXCLUDED.source
+                           WHERE EXCLUDED.quote_at >
+                                 control.operational_symbol_minutes.quote_at""",
+                        symbol_minutes[offset:offset + chunk_size],
+                    )
             for offset in range(0, len(items), chunk_size):
                 chunk = items[offset:offset + chunk_size]
                 connection.cursor().executemany("""INSERT INTO control.operational_last_quotes
