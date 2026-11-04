@@ -2,15 +2,15 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "5fdcdd9288d6305758935d4413f5ab92776a735e",
-  "release_run": "41376716082",
+  "sha": "60b10da3e2ed4a5b5de3933e592cd8c246f0dcb8",
+  "release_run": "41787167591",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:880c4a85fbf11ecd934e8f5fa437fab021be83de8bd29f3414235538822c9663",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:880c4a85fbf11ecd934e8f5fa437fab021be83de8bd29f3414235538822c9663",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:866c6c3949811fe7aa5db0766b574d9cf793ca2e6825b108c5f3fdfa037a9914",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:2ffe62644d57fbc5acb60e0bd52f30e8f6a9c11589a750eb49c598284eefea9c"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:57d981ce49e2b176092fdb371c8510d0ff9399a6cb614e3ad91df216de0f39b3",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:57d981ce49e2b176092fdb371c8510d0ff9399a6cb614e3ad91df216de0f39b3",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:6e9be75c201ec18406975951ac527f51d71a01add71fc1fca5e97ab1a66b050",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:899e2084c1ad2c012507681d17737972a94c850c34a310b2597cb51547f78206"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "2a12f1d6ae5d2dc3dc3c208b12bfc1e32e2ac87f02ff68462a935bc056b19acc",
@@ -18,15 +18,15 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "auth_boundary_run": "41377736095",
-  "request_attempt": 71,
+  "auth_boundary_run": "41788086913",
+  "request_attempt": 72,
   "safety": "保留單一兩小時Scheduler、共同Git-ref lease、全分頁在途fence、8次唯讀canary與固定映像失敗回復；只更新映像，完整Job設定hash維持不變。",
-  "authorization": "延續使用者完成Jobs／正式切流／live閉環授權；本次另明確批准private-pipeline對單一market caller的roles/iam.serviceAccountOpenIdTokenCreator。無新付費路由、無自動重送策略生成。",
+  "authorization": "User 2026-11-04 request '接著做' authorizes existing dev release/test/rollout; no production/new paid resources. Operator-owned true ledger data and rollback path retained.",
   "rollback_source_shas": {
-    "janus-batch-controller": "60b84395b8fe4edacd7e054f4f3b145d0b298cc0",
-    "janus-ingestion-core": "60b84395b8fe4edacd7e054f4f3b145d0b298cc0",
-    "janus-intelligence-mart": "60b84395b8fe4edacd7e054f4f3b145d0b298cc0",
-    "janus-private-pipeline": "60b84395b8fe4edacd7e054f4f3b145d0b298cc0"
+    "janus-batch-controller": "5fdcdd9288d6305758935d4413f5ab92776a735e",
+    "janus-ingestion-core": "5fdcdd9288d6305758935d4413f5ab92776a735e",
+    "janus-intelligence-mart": "5fdcdd9288d6305758935d4413f5ab92776a735e",
+    "janus-private-pipeline": "5fdcdd9288d6305758935d4413f5ab92776a735e"
   },
-  "purpose": "同來源草稿保存／OmniAgent gateway修補的既有四Jobs image-only rollout。072及完整Release已PASS，OAuth gate須PASS。使用者已明確授權private Job的限定OpenID token binding，實際policy讀回PASS；private canary額外驗證本人Job身分到gateway的authenticated malformed-body 400，不呼叫模型。8次canary、Scheduler pause/resume、固定舊60b84395映像及完整設定hash回復。"
+  "purpose": "2026-11-04 ETF weekly official catalog ingestion hook release, after Migration 075 PASS #41786939582, full release PASS #41787167591, 0%-candidate PASS #41787850394, OAuth boundary PASS #41788086913 and API-only 100% promotion PASS #41788208137. Existing four Dev Jobs exact-image rollout with original config preserved and reversible baseline; no new Scheduler/resources."
 }
