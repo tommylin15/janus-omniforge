@@ -46,7 +46,9 @@ String uiLabel(Object? value) =>
 String stockDisplayName(Map row) {
   final symbol = '${row['symbol'] ?? '—'}';
   final name = '${row['stock_name'] ?? ''}'.trim();
-  return name.isEmpty ? symbol : '$name（$symbol）';
+  final instrument = '${row['instrument_kind'] ?? ''}';
+  final label = instrument.contains('ETF') ? ' · ETF' : '';
+  return name.isEmpty ? '$symbol$label' : '$name（$symbol）$label';
 }
 
 String accountingNumber(Object? value,
@@ -545,10 +547,10 @@ class _WatchlistPageState extends State<WatchlistPage> {
       symbol = await showDialog<String>(
           context: context,
           builder: (context) =>
-              SimpleDialog(title: const Text('選擇股票（全上市櫃個股）'), children: [
+              SimpleDialog(title: const Text('選擇股票或 ETF'), children: [
                 if (matches.isEmpty)
                   const Padding(
-                      padding: EdgeInsets.all(16), child: Text('沒有符合的股票')),
+                      padding: EdgeInsets.all(16), child: Text('沒有符合的標的，請檢查代碼或稍後重試')),
                 for (final row in matches)
                   SimpleDialogOption(
                       onPressed: () =>
@@ -2591,12 +2593,12 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                                         autofocus: true,
                                         maxLength: 80,
                                         decoration: const InputDecoration(
-                                          labelText: '股票代號或名稱',
-                                          helperText: '輸入一個字即可搜尋，請從下拉選項選取',
+                                          labelText: '股票／ETF 代號或名稱',
+                                          helperText: '搜尋股票／ETF；查無結果會嘗試查詢官方名冊',
                                         ),
                                         onChanged: (_) => symbol = '',
                                         validator: (_) => symbol.isEmpty
-                                            ? '請從下拉選項選取股票；無結果時請修改輸入重試'
+                                            ? '請從下拉選項選取標的；若查無結果請稍後重試'
                                             : null,
                                       ),
                                     ),
