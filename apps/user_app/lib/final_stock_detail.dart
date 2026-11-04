@@ -253,9 +253,13 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     foreground = state == AppLifecycleState.resumed;
     if (foreground) {
-      safe('header',
-          '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}');
-      safe('quotes', '/api/v1/me/portfolio/quotes');
+      // Resume only the visible stock route; hidden detail pages must not
+      // wake Shioaji upstream demand when the app returns to foreground.
+      if (ModalRoute.of(context)?.isCurrent ?? true) {
+        safe('header',
+            '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}');
+        safe('quotes', '/api/v1/me/portfolio/quotes');
+      }
       _startQuoteTimer();
     } else {
       quoteTimer?.cancel();
