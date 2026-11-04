@@ -214,6 +214,18 @@ def weekly_official_catalogue() -> list[OfficialEtf]:
     output: list[OfficialEtf] = []
     for market in MARKETS:
         rows = fetch_market_etfs(market, timeout_seconds=8.0)
+        if market == "TWSE":
+            # The official OpenAPI is updated monthly, but ISIN may already
+            # list newly admitted ETFs. Preserve the fuller ISIN set while
+            # preferring the Chinese name from OpenAPI for matching symbols.
+            try:
+                fresh = fetch_isin_etfs("TWSE", timeout_seconds=8.0)
+                rows = list({
+                    **{item.symbol: item for item in fresh},
+                    **{item.symbol: item for item in rows},
+                }.values())
+            except EtfCatalogUnavailable:
+                pass
         # Not a volume threshold: prevents a partial HTML document from
         # replacing a previously complete market catalogue.
         if len(rows) < 10:
