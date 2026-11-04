@@ -19,7 +19,7 @@ GRANT SELECT ON control.etf_catalog_sync_state TO janus_private_api;
 GRANT SELECT ON control.official_instrument_identity_provenance TO janus_private_api, janus_web_control;
 
 CREATE OR REPLACE FUNCTION control.register_verified_etf(
-  p_symbol text, p_name text, p_market text, p_listed_on date
+  p_symbol text, p_name text, p_market text, p_listed_on date, p_source_id text
 ) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, control
@@ -30,6 +30,8 @@ BEGIN
   IF p_symbol !~ '^0[0-9A-Z]{3,7}$'
     OR p_market NOT IN ('TWSE', 'TPEX')
     OR p_name IS NULL OR length(btrim(p_name)) NOT BETWEEN 1 AND 100
+    OR p_source_id NOT IN ('twse_isin_etf','twse_openapi_etf')
+    OR (p_source_id='twse_openapi_etf' AND p_market <> 'TWSE')
     OR p_listed_on IS NULL OR p_listed_on > current_date OR p_listed_on < DATE '1990-01-01'
   THEN
     RAISE EXCEPTION 'invalid official ETF identity' USING ERRCODE = '22023';
@@ -53,8 +55,10 @@ BEGIN
   INSERT INTO control.official_instrument_identity_provenance
     (symbol, source_id, source_url, listed_on, verified_on, instrument_kind)
   VALUES
-    (p_symbol, 'twse_isin_etf',
-     'https://isin.twse.com.tw/isin/class_main.jsp',
+    (p_symbol, p_source_id,
+     CASE WHEN p_source_id='twse_openapi_etf'
+       THEN 'https://openapi.twse.com.tw/v1/opendata/t187ap47_L'
+       ELSE 'https://isin.twse.com.tw/isin/class_main.jsp' END,
      p_listed_on, current_date, coalesce(prior_kind, 'ETF'))
   ON CONFLICT(symbol) DO UPDATE
     SET source_id=EXCLUDED.source_id,source_url=EXCLUDED.source_url,
@@ -63,7 +67,7 @@ BEGIN
   RETURN true;
 END;
 $$;
-REVOKE ALL ON FUNCTION control.register_verified_etf(text,text,text,date) FROM PUBLIC;
+REVOKE ALL ON FUNCTION control.register_verified_etf(text,text,text,date,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION control.register_verified_etf(text,text,text,date)
   TO janus_private_api, janus_web_control;
 
