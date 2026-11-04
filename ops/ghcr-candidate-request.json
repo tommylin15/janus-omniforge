@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "e413957d2bdbbf284a6c2680d7617b563a529de9",
+  "sha": "60b10da3e2ed4a5b5de3933e592cd8c246f0dcb8",
   "digest": "",
-  "release_run": "41784423406",
+  "release_run": "41787167591",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-04 zero traffic Shioaji e413957d verified full release; third retry after concurrent ETF main updates invalidated lease source (previous both zero mutations); keep strict lease, no bypass, no scheduler/Jobs/traffic mutation.",
-  "request_attempt": 45
+  "purpose": "2026-11-04 ETF source-verified 0050/006208/00878 and official on-demand catalog; full GHCR Release 41787167591 PASS, Migration 075 PASS. Deploy fixed-digest janus-api 0%-traffic candidate only, preserve current active 100% and all Jobs/Scheduler.",
+  "request_attempt": 46
 }
