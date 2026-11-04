@@ -198,7 +198,7 @@ def test_mis_trade_time_preserves_dated_timestamp_for_janus(monkeypatch):
     """Janus refuses undated HH:MM:SS timestamps; Proxy must send ISO 8601."""
     from datetime import datetime, timedelta, timezone
     from services.shioaji_quote_proxy.main import fetch_twse_mis
-    today = datetime.now(timezone(timedelta(hours=8)))
+    today = datetime.now(timezone(timedelta(hours=8))) - timedelta(days=1)
     class Response:
         status_code = 200
         def json(self):
