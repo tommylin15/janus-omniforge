@@ -126,6 +126,12 @@ jobs:
               if 'Shioaji login successful' in message: categories[name+':shioaji_login_ok']+=1
               if 'Quote subscription unavailable' in message: categories[name+':subscribe_unavailable']+=1
               if 'TWSE MIS query failed' in message: categories[name+':mis_query_failed']+=1
+              if name=='shioaji-quote-proxy':
+                import re
+                for cls in re.findall(r'\b(?:AttributeError|TypeError|KeyError|RuntimeError|ValueError|TimeoutError|IndexError|NotImplementedError|ImportError)\b',message):
+                  categories['proxy_exception_'+cls]+=1
+                for module,line in re.findall(r'(main|streaming)\.py", line (\d+)',message):
+                  categories['proxy_stack_'+module+'_line_'+line]+=1
               if 'quote' in message.lower() or 'shioaji' in message.lower(): categories[name+':quote_related_records']+=1
           print('sanitized_quote_classes='+json.dumps(dict(categories),sort_keys=True))
           PY
