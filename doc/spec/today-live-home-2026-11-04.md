@@ -31,6 +31,18 @@
 - 休市或切換至其他分頁、App 背景後停止自動請求；再次顯示時進行一輪新的有界讀取。若 quote source 失聯，沿用 dated cache，不宣稱交易日行情已更新。
 - **本版不新增** 全市場 tick 訂閱、成交量異常預測、行情警報派送、停損停利訊號或第三方收費訂閱。這些需另外確定資料可用性與通知需求。
 
+## 2026-11-04 Dev 工程閉環與驗收收據
+
+本次 CODE／OFFLINE TEST／DEV DB MIGRATION／固定映像 RELEASE／零流量 CANDIDATE／AUTH BOUNDARY／API 100% PROMOTION／獨立 API RUNTIME READBACK **均 PASS**；尚未有已登入使用者真實盤中資料兩個以上分鐘點的人工操作收據，該單項維持待 Owner UAT，而非標記全案 FULL PASS。
+
+- 全量 Flutter 149 tests PASS：[41807675862](https://github.com/tommylin15/janus-omniforge/actions/runs/41807675862)。
+- 完整 Python／Flutter Release PASS：[41807949511](https://github.com/tommylin15/janus-omniforge/actions/runs/41807949511)，source `daaa49b286c12f00034ef9dddd90897141080403`。
+- Migration 076 PASS：[41807779405](https://github.com/tommylin15/janus-omniforge/actions/runs/41807779405)，不更改流量及既有 Job image。
+- 0% Candidate PASS：[41808789288](https://github.com/tommylin15/janus-omniforge/actions/runs/41808789288)；授權與公開行情比較 PASS：[41808975077](https://github.com/tommylin15/janus-omniforge/actions/runs/41808975077)。
+- API／Flutter Dev 100% 受控切流 PASS：[41809140720](https://github.com/tommylin15/janus-omniforge/actions/runs/41809140720)，保留 prior-serving GHCR source `60b10da3e2ed4a5b5de3933e592cd8c246f0dcb8` 作可回復基準。
+- 獨立唯讀 Dev runtime PASS：[41809409248](https://github.com/tommylin15/janus-omniforge/actions/runs/41809409248)；證實 active build id、100% immutable source、健康檢查、公開 market-home、匿名 Owner 分鐘線拒絕。此步**不**驗證有權限 Owner 的分鐘線實際內容。
+- 本輪沒有更改現有四個 Cloud Run Jobs、Scheduler、IAM、Owner ledger。真實盤中兩輪分鐘點，須在交易時間且打開頁面後才可採集；休市或初次單點是合法「資料不足」而非假 PASS。
+
 ## 工程驗收與發布
 
 順序：修改 UI／API／Migration／測試 → Python＋Flutter 全量 GHCR Release → Dev migration 076 → 0% 固定 digest Candidate → OAuth／Owner negative/public market boundary → 100% Dev API 切流 → Live Dev readback → 最終一次集中驗收回報。
