@@ -2,6 +2,7 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 import logging
+from contextlib import nullcontext
 
 from .intraday_quotes import TAIPEI, market_phase
 
@@ -110,7 +111,10 @@ class QuoteRouter:
             phase = market_phase(now)
             same_day = at is not None and at.astimezone(TAIPEI).date() == now.astimezone(TAIPEI).date()
             age = (now - received).total_seconds() if received is not None else None
-            if same_day and phase == "regular" and age is not None and 0 <= age <= TTL_SECONDS * 2:
+            tick_age = (now - at).total_seconds() if at is not None else None
+            if (same_day and phase == "regular" and age is not None
+                and tick_age is not None and 0 <= age <= TTL_SECONDS * 2
+                and 0 <= tick_age <= TTL_SECONDS * 2):
                 state = "intraday"
             elif same_day and phase != "regular":
                 state = "closing_pending_eod"
@@ -123,7 +127,7 @@ class QuoteRouter:
             # The formally publishable total remains independently gated.
             result[symbol] = {
                 **live_row,
-                "source": "twse_mis",
+                "source": live_row.get("source") if live_row.get("source") in {"shioaji", "twse_mis"} else "twse_mis",
                 "route_version": ROUTE_VERSION,
                 "state": state,
                 "is_final": False,
@@ -147,6 +151,15 @@ class QuoteRouter:
         return due
 
     def refresh(self, identities, *, force=False, now=None):
+        # Distributed singleflight: a PostgreSQL advisory session lock is
+        # held across upstream I/O and quote persistence. Recheck TTL inside.
+        guard = getattr(self.repository, "quote_refresh_guard", None)
+        with (guard() if guard is not None else nullcontext(True)) as acquired:
+            if not acquired:
+                return {"status": "in_flight", "requested": 0, "updated": 0}
+            return self._refresh_unlocked(identities, force=force, now=now)
+
+    def _refresh_unlocked(self, identities, *, force=False, now=None):
         now = now or datetime.now(TAIPEI)
         due = self._due(identities, force=force, now=now)
         if not due:
@@ -185,7 +198,7 @@ class QuoteRouter:
                     "previous_close": str(prior) if prior is not None else None,
                     "received_at": source_received.isoformat(),
                     "session": "regular" if market_phase(at) == "regular" else "off_session",
-                    "source": "twse_mis",
+                    "source": row.get("source") if row.get("source") in {"shioaji", "twse_mis"} else "twse_mis",
                     "route_version": ROUTE_VERSION,
                 }
             if not successful:

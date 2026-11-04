@@ -80,3 +80,23 @@
 **實作／驗收狀態：**本節是使用者核准的強制設計要求，僅回寫 SPEC。現有 `services/shioaji_quote_proxy/main.py` 的 `sj.Shioaji()` 尚未改為明確 `simulation=True`；不能因文檔更新宣稱目前 Runtime 已符合。本節修改不觸發部署；後續工程需補程式、測試、CI、Cloud Run Live 讀回才可關閉。
 
 參考：[Shioaji 官方 Simulation Mode](https://sinotrade.github.io/tutor/simulation/)；[官方 Snapshot 使用限制](https://sinotrade.github.io/zh/tutor/market_data/snapshot/)。
+
+## 7. 盤中行情統一按需讀取與多人去重（2026-11-04）
+
+### 正式資料路徑
+
+- Today／Watchlist／Holdings／Stock Detail 每分鐘僅在頁面可見且 App 在前景時向 Janus API revalidate；無每分鐘 Scheduler、Job 或全市場掃描。
+- Janus API `ShioajiQuotes` 使用 Cloud Run IAM/OIDC 呼叫私有 `shioaji-quote-proxy`。Proxy 禁止正式交易 Client，固定 `simulation=True`；以 Shioaji `Quote` 訂閱回調資料為主（`TAIEX` 對應 `IX0001`），沒有定時 `snapshots()`。
+- 同一 Proxy Cloud Run 暫採 `max-instances=1`，避免同一券商帳號出現多個連線管理者。每檔在實例內只有一個訂閱，無活動需求（130 秒內未續用）於下一次需求請求清理；若實例無請求，Cloud Run scale-to-zero 最終結束連線。此設計**不保證無請求期間仍能收滿全天分鐘點**。
+- Janus API 跨實例以 PostgreSQL session advisory `pg_try_advisory_lock` 實施 singleflight：同時間最多一筆上游刷新，後來者先讀 last-success，不建立重疊查價任務；拿到鎖後重新以 persistent `received_at` 評估 60 秒 TTL。
+- Proxy 統一容納既有按需 MIS 備援；缺 Shioaji 推播時以有界 MIS 查詢補回，MIS 不把昨收補成當日成交。嚴格校驗股票代號、交易所（TSE／OTC）、報價時間與正值，回傳 `shioaji` 或 `twse_mis` 真實 source；來源失敗只回 stale／missing。Proxy 的服務回應不代表該 symbol 一定取得報價。
+- `control.operational_last_quotes` 為 last-success Operational 快取，不能取代正式 EOD。每個已取得的 TAIEX 觀測每分鐘最多保存一個真實點於 `control.operational_index_minutes`（migration 073），只供「今日盤中」分時圖；缺口不補，正式近 5／20／30 日線仍由 canonical EOD 供應。
+- 現有「非盤中手動更新」仍可按需查詢最後有效觀測；非盤中一般 GET 不自動喚醒上游，缺交易時必須標 stale。單純 revalidate 不得重算四模型或年度已實現損益。
+
+### 已知限制及正式驗收
+
+1. Cloud Run `min-instances=0` 且請求期間才有 CPU 時，訂閱 callback 僅在有請求 CPU 的窗口能可靠處理；不能保證完全連續逐筆 push。要提供長時間完整分鐘軌跡需要獨立評估串流常駐及其費用，不得本輪私自新增付費常駐資源。
+2. 單實例 `max-instances=1` 配合 Proxy 進程內訂閱快取；倘若日後改成多實例，必須先移轉為真正跨 Proxy 實例的訂閱 owner／lease，否則不能直接加實例數。
+3. 訂閱上限保守 150，Proxy 單次請求最多 30 檔；Janus 分批查詢，跨使用者去重仍受 API 共享鎖及 persistent TTL 節流。
+4. CI 必須驗證只初始化 `Shioaji(simulation=True)`、禁止 `simulation=False` 與盤中 `snapshots()`、指數 `IX0001`、同代號多次請求只訂閱一次、MIS 缺成交不補昨收、TSE/OTC 隔離、Owner 讀價與 singleflight 正反例。
+5. Dev 上線須有 migration 073、Proxy/Janus API/Flutter 的同版 CI 與部署實際收據；並驗證登入後 Today、關注、持股、個股，20 個同時 Owner session 相同標的僅單一上游更新，以及休市／背景／斷線的停用與降級。**文件、commit 或 Proxy Ready 不是全案驗收完成證據。**

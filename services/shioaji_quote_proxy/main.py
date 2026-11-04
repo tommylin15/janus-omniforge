@@ -11,6 +11,8 @@ import logging
 import os
 import re
 from contextlib import asynccontextmanager
+from threading import Lock
+from time import monotonic
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
@@ -77,14 +79,19 @@ class ShioajiManager:
         self.person_id = person_id
         self.password = password
         self.api: Any = None
+        self._connection_lock = Lock()
+        self._fallback_checked: Dict[str, float] = {}
         self.logged_in: bool = False
         self.contracts_fetched: bool = False
         self.last_login_attempt: Optional[datetime] = None
         self.login_error: Optional[str] = None
 
     def initialize(self) -> bool:
-        """Attempt to initialize and log into Shioaji."""
-        self.last_login_attempt = datetime.now(TAIWAN_TZ)
+        """Attempt only simulation login with bounded cooldown."""
+        now = datetime.now(TAIWAN_TZ)
+        if self.last_login_attempt and (now - self.last_login_attempt).total_seconds() < 120:
+            return False
+        self.last_login_attempt = now
         if not self.api_key or not self.secret_key:
             self.login_error = "Missing api_key or secret_key"
             LOGGER.warning("Shioaji credentials missing or incomplete.")
@@ -115,8 +122,8 @@ class ShioajiManager:
             return False
         except Exception as e:
             self.logged_in = False
-            self.login_error = f"{type(e).__name__}: {str(e)[:200]}"
-            LOGGER.error("Shioaji login failed: %s", self.login_error)
+            self.login_error = type(e).__name__
+            LOGGER.error("Shioaji simulation login failed: %s", type(e).__name__)
             return False
 
     def _on_contracts_fetched(self, security_type: Any) -> None:
@@ -124,62 +131,25 @@ class ShioajiManager:
         LOGGER.info("Shioaji contracts background callback received for %s", security_type)
 
     def get_quotes(self, symbols: List[str]) -> Dict[str, Any]:
-        """Fetch quotes from Shioaji snapshots. Fallback to TWSE MIS if needed."""
-        results: Dict[str, Any] = {}
-        missing_symbols: List[str] = []
-
-        if self.logged_in and self.api:
-            contracts = []
-            symbol_contract_map = {}
-            for sym in symbols:
-                sym_clean = sym.strip().upper()
-                try:
-                    # Look up in Stocks (TSE / OTC)
-                    contract = getattr(self.api.Contracts.Stocks, sym_clean, None)
-                    if contract is not None:
-                        contracts.append(contract)
-                        symbol_contract_map[contract.code] = sym_clean
-                    else:
-                        missing_symbols.append(sym_clean)
-                except Exception:
-                    missing_symbols.append(sym_clean)
-
-            if contracts:
-                try:
-                    snapshots = self.api.snapshots(contracts)
-                    for snap in snapshots:
-                        code = getattr(snap, "code", "")
-                        sym = symbol_contract_map.get(code, code)
-                        results[sym] = {
-                            "symbol": sym,
-                            "name": getattr(snap, "name", ""),
-                            "open": getattr(snap, "open", None),
-                            "high": getattr(snap, "high", None),
-                            "low": getattr(snap, "low", None),
-                            "close": getattr(snap, "close", None),
-                            "change_price": getattr(snap, "change_price", None),
-                            "change_rate": getattr(snap, "change_rate", None),
-                            "volume": getattr(snap, "total_volume", getattr(snap, "volume", None)),
-                            "bid_price": getattr(snap, "buy_price", None),
-                            "bid_volume": getattr(snap, "buy_volume", None),
-                            "ask_price": getattr(snap, "sell_price", None),
-                            "ask_volume": getattr(snap, "sell_volume", None),
-                            "ts": getattr(snap, "ts", None),
-                            "source": "shioaji",
-                        }
-                except Exception as e:
-                    LOGGER.warning("Error fetching snapshots from Shioaji: %s", e)
-                    missing_symbols = symbols  # fallback all
-
-        # Fallback to TWSE MIS for any missing symbols
-        pending = [s for s in symbols if s not in results or results[s].get("close") is None]
+        """Shared quote subscriptions; any missing items use bounded MIS fallback."""
+        with self._connection_lock:
+            if not self.logged_in:
+                self.initialize()
+            if self.logged_in and not hasattr(self, "_stream_cache"):
+                from .streaming import StreamCache
+                self._stream_cache = StreamCache(self.api)
+        quotes = self._stream_cache.read(symbols) if hasattr(self, "_stream_cache") else {}
+        now = monotonic()
+        # Fallback stays inside this proxy. A missing stream quote is never
+        # filled by yesterday's close or claimed as Shioaji.
+        pending = []
+        for symbol in symbols:
+            if symbol not in quotes and now - self._fallback_checked.get(symbol, -1e12) >= 60:
+                self._fallback_checked[symbol] = now
+                pending.append(symbol)
         if pending:
-            LOGGER.info("Fetching fallback quotes from TWSE MIS for: %s", pending)
-            mis_data = fetch_twse_mis(pending)
-            for sym, quote in mis_data.items():
-                results[sym] = quote
-
-        return results
+            quotes.update(fetch_twse_mis(pending))
+        return quotes
 
 
 def fetch_twse_mis(symbols: List[str]) -> Dict[str, Any]:
@@ -187,15 +157,22 @@ def fetch_twse_mis(symbols: List[str]) -> Dict[str, Any]:
     results: Dict[str, Any] = {}
     if not symbols:
         return results
+    if len(symbols) > 10:
+        for offset in range(0, len(symbols), 10):
+            results.update(fetch_twse_mis(symbols[offset:offset + 10]))
+        return results
 
     channels = []
     for s in symbols:
         s_clean = s.strip().upper()
         # Probe both tse and otc channel formats
-        channels.append(f"tse_{s_clean}.tw")
-        channels.append(f"otc_{s_clean}.tw")
+        if s_clean == "TAIEX":
+            channels.append("tse_t00.tw")
+        else:
+            channels.append(f"tse_{s_clean}.tw")
+            channels.append(f"otc_{s_clean}.tw")
 
-    ex_ch = "|".join(channels[:20])
+    ex_ch = "|".join(channels)
     url = f"https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch={ex_ch}&json=1&delay=0"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -208,6 +185,8 @@ def fetch_twse_mis(symbols: List[str]) -> Dict[str, Any]:
             if resp.status_code == 200:
                 data = resp.json()
                 for item in data.get("msgArray", []):
+                    if f"{item.get('ex', '')}_{item.get('c', '')}.tw" not in channels:
+                        continue
                     c = str(item.get("c", "")).strip().upper()
                     if not c:
                         continue
@@ -223,8 +202,8 @@ def fetch_twse_mis(symbols: List[str]) -> Dict[str, Any]:
                     if z is None and "trade" in item and isinstance(item["trade"], dict):
                         z = parse_val(item["trade"].get("z"))
                     if z is None:
-                        # use yesterday close if not traded
-                        z = parse_val(item.get("y"))
+                        # Yesterday's close is not an intraday execution.
+                        continue
 
                     y = parse_val(item.get("y"))
                     o = parse_val(item.get("o"))
@@ -240,8 +219,22 @@ def fetch_twse_mis(symbols: List[str]) -> Dict[str, Any]:
                     bids = [float(x) for x in b_str if parse_val(x) is not None]
                     asks = [float(x) for x in a_str if parse_val(x) is not None]
 
-                    results[c] = {
-                        "symbol": c,
+                    date_raw = str(item.get("d") or "")
+                    time_raw = str(item.get("t") or (item.get("trade") or {}).get("t") or "")
+                    try:
+                        quote_at = datetime.strptime(
+                            date_raw + " " + time_raw, "%Y%m%d %H:%M:%S"
+                        ).replace(tzinfo=TAIWAN_TZ)
+                        if quote_at > datetime.now(TAIWAN_TZ):
+                            continue
+                    except (TypeError, ValueError):
+                        continue
+                    key = "TAIEX" if str(item.get("c", "")).strip().lower() == "t00" else c
+                    results[key] = {
+                        "symbol": key, "trade_time": quote_at.isoformat(),
+                        "received_at": datetime.now(TAIWAN_TZ).isoformat(),
+                        "exchange": str(item.get("ex") or "").upper(),
+                        "is_final": False,
                         "name": str(item.get("n", "")).strip(),
                         "open": o,
                         "high": h,
@@ -268,8 +261,7 @@ async def lifespan(app: FastAPI):
     global CLIENT
     api_key, secret_key, person_id, password = resolve_credentials()
     CLIENT = ShioajiManager(api_key, secret_key, person_id, password)
-    if api_key and secret_key:
-        CLIENT.initialize()
+    # Lazy login: health probes and cold starts must not consume broker sessions.
     yield
     if CLIENT and CLIENT.api and CLIENT.logged_in:
         try:
@@ -298,6 +290,10 @@ def health() -> Dict[str, Any]:
             "logged_in": CLIENT.logged_in if CLIENT else False,
             "contracts_fetched": CLIENT.contracts_fetched if CLIENT else False,
             "has_credentials": bool(CLIENT and CLIENT.api_key and CLIENT.secret_key),
+            "simulation": True if CLIENT and CLIENT.logged_in else None,
+            "mode": "simulation_only",
+            "subscribed_count": CLIENT._stream_cache.subscribed_count()
+                if CLIENT and hasattr(CLIENT, "_stream_cache") else 0,
             "login_error": CLIENT.login_error if CLIENT else None,
             "last_login_attempt": CLIENT.last_login_attempt.isoformat() if CLIENT and CLIENT.last_login_attempt else None,
         },
@@ -307,6 +303,8 @@ def health() -> Dict[str, Any]:
 @app.get("/quotes")
 def get_quotes(symbols: str = Query(..., description="Comma-separated stock symbols, e.g. '2382,2327,5876'")) -> Dict[str, Any]:
     sym_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+    if any(not re.fullmatch(r"[0-9A-Z]{4,10}|TAIEX", symbol) for symbol in sym_list):
+        raise HTTPException(status_code=400, detail="Invalid quote symbol")
     if not sym_list:
         raise HTTPException(status_code=400, detail="No symbols provided")
     if len(sym_list) > 30:
@@ -324,6 +322,8 @@ def get_quotes(symbols: str = Query(..., description="Comma-separated stock symb
 @app.get("/quote/{symbol}")
 def get_quote(symbol: str) -> Dict[str, Any]:
     sym = symbol.strip().upper()
+    if not re.fullmatch(r"[0-9A-Z]{4,10}|TAIEX", sym):
+        raise HTTPException(status_code=400, detail="Invalid quote symbol")
     quotes = CLIENT.get_quotes([sym]) if CLIENT else fetch_twse_mis([sym])
     if sym not in quotes:
         raise HTTPException(status_code=404, detail=f"Quote not found for symbol {sym}")

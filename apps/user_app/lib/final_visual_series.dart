@@ -10,6 +10,7 @@ enum FvTableSummary { latest, sum, average }
 class FvVisualSeriesChart extends StatefulWidget {
   const FvVisualSeriesChart({required this.rows, required this.label, required this.unit,
     this.height = 175, this.bars = false, this.dailyTable = false,
+    this.intraday = false, this.showTable = true,
     this.tableSummary = FvTableSummary.latest, super.key});
   final List<dynamic> rows;
   final String label;
@@ -17,6 +18,8 @@ class FvVisualSeriesChart extends StatefulWidget {
   final double height;
   final bool bars;
   final bool dailyTable;
+  final bool intraday;
+  final bool showTable;
   final FvTableSummary tableSummary;
   @override
   State<FvVisualSeriesChart> createState() => _FvVisualSeriesChartState();
@@ -55,13 +58,16 @@ class _FvVisualSeriesChartState extends State<FvVisualSeriesChart> {
       highlighted!.clamp(0, points.length - 1);
     final unit = const {'times': '倍', 'percent': '%', 'shares': '股',
       'TWD_thousands': '千元', 'TWD_per_share': '元／股'}[widget.unit] ?? widget.unit;
+    String stamp(DateTime value) => widget.intraday
+        ? "${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}"
+        : value.toIso8601String().substring(0, 10);
     return fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(child: Text(widget.label, style: const TextStyle(color: fvInk, fontWeight: FontWeight.w800))),
         Text('有效 ${points.length} 期', style: const TextStyle(color: fvMuted, fontSize: 11)),
       ]),
       const SizedBox(height: 5),
-      Text('${points.first.$1.toIso8601String().substring(0, 10)} ～ ${points.last.$1.toIso8601String().substring(0, 10)} · $unit',
+      Text('${stamp(points.first.$1)} ～ ${stamp(points.last.$1)} · $unit',
         style: const TextStyle(color: fvMuted, fontSize: 11)),
       if (samples.any((sample) => sample.$2 == null))
         const Text('部分日期缺值，圖線不跨越缺口',
@@ -81,11 +87,12 @@ class _FvVisualSeriesChartState extends State<FvVisualSeriesChart> {
         ),
       )),
       const SizedBox(height: 8),
-      Text('${points[index].$1.toIso8601String().substring(0, 10)}：${legacy.accountingNumber(points[index].$2, decimals: 2)} $unit',
+      Text('${stamp(points[index].$1)}：${legacy.accountingNumber(points[index].$2, decimals: 2)} $unit',
         key: const Key('fv-series-tooltip'),
         style: const TextStyle(color: fvInk, fontSize: 12, fontWeight: FontWeight.w700)),
-      _SeriesTable(samples: samples, unit: unit, daily: widget.dailyTable,
-          summary: widget.tableSummary),
+      if (widget.showTable)
+        _SeriesTable(samples: samples, unit: unit, daily: widget.dailyTable,
+            summary: widget.tableSummary),
     ]));
   }
 }

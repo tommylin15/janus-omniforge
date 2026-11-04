@@ -25,7 +25,8 @@ String holdingsQuoteStatusCaption(Map<String, dynamic> data, DateTime taipeiNow)
     if (date == today &&
         row['price_status'] == 'available' &&
         row['quote_state'] == 'intraday' &&
-        row['price_source'] == 'twse_mis') {
+        (row['price_source'] == 'twse_mis' ||
+            row['price_source'] == 'shioaji')) {
       todayCount++;
     }
   }

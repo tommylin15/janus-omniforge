@@ -47,6 +47,7 @@ from .public_runtime import build_admin_service, build_core_service, build_pipel
 from .store import PrivateIcebergStore
 from .intraday_quotes import MisQuotes, TAIPEI, market_phase, value_holdings
 from .quote_router import QuoteRouter, ROUTE_VERSION
+from .shioaji_quotes import ShioajiQuotes
 from .analysis import AnalysisService, CEOJobTrigger, CEORequestIn, CEOCapabilityIn, CEOProfileIn
 from .usage import UsageBatch, UsagePreference, UsageService, UsageBodyLimit
 
@@ -251,7 +252,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             "MCP_OAUTH_SIGNING_KEY": "mcp_oauth_signing_key",
         })
     load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", bundle_fields)
-    quotes = quotes or MisQuotes()
+    quotes = quotes or (ShioajiQuotes() if os.getenv("JANUS_SHIOAJI_QUOTES_ENABLED", "true").lower() == "true" else MisQuotes())
     repository = repository or _Lazy(repository_from_env)
     quote_router = QuoteRouter(repository, quotes)
     analysis_service = analysis_service or AnalysisService(repository, CEOJobTrigger())
@@ -655,6 +656,15 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                     "quote_state": quote.get("state"),
                     "is_final": False,
                 })
+        if isinstance(section, dict):
+            try:
+                points_reader = getattr(repository, "market_intraday_points", None)
+                if points_reader is not None:
+                    section["data"] = {**(section.get("data") or {}),
+                                       "intraday_points": points_reader()}
+            except Exception as error:
+                # Migration 073 can trail API rollout. Keep old EOD chart.
+                LOGGER.warning("intraday index points unavailable: %s", type(error).__name__)
         result["latest_price"] = {
             "route_version": ROUTE_VERSION,
             "session": phase,
@@ -1147,7 +1157,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             symbol: str(quote.get("price_date") or "")[:10]
             for symbol, quote in prices.items()
             if quote.get("state") in {"intraday", "closing_pending_eod", "eod_final", "stale"}
-            and quote.get("source") in {"twse_mis", "core_ohlcv", "tpex_openapi_eod"}
+            and quote.get("source") in {"twse_mis", "shioaji", "core_ohlcv", "tpex_openapi_eod"}
             and str(quote.get("price_date") or "")[:10].count("-") == 2
         }
         previous = {}

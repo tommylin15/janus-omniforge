@@ -205,13 +205,14 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     final section = fvMap(raw);
     final data = fvMap(section['data']);
     final history = fvRows(data['history_points']);
+    final intraday = fvRows(data['intraday_points']);
     // No provisional intraday quote, partial period, or sample placeholder
     // may be spliced into this official closing-price chart.
     final usable = history.where((item) {
       final value = fvNumber(fvMap(item)['value']);
       return value != null && value.isFinite && value > 0;
     }).toList();
-    if (usable.length < 2) {
+    if (usable.length < 2 && intraday.length < 2) {
       return fvPanel(child: Row(children: [
         const Icon(Icons.show_chart, color: fvMuted),
         const SizedBox(width: 9),
@@ -261,21 +262,27 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         ]),
       ),
       Material(color: Colors.transparent, child: Wrap(spacing: 5, children: [
-        for (final days in const [5, 20, 30])
+        for (final days in const [0, 5, 20, 30])
           ChoiceChip(
             key: Key('today-trend-$days'),
             visualDensity: VisualDensity.compact,
-            label: Text(days == 5 ? '近5日' : days == 20 ? '近20日' : '近30日'),
+            label: Text(days == 0 ? '今日盤中' : days == 5 ? '近5日' : days == 20 ? '近20日' : '近30日'),
             selected: historyDays == days,
             onSelected: (_) => setState(() => historyDays = days),
           ),
       ])),
-      FvVisualSeriesChart(rows: shown, label: '加權指數 · 收盤',
-          unit: '點', height: 130, dailyTable: true),
+      if (historyDays == 0)
+        intraday.length >= 2
+          ? FvVisualSeriesChart(rows: intraday, label: '加權指數 · 盤中',
+              unit: '點', height: 160, intraday: true, showTable: false)
+          : fvBoundedState('今日盤中資料收集中；僅保留實際取得的分鐘點，不補造缺口')
+      else
+        FvVisualSeriesChart(rows: shown, label: '加權指數 · 收盤',
+            unit: '點', height: 130, dailyTable: true),
       Padding(
         padding: const EdgeInsets.fromLTRB(5, 3, 5, 12),
         child: Text('正式收盤截至 $asOf · 來源 ${sources.isEmpty ? '待查' : sources.join('、')}'
-            ' · 盤中報價不計入走勢',
+            ' · 盤中資料獨立顯示，不計入正式日收盤',
             style: const TextStyle(fontSize: 11, color: fvMuted)),
       ),
     ]);

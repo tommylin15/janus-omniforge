@@ -61,7 +61,7 @@ jobs:
             --timeout=60s \
             --memory=1Gi \
             --min-instances=0 \
-            --max-instances=3 \
+            --max-instances=1 \
             --concurrency=80 \
             --quiet
 

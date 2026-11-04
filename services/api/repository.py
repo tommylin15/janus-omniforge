@@ -598,6 +598,23 @@ class PostgresWorkspaceRepository:
             return dict(row) if row else {"risk_tolerance":None,"investment_horizon":None,"primary_goal":None,
                 "minimum_cash_ratio":None,"ai_context_opt_in":False,"version":0,"updated_at":None}
 
+    @contextmanager
+    def quote_refresh_guard(self):
+        """Nonblocking distributed quote singleflight with PG session lock."""
+        with self._connection() as connection:
+            acquired = bool(connection.execute(
+                "SELECT pg_try_advisory_lock(hashtext(%s))",
+                ("janus-shared-live-quotes-v1",),
+            ).fetchone()[0])
+            try:
+                yield acquired
+            finally:
+                if acquired:
+                    connection.execute(
+                        "SELECT pg_advisory_unlock(hashtext(%s))",
+                        ("janus-shared-live-quotes-v1",),
+                    )
+
     def last_quotes(self, identities) -> dict[str, dict[str, Any]]:
         if not identities:
             return {}
@@ -763,6 +780,22 @@ class PostgresWorkspaceRepository:
                 raise ValueError("official EOD immutable price conflict")
         return len(bounded)
 
+    def market_intraday_points(self, trade_date=None):
+        """Only observations obtained while an interactive market page was active."""
+        from datetime import datetime, time, timedelta, timezone
+        day = trade_date or datetime.now(timezone(timedelta(hours=8))).date()
+        taipei = timezone(timedelta(hours=8))
+        start = datetime.combine(day, time.min, tzinfo=taipei)
+        with self._connection() as connection:
+            rows = connection.execute(
+                """SELECT minute_at,price FROM control.operational_index_minutes
+                   WHERE benchmark_id='TAIEX' AND minute_at >= %s
+                     AND minute_at < %s ORDER BY minute_at ASC LIMIT 270""",
+                (start, start + timedelta(days=1)),
+            ).fetchall()
+        return [{"date": row["minute_at"].isoformat(), "value": str(row["price"])}
+                for row in rows]
+
     def save_last_quotes(self, quotes, chunk_size: int = 250) -> int:
         if not quotes:
             return 0
@@ -770,11 +803,31 @@ class PostgresWorkspaceRepository:
             (
                 symbol, row['price'], row['quote_at'], row['received_at'],
                 row['session'], row['source'], row['route_version'],
-                row.get('previous_close') if row['source'] == 'twse_mis' else None
+                row.get('previous_close') if row['source'] in {'twse_mis', 'shioaji'} else None
             )
             for symbol, row in sorted(quotes.items())
         ]
         with self._connection() as connection:
+            index = quotes.get("TAIEX")
+            if (index and index.get("source") in {"shioaji", "twse_mis"}
+                and connection.execute(
+                    "SELECT to_regclass('control.operational_index_minutes')"
+                ).fetchone()[0] is not None):
+                # Migration may be deployed after API; never block ordinary
+                # quote persistence merely because the optional chart is absent.
+                connection.execute(
+                    """INSERT INTO control.operational_index_minutes
+                       (benchmark_id,minute_at,quote_at,price,received_at,source)
+                       VALUES ('TAIEX',date_trunc('minute', %s::timestamptz),
+                               %s,%s,%s,%s)
+                       ON CONFLICT (benchmark_id,minute_at) DO UPDATE
+                         SET quote_at=EXCLUDED.quote_at,price=EXCLUDED.price,
+                             received_at=EXCLUDED.received_at,source=EXCLUDED.source
+                       WHERE EXCLUDED.quote_at >
+                             control.operational_index_minutes.quote_at""",
+                    (index["quote_at"], index["quote_at"], index["price"],
+                     index["received_at"], index["source"]),
+                )
             for offset in range(0, len(items), chunk_size):
                 chunk = items[offset:offset + chunk_size]
                 connection.cursor().executemany("""INSERT INTO control.operational_last_quotes

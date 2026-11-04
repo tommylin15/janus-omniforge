@@ -1,5 +1,13 @@
 # Janus — 唯一 Active TODO
 
+## P0｜盤中 Shioaji simulation-only 統一接線與多人 singleflight（2026-11-04）
+
+- [x] 需求／SPEC：盤中僅前景／可見頁面 60 秒刷新；不新增 Scheduler／Job；強制 `simulation=True`、不允許下單；官方 Shioaji Quote 訂閱、TAIEX IX0001、來源時間與日期不可偽造。
+- [ ] CODE／TEST：完成 Proxy 訂閱快取與 Shioaji-only 初始化、統一 Janus QuoteRouter 與 PostgreSQL 跨實例鎖、minute chart migration／Flutter 接線，取得同一 main SHA 的全部測試結果。
+- [ ] DEPLOY：完成 migration 073、Proxy Cloud Run `max-instances=1`、Janus API + App Dev 發布，讀回 traffic/revision/config 並保留 rollback 基線。
+- [ ] LIVE ACCEPTANCE：登入 App 正向與 20 concurrent session 同股去重、非盤中／錯誤降級、按需停止及分鐘資料實際讀回 PASS；只依實際證據關閉。
+
+
 
 ## P0｜Janus Shioaji 專屬報價轉發 API（asia-east1）｜部署與驗收（2026-11-04）
 
