@@ -91,6 +91,23 @@ def test_otc_official_lookup_continues_when_twse_unavailable(monkeypatch):
     catalog._lookup_cached.cache_clear()
 
 
+def test_new_listing_is_available_before_monthly_twse_file_refresh(monkeypatch):
+    catalog._lookup_cached.cache_clear()
+    fresh = OfficialEtf("00999", "當月新上市ETF", "TWSE", date(2026, 10, 20))
+    stale = OfficialEtf("0050", "元大台灣50", "TWSE", date(2003, 6, 30))
+
+    monkeypatch.setattr(
+        catalog, "fetch_market_etfs",
+        lambda market, **kwargs: [stale] if market == "TWSE" else [],
+    )
+    monkeypatch.setattr(
+        catalog, "fetch_isin_etfs",
+        lambda market, **kwargs: [fresh] if market == "TWSE" else [],
+    )
+    assert find_official_etf("00999") == fresh
+    catalog._lookup_cached.cache_clear()
+
+
 def test_twse_falls_back_to_isin_with_explicit_provenance(monkeypatch):
     bond = OfficialEtf("0050", "元大台灣50", "TWSE", date(2003, 6, 30))
     def unavailable(**kwargs):
