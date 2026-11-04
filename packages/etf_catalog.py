@@ -20,7 +20,7 @@ ISIN_URL = "https://isin.twse.com.tw/isin/class_main.jsp"
 TWSE_OPENAPI_URL = "https://openapi.twse.com.tw/v1/opendata/t187ap47_L"
 MARKETS = {"TWSE": "1", "TPEX": "2"}
 _CODE = re.compile(r"^0[0-9A-Z]{3,7}$")
-_DATE = re.compile(r"^\\d{4}/\\d{2}/\\d{2}$")
+_DATE = re.compile(r"^\d{4}/\d{2}/\d{2}$")
 
 
 class EtfCatalogUnavailable(RuntimeError):
