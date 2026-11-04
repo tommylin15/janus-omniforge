@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "4322d97434a426431dbd0e34e52a1c020bf7582b",
-  "purpose": "2026-11-04 simulation-only Shioaji demand-driven streaming, Janus shared quote singleflight and intraday index chart; full Python/Flutter GHCR release for bounded Dev API-only rollout, no Job/Scheduler mutation.",
+  "sha": "aa4f686634000b412aa658bdda7b4b9d5d04deff",
+  "purpose": "2026-11-04 final simulation-only Shioaji intraday integration; hidden IndexedStack pages stop implicit quote demand, Shioaji proper owner PnL source, Proxy safe fallback, 073/074 migrations completed; immutable release only, no direct Dev traffic/Jobs/Scheduler mutation.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 37
+  "request_attempt": 38
 }
