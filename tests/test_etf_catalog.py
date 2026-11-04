@@ -115,7 +115,7 @@ def test_migration_is_owner_only_and_research_universe_unchanged():
     assert "janus_private_api" in sql
     assert "control.market_universe_members" in sql
     assert "ip.instrument_kind IS DISTINCT FROM 'ETF'" in sql
-    assert sql.count("$") == 4
+    assert sql.count("$$") == 4
     assert "-- PHASE: private-api" in sql
     assert "-- PHASE: control-finalize" in sql
     assert "-- PHASE: acceptance" in sql
