@@ -114,9 +114,17 @@ jobs:
           for item in rows:
               name=item.get('resource',{}).get('labels',{}).get('service_name','unknown')
               message=str(item.get('textPayload') or item.get('jsonPayload',{}).get('message') or '')
-              if 'quote refresh unavailable' in message: categories[name+':quote_refresh_unavailable']+=1
+              if 'quote refresh unavailable' in message:
+                categories[name+':quote_refresh_unavailable']+=1
+                import re
+                match=re.search(r'quote refresh unavailable:\\s*([A-Za-z_][A-Za-z0-9_]*)',message)
+                categories[name+':exception_'+(match.group(1) if match else 'unknown')]+=1
+                status=re.search(r'http_status=(\\d{3})',message)
+                if status: categories[name+':http_status_'+status.group(1)]+=1
               if 'quote refresh yielded no accepted rows' in message: categories[name+':no_accepted_rows']+=1
               if 'Shioaji simulation login failed' in message: categories[name+':simulation_login_failed']+=1
+              if 'Shioaji login successful' in message: categories[name+':shioaji_login_ok']+=1
+              if 'Quote subscription unavailable' in message: categories[name+':subscribe_unavailable']+=1
               if 'TWSE MIS query failed' in message: categories[name+':mis_query_failed']+=1
               if 'quote' in message.lower() or 'shioaji' in message.lower(): categories[name+':quote_related_records']+=1
           print('sanitized_quote_classes='+json.dumps(dict(categories),sort_keys=True))
