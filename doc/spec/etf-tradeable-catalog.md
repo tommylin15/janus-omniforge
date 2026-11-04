@@ -4,7 +4,7 @@
 
 使用者 2026-11-04 回報：在持股／記帳「新增交易」輸入 `0050`，畫面要求從下拉選項選取卻查無結果；同日核定「本地名冊優先＋無結果時官方即時補收＋每週同步」，要求修改文件及程式。
 
-**本文件為已寫程式的設計契約，不代表 Dev migration／deployment／Owner UAT 已完成。**
+**2026-11-04 結案狀態：ETF 新增交易的 Dev migration、同版發布、API 切流、四 Jobs rollout 與使用者 Owner UAT 已 PASS。每週名冊同步首次自然執行收據另列待觀察，不與 Owner 功能結案混為一談。**
 
 - 支援上市、上櫃的台幣計價 ETF 與普通股，交易種類沿用 BUY／SELL／CASH_DIV／STOCK_DIV；交易股數、價格、費稅、損益走現有 Owner ledger，不自行改寫成交資料。
 - 名稱搜尋使用 PostgreSQL `control.stock_master`，關注與新增交易共用已核實可交易標的身份；ETF 的 `instrument_kind` 取自 `control.official_instrument_identity_provenance`。
@@ -31,26 +31,18 @@
 - `jobs/ingestion-core/ingestion_core/etf_catalog_sync.py`、`unified_collection.py`：在既有批次中每週執行，失敗不使其他市場收集結果被覆蓋。
 - `tests/test_etf_catalog.py`：來源格式、官方身份、期限、外幣、失敗降級與普通股研究母體隔離。
 
-## 施工／驗收關卡
+## 施工／驗收關卡（2026-11-04 實際讀回）
 
-**CODE（已提交）：** 上述實作與測試文件存於 `main`。提交並不代表測試或部署已通過。
-
-**TEST（尚待執行／讀回）：**
-
-```bash
-python -m pytest -q tests/test_etf_catalog.py
-cd apps/user_app && flutter test
-```
-
-**MIGRATION（尚待 Dev 套用）：** 對既有 Dev PostgreSQL 按序執行 `075_etf_tradeable_catalog.sql`，以 `control.schema_migrations`、`pg_proc` 函式 ACL、`etf_catalog_sync_state` 讀回檢查；使用既有安全維運通道，不新增資料庫。
-
-**DEPLOY（尚待實際發布）：** 將包含 migration 依賴的新 API／Flutter App／ingestion-core 以同版 digest 發布到現役 Dev。migration 在 API 切流之前套用；如來源查詢失敗，保留舊交易與持股不變。核對版本、CI、Cloud Run revision 及既有排程；不新增定時資源。
-
-**LIVE（尚待使用者登入實測）：** `0050`、`006208`、`00878` 可搜尋並選到真實 ETF（若官方仍掛牌）；`2330` 普通股依舊可選；查無代碼與官方來源斷線不得新增虛構標的。用試算與取消流程驗證不產生意外帳本寫入，真正交易只有經使用者確認才入帳。ETF 不出現在模型 universe／研究補收清單。檢查週同步狀態、失敗收據與 Dev 行情資料日期。
+- **CODE／TEST PASS**：Python 全量測試與 Flutter build、四映像完整 Release [#41787167591](https://github.com/tommylin15/janus-omniforge/actions/runs/41787167591)，來源 SHA `60b10da3e2ed4a5b5de3933e592cd8c246f0dcb8`。
+- **MIGRATION PASS**：Dev `075_etf_tradeable_catalog` [#41786939582](https://github.com/tommylin15/janus-omniforge/actions/runs/41786939582)；回傳 `status=PASS`、不切換 traffic／image，並建立 0050／006208／00878 可交易名冊種子。
+- **DEV API／UI PASS**：0% Candidate [#41787850394](https://github.com/tommylin15/janus-omniforge/actions/runs/41787850394)、OAuth／Owner／MCP 未登入邊界 [#41788086913](https://github.com/tommylin15/janus-omniforge/actions/runs/41788086913)、固定映像 100% API 切流 [#41788208137](https://github.com/tommylin15/janus-omniforge/actions/runs/41788208137)。
+- **DEV Jobs rollout PASS**：[四 Jobs 正式更新 #41788625133](https://github.com/tommylin15/janus-omniforge/actions/runs/41788625133)；執行腳本回報 `{"result":"PASS"}`，保留舊映像與已讀回設定雜湊作 rollback。首次嘗試 [#41788439610](https://github.com/tommylin15/janus-omniforge/actions/runs/41788439610) 在變更前因 digest 誤植被拒，已修正重試。
+- **OWNER LIVE UAT PASS（使用者宣告）**：2026-11-04 使用者對本次 ETF 新增交易功能回覆「驗收完畢」。此確認不含逐項測試截圖或正式下單；不得推論官方來源故障注入、其他 ETF 全市場覆蓋或每週自然同步已被實際驗證。
+- **週同步首輪自然執行：尚未取得讀回**。在既有 `unified_collection` 觸發後，確認 `control.etf_catalog_sync_state.last_success_at` 與 `last_count`、兩個市場來源、保留原有 Scheduler／Jobs 設定；這是後續運維追蹤，不影響本次 Owner UI 功能結案。
 
 ## 目前限制
 
-- 已寫的「週同步」只是既有 `unified_collection` 的附帶工作；僅當此入口在 Dev 實際啟用才會自然執行。部署前不宣稱自動生效。
+- 「週同步」已隨既有四 Jobs 版本發布，但首輪自然執行成功仍待狀態表及執行收據讀回；不可把 rollout PASS 當成當期資料同步 PASS。
 - 上櫃 ISIN 若對 Cloud Run IP 回 403／超時，會回 `official_unavailable`，不偷偷改用未經核准來源；需既有可信代理路徑與 live 測試後再擴充。
 - 貨幣別固定 TWD；ETF 的估值、配息口徑、模型卡片與個股深度資料不因交易名冊補入而自動成為可用。
 - 官方名冊缺席不推斷下市，也不刪除／重算舊 Owner 交易，避免持股損壞。
