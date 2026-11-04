@@ -259,7 +259,6 @@ def fetch_twse_mis(symbols: List[str]) -> Dict[str, Any]:
                         "volume": int(v) if v is not None else None,
                         "bid_price": bids,
                         "ask_price": asks,
-                        "trade_time": item.get("t") or item.get("%"),
                         "sys_time": data.get("queryTime", {}).get("sysTime"),
                         "source": "twse_mis",
                     }
