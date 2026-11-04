@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "0139feff5bda7cfcbf4b9e4c90c6b13f784de44e",
+  "sha": "595f805bf1978991855c538ef17e5a07d6683a06",
   "digest": "",
-  "release_run": "41576348945",
+  "release_run": "41772990262",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-03 年度損益快速計算日期修正版：Release #41576348945 完整 PASS，既有 Dev API 0% Candidate，禁止 Jobs／正式流量變更。",
-  "request_attempt": 39
+  "purpose": "2026-11-04 Simulation-only Shioaji 共用報價接線及 073/074 migration 後的 API 0% candidate，保留現役 100% 回復基準，無 Job/Scheduler 變更。",
+  "request_attempt": 40
 }
