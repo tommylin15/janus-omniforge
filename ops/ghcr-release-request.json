@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "bf85eb4a38a13ba384ce724560380d3eb81dd802",
-  "purpose": "2026-11-04 final demand-driven Shioaji simulation-only intraday integration: 20 concurrent readers, strict quote timestamps, visible-only Flutter quote refresh; release from current passing ETF/Quote code, no API traffic/Jobs/Scheduler changes.",
+  "sha": "3a6dd775eaa8c364cccf1b41a615b504d950687f",
+  "purpose": "2026-11-04 ETF 0050/006208/00878 tradeable instrument catalog: corrected official ISIN filter and bounded lookup, source-verified migration 075 seed, shared journal/watchlist search, weekly ingestion hook, regression tests. Immutable full Dev release only; no GCP traffic/Job/Scheduler changes until explicit acceptance.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 41
+  "request_attempt": 42
 }
