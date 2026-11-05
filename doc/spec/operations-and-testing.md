@@ -1,11 +1,11 @@
 # Janus 最新驗收證據索引
 
-## 2026-11-05 持股報表市值占比／市值成本走勢｜Dev 正式發布 PASS／Owner UAT 待驗
+## 2026-11-05 持股報表市值占比／市值成本走勢｜CLOSED／PASS（Owner 實機驗收）
 
 - **固定應用 source**：`9f078c37e2a2c1d363a509acfec1816bea1a1d11`。Flutter 4 項舊報表回歸／Material ancestor 異常已修復，[Flutter 全量 #41963948202](https://github.com/tommylin15/janus-omniforge/actions/runs/41963948202) PASS；[CI #41964040067](https://github.com/tommylin15/janus-omniforge/actions/runs/41964040067) PASS；[Python+Flutter Web+四 GHCR 完整 Release #41964040291](https://github.com/tommylin15/janus-omniforge/actions/runs/41964040291) PASS。
 - **正式切流鏈**：[0% Candidate #41964668263](https://github.com/tommylin15/janus-omniforge/actions/runs/41964668263) → [OAuth／MCP／私密權限 #41964821165](https://github.com/tommylin15/janus-omniforge/actions/runs/41964821165) → [API-only 100% #41965403625](https://github.com/tommylin15/janus-omniforge/actions/runs/41965403625) → [獨立 Live #41965592386](https://github.com/tommylin15/janus-omniforge/actions/runs/41965592386)，均 SUCCESS。獨立 Live 收據 `API_LIVE_READBACK_PASS`，100% traffic、build-id SHA 一致、health 和公開行情正常、私密 `/portfolio/value-history` 未授權拒絕，`gcp_mutations=0`（指獨立驗收流程；前面的 promotion 已正式切流）。
 - **部署安全紀錄**：前兩輪 #41964941889、#41965168166 因並行 main commit 導致 Lease freshness gate 阻擋，未切流；第三輪沿相同經驗證映像及最新 dispatch 成功。API-only、不動四 Jobs／Scheduler／Storage／IAM／Owner 帳本；保留舊 revision 回復，direct 模式未執行 rollback rehearsal。
-- **產品驗收邊界**：`ENGINEERING_RELEASE=PASS`、`LIVE_PUBLIC_READBACK=PASS`、`OWNER_UI_AUTHENTICATED=NOT_VERIFIED`。新報表讀取真正保存的 Mart 快照，若歷史不足兩個月、缺價或部分資料，應顯示不足／斷點，不能以測試 fixture 冒充本人資料。Owner 390px 手機手動驗收仍待使用者確認。此版**不含** 9f078 之後並行的「今日」與 Shioaji 新程式。
+- **Owner UAT／正式結案（2026-11-05）**：使用者在已完成 100% Dev 切流及獨立 Live PASS 後回報「驗收完成」。本次『持股 → 報表』手機實機驗收記為 `OWNER_UI=PASS_USER_CONFIRMED`，合併 `ENGINEERING_RELEASE=PASS`、`LIVE_PUBLIC_READBACK=PASS`，本工項 **CLOSED／PASS**；不重複要求驗收。本輪未蒐集個別點擊、實際 Owner payload 或逐檔持股數值，故不將使用者回報擴大為完整歷史資料覆蓋率或每檔價值對帳通過。欠缺兩個可比月份、缺價、部分資料依原有 bounded 顯示，不影響這次報表功能結案。此次固定映像**不含**來源 9f078 之後並行的「今日」與 Shioaji 新程式。
 
 
 
