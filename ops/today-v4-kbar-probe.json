@@ -7,6 +7,6 @@
   ],
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
-  "purpose": "2026-11-05 read-only private Shioaji Proxy two-symbol daily 1m Kbar actual source sample after V4 100%-traffic promotion; bounded call at most once per symbol, never polling or owner data",
-  "request_attempt": 1
+  "purpose": "2026-11-05 diagnostic retry before any broker request; classify private Cloud Run URL and identity token retrieval failure without printing token, no IAM mutations; source SHA remains fixed 2568fff.",
+  "request_attempt": 2
 }
