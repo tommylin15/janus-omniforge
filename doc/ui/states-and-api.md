@@ -74,6 +74,7 @@
 - `GET／PUT /api/v1/me/investment-profile`
 - `GET /api/v1/me/portfolio/summary`
 - `GET /api/v1/me/portfolio/exposure`
+- `GET /api/v1/me/portfolio/value-history?days=365`（30–1825 天）— authenticated Owner 歷史估值快照；回 `currency/coverage/source/from/through/status/points/truncated`，每點含 `date/ledger_version/market_value/cost_basis/status/positions`；不補造歷史價格、不調行情、不跨 Owner；單點／缺價與部分資料非完整成功。
 - `GET /api/v1/me/portfolio/performance?year=YYYY`
 - `POST /api/v1/me/portfolio/stress-tests`
 - `DELETE /api/v1/me/private-data`
