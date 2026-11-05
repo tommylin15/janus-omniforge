@@ -76,7 +76,7 @@ def test_taiex_minutes_retention_is_three_days_and_read_path_is_bounded():
     assert "GRANT DELETE ON control.operational_index_minutes TO janus_private_api" in migration
     assert "SELECT has_table_privilege('janus_private_api'" not in migration or "DELETE" in migration
     assert "FROM control.operational_index_minutes" in repository
-    assert "ORDER BY minute_at ASC LIMIT 270" in repository
+    assert "ORDER BY minute_at ASC LIMIT 271" in repository
 
 
 def test_no_official_previous_close_means_no_synthetic_zero_reference():
@@ -94,3 +94,72 @@ def test_no_official_previous_close_means_no_synthetic_zero_reference():
     assert response.status_code == 200
     assert response.json()["previous_close"] is None
     assert response.json()["previous_close_source"] is None
+
+
+
+def test_backfilled_kbars_are_separate_from_quote_snapshot_rows_and_have_provenance():
+    from services.api.repository import Repository as PostgresRepository
+    from datetime import datetime
+    tw = timezone(timedelta(hours=8))
+    at_900 = datetime(2026, 11, 5, 9, 0, tzinfo=tw)
+    at_901 = datetime(2026, 11, 5, 9, 1, tzinfo=tw)
+    at_902 = datetime(2026, 11, 5, 9, 2, tzinfo=tw)
+    candles = [
+        {"minute_at": at_900, "price": "100.2"},
+        {"minute_at": at_901, "price": "100.5"},
+    ]
+    observations = [
+        {"minute_at": at_900, "price": "100.1", "source": "shioaji"},
+        {"minute_at": at_902, "price": "101.0", "source": "shioaji"},
+    ]
+    merged = PostgresRepository._merge_minute_sources(observations, candles, tw)
+    assert [row["date"][11:16] for row in merged] == ["09:00", "09:01", "09:02"]
+    assert [row["value"] for row in merged] == ["100.2", "100.5", "101.0"]
+    assert [row["source"] for row in merged] == [
+        "shioaji_kbars", "shioaji_kbars", "shioaji"
+    ]
+    assert [row["observation_kind"] for row in merged] == [
+        "historical_1m_close", "historical_1m_close", "sampled_live_quote"
+    ]
+
+
+def test_owner_gapfill_requires_held_symbol_and_a_cross_instance_claim():
+    repo = Repository()
+    repo.positions = lambda owner: [
+        {"symbol": "2330", "currency": "TWD", "shares": "10"}
+    ]
+    requested = []
+    saved = []
+    repo.reserve_session_kbar_backfill = lambda symbol, day, now: requested.append(symbol) or True
+    repo.save_session_kbars = lambda symbol, day, rows, status="missing": (
+        saved.append((symbol, status, rows)) or len(rows)
+    )
+
+    class FakeBroker:
+        def historical_minutes(self, symbol, day):
+            return {"status": "available", "source": "shioaji_kbars",
+                    "symbol": symbol, "date": day,
+                    "points": [{"date": f"{day}T09:00:00+08:00", "value": "101"}]}
+
+    claims = {"iss": "https://accounts.google.com", "aud": "user-client",
+              "sub": "google-a", "email": "owner@example.com",
+              "email_verified": True, "exp": 1900000000}
+    client = TestClient(create_app(repo, Store(), lambda *_: claims,
+                                  audience="user-client", quotes=FakeBroker()))
+    url = "/api/v1/me/market/minute-backfill"
+    assert client.post(url, json={"symbol": "2330"}).status_code == 401
+    assert client.post(url, json={"symbol": "2382"}, headers=auth()).status_code == 404
+    assert client.post(url, json={"symbol": "../"}, headers=auth()).status_code == 422
+    response = client.post(url, json={"symbol": "2330"}, headers=auth())
+    assert response.status_code == 200
+    if datetime.now(timezone(timedelta(hours=8))).hour < 9:
+        assert response.json()["status"] == "not_session"
+    else:
+        assert response.json()["status"] in {"available", "not_session"}
+    # Missing position is always denied even when history is unavailable.
+    assert "2382" not in requested
+    if requested:
+        assert saved and saved[0][0] == "2330"
+        assert saved[0][1] == "available"
+    assert "control.operational_session_kbars" in Path(
+        "infra/postgres/migrations/078_session_minute_kbar_backfill.sql").read_text()
