@@ -731,8 +731,12 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       const Divider(height: 14),
       LayoutBuilder(builder: (context, constraints) {
         final fields = <Widget>[
-          _compactMetric('當日損益', daily,
-              note: dailyNote, color: fvSignedColor(dailyAmount)),
+          _compactMetric(
+              aggregate['day_change_status'] != 'available' &&
+                      fvInt(aggregate['day_priced_symbol_count']) > 0
+                  ? '當日損益小計'
+                  : '當日損益',
+              daily, note: dailyNote, color: fvSignedColor(dailyAmount)),
           _compactMetric(usingPartial ? '已計價損益小計'
               : usingReference ? '參考未實現損益' : '未實現損益', unrealized,
               note: '報酬 $unrealizedReturn',
@@ -1369,16 +1373,24 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                   : aggregate.isEmpty ? (coreLoading ? '載入中' : '資料不足')
                   : summaryMoney(currency, aggregate['unrealized_pnl']);
               final dayAmount = aggregate['day_change_amount'];
-              final dayTotal = aggregate.isEmpty
-                  ? (coreLoading ? '載入中' : '資料不足')
-                  : aggregate['day_change_status'] == 'available' && dayAmount != null
-                      ? summaryMoney(currency, dayAmount) : '待行情';
               final dayPriced = fvInt(aggregate['day_priced_symbol_count']);
               final dayMissing = fvRows(aggregate['day_unpriced_symbols']).length;
-              final dailyNote = dayAmount != null && aggregate['day_change_status'] == 'available'
+              final dayComplete =
+                  aggregate['day_change_status'] == 'available' && dayAmount != null;
+              // API deliberately withholds an incomplete portfolio total, but
+              // publishes a separate, truthfully labelled priced subtotal.
+              final shownDayAmount = dayComplete
+                  ? dayAmount
+                  : dayPriced > 0 ? aggregate['priced_day_change_amount'] : null;
+              final dayTotal = aggregate.isEmpty
+                  ? (coreLoading ? '載入中' : '資料不足')
+                  : shownDayAmount != null
+                      ? summaryMoney(currency, shownDayAmount) : '待行情';
+              final dailyNote = dayComplete
                   ? '行情日 ${fvText(aggregate['day_change_date'])}'
-                  : dayPriced > 0 ? '已計算 $dayPriced/${dayPriced + dayMissing} 檔'
-                  : '前收盤價或當日報價不足';
+                  : dayPriced > 0 && shownDayAmount != null
+                      ? '部分 $dayPriced/${dayPriced + dayMissing} 檔 · 不含缺價'
+                      : '前收盤價或當日報價不足';
               final unrealizedReturn = usingReference
                   ? legacy.portfolioReturnLabel(aggregate['reference_unrealized_return'])
                   : usingPartial
@@ -1434,7 +1446,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     marketValue: marketValue,
                     daily: dayTotal,
                     dailyNote: dailyNote,
-                    dailyAmount: dayAmount,
+                    dailyAmount: shownDayAmount,
                     unrealized: unrealized,
                     unrealizedReturn: unrealizedReturn,
                     ytd: ytd,
