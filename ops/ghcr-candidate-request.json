@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "9f078c37e2a2c1d363a509acfec1816bea1a1d11",
+  "sha": "2568fff9387641e66fd94e407c165008927339b1",
   "digest": "",
-  "release_run": "41964040291",
+  "release_run": "41967569050",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-05 holdings report: full fixed-source Release #41964040291 succeeded with Python/Flutter and four GHCR digests. Only zero-traffic Janus Dev API/App candidate; preserve Jobs/Scheduler/IAM/secrets/owner ledgers. Proxy concurrent commits excluded from fixed image.",
-  "request_attempt": 51
+  "purpose": "2026-11-05 Today V4 full Python+Flutter tests and GHCR 4 digests PASS #41967569050, source 2568fff93876; historical 1m Kbar 078 dev migration PASS #41967217662, Shioaji Proxy deploy PASS #41966301190. Guarded Dev API 0% candidate only; retain active traffic and other owner reports, no Jobs/Scheduler/IAM changes.",
+  "request_attempt": 52
 }
