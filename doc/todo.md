@@ -5,8 +5,8 @@
 - [x] **已核定規格**：[今日盤中 V3](spec/today-intraday-progress-v3.md)：一般股與大盤雙線皆固定時段；無假補點、缺分鐘斷線；灰 0%、上漲紅、下跌綠；圖下方觀測高／低／最新的 HH:mm、價格與前收漲跌幅，兩種分鐘資料都維持三天。
 - [x] **程式**：獨立 FvIntradayProgressChart，TAIEX/Owner 今日與放大圖接線；Owner 分鐘 API 有界官方前收／日期；index 寫入後三天懶清理；加法式 DB migration 077 與既有 Dev migration allowlist。Shioaji simulation=True／60 秒前景輪詢與 Jobs／Scheduler 不變。
 - [x] **相關離線測試**：新增 Widget 固定時段／零線／缺值／高低／重複分鐘測試、Python index cleanup／Owner 前收；Flutter 全測 [#41953428724](https://github.com/tommylin15/janus-omniforge/actions/runs/41953428724) PASS，Python 選擇性 [#41953494218](https://github.com/tommylin15/janus-omniforge/actions/runs/41953494218) PASS。後續 allowlist 的 CI 與全量 Release 仍須取得當次終態收據。
-- [ ] **Dev Migration 077**：通過固定 SQL/角色權限讀回並驗證 TAIEX 寫入後清理 >72h；未拿到實際收據前標為未部署。
-- [ ] **GHCR 全量 Release／Dev 安全發布**：等完整 Python＋Flutter CI，固定來源 immutable digest → 0% Candidate → OAuth／Owner／盤中行情正向 gate → 可逆 API-only 100% 切流 → Runtime readback；V2 先前 Candidate 2330 intraday/stale 不一致未解，嚴禁把 pending／失敗稱成功。
+- [x] **Dev Migration 077**：[ #41953905383 ](https://github.com/tommylin15/janus-omniforge/actions/runs/41953905383) PASS，SQL/角色權限寫入 GCP Dev、migration bootstrap 成功、`traffic_changed=false`、`image_changed=false`。清理真正發生仍須下一筆合法 TAIEX 寫入後讀回，不能因授權成功就宣稱已清除所有過期資料。
+- [ ] **GHCR／Dev 發布**：V3 首版完整 GHCR Release [#41954052815](https://github.com/tommylin15/janus-omniforge/actions/runs/41954052815) PASS，固定來源 `9571f6be1b612929c3c89d07c4c5e9e4f44eda85`；**後續已找到 V2 Candidate stale 原因並修正 QuoteRouter**：原本在來源刷新前取 request 時鐘，I/O 後新 tick 晚於舊讀取時間，被誤判為負 age/stale。改依實際 monotonic 經過時間判斷，並加回歸測試。這個修補尚未包含在 #41954052815，必須以新固定版本再 Release、0% Candidate、OAuth／盤中正向 gate、可逆 API-only 100% 切流、Runtime readback；不可用舊版成功冒充新版。
 - [ ] **Owner UAT**：本人台北交易時段登入觀察 09:00–13:30 固定框、零線、紅綠分段、觀測高低與百分比及 60 秒兩輪；資料缺值明示。CI/mock 不冒充這項真實畫面。
 
 ## P0｜今日首頁 V2｜一般股雙欄、ETF 收合、融資兩週與法人金流（2026-11-05）
