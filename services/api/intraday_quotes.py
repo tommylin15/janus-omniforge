@@ -203,17 +203,19 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
         if phase == "regular" and str(price_date or "")[:10] != now.astimezone(TAIPEI).date().isoformat():
             reference = None
         reference_source = "official_previous_close" if reference is not None else None
-        # Prefer a dated prior close from official serving / TPEx EOD. When
-        # absent, only today's valid MIS tick may supply its own y close.
-        # MIS y has no verified calendar date; never invent one.
-        if (reference is None and not prior and source == "twse_mis"
+        # Prefer a dated official serving close. If it is absent or unusable,
+        # today's actual Shioaji/MIS observation can supply its own previous
+        # close. A quote-local reference is never assigned a fabricated date.
+        # The exchange's prior close is independent of this holding's cost.
+        if (reference is None and source in {"twse_mis", "shioaji"}
                 and reference_eligible and observed_day == now.astimezone(TAIPEI).date()
                 and at is not None and at.astimezone(TAIPEI).date() == observed_day):
             try:
                 candidate = Decimal(str(quote.get("previous_close")))
                 if candidate.is_finite() and candidate > 0:
                     reference = candidate
-                    reference_source = "mis_previous_close"
+                    reference_source = ("mis_previous_close" if source == "twse_mis"
+                                        else "shioaji_previous_close")
             except (InvalidOperation, ValueError, TypeError):
                 pass
         change = price - reference if reference is not None and price is not None else None
