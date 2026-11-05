@@ -1,5 +1,14 @@
 # Janus — 唯一 Active TODO
 
+## P0｜今日盤中進度圖 V3｜固定 09:00–13:30／0% 前收／漲紅跌綠／3 天清理（2026-11-05）
+
+- [x] **已核定規格**：[今日盤中 V3](spec/today-intraday-progress-v3.md)：一般股與大盤雙線皆固定時段；無假補點、缺分鐘斷線；灰 0%、上漲紅、下跌綠；圖下方觀測高／低／最新的 HH:mm、價格與前收漲跌幅，兩種分鐘資料都維持三天。
+- [x] **程式**：獨立 FvIntradayProgressChart，TAIEX/Owner 今日與放大圖接線；Owner 分鐘 API 有界官方前收／日期；index 寫入後三天懶清理；加法式 DB migration 077 與既有 Dev migration allowlist。Shioaji simulation=True／60 秒前景輪詢與 Jobs／Scheduler 不變。
+- [x] **相關離線測試**：新增 Widget 固定時段／零線／缺值／高低／重複分鐘測試、Python index cleanup／Owner 前收；Flutter 全測 [#41953428724](https://github.com/tommylin15/janus-omniforge/actions/runs/41953428724) PASS，Python 選擇性 [#41953494218](https://github.com/tommylin15/janus-omniforge/actions/runs/41953494218) PASS。後續 allowlist 的 CI 與全量 Release 仍須取得當次終態收據。
+- [ ] **Dev Migration 077**：通過固定 SQL/角色權限讀回並驗證 TAIEX 寫入後清理 >72h；未拿到實際收據前標為未部署。
+- [ ] **GHCR 全量 Release／Dev 安全發布**：等完整 Python＋Flutter CI，固定來源 immutable digest → 0% Candidate → OAuth／Owner／盤中行情正向 gate → 可逆 API-only 100% 切流 → Runtime readback；V2 先前 Candidate 2330 intraday/stale 不一致未解，嚴禁把 pending／失敗稱成功。
+- [ ] **Owner UAT**：本人台北交易時段登入觀察 09:00–13:30 固定框、零線、紅綠分段、觀測高低與百分比及 60 秒兩輪；資料缺值明示。CI/mock 不冒充這項真實畫面。
+
 ## P0｜今日首頁 V2｜一般股雙欄、ETF 收合、融資兩週與法人金流（2026-11-05）
 
 - [x] **SPEC／CODE**：已提交普通股全部優先的雙欄持股卡、ETF 下方預設收合、Owner quotes instrument_kind；TWSE MI_MARGN 近 10 個有資料交易日融資額／每日變化；BFI82U 三大法人買賣超金額與前日差額。設計以 [今日首頁 V2](spec/today-live-home-2026-11-04.md) 為準。
