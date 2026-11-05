@@ -102,6 +102,26 @@ def test_no_snapshot_polling_and_shared_subscription(monkeypatch):
     assert count == ["2330"]
 
 
+def test_stock_etf_reference_is_retained_when_price_chg_missing(monkeypatch):
+    from datetime import datetime, timezone, timedelta
+    from types import SimpleNamespace
+    from services.shioaji_quote_proxy.streaming import StreamCache
+    class Client:
+        contracts = SimpleNamespace(get=lambda code: code)
+        def set_on_quote_stk_v1_callback(self, fn): self.cb = fn
+        def set_on_quote_idx_v1_callback(self, fn): pass
+        def subscribe(self, *_, **__): pass
+        def unsubscribe(self, *_, **__): pass
+    monkeypatch.setitem(__import__("sys").modules, "shioaji",
+                        SimpleNamespace(QuoteType=SimpleNamespace(Quote="quote")))
+    cache = StreamCache(Client())
+    event = SimpleNamespace(code="0050", datetime=datetime.now(timezone(timedelta(hours=8))),
+                            close=98.1, reference=97.5, open=97.8, high=98.5, low=97.6,
+                            total_volume=1000, simtrade=False)
+    cache.on_stock(SimpleNamespace(value="TSE"), event)
+    assert cache.read(["0050"])["0050"]["previous_close"] == 97.5
+
+
 def test_index_subscription_maps_to_taiex(monkeypatch):
     from datetime import datetime, timezone, timedelta
     from types import SimpleNamespace
@@ -192,6 +212,53 @@ def test_stream_failure_falls_back_without_500(monkeypatch):
     monkeypatch.setattr("services.shioaji_quote_proxy.main.fetch_twse_mis", mis)
     assert manager.get_quotes(["2330"]) == expected
     assert calls == [["2330"]]
+
+
+def test_missing_etf_prior_close_uses_same_day_mis_trade_without_mixing_sources(monkeypatch):
+    from datetime import datetime, timezone, timedelta
+    from services.shioaji_quote_proxy.main import TAIWAN_TZ
+    manager = ShioajiManager()
+    manager.logged_in = True
+    class Stream:
+        def read(self, symbols):
+            at = datetime.now(TAIWAN_TZ)
+            return {"0050": {"symbol": "0050", "exchange": "TSE",
+                             "close": 98.1, "previous_close": None,
+                             "trade_time": at.isoformat(), "source": "shioaji"}}
+    manager._stream_cache = Stream()
+    now = datetime.now(TAIWAN_TZ)
+    monkeypatch.setattr("services.shioaji_quote_proxy.main.fetch_twse_mis",
+                        lambda symbols: {"0050": {
+                            "symbol": "0050", "exchange": "TSE", "close": 98.0,
+                            "previous_close": 97.5, "trade_time": now.isoformat(),
+                            "source": "twse_mis"}})
+    quotes = manager.get_quotes(["0050"])
+    assert quotes["0050"]["source"] == "twse_mis"
+    assert quotes["0050"]["close"] == 98.0
+    assert quotes["0050"]["previous_close"] == 97.5
+
+
+def test_stale_mis_cannot_replace_today_etf_quote(monkeypatch):
+    from datetime import datetime, timedelta
+    from services.shioaji_quote_proxy.main import TAIWAN_TZ
+    manager = ShioajiManager()
+    manager.logged_in = True
+    now = datetime.now(TAIWAN_TZ)
+    class Stream:
+        def read(self, symbols):
+            return {"0050": {"symbol": "0050", "exchange": "TSE",
+                             "close": 98.1, "previous_close": None,
+                             "trade_time": now.isoformat(), "source": "shioaji"}}
+    manager._stream_cache = Stream()
+    monkeypatch.setattr("services.shioaji_quote_proxy.main.fetch_twse_mis",
+                        lambda symbols: {"0050": {
+                            "symbol": "0050", "exchange": "TSE", "close": 97.0,
+                            "previous_close": 96.5,
+                            "trade_time": (now - timedelta(minutes=5)).isoformat(),
+                            "source": "twse_mis"}})
+    quotes = manager.get_quotes(["0050"])
+    assert quotes["0050"]["source"] == "shioaji"
+    assert quotes["0050"]["previous_close"] is None
 
 
 def test_mis_trade_time_preserves_dated_timestamp_for_janus(monkeypatch):
