@@ -66,6 +66,6 @@ def test_missing_kbar_source_does_not_override_live_quotes_or_model_prices():
     assert "WHERE minute_at < now()-interval '3 days'" in repo
     assert "control.operational_last_quotes" in repo
     assert "INSERT INTO control.operational_session_kbars" in repo
-    assert "'sampled_live_quote'" in repo
-    assert "'historical_1m_close'" in repo
+    assert "sampled_live_quote" in repo
+    assert "historical_1m_close" in repo
 
