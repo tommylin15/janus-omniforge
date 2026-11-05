@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "e52c86956749c8cd6c15bba39c088c84d1ec7404",
+  "sha": "83115408c33ff0581b82607bfee1b359dcd05de4",
   "digest": "",
-  "release_run": "41946706497",
+  "release_run": "41954851911",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "TODAY-V2 2026-11-05: immutable full release PASS #41946706497; 0%-traffic API candidate for ordinary holdings first/ETF collapsed and TWSE official EOD margin + institutional net TWD; no Jobs/Scheduler/Owner ledger updates.",
-  "request_attempt": 48
+  "purpose": "TODAY-V3 combined fixed session chart, three-day index cleanup 077 PASS #41953905383, quote post-I/O freshness fix; full immutable GHCR release #41954851911 PASS. Zero-traffic Dev API candidate, no active traffic change, no Jobs/Scheduler/IAM.",
+  "request_attempt": 49
 }
