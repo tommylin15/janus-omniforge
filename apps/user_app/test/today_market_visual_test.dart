@@ -157,7 +157,10 @@ void main() {
         scrollable: find.byType(Scrollable).first);
     expect(find.textContaining('09:01'), findsWidgets);
     expect(find.textContaining('09:02'), findsWidgets);
-    expect(find.textContaining('區間位階：'), findsWidgets);
+    expect(find.byKey(const Key('session-start-0900')), findsOneWidget);
+    expect(find.byKey(const Key('session-end-1330')), findsOneWidget);
+    expect(find.byKey(const Key('intraday-observed-low')), findsOneWidget);
+    expect(find.byKey(const Key('intraday-observed-high-percent')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -233,8 +236,9 @@ void main() {
     });
     await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
     await tester.pumpAndSettle();
-    expect(find.text('加權指數歷史走勢尚未就緒'), findsOneWidget);
-    expect(find.byKey(const Key('today-taiex-expand')), findsNothing);
+    expect(find.textContaining('前一正式收盤價缺值'), findsOneWidget);
+    expect(find.byKey(const Key('today-taiex-expand')), findsOneWidget);
+    expect(find.byKey(const Key('intraday-session-fixed-chart')), findsNothing);
     expect(find.textContaining('法人官方買賣超金額未取得'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
