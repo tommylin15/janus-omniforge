@@ -1,22 +1,19 @@
 # Janus — 唯一 Active TODO
 
-## P0｜今日盤中進度圖 V3｜固定 09:00–13:30／0% 前收／漲紅跌綠／3 天清理（2026-11-05）
+## P0｜今日盤中進度圖 V3｜固定時段、0% 前收、漲紅跌綠、3 天保留（2026-11-05）
 
-- [x] **已核定規格**：[今日盤中 V3](spec/today-intraday-progress-v3.md)：一般股與大盤雙線皆固定時段；無假補點、缺分鐘斷線；灰 0%、上漲紅、下跌綠；圖下方觀測高／低／最新的 HH:mm、價格與前收漲跌幅，兩種分鐘資料都維持三天。
-- [x] **程式**：獨立 FvIntradayProgressChart，TAIEX/Owner 今日與放大圖接線；Owner 分鐘 API 有界官方前收／日期；index 寫入後三天懶清理；加法式 DB migration 077 與既有 Dev migration allowlist。Shioaji simulation=True／60 秒前景輪詢與 Jobs／Scheduler 不變。
-- [x] **相關離線測試**：新增 Widget 固定時段／零線／缺值／高低／重複分鐘測試、Python index cleanup／Owner 前收；Flutter 全測 [#41953428724](https://github.com/tommylin15/janus-omniforge/actions/runs/41953428724) PASS，Python 選擇性 [#41953494218](https://github.com/tommylin15/janus-omniforge/actions/runs/41953494218) PASS。後續 allowlist 的 CI 與全量 Release 仍須取得當次終態收據。
-- [x] **Dev Migration 077**：[ #41953905383 ](https://github.com/tommylin15/janus-omniforge/actions/runs/41953905383) PASS，SQL/角色權限寫入 GCP Dev、migration bootstrap 成功、`traffic_changed=false`、`image_changed=false`。清理真正發生仍須下一筆合法 TAIEX 寫入後讀回，不能因授權成功就宣稱已清除所有過期資料。
-- [ ] **GHCR／Dev 發布**：V3 首版完整 GHCR Release [#41954052815](https://github.com/tommylin15/janus-omniforge/actions/runs/41954052815) PASS，固定來源 `9571f6be1b612929c3c89d07c4c5e9e4f44eda85`；**後續已找到 V2 Candidate stale 原因並修正 QuoteRouter**：原本在來源刷新前取 request 時鐘，I/O 後新 tick 晚於舊讀取時間，被誤判為負 age/stale。改依實際 monotonic 經過時間判斷，並加回歸測試。這個修補尚未包含在 #41954052815，必須以新固定版本再 Release、0% Candidate、OAuth／盤中正向 gate、可逆 API-only 100% 切流、Runtime readback；不可用舊版成功冒充新版。
-- [ ] **Owner UAT**：本人台北交易時段登入觀察 09:00–13:30 固定框、零線、紅綠分段、觀測高低與百分比及 60 秒兩輪；資料缺值明示。CI/mock 不冒充這項真實畫面。
+- [x] **SPEC／程式**：大盤、Owner 個股均以 09:00–13:30 固定分鐘時軸，0% 為前一正式收盤、漲紅跌綠、缺分鐘斷線，圖下方顯示「觀測高／低／最新」的 HH:mm、價位與漲跌幅；缺有效前收不虛構基準。完整規格：[V3 SPEC](spec/today-intraday-progress-v3.md)。
+- [x] **3 天保留**：個股已採正常新分鐘寫入時清理 >72h，大盤新增 migration 077 與同樣寫入時清理；未開啟 App 不啟動獨立掃描，也不刪正式日線。Dev 077 [#41953905383](https://github.com/tommylin15/janus-omniforge/actions/runs/41953905383) PASS，`traffic_changed=false`、`image_changed=false`。注意這代表權限與 migration 成功，不代表已量測實際刪除筆數；需下一次有效 TAIEX 分鐘寫入／PG 讀回驗證。
+- [x] **CI／整合固定映像**：首版 V3 全量 [#41954052815](https://github.com/tommylin15/janus-omniforge/actions/runs/41954052815) PASS；整合 0050 ETF 昨收、部分當日損益修復與 QuoteRouter 刷新後時間校準的最新版 [#41955809660](https://github.com/tommylin15/janus-omniforge/actions/runs/41955809660) 全量 Python＋Flutter＋四 GHCR digest PASS，固定來源 `c709505e6ed40383d7a8ea9abd1d83885264d391`。
+- [x] **Dev 0% Candidate／OAuth＋行情比較**：[#41956487907](https://github.com/tommylin15/janus-omniforge/actions/runs/41956487907) PASS；[#41956821613](https://github.com/tommylin15/janus-omniforge/actions/runs/41956821613) PASS，同日 2330 與 TAIEX 合法盤中報價、Owner 匿名負向權限保護。較早 V2 Candidate [#41947903015](https://github.com/tommylin15/janus-omniforge/actions/runs/41947903015) 的 `stale` 失敗已由新版讀取時鐘修正且候選比較通過，舊失敗保留歷史收據，不能宣稱舊版本 PASS。
+- [x] **Dev API-only 100% 切流＋Runtime 讀回**：[#41957458415](https://github.com/tommylin15/janus-omniforge/actions/runs/41957458415) PASS、[#41958036713](https://github.com/tommylin15/janus-omniforge/actions/runs/41958036713) PASS，正式來源 `c709505e6ed40383d7a8ea9abd1d83885264d391`、固定 digest、100% traffic、公開行情 200／真資料；Jobs、Scheduler 與 IAM 未變動，既有回復路徑保留。**不是 0% Candidate 狀態**。
+- [ ] **唯一 V3 剩餘驗收**：實際登入 Owner 今日頁，盤中 09:00–13:30 觀察 2 輪以上 60 秒刷新、個股卡與大盤線圖、0%／紅綠分段、觀測高低與來源日期；目前 CI/公開 Runtime 無 Owner authenticated positive，不得宣稱真人 UAT PASS。另記錄 TAIEX 3 天清理首次 PG row count 讀回（有資料才可判定）。
 
-## P0｜今日首頁 V2｜一般股雙欄、ETF 收合、融資兩週與法人金流（2026-11-05）
+## 已切流，Owner／正式資料仍需驗收｜今日首頁 V2｜一般股優先、ETF 收合、融資兩週與法人金流（2026-11-05）
 
-- [x] **SPEC／CODE**：已提交普通股全部優先的雙欄持股卡、ETF 下方預設收合、Owner quotes instrument_kind；TWSE MI_MARGN 近 10 個有資料交易日融資額／每日變化；BFI82U 三大法人買賣超金額與前日差額。設計以 [今日首頁 V2](spec/today-live-home-2026-11-04.md) 為準。
-- [x] **Flutter／Python CI**：Flutter 全量 [#41946245602](https://github.com/tommylin15/janus-omniforge/actions/runs/41946245602) PASS，Python 選擇性 [#41946245596](https://github.com/tommylin15/janus-omniforge/actions/runs/41946245596) PASS。
-- [x] **固定映像 GHCR 完整 Release**：[ #41946706497 ](https://github.com/tommylin15/janus-omniforge/actions/runs/41946706497) completed/success，完整 Python／Flutter／四個 GHCR 固定來源，來源 `e52c86956749c8cd6c15bba39c088c84d1ec7404`。
-- [x] **Dev API 零流量 Candidate**：[ #41947514389 ](https://github.com/tommylin15/janus-omniforge/actions/runs/41947514389) completed/success；只建立 0% revision，並未切流、未更動 Jobs／Scheduler。
-- [ ] **P0 阻擋：Candidate 盤中正向一致性**：[ #41947903015 ](https://github.com/tommylin15/janus-omniforge/actions/runs/41947903015) 兩次執行 FAILED。OAuth metadata、未授權 Owner/Admin/MCP 保護、候選 build-id 均 PASS；2026-11-05 09:22–09:23 台北盤中，200 回應且 2330 日期、來源與 TAIEX 皆合法，但現役 2330 `quote_state=intraday`、候選 `quote_state=stale`。**不得放寬正向閘門或當成無差異成功**；先查候選 refresh_status／quote_at／received_at 與 QuoteRouter 共享鎖競爭、錯誤回退，修正後重驗。
-- [ ] **Dev API 100% 切流／Runtime／Owner UAT**：目前尚未執行。候選被擋期間現役持續原版本；取得候選正向行情 PASS 後按固定 digest promotion、後驗實際 API 與登入 Owner 普通股／ETF、融資／法人真資料及日期，才可 CLOSED。
+- [x] **SPEC／程式與 Flutter／Python tests**：持股一般股全列雙欄，ETF 下方收合；上市市場 TWSE MI_MARGN 近 10 個有資料交易日融資額／每日變動及 BFI82U 三大法人買賣超現金流／前日差額。[V2 SPEC](spec/today-live-home-2026-11-04.md)。Flutter [#41946245602](https://github.com/tommylin15/janus-omniforge/actions/runs/41946245602)、Python [#41946245596](https://github.com/tommylin15/janus-omniforge/actions/runs/41946245596) PASS。
+- [x] **同版發布／驗收**：已隨包含 V2+V3+0050 的 `c709505e6ed40383d7a8ea9abd1d83885264d391` 固定映像經 [全量 Release #41955809660](https://github.com/tommylin15/janus-omniforge/actions/runs/41955809660)、[0% Candidate #41956487907](https://github.com/tommylin15/janus-omniforge/actions/runs/41956487907)、[Auth Gate #41956821613](https://github.com/tommylin15/janus-omniforge/actions/runs/41956821613)、[API-only 100% 切流 #41957458415](https://github.com/tommylin15/janus-omniforge/actions/runs/41957458415)、[公開 Runtime 讀回 #41958036713](https://github.com/tommylin15/janus-omniforge/actions/runs/41958036713) 均 PASS。
+- [ ] **未取得 Owner 正向畫面／籌碼官方實際值讀回**：一般股完整列表與 ETF 收合、兩週融資天數與法人金額單位、盤中／盤後狀態仍需登入 Owner 及官方來源真值驗證。現有公開行情 200 不等於上述全部資料有值；缺值只顯示 partial／missing。
 
 
 ## P0｜今日首頁即時線圖重構｜Dev 程式／測試／部署 PASS，待最後一次 Owner 盤中驗收（2026-11-04）
