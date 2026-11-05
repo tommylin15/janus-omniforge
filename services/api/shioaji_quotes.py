@@ -121,3 +121,48 @@ class ShioajiQuotes:
                     "source": source,
                 }
         return result
+
+
+    def historical_minutes(self, symbol: str, trade_day: str) -> dict:
+        """One IAM-authenticated call after a durable PG backfill claim.
+
+        This is NOT called by the shared 60-second quote refresh path.
+        Caller authorizes user scope and applies all cross-instance quotas.
+        """
+        if not re.fullmatch(r"[0-9A-Z]{4,10}|TAIEX", symbol):
+            raise ValueError("invalid broker historical symbol")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", trade_day):
+            raise ValueError("invalid broker historical date")
+        if datetime.fromisoformat(trade_day).date() != datetime.now(TAIPEI).date():
+            raise ValueError("broker history is restricted to today's bounded session")
+        token = _identity_token(self.base_url)
+        url = self.base_url + "/kbars?" + urlencode({"symbol": symbol, "day": trade_day})
+        request = Request(url, headers={"Authorization": "Bearer " + token,
+                                        "Accept": "application/json"})
+        with urlopen(request, timeout=16) as response:
+            data = response.read(MAX_BYTES + 1)
+        if len(data) > MAX_BYTES:
+            raise ValueError("broker kbars response exceeds boundary")
+        payload = json.loads(data)
+        if (not isinstance(payload, dict) or payload.get("symbol") != symbol
+                or payload.get("date") != trade_day
+                or payload.get("source") != "shioaji_kbars"
+                or payload.get("status") not in
+                {"available", "missing", "unavailable", "invalid"}):
+            raise ValueError("invalid broker kbars source or day")
+        rows = payload.get("points")
+        if not isinstance(rows, list) or len(rows) > 271:
+            raise ValueError("invalid broker kbar count")
+        accepted = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            at, value = _time(row.get("date")), _positive(row.get("value"))
+            if at is None or at.astimezone(TAIPEI).date().isoformat() != trade_day:
+                continue
+            local = at.astimezone(TAIPEI)
+            minute = local.hour * 60 + local.minute
+            if 540 <= minute < 810 and value is not None:
+                accepted.append({"date": local.isoformat(), "value": str(value)})
+        return {"status": payload["status"], "source": "shioaji_kbars",
+                "symbol": symbol, "date": trade_day, "points": accepted}
