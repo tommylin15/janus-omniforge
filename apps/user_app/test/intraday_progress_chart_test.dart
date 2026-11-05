@@ -61,7 +61,7 @@ void main() {
   testWidgets('a zero or one sample retains fixed axis without invented connecting lines',
       (tester) async {
     _mobile(tester);
-    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: ListView(children: [
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: ListView(children: const [
       FvIntradayProgressChart(label: '大盤', unit: '點',
           previousClose: 20000, rows: []),
     ]))));
@@ -75,7 +75,7 @@ void main() {
   testWidgets('same-minute duplicate uses the later quote and is not two points',
       (tester) async {
     _mobile(tester);
-    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: ListView(children: [
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: ListView(children: const [
       FvIntradayProgressChart(label: '個股', unit: '元／股',
           previousClose: 100, rows: [
             {'date': '2026-11-05T09:02:00+08:00', 'value': '99'},
