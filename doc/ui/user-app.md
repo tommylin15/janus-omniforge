@@ -126,6 +126,15 @@ CEO report 是 symbol-level persisted research artifact，不是 page-load narra
 
 未知／停用股票顯示 404；已啟用但資料或 specialist 尚未產生時顯示 bounded waiting／unavailable，不以 placeholder 冒充完成。
 
+## 2026-11-05 持股「報表」改為持股變化（本次使用者提供兩張券商圖為參考）
+
+- 「持股／記帳 → 報表」只提供兩個直覺分頁：**持股市值占比**與**持股市值走勢**。既有「持股」摘要、交易「紀錄」與年度已實現損益的可用 API 不因版面更換而刪除。
+- 市值占比：依**本人**最新已持久化行情估值，圓餅圖＋名稱與占比，依市值排序；可切個股／ETF，逐檔勾選、全選。完整 owner-scoped 總額由既有 `/portfolio/snapshot` backend 提供；選股後只標示**所選已計價市值**，不得冒充正式全持股總額。價格缺失、過期或幣別不符時標出未計價與排除範圍，不填造零值。
+- 走勢：實際已保存的 Owner Private Mart `workspace_snapshots` 日期／ledger version／持股部位估值，按**每月最後實際估值日**畫市場市值（青色）與持有成本（橘色）兩條線；預設近一年，可看已保存的最多五年。預設只分析目前仍有持股的股票，明確勾選「含已出清」才包含歷史已清倉股票；個股／ETF 與逐檔切換共通。觸碰圖點查看該月市值／持有成本，**成本線不是累計入金，市值增加不等於報酬**。
+- `GET /api/v1/me/portfolio/value-history?days=365..1825` 必須依 authenticated owner 範圍只讀歷史，禁止開報表時叫用行情來源、LLM 或批次重算，禁止以**當前**股數／價／成本倒填過去的月資料；當歷史不足兩個可比月份／月資料不足／price status 非 available／valuation date 不匹配／不同幣別時，清楚顯示 insufficient／partial 或斷線，不能畫虛構走勢。限 TWD，不混外幣。最多返回上限需標明 truncated，不能稱完整。
+- 本次 screenshots 只提供畫面層次與互動參考；色彩沿用 Janus App 既有主題，而非強制改為券商深色。圖表等價文字、手機 390px 與字級放大需驗收。
+- 此項功能修改的 GitHub implementation／CI／Dev 已部署狀態依實際收據分開判定，勿將程式已 commit 視為完成。
+
 ## 5.4 個人記帳與筆記
 
 本頁是 P0 主功能，不依賴公開 Mart／LLM。使用 segmented control 切換「記帳／筆記」；進入記帳預設次導航為 **持股**，Ledger 次導航至少包含 **持股／紀錄／報表**。
