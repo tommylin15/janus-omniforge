@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "daaa49b286c12f00034ef9dddd90897141080403",
+  "sha": "e52c86956749c8cd6c15bba39c088c84d1ec7404",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "LIVE-HOME-01 Today live intraday index and Owner holdings: Dev migration 076 PASS #41807779405; full GHCR Release PASS #41807949511; 0%-traffic Candidate PASS #41808789288. Read-only OAuth metadata, unauthenticated Owner/Admin/MCP denial and candidate-vs-active public market quote comparison before Dev cutover.",
-  "request_attempt": 41
+  "purpose": "TODAY-V2 2026-11-05: fixed source full GHCR release #41946706497 PASS; 0%-traffic Candidate #41947514389 PASS. Inspect OAuth/Owner/Admin unauthorized boundary and active-vs-candidate public API before reversible Dev promotion.",
+  "request_attempt": 42
 }
