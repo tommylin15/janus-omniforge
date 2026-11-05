@@ -158,3 +158,9 @@ cash_strategy（reserve／balanced／invested）、declared_cash／cash_as_of（
 - API-only 可逆 100% Dev 切流 [#41957458415](https://github.com/tommylin15/janus-omniforge/actions/runs/41957458415) PASS；前版 `daaa49b286c12f00034ef9dddd90897141080403` 作為通過版控核對的回復基準。沒有 Jobs／Scheduler／Storage／IAM／Owner ledger 變更。
 - 獨立唯讀 [#41958036713](https://github.com/tommylin15/janus-omniforge/actions/runs/41958036713) PASS：現役 `janus-api-00671-pil`，100% 流量，build-id 完整吻合目標 SHA、固定 image digest `sha256:503553579204cca9fc0bae7850341ea39abcce74b7e4358d67b95234df4f3bbe`；health／public market HTTP 200、未登入 Owner API 401。0050 公開 `stock-header` HTTP 200，`price_date=2026-11-05`、`source=shioaji`、`quote_state=intraday`、`price_status=available`、有現價。這證明當日 0050 **公開行情路徑**可用。
 - **未驗證範圍維持 OPEN**：公開 0050 `stock-header` 之 `previous_close` 仍為 null（公開端點只按持久化 Core 參考價計算，不能據此斷言 private QuoteRouter 的 Shioaji `previous_close` 為 null）；私人 Mart 2026-11-04 快照亦不等同 2026-11-05 的 Operational Quote。沒有可供讀取的本人已登入 `/api/v1/me/portfolio/quotes` 實際回應，故 0050 當日損益、六檔部分小計及手機畫面的端到端 Owner 正向驗收 **UNKNOWN**，不得宣稱 CLOSED/PASS。真實 Owner 端只需確認：0050 若有同日有效前收即顯示當日變化，否則保持「待行情」；其他已算出當日變化的持股必須立刻顯示標註覆蓋數的部分小計。
+
+### 2026-11-05｜0050 Owner 實機驗收結案
+
+- 使用者於 2026-11-05 本對話明確回報「驗收完畢」，視為本次 **0050 當日行情／持股當日損益隔離顯示修復**的 Owner 手機實機驗收 **PASS（user-attested）**，工項狀態 **CLOSED**。
+- 此為本人實機驗收的文字確認，與先前 CI、Cloud Run 100% Dev 切流、公開行情 readback 分別記錄；無額外保存 API 私有回應、0050 當日損益數字或實機截圖，不將未讀得的精確數值推定為工具驗證。
+- 對應交付：API `c709505e6ed40383d7a8ea9abd1d83885264d391`、[正式 API-only 切流 #41957458415](https://github.com/tommylin15/janus-omniforge/actions/runs/41957458415)、[獨立公開行情讀回 #41958036713](https://github.com/tommylin15/janus-omniforge/actions/runs/41958036713)，與本輪手動驗收 PASS。0050 缺有效前收時仍維持缺值而不造假；其他股票當日損益小計獨立顯示。
