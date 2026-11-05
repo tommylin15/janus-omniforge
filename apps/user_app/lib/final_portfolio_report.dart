@@ -276,6 +276,7 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
         market = 0;
         cost = 0;
         var partial = false;
+        var incompleteCost = false;
         for (final item in fvRows(row['positions'])) {
           final holding = fvMap(item);
           final symbol = fvText(holding['symbol'], missing: '');
@@ -285,14 +286,19 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
           if (excluded.contains(symbol) || (isEtf ? !etfs : !equities)) continue;
           final value = fvChartNumber(holding['market_value']);
           final basis = fvChartNumber(holding['cost_basis']);
-          if (holding['status'] != 'available' || value == null || basis == null) {
-            partial = true;
-            continue;
+          if (basis == null) {
+            incompleteCost = true;
+          } else {
+            cost = cost! + basis;
           }
-          market = market! + value;
-          cost = cost! + basis;
+          if (holding['status'] != 'available' || value == null) {
+            partial = true;
+          } else {
+            market = market! + value;
+          }
         }
-        if (partial) market = null;
+        if (partial || incompleteCost) market = null;
+        if (incompleteCost) cost = null;
       }
       final point = _ValuePoint(date, market, cost);
       final month = '${date.year}-${date.month.toString().padLeft(2, '0')}';
