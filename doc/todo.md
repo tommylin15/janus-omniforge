@@ -1,5 +1,15 @@
 # Janus — 唯一 Active TODO
 
+## P0｜今日持股走勢聚焦與歷史分鐘缺口回補（2026-11-05）
+
+- [x] **最新畫面決策／程式**：一般股優先的細薄橫向 chip 選股列，ETF 預設收合，左右箭頭切換一張 09:00–13:30 分鐘圖；移除多張持股大卡、重複的現金／資產摘要，完整價格、成本、市值、日損益、報表仍在「持股／記帳」，研究在「個股詳情」。見 [Today V4](spec/today-live-home-2026-11-04.md) 與 [UI](ui/user-app.md)。
+- [x] **Flutter 離線測試**：[ #41966631833 ](https://github.com/tommylin15/janus-omniforge/actions/runs/41966631833) PASS（含單張聚焦圖、普通股／ETF 單手選擇與資料不重複），且未修改 Owner ledger。
+- [x] **回補程式／來源隔離**：Shioaji simulation=True 私有 Proxy 新增當日 1 分 K 查詢；保留台灣交易所當地時間與 right-labelled 1 分 K 語意。API 只在 Owner 今日頁初開／選股時受控觸發，不併入前景 60 秒輪詢；三天獨立 K 棒快取與 PG 原子 claim（每檔每日最多 3 次、至少 90 分鐘）、與 sampled_live_quote 分開標示，不改正式 Core／原始報價。
+- [x] **Proxy Dev 部署**：[ #41966301190 ](https://github.com/tommylin15/janus-omniforge/actions/runs/41966301190) PASS；前一失敗 [#41966265745](https://github.com/tommylin15/janus-omniforge/actions/runs/41966265745) 是測試 Fake Client lifespan 問題，修正後 Proxy tests／既有 Cloud Run deploy PASS。
+- [ ] **Dev migration 078**：透過既有 Dev 程序 [#41967217662](https://github.com/tommylin15/janus-omniforge/actions/runs/41967217662) 執行中，完成前不得將新 K 棒寫入視為可用。
+- [ ] **API 全量 Release → 0% Candidate → OAuth／正向行情 → 可逆 100% 切流與 Runtime**：目前尚未驗收完整新版。不能用舊 V3 Runtime 或 Proxy 單獨成功作為新回補 API 已上線的證據。
+- [ ] **真實 Owner 驗收**：用當日先前缺少的 TAIEX／2382 現有分鐘點，確認實際 Shioaji Kbars 返回並補進獨立表，畫面缺口數下降、來源顯示歷史 K 與即時觀測，0% 前收、高低時刻正確；不將盤中 K 查詢當成每分鐘輪詢。若券商當日 K 暫缺，維持部分資料與缺口並回報來源無法取得，不補假價。
+
 ## 已發布｜持股「報表」重構：市值占比與市值／成本走勢｜DEV RELEASE PASS／Owner UAT 待確認（2026-11-05）
 
 - [x] **SPEC／CODE**：Flutter「持股 → 報表」改為「持股市值占比」及「持股市值走勢」；個股／ETF／單檔篩選、近一年／已保存歷史、含已出清。Owner-only `GET /api/v1/me/portfolio/value-history` 以既有 Private Mart `workspace_snapshots` 呈現真實月末估值與持有成本，不使用今天報價填歷史；缺價／不足兩期不造線。文件：[User App](ui/user-app.md)、[API](ui/states-and-api.md)。原有交易與已實現損益計算 API 保留。
