@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "83115408c33ff0581b82607bfee1b359dcd05de4",
+  "sha": "c709505e6ed40383d7a8ea9abd1d83885264d391",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "V3 zero-traffic candidate #41955472271 PASS, GHCR full release #41954851911 PASS, migration 077 #41953905383 PASS. Check OAuth/Owner negative boundary and 2330/TAIEX positive quote freshness (formerly stale due pre-I/O timestamp) without changing active traffic. Note newer ETF changes on main, so this is candidate diagnostic only, NOT promotion permission.",
-  "request_attempt": 43
+  "purpose": "2026-11-05 combined V3+0050 ETF 0%-traffic API Candidate #41956487907 PASS, full GHCR Release #41955809660 PASS, proxy deployment #41955365671 PASS. Read-only candidate OAuth/Owner negative security and live public quote gates; no API traffic or IAM change. This includes 0050 previous_close and partial daily PnL fixes; owner live acceptance still separate.",
+  "request_attempt": 44
 }
