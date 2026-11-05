@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "5682379f6b82d39c5572dcfe4976b65ed79542d8",
-  "purpose": "2026-11-05 TODAY-SESSION-V3 final: fixed 09:00–13:30 chart, official previous close 0% line/red up green down, extrema and 72h index cleanup; plus QuoteRouter post-I/O clock correctness for zero-traffic Candidate stale mismatch. Full Python+Flutter tests and fixed GHCR four-image release; no new paid resources/jobs/schedulers.",
+  "sha": "d6f8c43e656d0365174bad8b9457fb340e53a453",
+  "purpose": "2026-11-05 FINAL COMBINED DEV RELEASE: preserve concurrent ETF prior-close/partial-PnL latest main commits through d6f8c43e alongside TODAY session V3 09-13:30 fixed timeline/zero line/gain-loss/extrema, 077 three-day retention, and post-I/O quote freshness fix. Full fixed-source Python+Flutter+GHCR, API-only promotion; Jobs, Scheduler and secrets unchanged.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 46
+  "request_attempt": 47
 }
