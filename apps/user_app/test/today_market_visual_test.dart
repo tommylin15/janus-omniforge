@@ -233,7 +233,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('加權指數歷史走勢尚未就緒'), findsOneWidget);
     expect(find.byKey(const Key('today-taiex-expand')), findsNothing);
-    expect(find.text('外資　資料缺漏'), findsOneWidget);
+    expect(find.textContaining('法人官方買賣超金額未取得'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
