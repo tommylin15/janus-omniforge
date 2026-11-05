@@ -12,7 +12,7 @@
   "no_scheduler_mutation": true,
   "no_storage_mutation": true,
   "no_iam_mutation": true,
-  "purpose": "2026-11-05 holdings-report v2 protected retry after prior #41964941889 PREFLIGHT_BLOCKED by concurrent main commits; release #41964040291, candidate #41964668263, auth #41964821165 remain fixed PASS. No prior traffic mutation; retry with fresh main dispatch, unchanged image/rollback scope.",
+  "purpose": "2026-11-05 holdings report API/App fixed release 9f078c37; third safe deployment attempt after concurrent main writes caused lease freshness gates in #41964941889 and #41965168166 to block before traffic mutation. Same PASS release #41964040291, candidate #41964668263, auth #41964821165; all no-mutation boundaries retained.",
   "traffic_validation_mode": "direct",
-  "request_attempt": 27
+  "request_attempt": 28
 }
