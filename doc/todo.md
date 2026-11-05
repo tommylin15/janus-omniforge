@@ -1,13 +1,13 @@
 # Janus — 唯一 Active TODO
 
-## P0｜今日首頁 V2｜一般股雙欄、ETF 收合、融資兩週與法人現金流（2026-11-05）
+## P0｜今日首頁 V2｜一般股雙欄、ETF 收合、融資兩週與法人金流（2026-11-05）
 
-- [x] **本輪需求／SPEC**：普通股全部顯示、ETF 不再擠占前三檔；近 10 個有資料交易日融資金額＋每日比前日；法人以 TWSE 買賣超金額、前一交易日變化取代股數長條。規格：[今日首頁 V2](spec/today-live-home-2026-11-04.md#v2-覆蓋決策2026-11-05一般股優先融資兩週趨勢法人金流)。
-- [x] **CODE 已提交 main**：Owner quotes 傳遞 instrument_kind；首頁一般股雙欄全列、ETF 下方收合；獨立 TWSE MI_MARGN/BFI82U 官方 EOD 公開 API、1h 快取；首頁繪 10 日融資折線／逐日增減、法人 TWD 買賣超／與前日差異；不變更帳本、Scheduler、Shioaji simulation=True。
-- [x] **TEST 程式已新增**：Python 官方欄位、單位、日期、降級與 10 日窗口；Flutter ETF 順序、展開、金額／缺值；已修正新版取代舊卡造成的舊版測試不一致。
-- [x] **V2 測試收據（上一個完整 UI revision）**：Flutter analyze／完整 Widget tests／web build [#41945682010](https://github.com/tommylin15/janus-omniforge/actions/runs/41945682010) PASS；Python 選擇性 API 測試 [#41945682056](https://github.com/tommylin15/janus-omniforge/actions/runs/41945682056) PASS。其後僅補上每日籌碼回前景重新讀取及日期標籤，該最新 SHA 的 Flutter [#41946245602](https://github.com/tommylin15/janus-omniforge/actions/runs/41946245602) **仍須核對終態**；最新 Python [#41946245596](https://github.com/tommylin15/janus-omniforge/actions/runs/41946245596) PASS。最新 Flutter [#41946245602](https://github.com/tommylin15/janus-omniforge/actions/runs/41946245602) **PASS**；已觸發全量固定來源 GHCR Release [#41946706497](https://github.com/tommylin15/janus-omniforge/actions/runs/41946706497)，目前 **IN_PROGRESS**，後續 0% Candidate／授權邊界／Dev 100% 切流均尚未驗收。
-- [ ] **Live Dev 發布**：固定 GHCR image → 0% Candidate → Auth boundary → Dev API＋App 切流 → live readback；目前尚未證明已套用最新程式。
-- [ ] **資料驗證與 Owner UAT**：確認 TWSE 真實來源 10 日融資／昨日法人金額回應、正確單位日期；已登入首頁一般股票與 ETF 順序、盤中兩輪觀測、非盤中顯示、法人／融資畫面。不可把測試 fixture 認定為 live data。
+- [x] **SPEC／CODE**：已提交普通股全部優先的雙欄持股卡、ETF 下方預設收合、Owner quotes instrument_kind；TWSE MI_MARGN 近 10 個有資料交易日融資額／每日變化；BFI82U 三大法人買賣超金額與前日差額。設計以 [今日首頁 V2](spec/today-live-home-2026-11-04.md) 為準。
+- [x] **Flutter／Python CI**：Flutter 全量 [#41946245602](https://github.com/tommylin15/janus-omniforge/actions/runs/41946245602) PASS，Python 選擇性 [#41946245596](https://github.com/tommylin15/janus-omniforge/actions/runs/41946245596) PASS。
+- [x] **固定映像 GHCR 完整 Release**：[ #41946706497 ](https://github.com/tommylin15/janus-omniforge/actions/runs/41946706497) completed/success，完整 Python／Flutter／四個 GHCR 固定來源，來源 `e52c86956749c8cd6c15bba39c088c84d1ec7404`。
+- [x] **Dev API 零流量 Candidate**：[ #41947514389 ](https://github.com/tommylin15/janus-omniforge/actions/runs/41947514389) completed/success；只建立 0% revision，並未切流、未更動 Jobs／Scheduler。
+- [ ] **P0 阻擋：Candidate 盤中正向一致性**：[ #41947903015 ](https://github.com/tommylin15/janus-omniforge/actions/runs/41947903015) 兩次執行 FAILED。OAuth metadata、未授權 Owner/Admin/MCP 保護、候選 build-id 均 PASS；2026-11-05 09:22–09:23 台北盤中，200 回應且 2330 日期、來源與 TAIEX 皆合法，但現役 2330 `quote_state=intraday`、候選 `quote_state=stale`。**不得放寬正向閘門或當成無差異成功**；先查候選 refresh_status／quote_at／received_at 與 QuoteRouter 共享鎖競爭、錯誤回退，修正後重驗。
+- [ ] **Dev API 100% 切流／Runtime／Owner UAT**：目前尚未執行。候選被擋期間現役持續原版本；取得候選正向行情 PASS 後按固定 digest promotion、後驗實際 API 與登入 Owner 普通股／ETF、融資／法人真資料及日期，才可 CLOSED。
 
 
 ## P0｜今日首頁即時線圖重構｜Dev 程式／測試／部署 PASS，待最後一次 Owner 盤中驗收（2026-11-04）
