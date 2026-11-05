@@ -98,7 +98,7 @@ def test_no_official_previous_close_means_no_synthetic_zero_reference():
 
 
 def test_backfilled_kbars_are_separate_from_quote_snapshot_rows_and_have_provenance():
-    from services.api.repository import Repository as PostgresRepository
+    from services.api.repository import PostgresWorkspaceRepository as PostgresRepository
     from datetime import datetime
     tw = timezone(timedelta(hours=8))
     at_900 = datetime(2026, 11, 5, 9, 0, tzinfo=tw)
