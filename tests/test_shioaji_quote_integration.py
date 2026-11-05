@@ -77,6 +77,35 @@ class SharedRepo:
             self.in_flight = False
 
 
+
+def test_resolve_freshness_uses_elapsed_io_time_not_pre_refresh_clock(monkeypatch):
+    """A valid tick arriving while the request runs must not become STALE."""
+    now = datetime(2026, 11, 5, 10, 0, tzinfo=TZ)
+    observed = now + timedelta(seconds=2)
+    repo = SharedRepo()
+    repo.saved["2330"] = {
+        "price": "102", "quote_at": observed.isoformat(),
+        "received_at": observed.isoformat(), "source": "shioaji",
+    }
+    router = QuoteRouter(repo, object())
+    seen = []
+
+    def refresh(_identities, force=False, now=None):
+        seen.append(now)
+        return {"status": "updated", "requested": 1, "updated": 1}
+
+    monkeypatch.setattr(router, "refresh", refresh)
+    clock = iter([100.0, 103.0])
+    monkeypatch.setattr("services.api.quote_router.monotonic", lambda: next(clock))
+    prices, result = router.resolve(
+        {"2330": {"market": "TWSE", "enabled": True}},
+        refresh=True, now=now,
+    )
+    assert seen == [now]
+    assert result["status"] == "updated"
+    assert prices["2330"]["state"] == "intraday"
+
+
 def test_distributed_singleflight_reuses_last_success():
     now = datetime.now(TZ)
     class Source:
