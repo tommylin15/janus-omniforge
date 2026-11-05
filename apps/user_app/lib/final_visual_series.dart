@@ -303,6 +303,8 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
 
   @override
   Widget build(BuildContext context) {
+    final hasHistoricalBars = widget.rows.any((item) =>
+        fvText(fvMap(item)['source'], missing: '') == 'shioaji_kbars');
     final previous = widget.previousClose;
     if (previous == null || !previous.isFinite || previous <= 0) {
       return fvPanel(child: Column(
@@ -437,15 +439,17 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
         if (high != null && low != null && latest != null) ...[
           const Divider(height: 16),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            extremum('觀測最高', high, 'intraday-observed-high'),
-            extremum('觀測最低', low, 'intraday-observed-low'),
+            extremum(hasHistoricalBars ? '分鐘線最高' : '觀測最高', high, 'intraday-observed-high'),
+            extremum(hasHistoricalBars ? '分鐘線最低' : '觀測最低', low, 'intraday-observed-low'),
             extremum('最新觀測', latest, 'intraday-observed-latest'),
           ]),
         ],
         const SizedBox(height: 6),
         Text(complete
             ? '已涵蓋所需交易時段的觀測分鐘點；不代表逐筆成交最高／最低。'
-            : '僅統計實際收集的分鐘點，高低時間與漲跌幅不代表全天完整行情。',
+            : (hasHistoricalBars
+            ? '含券商歷史 1 分 K 收盤價（非即時）、即時觀測；高低只統計有資料的分鐘收盤價，非逐筆成交高低。'
+            : '僅統計實際收集的分鐘點，高低時間與漲跌幅不代表全天完整行情。'),
           style: const TextStyle(color: fvMuted, fontSize: 10)),
       ],
     ));
