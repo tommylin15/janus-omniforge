@@ -551,86 +551,50 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     return kind == 'ETF' || kind == 'BOND_ETF';
   }
 
-  Widget _holdingCard(Map<String, dynamic> row, String today, Map<String, dynamic> response) {
+  void _selectHolding(String symbol) {
+    if (selectedHolding == symbol) return;
+    setState(() {
+      selectedHolding = symbol;
+      stockMinutes = _read('/api/v1/me/portfolio/intraday?symbol=$symbol');
+    });
+  }
+
+  Widget _holdingSelector(Map<String, dynamic> row) {
     final symbol = fvText(row['symbol']);
-    final name = fvText(row['stock_name'], missing: '持股');
-    final quoteDate = fvText(row['price_date'], missing: '');
-    final observedAt = DateTime.tryParse(fvText(row['quote_at'], missing: ''));
-    final age = observedAt == null ? null : DateTime.now().difference(observedAt);
-    final live = response['market_open'] == true &&
-        age != null && !age.isNegative && age.inSeconds <= 120 &&
-        row['quote_state'] == 'intraday' &&
-        row['price_status'] == 'available' &&
-        quoteDate == today &&
-        (row['price_source'] == 'shioaji' || row['price_source'] == 'twse_mis');
-    // A dated historical close can have a genuine previous-close delta.
-    // Never call it today's move and never derive a missing comparison.
-    final previousDate = fvText(row['previous_close_date'], missing: '');
-    final hasHistoricalDelta = !live && quoteDate.isNotEmpty &&
-        previousDate.isNotEmpty && previousDate.compareTo(quoteDate) < 0;
-    final change = (live || hasHistoricalDelta) ? fvNumber(row['change']) : null;
-    final percent = (live || hasHistoricalDelta) ? fvNumber(row['change_percent']) : null;
-    final pnl = live ? fvNumber(row['day_change_amount']) : null;
-    final taipeiStamp = observedAt?.toUtc().add(const Duration(hours: 8));
-    final quoteTime = taipeiStamp == null ? '時間缺值' :
-        '${taipeiStamp.hour.toString().padLeft(2, '0')}:${taipeiStamp.minute.toString().padLeft(2, '0')}';
-    final color = change == null ? fvMuted : fvSignedColor(change);
+    final name = fvText(row['stock_name'], missing: '');
     final selected = selectedHolding == symbol;
-    return Material(
-      color: selected ? fvSoft : Colors.white,
-      borderRadius: BorderRadius.circular(13),
-      child: InkWell(
-        key: Key('today-live-holding-$symbol'),
-        borderRadius: BorderRadius.circular(13),
-        onTap: () => setState(() {
-          selectedHolding = symbol;
-          stockMinutes = _read('/api/v1/me/portfolio/intraday?symbol=$symbol');
-        }),
-        child: Container(
-          height: 153,
-          padding: const EdgeInsets.all(11),
-          decoration: BoxDecoration(
-            border: Border.all(color: selected ? fvTeal : const Color(0xFFE1E8EA),
-                               width: selected ? 1.5 : 0.8),
-            borderRadius: BorderRadius.circular(13),
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Expanded(child: Text(symbol, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: fvMuted, fontWeight: FontWeight.w700))),
-              const Icon(Icons.chevron_right, size: 17, color: fvMuted),
+    return Padding(
+      padding: const EdgeInsets.only(right: 7),
+      child: Material(
+        color: selected ? const Color(0xFFD4ECEE) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          key: Key('today-live-holding-$symbol'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _selectHolding(symbol),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 38, maxWidth: 152),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: selected ? fvTeal
+                  : const Color(0xFFD6E1E4), width: selected ? 1.5 : 0.8),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (selected) ...[
+                const Icon(Icons.show_chart, size: 15, color: fvTeal),
+                const SizedBox(width: 4),
+              ],
+              Text(symbol, style: TextStyle(color: selected ? fvTeal : fvInk,
+                  fontSize: 13, fontWeight: FontWeight.w800)),
+              if (name.isNotEmpty) ...[
+                const SizedBox(width: 5),
+                Flexible(child: Text(name, maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: fvMuted, fontSize: 11))),
+              ],
             ]),
-            Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 15, color: fvInk, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 6),
-            Text(row['market_price'] == null ? '—' :
-                legacy.accountingNumber(row['market_price'], decimals: 2),
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: fvInk)),
-            if (change != null || percent != null)
-              Row(children: [
-                if (change != null) Flexible(child: Text(
-                    '${change >= 0 ? '+' : ''}${legacy.accountingNumber(change, decimals: 2)}',
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w700))),
-                if (percent != null) ...[
-                  const SizedBox(width: 5),
-                  Flexible(child: Text(fvSignedPercent(percent), maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w700))),
-                ],
-              ])
-            else const Text('漲跌尚無可比資料', style: TextStyle(fontSize: 10, color: fvMuted)),
-            const Spacer(),
-            Text(live ? '盤中 $quoteTime' :
-                '非即時 · 價格日 ${quoteDate.isEmpty ? '缺值' : quoteDate}',
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 10, color: fvMuted)),
-            if (pnl != null)
-              Text('當日持股變動 ${legacy.accountingNumber(pnl, decimals: 0)} 元',
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10, color: fvMuted)),
-          ]),
+          ),
         ),
       ),
     );
@@ -651,51 +615,100 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       if (positions.isEmpty) return const SizedBox.shrink();
       final ordinary = positions.where((row) => !_isEtf(row)).toList();
       final etfs = positions.where(_isEtf).toList();
-      final taipei = DateTime.now().toUtc().add(const Duration(hours: 8));
-      final today = '${taipei.year.toString().padLeft(4, '0')}-'
-          '${taipei.month.toString().padLeft(2, '0')}-'
-          '${taipei.day.toString().padLeft(2, '0')}';
-      Widget cards(List<Map<String, dynamic>> rows) => LayoutBuilder(
-        builder: (context, bounds) {
-          final columns = bounds.maxWidth < 330 ? 1 : 2;
-          final width = (bounds.maxWidth - (columns - 1) * 10) / columns;
-          return Wrap(spacing: 10, runSpacing: 10, children: [
-            for (final row in rows)
-              SizedBox(width: width, child: _holdingCard(row, today, response)),
-          ]);
-        },
-      );
+      final all = <Map<String, dynamic>>[...ordinary, ...etfs];
+      final options = <Map<String, dynamic>>[...ordinary, if (showEtfs || ordinary.isEmpty) ...etfs];
+      final active = all.where((row) => row['symbol'] == selectedHolding).toList();
+      final selected = active.isEmpty ? null : active.first;
+      final visibleSymbols = options.map((row) => fvText(row['symbol'])).toList();
+      final selectedIndex = visibleSymbols.indexOf(selectedHolding ?? '');
+      final quoteDate = selected == null ? '' : fvText(selected['price_date'], missing: '');
+      final quoteAt = selected == null ? null :
+          DateTime.tryParse(fvText(selected['quote_at'], missing: ''));
+      final localAt = quoteAt?.toUtc().add(const Duration(hours: 8));
+      final checkedAt = localAt == null ? '時間缺值' :
+          '${localAt.hour.toString().padLeft(2, '0')}:${localAt.minute.toString().padLeft(2, '0')}';
+      final isLive = selected != null && response['market_open'] == true &&
+          selected['quote_state'] == 'intraday' &&
+          selected['price_status'] == 'available' &&
+          quoteAt != null && !DateTime.now().difference(quoteAt).isNegative &&
+          DateTime.now().difference(quoteAt).inSeconds <= 120;
       return fvPanel(child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('持股即時摘要', style: TextStyle(
-              color: fvInk, fontSize: 19, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 4),
-          Text(marketHours ? '頁面可見時每分鐘更新 · 一般股票優先'
-                           : '非盤中：保留最後有效行情，標示原始日期',
-              style: const TextStyle(color: fvMuted, fontSize: 11)),
-          const SizedBox(height: 10),
-          Text('一般股票 · ${ordinary.length} 檔',
-              style: const TextStyle(color: fvInk, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          if (ordinary.isEmpty)
-            const Text('目前沒有一般股票持股', style: TextStyle(color: fvMuted))
-          else cards(ordinary),
-          if (etfs.isNotEmpty) ...[
-            const SizedBox(height: 10),
+          Row(children: [
+            const Expanded(child: Text('持股今日走勢', key: Key('today-holding-trend-title'),
+                style: TextStyle(color: fvInk, fontSize: 19,
+                    fontWeight: FontWeight.w800))),
+            Text('${ordinary.length} 股 · ${etfs.length} ETF',
+                style: const TextStyle(color: fvMuted, fontSize: 11)),
+          ]),
+          const SizedBox(height: 3),
+          const Text('選擇標的看同一張分鐘圖；持股金額、成本與損益請到「持股／記帳」',
+              style: TextStyle(color: fvMuted, fontSize: 11)),
+          const SizedBox(height: 9),
+          SingleChildScrollView(
+            key: const Key('today-holding-symbol-strip'),
+            scrollDirection: Axis.horizontal,
+            child: Row(children: [for (final row in options) _holdingSelector(row)]),
+          ),
+          if (etfs.isNotEmpty && ordinary.isNotEmpty) ...[
+            const SizedBox(height: 3),
             TextButton.icon(
               key: const Key('today-etf-toggle'),
-              onPressed: () => setState(() { showEtfs = !showEtfs; }),
-              icon: Icon(showEtfs ? Icons.expand_less : Icons.expand_more),
-              label: Text('ETF／債券 ETF · ${etfs.length} 檔（${showEtfs ? '收合' : '展開'}）'),
+              onPressed: () => setState(() {
+                showEtfs = !showEtfs;
+                if (!showEtfs && selected != null && _isEtf(selected)) {
+                  selectedHolding = fvText(ordinary.first['symbol']);
+                  stockMinutes = _read('/api/v1/me/portfolio/intraday?symbol=$selectedHolding');
+                }
+              }),
+              icon: Icon(showEtfs ? Icons.expand_less : Icons.expand_more, size: 18),
+              label: Text('ETF · ${etfs.length} 檔（${showEtfs ? '收合' : '展開'}）'),
             ),
-            if (showEtfs) cards(etfs),
           ],
-          if (selectedHolding != null) ...[
-            const Divider(height: 18),
-            Text('$selectedHolding · 今日觀測走勢',
-                style: const TextStyle(color: fvInk, fontWeight: FontWeight.w800)),
+          if (selected != null) ...[
+            const Divider(height: 13),
+            Row(children: [
+              IconButton(
+                key: const Key('today-prev-holding'),
+                onPressed: selectedIndex > 0
+                    ? () => _selectHolding(visibleSymbols[selectedIndex - 1]) : null,
+                tooltip: '上一檔持股',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.chevron_left, size: 23),
+              ),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${fvText(selected['symbol'])} ${fvText(selected['stock_name'], missing: '')}',
+                      key: const Key('today-selected-holding-name'),
+                      overflow: TextOverflow.ellipsis, maxLines: 1,
+                      style: const TextStyle(color: fvInk,
+                          fontWeight: FontWeight.w800, fontSize: 15)),
+                  Text(isLive ? '盤中 $checkedAt'
+                      : '非即時 · 價格日 ${quoteDate.isEmpty ? '缺值' : quoteDate}',
+                      key: const Key('today-selected-quote-status'),
+                      style: const TextStyle(color: fvMuted, fontSize: 11)),
+                ],
+              )),
+              IconButton(
+                key: const Key('today-next-holding'),
+                onPressed: selectedIndex >= 0 && selectedIndex < visibleSymbols.length - 1
+                    ? () => _selectHolding(visibleSymbols[selectedIndex + 1]) : null,
+                tooltip: '下一檔持股',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.chevron_right, size: 23),
+              ),
+              if (widget.onOpenStock != null)
+                TextButton(
+                  key: const Key('today-stock-detail-link'),
+                  onPressed: () => widget.onOpenStock?.call(fvText(selected['symbol'])),
+                  child: const Text('詳情', style: TextStyle(fontSize: 12)),
+                ),
+            ]),
+            const SizedBox(height: 2),
             FutureBuilder<dynamic>(
+              key: ValueKey('today-intraday-${fvText(selected['symbol'])}'),
               future: stockMinutes,
               builder: (context, state) {
                 final data = fvMap(state.data);
@@ -707,15 +720,12 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                         referenceDate.compareTo(asOfDate) < 0
                     ? fvNumber(data['previous_close']) : null;
                 return FvIntradayProgressChart(rows: points,
-                    label: '$selectedHolding · 已收集分鐘點',
-                    unit: '元／股', height: 185,
+                    label: '${fvText(selected['symbol'])} · 今日分鐘走勢',
+                    unit: '元／股', height: 190,
                     previousClose: previousClose);
               },
             ),
           ],
-          const SizedBox(height: 6),
-          const Text('Shioaji／官方行情路由；非盤中漲跌僅顯示可驗證的歷史收盤比較。',
-              style: TextStyle(color: fvMuted, fontSize: 11)),
         ],
       ));
     },
