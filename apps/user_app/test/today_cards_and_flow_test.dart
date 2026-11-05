@@ -111,7 +111,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('today-live-holding-0050')), findsNothing);
     expect(find.textContaining('2330 · 今日分鐘走勢'), findsWidgets);
-    expect(api.requests.where((p) => p == '/api/v1/me/portfolio/intraday?symbol=2330').length, 1);
+    // Returning to the original ticker correctly fetches one fresh chart.
+    expect(api.requests.where((p) => p == '/api/v1/me/portfolio/intraday?symbol=2330').length, 2);
     expect(tester.takeException(), isNull);
   });
 
