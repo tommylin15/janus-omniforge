@@ -153,6 +153,8 @@ def test_intraday_index_writer_uses_dict_row_for_optional_table(monkeypatch):
             statements.append((query, params))
             return self
         def fetchone(self):
+            if "has_table_privilege" in statements[-1][0]:
+                return {"allowed": True}
             return {"table_name": "control.operational_index_minutes"}
         def cursor(self):
             return self
@@ -173,6 +175,8 @@ def test_intraday_index_writer_uses_dict_row_for_optional_table(monkeypatch):
                for query, _ in statements)
     assert len(batches) == 1
     assert batches[0][1][0][5] == "shioaji"
+    assert any("DELETE FROM control.operational_index_minutes" in query
+               and "interval '3 days'" in query for query, _ in statements)
 
 
 def test_twenty_concurrent_quote_readers_singleflight():
