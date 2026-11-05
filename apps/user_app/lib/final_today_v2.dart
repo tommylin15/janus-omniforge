@@ -299,14 +299,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       final value = fvNumber(fvMap(item)['value']);
       return value != null && value.isFinite && value > 0;
     }).toList();
-    if (usable.length < 2 && intraday.length < 2) {
-      return fvPanel(child: Row(children: [
-        const Icon(Icons.show_chart, color: fvMuted),
-        const SizedBox(width: 9),
-        const Expanded(child: Text('加權指數歷史走勢尚未就緒',
-            style: TextStyle(color: fvMuted))),
-      ]));
-    }
+    // The fixed clock frame renders even with zero/minimal observations.
     final shown = usable.length <= historyDays
         ? usable : usable.sublist(usable.length - historyDays);
     final asOf = fvText(data['history_as_of']);
@@ -339,11 +332,13 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                     ]),
                     InteractiveViewer(
                       minScale: 1, maxScale: 3,
-                      child: FvVisualSeriesChart(
-                        rows: historyDays == 0 ? intraday : usable,
-                        label: '加權指數', unit: '點', height: 235,
-                        intraday: historyDays == 0, markExtrema: historyDays == 0,
-                        dailyTable: historyDays != 0, showTable: historyDays != 0),
+                      child: historyDays == 0
+                          ? FvIntradayProgressChart(
+                              rows: intraday, label: '加權指數 · 盤中',
+                              unit: '點', height: 235, previousClose: previousClose)
+                          : FvVisualSeriesChart(
+                              rows: usable, label: '加權指數 · 收盤',
+                              unit: '點', height: 235, dailyTable: true),
                     ),
                   ]),
                 ),
@@ -362,11 +357,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           ),
       ])),
       if (historyDays == 0)
-        intraday.length >= 2
-          ? FvVisualSeriesChart(rows: intraday, label: '加權指數 · 盤中',
-              unit: '點', height: 190, intraday: true,
-              markExtrema: true, showTable: false)
-          : fvBoundedState('今日盤中資料收集中；僅保留實際取得的分鐘點，不補造缺口')
+        FvIntradayProgressChart(rows: intraday, label: '加權指數 · 盤中',
+            unit: '點', height: 190, previousClose: previousClose)
       else
         FvVisualSeriesChart(rows: shown, label: '加權指數 · 收盤',
             unit: '點', height: 130, dailyTable: true),
