@@ -144,3 +144,10 @@ cash_strategy（reserve／balanced／invested）、declared_cash／cash_as_of（
 
 - **非盤中不輪詢 MIS**：普通 `GET /api/v1/me/portfolio/quotes`、持股頁重進或 14:30 EOD 單次讀取不會在非盤中自動觸發 MIS。維持非盤中的 cache／官方 TPEx EOD 按需讀取，與使用者按鈕的手動 MIS 獨立；沒有新增 Cloud Scheduler 或定時高頻任務。
 - **驗收矩陣**：盤前 06:10／08:59、夜間 22:15、週六 11:00、週日 03:05、管理員指定休市日 10:20，以 Owner API 模擬正負行為。每例一般 GET 必須沒有 MIS 網路呼叫，使用者 POST 必須有且僅有明確的 MIS 查詢，來源舊報價日期不改成查詢日。完整 Release 與 Dev 100% 流量收據已 PASS，登入 Owner 的七檔行情與損益完整 UAT 已由使用者確認 PASS；後續如需逐檔價格的機器級稽核，應另立驗證，不回頭把人工驗收改寫成不存在的自動收據。
+
+## 2026-11-05｜0050 ETF 當日損益缺值與單檔隔離
+
+- 盤中「現價」與「當日損益」是不同可用性：後者需同一交易日的有效現價及前收盤價，不能拿持股成本或前一個任意觀測值假設昨收。0050 ETF 即使已有現價，若前收盤價仍缺，該檔維持 `待行情`，但股數、成本及可核對總損益照常顯示。
+- 優先採用 PostgreSQL published EOD 的**有日期**前收；若缺失或不適用，可採同日具實際時間戳的 TWSE MIS `y` 或 Shioaji 報價附帶的正數前收，分別標記 `mis_previous_close`／`shioaji_previous_close`，不虛構日期。Proxy 可在 Shioaji 報價缺前收時，於每檔 60 秒節流下嘗試同日、時間差 ≤60 秒的 MIS **完整報價**作備援；來源標為實際 MIS，禁止拼接不同來源的現價和昨收。
+- API 的正式全部持股 `day_change_amount` 在有缺價時仍是 `null`，並明確回 `day_change_status=incomplete`、`day_unpriced_symbols`；已取得有效當日變化的 `priced_day_change_amount` 則為真實**部分小計**。Flutter 必須標示「當日損益小計」、「部分 x/y 檔 · 不含缺價」，不得將部分小計稱為全持股損益或顯示成零；年度已實現損益和完整報表佇列均與這項當日行情缺值相互獨立。
+- **實作與驗收狀態**：Python 持股計價及 0050 相關 regressions、Flutter 部分小計 widget tests 已提交 `main`；[Python CI #41955056660](https://github.com/tommylin15/janus-omniforge/actions/runs/41955056660) PASS、[Flutter CI #41955177135](https://github.com/tommylin15/janus-omniforge/actions/runs/41955177135) PASS。Shioaji Proxy 修正提交 `1ad0aa2067330fc173d9694b9aaf47481ced23c7`，其 [Deploy #41955365671](https://github.com/tommylin15/janus-omniforge/actions/runs/41955365671) 及 API/Flutter 100% Dev 切流、本人真實 0050 收到有效前收後恢復當日損益的端到端證據均需另外讀回；**不因 commit／CI PASS 宣稱已完成 Live 驗收**。
