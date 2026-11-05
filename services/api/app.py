@@ -1140,7 +1140,17 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                     "market": ("TPEX_UNVERIFIED" if symbol.endswith("B") and
                                symbol[:-1].isdigit() else "UNKNOWN"),
                 }
-        rows = [{**row, "stock_name": stock_identity(identities.get(str(row["symbol"])))[0]} for row in rows]
+        rows = [
+            {**row,
+             "stock_name": stock_identity(identities.get(str(row["symbol"])))[0],
+             # UI-only classification: verified identity wins; code-shaped ETF
+             # fallback does not register it in the canonical research universe.
+             "instrument_kind": (
+                 identities.get(str(row["symbol"]), {}).get("instrument_kind")
+                 or ("ETF" if looks_like_etf_code(str(row["symbol"])) else "EQUITY")
+             )}
+            for row in rows
+        ]
         try:
             if persisted_only:
                 current_time, phase = quote_session()
