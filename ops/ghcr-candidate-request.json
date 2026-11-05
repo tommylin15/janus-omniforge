@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "83115408c33ff0581b82607bfee1b359dcd05de4",
+  "sha": "c709505e6ed40383d7a8ea9abd1d83885264d391",
   "digest": "",
-  "release_run": "41954851911",
+  "release_run": "41955809660",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "TODAY-V3 combined fixed session chart, three-day index cleanup 077 PASS #41953905383, quote post-I/O freshness fix; full immutable GHCR release #41954851911 PASS. Zero-traffic Dev API candidate, no active traffic change, no Jobs/Scheduler/IAM.",
-  "request_attempt": 49
+  "purpose": "Final combined Janus V3+ETF Release #41955809660 PASS, 077 dev migration #41953905383 PASS. Stage 0%-traffic immutable API candidate only; no Jobs/Scheduler, no API live switch. Includes latest ETF previous-close and partial-PnL fixes through c709505e6.",
+  "request_attempt": 50
 }
