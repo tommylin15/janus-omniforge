@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "06bd8b5d77e5833c5cbc75fdb34b27da747f04ce",
-  "purpose": "2026-11-05 TODAY-V2: fix ETF-first top-three holding bug; all ordinary stocks first in compact two-column cards; ETF collapsed; official TWSE 10-session margin TWD line and daily change; institutional BFI82U net TWD and prior observed day delta. No new paid resources, no Jobs/Scheduler changes, current Dev API-only promotion after guarded candidate and Owner UAT.",
+  "sha": "c6ec698499413c4ed543ab8221e00ae08a5af753",
+  "purpose": "2026-11-05 TODAY-SESSION-V3: fixed 09:00-13:30 intraday start-to-finish clock, previous official close zero line, red-up/green-down split, observed high/low time and delta; TAIEX and Owner stock minute data 72h cleanup with additive 077; preserve simulation=True, on-demand no backfill and keep existing jobs, Scheduler, secrets unchanged. Full tests + immutable GHCR before guarded Dev candidate.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 44
+  "request_attempt": 45
 }
