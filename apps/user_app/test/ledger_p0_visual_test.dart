@@ -320,6 +320,48 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Missing 0050 daily reference leaves a visible six-of-seven daily subtotal',
+      (tester) async {
+    _phone(tester);
+    final snapshot = _snapshot();
+    final original = Map<String, dynamic>.from(snapshot['positions'].first as Map);
+    snapshot['positions'] = <Map<String, dynamic>>[
+      original,
+      {
+        ...original,
+        'symbol': '0050',
+        'stock_name': '元大台灣50',
+        'shares': '5000',
+        'market_price': '98.10',
+        'average_cost': '99.91',
+        'unrealized_pnl': '-9035',
+        'change': null,
+        'change_percent': null,
+        'day_change_amount': null,
+      },
+    ];
+    final aggregate = Map<String, dynamic>.from(snapshot['items'].first as Map);
+    aggregate.addAll({
+      'day_change_amount': null,
+      'priced_day_change_amount': '3000',
+      'day_change_status': 'incomplete',
+      'day_priced_symbol_count': 1,
+      'day_unpriced_symbols': ['0050'],
+    });
+    snapshot['items'] = [aggregate];
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(
+      HoldingsP0Api(snapshot), active: false,
+      now: () => DateTime.utc(2026, 10, 12, 7))));
+    await tester.pumpAndSettle();
+    expect(find.text('當日損益小計'), findsOneWidget);
+    expect(find.text('0.3 萬元'), findsOneWidget);
+    expect(find.textContaining('部分 1/2 檔 · 不含缺價'), findsOneWidget);
+    await tester.scrollUntilVisible(find.byKey(const Key('holding-daily-change-0050')),
+      180, scrollable: find.byType(Scrollable).first);
+    expect(find.text('待行情'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Missing ETF quote keeps shares and cost without inventing PnL',
       (tester) async {
     _phone(tester);
