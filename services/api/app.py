@@ -679,6 +679,13 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         with market_home_lock:
             return jsonable_encoder(market_home_snapshot(int(monotonic()) // 60))
 
+    @public_router.get("/market-leverage-flow")
+    def market_leverage_flow():
+        # Separate from minute quotes and the existing market-home.v1 snapshot.
+        # EOD official research series; no Owner data, trading or minute polling.
+        from .market_leverage_flow import cached_market_leverage_flow
+        return cached_market_leverage_flow()
+
     @public_router.get("/sector-rotation", response_model=PublicReportListOut)
     def sector_rotation(scope_id: str = Query(..., min_length=1, max_length=80), analysis_as_of: str = Query("", max_length=10)):
         return public_report_list("industry", scope_id, analysis_as_of)
