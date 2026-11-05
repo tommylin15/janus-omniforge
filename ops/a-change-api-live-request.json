@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "9f078c37e2a2c1d363a509acfec1816bea1a1d11",
-  "promotion_run": "41965403625",
+  "source_sha": "2568fff9387641e66fd94e407c165008927339b1",
+  "promotion_run": "41978064187",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-05 independent read-only live Dev acceptance after portfolio-report API-only 100% promotion #41965403625; verify exact fixed source, immutable GHCR image, /app build-id, public health, existing market route and anonymous rejection for new /portfolio/value-history; owner positive UI remains separate.",
-  "request_attempt": 7
+  "purpose": "Today V4 after API-only 100%-traffic PASS #41978064187: independently read live fixed SHA, GHCR digest, App build-id, health, 401/403 Owner intraday, public market minute schema and quote status. Historical private Owner Kbar positive readback remains separate; never mutate traffic/owner/jobs.",
+  "request_attempt": 8
 }
