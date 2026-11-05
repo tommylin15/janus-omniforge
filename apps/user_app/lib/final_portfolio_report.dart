@@ -408,7 +408,9 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => Material(
+        type: MaterialType.transparency,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _selector(),
@@ -427,6 +429,7 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
               },
             ),
         ],
+      ),
       );
 }
 
