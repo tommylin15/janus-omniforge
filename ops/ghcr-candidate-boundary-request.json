@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "9f078c37e2a2c1d363a509acfec1816bea1a1d11",
+  "sha": "2568fff9387641e66fd94e407c165008927339b1",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-05 holdings report v2; zero-traffic fixed-digest candidate #41964668263 PASS; verify OAuth, owner-API unauthenticated rejection, MCP challenge and App build-id with no traffic or IAM mutation.",
-  "request_attempt": 45
+  "purpose": "Today V4 fixed full Release #41967569050 PASS and 0%-traffic Dev API candidate #41977604689 PASS. Read-only verify OAuth Owner/Admin/MCP negative boundary, candidate App build-id and 2330/TAIEX quote parity. No traffic switch or GCP mutation; migration 078 PASS #41967217662 and broker proxy PASS #41966301190.",
+  "request_attempt": 46
 }
