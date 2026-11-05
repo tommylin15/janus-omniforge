@@ -28,7 +28,6 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   String? selectedHolding;
   bool showEtfs = false;
   dynamic lastGoodOwnerQuotes;
-  late Future<dynamic> assets;
   Timer? marketTimer;
   bool foreground = true;
   int historyDays = 0;
@@ -60,7 +59,6 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     ownerQuotes = widget.active
         ? market.then((_) => _loadOwnerQuotes())
         : Future<dynamic>.value(null);
-    assets = widget.active ? _read('/api/v1/me/portfolio/snapshot') : Future<dynamic>.value(null);
     WidgetsBinding.instance.addObserver(this);
     foreground = WidgetsBinding.instance.lifecycleState == null ||
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
@@ -111,8 +109,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       ownerQuotes = widget.active
           ? market.then((_) => _loadOwnerQuotes())
           : Future<dynamic>.value(null);
-      assets = widget.active ? _read('/api/v1/me/portfolio/snapshot') : Future<dynamic>.value(null);
-    }
+      }
     if (oldWidget.active != widget.active) {
       if (widget.active) {
         setState(() {
@@ -122,7 +119,6 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           brief = _read('/api/v1/public/daily-brief');
           personal = _read('/api/v1/me/today-relevant');
           ownerQuotes = market.then((_) => _loadOwnerQuotes());
-          assets = _read('/api/v1/me/portfolio/snapshot');
         });
         _startMarketTimer();
       } else {
@@ -529,23 +525,6 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     },
   );
 
-  Widget _assets() => FutureBuilder<dynamic>(
-      future: assets,
-      builder: (context, snapshot) {
-        final value = fvMap(snapshot.data);
-        final cash = fvNumber(fvMap(value['cash'])['cash_balance']);
-        final total = fvNumber(value['reference_total_asset_value']);
-        return fvPanel(
-            child: Row(children: [
-          Expanded(
-              child: Text(
-                  '現金\n${cash == null ? '尚未設定' : '${legacy.accountingNumber(cash / 10000, decimals: 1)} 萬元'}')),
-          Expanded(
-              child: Text(
-                  '參考總資產\n${total == null ? '資料尚未完整' : '${legacy.accountingNumber(total / 10000, decimals: 1)} 萬元'}')),
-        ]));
-      });
-
   bool _isEtf(Map<String, dynamic> row) {
     final kind = fvText(row['instrument_kind'], missing: '').toUpperCase();
     return kind == 'ETF' || kind == 'BOND_ETF';
@@ -888,8 +867,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         key: const Key('final-today-scroll'),
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
         children: [
-          fvPageTitle(context, '今日', subtitle: '先看市場即時走勢與持股，再看其他資訊'),
-          _assets(),
+          fvPageTitle(context, '今日', subtitle: '大盤與持股一張圖掌握當日變化'),
           _market(),
           _liveHoldings(),
           _leverageFlow(),
