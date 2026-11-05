@@ -853,18 +853,17 @@ class PostgresWorkspaceRepository:
                        ORDER BY minute_at ASC LIMIT 271""",
                     (symbol, start, end),
                 ).fetchall()
-            try:
-                kbars = connection.execute(
-                    """SELECT minute_at,price FROM control.operational_session_kbars
-                       WHERE symbol=%s AND minute_at >= %s AND minute_at < %s
-                       ORDER BY minute_at ASC LIMIT 271""",
-                    (symbol, start, end),
-                ).fetchall()
-            except Exception:
-                # Additive migration 078 can trail the API source revision.
-                # Read-only compatibility; never turn missing bars into fake ticks.
-                connection.rollback()
-                kbars = []
+            # 078 is additive. Never roll back an active psycopg transaction
+            # merely because its new table has not reached this Dev revision.
+            optional = connection.execute(
+                "SELECT to_regclass('control.operational_session_kbars') AS relation"
+            ).fetchone()
+            kbars = connection.execute(
+                """SELECT minute_at,price FROM control.operational_session_kbars
+                   WHERE symbol=%s AND minute_at >= %s AND minute_at < %s
+                   ORDER BY minute_at ASC LIMIT 271""",
+                (symbol, start, end),
+            ).fetchall() if optional and optional["relation"] is not None else []
         return self._merge_minute_sources(snapshots, kbars, taipei)
 
     def market_intraday_points(self, trade_date=None):
