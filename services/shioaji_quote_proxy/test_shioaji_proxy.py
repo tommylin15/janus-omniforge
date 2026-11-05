@@ -291,3 +291,73 @@ def test_mis_trade_time_preserves_dated_timestamp_for_janus(monkeypatch):
         assert observed.date() == today.date()
         assert row["received_at"] and row["exchange"] == "TSE"
     assert quotes["TAIEX"]["close"] == 23456.78
+
+
+
+def test_broker_kbars_use_taipei_wall_clock_and_right_label_not_utc_plus_eight():
+    """Provider nanosecond timestamps must display 09:00, not 17:00."""
+    from datetime import date, datetime, timezone, timedelta
+    from types import SimpleNamespace
+    from services.shioaji_quote_proxy.kbars import session_kbars
+    tw = timezone(timedelta(hours=8))
+    # Exchange timestamp 09:01 closes the 09:00 minute.
+    raw_ns = int(datetime(2026, 11, 5, 9, 1, tzinfo=timezone.utc).timestamp()) * 10**9
+    second_ns = raw_ns + 60 * 10**9
+    future_ns = raw_ns + 240 * 60 * 10**9
+    class SDK:
+        contracts = {"2330": SimpleNamespace(code="2330")}
+        calls = 0
+        def kbars(self, **kwargs):
+            self.calls += 1
+            assert kwargs["start"] == kwargs["end"] == "2026-11-05"
+            assert kwargs["timeout"] == 6000
+            return SimpleNamespace(ts=[raw_ns, second_ns, future_ns],
+                                   Close=[100.5, 101.5, 990.0])
+    sdk = SDK()
+    result = session_kbars(sdk, "2330", date(2026, 11, 5),
+                           now=datetime(2026, 11, 5, 11, 49, tzinfo=tw))
+    assert sdk.calls == 1
+    assert result["status"] == "available"
+    assert [x["date"][11:16] for x in result["points"]] == ["09:00", "09:01"]
+    assert [x["value"] for x in result["points"]] == ["100.5", "101.5"]
+    assert all(x["date"].endswith("+08:00") for x in result["points"])
+    assert result["bar_semantics"] == "one-minute-right-labelled-close"
+
+
+def test_kbars_refuse_future_wrong_day_invalid_price_and_no_contract():
+    from datetime import date, datetime, timezone, timedelta
+    from types import SimpleNamespace
+    from services.shioaji_quote_proxy.kbars import session_kbars
+    tw = timezone(timedelta(hours=8))
+    today = date(2026, 11, 5)
+    sdk = SimpleNamespace(contracts={}, kbars=lambda **_: 1)
+    assert session_kbars(sdk, "2330", today,
+                         now=datetime(2026, 11, 5, 12, tzinfo=tw))["status"] == "unavailable"
+    try:
+        session_kbars(sdk, "2330", date(2026, 11, 4),
+                      now=datetime(2026, 11, 5, 12, tzinfo=tw))
+        assert False, "wrong-day historical request must be rejected"
+    except ValueError:
+        pass
+
+
+def test_private_proxy_historical_endpoint_is_one_day_and_simulation_manager_only(monkeypatch):
+    from datetime import datetime, timezone, timedelta
+    from fastapi.testclient import TestClient
+    from services.shioaji_quote_proxy import main as proxy
+    tw = timezone(timedelta(hours=8))
+    today = datetime.now(tw).date().isoformat()
+    calls = []
+    class Fake:
+        def historical_minutes(self, symbol, trade_day):
+            calls.append((symbol, trade_day))
+            return {"status": "missing", "source": "shioaji_kbars",
+                    "symbol": symbol, "date": trade_day.isoformat(), "points": []}
+    monkeypatch.setattr(proxy, "CLIENT", Fake())
+    with TestClient(proxy.app) as client:
+        assert client.get("/kbars", params={"symbol": "../../foo", "day": today}).status_code == 400
+        assert client.get("/kbars", params={"symbol": "2330", "day": "2020-01-01"}).status_code == 400
+        response = client.get("/kbars", params={"symbol": "2330", "day": today})
+        assert response.status_code == 200
+        assert response.json()["source"] == "shioaji_kbars"
+    assert calls == [("2330", datetime.now(tw).date())]
