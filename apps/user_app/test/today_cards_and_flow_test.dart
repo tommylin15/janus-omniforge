@@ -99,10 +99,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('today-live-holding-0050')), findsOneWidget);
     expect(find.byKey(const Key('today-live-holding-00697B')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('today-live-holding-0050')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('today-live-holding-0050')));
     await tester.pumpAndSettle();
     expect(find.textContaining('0050 · 今日分鐘走勢'), findsWidgets);
     expect(api.requests.where((p) => p == '/api/v1/me/portfolio/intraday?symbol=0050').length, 1);
+    await tester.ensureVisible(find.byKey(const Key('today-etf-toggle')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('today-etf-toggle')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('today-live-holding-0050')), findsNothing);
