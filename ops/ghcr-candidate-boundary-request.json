@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "c709505e6ed40383d7a8ea9abd1d83885264d391",
+  "sha": "9f078c37e2a2c1d363a509acfec1816bea1a1d11",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-05 combined V3+0050 ETF 0%-traffic API Candidate #41956487907 PASS, full GHCR Release #41955809660 PASS, proxy deployment #41955365671 PASS. Read-only candidate OAuth/Owner negative security and live public quote gates; no API traffic or IAM change. This includes 0050 previous_close and partial daily PnL fixes; owner live acceptance still separate.",
-  "request_attempt": 44
+  "purpose": "2026-11-05 holdings report v2; zero-traffic fixed-digest candidate #41964668263 PASS; verify OAuth, owner-API unauthenticated rejection, MCP challenge and App build-id with no traffic or IAM mutation.",
+  "request_attempt": 45
 }
