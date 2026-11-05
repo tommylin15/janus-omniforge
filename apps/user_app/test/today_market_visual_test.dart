@@ -11,6 +11,16 @@ class TodayApiStub extends legacy.Api {
   final requests = <String>[];
 
   @override
+  Future<dynamic> post(String path, Map<String, dynamic> body) async {
+    // Historical backfill is separately tested at API/proxy layers.
+    // A widget test never contacts a live broker or persists market data.
+    if (path == '/api/v1/me/market/minute-backfill') {
+      return {'status': 'unavailable', 'saved': 0};
+    }
+    return const <String, dynamic>{};
+  }
+
+  @override
   Future<dynamic> get(String path) async {
     requests.add(path);
     if (path == '/api/v1/public/market-home') return market;
