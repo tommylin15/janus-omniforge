@@ -1283,10 +1283,28 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             raise HTTPException(status_code=404, detail="未持有此標的")
         today = datetime.now(TAIPEI).date()
         rows = repository.stock_intraday_points(symbol, trade_date=today)
+        # Use the previously published official close for a real zero-percent
+        # reference. Never infer it from today's first sampled quote.
+        prior = {}
+        reader = getattr(repository, "official_previous_closes", None)
+        if reader is not None:
+            try:
+                prior = reader({symbol: today.isoformat()}).get(symbol) or {}
+            except Exception as error:
+                LOGGER.warning("intraday official previous close unavailable: %s",
+                               type(error).__name__)
         return jsonable_encoder({
             "symbol": symbol, "as_of": today.isoformat(), "items": rows,
             "observation_kind": "page_demanded_minutes",
             "is_full_day": False, "count": len(rows),
+            "previous_close": prior.get("previous_close"),
+            "previous_close_date": prior.get("previous_close_date"),
+            "previous_close_source": (
+                "official_previous_close" if prior.get("previous_close")
+                and prior.get("previous_close_date")
+                and str(prior["previous_close_date"]) < today.isoformat()
+                else None
+            ),
         })
 
     @private.post("/portfolio/quotes/refresh")
