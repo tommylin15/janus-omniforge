@@ -1,5 +1,15 @@
 # Janus — 唯一 Active TODO
 
+## P0｜持股「報表」視覺重構：市值占比與成本走勢｜CODE COMMITTED／CI＋Dev 待驗（2026-11-05）
+
+- [x] **需求與規格**：參考使用者提供的兩張手機介面圖，將「持股 → 報表」改為「持股市值占比」與「持股市值走勢」；個股／ETF／單檔篩選、近一年／已保存歷史，以及可選「含已出清」；目前持股預設不混入已出清部位。正式規格見 [User App](ui/user-app.md)、[API](ui/states-and-api.md)。
+- [x] **程式已提交 main**：新 Flutter 報表元件 `apps/user_app/lib/final_portfolio_report.dart`、`final_ledger.dart` 接線；Owner-only `/api/v1/me/portfolio/value-history` 讀取既有 Private Mart 真實 `workspace_snapshots`，不新建 migration、不補造舊價格。只呈現 TWD；未計價／缺月份標示 partial／斷點；舊版 XIRR／月度已實現損益圖從報表視圖移除，交易紀錄及既有 API 不刪除。
+- [x] **測試已編寫／加入推送 main 的 CI**：`tests/test_portfolio_value_history.py` 及 `apps/user_app/test/portfolio_report_test.dart`，並更新 `.github/workflows/ci-v2.yml` 的 Python／Flutter gate。此標記僅為**程式與 CI 配置已提交**，不是 PASS 收據。
+- [ ] **CI／Release**：取得同一 HEAD 的 Python＋Flutter 選擇性 CI 成功收據，修正實測失敗後再完成 GHCR Full Release、固定 image digest／source SHA；在結果讀回之前狀態為 **unknown**。
+- [ ] **Dev／Owner LIVE 驗收**：依既有有界 Dev API-only 候選→OAuth boundary→100% 切流→runtime 讀回流程；本人登入確認 390px 手機圓餅圖、個股／ETF 篩選、真實兩期以上月走勢、缺價／無歷史／已出清狀態，以及存入的真實資料日期。沒有 Owner 真實畫面不得標 UAT PASS。
+- **當前邊界**：本次對話無本地 Dart／Flutter SDK，GitHub 連線無直接 workflow_dispatch／Cloud Run deploy 操作通道；只已取得 `main` commits，未取得 CI 或 Live Runtime 的成功證據。不得將提交當作發布完成。
+
+
 ## P0｜今日盤中進度圖 V3｜固定時段、0% 前收、漲紅跌綠、3 天保留（2026-11-05）
 
 - [x] **SPEC／程式**：大盤、Owner 個股均以 09:00–13:30 固定分鐘時軸，0% 為前一正式收盤、漲紅跌綠、缺分鐘斷線，圖下方顯示「觀測高／低／最新」的 HH:mm、價位與漲跌幅；缺有效前收不虛構基準。完整規格：[V3 SPEC](spec/today-intraday-progress-v3.md)。
