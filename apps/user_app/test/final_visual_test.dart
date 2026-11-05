@@ -552,7 +552,7 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('Ledger confirms zero only when current-year history is confirmed empty',
+  testWidgets('Ledger keeps confirmed YTD zero on holdings while report shows allocation instead',
       (tester) async {
     mobileView(tester);
     final year = DateTime.now().year;
@@ -590,11 +590,12 @@ void main() {
 
     await tester.tap(find.text('報表'));
     await tester.pumpAndSettle();
-    expect(find.text('本年度確認無交易；已實現損益 0'), findsOneWidget);
+    expect(find.byKey(const Key('portfolio-allocation-view')), findsOneWidget);
+    expect(find.text('本年度確認無交易；已實現損益 0'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Ledger keeps YTD unavailable distinct from confirmed zero',
+  testWidgets('Ledger keeps YTD unavailable on holdings while report does not claim zero',
       (tester) async {
     mobileView(tester);
     final year = DateTime.now().year;
@@ -616,7 +617,8 @@ void main() {
 
     await tester.tap(find.text('報表'));
     await tester.pumpAndSettle();
-    expect(find.text('本年已實現損益目前無法確認'), findsOneWidget);
+    expect(find.byKey(const Key('portfolio-allocation-view')), findsOneWidget);
+    expect(find.text('本年已實現損益目前無法確認'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -1211,7 +1213,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Ledger Reports visualizes canonical monthly realized PnL',
+  testWidgets('Ledger reports shows owner value allocation instead of retired monthly PnL',
       (tester) async {
     mobileView(tester);
     final year = DateTime.now().year;
@@ -1267,8 +1269,9 @@ void main() {
     await tester.tap(find.text('報表'));
     await tester.pumpAndSettle();
 
-    expect(find.text('月度已實現損益'), findsOneWidget);
-    expect(find.byKey(const Key('fv-monthly-pnl-chart')), findsOneWidget);
+    expect(find.text('持股市值占比'), findsOneWidget);
+    expect(find.byKey(const Key('portfolio-allocation-view')), findsOneWidget);
+    expect(find.byKey(const Key('fv-monthly-pnl-chart')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
