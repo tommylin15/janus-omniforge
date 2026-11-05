@@ -1342,7 +1342,17 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                                type(error).__name__)
         return jsonable_encoder({
             "symbol": symbol, "as_of": today.isoformat(), "items": rows,
-            "observation_kind": "page_demanded_minutes",
+            "observation_kind": (
+                "historical_kbars_and_live_observations"
+                if any(row.get("source") == "shioaji_kbars" for row in rows)
+                else "page_demanded_minutes"
+            ),
+            "historical_kbar_count": sum(
+                row.get("source") == "shioaji_kbars" for row in rows
+            ),
+            "sampled_live_count": sum(
+                row.get("source") != "shioaji_kbars" for row in rows
+            ),
             "is_full_day": False, "count": len(rows),
             "previous_close": prior.get("previous_close"),
             "previous_close_date": prior.get("previous_close_date"),
