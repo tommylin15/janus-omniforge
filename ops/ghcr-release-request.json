@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "84b5e2c4b0aa958a2e2433dce592b42d13fc4f04",
-  "purpose": "2026-11-04 LIVE-HOME-01 Today UI replacement: remove expired Today highlights; TAIEX intraday chart default, observed high/low and Taipei event time/range position; Owner top-three live holdings and persisted stock minute chart. Additive migration 076, strict simulation=True Shioaji existing shared quote route; deploy image only after Python+Flutter full test pass; no changes to Jobs/Scheduler/market models or private ledger.",
+  "sha": "06bd8b5d77e5833c5cbc75fdb34b27da747f04ce",
+  "purpose": "2026-11-05 TODAY-V2: fix ETF-first top-three holding bug; all ordinary stocks first in compact two-column cards; ETF collapsed; official TWSE 10-session margin TWD line and daily change; institutional BFI82U net TWD and prior observed day delta. No new paid resources, no Jobs/Scheduler changes, current Dev API-only promotion after guarded candidate and Owner UAT.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 43
+  "request_attempt": 44
 }
