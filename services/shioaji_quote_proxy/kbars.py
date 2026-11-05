@@ -29,7 +29,9 @@ def kbar_timestamp(value: Any) -> datetime | None:
         elif numeric > 1e12:
             numeric /= 1e3  # milliseconds
         try:
-            return datetime.fromtimestamp(numeric, timezone.utc).astimezone(TAIPEI)
+            # SDK nanoseconds encode Taiwan wall-clock time, not UTC.
+            # Convert the epoch components then attach Taipei without +8h.
+            return datetime.fromtimestamp(numeric, timezone.utc).replace(tzinfo=TAIPEI)
         except (ValueError, OverflowError, OSError):
             return None
     try:
@@ -69,10 +71,12 @@ def session_kbars(api: Any, symbol: str, trade_day: date, *, now: datetime | Non
     latest_completed = clock.replace(second=0, microsecond=0)
     for stamp, price in zip(timestamps, closes):
         observed = kbar_timestamp(stamp)
-        if observed is None or observed.date() != trade_day or observed >= latest_completed:
+        if observed is None or observed.date() != trade_day or observed > latest_completed:
             continue
-        minute = observed.hour * 60 + observed.minute
-        if not SESSION_FIRST <= minute <= SESSION_LAST:
+        # Right-labelled [ts-1m, ts) candle is plotted in its START minute.
+        bucket = observed - timedelta(minutes=1)
+        minute = bucket.hour * 60 + bucket.minute
+        if not SESSION_FIRST <= minute < SESSION_LAST:
             continue
         try:
             value = Decimal(str(price))
@@ -80,7 +84,7 @@ def session_kbars(api: Any, symbol: str, trade_day: date, *, now: datetime | Non
             continue
         if not value.is_finite() or value <= 0 or value > Decimal("10000000"):
             continue
-        minute_key = observed.replace(second=0, microsecond=0).isoformat()
+        minute_key = bucket.replace(second=0, microsecond=0).isoformat()
         by_minute[minute_key] = str(value)
     points = [{"date": stamp, "value": by_minute[stamp]}
               for stamp in sorted(by_minute)[:271]]
