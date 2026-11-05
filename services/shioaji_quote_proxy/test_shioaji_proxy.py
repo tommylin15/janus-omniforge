@@ -362,3 +362,11 @@ def test_private_proxy_historical_endpoint_is_one_day_and_simulation_manager_onl
     assert response.status_code == 200
     assert response.json()["source"] == "shioaji_kbars"
     assert calls == [("2330", datetime.now(tw).date())]
+
+
+def test_fetch_endpoint_allowlist_validation():
+    from fastapi.testclient import TestClient
+    from services.shioaji_quote_proxy import main as proxy
+    client = TestClient(proxy.app)
+    assert client.post("/fetch", json={"url": "https://evil.example.com/test"}).status_code == 400
+    assert client.post("/fetch", json={"url": "http://blave.org/studio"}).status_code == 400

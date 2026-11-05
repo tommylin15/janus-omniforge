@@ -15,12 +15,46 @@ from threading import Lock
 from time import monotonic
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
+
+ALLOWED_INTEL_HOSTS = frozenset({
+    "blave.org",
+    "www.blave.org",
+    "api.blave.org",
+    "atlas-ai-trading.com",
+    "www.atlas-ai-trading.com",
+    "daily-tw.up.railway.app",
+    "gooaye.teamtaiwan.win",
+    "xn--g10a.tw",
+    "www.twse.com.tw",
+    "openapi.twse.com.tw",
+    "mis.twse.com.tw",
+    "mops.twse.com.tw",
+    "www.tpex.org.tw",
+    "www.taifex.com.tw",
+    "api.finmindtrade.com",
+    "api.cnyes.com",
+    "ws.api.cnyes.com",
+    "news.cnyes.com",
+    "money.udn.com",
+    "www.moneydj.com",
+    "statementdog.com",
+    "histock.tw",
+    "www.histock.tw",
+    "tw.stock.yahoo.com",
+    "query1.finance.yahoo.com",
+})
+
+
+class IntelFetchRequest(BaseModel):
+    url: str
+    timeout: float = 12.0
+    headers: Optional[Dict[str, str]] = None
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 LOGGER = logging.getLogger("shioaji_proxy")
@@ -399,3 +433,53 @@ def get_quote(symbol: str) -> Dict[str, Any]:
         "timestamp": datetime.now(TAIWAN_TZ).isoformat(),
         "data": quotes[sym],
     }
+
+
+@app.post("/fetch")
+def fetch_external_intel(req: IntelFetchRequest) -> Dict[str, Any]:
+    """Forward GET request to allowlisted Taiwan market intelligence & official APIs from asia-east1."""
+    raw_url = (req.url or "").strip()
+    if not raw_url or len(raw_url) > 2000:
+        raise HTTPException(status_code=400, detail="Invalid URL")
+    parsed = urlsplit(raw_url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or host not in ALLOWED_INTEL_HOSTS or parsed.port not in (None, 443):
+        raise HTTPException(status_code=400, detail=f"Host not in allowlist: {host}")
+
+    req_headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json,text/html,application/xhtml+xml,*/*;q=0.8",
+        "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+    }
+    if host.endswith("twse.com.tw"):
+        req_headers["Referer"] = "https://www.twse.com.tw/"
+    if req.headers:
+        for k, v in req.headers.items():
+            if k.lower() in {"accept", "referer", "accept-language"} and isinstance(v, str):
+                req_headers[k] = v
+
+    timeout_sec = max(2.0, min(25.0, float(req.timeout or 12.0)))
+    try:
+        with httpx.Client(timeout=timeout_sec, follow_redirects=True, max_redirects=3) as client:
+            resp = client.get(raw_url, headers=req_headers)
+            content_type = resp.headers.get("content-type", "")
+            text = resp.text[:1_500_000]
+            return {
+                "status": "success" if resp.status_code == 200 else "upstream_error",
+                "http_status": resp.status_code,
+                "url": str(resp.url),
+                "content_type": content_type,
+                "body": text,
+                "region": "asia-east1",
+            }
+    except Exception as exc:
+        return {
+            "status": "error",
+            "http_status": 502,
+            "url": raw_url,
+            "error": f"{type(exc).__name__}: {str(exc)[:300]}",
+            "region": "asia-east1",
+        }
