@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "c6ec698499413c4ed543ab8221e00ae08a5af753",
-  "purpose": "2026-11-05 TODAY-SESSION-V3: fixed 09:00-13:30 intraday start-to-finish clock, previous official close zero line, red-up/green-down split, observed high/low time and delta; TAIEX and Owner stock minute data 72h cleanup with additive 077; preserve simulation=True, on-demand no backfill and keep existing jobs, Scheduler, secrets unchanged. Full tests + immutable GHCR before guarded Dev candidate.",
+  "sha": "5682379f6b82d39c5572dcfe4976b65ed79542d8",
+  "purpose": "2026-11-05 TODAY-SESSION-V3 final: fixed 09:00–13:30 chart, official previous close 0% line/red up green down, extrema and 72h index cleanup; plus QuoteRouter post-I/O clock correctness for zero-traffic Candidate stale mismatch. Full Python+Flutter tests and fixed GHCR four-image release; no new paid resources/jobs/schedulers.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 45
+  "request_attempt": 46
 }
