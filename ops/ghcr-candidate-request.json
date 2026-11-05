@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "daaa49b286c12f00034ef9dddd90897141080403",
+  "sha": "e52c86956749c8cd6c15bba39c088c84d1ec7404",
   "digest": "",
-  "release_run": "41807949511",
+  "release_run": "41946706497",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "LIVE-HOME-01 today live intraday UI: full Python+Flutter GHCR Release #41807949511 PASS, additive Dev migration 076 #41807779405 PASS. Stage exact SHA API 0%-traffic Candidate only; preserve prior active 100%, no Jobs/Scheduler/Owner ledger changes.",
-  "request_attempt": 47
+  "purpose": "TODAY-V2 2026-11-05: immutable full release PASS #41946706497; 0%-traffic API candidate for ordinary holdings first/ETF collapsed and TWSE official EOD margin + institutional net TWD; no Jobs/Scheduler/Owner ledger updates.",
+  "request_attempt": 48
 }
