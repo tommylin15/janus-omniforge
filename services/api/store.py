@@ -106,6 +106,25 @@ class PrivateIcebergStore:
         rows = self.rows("note_revisions", user_id)
         return [{**wanted[row["artifact_ref"]], **row} for row in rows if row.get("artifact_ref") in wanted]
 
+    def valuation_snapshots(self, user_id: Any, start: date, *, limit: int = 3000) -> dict[str, Any]:
+        """Only real saved Owner valuations; never trigger a market refresh.
+
+        An extra record flags bounded, incomplete history instead of silently
+        presenting the first 3000 records as the full requested period.
+        """
+        identifier = f"{self.namespace}.workspace_snapshots"
+        if not self.catalog.table_exists(identifier):
+            return {"items": [], "truncated": False}
+        from pyiceberg.expressions import And, EqualTo, GreaterThanOrEqual
+        condition = And(EqualTo("user_id", str(user_id)),
+                        GreaterThanOrEqual("valuation_date", start.isoformat()))
+        rows = self.catalog.load_table(identifier).scan(
+            row_filter=condition,
+            selected_fields=("snapshot_id", "valuation_date", "ledger_version", "payload"),
+            limit=limit + 1,
+        ).to_arrow().to_pylist()
+        return {"items": rows[:limit], "truncated": len(rows) > limit}
+
     def mart(self, table: str, user_id: Any, **filters: Any) -> list[dict[str, Any]]:
         """Serve only marts that match the latest canonical ledger checkpoint.
 
