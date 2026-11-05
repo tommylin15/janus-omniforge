@@ -153,6 +153,53 @@ def test_daily_total_uses_latest_shares_and_withholds_missing_instrument():
     assert result["items"][0]["day_priced_symbol_count"] == 1
 
 
+def test_0050_shioaji_previous_close_computes_daily_pnl_without_official_etf_history():
+    etf = {"symbol": "0050", "currency": "TWD", "shares": "5000",
+           "average_cost": "99.91"}
+    quote = {"price": "98.10", "previous_close": "97.50",
+             "price_date": "2026-10-08", "state": "intraday",
+             "source": "shioaji", "quote_at": "2026-10-08T09:59:00+08:00"}
+    result = value_holdings([etf], {"0050": quote}, NOW)
+    row, total = result["positions"][0], result["items"][0]
+    assert row["previous_close_source"] == "shioaji_previous_close"
+    assert row["previous_close_date"] is None
+    assert Decimal(row["day_change_amount"]) == Decimal("3000")
+    assert total["day_change_status"] == "available"
+    assert Decimal(total["day_change_amount"]) == Decimal("3000")
+
+
+def test_missing_0050_reference_does_not_block_other_holdings_daily_subtotal():
+    etf = {"symbol": "0050", "currency": "TWD", "shares": "5000",
+           "average_cost": "99.91"}
+    known = {**QUOTE, "previous_close": "320"}
+    missing = {"price": "98.10", "price_date": "2026-10-08",
+               "source": "shioaji", "state": "intraday",
+               "quote_at": "2026-10-08T09:59:00+08:00"}
+    result = value_holdings([POSITION, etf],
+                            {"2382": known, "0050": missing}, NOW)
+    total = result["items"][0]
+    assert result["positions"][1]["day_change_amount"] is None
+    assert total["day_change_amount"] is None
+    assert total["day_change_status"] == "incomplete"
+    assert total["day_priced_symbol_count"] == 1
+    assert total["day_unpriced_symbols"] == ["0050"]
+    assert Decimal(total["priced_day_change_amount"]) == Decimal("22500")
+
+
+def test_shioaji_previous_close_used_if_outdated_official_reference_is_rejected():
+    etf = {"symbol": "0050", "currency": "TWD", "shares": "5000",
+           "average_cost": "99.91"}
+    quote = {"price": "98.10", "previous_close": "97.50",
+             "price_date": "2026-10-08", "state": "intraday",
+             "source": "shioaji", "quote_at": "2026-10-08T09:59:00+08:00"}
+    result = value_holdings([etf], {"0050": quote}, NOW,
+                            previous_closes={"0050": {
+                                "previous_close": "99",
+                                "previous_close_date": "2026-10-08"
+                            }})
+    assert Decimal(result["positions"][0]["day_change_amount"]) == Decimal("3000")
+
+
 def test_previous_close_includes_tpex_official_eod():
     source = (Path(__file__).parents[1] / "services/api/repository.py").read_text()
     assert "control.official_tpex_eod_history" in source
