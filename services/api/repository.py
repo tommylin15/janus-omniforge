@@ -853,8 +853,17 @@ class PostgresWorkspaceRepository:
                 and connection.execute(
                     "SELECT to_regclass('control.operational_index_minutes') AS table_name"
                 ).fetchone()["table_name"] is not None):
-                # Migration may be deployed after API; never block ordinary
-                # quote persistence merely because the optional chart is absent.
+                # Do not block ordinary quote persistence while additive
+                # migration 077 is rolling out; prune on the next actual TAIEX
+                # quote write after the private role gains DELETE permission.
+                if connection.execute(
+                    "SELECT has_table_privilege(current_user, "
+                    "'control.operational_index_minutes', 'DELETE') AS allowed"
+                ).fetchone()["allowed"]:
+                    connection.execute(
+                        "DELETE FROM control.operational_index_minutes "
+                        "WHERE minute_at < now() - interval '3 days'"
+                    )
                 connection.execute(
                     """INSERT INTO control.operational_index_minutes
                        (benchmark_id,minute_at,quote_at,price,received_at,source)
