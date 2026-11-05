@@ -1,0 +1,91 @@
+name: Janus Today V4 private Kbar evidence
+on:
+  push:
+    branches: [main]
+    paths: ['ops/today-v4-kbar-probe.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Probe two bounded historical Kbar symbols with private identity
+        run: |
+          python - <<'PY'
+          import json,datetime,subprocess,urllib.request,urllib.error
+          from urllib.parse import urlencode
+          from pathlib import Path
+          q=json.loads(Path('ops/today-v4-kbar-probe.json').read_text())
+          assert q['intent']=='today-v4-private-kbar-readonly'
+          assert q['no_gcp_mutation'] is True and q['no_owner_mutation'] is True
+          assert q['symbols']==['2382','TAIEX']
+          assert q['source_sha']=='2568fff9387641e66fd94e407c165008927339b1'
+          project='gen-lang-client-0593591102'
+          tw=datetime.timezone(datetime.timedelta(hours=8))
+          today=datetime.datetime.now(tw).date().isoformat()
+          def cmd(*args):
+            return subprocess.run(args,check=True,timeout=45,
+                capture_output=True,text=True).stdout.strip()
+          outcome={'status':'BLOCKED','date':today,'symbols':{},
+                   'owner_mutations':0,'gcp_mutations':0}
+          try:
+            url='https://janus-api-2oo7qbkd5q-uc.a.run.app/app/build-id.txt'
+            with urllib.request.urlopen(url,timeout=20) as r:
+              assert r.read(150).decode().strip()==q['source_sha']
+            meta=json.loads(cmd('gcloud','run','services','describe',
+                'shioaji-quote-proxy','--project='+project,
+                '--region=asia-east1','--format=json'))
+            base=str(meta.get('status',{}).get('url') or '')
+            assert base.startswith('https://')
+            identity=cmd('gcloud','auth','print-identity-token','--audiences='+base)
+            assert identity
+            for symbol in q['symbols']:
+              entry={'count':0,'status':'unknown'}
+              request=urllib.request.Request(base+'/kbars?'+urlencode(
+                  {'symbol':symbol,'day':today}),
+                  headers={'Authorization':'Bearer '+identity,'Accept':'application/json'})
+              try:
+                with urllib.request.urlopen(request,timeout=23) as response:
+                  data=json.loads(response.read(250000))
+                assert data.get('symbol')==symbol and data.get('date')==today
+                assert data.get('source')=='shioaji_kbars'
+                points=data.get('points')
+                assert isinstance(points,list) and len(points)<=271
+                clock=[int(p['date'][11:13])*60+int(p['date'][14:16]) for p in points]
+                assert all(p['date'].startswith(today) and p['date'].endswith('+08:00')
+                    for p in points) and all(540<=x<810 for x in clock)
+                entry={'status':data.get('status'),'count':len(points),
+                       'first_minute':clock[0] if clock else None,
+                       'last_minute':clock[-1] if clock else None,
+                       'source':'shioaji_kbars'}
+              except urllib.error.HTTPError as error:
+                entry['status']='HTTP_'+str(error.code)
+              except Exception as error:
+                entry['status']=type(error).__name__
+              outcome['symbols'][symbol]=entry
+            outcome['status']='PASS_BROKER_KBARS' if any(
+              x.get('status')=='available' and x.get('count',0)>=15
+              for x in outcome['symbols'].values()) else 'PARTIAL_NO_BARS'
+          except Exception as error:
+            outcome['blocked_reason']=type(error).__name__
+          Path('/tmp/today-v4-kbar-probe.json').write_text(json.dumps(
+              outcome,ensure_ascii=False,sort_keys=True,indent=2))
+          print(json.dumps(outcome,ensure_ascii=False,sort_keys=True))
+          if outcome['status']=='BLOCKED': raise SystemExit(2)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: today-v4-private-kbar-source-readback
+          path: /tmp/today-v4-kbar-probe.json
+          if-no-files-found: ignore
+          retention-days: 14
