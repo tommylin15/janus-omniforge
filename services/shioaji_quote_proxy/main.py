@@ -152,16 +152,36 @@ class ShioajiManager:
             # A stream SDK failure must not turn the entire /quotes API into 500.
             LOGGER.warning("Shioaji streaming unavailable: %s", type(error).__name__)
         now = monotonic()
-        # Fallback stays inside this proxy. A missing stream quote is never
-        # filled by yesterday's close or claimed as Shioaji.
+        # Fallback stays inside this proxy and is throttled per symbol.
+        # If Shioaji supplies a trade but no prior-close reference (observed
+        # with ETFs), a *same-session* MIS trade with y may replace it. Never
+        # blend a MIS reference into a Shioaji-sourced price or substitute a
+        # previous day's close for today's trade.
         pending = []
         with self._connection_lock:
             for symbol in symbols:
-                if symbol not in quotes and now - self._fallback_checked.get(symbol, -1e12) >= 60:
+                missing = symbol not in quotes
+                missing_prior = not missing and quotes[symbol].get("previous_close") is None
+                if (missing or missing_prior) and now - self._fallback_checked.get(symbol, -1e12) >= 60:
                     self._fallback_checked[symbol] = now
                     pending.append(symbol)
         if pending:
-            quotes.update(fetch_twse_mis(pending))
+            for symbol, mis in fetch_twse_mis(pending).items():
+                if symbol not in quotes:
+                    quotes[symbol] = mis
+                    continue
+                if (quotes[symbol].get("previous_close") is not None
+                    or mis.get("previous_close") is None):
+                    continue
+                try:
+                    stream_at = datetime.fromisoformat(str(quotes[symbol]["trade_time"])).astimezone(TAIWAN_TZ)
+                    mis_at = datetime.fromisoformat(str(mis["trade_time"])).astimezone(TAIWAN_TZ)
+                    same_day = stream_at.date() == mis_at.date() == datetime.now(TAIWAN_TZ).date()
+                    close_enough = abs((stream_at - mis_at).total_seconds()) <= 60
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if same_day and close_enough:
+                    quotes[symbol] = mis
         return quotes
 
 
