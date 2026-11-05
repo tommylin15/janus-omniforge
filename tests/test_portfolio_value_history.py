@@ -80,3 +80,49 @@ def test_no_holdings_explicit_zero_not_missing():
     assert point["status"] == "available"
     assert point["market_value"] == "0"
     assert point["cost_basis"] == "0"
+
+
+def test_private_history_endpoint_enforces_owner_isolation():
+    from uuid import UUID
+    from fastapi.testclient import TestClient
+    from services.api.app import create_app
+
+    owners = {
+        "alice": UUID("00000000-0000-0000-0000-000000000001"),
+        "bob": UUID("00000000-0000-0000-0000-000000000002"),
+    }
+
+    class Repo:
+        def resolve_user(self, sub, email):
+            return owners[sub]
+
+    class Store:
+        def __init__(self):
+            self.queries = []
+
+        def valuation_snapshots(self, user_id, start):
+            self.queries.append((user_id, start))
+            return {"items": [], "truncated": False}
+
+    def verify(token, audience):
+        assert audience == "user-client"
+        return {
+            "iss": "https://accounts.google.com", "aud": "user-client",
+            "sub": token.replace("Bearer ", ""),
+            "email": "user@example.com", "email_verified": True,
+            "exp": 1900000000,
+        }
+
+    store = Store()
+    api = TestClient(create_app(Repo(), store, verify, audience="user-client"),
+                     raise_server_exceptions=False)
+    unauthenticated = api.get("/api/v1/me/portfolio/value-history?days=365")
+    assert unauthenticated.status_code in (401, 403)
+    assert store.queries == []
+    for user, owner_id in owners.items():
+        response = api.get("/api/v1/me/portfolio/value-history?days=365",
+                           headers={"Authorization": f"Bearer {user}"})
+        assert response.status_code == 200
+        assert response.json()["status"] == "insufficient_history"
+        assert store.queries[-1][0] == owner_id
+    assert len(store.queries) == 2
