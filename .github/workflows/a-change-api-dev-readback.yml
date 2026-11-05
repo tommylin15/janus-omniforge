@@ -79,6 +79,25 @@ jobs:
                   value=json.loads(public_data)
                   public_rows=bool(value.get("rows")) if isinstance(value,dict) else None
               except (ValueError,TypeError):pass
+          # Public, non-owner-specific 0050 operational quote diagnostic.
+          # Do not confuse a public price with private daily PnL acceptance.
+          etf_code,etf_raw=get("/api/v1/public/stock-header/0050")
+          etf={}
+          if etf_code==200 and etf_raw:
+              try:
+                  etf=json.loads(etf_raw)
+              except (ValueError,TypeError):
+                  etf={}
+          etf_probe={
+              "symbol":"0050","http":etf_code,
+              "price_date":etf.get("trade_date"),
+              "price_status":etf.get("price_status"),
+              "source":etf.get("price_source"),
+              "quote_state":etf.get("quote_state"),
+              "has_price":etf.get("close") not in (None,""),
+              "has_published_prior_close":etf.get("previous_close") not in (None,""),
+              "owner_day_pnl":"NOT_VERIFIED_NO_OWNER_SESSION",
+          }
           result={"status":"API_LIVE_READBACK_PASS","source_sha":q["source_sha"],
                   "promotion_run":q["promotion_run"],
                   "active_revision":active[0]["revisionName"],
@@ -88,6 +107,7 @@ jobs:
                   "taiex_observed_minute_count":len(minutes),
                   "anonymous_stock_minutes":codes.get("/api/v1/me/portfolio/intraday"),
                   "public_stock_http":public_code,"public_rows_present":public_rows,
+                  "etf_0050_public_probe":etf_probe,
                   "owner_authenticated_positive":"NOT_VERIFIED_NO_USER_SESSION",
                   "owner_change_business_rows":"UNKNOWN",
                   "live_390px_user_screenshot":"NOT_VERIFIED",
