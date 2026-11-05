@@ -12,7 +12,7 @@
   "no_scheduler_mutation": true,
   "no_storage_mutation": true,
   "no_iam_mutation": true,
-  "purpose": "2026-11-05 holdings report refactor: full Release #41964040291, 0%-traffic Candidate #41964668263, OAuth/Owner boundary #41964821165 all PASS at source 9f078c37. Promote existing Janus Dev API/App to 100% fixed digest with verified prior c709505e rollback baseline; no Jobs/Scheduler/Storage/IAM/Secret/owner-ledger mutations.",
+  "purpose": "2026-11-05 holdings-report v2 protected retry after prior #41964941889 PREFLIGHT_BLOCKED by concurrent main commits; release #41964040291, candidate #41964668263, auth #41964821165 remain fixed PASS. No prior traffic mutation; retry with fresh main dispatch, unchanged image/rollback scope.",
   "traffic_validation_mode": "direct",
-  "request_attempt": 26
+  "request_attempt": 27
 }
