@@ -126,6 +126,21 @@ class ShioajiManager:
             LOGGER.error("Shioaji simulation login failed: %s", type(e).__name__)
             return False
 
+    def historical_minutes(self, symbol: str, trade_day: datetime.date) -> Dict[str, Any]:
+        """At most one backend query per API backfill claim, simulation-only."""
+        with self._connection_lock:
+            if not self.logged_in:
+                self.initialize()
+            if not self.logged_in or self.api is None:
+                return {"status": "unavailable", "symbol": symbol,
+                        "date": trade_day.isoformat(),
+                        "source": "shioaji_kbars", "points": []}
+            if __package__:
+                from .kbars import session_kbars
+            else:
+                from kbars import session_kbars
+            return session_kbars(self.api, symbol, trade_day)
+
     def _on_contracts_fetched(self, security_type: Any) -> None:
         self.contracts_fetched = True
         LOGGER.info("Shioaji contracts background callback received for %s", security_type)
@@ -331,6 +346,26 @@ def health() -> Dict[str, Any]:
         },
     }
 
+
+
+
+@app.get("/kbars")
+def get_historical_kbars(symbol: str = Query(..., max_length=10),
+                         day: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$")) -> Dict[str, Any]:
+    """Private IAM only; used ONCE per due backfill claim, not for polling."""
+    target = symbol.strip().upper()
+    if not (re.fullmatch(r"[0-9A-Z]{4,10}", target) or target == "TAIEX"):
+        raise HTTPException(status_code=400, detail="Invalid kbar symbol")
+    try:
+        trading_day = datetime.strptime(day, "%Y-%m-%d").date()
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail="Invalid kbar day") from error
+    if trading_day != datetime.now(TAIWAN_TZ).date():
+        raise HTTPException(status_code=400, detail="Historical request must be current session")
+    if CLIENT is None:
+        return {"status": "unavailable", "symbol": target,
+                "date": day, "source": "shioaji_kbars", "points": []}
+    return CLIENT.historical_minutes(target, trading_day)
 
 @app.get("/quotes")
 def get_quotes(symbols: str = Query(..., description="Comma-separated stock symbols, e.g. '2382,2327,5876'")) -> Dict[str, Any]:
