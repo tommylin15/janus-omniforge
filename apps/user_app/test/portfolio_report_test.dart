@@ -112,6 +112,34 @@ void main() {
     expect(find.textContaining('12,000'), findsWidgets);
   });
 
+  testWidgets('historic sold positions are hidden until explicitly included',
+      (tester) async {
+    phone(tester);
+    final withClosed = history();
+    final snapshots = withClosed['points'] as List<dynamic>;
+    for (final point in snapshots) {
+      (point['positions'] as List<dynamic>).add({
+        'symbol': '2412',
+        'name': '已出清測試股',
+        'instrument_kind': 'EQUITY',
+        'market_value': '3000',
+        'cost_basis': '2000',
+        'status': 'available',
+      });
+    }
+    final api = ReportApi(withClosed);
+    await open(tester, api);
+    expect(api.historyRequests, 0); // pie view must not read historic marts
+    await tester.tap(find.text('持股市值走勢'));
+    await tester.pumpAndSettle();
+    expect(api.historyRequests, 1);
+    expect(find.text('已出清測試股'), findsNothing);
+    await tester.ensureVisible(find.byKey(const Key('portfolio-report-include-closed')));
+    await tester.tap(find.byKey(const Key('portfolio-report-include-closed')));
+    await tester.pumpAndSettle();
+    expect(find.text('已出清測試股'), findsOneWidget);
+  });
+
   testWidgets('single historical valuation shows bounded empty state', (tester) async {
     phone(tester);
     await open(tester, ReportApi(history(single: true)));
