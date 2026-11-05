@@ -27,9 +27,29 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
   bool includeClosed = false;
   final Set<String> excluded = {};
   int? inspected;
-  late final Future<dynamic> history = widget.api
+  Future<dynamic>? history;
+
+  Future<dynamic> _fetchHistory() => widget.api
       .get('/api/v1/me/portfolio/value-history?days=1825')
       .timeout(const Duration(seconds: 15));
+
+  @override
+  void didUpdateWidget(FvPortfolioReport oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final switchedOwner = oldWidget.api != widget.api;
+    if (switchedOwner ||
+        oldWidget.snapshot['checked_at'] != widget.snapshot['checked_at'] ||
+        oldWidget.snapshot['ledger_version'] != widget.snapshot['ledger_version']) {
+      history = tab == 1 ? _fetchHistory() : null;
+      if (switchedOwner) {
+        excluded.clear();
+        equities = true;
+        etfs = true;
+        includeClosed = false;
+        inspected = null;
+      }
+    }
+  }
 
   static const palette = <Color>[
     Color(0xFF2DBEC4), Color(0xFFAD96D7), Color(0xFF55AEE3),
@@ -74,6 +94,7 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
         selected: {tab},
         onSelectionChanged: (values) => setState(() {
           tab = values.first;
+          if (tab == 1) history ??= _fetchHistory();
           inspected = null;
         }),
       );
