@@ -700,13 +700,16 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
               builder: (context, state) {
                 final data = fvMap(state.data);
                 final points = fvRows(data['items']);
-                if (points.length < 2) {
-                  return fvBoundedState('已收集分鐘點不足，尚無法繪線；未開啟頁面時不會補抓歷史點');
-                }
-                return FvVisualSeriesChart(rows: points,
+                final referenceDate = fvText(data['previous_close_date'], missing: '');
+                final asOfDate = fvText(data['as_of'], missing: '');
+                final previousClose = data['previous_close_source'] == 'official_previous_close' &&
+                        referenceDate.isNotEmpty && asOfDate.isNotEmpty &&
+                        referenceDate.compareTo(asOfDate) < 0
+                    ? fvNumber(data['previous_close']) : null;
+                return FvIntradayProgressChart(rows: points,
                     label: '$selectedHolding · 已收集分鐘點',
-                    unit: '元／股', height: 170, intraday: true,
-                    markExtrema: true, showTable: false);
+                    unit: '元／股', height: 185,
+                    previousClose: previousClose);
               },
             ),
           ],
