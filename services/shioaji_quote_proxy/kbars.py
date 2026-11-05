@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
+from numbers import Real
 from typing import Any
 import logging
 import re
@@ -22,7 +23,7 @@ def kbar_timestamp(value: Any) -> datetime | None:
     """SDK ts may be epoch nanoseconds, an aware datetime, or ISO text."""
     if isinstance(value, datetime):
         return value.astimezone(TAIPEI) if value.tzinfo else value.replace(tzinfo=TAIPEI)
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
+    if isinstance(value, Real) and not isinstance(value, bool):
         numeric = float(value)
         if numeric > 1e15:
             numeric /= 1e9  # nanoseconds
