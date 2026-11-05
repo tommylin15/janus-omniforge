@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "e52c86956749c8cd6c15bba39c088c84d1ec7404",
+  "sha": "83115408c33ff0581b82607bfee1b359dcd05de4",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "TODAY-V2 2026-11-05: fixed source full GHCR release #41946706497 PASS; 0%-traffic Candidate #41947514389 PASS. Inspect OAuth/Owner/Admin unauthorized boundary and active-vs-candidate public API before reversible Dev promotion.",
-  "request_attempt": 42
+  "purpose": "V3 zero-traffic candidate #41955472271 PASS, GHCR full release #41954851911 PASS, migration 077 #41953905383 PASS. Check OAuth/Owner negative boundary and 2330/TAIEX positive quote freshness (formerly stale due pre-I/O timestamp) without changing active traffic. Note newer ETF changes on main, so this is candidate diagnostic only, NOT promotion permission.",
+  "request_attempt": 43
 }
