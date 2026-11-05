@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from hashlib import sha256
 import logging
 import os
+import re
 from pathlib import Path
 from threading import Lock
 from time import monotonic
@@ -1272,6 +1273,51 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @private.get("/portfolio/quotes")
     def portfolio_quotes(current: AuthenticatedUser = Depends(user)):
         return resolved_portfolio_quotes(current)
+
+    @private.post("/market/minute-backfill")
+    def request_minute_kbar_backfill(payload: dict[str, Any],
+                                   current: AuthenticatedUser = Depends(user)):
+        """OAuth-protected on-demand broker history, bounded by PG shared claims.
+
+        Historical 1m closes are separate from sampled live quote observations.
+        Never called by minute refresh, and no trading/account actions allowed.
+        """
+        symbol = str(payload.get("symbol") or "").strip().upper()
+        if not re.fullmatch(r"[0-9A-Z]{4,10}|TAIEX", symbol):
+            raise HTTPException(status_code=422, detail="invalid backfill symbol")
+        clock = datetime.now(TAIPEI)
+        trade_day = clock.date()
+        if symbol != "TAIEX":
+            positions = repository.positions(current.user_id)
+            if not any(str(row.get("symbol")) == symbol and
+                       row.get("currency") == "TWD" and
+                       Decimal(str(row.get("shares") or 0)) > 0 for row in positions):
+                raise HTTPException(status_code=404, detail="未持有此標的")
+        if clock.weekday() >= 5 or clock.hour * 60 + clock.minute < 560:
+            return {"status": "not_session", "saved": 0, "symbol": symbol,
+                    "date": trade_day.isoformat()}
+        reserve = getattr(repository, "reserve_session_kbar_backfill", None)
+        save = getattr(repository, "save_session_kbars", None)
+        fetch = getattr(quotes, "historical_minutes", None)
+        if not all(callable(method) for method in (reserve, save, fetch)):
+            return {"status": "unavailable", "saved": 0, "symbol": symbol,
+                    "date": trade_day.isoformat()}
+        if not reserve(symbol, trade_day, clock):
+            return {"status": "cached_or_throttled", "saved": 0, "symbol": symbol,
+                    "date": trade_day.isoformat()}
+        state, rows = "unavailable", []
+        try:
+            response = fetch(symbol, trade_day.isoformat())
+            if isinstance(response, dict) and response.get("source") == "shioaji_kbars":
+                state = str(response.get("status") or "unavailable")
+                rows = response.get("points") or []
+        except Exception as error:
+            LOGGER.warning("minute backfill broker unavailable: %s",
+                           type(error).__name__)
+        saved = save(symbol, trade_day, rows, status=state)
+        return {"status": state, "saved": saved, "symbol": symbol,
+                "source": "shioaji_kbars", "date": trade_day.isoformat(),
+                "bar_semantics": "historical_1m_close_not_realtime"}
 
     @private.get("/portfolio/intraday")
     def portfolio_intraday(symbol: str = Query(..., pattern=r"^[0-9A-Z]{4,10}$"),
