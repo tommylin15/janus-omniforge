@@ -20,6 +20,7 @@ class FinalTodayPage extends StatefulWidget {
 
 class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObserver {
   late Future<dynamic> market;
+  late Future<dynamic> marketFlows;
   late Future<dynamic> brief;
   late Future<dynamic> personal;
   late Future<dynamic> ownerQuotes;
@@ -51,6 +52,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     // IndexedStack creates every tab up front. Hidden tabs must not trigger
     // an upstream quote request until the user actually selects this page.
     market = widget.active ? _readCoreMarket() : Future<dynamic>.value(null);
+    marketFlows = widget.active
+        ? _read('/api/v1/public/market-leverage-flow', timeout: const Duration(seconds: 28))
+        : Future<dynamic>.value(null);
     brief = widget.active ? _read('/api/v1/public/daily-brief') : Future<dynamic>.value(null);
     personal = widget.active ? _read('/api/v1/me/today-relevant') : Future<dynamic>.value(null);
     ownerQuotes = widget.active
@@ -99,7 +103,10 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     if (!identical(oldWidget.api, widget.api)) {
       lastGoodMarket = null;
       market = widget.active ? _readCoreMarket() : Future<dynamic>.value(null);
-      brief = widget.active ? _read('/api/v1/public/daily-brief') : Future<dynamic>.value(null);
+      marketFlows = widget.active
+        ? _read('/api/v1/public/market-leverage-flow', timeout: const Duration(seconds: 28))
+        : Future<dynamic>.value(null);
+    brief = widget.active ? _read('/api/v1/public/daily-brief') : Future<dynamic>.value(null);
       personal = widget.active ? _read('/api/v1/me/today-relevant') : Future<dynamic>.value(null);
       ownerQuotes = widget.active
           ? market.then((_) => _loadOwnerQuotes())
@@ -110,6 +117,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       if (widget.active) {
         setState(() {
           market = _loadMarketWithoutPerf();
+          marketFlows = _read('/api/v1/public/market-leverage-flow',
+              timeout: const Duration(seconds: 28));
           brief = _read('/api/v1/public/daily-brief');
           personal = _read('/api/v1/me/today-relevant');
           ownerQuotes = market.then((_) => _loadOwnerQuotes());
@@ -342,104 +351,123 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     ]);
   }
 
-  Widget _flowBar(String label, Object? raw, double maxMagnitude,
-      {required String unit, bool signed = true}) {
-    final amount = fvNumber(raw);
-    if (amount == null || !amount.isFinite) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7),
-        child: Text('$label　資料缺漏', style: const TextStyle(color: fvMuted)),
-      );
-    }
-    final rising = amount > 0;
-    final falling = amount < 0;
-    final color = !signed ? fvTeal : rising ? fvGain : falling ? fvLoss : fvMuted;
-    final marker = !signed ? '' : rising ? '▲' : falling ? '▼' : '—';
-    final width = maxMagnitude > 0
-        ? (amount.abs() / maxMagnitude).clamp(0.0, 1.0) : 0.0;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: Text(label, style: const TextStyle(
-              fontWeight: FontWeight.w600, color: fvInk))),
-          Flexible(child: Text(
-              '$marker ${legacy.accountingNumber(amount, decimals: 0)} $unit',
-              textAlign: TextAlign.end,
-              style: TextStyle(color: color, fontSize: 12,
-                  fontWeight: FontWeight.w700))),
-        ]),
-        const SizedBox(height: 5),
-        Semantics(label: '$label，$marker ${legacy.accountingNumber(amount, decimals: 0)} $unit',
-          child: LinearProgressIndicator(
-            minHeight: 7, borderRadius: BorderRadius.circular(5),
-            value: width, backgroundColor: fvSoft, color: color,
-          )),
-      ]),
-    );
+  String _billions(Object? raw, {double divisor = 100000000}) {
+    final value = fvNumber(raw);
+    if (value == null || !value.isFinite) return '—';
+    return legacy.accountingNumber(value / divisor, decimals: 2);
   }
 
-  Widget _institutionalVisual(dynamic raw) {
-    final section = fvMap(raw);
-    final data = fvMap(section['data']);
-    const fields = ['foreign_net_shares',
-      'investment_trust_net_shares', 'dealer_net_shares'];
-    final values = fields.map((key) => fvNumber(data[key]))
-        .whereType<double>().where((v) => v.isFinite).toList();
-    final maximum = values.isEmpty ? 0.0 :
-        values.map((value) => value.abs()).reduce((a, b) => a > b ? a : b);
-    return fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        const Icon(Icons.groups_2_outlined, color: fvTeal),
-        const SizedBox(width: 8),
-        const Expanded(child: Text('法人動向',
-            style: TextStyle(color: fvInk, fontSize: 17, fontWeight: FontWeight.w800))),
-        fvStatusPill(section['status'] ?? 'missing'),
-      ]),
-      const SizedBox(height: 5),
-      const Text('三大法人當日買賣超 · 股數（長條為相對幅度）',
-          style: TextStyle(fontSize: 11, color: fvMuted)),
-      _flowBar('外資', data['foreign_net_shares'], maximum, unit: '股'),
-      _flowBar('投信', data['investment_trust_net_shares'], maximum, unit: '股'),
-      _flowBar('自營商', data['dealer_net_shares'], maximum, unit: '股'),
-      if (_freshness(section).isNotEmpty)
-        Text(_freshness(section), style: const TextStyle(color: fvMuted, fontSize: 11)),
-    ]));
-  }
-
-  Widget _marketActivityVisual(dynamic raw) {
-    final section = fvMap(raw);
-    final data = fvMap(section['data']);
-    final buy = fvNumber(data['day_trade_buy_twd']);
-    final sell = fvNumber(data['day_trade_sell_twd']);
-    final values = [buy, sell].whereType<double>().where((v) => v.isFinite).toList();
-    final maximum = values.isEmpty ? 0.0 :
-        values.map((v) => v.abs()).reduce((a, b) => a > b ? a : b);
-    return fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        const Icon(Icons.bar_chart, color: fvTeal),
-        const SizedBox(width: 8),
-        const Expanded(child: Text('市場活動',
-            style: TextStyle(color: fvInk, fontSize: 17, fontWeight: FontWeight.w800))),
-        fvStatusPill(section['status'] ?? 'missing'),
-      ]),
-      const SizedBox(height: 6),
-      const Text('當沖交易（買賣金額／股數，均為官方欄位）',
-          style: TextStyle(fontSize: 11, color: fvMuted)),
-      if (data['day_trade_shares'] != null) ...[
-        const SizedBox(height: 8),
-        Text('當沖股數',
-            style: const TextStyle(color: fvMuted, fontSize: 12)),
-        Text('${legacy.accountingNumber(data['day_trade_shares'], decimals: 0)} 股',
-            style: const TextStyle(color: fvInk, fontSize: 21,
-              fontWeight: FontWeight.w800)),
-      ],
-      _flowBar('當沖買進', buy, maximum, unit: 'TWD', signed: false),
-      _flowBar('當沖賣出', sell, maximum, unit: 'TWD', signed: false),
-      if (_freshness(section).isNotEmpty)
-        Text(_freshness(section), style: const TextStyle(color: fvMuted, fontSize: 11)),
-    ]));
-  }
+  Widget _leverageFlow() => FutureBuilder<dynamic>(
+    future: marketFlows,
+    builder: (context, snapshot) {
+      final root = fvMap(snapshot.data);
+      final margin = fvMap(root['margin']);
+      final flows = fvMap(root['institutional']);
+      final history = fvRows(margin['history']).map(fvMap).toList();
+      final date = fvText(margin['as_of'], missing: '缺值');
+      final records = history.map((row) {
+        final value = fvNumber(row['balance_thousand_twd']);
+        return {'date': row['date'],
+                'value': value == null ? null : (value / 100000).toStringAsFixed(3)};
+      }).where((row) => row['value'] != null).toList();
+      final flowItems = fvRows(flows['items']).map(fvMap).toList();
+      final latest = history.isEmpty ? <String, dynamic>{} : history.last;
+      final changed = fvNumber(latest['change_thousand_twd']);
+      final dateLabel = fvText(flows['as_of'], missing: '缺值');
+      final previousDate = fvText(flows['previous_as_of'], missing: '缺值');
+      return Column(children: [
+        fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.trending_up, color: fvTeal),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('融資餘額 · 近兩週',
+                style: TextStyle(color: fvInk, fontSize: 17, fontWeight: FontWeight.w800))),
+            fvStatusPill(margin['status'] ?? 'missing'),
+          ]),
+          const SizedBox(height: 5),
+          Text('上市市場盤後資料 · 最近 ${history.length}/10 個交易日 · 截至 $date',
+              style: const TextStyle(color: fvMuted, fontSize: 11)),
+          if (latest.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text('${_billions(latest['balance_thousand_twd'], divisor: 100000)} 億元',
+                style: const TextStyle(color: fvInk, fontSize: 21, fontWeight: FontWeight.w800)),
+            Text('較前一交易日 ${changed == null ? '—' : '${changed >= 0 ? '+' : ''}${_billions(changed, divisor: 100000)}'} 億元',
+                style: TextStyle(color: changed == null ? fvMuted : fvSignedColor(changed),
+                                 fontWeight: FontWeight.w700)),
+          ],
+          if (records.length >= 2)
+            FvVisualSeriesChart(rows: records, label: '融資餘額 · 上市市場',
+                unit: '億元', height: 155, showTable: false)
+          else fvBoundedState('官方盤後融資餘額資料不足，暫不繪線'),
+          if (history.isNotEmpty) ...[
+            const Divider(height: 12),
+            const Row(children: [
+              Expanded(child: Text('交易日', style: TextStyle(color: fvMuted, fontSize: 11))),
+              Expanded(child: Text('餘額／億元', textAlign: TextAlign.right,
+                  style: TextStyle(color: fvMuted, fontSize: 11))),
+              Expanded(child: Text('較前日／億元', textAlign: TextAlign.right,
+                  style: TextStyle(color: fvMuted, fontSize: 11))),
+            ]),
+            for (final row in history.reversed)
+              Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Row(children: [
+                Expanded(child: Text(fvText(row['date']).substring(5),
+                    style: const TextStyle(fontSize: 12, color: fvInk))),
+                Expanded(child: Text(_billions(row['balance_thousand_twd'], divisor: 100000),
+                    textAlign: TextAlign.right, style: const TextStyle(fontSize: 12, color: fvInk))),
+                Expanded(child: Text(
+                    '${(fvNumber(row['change_thousand_twd']) ?? 0) > 0 ? '+' : ''}${_billions(row['change_thousand_twd'], divisor: 100000)}',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(fontSize: 12,
+                      color: fvNumber(row['change_thousand_twd']) == null ? fvMuted :
+                          fvSignedColor(fvNumber(row['change_thousand_twd'])!)))),
+              ])),
+          ],
+          const SizedBox(height: 5),
+          const Text('單位：億元；每日變化採證交所當日「今日餘額－前日餘額」。資料僅涵蓋上市。',
+              style: TextStyle(color: fvMuted, fontSize: 10)),
+        ])),
+        const SizedBox(height: 10),
+        fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.groups_2_outlined, color: fvTeal),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('法人資金流向 · 買賣超金額',
+                style: TextStyle(color: fvInk, fontSize: 17, fontWeight: FontWeight.w800))),
+            fvStatusPill(flows['status'] ?? 'missing'),
+          ]),
+          const SizedBox(height: 5),
+          Text('上市市場 · 單位億元 · 資料日 $dateLabel · 比較日 $previousDate',
+              style: const TextStyle(color: fvMuted, fontSize: 11)),
+          if (fvText(flows['status'], missing: 'missing') == 'missing')
+            fvBoundedState('法人官方買賣超金額未取得，不以買賣超股數乘現價代替'),
+          for (final row in flowItems)
+            Builder(builder: (context) {
+              final kind = fvText(row['investor_type']);
+              final label = kind == 'foreign' ? '外資' : kind == 'trust' ? '投信' : '自營商';
+              final net = fvNumber(row['net_twd']);
+              final delta = fvNumber(row['delta_twd']);
+              return Padding(padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(child: Text(label, style: const TextStyle(
+                        fontWeight: FontWeight.w700, color: fvInk))),
+                    Text(net == null ? '—' :
+                        '${net > 0 ? '+' : ''}${_billions(net)} 億',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800,
+                            color: net == null ? fvMuted : fvSignedColor(net))),
+                  ]),
+                  Text(delta == null ? '較前交易日：尚無可比資料' :
+                      '較前交易日：${delta > 0 ? '+' : ''}${_billions(delta)} 億元',
+                      style: TextStyle(color: delta == null ? fvMuted : fvSignedColor(delta),
+                                       fontSize: 11)),
+                ]));
+            }),
+          const Text('外資／投信／自營商金額依證交所官方統計；不代表持股增減，也不含上櫃市場。',
+              style: TextStyle(color: fvMuted, fontSize: 10)),
+        ])),
+      ]);
+    },
+  );
 
   Widget _personal() => FutureBuilder<dynamic>(
     future: personal,
@@ -696,10 +724,6 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
               child: const Text('重試'),
             ),
           ])),
-        if (sections.isNotEmpty) ...[
-          _marketActivityVisual(sections['market-activity']),
-          _institutionalVisual(sections['institutional']),
-        ],
       ]);
     },
   );
@@ -835,6 +859,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           _assets(),
           _market(),
           _liveHoldings(),
+          _leverageFlow(),
           _personal(),
           _brief(),
           const Padding(
