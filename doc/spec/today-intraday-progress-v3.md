@@ -1,6 +1,6 @@
 # 今日盤中進度圖 V3｜2026-11-05
 
-狀態：使用者核准規格，程式正依 CI／固定映像／Dev 遷移與 Runtime 驗收；提交程式不是已上線。
+狀態：**V3 已發布既有 Dev、100% API traffic 與公開 Runtime 讀回 PASS**（2026-11-05）；剩餘 **Owner authenticated positive UI UAT** 與實際 72h index 表清理筆數讀回，不得宣稱全項 CLOSED。
 
 ## 需求
 - 個股及 TAIEX 分鐘點**統一保留 3 天／72 小時**；有新盤中有效寫入時順便刪除超期分鐘點，不新增排程、常駐 Job 或高頻抓取。未有新寫入時過期資料可能暫留資料庫，不假稱定時清理。
@@ -21,3 +21,12 @@
 - Python：077 表權限與新 index cleanup、缺權限容錯、Owner 未登入與非持有拒絕、官方前收缺值不造假。
 - 部署：完整 Flutter/Python CI → GHCR full Release → Dev 077 migration → 0% Candidate → OAuth/Owner boundary + 真實盤中比較 → reversible API-only 100% promotion → Runtime／Owner UAT。現有 V2 Candidate 曾因 2330 intraday/stale 不一致失敗，未處理前不能宣稱 Dev 上線。
 - KBars 缺口回補屬獨立需求，本版不開新付費 API、持續背景收集或延長三天保留期。
+
+## 實際 Release／Dev 驗收（2026-11-05）
+
+- 已發布正式整合版固定來源 `c709505e6ed40383d7a8ea9abd1d83885264d391`；Python+Flutter 全量、四份 GHCR digest Release [#41955809660](https://github.com/tommylin15/janus-omniforge/actions/runs/41955809660) PASS，包含並行 0050 ETF 前收／部分損益修正及 QuoteRouter 刷新後時鐘修復。
+- Dev migration 077 [#41953905383](https://github.com/tommylin15/janus-omniforge/actions/runs/41953905383) PASS，權限變更不切換 API traffic；實際過期 rows 在下次合法分鐘寫入時觸發清除，尚無刪除筆數 DB 讀回收據。
+- 0% Candidate [#41956487907](https://github.com/tommylin15/janus-omniforge/actions/runs/41956487907) PASS；OAuth/Owner 匿名負向邊界及實際盤中 2330/TAIEX 行情比較 [#41956821613](https://github.com/tommylin15/janus-omniforge/actions/runs/41956821613) PASS。此前候選版 stale 不一致已由後 I/O tick age 修復並在新版通過，不能改寫舊失敗紀錄。
+- Dev 既有服務 API-only 100% 切流 [#41957458415](https://github.com/tommylin15/janus-omniforge/actions/runs/41957458415) PASS，事後 [#41958036713](https://github.com/tommylin15/janus-omniforge/actions/runs/41958036713) 確認固定來源 SHA、100% traffic、公開行情與授權邊界（read-only）PASS；未更動 Jobs、Scheduler、production 或付費資源。
+- Owner authenticated positive：**NOT_VERIFIED**。使用者須於 Dev App 登入後檢視「今日」大盤與一般股分鐘圖固定兩端、灰 0%、紅綠分段、高低時間與幅度，觀察兩次刷新；CLI/公開 API 無法取代真人 UI 的登入驗收。
+
