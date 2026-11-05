@@ -69,3 +69,47 @@ def test_missing_kbar_source_does_not_override_live_quotes_or_model_prices():
     assert "sampled_live_quote" in repo
     assert "historical_1m_close" in repo
 
+
+
+
+def test_iam_private_historical_transport_keeps_broker_source_and_drops_wrong_day(monkeypatch):
+    import json
+    from urllib.parse import parse_qs, urlsplit
+    from services.api.shioaji_quotes import ShioajiQuotes
+    from services.api import shioaji_quotes as module
+    today = datetime.now(TAIPEI).date().isoformat()
+    body = {
+        "status": "available", "source": "shioaji_kbars",
+        "symbol": "2330", "date": today,
+        "points": [
+            {"date": f"{today}T09:00:00+08:00", "value": "123.5"},
+            {"date": "2026-01-01T09:01:00+08:00", "value": "999"},
+        ],
+    }
+    seen = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def read(self, limit): return json.dumps(body).encode()
+    def fetch(req, timeout):
+        seen.append((req, timeout))
+        return Response()
+    monkeypatch.setattr(module, "_identity_token", lambda audience: "private-oidc")
+    monkeypatch.setattr(module, "urlopen", fetch)
+    result = ShioajiQuotes().historical_minutes("2330", today)
+    assert result["source"] == "shioaji_kbars"
+    assert len(result["points"]) == 1
+    assert result["points"][0]["value"] == "123.5"
+    assert len(seen) == 1
+    request, seconds = seen[0]
+    assert seconds <= 16
+    assert request.get_header("Authorization") == "Bearer private-oidc"
+    url = urlsplit(request.full_url)
+    assert url.path == "/kbars"
+    assert parse_qs(url.query) == {"symbol": ["2330"], "day": [today]}
+    body["source"] = "other"
+    try:
+        ShioajiQuotes().historical_minutes("2330", today)
+        assert False, "untrusted source must fail closed"
+    except ValueError:
+        pass
