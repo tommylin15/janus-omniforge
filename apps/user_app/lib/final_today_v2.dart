@@ -187,7 +187,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       final ordinary = positions.where((row) => !_isEtf(row)).toList();
       if (selectedHolding == null ||
           !positions.any((row) => row['symbol'] == selectedHolding)) {
-        selectedHolding = ordinary.isNotEmpty ? '${ordinary.first['symbol']}' : null;
+        selectedHolding = ordinary.isNotEmpty ? '${ordinary.first['symbol']}' :
+            (positions.isNotEmpty ? '${positions.first['symbol']}' : null);
       }
       if (selectedHolding != null) {
         stockMinutes = _read(
