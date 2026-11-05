@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 from hashlib import sha256
@@ -42,6 +42,7 @@ from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSumm
                      GovernanceDiffIn, GovernanceEditIn, MembershipEditIn)
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
 from .private_pipeline import ledger_net_cash_flow, stock_identity
+from .portfolio_value_history import build_portfolio_value_history
 from .fast_annual_pnl import FastPnlTooLarge, FastPnlVersionMoved, read_annual_pnl
 from .private_recalc_queue import CloudRunPrivateRecalcTrigger, QueuedPrivateRecalculator
 from .public_runtime import build_admin_service, build_core_service, build_pipeline_service, build_public_service
@@ -1361,6 +1362,16 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @private.get("/portfolio/exposure", response_model=PortfolioExposureOut)
     def portfolio_exposure(current: AuthenticatedUser = Depends(user)):
         return portfolio_mart("mart_user_exposure",current)
+
+    @private.get("/portfolio/value-history")
+    def portfolio_value_history(days: int = Query(365, ge=30, le=1825),
+                                current: AuthenticatedUser = Depends(user)):
+        """Owner-only chart data from saved valuation checkpoints; read-only."""
+        through = datetime.now(ZoneInfo("Asia/Taipei")).date()
+        start = through - timedelta(days=days - 1)
+        saved = store.valuation_snapshots(current.user_id, start)
+        return jsonable_encoder(build_portfolio_value_history(
+            saved["items"], start=start, end=through, truncated=saved["truncated"]))
 
     @private.get("/portfolio/performance", response_model=PortfolioPerformanceOut)
     def portfolio_performance(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
