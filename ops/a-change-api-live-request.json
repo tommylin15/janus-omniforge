@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "daaa49b286c12f00034ef9dddd90897141080403",
-  "promotion_run": "41809140720",
+  "source_sha": "c709505e6ed40383d7a8ea9abd1d83885264d391",
+  "promotion_run": "41957458415",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-04 LIVE-HOME-01 independent read-only postcut verification: 100% source SHA and immutable GHCR image; public market-home with actual minute list; private Owner stock-minute API 401 to unauthenticated clients; no user, trade, GCP or traffic mutations.",
-  "request_attempt": 4
+  "purpose": "2026-11-05 ETF 0050 daily PnL post-promotion independent readback: fixed combined V3+ETF API SHA, exactly 100% live traffic, immutable image, market home, public quote schema, authenticated-only private holdings and intraday endpoints. No Owner session supplied: live 0050 row still not claimable as positive PASS.",
+  "request_attempt": 5
 }
