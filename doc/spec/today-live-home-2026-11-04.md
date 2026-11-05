@@ -51,3 +51,27 @@
 - Runtime：Migration 076 必須 PASS 且 ACL 正確；新的 `/app/build-id.txt` 需等於 fixed-source SHA；未登入讀個股分鐘點應拒絕；大盤頁與持股讀取不新增 batch／Scheduler。
 - 真正盤中當日高低的驗收需在有至少兩筆有效 Quote 的 09:00–13:30 交易日進行；不能以 CI fixture、休市或只有單點的 API 回應說明已完成完整 live quote 驗收。
 - 本輪任務結案依當次 Release／Dev runtime 的實際證據；沒有證據維持 partial／unknown，不以單純 commit 或發版綠燈冒稱 Owner 實機 PASS。
+
+
+## V2 覆蓋決策｜2026-11-05：一般股優先、融資兩週趨勢、法人金流
+
+本節覆蓋 V1 的「持股前三檔」與法人股數長條卡。V1 的部署收據不代表 V2 部署成功。
+
+### Owner 持股卡
+- 今日首頁先列出全部 TWD 一般股（兩欄窄版卡，寬度不足退成單欄），附代碼、名稱、現價、可證實的漲跌額及漲跌幅、實際來源日／時間。ETF／BOND_ETF 獨立在下方並預設收合、可展開，不丟失交易或報價資料。
+- API 的部位新增 instrument_kind（依 stock_identities 正式類型，缺失時僅為 UI 類型使用代碼型態後備辨識），不將 ETF 塞進股票研究母體。
+- 單檔選擇後沿用 Owner 限定的分鐘曲線，無兩個真實分鐘點不畫線。休市顯示最後有效價格日期；沒有有效的比較前收，不創造漲跌額與幅度。
+- 前景盤中 60 秒 QuoteRouter、Shioaji simulation=True、跨讀者 PostgreSQL singleflight 保持原契約；不新增排程、下單或高頻籌碼輪詢。
+
+### EOD 籌碼（TWSE 上市市場限定）
+- 新增公開 /api/v1/public/market-leverage-flow：與 market-home.v1、Owner 私有資料、60 秒即時報價拆開，使用固定 TWSE 官方 URL、2.5 秒單次 timeout、有界查詢及每服務執行個體 1 小時快取。僅進入首頁時請求，停留整日後不宣稱自動取得晚間資料。
+- TWSE MI_MARGN：讀取「融資金額(仟元)」近 10 個實際有資料交易日，換算億元折線與逐日明細。每日變化＝同份官方報表的「今日餘額−前日餘額」，不是今天減昨天的「今日餘額」；官方次日會修訂前日餘額，明確標示最新來源日。
+  - https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN?date=YYYYMMDD&selectType=MS&response=json
+- TWSE BFI82U：外資、投信與自營商（自行買賣+避險）取官方買賣超金額 TWD，另顯示與前一有資料交易日買賣超的差異，不拿股數乘收盤價推估，不稱為法人持股變化。自營商包含避險，不推論純方向。
+  - https://www.twse.com.tw/rwd/zh/fund/BFI82U?dayDate=YYYYMMDD&type=day&response=json
+- 目前只涵蓋上市市場，不能標示台股全市場、上櫃或當日即時籌碼。官方來源失敗、回應日期不符、欄位差異、交易日缺失一律保留 missing／partial，不造數字／填充交易日。
+
+### 上線驗收
+- 股票列表給 ETF 0050/00697B/00719B 排在前、普通股 2330/2327/2382 在後的測資，必須仍顯示全部三檔普通股，ETF 可收放；驗 Owner 報價日期、可用漲跌與分鐘線。
+- Python 專項／Flutter analyze、test、build 需全 PASS，融資與法人須實際官方回應解析並確認日期與金額單位。
+- 經既有固定版 GHCR Release、0% Candidate、OAuth/Owner guard、Dev 100% Promotion、實際 API/已登入 Owner 手機讀回才可稱整體完成；提交程式／CI 綠燈不代表 Live 完成。
