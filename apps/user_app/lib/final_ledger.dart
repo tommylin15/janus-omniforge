@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'final_charts.dart';
+import 'final_portfolio_report.dart';
 import 'final_perf.dart';
 import 'final_visual_common.dart';
 import 'main.dart' as legacy;
@@ -320,12 +321,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
           cached('/api/v1/me/journal/symbol-summary?year=$year'),
           cached('/api/v1/me/journal/pnl?year=$year'),
         ]),
-      2 => Future.wait([
-          cached('/api/v1/me/journal/pnl?year=$year'),
-          cached('/api/v1/me/portfolio/performance?year=$year'),
-          cached('/api/v1/me/journal/monthly-summary?year=$year'),
-          cached('/api/v1/me/journal/history?year=$year'),
-        ]),
+      // Chart report owns a lazy private snapshot-history read. Do not load
+      // annual PnL / XIRR / transactions for the report tab.
+      2 => Future.value(const <dynamic>[]),
       _ => Future.value(const <dynamic>[]),
     };
   }
@@ -1193,99 +1191,6 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     );
   }
 
-  Widget reports(
-    List<dynamic> pnl,
-    List<dynamic> performance, {
-    required List<dynamic> monthly,
-    required String ytd,
-  }) {
-    final emptyPnlMessage = switch (ytd) {
-      '0.0 萬元' => '本年度確認無交易；已實現損益 0',
-      '待更新／尚未確認' => '本年已實現損益仍待 Private Mart 更新',
-      _ => '本年已實現損益目前無法確認',
-    };
-    if (pnl.isEmpty && performance.isEmpty) {
-      return fvBoundedState(emptyPnlMessage);
-    }
-    return Column(
-      children: [
-        FvMonthlyPnlChart(rows: monthly),
-        if (pnl.isEmpty) fvBoundedState(emptyPnlMessage),
-        for (final item in pnl)
-          Builder(builder: (context) {
-            final row = fvMap(item);
-            return fvPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${fvText(row['currency'], missing: 'TWD')} · 本年損益',
-                    style: const TextStyle(
-                      color: fvInk,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '已實現損益 ${legacy.accountingNumber(row['realized_pnl'])}',
-                    style: TextStyle(
-                      color: fvSignedColor(row['realized_pnl']),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text('股利收入 ${legacy.accountingNumber(row['cash_dividends'])}'),
-                  Text(
-                    '手續費 ${legacy.accountingNumber(row['fees'])} · 稅 ${legacy.accountingNumber(row['taxes'])}',
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '資料日期 ${fvText(row['valuation_date'])}',
-                    style: const TextStyle(color: fvMuted, fontSize: 11),
-                  ),
-                ],
-              ),
-            );
-          }),
-        for (final item in performance)
-          Builder(builder: (context) {
-            final row = fvMap(item);
-            final status = row['xirr_status'];
-            return fvPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '年度績效',
-                    style: TextStyle(
-                      color: fvInk,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    status == 'available' && row['xirr'] != null
-                        ? 'XIRR ${legacy.portfolioReturnLabel(row['xirr'])}'
-                        : 'XIRR ${legacy.uiLabel(status ?? 'insufficient_data')}',
-                    style: status == 'available' && row['xirr'] != null
-                        ? TextStyle(
-                            color: fvSignedColor(row['xirr']),
-                            fontWeight: FontWeight.w700,
-                          )
-                        : null,
-                  ),
-                  Text(
-                    '資料日期 ${fvText(row['valuation_date'])}',
-                    style: const TextStyle(color: fvMuted, fontSize: 11),
-                  ),
-                ],
-              ),
-            );
-          }),
-      ],
-    );
-  }
-
-
   Widget lazySection(
     Future<List<dynamic>>? future,
     String loading,
@@ -1602,41 +1507,23 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     }),
                   ],
                   if (section == 2) ...[
-                    fvSectionTitle(
-                      context,
-                      '報表',
-                      trailing: '$yearFilter 年',
-                    ),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: yearSelector(),
-                    ),
-                    const SizedBox(height: 10),
-                    lazySection(sectionData, '報表載入中', (detail) {
-                      final reportPnl =
-                          fvRows(detail.isNotEmpty ? detail[0] : null);
-                      final performance =
-                          fvRows(detail.length > 1 ? detail[1] : null);
-                      final monthly =
-                          fvRows(detail.length > 2 ? detail[2] : null);
-                      final history =
-                          fvRows(detail.length > 3 ? detail[3] : null);
-                      final selectedYtd = yearFilter == DateTime.now().year
-                          ? ytd
-                          : reportPnl.isNotEmpty
-                              ? reportPnl.length == 1
-                                  ? '${fvText(fvMap(reportPnl.first)['currency'], missing: 'TWD')} ${legacy.accountingNumber(fvMap(reportPnl.first)['realized_pnl'])}'
-                                  : '多幣別'
-                              : history.isNotEmpty
-                                  ? '待更新／尚未確認'
-                                  : '0';
-                      return reports(
-                        reportPnl,
-                        performance,
-                        monthly: monthly,
-                        ytd: selectedYtd,
-                      );
-                    }),
+                    fvSectionTitle(context, '持股變化',
+                      trailing: '市值占比／市值與成本走勢'),
+                    const SizedBox(height: 8),
+                    if (coreLoading)
+                      fvBoundedState('持股資料載入中')
+                    else
+                      FvPortfolioReport(
+                        key: const ValueKey('portfolio-report-v2'),
+                        api: widget.api,
+                        snapshot: values.length > 2 &&
+                                fvMap(values[2])['positions'] is List
+                            ? fvMap(values[2])
+                            : <String, dynamic>{
+                                'positions': canonicalPositions,
+                                'items': summary,
+                              },
+                      ),
                   ],
                 ],
               );
