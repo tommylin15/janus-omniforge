@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "c709505e6ed40383d7a8ea9abd1d83885264d391",
+  "sha": "9f078c37e2a2c1d363a509acfec1816bea1a1d11",
   "digest": "",
-  "release_run": "41955809660",
+  "release_run": "41964040291",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "Final combined Janus V3+ETF Release #41955809660 PASS, 077 dev migration #41953905383 PASS. Stage 0%-traffic immutable API candidate only; no Jobs/Scheduler, no API live switch. Includes latest ETF previous-close and partial-PnL fixes through c709505e6.",
-  "request_attempt": 50
+  "purpose": "2026-11-05 holdings report: full fixed-source Release #41964040291 succeeded with Python/Flutter and four GHCR digests. Only zero-traffic Janus Dev API/App candidate; preserve Jobs/Scheduler/IAM/secrets/owner ledgers. Proxy concurrent commits excluded from fixed image.",
+  "request_attempt": 51
 }
