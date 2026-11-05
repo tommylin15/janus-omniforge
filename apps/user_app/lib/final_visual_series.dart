@@ -346,7 +346,7 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
     final low = points.isEmpty ? null :
       points.reduce((a, b) => b.price < a.price ? b : a);
     final latest = points.isEmpty ? null : points.last;
-    final chosen = selectedMinute == null ? latest :
+    final chosen = points.isEmpty ? null : selectedMinute == null ? latest :
       points.reduce((a, b) =>
         (b.minute - selectedMinute!).abs() < (a.minute - selectedMinute!).abs() ? b : a);
     final complete = points.isNotEmpty &&
@@ -356,7 +356,7 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
           points[i + 1].minute - points[i].minute).every((gap) => gap == 1);
     final gaps = points.length < 2 ? 0 :
       List.generate(points.length - 1, (i) => points[i + 1].minute - points[i].minute)
-          .where((gap) => gap > 2).length;
+          .where((gap) => gap > 1).length;
     final progress = latest == null ? 0.0 :
       (latest.minute - startMinute) / (endMinute - startMinute) * 100.0;
 
@@ -431,7 +431,7 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
           const Text('只有一個觀測點，無法形成連續線段',
               style: TextStyle(color: fvMuted, fontSize: 11)),
         if (gaps > 0)
-          Text('存在 $gaps 段超過 2 分鐘的缺口，線段不跨越缺口',
+          Text('存在 $gaps 段超過 1 分鐘的缺口，線段不跨越缺口',
               key: const Key('intraday-session-gaps'),
               style: const TextStyle(color: fvMuted, fontSize: 11)),
         if (high != null && low != null && latest != null) ...[
@@ -512,7 +512,7 @@ class _SessionProgressPainter extends CustomPainter {
     for (var i = 1; i < points.length; i++) {
       final before = points[i - 1], after = points[i];
       // 1–2 minute observations can form a segment; longer gaps stay blank.
-      if (after.minute - before.minute > 2) continue;
+      if (after.minute - before.minute > 1) continue;
       final a = offset(before), b = offset(after);
       if (before.change * after.change < 0) {
         final fraction = before.change.abs() /
