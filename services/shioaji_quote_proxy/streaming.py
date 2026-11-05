@@ -64,7 +64,9 @@ class StreamCache:
         now = datetime.now(TAIPEI)
         if not at or not price or at > now or at.date() != now.date():
             return
-        previous = _positive(getattr(event, "reference", None)) if index else None
+        # QuoteSTKv1 may publish the official reference without price_chg.
+        # Keep that real reference for ETFs instead of dropping daily PnL.
+        previous = _positive(getattr(event, "reference", None))
         if not index and getattr(event, "price_chg", None) is not None:
             try:
                 previous = _positive(price - float(event.price_chg))
