@@ -7,6 +7,6 @@
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-05 ETF 0050 daily PnL post-promotion independent readback: fixed combined V3+ETF API SHA, exactly 100% live traffic, immutable image, market home, public quote schema, authenticated-only private holdings and intraday endpoints. No Owner session supplied: live 0050 row still not claimable as positive PASS.",
-  "request_attempt": 5
+  "purpose": "2026-11-05 independent post-promotion API+public ETF 0050 quote diagnostic: 100% fixed 0050 PnL source SHA, health/auth fences, 0050 quote source/date/availability. No Owner data mutation, no API or traffic change; private 0050 daily PnL requires authenticated Owner session to validate.",
+  "request_attempt": 6
 }
