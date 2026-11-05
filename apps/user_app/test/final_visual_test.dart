@@ -245,10 +245,11 @@ void main() {
     expect(find.text('今日'), findsOneWidget);
     expect(find.text('加權指數'), findsOneWidget);
     expect(find.text('櫃買指數'), findsNothing);
-    expect(find.text('市場活動'), findsOneWidget);
-    expect(find.text('法人動向'), findsOneWidget);
-    expect(find.text('外資'), findsOneWidget);
-    expect(find.textContaining('225,187,325'), findsOneWidget);
+    // TWSE EOD margin & institution monetary flows replace the obsolete
+    // day-trade/share-count cards; the no-data state remains visible.
+    expect(find.text('融資餘額 · 近兩週'), findsOneWidget);
+    expect(find.text('法人資金流向 · 買賣超金額'), findsOneWidget);
+    expect(find.textContaining('法人官方買賣超金額未取得'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('研究內容尚未就緒'), 180,
       scrollable: find.byType(Scrollable).first);
     expect(find.text('研究內容尚未就緒'), findsOneWidget);
