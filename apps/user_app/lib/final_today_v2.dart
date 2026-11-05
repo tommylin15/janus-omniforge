@@ -138,6 +138,10 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       if (widget.active) {
         setState(() {
           market = _loadMarketWithoutPerf();
+          // EOD margin / institutional data are refreshed on return to the
+          // foreground, never on the 60-second intraday quote timer.
+          marketFlows = _read('/api/v1/public/market-leverage-flow',
+              timeout: const Duration(seconds: 28));
           ownerQuotes = market.then((_) => _loadOwnerQuotes());
         });
         _startMarketTimer();
@@ -456,8 +460,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800,
                             color: net == null ? fvMuted : fvSignedColor(net))),
                   ]),
-                  Text(delta == null ? '較前交易日：尚無可比資料' :
-                      '較前交易日：${delta > 0 ? '+' : ''}${_billions(delta)} 億元',
+                  Text(delta == null ? '相較比較日：尚無可比資料' :
+                      '相較比較日：${delta > 0 ? '+' : ''}${_billions(delta)} 億元',
                       style: TextStyle(color: delta == null ? fvMuted : fvSignedColor(delta),
                                        fontSize: 11)),
                 ]));
