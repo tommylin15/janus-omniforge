@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta, date
 from pathlib import Path
 
-from services.api.repository import Repository
+from services.api.repository import PostgresWorkspaceRepository as Repository
 
 
 TAIPEI = timezone(timedelta(hours=8))
