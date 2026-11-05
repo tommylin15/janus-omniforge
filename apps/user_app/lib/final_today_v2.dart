@@ -30,6 +30,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   dynamic lastGoodOwnerQuotes;
   Timer? marketTimer;
   bool foreground = true;
+  final Set<String> _backfillAttemptKeys = <String>{};
+  final Set<String> _backfillInFlight = <String>{};
+  final Map<String, String> _backfillStatus = <String, String>{};
   int historyDays = 0;
   dynamic lastGoodMarket;
   bool marketBusy = false;
@@ -63,8 +66,66 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     foreground = WidgetsBinding.instance.lifecycleState == null ||
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _startMarketTimer();
+      if (mounted) {
+        _startMarketTimer();
+        _requestHistoricalGapFill('TAIEX');
+      }
     });
+  }
+
+
+  void _requestHistoricalGapFill(String symbol) {
+    // Never call Shioaji history from the 60-second market quote timer.
+    // A new 2h period may expose an additional multi-hour gap, but the PG
+    // cross-user claim is the final 90m/three-times-per-day quota.
+    if (!widget.active || !foreground) return;
+    final taipei = DateTime.now().toUtc().add(const Duration(hours: 8));
+    final minute = taipei.hour * 60 + taipei.minute;
+    if (taipei.weekday > 5 || minute < 560) return;
+    final day = '${taipei.year}-${taipei.month}-${taipei.day}';
+    final slot = ((minute - 540) ~/ 120).clamp(0, 7);
+    if (!_backfillAttemptKeys.add('$day/$symbol/$slot')) return;
+    _fetchHistoricalGapFill(symbol);
+  }
+
+  Future<void> _fetchHistoricalGapFill(String symbol) async {
+    if (!mounted || !widget.active) return;
+    setState(() { _backfillInFlight.add(symbol); });
+    try {
+      final response = fvMap(await widget.api.post(
+          '/api/v1/me/market/minute-backfill', {'symbol': symbol})
+          .timeout(const Duration(seconds: 25)));
+      if (!mounted || !widget.active) return;
+      final status = fvText(response['status'], missing: 'unavailable');
+      setState(() {
+        _backfillStatus[symbol] = status;
+        if (symbol == 'TAIEX' && (status == 'available' || status == 'cached_or_throttled')) {
+          market = _loadMarketWithoutPerf();
+        } else if (symbol == selectedHolding &&
+            (status == 'available' || status == 'cached_or_throttled')) {
+          stockMinutes = _read('/api/v1/me/portfolio/intraday?symbol=$symbol');
+        }
+      });
+    } catch (_) {
+      if (mounted) setState(() { _backfillStatus[symbol] = 'unavailable'; });
+    } finally {
+      if (mounted) setState(() { _backfillInFlight.remove(symbol); });
+    }
+  }
+
+  Widget _backfillCaption(String symbol) {
+    final running = _backfillInFlight.contains(symbol);
+    final status = _backfillStatus[symbol];
+    if (!running && status == null) return const SizedBox.shrink();
+    final message = running ? '正在查詢今日缺漏的歷史 1 分 K（非即時行情）…'
+        : status == 'available' ? '已讀回歷史 1 分 K，與即時觀測合併顯示'
+        : status == 'cached_or_throttled' ? '使用共用分鐘資料；避免重複查詢券商'
+        : '歷史 K 棒暫不可用，保留實際觀測點與缺口';
+    return Padding(
+      padding: const EdgeInsets.only(top: 3),
+      child: Text(message, key: Key('today-backfill-status-$symbol'),
+          style: const TextStyle(color: fvMuted, fontSize: 11)),
+    );
   }
 
   void _startMarketTimer() {
@@ -121,6 +182,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           ownerQuotes = market.then((_) => _loadOwnerQuotes());
         });
         _startMarketTimer();
+        _requestHistoricalGapFill('TAIEX');
       } else {
         marketTimer?.cancel();
       }
@@ -141,6 +203,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           ownerQuotes = market.then((_) => _loadOwnerQuotes());
         });
         _startMarketTimer();
+        _requestHistoricalGapFill('TAIEX');
       }
     } else {
       marketTimer?.cancel();
@@ -193,6 +256,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       if (selectedHolding != null) {
         stockMinutes = _read(
           '/api/v1/me/portfolio/intraday?symbol=$selectedHolding');
+        _requestHistoricalGapFill(selectedHolding!);
       }
     }
     return result;
@@ -537,6 +601,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       selectedHolding = symbol;
       stockMinutes = _read('/api/v1/me/portfolio/intraday?symbol=$symbol');
     });
+    _requestHistoricalGapFill(symbol);
   }
 
   Widget _holdingSelector(Map<String, dynamic> row) {
@@ -686,6 +751,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                   child: const Text('詳情', style: TextStyle(fontSize: 12)),
                 ),
             ]),
+            _backfillCaption(fvText(selected['symbol'])),
             const SizedBox(height: 2),
             FutureBuilder<dynamic>(
               key: ValueKey('today-intraday-${fvText(selected['symbol'])}'),
@@ -727,6 +793,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         const SizedBox(height: 10),
         if (sections.isNotEmpty)
           _taiexTrend(sections['taiex']),
+        _backfillCaption('TAIEX'),
         if (snapshot.connectionState != ConnectionState.done && sections.isEmpty)
           fvBoundedState('大盤資料仍在讀取；其他資訊可先使用')
         else if (snapshot.connectionState == ConnectionState.done && snapshot.data == null)
