@@ -801,40 +801,188 @@ class PostgresWorkspaceRepository:
                 raise ValueError("official EOD immutable price conflict")
         return len(bounded)
 
-    def market_intraday_points(self, trade_date=None):
-        """Only observations obtained while an interactive market page was active."""
-        from datetime import datetime, time, timedelta, timezone
-        day = trade_date or datetime.now(timezone(timedelta(hours=8))).date()
-        taipei = timezone(timedelta(hours=8))
-        start = datetime.combine(day, time.min, tzinfo=taipei)
-        with self._connection() as connection:
-            rows = connection.execute(
-                """SELECT minute_at,price FROM control.operational_index_minutes
-                   WHERE benchmark_id='TAIEX' AND minute_at >= %s
-                     AND minute_at < %s ORDER BY minute_at ASC LIMIT 270""",
-                (start, start + timedelta(days=1)),
-            ).fetchall()
-        return [{"date": row["minute_at"].isoformat(), "value": str(row["price"])}
-                for row in rows]
+    @staticmethod
+    def _merge_minute_sources(snapshots, kbars, taipei):
+        """Historical completed one-minute closes and live sampled quotes differ.
 
-    def stock_intraday_points(self, symbol: str, trade_date=None) -> list[dict[str, str]]:
-        """Same-day real minute observations; callers must enforce Owner scope."""
+        Keep the Kbar where both exist; include true live quotes after the
+        last available Kbar minute without pretending gaps were continuous.
+        """
+        result = {}
+        for row in kbars:
+            minute = row["minute_at"].astimezone(taipei)
+            result[minute] = {
+                "date": minute.isoformat(), "value": str(row["price"]),
+                "source": "shioaji_kbars",
+                "observation_kind": "historical_1m_close",
+            }
+        most_recent_kbar = max(result) if result else None
+        for row in snapshots:
+            minute = row["minute_at"].astimezone(taipei)
+            if minute not in result or (most_recent_kbar is not None
+                                         and minute > most_recent_kbar):
+                result[minute] = {
+                    "date": minute.isoformat(), "value": str(row["price"]),
+                    "source": str(row.get("source") or "shioaji"),
+                    "observation_kind": "sampled_live_quote",
+                }
+        return [result[key] for key in sorted(result)][:271]
+
+    def _session_minute_rows(self, symbol: str, trade_date=None):
+        """One day only; no external network and no backfill as a read side effect."""
         from datetime import datetime, time, timedelta, timezone
         import re
-        if not re.fullmatch(r"[0-9A-Z]{4,10}", symbol):
+        if not (symbol == "TAIEX" or re.fullmatch(r"[0-9A-Z]{4,10}", symbol)):
             raise ValueError("invalid intraday symbol")
         taipei = timezone(timedelta(hours=8))
         day = trade_date or datetime.now(taipei).date()
         start = datetime.combine(day, time.min, tzinfo=taipei)
+        end = start + timedelta(days=1)
         with self._connection() as connection:
-            rows = connection.execute(
-                """SELECT minute_at,price FROM control.operational_symbol_minutes
-                   WHERE symbol=%s AND minute_at >= %s AND minute_at < %s
-                   ORDER BY minute_at ASC LIMIT 270""",
-                (symbol, start, start + timedelta(days=1)),
-            ).fetchall()
-        return [{"date": row["minute_at"].astimezone(taipei).isoformat(),
-                 "value": str(row["price"])} for row in rows]
+            if symbol == "TAIEX":
+                snapshots = connection.execute(
+                    """SELECT minute_at,price,source FROM control.operational_index_minutes
+                       WHERE benchmark_id='TAIEX' AND minute_at >= %s
+                         AND minute_at < %s ORDER BY minute_at ASC LIMIT 271""",
+                    (start, end),
+                ).fetchall()
+            else:
+                snapshots = connection.execute(
+                    """SELECT minute_at,price,source FROM control.operational_symbol_minutes
+                       WHERE symbol=%s AND minute_at >= %s AND minute_at < %s
+                       ORDER BY minute_at ASC LIMIT 271""",
+                    (symbol, start, end),
+                ).fetchall()
+            try:
+                kbars = connection.execute(
+                    """SELECT minute_at,price FROM control.operational_session_kbars
+                       WHERE symbol=%s AND minute_at >= %s AND minute_at < %s
+                       ORDER BY minute_at ASC LIMIT 271""",
+                    (symbol, start, end),
+                ).fetchall()
+            except Exception:
+                # Additive migration 078 can trail the API source revision.
+                # Read-only compatibility; never turn missing bars into fake ticks.
+                connection.rollback()
+                kbars = []
+        return self._merge_minute_sources(snapshots, kbars, taipei)
+
+    def market_intraday_points(self, trade_date=None):
+        return self._session_minute_rows("TAIEX", trade_date)
+
+    def stock_intraday_points(self, symbol: str, trade_date=None) -> list[dict[str, str]]:
+        """Same-day owner-authorized observed or separately sourced 1m Kbars."""
+        return self._session_minute_rows(symbol, trade_date)
+
+    def reserve_session_kbar_backfill(self, symbol: str, trade_day, now) -> bool:
+        """Cross-instance atomic once-per-90m claim, capped at 3 per symbol/day.
+
+        Client requests do not bypass the quota. Claim and commit BEFORE
+        calling the broker; a failed query still consumes the cooldown.
+        """
+        from datetime import datetime, time, timedelta, timezone
+        import re
+        if not (symbol == "TAIEX" or re.fullmatch(r"[0-9A-Z]{4,10}", symbol)):
+            return False
+        taipei = timezone(timedelta(hours=8))
+        clock = now.astimezone(taipei)
+        if trade_day != clock.date() or clock.weekday() >= 5:
+            return False
+        elapsed = clock.hour * 60 + clock.minute - 540
+        if elapsed < 20:
+            return False
+        expected = min(elapsed, 270)
+        start = datetime.combine(trade_day, time.min, tzinfo=taipei)
+        with self._connection() as connection:
+            try:
+                # Only fill a visibly sparse interval. Illiquid symbols may
+                # naturally have fewer Kbars; no fabricated empty minutes.
+                table = ("control.operational_index_minutes" if symbol == "TAIEX"
+                         else "control.operational_symbol_minutes")
+                criterion = ("benchmark_id='TAIEX'" if symbol == "TAIEX"
+                             else "symbol=%s")
+                args = (start, clock) if symbol == "TAIEX" else (symbol, start, clock)
+                samples = connection.execute(
+                    f"""SELECT count(DISTINCT minute_at) AS count FROM {table}
+                        WHERE {criterion} AND minute_at >= %s AND minute_at < %s""",
+                    args,
+                ).fetchone()["count"]
+                bars = connection.execute(
+                    """SELECT count(*) AS count FROM control.operational_session_kbars
+                       WHERE symbol=%s AND minute_at >= %s AND minute_at < %s""",
+                    (symbol, start, clock),
+                ).fetchone()["count"]
+                if max(int(samples or 0), int(bars or 0)) >= expected * 0.85:
+                    return False
+                claim = connection.execute(
+                    """INSERT INTO control.operational_kbar_backfill_state
+                       (symbol,trade_day,last_attempt_at,attempts,last_status)
+                       VALUES (%s,%s,now(),1,'reserved')
+                       ON CONFLICT(symbol,trade_day) DO UPDATE
+                       SET last_attempt_at=now(),attempts=
+                           control.operational_kbar_backfill_state.attempts+1,
+                           last_status='reserved'
+                       WHERE control.operational_kbar_backfill_state.attempts < 3
+                         AND control.operational_kbar_backfill_state.last_attempt_at <
+                             now()-interval '90 minutes'
+                       RETURNING symbol""",
+                    (symbol, trade_day),
+                ).fetchone()
+                return claim is not None
+            except Exception:
+                connection.rollback()
+                return False
+
+    def save_session_kbars(self, symbol: str, trade_day, rows: list[dict],
+                           status: str = "missing") -> int:
+        """Save valid provider-authored completed 1m close only; 72h retention."""
+        from datetime import datetime, timedelta, timezone
+        from decimal import Decimal, InvalidOperation
+        import re
+        taipei = timezone(timedelta(hours=8))
+        if (not (symbol == "TAIEX" or re.fullmatch(r"[0-9A-Z]{4,10}", symbol))
+                or len(rows) > 271):
+            raise ValueError("invalid kbar payload scope")
+        validated = {}
+        for item in rows:
+            try:
+                when = datetime.fromisoformat(str(item["date"])).astimezone(taipei)
+                price = Decimal(str(item["value"]))
+            except (KeyError, ValueError, TypeError, InvalidOperation):
+                continue
+            minute = when.hour * 60 + when.minute
+            if (when.date() != trade_day or when.second or when.microsecond
+                    or not 540 <= minute < 810
+                    or not price.is_finite() or price <= 0
+                    or price > Decimal("10000000")):
+                continue
+            validated[when] = str(price)
+        with self._connection() as connection:
+            connection.execute(
+                "DELETE FROM control.operational_session_kbars "
+                "WHERE minute_at < now()-interval '3 days'"
+            )
+            connection.execute(
+                "DELETE FROM control.operational_kbar_backfill_state "
+                "WHERE trade_day < (now() AT TIME ZONE 'Asia/Taipei')::date - 3"
+            )
+            for when, price in sorted(validated.items()):
+                connection.execute(
+                    """INSERT INTO control.operational_session_kbars
+                       (symbol,minute_at,price,source,retrieved_at)
+                       VALUES (%s,%s,%s,'shioaji_kbars',now())
+                       ON CONFLICT(symbol,minute_at) DO UPDATE
+                       SET price=EXCLUDED.price,retrieved_at=EXCLUDED.retrieved_at""",
+                    (symbol, when, price),
+                )
+            connection.execute(
+                """UPDATE control.operational_kbar_backfill_state
+                   SET last_status=%s,last_saved=%s,completed_at=now()
+                   WHERE symbol=%s AND trade_day=%s""",
+                (status if status in {"available", "missing", "unavailable", "invalid"}
+                 else "invalid", len(validated), symbol, trade_day),
+            )
+        return len(validated)
 
     def save_last_quotes(self, quotes, chunk_size: int = 250) -> int:
         if not quotes:
