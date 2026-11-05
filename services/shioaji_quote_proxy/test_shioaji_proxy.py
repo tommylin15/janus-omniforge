@@ -354,10 +354,11 @@ def test_private_proxy_historical_endpoint_is_one_day_and_simulation_manager_onl
             return {"status": "missing", "source": "shioaji_kbars",
                     "symbol": symbol, "date": trade_day.isoformat(), "points": []}
     monkeypatch.setattr(proxy, "CLIENT", Fake())
-    with TestClient(proxy.app) as client:
-        assert client.get("/kbars", params={"symbol": "../../foo", "day": today}).status_code == 400
-        assert client.get("/kbars", params={"symbol": "2330", "day": "2020-01-01"}).status_code == 400
-        response = client.get("/kbars", params={"symbol": "2330", "day": today})
-        assert response.status_code == 200
-        assert response.json()["source"] == "shioaji_kbars"
+    # No lifespan startup here: never start a real broker session in tests.
+    client = TestClient(proxy.app)
+    assert client.get("/kbars", params={"symbol": "../../foo", "day": today}).status_code == 400
+    assert client.get("/kbars", params={"symbol": "2330", "day": "2020-01-01"}).status_code == 400
+    response = client.get("/kbars", params={"symbol": "2330", "day": today})
+    assert response.status_code == 200
+    assert response.json()["source"] == "shioaji_kbars"
     assert calls == [("2330", datetime.now(tw).date())]
