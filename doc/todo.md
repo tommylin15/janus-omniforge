@@ -10,15 +10,6 @@
 - [ ] **API 全量 Release → 0% Candidate → OAuth／正向行情 → 可逆 100% 切流與 Runtime**：目前尚未驗收完整新版。不能用舊 V3 Runtime 或 Proxy 單獨成功作為新回補 API 已上線的證據。
 - [ ] **真實 Owner 驗收**：用當日先前缺少的 TAIEX／2382 現有分鐘點，確認實際 Shioaji Kbars 返回並補進獨立表，畫面缺口數下降、來源顯示歷史 K 與即時觀測，0% 前收、高低時刻正確；不將盤中 K 查詢當成每分鐘輪詢。若券商當日 K 暫缺，維持部分資料與缺口並回報來源無法取得，不補假價。
 
-## 已發布｜持股「報表」重構：市值占比與市值／成本走勢｜DEV RELEASE PASS／Owner UAT 待確認（2026-11-05）
-
-- [x] **SPEC／CODE**：Flutter「持股 → 報表」改為「持股市值占比」及「持股市值走勢」；個股／ETF／單檔篩選、近一年／已保存歷史、含已出清。Owner-only `GET /api/v1/me/portfolio/value-history` 以既有 Private Mart `workspace_snapshots` 呈現真實月末估值與持有成本，不使用今天報價填歷史；缺價／不足兩期不造線。文件：[User App](ui/user-app.md)、[API](ui/states-and-api.md)。原有交易與已實現損益計算 API 保留。
-- [x] **測試及完整 Release PASS**：前輪 Flutter 4 項異常（3 個舊報表斷言、1 個缺 Material ancestor）修正後 [Flutter 全量 #41963948202](https://github.com/tommylin15/janus-omniforge/actions/runs/41963948202) PASS；[選擇性 CI #41964040067](https://github.com/tommylin15/janus-omniforge/actions/runs/41964040067) PASS；同來源 **Python／Flutter 全量測試、Flutter Web Build、4 個 GHCR digest 公開驗證** [Full Release #41964040291](https://github.com/tommylin15/janus-omniforge/actions/runs/41964040291) PASS。固定應用映像來源 `9f078c37e2a2c1d363a509acfec1816bea1a1d11`。
-- [x] **Dev 0% → OAuth → 100% → 獨立讀回 PASS**：[Candidate #41964668263](https://github.com/tommylin15/janus-omniforge/actions/runs/41964668263)、[Auth boundary #41964821165](https://github.com/tommylin15/janus-omniforge/actions/runs/41964821165)、[API-only 100% promotion #41965403625](https://github.com/tommylin15/janus-omniforge/actions/runs/41965403625)、[獨立 readback #41965592386](https://github.com/tommylin15/janus-omniforge/actions/runs/41965592386) 均 SUCCESS。獨立收據確認正式 100%／固定 image／build-id／health／新 Owner 私密 API 未登入 401/403。此為**既有 dev 真實使用服務**，不是新建 production；Jobs、Scheduler、IAM、Storage、Owner ledger 未異動。
-- [x] **部署安全收斂**：最初 promotion [#41964941889](https://github.com/tommylin15/janus-omniforge/actions/runs/41964941889) 與 [#41965168166](https://github.com/tommylin15/janus-omniforge/actions/runs/41965168166) 在併行 `main` 更新時被 fresh-run lease 防護阻擋，均**未切流**；後續以有效新 `main` dispatch #41965403625 成功。保留舊有效 serving GHCR revision 作可逆回復；`direct` 模式沒有執行回滾演練。期間 `main` 另有「今日／Shioaji」平行提交，**不在此固定映像來源內**，不能把尚未發布的提交算進此次版本。
-- [ ] **Owner 視覺／真資料 UAT**：使用者在正式 [Janus App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/) 登入「持股 → 報表」，實際檢查手機圓餅圖、個股／ETF 及單檔切換、真實已保存歷史月／成本曲線、無歷史／缺價／已出清狀態。自動化驗收只證明 release／runtime／匿名權限，**不代替本人登入後的正向 Owner UAT**。資料不足時按 bounded 訊息判定，不作假 PASS。
-
-
 ## P0｜今日盤中進度圖 V3｜固定時段、0% 前收、漲紅跌綠、3 天保留（2026-11-05）
 
 - [x] **SPEC／程式**：大盤、Owner 個股均以 09:00–13:30 固定分鐘時軸，0% 為前一正式收盤、漲紅跌綠、缺分鐘斷線，圖下方顯示「觀測高／低／最新」的 HH:mm、價位與漲跌幅；缺有效前收不虛構基準。完整規格：[V3 SPEC](spec/today-intraday-progress-v3.md)。
