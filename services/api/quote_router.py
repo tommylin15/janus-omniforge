@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 import logging
 from contextlib import nullcontext
+from time import monotonic
 
 from .intraday_quotes import TAIPEI, market_phase
 
@@ -304,7 +305,13 @@ class QuoteRouter:
             return {"status": "unavailable", "requested": len(scoped), "updated": 0}
 
     def resolve(self, identities, *, refresh=False, force=False, now=None):
+        # Keep the caller's time for refresh scheduling, but evaluate freshness
+        # AFTER network I/O. A newly arrived tick can otherwise be later than
+        # the timestamp taken before a slow candidate cold start and appear
+        # incorrectly STALE (negative tick age).
+        started = monotonic()
         refresh_result = {"status": "idle", "requested": 0, "updated": 0}
         if refresh:
             refresh_result = self.refresh(identities, force=force, now=now)
-        return self.read(identities, now=now), refresh_result
+        read_at = now + timedelta(seconds=max(0, monotonic() - started)) if now is not None else None
+        return self.read(identities, now=read_at), refresh_result
