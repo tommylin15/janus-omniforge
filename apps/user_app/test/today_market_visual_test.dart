@@ -43,6 +43,8 @@ class TodayHoldingsApiStub extends TodayApiStub {
       requests.add(path);
       return {
         'symbol': '2330', 'as_of': '2026-11-04',
+        'previous_close': '1000', 'previous_close_date': '2026-11-03',
+        'previous_close_source': 'official_previous_close',
         'observation_kind': 'page_demanded_minutes',
         'items': [
           {'date': '2026-11-04T09:01:00+08:00', 'value': '1010'},
