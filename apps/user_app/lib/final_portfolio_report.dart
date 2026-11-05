@@ -24,6 +24,7 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
   bool equities = true;
   bool etfs = true;
   bool allHistory = false;
+  bool includeClosed = false;
   final Set<String> excluded = {};
   int? inspected;
   late final Future<dynamic> history = widget.api
@@ -77,7 +78,17 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
         }),
       );
 
-  Widget _filters() => Column(
+  Widget _filters({List<Map<String, dynamic>> historical = const []}) {
+    final visible = <String, Map<String, dynamic>>{
+      for (final row in positions) fvText(row['symbol']): row,
+    };
+    if (tab == 1 && includeClosed) {
+      for (final row in historical) {
+        final symbol = fvText(row['symbol'], missing: '');
+        if (symbol.isNotEmpty) visible.putIfAbsent(symbol, () => row);
+      }
+    }
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Wrap(spacing: 8, runSpacing: 6, children: [
@@ -93,12 +104,22 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
               selected: etfs,
               onSelected: (selected) => setState(() { etfs = selected; inspected = null; }),
             ),
+            if (tab == 1)
+              FilterChip(
+                key: const Key('portfolio-report-include-closed'),
+                label: const Text('含已出清'),
+                selected: includeClosed,
+                onSelected: (selected) => setState(() {
+                  includeClosed = selected;
+                  inspected = null;
+                }),
+              ),
             TextButton(
               onPressed: () => setState(() { excluded.clear(); equities = true; etfs = true; inspected = null; }),
               child: const Text('全選'),
             ),
           ]),
-          if (positions.isNotEmpty) ...[
+          if (visible.isNotEmpty) ...[
             const SizedBox(height: 8),
             const Text('選擇持股', style: TextStyle(color: fvMuted, fontSize: 12)),
             const SizedBox(height: 6),
@@ -106,7 +127,7 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
               spacing: 7,
               runSpacing: 4,
               children: [
-                for (final row in positions)
+                for (final row in visible.values)
                   FilterChip(
                     key: Key('portfolio-report-symbol-${row['symbol']}'),
                     label: Text(_name(row)),
@@ -127,6 +148,7 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
           ],
         ],
       );
+  }
 
   Widget _allocation() {
     final selected = <_Slice>[];
@@ -211,7 +233,7 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
     );
   }
 
-  bool get _unfiltered => equities && etfs && excluded.isEmpty;
+  bool get _unfiltered => includeClosed && equities && etfs && excluded.isEmpty;
 
   List<_ValuePoint> _monthly(dynamic raw) {
     final result = fvMap(raw);
@@ -219,6 +241,7 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
     final Map<String, bool> currentKinds = {
       for (final row in positions) fvText(row['symbol']): _etf(row),
     };
+    final currentSymbols = currentKinds.keys.toSet();
     final Map<String, _ValuePoint> lastByMonth = {};
     for (final row in rows) {
       final date = DateTime.tryParse(fvText(row['date'], missing: ''));
@@ -235,6 +258,7 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
         for (final item in fvRows(row['positions'])) {
           final holding = fvMap(item);
           final symbol = fvText(holding['symbol'], missing: '');
+          if (!includeClosed && !currentSymbols.contains(symbol)) continue;
           final isEtf = currentKinds[symbol] ??
               fvText(holding['instrument_kind'], missing: '') == 'ETF';
           if (excluded.contains(symbol) || (isEtf ? !etfs : !equities)) continue;
@@ -262,6 +286,19 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
   Widget _trend(dynamic historyData) {
     final result = fvMap(historyData);
     final points = _monthly(result);
+    final historicalSymbols = <String, Map<String, dynamic>>{};
+    for (final saved in fvRows(result['points'])) {
+      for (final holding in fvRows(fvMap(saved)['positions'])) {
+        final item = fvMap(holding);
+        final symbol = fvText(item['symbol'], missing: '');
+        if (symbol.isEmpty) continue;
+        historicalSymbols[symbol] = <String, dynamic>{
+          'symbol': symbol,
+          'stock_name': fvText(item['name'], missing: symbol),
+          'instrument_kind': fvText(item['instrument_kind'], missing: 'EQUITY'),
+        };
+      }
+    }
     final valid = points.where((p) => p.market != null && p.cost != null).toList();
     final inspectedPoint = inspected != null && inspected! < points.length
         ? points[inspected!] : (points.isNotEmpty ? points.last : null);
@@ -289,9 +326,19 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
             child: LayoutBuilder(builder: (context, size) => GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTapDown: (tap) => setState(() {
-                final width = math.max(1.0, size.maxWidth - 54);
-                inspected = ((tap.localPosition.dx - 47) / width * (points.length - 1))
-                    .round().clamp(0, points.length - 1);
+                final width = math.max(1.0, size.maxWidth - 55);
+                final fraction = ((tap.localPosition.dx - 47) / width).clamp(0.0, 1.0);
+                final start = points.first.date.millisecondsSinceEpoch;
+                final duration = points.last.date.millisecondsSinceEpoch - start;
+                final target = start + fraction * duration;
+                var closest = 0;
+                for (var i = 1; i < points.length; i++) {
+                  if ((points[i].date.millisecondsSinceEpoch - target).abs() <
+                      (points[closest].date.millisecondsSinceEpoch - target).abs()) {
+                    closest = i;
+                  }
+                }
+                inspected = closest;
               }),
               child: CustomPaint(
                 key: const Key('portfolio-value-trend-chart'),
@@ -321,7 +368,7 @@ class _FvPortfolioReportState extends State<FvPortfolioReport> {
             child: Text('部分估值日缺少完整報價，圖上保留斷點',
               style: TextStyle(color: fvMuted, fontSize: 11))),
         const SizedBox(height: 18),
-        _filters(),
+        _filters(historical: historicalSymbols.values.toList()),
       ],
     );
   }
