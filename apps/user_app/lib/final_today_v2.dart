@@ -264,11 +264,35 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     );
   }
 
+
+  double? _taiexPreviousClose(List<dynamic> observed, List<dynamic> history) {
+    // Benchmark history is already filtered for source and provenance in Core.
+    // Never derive the daily zero level from the first minute observation.
+    final sampleDays = observed.map((raw) {
+      final value = DateTime.tryParse(fvText(fvMap(raw)['date'], missing: ''));
+      return value?.toUtc().add(const Duration(hours: 8));
+    }).whereType<DateTime>().toList()..sort();
+    final reference = sampleDays.isEmpty
+        ? DateTime.now().toUtc().add(const Duration(hours: 8))
+        : sampleDays.last;
+    final day = DateTime.utc(reference.year, reference.month, reference.day);
+    final eligible = history.map(fvMap).where((row) {
+      final date = DateTime.tryParse(fvText(row['date'], missing: ''));
+      final close = fvNumber(row['value']);
+      return date != null && date.isBefore(day) &&
+          day.difference(date).inDays <= 7 &&
+          close != null && close.isFinite && close > 0;
+    }).toList()..sort((a, b) =>
+      fvText(b['date']).compareTo(fvText(a['date'])));
+    return eligible.isEmpty ? null : fvNumber(eligible.first['value']);
+  }
+
   Widget _taiexTrend(dynamic raw) {
     final section = fvMap(raw);
     final data = fvMap(section['data']);
     final history = fvRows(data['history_points']);
     final intraday = fvRows(data['intraday_points']);
+    final previousClose = _taiexPreviousClose(intraday, history);
     // No provisional intraday quote, partial period, or sample placeholder
     // may be spliced into this official closing-price chart.
     final usable = history.where((item) {
