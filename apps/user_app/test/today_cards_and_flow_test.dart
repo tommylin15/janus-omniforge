@@ -81,8 +81,8 @@ void main() {
     expect(find.byKey(const Key('today-live-holding-0050')), findsNothing);
     expect(find.text('一般股票 · 3 檔'), findsOneWidget);
 
-    await tester.scrollUntilVisible(find.byKey(const Key('today-etf-toggle')), 160,
-        scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.byKey(const Key('today-etf-toggle')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('today-etf-toggle')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('today-live-holding-0050')), findsOneWidget);
@@ -104,7 +104,7 @@ void main() {
     await tester.scrollUntilVisible(find.text('融資餘額 · 近兩週'), 220,
         scrollable: find.byType(Scrollable).first);
     expect(find.text('融資餘額 · 近兩週'), findsOneWidget);
-    expect(find.textContaining('5890.00 億元'), findsWidgets);
+    expect(find.textContaining('5,890.00 億元'), findsWidgets);
     expect(find.textContaining('較前一交易日'), findsWidgets);
     await tester.scrollUntilVisible(find.text('法人資金流向 · 買賣超金額'), 220,
         scrollable: find.byType(Scrollable).first);
