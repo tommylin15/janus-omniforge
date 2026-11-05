@@ -38,16 +38,20 @@ jobs:
           outcome={'status':'BLOCKED','date':today,'symbols':{},
                    'owner_mutations':0,'gcp_mutations':0}
           try:
+            stage='api_build'
             url='https://janus-api-2oo7qbkd5q-uc.a.run.app/app/build-id.txt'
             with urllib.request.urlopen(url,timeout=20) as r:
               assert r.read(150).decode().strip()==q['source_sha']
+            stage='proxy_describe'
             meta=json.loads(cmd('gcloud','run','services','describe',
                 'shioaji-quote-proxy','--project='+project,
                 '--region=asia-east1','--format=json'))
             base=str(meta.get('status',{}).get('url') or '')
             assert base.startswith('https://')
+            stage='identity_token'
             identity=cmd('gcloud','auth','print-identity-token','--audiences='+base)
             assert identity
+            stage='broker_get'
             for symbol in q['symbols']:
               entry={'count':0,'status':'unknown'}
               request=urllib.request.Request(base+'/kbars?'+urlencode(
@@ -76,7 +80,7 @@ jobs:
               x.get('status')=='available' and x.get('count',0)>=15
               for x in outcome['symbols'].values()) else 'PARTIAL_NO_BARS'
           except Exception as error:
-            outcome['blocked_reason']=type(error).__name__
+            outcome['blocked_reason']=stage+':'+type(error).__name__
           Path('/tmp/today-v4-kbar-probe.json').write_text(json.dumps(
               outcome,ensure_ascii=False,sort_keys=True,indent=2))
           print(json.dumps(outcome,ensure_ascii=False,sort_keys=True))
