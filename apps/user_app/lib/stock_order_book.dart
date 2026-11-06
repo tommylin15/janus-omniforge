@@ -53,7 +53,7 @@ class StockOrderBookPanel extends StatelessWidget {
       children: [
         FractionallySizedBox(
           alignment: buy ? Alignment.centerRight : Alignment.centerLeft,
-          widthFactor: ratio.clamp(0.0, 1.0),
+          widthFactor: ratio.clamp(0.0, 1.0).toDouble(),
           child: ColoredBox(color: tone.withValues(alpha: .12)),
         ),
         Padding(
@@ -89,9 +89,9 @@ class StockOrderBookPanel extends StatelessWidget {
       final ask = available ? _rows(data['ask']) : const <Map<String, dynamic>>[];
       final totalBid = bid.fold<int>(0, (sum, row) => sum + _volume(row));
       final totalAsk = ask.fold<int>(0, (sum, row) => sum + _volume(row));
-      final biggest = math.max(1, math.max(
-        bid.fold<int>(0, (m, row) => math.max(m, _volume(row))),
-        ask.fold<int>(0, (m, row) => math.max(m, _volume(row))));
+      final biggestBid = bid.fold<int>(0, (m, row) => math.max(m, _volume(row)));
+      final biggestAsk = ask.fold<int>(0, (m, row) => math.max(m, _volume(row)));
+      final biggest = math.max(1, math.max(biggestBid, biggestAsk));
       final hasRows = bid.isNotEmpty || ask.isNotEmpty;
       final loading = state.connectionState != ConnectionState.done;
       return Container(
