@@ -137,3 +137,12 @@
 - **驗收來源**：使用者在既有 Dev App 重新進入「今日」頁後回報：「分鐘點正常回補了，五檔買賣也有了」。據此將 V6 持股／大盤分鐘缺口回補，以及 V5 個股分鐘圖下方買賣五檔**使用者操作驗收**判定為 `OWNER_UAT_PASS / CLOSED`。
 - 此回報證實新版畫面上的分鐘回補與五檔顯示可用，並與上述同版 Flutter／Python、Private Proxy、API-only 100% 切流及獨立 Runtime 收據共同支持功能結案。**不推定** 09:00–13:30 每分鐘都完整、所有持股均有五檔、每檔的數量正確、手動刷新及休市／缺值分支都已逐一測試；未附逐分鐘 PG row count 或券商原始五檔回應。既有無資料不造點、三次回補上限及五檔新鮮度控制不變。
 - 前文關於「Owner 尚待」「NOT_VERIFIED」均屬本次驗收**之前**的歷史狀態；當前以此段使用者確認為準，不為已通過的正常顯示再要求重複驗收。
+
+
+## V7｜首頁「盤中變化／長期觀察」與動態分時軸（2026-11-06）
+
+- 首頁主標題下設雙 Tab，**預設「盤中變化」**：TAIEX 盤中最新指數／當日真分鐘線；橫向持股＋ETF 收合、單張選定股分鐘線及 Shioaji BidAsk 五檔；只有目前 Tab 可見且 App 在前景／交易時段才繼續原先的 60 秒市場輪詢，禁用歷史 K 棒或五檔跟著輪詢。
+- **「長期觀察」**：正式加權指數日收盤 5／20／30 日切換、TWSE 融資近兩週與三大法人買賣超金額、Owner 待追蹤與有 model gate 的研究報告。長期頁第一次可見才請求這些盤後 API，回盤中 Tab 停止長期資訊排程（無新增輪詢），兩 Tab 各自留捲動位置。不是把相同大盤圖再複製到同頁。
+- **動態 Y 軸**：以本交易日有來源的分鐘 Close 的百分比極值與官方昨收 0% 作為可視範圍，8% 相對 padding 與最小約 0.6 個百分點寬度；保留固定 09:00–13:30 X 軸、0% 虛線、紅漲綠跌分段、來源缺值斷線。價格縮放只在 Flutter Presentation，不改 Core／Mart／canonical 數值。
+- **下方分鐘成交量**：Shioaji 官方 `api.kbars` 的真 `Volume`（來源 `shioaji_kbars`）經 private Proxy／OIDC API 加入 metadata；migration `079_session_kbar_volume` 對既有 3 天保留表加 nullable volume，缺值為 NULL，不混入即時 sampled quote。沒有分鐘量時顯示「分鐘成交量尚無可信來源」，不插假柱／不推張數；不把券商原始單位冒稱成交張數。永豐歷史行情文件 https://sinotrade.github.io/zh/tutor/market_data/historical/ （盤中不重覆輪詢）。
+- **發布順序**：固定程式 CI → Proxy 原有 asia-east1 simulation-only 部署／真來源讀回 → 079 Dev migration（保留回復路徑，先於新版 API）→ 完整 GHCR Release → 0% Candidate／Auth gate → Dev 100% → build-id／Owner 401／公開市場正向驗收 → Owner 手機 UI 實測。未完整讀回不可標記 LIVE_PASS。

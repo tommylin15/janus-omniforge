@@ -1,5 +1,14 @@
 # Janus — 唯一 Active TODO
 
+## P0｜今日首頁兩個 Tab 與自動縮放分時線（2026-11-06）
+
+- [x] **UI／CODE**：首頁上方固定「盤中變化／長期觀察」切換。盤中變化只放加權指數即時行情、09:00–13:30 分鐘圖、選股與單張個股分鐘圖、買賣五檔；長期觀察放 5／20／30 日官方收盤指數、融資近兩週、法人官方資金流、本人追蹤與研究狀態。只在進入長期 Tab 讀其 API；切回盤中才恢復原本有界 60 秒行情讀取，不建立另一組 Scheduler／批次。
+- [x] **分鐘圖動態軸**：上下 Y 軸不再以昨天收盤 ±10%／對稱幅度固定，而以當日已觀測價格最高、最低及經驗證的昨收 0% 為範圍，附加小量 padding、最小顯示區間防止放大噪音；X 軸固定 09:00–13:30、缺 K 棒不連假線、紅漲綠跌保留。
+- [x] **券商分鐘量來源 CODE**：僅從 Shioaji simulation-only 的真正 `api.kbars` `Volume` 欄位一路經 Proxy／API／版本化 migration 079 寫入 `control.operational_session_kbars.volume`，來源缺值保留 null。只在真 `shioaji_kbars` minute row 顯示圖下的量能柱，不拿 Quote 採樣數、委買五檔量、總成交量均分來填造。因券商單位未在現役資料契約核定，顯示「券商原始單位」而非假裝成交張數。
+- [ ] **CI／migration**：Flutter／Python／Shioaji Proxy 測試、既有 Dev migration 079 additive apply（先於新版 API Dev 發布）、migration 讀回。
+- [ ] **發布／驗收**：完整固定 SHA Release、Dev 0% Candidate、OAuth／行情 parity、API/App 100% 切流、獨立 Runtime readback，再由 Owner 確認手機兩 Tab、動態 Y 軸與有真資料時的量柱。已發布前不得宣稱本版本全項完成。
+
+
 ## 已結案｜今日持股／大盤分鐘線缺口修復｜Owner UAT PASS（2026-11-06）
 
 - [x] **根因與 SPEC**：2327 與 TAIEX 最新孤立分鐘點，原前端兩小時去重及 PostgreSQL 90 分鐘冷卻，頁面再次開啟仍可能無法補收後段 Kbar。[V6 規格](spec/today-live-home-2026-11-04.md)。
