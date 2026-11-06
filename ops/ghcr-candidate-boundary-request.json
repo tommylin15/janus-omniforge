@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "c4a30876e544629e82089c65130e1b6f5062caa3",
+  "sha": "7a2100dd203328792d1d35af87413e9dfc8a4f8b",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-06 Today V5 Shioaji BidAsk five-level on-demand panel. Full fixed GHCR release PASS #42149287772, 0% Candidate PASS #42149960939, simulation-only Proxy PASS #42148419484. Read-only verify candidate Owner/Admin/MCP negative OAuth boundary, source build-id, quote parity and active-traffic safety; no new resources or traffic changes.",
-  "request_attempt": 47
+  "purpose": "2026-11-06 Today V6 stock/TAIEX minute gap repair. Full Release #42152171609 PASS; Dev API fixed SHA 0% Candidate #42152812792 PASS; verify unauthenticated Owner/Admin/MCP, candidate build-id and live public TAIEX/2330 quote parity read-only before any traffic switch. No IAM/Jobs/Scheduler/cost changes.",
+  "request_attempt": 48
 }
