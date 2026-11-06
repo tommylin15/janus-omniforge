@@ -288,7 +288,28 @@ class FvIntradayProgressChart extends StatefulWidget {
   State<FvIntradayProgressChart> createState() => _FvIntradayProgressChartState();
 }
 
+/// Scale measured minute prices and the verified previous-close 0% reference.
+class FvIntradayAxisRange {
+  const FvIntradayAxisRange(this.min, this.max);
+  final double min;
+  final double max;
+}
+
+FvIntradayAxisRange fvIntradayAxisRange(Iterable<double> changes) {
+  var minValue = 0.0, maxValue = 0.0;
+  for (final change in changes) {
+    if (!change.isFinite) continue;
+    minValue = math.min(minValue, change);
+    maxValue = math.max(maxValue, change);
+  }
+  final mid = (minValue + maxValue) / 2;
+  final span = math.max(0.6, maxValue - minValue);
+  final padding = math.max(0.09, span * 0.08);
+  return FvIntradayAxisRange(mid - span / 2 - padding, mid + span / 2 + padding);
+}
+
 typedef _SessionPoint = ({int minute, double price, double change});
+typedef _MinuteVolume = ({int minute, double volume});
 
 class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
   int? selectedMinute;
@@ -320,7 +341,7 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
     }
     // Convert source timestamps to Asia/Taipei before checking session window.
     // Prefer the latest dated session if a mixed-date response arrives.
-    final dated = <({DateTime time, int minute, double price})>[];
+    final dated = <({DateTime time, int minute, double price, double? volume})>[];
     for (final raw in widget.rows) {
       final row = fvMap(raw);
       final utc = DateTime.tryParse(fvText(row['date'], missing: ''));
@@ -329,20 +350,31 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
       final taipei = utc.toUtc().add(const Duration(hours: 8));
       final minute = taipei.hour * 60 + taipei.minute;
       if (minute < startMinute || minute > endMinute) continue;
-      dated.add((time: taipei, minute: minute, price: price));
+      // Quote samples have no reliable minute volume. Preserve only real Kbars.
+      final reportedVolume = row['source'] == 'shioaji_kbars'
+          ? fvNumber(row['volume']) : null;
+      final volume = reportedVolume != null && reportedVolume.isFinite &&
+              reportedVolume >= 0 ? reportedVolume : null;
+      dated.add((time: taipei, minute: minute, price: price, volume: volume));
     }
     dated.sort((a, b) => a.time.compareTo(b.time));
     final newestDay = dated.isEmpty ? null :
       dated.last.time.year * 10000 + dated.last.time.month * 100 + dated.last.time.day;
-    final byMinute = <int, double>{};
+    final byMinute = <int, ({double price, double? volume})>{};
     for (final point in dated) {
       final day = point.time.year * 10000 + point.time.month * 100 + point.time.day;
-      if (day == newestDay) byMinute[point.minute] = point.price;
+      if (day == newestDay) {
+        byMinute[point.minute] = (price: point.price, volume: point.volume);
+      }
     }
     final points = byMinute.entries.map((entry) =>
-        (minute: entry.key, price: entry.value,
-         change: (entry.value / previous - 1) * 100.0)).toList()
+        (minute: entry.key, price: entry.value.price,
+         change: (entry.value.price / previous - 1) * 100.0)).toList()
       ..sort((a, b) => a.minute.compareTo(b.minute));
+    final volumePoints = byMinute.entries
+        .where((e) => e.value.volume != null)
+        .map((e) => (minute: e.key, volume: e.value.volume!))
+        .toList()..sort((a, b) => a.minute.compareTo(b.minute));
     final high = points.isEmpty ? null :
       points.reduce((a, b) => b.price > a.price ? b : a);
     final low = points.isEmpty ? null :
@@ -411,6 +443,23 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
             ),
           ),
         )),
+        if (volumePoints.isNotEmpty) ...[
+          const SizedBox(height: 7),
+          const Text('分鐘成交量 · 券商 K 棒原始單位',
+              key: Key('intraday-volume-title'),
+              style: TextStyle(fontSize: 10, color: fvMuted)),
+          SizedBox(height: 58, width: double.infinity,
+            child: CustomPaint(
+              key: const Key('intraday-session-volume-chart'),
+              painter: _SessionVolumePainter(volumePoints),
+            )),
+        ] else
+          const Padding(
+            padding: EdgeInsets.only(top: 5),
+            child: Text('分鐘成交量尚無可信來源，不估算或填補',
+              key: Key('intraday-volume-missing'),
+              style: TextStyle(fontSize: 10, color: fvMuted)),
+          ),
         const SizedBox(height: 2),
         const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text('09:00', key: Key('session-start-0900'),
@@ -475,12 +524,11 @@ class _SessionProgressPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final width = math.max(1.0, size.width - left - right);
     final height = math.max(1.0, size.height - top - bottom);
-    final largest = points.fold<double>(0, (v, p) => math.max(v, p.change.abs()));
-    // Symmetric percent range: the 0% previous-close line is always central.
-    final amplitude = math.max(0.3, largest * 1.15);
-    final zeroY = top + height / 2;
+    final range = fvIntradayAxisRange(points.map((p) => p.change));
     double x(int minute) => left + (minute - start) / (end - start) * width;
-    double y(double change) => zeroY - change / amplitude * height / 2;
+    double y(double change) =>
+        top + (range.max - change) / (range.max - range.min) * height;
+    final zeroY = y(0);
     Offset offset(_SessionPoint p) => Offset(x(p.minute), y(p.change));
     final axis = Paint()..color = fvSoft..strokeWidth = 1.0;
     canvas.drawLine(Offset(left, top), Offset(left, top + height), axis);
@@ -500,9 +548,11 @@ class _SessionProgressPainter extends CustomPainter {
           textDirection: TextDirection.ltr)..layout();
       painter.paint(canvas, Offset(1, placeY - painter.height / 2));
     }
-    label('+${amplitude.toStringAsFixed(1)}%', top);
+    String axisText(double value) =>
+        '${value > 0 ? '+' : ''}${value.toStringAsFixed(2)}%';
+    label(axisText(range.max), top);
     label('0%', zeroY);
-    label('-${amplitude.toStringAsFixed(1)}%', top + height);
+    label(axisText(range.min), top + height);
     // The not-yet-observed future is visibly empty rather than stretched.
     if (points.isNotEmpty) {
       final progressX = x(points.last.minute);
@@ -548,6 +598,45 @@ class _SessionProgressPainter extends CustomPainter {
         gainColor != old.gainColor || lossColor != old.lossColor) return true;
     for (var i = 0; i < points.length; i++) {
       if (points[i] != old.points[i]) return true;
+    }
+    return false;
+  }
+}
+
+
+
+/// Provider-authored minute Kbar volumes, aligned with the same clock axis.
+class _SessionVolumePainter extends CustomPainter {
+  const _SessionVolumePainter(this.values);
+  final List<_MinuteVolume> values;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const left = 45.0, right = 13.0;
+    final width = math.max(1.0, size.width - left - right);
+    final baseline = size.height - 5;
+    final availableHeight = math.max(1.0, size.height - 10);
+    final largest = values.fold<double>(0, (v, p) => math.max(v, p.volume));
+    final axis = Paint()..color = fvSoft..strokeWidth = 1;
+    canvas.drawLine(Offset(left, baseline), Offset(left + width, baseline), axis);
+    if (largest <= 0) return;
+    final paint = Paint()..color = fvTeal.withValues(alpha: .65);
+    final barWidth = math.max(1.0, width / 270 * .72);
+    for (final point in values) {
+      final x = left + (point.minute - 540) / 270 * width;
+      final barHeight = point.volume / largest * availableHeight;
+      canvas.drawRect(
+        Rect.fromLTWH(x - barWidth / 2, baseline - barHeight, barWidth, barHeight),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SessionVolumePainter old) {
+    if (values.length != old.values.length) return true;
+    for (var i = 0; i < values.length; i++) {
+      if (old.values[i] != values[i]) return true;
     }
     return false;
   }

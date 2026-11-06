@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:janus_user_app/final_visual_pages.dart';
+import 'package:janus_user_app/final_visual_series.dart';
 import 'package:janus_user_app/main.dart' as legacy;
 
 class TodayApiStub extends legacy.Api {
@@ -87,6 +88,18 @@ void _mobile(WidgetTester tester) {
 }
 
 void main() {
+  test('intraday axis follows actual extremes, keeps zero and has a quiet-market floor', () {
+    final falling = fvIntradayAxisRange([-7.17, -9.89, -6.55]);
+    expect(falling.min, lessThan(-9.89));
+    expect(falling.max, greaterThan(0));
+    expect(falling.max, lessThan(2));
+    final quiet = fvIntradayAxisRange([0.01, 0.03]);
+    expect(quiet.max - quiet.min, greaterThanOrEqualTo(0.6));
+    final rising = fvIntradayAxisRange([1.8, 2.7]);
+    expect(rising.max, greaterThan(2.7));
+    expect(rising.min, lessThan(0));
+  });
+
   testWidgets('TAIEX published 30-day trend changes period and zooms without API refetch',
       (tester) async {
     _mobile(tester);
