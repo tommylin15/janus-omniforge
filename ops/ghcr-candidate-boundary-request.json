@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "2568fff9387641e66fd94e407c165008927339b1",
+  "sha": "c4a30876e544629e82089c65130e1b6f5062caa3",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "Today V4 fixed full Release #41967569050 PASS and 0%-traffic Dev API candidate #41977604689 PASS. Read-only verify OAuth Owner/Admin/MCP negative boundary, candidate App build-id and 2330/TAIEX quote parity. No traffic switch or GCP mutation; migration 078 PASS #41967217662 and broker proxy PASS #41966301190.",
-  "request_attempt": 46
+  "purpose": "2026-11-06 Today V5 Shioaji BidAsk five-level on-demand panel. Full fixed GHCR release PASS #42149287772, 0% Candidate PASS #42149960939, simulation-only Proxy PASS #42148419484. Read-only verify candidate Owner/Admin/MCP negative OAuth boundary, source build-id, quote parity and active-traffic safety; no new resources or traffic changes.",
+  "request_attempt": 47
 }
