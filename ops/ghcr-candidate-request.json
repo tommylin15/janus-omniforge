@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "2568fff9387641e66fd94e407c165008927339b1",
+  "sha": "c4a30876e544629e82089c65130e1b6f5062caa3",
   "digest": "",
-  "release_run": "41967569050",
+  "release_run": "42149287772",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-05 Today V4 full Python+Flutter tests and GHCR 4 digests PASS #41967569050, source 2568fff93876; historical 1m Kbar 078 dev migration PASS #41967217662, Shioaji Proxy deploy PASS #41966301190. Guarded Dev API 0% candidate only; retain active traffic and other owner reports, no Jobs/Scheduler/IAM changes.",
-  "request_attempt": 52
+  "purpose": "2026-11-06 Today V5 Shioaji BidAsk 5-level read-only depth below selected-minute chart. Full Python/Flutter fixed source GHCR release PASS #42149287772, proxy simulation-only deployment PASS #42148419484. Create existing Dev API 0%-traffic candidate only; preserve active traffic, Jobs, Scheduler, IAM and current owner data.",
+  "request_attempt": 53
 }
