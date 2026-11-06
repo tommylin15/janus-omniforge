@@ -548,11 +548,14 @@ class _SessionProgressPainter extends CustomPainter {
           textDirection: TextDirection.ltr)..layout();
       painter.paint(canvas, Offset(1, placeY - painter.height / 2));
     }
-    String axisText(double value) =>
-        '${value > 0 ? '+' : ''}${value.toStringAsFixed(2)}%';
-    label(axisText(range.max), top);
+    // Match a trading screen's PRICE axis, not a rigid percent ruler.
+    // The dashed 0% line remains the verified previous-close reference.
+    String axisPrice(double change) => legacy.accountingNumber(
+        previousClose * (1 + change / 100),
+        decimals: previousClose >= 1000 ? 0 : 2);
+    label(axisPrice(range.max), top);
     label('0%', zeroY);
-    label(axisText(range.min), top + height);
+    label(axisPrice(range.min), top + height);
     // The not-yet-observed future is visibly empty rather than stretched.
     if (points.isNotEmpty) {
       final progressX = x(points.last.minute);
