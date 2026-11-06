@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "7a2100dd203328792d1d35af87413e9dfc8a4f8b",
+  "sha": "1f18915c2a91222d009c65a171fb1c641c44642d",
   "digest": "",
-  "release_run": "42152171609",
+  "release_run": "42172490074",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-06 Today V6 stock and TAIEX 09:00-13:30 true minute Kbar on-entry gap repair. Full Python/Flutter/fixed 4 GHCR image digest release PASS #42152171609, source 7a2100dd; 30-minute PG shared cooldown and max 3/day, no tick-polling of Kbars or fabricated points. Deploy existing Dev API 0% candidate without affecting current owner traffic/jobs/scheduler/IAM.",
-  "request_attempt": 54
+  "purpose": "2026-11-06 Today V7 fixed full GHCR source after Python 2174 pass and Flutter PASS. Two-tab split, observed-price dynamic range, official zero, real Kbar-only Volume (Shioaji Proxy #42171459704 deployed and PostgreSQL migration 079 #42171720754 applied). Create existing Dev API/App 0%-traffic candidate only, preserving old live 100%, IAM, Jobs, Scheduler and owner data.",
+  "request_attempt": 55
 }
