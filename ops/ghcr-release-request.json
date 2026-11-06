@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "f39552be6245bc038d797d560c304efcfa7d60ee",
-  "purpose": "TODAY-V4 2026-11-05 combined chart-first ticker UI and Shioaji simulation-only, historical right-labelled 1m Kbar gap backfill (provenance separate from ticks), Owner authorization, 3day PG retention migration 078, durable 90min per-symbol cooldown and max 3 attempts/day, no background polling/jobs/scheduler, preserve concurrent holdings report and ETF fixes; full Python/Flutter tests and GHCR immutable digest release.",
+  "sha": "ad82558f2e5ba95d953177d61f1512a8d20244b2",
+  "purpose": "TODAY-V5 2026-11-06 one-shot demand-driven Shioaji simulation-only BidAsk five-level cached order book below selected stock minute chart; Owner authenticated endpoint, 120s freshness, missing/stale, no snapshots() polling, no orders, no new paid service, existing Dev API/App only; full Python/Flutter regression & fixed GHCR release.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 49
+  "request_attempt": 50
 }
