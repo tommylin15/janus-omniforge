@@ -163,7 +163,11 @@ class ShioajiQuotes:
             local = at.astimezone(TAIPEI)
             minute = local.hour * 60 + local.minute
             if 540 <= minute < 810 and value is not None:
-                accepted.append({"date": local.isoformat(), "value": str(value)})
+                item = {"date": local.isoformat(), "value": str(value)}
+                volume = str(row.get("volume") or "")
+                if volume.isdecimal() and len(volume) <= 16 and int(volume) <= 10**15:
+                    item["volume"] = volume
+                accepted.append(item)
         return {"status": payload["status"], "source": "shioaji_kbars",
                 "symbol": symbol, "date": trade_day, "points": accepted}
 

@@ -82,7 +82,7 @@ def test_iam_private_historical_transport_keeps_broker_source_and_drops_wrong_da
         "status": "available", "source": "shioaji_kbars",
         "symbol": "2330", "date": today,
         "points": [
-            {"date": f"{today}T09:00:00+08:00", "value": "123.5"},
+            {"date": f"{today}T09:00:00+08:00", "value": "123.5", "volume": "728"},
             {"date": "2026-01-01T09:01:00+08:00", "value": "999"},
         ],
     }
@@ -100,6 +100,7 @@ def test_iam_private_historical_transport_keeps_broker_source_and_drops_wrong_da
     assert result["source"] == "shioaji_kbars"
     assert len(result["points"]) == 1
     assert result["points"][0]["value"] == "123.5"
+    assert result["points"][0]["volume"] == "728"
     assert len(seen) == 1
     request, seconds = seen[0]
     assert seconds <= 16
@@ -113,3 +114,33 @@ def test_iam_private_historical_transport_keeps_broker_source_and_drops_wrong_da
         assert False, "untrusted source must fail closed"
     except ValueError:
         pass
+
+
+
+def test_proxy_kbars_preserves_only_authorized_nonnegative_minute_volume():
+    from types import SimpleNamespace
+    from services.shioaji_quote_proxy.kbars import session_kbars
+    day = date(2026, 11, 6)
+    clock = datetime(2026, 11, 6, 10, 5, tzinfo=TAIPEI)
+    raw = SimpleNamespace(
+        ts=[datetime(2026, 11, 6, 9, 1, tzinfo=TAIPEI),
+            datetime(2026, 11, 6, 9, 2, tzinfo=TAIPEI)],
+        Close=[100.5, 101.0], Volume=[72, -9])
+    class Client:
+        contracts = SimpleNamespace(get=lambda code: SimpleNamespace(code=code))
+        def kbars(self, **_): return raw
+    result = session_kbars(Client(), "2330", day, now=clock)
+    assert len(result["points"]) == 2
+    assert result["points"][0]["volume"] == "72"
+    assert "volume" not in result["points"][1]
+    assert result["points"][0]["date"].endswith("09:00:00+08:00")
+
+
+def test_volume_migration_is_additive_and_never_invents_tick_volume():
+    sql = Path("infra/postgres/migrations/079_session_kbar_volume.sql").read_text()
+    repo = Path("services/api/repository.py").read_text()
+    assert "ADD COLUMN IF NOT EXISTS volume" in sql
+    assert "janus_public_api" in sql
+    assert "volume=COALESCE(EXCLUDED.volume" in repo
+    assert 'row.get("volume")' in repo
+    assert "sampled_live_quote" in repo

@@ -816,6 +816,9 @@ class PostgresWorkspaceRepository:
                 "source": "shioaji_kbars",
                 "observation_kind": "historical_1m_close",
             }
+            # Only provider-authored Kbar volume, never sampled quote quantity.
+            if row.get("volume") is not None:
+                result[minute]["volume"] = str(row["volume"])
         most_recent_kbar = max(result) if result else None
         for row in snapshots:
             minute = row["minute_at"].astimezone(taipei)
@@ -859,7 +862,8 @@ class PostgresWorkspaceRepository:
                 "SELECT to_regclass('control.operational_session_kbars') AS relation"
             ).fetchone()
             kbars = connection.execute(
-                """SELECT minute_at,price FROM control.operational_session_kbars
+                """SELECT minute_at,price,to_jsonb(bar)->>'volume' AS volume
+                   FROM control.operational_session_kbars AS bar
                    WHERE symbol=%s AND minute_at >= %s AND minute_at < %s
                    ORDER BY minute_at ASC LIMIT 271""",
                 (symbol, start, end),
@@ -955,7 +959,10 @@ class PostgresWorkspaceRepository:
                     or not price.is_finite() or price <= 0
                     or price > Decimal("10000000")):
                 continue
-            validated[when] = str(price)
+            raw_volume = str(item.get("volume") or "")
+            volume = int(raw_volume) if (raw_volume.isdecimal() and
+                  len(raw_volume) <= 16 and int(raw_volume) <= 10**15) else None
+            validated[when] = (str(price), volume)
         with self._connection() as connection:
             connection.execute(
                 "DELETE FROM control.operational_session_kbars "
@@ -965,14 +972,16 @@ class PostgresWorkspaceRepository:
                 "DELETE FROM control.operational_kbar_backfill_state "
                 "WHERE trade_day < (now() AT TIME ZONE 'Asia/Taipei')::date - 3"
             )
-            for when, price in sorted(validated.items()):
+            for when, (price, volume) in sorted(validated.items()):
                 connection.execute(
                     """INSERT INTO control.operational_session_kbars
-                       (symbol,minute_at,price,source,retrieved_at)
-                       VALUES (%s,%s,%s,'shioaji_kbars',now())
+                       (symbol,minute_at,price,volume,source,retrieved_at)
+                       VALUES (%s,%s,%s,%s,'shioaji_kbars',now())
                        ON CONFLICT(symbol,minute_at) DO UPDATE
-                       SET price=EXCLUDED.price,retrieved_at=EXCLUDED.retrieved_at""",
-                    (symbol, when, price),
+                       SET price=EXCLUDED.price,
+                           volume=COALESCE(EXCLUDED.volume,control.operational_session_kbars.volume),
+                           retrieved_at=EXCLUDED.retrieved_at""",
+                    (symbol, when, price, volume),
                 )
             connection.execute(
                 """UPDATE control.operational_kbar_backfill_state

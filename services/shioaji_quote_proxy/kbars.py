@@ -66,11 +66,13 @@ def session_kbars(api: Any, symbol: str, trade_day: date, *, now: datetime | Non
     if timestamps is None or closes is None or len(timestamps) != len(closes) or len(timestamps) > MAX_RAW:
         return {"status": "invalid", "symbol": symbol, "date": trade_day.isoformat(),
                 "source": "shioaji_kbars", "points": []}
-    by_minute: dict[str, str] = {}
+    volumes = getattr(raw, "Volume", None)
+    has_volumes = volumes is not None and len(volumes) == len(timestamps)
+    by_minute: dict[str, dict] = {}
     # Kbars are right-labelled: the timestamp represents the minute END.
     # Exclude the current unfinished bar, non-session, future and stale dates.
     latest_completed = clock.replace(second=0, microsecond=0)
-    for stamp, price in zip(timestamps, closes):
+    for index, (stamp, price) in enumerate(zip(timestamps, closes)):
         observed = kbar_timestamp(stamp)
         if observed is None or observed.date() != trade_day or observed > latest_completed:
             continue
@@ -86,9 +88,19 @@ def session_kbars(api: Any, symbol: str, trade_day: date, *, now: datetime | Non
         if not value.is_finite() or value <= 0 or value > Decimal("10000000"):
             continue
         minute_key = bucket.replace(second=0, microsecond=0).isoformat()
-        by_minute[minute_key] = str(value)
-    points = [{"date": stamp, "value": by_minute[stamp]}
-              for stamp in sorted(by_minute)[:271]]
+        point = {"date": minute_key, "value": str(value)}
+        if has_volumes:
+            try:
+                raw_volume = volumes[index]
+                volume = int(raw_volume)
+                if (not isinstance(raw_volume, bool) and
+                        str(raw_volume).strip() == str(volume)
+                        and 0 <= volume <= 10**15):
+                    point["volume"] = str(volume)
+            except (TypeError, ValueError, OverflowError):
+                pass
+        by_minute[minute_key] = point
+    points = [by_minute[stamp] for stamp in sorted(by_minute)[:271]]
     return {"status": "available" if points else "missing",
             "symbol": symbol, "date": trade_day.isoformat(),
             "source": "shioaji_kbars",
