@@ -36,7 +36,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   final Set<String> _backfillAttemptKeys = <String>{};
   final Set<String> _backfillInFlight = <String>{};
   final Map<String, String> _backfillStatus = <String, String>{};
-  int historyDays = 0;
+  int historyDays = 20;
+  int todayTab = 0; // 0: live, 1: long-horizon
+  bool researchLoaded = false;
   dynamic lastGoodMarket;
   bool marketBusy = false;
   int marketGeneration = 0;
@@ -49,7 +51,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   }
 
   bool get marketActive =>
-      widget.active && foreground && (ModalRoute.of(context)?.isCurrent ?? true);
+      widget.active && foreground && todayTab == 0 &&
+      (ModalRoute.of(context)?.isCurrent ?? true);
 
   @override
   void initState() {
@@ -57,11 +60,10 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     // IndexedStack creates every tab up front. Hidden tabs must not trigger
     // an upstream quote request until the user actually selects this page.
     market = widget.active ? _readCoreMarket() : Future<dynamic>.value(null);
-    marketFlows = widget.active
-        ? _read('/api/v1/public/market-leverage-flow', timeout: const Duration(seconds: 28))
-        : Future<dynamic>.value(null);
-    brief = widget.active ? _read('/api/v1/public/daily-brief') : Future<dynamic>.value(null);
-    personal = widget.active ? _read('/api/v1/me/today-relevant') : Future<dynamic>.value(null);
+    // Long-horizon research is requested only when its tab becomes visible.
+    marketFlows = Future<dynamic>.value(null);
+    brief = Future<dynamic>.value(null);
+    personal = Future<dynamic>.value(null);
     ownerQuotes = widget.active
         ? market.then((_) => _loadOwnerQuotes(onDemandBackfill: true))
         : Future<dynamic>.value(null);
@@ -80,7 +82,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   void _requestHistoricalGapFill(String symbol) {
     // Shioaji history is only demanded on entry, foreground resume or stock
     // selection, never by the 60s quote timer. PG enforces max 3/day and 30m cooldown.
-    if (!widget.active || !foreground) return;
+    if (!widget.active || !foreground || todayTab != 0) return;
     final taipei = DateTime.now().toUtc().add(const Duration(hours: 8));
     final minute = taipei.hour * 60 + taipei.minute;
     if (taipei.weekday > 5 || minute < 560) return;
@@ -131,6 +133,34 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     );
   }
 
+  void _loadResearch() {
+    if (!widget.active || researchLoaded) return;
+    researchLoaded = true;
+    marketFlows = _read('/api/v1/public/market-leverage-flow',
+        timeout: const Duration(seconds: 28));
+    brief = _read('/api/v1/public/daily-brief');
+    personal = _read('/api/v1/me/today-relevant');
+  }
+
+  void _switchTodayTab(int next) {
+    if (next == todayTab) return;
+    marketTimer?.cancel();
+    setState(() {
+      todayTab = next;
+      if (next == 1) {
+        _loadResearch();
+      } else {
+        market = _loadMarketWithoutPerf();
+        ownerQuotes = market.then(
+            (_) => _loadOwnerQuotes(onDemandBackfill: true));
+      }
+    });
+    if (next == 0) {
+      _startMarketTimer();
+      _requestHistoricalGapFill('TAIEX');
+    }
+  }
+
   void _startMarketTimer() {
     marketTimer?.cancel();
     if (marketActive && marketHours) {
@@ -163,13 +193,13 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   void didUpdateWidget(FinalTodayPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.api, widget.api)) {
+      researchLoaded = false;
       lastGoodMarket = null;
       market = widget.active ? _readCoreMarket() : Future<dynamic>.value(null);
-      marketFlows = widget.active
-        ? _read('/api/v1/public/market-leverage-flow', timeout: const Duration(seconds: 28))
-        : Future<dynamic>.value(null);
-    brief = widget.active ? _read('/api/v1/public/daily-brief') : Future<dynamic>.value(null);
-      personal = widget.active ? _read('/api/v1/me/today-relevant') : Future<dynamic>.value(null);
+      marketFlows = Future<dynamic>.value(null);
+      brief = Future<dynamic>.value(null);
+      personal = Future<dynamic>.value(null);
+      if (todayTab == 1) _loadResearch();
       ownerQuotes = widget.active
           ? market.then((_) => _loadOwnerQuotes(onDemandBackfill: true))
           : Future<dynamic>.value(null);
@@ -178,14 +208,14 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       if (widget.active) {
         setState(() {
           market = _loadMarketWithoutPerf();
-          marketFlows = _read('/api/v1/public/market-leverage-flow',
-              timeout: const Duration(seconds: 28));
-          brief = _read('/api/v1/public/daily-brief');
-          personal = _read('/api/v1/me/today-relevant');
-          ownerQuotes = market.then((_) => _loadOwnerQuotes(onDemandBackfill: true));
+          if (todayTab == 1) _loadResearch();
+          if (todayTab == 0) {
+            ownerQuotes = market.then(
+                (_) => _loadOwnerQuotes(onDemandBackfill: true));
+          }
         });
         _startMarketTimer();
-        _requestHistoricalGapFill('TAIEX');
+        if (todayTab == 0) _requestHistoricalGapFill('TAIEX');
       } else {
         marketTimer?.cancel();
       }
@@ -199,14 +229,16 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       if (widget.active) {
         setState(() {
           market = _loadMarketWithoutPerf();
-          // EOD margin / institutional data are refreshed on return to the
-          // foreground, never on the 60-second intraday quote timer.
-          marketFlows = _read('/api/v1/public/market-leverage-flow',
-              timeout: const Duration(seconds: 28));
-          ownerQuotes = market.then((_) => _loadOwnerQuotes(onDemandBackfill: true));
+          if (todayTab == 1 && researchLoaded) {
+            marketFlows = _read('/api/v1/public/market-leverage-flow',
+                timeout: const Duration(seconds: 28));
+          } else if (todayTab == 0) {
+            ownerQuotes = market.then(
+                (_) => _loadOwnerQuotes(onDemandBackfill: true));
+          }
         });
         _startMarketTimer();
-        _requestHistoricalGapFill('TAIEX');
+        if (todayTab == 0) _requestHistoricalGapFill('TAIEX');
       }
     } else {
       marketTimer?.cancel();
@@ -352,7 +384,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     return eligible.isEmpty ? null : fvNumber(eligible.first['value']);
   }
 
-  Widget _taiexTrend(dynamic raw) {
+  Widget _taiexTrend(dynamic raw, {bool intradayOnly = true}) {
     final section = fvMap(raw);
     final data = fvMap(section['data']);
     final history = fvRows(data['history_points']);
@@ -389,7 +421,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                   padding: const EdgeInsets.all(12),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     Row(children: [
-                      Expanded(child: Text(historyDays == 0
+                      Expanded(child: Text(intradayOnly
                           ? '加權指數 · 今日分鐘觀測' : '加權指數 · 官方收盤走勢',
                         style: TextStyle(color: fvInk, fontWeight: FontWeight.w800))),
                       IconButton(icon: const Icon(Icons.close),
@@ -397,7 +429,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                     ]),
                     InteractiveViewer(
                       minScale: 1, maxScale: 3,
-                      child: historyDays == 0
+                      child: intradayOnly
                           ? FvIntradayProgressChart(
                               rows: intraday, label: '加權指數 · 盤中',
                               unit: '點', height: 235, previousClose: previousClose)
@@ -411,22 +443,23 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           ),
         ]),
       ),
-      Material(color: Colors.transparent, child: Wrap(spacing: 5, children: [
-        for (final days in const [0, 5, 20, 30])
-          ChoiceChip(
-            key: Key('today-trend-$days'),
-            visualDensity: VisualDensity.compact,
-            label: Text(days == 0 ? '今日盤中' : days == 5 ? '近5日' : days == 20 ? '近20日' : '近30日'),
-            selected: historyDays == days,
-            onSelected: (_) => setState(() => historyDays = days),
-          ),
-      ])),
-      if (historyDays == 0)
+      if (!intradayOnly)
+        Material(color: Colors.transparent, child: Wrap(spacing: 5, children: [
+          for (final days in const [5, 20, 30])
+            ChoiceChip(
+              key: Key('today-trend-$days'),
+              visualDensity: VisualDensity.compact,
+              label: Text(days == 5 ? '近5日' : days == 20 ? '近20日' : '近30日'),
+              selected: historyDays == days,
+              onSelected: (_) => setState(() => historyDays = days),
+            ),
+        ])),
+      if (intradayOnly)
         FvIntradayProgressChart(rows: intraday, label: '加權指數 · 盤中',
             unit: '點', height: 190, previousClose: previousClose)
       else
-        FvVisualSeriesChart(rows: shown, label: '加權指數 · 收盤',
-            unit: '點', height: 130, dailyTable: true),
+        FvVisualSeriesChart(rows: shown, label: '加權指數 · 官方收盤',
+            unit: '點', height: 160, dailyTable: true),
       Padding(
         padding: const EdgeInsets.fromLTRB(5, 3, 5, 12),
         child: Text('正式收盤截至 $asOf · 來源 ${sources.isEmpty ? '待查' : sources.join('、')}'
@@ -838,6 +871,21 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     },
   );
 
+  Widget _historicalMarket() => FutureBuilder<dynamic>(
+    future: market,
+    builder: (context, snapshot) {
+      final root = fvMap(snapshot.data ?? lastGoodMarket);
+      final sections = fvMap(root['sections']);
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        fvSectionTitle(context, '市場長期趨勢', trailing: '官方日收盤，不混入盤中點'),
+        if (sections['taiex'] != null)
+          _taiexTrend(sections['taiex'], intradayOnly: false)
+        else
+          fvBoundedState('歷史收盤行情尚未就緒'),
+      ]);
+    },
+  );
+
   Widget _brief() => FutureBuilder<dynamic>(
     future: brief,
     builder: (context, snapshot) {
@@ -961,23 +1009,56 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     color: fvCanvas,
     child: SafeArea(
       bottom: false,
-      child: ListView(
-        key: const Key('final-today-scroll'),
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
-        children: [
-          fvPageTitle(context, '今日', subtitle: '大盤與持股一張圖掌握當日變化'),
-          _market(),
-          _liveHoldings(),
-          _leverageFlow(),
-          _personal(),
-          _brief(),
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: Text('本服務提供研究資訊，不構成投資建議。',
-                style: TextStyle(color: fvMuted, fontSize: 12)),
-          ),
-        ],
-      ),
+      child: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            fvPageTitle(context, '今日', subtitle: todayTab == 0
+                ? '當日大盤、持股分鐘變化與買賣五檔'
+                : '日線、融資法人與中長期研究'),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(child: FilledButton(
+                key: const Key('today-tab-live'),
+                onPressed: () => _switchTodayTab(0),
+                style: FilledButton.styleFrom(
+                    backgroundColor: todayTab == 0 ? fvTeal : fvSoft,
+                    foregroundColor: todayTab == 0 ? Colors.white : fvInk),
+                child: const Text('盤中變化'),
+              )),
+              const SizedBox(width: 9),
+              Expanded(child: FilledButton(
+                key: const Key('today-tab-longterm'),
+                onPressed: () => _switchTodayTab(1),
+                style: FilledButton.styleFrom(
+                    backgroundColor: todayTab == 1 ? fvTeal : fvSoft,
+                    foregroundColor: todayTab == 1 ? Colors.white : fvInk),
+                child: const Text('長期觀察'),
+              )),
+            ]),
+          ]),
+        ),
+        Expanded(child: ListView(
+          key: PageStorageKey('today-tab-scroll-$todayTab'),
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 110),
+          children: [
+            if (todayTab == 0) ...[
+              _market(),
+              _liveHoldings(),
+            ] else ...[
+              _historicalMarket(),
+              _leverageFlow(),
+              _personal(),
+              _brief(),
+            ],
+            const Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: Text('本服務提供研究資訊，不構成投資建議。',
+                  style: TextStyle(color: fvMuted, fontSize: 12)),
+            ),
+          ],
+        )),
+      ]),
     ),
   );
 }

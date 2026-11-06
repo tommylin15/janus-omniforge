@@ -113,6 +113,8 @@ void main() {
     });
     await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('today-tab-longterm')));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.byKey(const Key('today-trend-5')), 180,
       scrollable: find.byType(Scrollable).first);
     expect(find.text('加權指數走勢'), findsOneWidget);
@@ -162,7 +164,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('今天值得看'), findsNothing);
     expect(api.requests.where((p) => p.contains('today-changes')), isEmpty);
-    expect(find.byKey(const Key('today-trend-0')), findsOneWidget);
+    expect(find.byKey(const Key('today-tab-live')), findsOneWidget);
     await tester.scrollUntilVisible(find.byKey(const Key('intraday-observed-high')), 150,
         scrollable: find.byType(Scrollable).first);
     expect(find.textContaining('09:01'), findsWidgets);

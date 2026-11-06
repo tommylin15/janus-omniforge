@@ -158,6 +158,10 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
     await tester.pumpAndSettle();
 
+    expect(api.requests.where((p) =>
+        p == '/api/v1/public/market-leverage-flow'), isEmpty);
+    await tester.tap(find.byKey(const Key('today-tab-longterm')));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('融資餘額 · 近兩週'), 220,
         scrollable: find.byType(Scrollable).first);
     expect(find.text('融資餘額 · 近兩週'), findsOneWidget);
