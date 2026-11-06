@@ -104,3 +104,10 @@
 - Janus API 新增 `GET /api/v1/me/portfolio/order-book?symbol=...`：僅 Owner 正股數 TWD 持股，403/401 沿用既有 OAuth、未持有 404、錯誤代號 422；再由 API 用 OIDC 取得私有 Proxy，驗證股票代碼、市場、時間、來源、五檔數量、價格與張數。缺值／過期／部分五檔不得假裝完整。
 - Flutter 只有初次選股、切股與使用者按「手動讀取五檔」才取得資料，不參與原本 60 秒行情、K 棒回補或 Scheduler；顯示委買／委賣 1–5、價量、相對量條、兩邊加總、台北報價時刻與來源。手動刷新是對共享訂閱快取再次讀取，不是 `snapshots()` 輪詢。
 - 驗收分層：Proxy 測試 BidAsk 回調／禁用 Snapshot／租期清理，API 測 Owner 權限與交換所時序／缺值，Flutter 390px Widget 測五檔及換股不串資料；正式上線需 Proxy、Janus API、Flutter 同版部署及有權 Owner 盤中確認真五檔，未驗證保持 partial。
+
+
+### V5 Release／Dev 收據（2026-11-06）
+
+- Proxy simulation-only BidAsk [#42148419484](https://github.com/tommylin15/janus-omniforge/actions/runs/42148419484) PASS；Flutter analyze／test／build [#42149261653](https://github.com/tommylin15/janus-omniforge/actions/runs/42149261653) PASS。
+- 固定來源 `c4a30876e544629e82089c65130e1b6f5062caa3` 完整 Python＋Flutter + 四 GHCR image Release [#42149287772](https://github.com/tommylin15/janus-omniforge/actions/runs/42149287772) PASS；0% Candidate [#42149960939](https://github.com/tommylin15/janus-omniforge/actions/runs/42149960939) PASS；OAuth 負向＋市場行情 parity [#42150196571](https://github.com/tommylin15/janus-omniforge/actions/runs/42150196571) PASS；受控 API/App 100% promotion [#42150459206](https://github.com/tommylin15/janus-omniforge/actions/runs/42150459206) PASS。
+- Live Owner authenticated 五檔實際值 UAT **NOT_VERIFIED**；上面是軟體／發布／匿名與公開讀回，不可推論至少一檔已得到五檔有效 BidAsk callback。

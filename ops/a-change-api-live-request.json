@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "2568fff9387641e66fd94e407c165008927339b1",
-  "promotion_run": "41978064187",
+  "source_sha": "c4a30876e544629e82089c65130e1b6f5062caa3",
+  "promotion_run": "42150459206",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "Today V4 after API-only 100%-traffic PASS #41978064187: independently read live fixed SHA, GHCR digest, App build-id, health, 401/403 Owner intraday, public market minute schema and quote status. Historical private Owner Kbar positive readback remains separate; never mutate traffic/owner/jobs.",
-  "request_attempt": 8
+  "purpose": "2026-11-06 TODAY-V5 post 100%-Dev API/App promotion #42150459206. Independently read exact immutable SHA/build-id/digest and 100% traffic, health/public market, and anonymous 401/403 Owner order-book + intraday/stock guards. Shioaji Proxy BidAsk simulation-only deploy #42148419484; Owner authenticated five-level data remains separate UAT; no mutation.",
+  "request_attempt": 9
 }

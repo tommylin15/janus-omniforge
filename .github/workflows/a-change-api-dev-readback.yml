@@ -58,6 +58,7 @@ jobs:
               assert get(path)[0]==200,path
           protected=("/api/v1/me/profile",
                      "/api/v1/me/portfolio/intraday?symbol=2330",
+                     "/api/v1/me/portfolio/order-book?symbol=2330",
                      "/api/v1/me/portfolio/value-history?days=365",
                      "/api/v1/me/today-changes?session=postmarket",
                      "/api/v1/me/analysis/2330/changes",
@@ -107,6 +108,7 @@ jobs:
                   "public_market_home_http":market_code,
                   "taiex_observed_minute_count":len(minutes),
                   "anonymous_stock_minutes":codes.get("/api/v1/me/portfolio/intraday"),
+                  "anonymous_stock_order_book":codes.get("/api/v1/me/portfolio/order-book"),
                   "public_stock_http":public_code,"public_rows_present":public_rows,
                   "etf_0050_public_probe":etf_probe,
                   "owner_authenticated_positive":"NOT_VERIFIED_NO_USER_SESSION",
