@@ -122,3 +122,11 @@
 - 修正：只在進入可見頁／返回前景／切換個股時依 30 分鐘 slot 嘗試回補，**從 60 秒行情計時路徑解除歷史補收**；PG 仍先以實際分鐘涵蓋率判斷稀疏（不足約 85%），只有不足時跨使用者原子 claim，冷卻縮至 30 分鐘，**每日最多 3 次** 不變。歷史 migration 078 記錄當時 90m 制度，現役 policy 以 V6 覆蓋。
 - 不增加 Scheduler、Job、付費資源、常駐 Shioaji 連線；simulation=True／Kbar 真資料／Owner 驗證／3 天保留與歷史 Kbar 和即時採樣來源分離維持不變。
 - 當 API 受三次額度所限、券商歷史無資料、合法無成交或休市，仍保留斷線，不能畫假直線。CI／Dev 部署和真人真值分開驗收。
+
+
+### V6 發布收據｜2026-11-06
+
+- 變更 commit `28d553168f676f404cb901aa33243ae4a5936076`；固定 Release source `7a2100dd203328792d1d35af87413e9dfc8a4f8b`。
+- Flutter CI [#42152043926](https://github.com/tommylin15/janus-omniforge/actions/runs/42152043926) PASS、完整 Python＋Flutter + 4 GHCR digest [#42152171609](https://github.com/tommylin15/janus-omniforge/actions/runs/42152171609) PASS；0% [#42152812792](https://github.com/tommylin15/janus-omniforge/actions/runs/42152812792)、OAuth/market parity [#42152981514](https://github.com/tommylin15/janus-omniforge/actions/runs/42152981514)、API/App-only 100% [#42153121460](https://github.com/tommylin15/janus-omniforge/actions/runs/42153121460) 均 PASS。
+- 獨立現役固定 SHA、GHCR digest、App build-id、Owner 匿名隔離、公開價格 200／TAIEX 分鐘資料契約唯讀回驗 [#42153300173](https://github.com/tommylin15/janus-omniforge/actions/runs/42153300173) PASS。
+- **尚待**：沒有已登入 Owner 身分實際讓 2327／TAIEX 重新進頁後再讀 Kbars 的正向收據，也沒有本輪缺口數／PG Kbar rows 前後對照，因此只可宣稱 CODE／TEST／Dev live deploy PASS，不宣稱市場全天分鐘資料已經完整。

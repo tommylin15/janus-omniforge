@@ -4,7 +4,9 @@
 
 - [x] **根因與 SPEC**：2327 與 TAIEX 最新孤立分鐘點，原前端兩小時去重及 PostgreSQL 90 分鐘冷卻，頁面再次開啟仍可能無法補收後段 Kbar。[V6 規格](spec/today-live-home-2026-11-04.md)。
 - [x] **CODE（待發版）**：只在進頁／回前景／切換標的嘗試歷史 1 分 K；去重 slot 縮至 30 分鐘；PG 跨 Owner 共用原子 claim、每檔每天 3 次上限保持，冷卻 30 分鐘；每 60 秒盤中讀價不呼叫歷史補收。真無資料不連假線。
-- [ ] **驗收**：Flutter／Python 測試 → GHCR 固定版 → Dev 0% Candidate → OAuth／行情驗證 → 100% 切流 → 現役 Runtime 唯讀讀回。
+- [x] **CI／固定 Release**：Flutter [#42152043926](https://github.com/tommylin15/janus-omniforge/actions/runs/42152043926) PASS；完整 Python＋Flutter／四 GHCR 映像 digest Release [#42152171609](https://github.com/tommylin15/janus-omniforge/actions/runs/42152171609) PASS，immutable source `7a2100dd203328792d1d35af87413e9dfc8a4f8b`。
+- [x] **Dev 候選／Auth／100% 切流**：0% Candidate [#42152812792](https://github.com/tommylin15/janus-omniforge/actions/runs/42152812792) PASS；OAuth 與公開行情 parity [#42152981514](https://github.com/tommylin15/janus-omniforge/actions/runs/42152981514) PASS；API/App-only 100% [#42153121460](https://github.com/tommylin15/janus-omniforge/actions/runs/42153121460) PASS，未更動 Jobs、Scheduler、Owner 持股資料與 IAM。
+- [x] **獨立現役唯讀回驗**：[ #42153300173 ](https://github.com/tommylin15/janus-omniforge/actions/runs/42153300173) `API_LIVE_READBACK_PASS`，固定 build-id `7a2100dd203328792d1d35af87413e9dfc8a4f8b`，100% 流量，公開價格 HTTP 200，未登入 Owner 401/403，GCP mutation 0。這不是 Owner 登入當日 Kbar 覆蓋率的正向驗收。
 - [ ] **Owner 正向**：實際登入今日頁看 2327／TAIEX 當天歷史回補及缺口數；若來源真的缺值或三次額度用盡應維持 partial，不能用模擬 PASS 冒充全天完整。
 
 
