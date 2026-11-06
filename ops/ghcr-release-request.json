@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "e35f63adbac1b80f92222e5622bc6e0cdc477562",
-  "purpose": "TODAY-V7 2026-11-06 split Today's home into visible-demand live minutes/orderbook vs lazy long-term daily TAIEX, margins, institutions and research. Use auto-ranged observed PRICE y-axis with official previous-close 0% dashed line, 09:00-13:30 fixed x-axis, true Shioaji Kbar Volume bars from nullable 079; no synthetic prices or volume. Shioaji simulation-only Proxy deployed PASS #42171459704, PostgreSQL 079 Dev migration PASS #42171720754; existing Dev API/App-only release, no Jobs/Scheduler/paid resources change.",
+  "sha": "25d9d939062463e5eccfc76b7cd2b2c91838b830",
+  "purpose": "TODAY-V7 full fixed source after correcting brittle test that counted 4 instead of 5 legal on-entry Tab reload sites; 60-second quote timer still never calls historical Shioaji Kbars. Two visible-demand tabs, dynamic observed price-scale and reference 0%, real optional Shioaji Volume persisted via Dev 079 (PASS #42171720754) and Proxy (PASS #42171459704). Prior Release #42172072665 Python 2173 passed, 1 obsolete count assertion failed; re-run full gate before API-only promotion.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 52
+  "request_attempt": 53
 }
