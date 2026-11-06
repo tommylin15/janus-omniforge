@@ -63,7 +63,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     brief = widget.active ? _read('/api/v1/public/daily-brief') : Future<dynamic>.value(null);
     personal = widget.active ? _read('/api/v1/me/today-relevant') : Future<dynamic>.value(null);
     ownerQuotes = widget.active
-        ? market.then((_) => _loadOwnerQuotes())
+        ? market.then((_) => _loadOwnerQuotes(onDemandBackfill: true))
         : Future<dynamic>.value(null);
     WidgetsBinding.instance.addObserver(this);
     foreground = WidgetsBinding.instance.lifecycleState == null ||
@@ -78,16 +78,16 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
 
 
   void _requestHistoricalGapFill(String symbol) {
-    // Never call Shioaji history from the 60-second market quote timer.
-    // A new 2h period may expose an additional multi-hour gap, but the PG
-    // cross-user claim is the final 90m/three-times-per-day quota.
+    // Shioaji history is only demanded on entry, foreground resume or stock
+    // selection, never by the 60s quote timer. PG enforces max 3/day and 30m cooldown.
     if (!widget.active || !foreground) return;
     final taipei = DateTime.now().toUtc().add(const Duration(hours: 8));
     final minute = taipei.hour * 60 + taipei.minute;
     if (taipei.weekday > 5 || minute < 560) return;
     final day = '${taipei.year}-${taipei.month}-${taipei.day}';
-    final slot = ((minute - 540) ~/ 120).clamp(0, 7);
-    if (!_backfillAttemptKeys.add('$day/$symbol/$slot')) return;
+    final slot = ((minute - 540) ~/ 30).clamp(0, 9);
+    if (_backfillInFlight.contains(symbol) ||
+        !_backfillAttemptKeys.add('$day/$symbol/$slot')) return;
     _fetchHistoricalGapFill(symbol);
   }
 
@@ -122,7 +122,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     if (!running && status == null) return const SizedBox.shrink();
     final message = running ? '正在查詢今日缺漏的歷史 1 分 K（非即時行情）…'
         : status == 'available' ? '已讀回歷史 1 分 K，與即時觀測合併顯示'
-        : status == 'cached_or_throttled' ? '使用共用分鐘資料；避免重複查詢券商'
+        : status == 'cached_or_throttled' ? '使用已保存分鐘資料；補收額度未開放時缺口可能保留'
         : '歷史 K 棒暫不可用，保留實際觀測點與缺口';
     return Padding(
       padding: const EdgeInsets.only(top: 3),
@@ -171,7 +171,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     brief = widget.active ? _read('/api/v1/public/daily-brief') : Future<dynamic>.value(null);
       personal = widget.active ? _read('/api/v1/me/today-relevant') : Future<dynamic>.value(null);
       ownerQuotes = widget.active
-          ? market.then((_) => _loadOwnerQuotes())
+          ? market.then((_) => _loadOwnerQuotes(onDemandBackfill: true))
           : Future<dynamic>.value(null);
       }
     if (oldWidget.active != widget.active) {
@@ -182,7 +182,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
               timeout: const Duration(seconds: 28));
           brief = _read('/api/v1/public/daily-brief');
           personal = _read('/api/v1/me/today-relevant');
-          ownerQuotes = market.then((_) => _loadOwnerQuotes());
+          ownerQuotes = market.then((_) => _loadOwnerQuotes(onDemandBackfill: true));
         });
         _startMarketTimer();
         _requestHistoricalGapFill('TAIEX');
@@ -203,7 +203,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           // foreground, never on the 60-second intraday quote timer.
           marketFlows = _read('/api/v1/public/market-leverage-flow',
               timeout: const Duration(seconds: 28));
-          ownerQuotes = market.then((_) => _loadOwnerQuotes());
+          ownerQuotes = market.then((_) => _loadOwnerQuotes(onDemandBackfill: true));
         });
         _startMarketTimer();
         _requestHistoricalGapFill('TAIEX');
@@ -239,7 +239,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     }
   }
 
-  Future<dynamic> _loadOwnerQuotes() async {
+  Future<dynamic> _loadOwnerQuotes({bool onDemandBackfill = false}) async {
     final result = await _read('/api/v1/me/portfolio/quotes',
         timeout: const Duration(seconds: 24));
     if (!mounted || !widget.active || result is! Map) return result;
@@ -260,7 +260,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         stockMinutes = _read(
           '/api/v1/me/portfolio/intraday?symbol=$selectedHolding');
         _loadSelectedOrderBook(selectedHolding!);
-        _requestHistoricalGapFill(selectedHolding!);
+        if (onDemandBackfill) _requestHistoricalGapFill(selectedHolding!);
       }
     }
     return result;

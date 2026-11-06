@@ -163,3 +163,16 @@ def test_owner_gapfill_requires_held_symbol_and_a_cross_instance_claim():
         assert saved[0][1] == "available"
     assert "control.operational_session_kbars" in Path(
         "infra/postgres/migrations/078_session_minute_kbar_backfill.sql").read_text()
+
+
+
+def test_on_entry_only_kbar_gap_refresh_never_called_by_quote_timer():
+    source = Path("apps/user_app/lib/final_today_v2.dart").read_text()
+    assert source.count("_loadOwnerQuotes(onDemandBackfill: true)") == 4
+    assert "if (onDemandBackfill) _requestHistoricalGapFill(selectedHolding!);" in source
+    timer = source.split("marketTimer = Timer.periodic", 1)[1].split(
+        "Future<dynamic> _loadMarketWithoutPerf", 1)[0]
+    assert "_requestHistoricalGapFill" not in timer
+    assert "market.then((_) => _loadOwnerQuotes())" in timer
+    assert "(minute - 540) ~/ 30" in source
+    assert "_backfillInFlight.contains(symbol)" in source

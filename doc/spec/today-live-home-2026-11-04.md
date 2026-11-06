@@ -113,3 +113,12 @@
 - Live Owner authenticated 五檔實際值 UAT **NOT_VERIFIED**；上面是軟體／發布／匿名與公開讀回，不可推論至少一檔已得到五檔有效 BidAsk callback。
 
 - **獨立現役唯讀回驗**：[ #42150855735 ](https://github.com/tommylin15/janus-omniforge/actions/runs/42150855735) `API_LIVE_READBACK_PASS`；active traffic 100%、build-id `c4a30876e544629e82089c65130e1b6f5062caa3`、不可變 GHCR digest、公開 2330 讀取 HTTP 200、未登入五檔 /portfolio/order-book 拒絕、GCP mutation 0。Owner authenticated 五檔實際價量仍需使用者本人頁面驗收。
+
+
+## V6｜2026-11-06 今日走勢分鐘點缺口修正
+
+- 2327／加權指數於 10:27 顯示 10:25／10:26 孤點，是資料缺漏而非純粹繪圖錯誤。圖表只連續相鄰真實分鐘點；歷史 Kbar 上次補到當時，其後頁面無持續前景讀價時會產生空洞。
+- 根因：原前端同一檔使用兩小時 slot，後端又設每檔 90 分鐘的跨使用者 Kbar 冷卻，再次進頁仍無法補齊數十分鐘缺口。
+- 修正：只在進入可見頁／返回前景／切換個股時依 30 分鐘 slot 嘗試回補，**從 60 秒行情計時路徑解除歷史補收**；PG 仍先以實際分鐘涵蓋率判斷稀疏（不足約 85%），只有不足時跨使用者原子 claim，冷卻縮至 30 分鐘，**每日最多 3 次** 不變。歷史 migration 078 記錄當時 90m 制度，現役 policy 以 V6 覆蓋。
+- 不增加 Scheduler、Job、付費資源、常駐 Shioaji 連線；simulation=True／Kbar 真資料／Owner 驗證／3 天保留與歷史 Kbar 和即時採樣來源分離維持不變。
+- 當 API 受三次額度所限、券商歷史無資料、合法無成交或休市，仍保留斷線，不能畫假直線。CI／Dev 部署和真人真值分開驗收。

@@ -1,5 +1,13 @@
 # Janus — 唯一 Active TODO
 
+## P0｜今日持股／大盤分鐘線缺口修復（2026-11-06）
+
+- [x] **根因與 SPEC**：2327 與 TAIEX 最新孤立分鐘點，原前端兩小時去重及 PostgreSQL 90 分鐘冷卻，頁面再次開啟仍可能無法補收後段 Kbar。[V6 規格](spec/today-live-home-2026-11-04.md)。
+- [x] **CODE（待發版）**：只在進頁／回前景／切換標的嘗試歷史 1 分 K；去重 slot 縮至 30 分鐘；PG 跨 Owner 共用原子 claim、每檔每天 3 次上限保持，冷卻 30 分鐘；每 60 秒盤中讀價不呼叫歷史補收。真無資料不連假線。
+- [ ] **驗收**：Flutter／Python 測試 → GHCR 固定版 → Dev 0% Candidate → OAuth／行情驗證 → 100% 切流 → 現役 Runtime 唯讀讀回。
+- [ ] **Owner 正向**：實際登入今日頁看 2327／TAIEX 當天歷史回補及缺口數；若來源真的缺值或三次額度用盡應維持 partial，不能用模擬 PASS 冒充全天完整。
+
+
 ## P0｜今日持股分鐘線下方五檔委託簿｜Dev 切流 PASS、Owner 五檔正向待驗（2026-11-06）
 
 - [x] **SPEC／程式／UI**：[Today V5](spec/today-live-home-2026-11-04.md#v5買賣五檔按需面板2026-11-06)。今日頁選股後同一張分鐘線下方顯示 Shioaji BidAsk 五檔委買／委賣價量、兩邊總張數、相對量條與實際來源時間；手動刷新、跟隨切股、ETF 適用，無行情不造值。Shioaji `snapshots()` 僅最佳一檔，故完整五檔採 `QuoteType.BidAsk` 訂閱快取；不參與原 60 秒刷新、不呼叫任何下單方法。

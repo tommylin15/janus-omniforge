@@ -874,7 +874,7 @@ class PostgresWorkspaceRepository:
         return self._session_minute_rows(symbol, trade_date)
 
     def reserve_session_kbar_backfill(self, symbol: str, trade_day, now) -> bool:
-        """Cross-instance atomic once-per-90m claim, capped at 3 per symbol/day.
+        """Cross-instance sparse-data claim: 30-minute cooldown, max 3/day.
 
         Client requests do not bypass the quota. Claim and commit BEFORE
         calling the broker; a failed query still consumes the cooldown.
@@ -923,7 +923,7 @@ class PostgresWorkspaceRepository:
                            last_status='reserved'
                        WHERE control.operational_kbar_backfill_state.attempts < 3
                          AND control.operational_kbar_backfill_state.last_attempt_at <
-                             now()-interval '90 minutes'
+                             now()-interval '30 minutes'
                        RETURNING symbol""",
                     (symbol, trade_day),
                 ).fetchone()

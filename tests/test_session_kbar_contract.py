@@ -41,7 +41,7 @@ class _Scope:
         return False
 
 
-def test_atomic_shared_claim_guards_thrice_daily_and_ninety_minutes():
+def test_atomic_shared_claim_guards_thrice_daily_and_thirty_minutes():
     repo = object.__new__(Repository)
     db = _Conn()
     repo._connection = lambda: _Scope(db)
@@ -51,7 +51,7 @@ def test_atomic_shared_claim_guards_thrice_daily_and_ninety_minutes():
     claimed_sql = [sql for sql, _ in db.statements
                    if "INSERT INTO control.operational_kbar_backfill_state" in sql]
     assert claimed_sql and all("ON CONFLICT" in sql for sql in claimed_sql)
-    assert all("attempts < 3" in sql and "90 minutes" in sql for sql in claimed_sql)
+    assert all("attempts < 3" in sql and "30 minutes" in sql for sql in claimed_sql)
     assert not repo.reserve_session_kbar_backfill("2330", date(2026, 11, 4), when)
     assert not repo.reserve_session_kbar_backfill("bad/../", date(2026, 11, 5), when)
 
