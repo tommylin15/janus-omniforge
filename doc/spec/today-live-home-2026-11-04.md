@@ -146,3 +146,11 @@
 - **動態 Y 軸**：以本交易日有來源的分鐘 Close 的百分比極值與官方昨收 0% 作為可視範圍，8% 相對 padding 與最小約 0.6 個百分點寬度；保留固定 09:00–13:30 X 軸、0% 虛線、紅漲綠跌分段、來源缺值斷線。價格縮放只在 Flutter Presentation，不改 Core／Mart／canonical 數值。
 - **下方分鐘成交量**：Shioaji 官方 `api.kbars` 的真 `Volume`（來源 `shioaji_kbars`）經 private Proxy／OIDC API 加入 metadata；migration `079_session_kbar_volume` 對既有 3 天保留表加 nullable volume，缺值為 NULL，不混入即時 sampled quote。沒有分鐘量時顯示「分鐘成交量尚無可信來源」，不插假柱／不推張數；不把券商原始單位冒稱成交張數。永豐歷史行情文件 https://sinotrade.github.io/zh/tutor/market_data/historical/ （盤中不重覆輪詢）。
 - **發布順序**：固定程式 CI → Proxy 原有 asia-east1 simulation-only 部署／真來源讀回 → 079 Dev migration（保留回復路徑，先於新版 API）→ 完整 GHCR Release → 0% Candidate／Auth gate → Dev 100% → build-id／Owner 401／公開市場正向驗收 → Owner 手機 UI 實測。未完整讀回不可標記 LIVE_PASS。
+
+
+### V7 Release／Dev 100%／Runtime 收據（2026-11-06）
+
+- Shioaji simulation-only Private Proxy [#42171459704](https://github.com/tommylin15/janus-omniforge/actions/runs/42171459704) PASS；可空分鐘 Volume 欄位 migration `079_session_kbar_volume` Dev 真實套用／回驗 [#42171720754](https://github.com/tommylin15/janus-omniforge/actions/runs/42171720754) PASS，保持舊 K 棒價與 Owner 帳本。
+- Flutter 全量 [#42171993798](https://github.com/tommylin15/janus-omniforge/actions/runs/42171993798) PASS；最初 Full Release [#42172072665](https://github.com/tommylin15/janus-omniforge/actions/runs/42172072665) 因原測試寫死 4 個入口、現在合法增至 5 個而 FAIL，已修正檢查重點為 60 秒行情不得取 K 棒。新 Full Python／Flutter／4 GHCR digest [#42172490074](https://github.com/tommylin15/janus-omniforge/actions/runs/42172490074) PASS，固定 source `1f18915c2a91222d009c65a171fb1c641c44642d`。
+- 0% Candidate [#42173114571](https://github.com/tommylin15/janus-omniforge/actions/runs/42173114571) PASS、OAuth/市場行情邊界 [#42173332672](https://github.com/tommylin15/janus-omniforge/actions/runs/42173332672) PASS、既有 Dev API/App 100% 切流 [#42173514753](https://github.com/tommylin15/janus-omniforge/actions/runs/42173514753) PASS、獨立現役唯讀 [#42173680941](https://github.com/tommylin15/janus-omniforge/actions/runs/42173680941) `API_LIVE_READBACK_PASS`，active_percent 100、固定 build-id 如上、公開 2330 HTTP 200、未登入 Owner 401/403、GCP mutation 0。原版 rollback 保留，未改 Jobs／Scheduler／IAM。
+- **Owner 正向 UAT 未驗證**：尚缺這版實機兩 Tab、價格動態 Y 軸及有真實 Kbar Volume 時量柱的操作收據。工程發布 PASS 不等於每檔分鐘成交量真值已讀回；沒有來源時仍應顯示 missing。
