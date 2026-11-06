@@ -92,3 +92,15 @@
 - **User-confirmed PASS**：使用者於既有 Dev App 親自驗收，明確回報「驗收成功，有回補分鐘點」。此項確認已發布的 App／API／私有 Shioaji Proxy 回補功能對 Owner 產生可見的歷史分鐘點，按已核定的真實 Dev 使用情境判定功能驗收成功。
 - **範圍限制**：此回報未提供逐檔 symbol、回補分鐘數、API `status/saved`、PG row counts 或 09:00–13:30 全時段覆蓋率，不宣稱每檔都補齊或已獨立核實所有資料行。其他 UI 功能（ETF 切換、紅綠分色、零線與 60 秒刷新）的逐項真人驗收維持原狀。
 - **先前 CI 驗證故障的處置**：GitHub Actions runner 的 WIF ID token 取得失敗只影響 CI 私有 Proxy 探針，不改寫為 runtime 失敗，亦不假稱 CI 探針 PASS；不為此擴張 IAM。原正式資料路徑、`simulation=True`、三天保留、90 分鐘冷卻與每檔每日三次上限不變。
+
+
+## V5｜買賣五檔按需面板（2026-11-06）
+
+- 在「持股今日走勢」選定股票的 09:00–13:30 分鐘圖**下方**新增單張買賣五檔，跟隨原本普通股／ETF chip、前後箭頭切換，不新增多張大卡或重複損益摘要。
+- **官方 API 語意澄清**：Shioaji `api.snapshots()` 僅提供最佳一檔委買／賣價量；完整五檔來自 `QuoteType.BidAsk` 的 `BidAskSTKv1` 訂閱回調，不能將單檔 Snapshot 虛構成五檔，也不可高頻輪詢 `snapshots()`。
+  - 官方 Snapshot：https://sinotrade.github.io/zh/tutor/market_data/snapshot/
+  - 官方 BidAsk：https://sinotrade.github.io/zh/tutor/market_data/streaming/stocks/
+- Proxy 使用既有 `simulation=True`、私人 Cloud Run OIDC 與唯一串流連線管理者；新增 `GET /order-book/{symbol}` 僅讀在頁面請求時建立的整股 BidAsk 訂閱，維持 130 秒需求租期／過期退訂、120 秒資料新鮮度。**絕不使用下單 API**。
+- Janus API 新增 `GET /api/v1/me/portfolio/order-book?symbol=...`：僅 Owner 正股數 TWD 持股，403/401 沿用既有 OAuth、未持有 404、錯誤代號 422；再由 API 用 OIDC 取得私有 Proxy，驗證股票代碼、市場、時間、來源、五檔數量、價格與張數。缺值／過期／部分五檔不得假裝完整。
+- Flutter 只有初次選股、切股與使用者按「手動讀取五檔」才取得資料，不參與原本 60 秒行情、K 棒回補或 Scheduler；顯示委買／委賣 1–5、價量、相對量條、兩邊加總、台北報價時刻與來源。手動刷新是對共享訂閱快取再次讀取，不是 `snapshots()` 輪詢。
+- 驗收分層：Proxy 測試 BidAsk 回調／禁用 Snapshot／租期清理，API 測 Owner 權限與交換所時序／缺值，Flutter 390px Widget 測五檔及換股不串資料；正式上線需 Proxy、Janus API、Flutter 同版部署及有權 Owner 盤中確認真五檔，未驗證保持 partial。

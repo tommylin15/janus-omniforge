@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'final_perf.dart';
+import 'stock_order_book.dart';
 import 'final_visual_series.dart';
 import 'final_visual_common.dart';
 import 'main.dart' as legacy;
@@ -25,6 +26,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   late Future<dynamic> personal;
   late Future<dynamic> ownerQuotes;
   Future<dynamic>? stockMinutes;
+  Future<dynamic>? stockOrderBook;
+  String? _bookSymbol;
   String? selectedHolding;
   bool showEtfs = false;
   dynamic lastGoodOwnerQuotes;
@@ -256,6 +259,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       if (selectedHolding != null) {
         stockMinutes = _read(
           '/api/v1/me/portfolio/intraday?symbol=$selectedHolding');
+        _loadSelectedOrderBook(selectedHolding!);
         _requestHistoricalGapFill(selectedHolding!);
       }
     }
@@ -595,11 +599,29 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     return kind == 'ETF' || kind == 'BOND_ETF';
   }
 
+  void _loadSelectedOrderBook(String symbol, {bool refresh = false}) {
+    // This only happens on entry, ticker change or explicit button press.
+    // Never on the existing 60-second market quote/stock-minute timer.
+    if (!widget.active || !foreground || (!refresh && _bookSymbol == symbol)) return;
+    _bookSymbol = symbol;
+    stockOrderBook = _read(
+      '/api/v1/me/portfolio/order-book?symbol=$symbol',
+      timeout: const Duration(seconds: 24),
+    );
+  }
+
+  void _refreshSelectedOrderBook() {
+    final symbol = selectedHolding;
+    if (symbol == null || !marketActive) return;
+    setState(() => _loadSelectedOrderBook(symbol, refresh: true));
+  }
+
   void _selectHolding(String symbol) {
     if (selectedHolding == symbol) return;
     setState(() {
       selectedHolding = symbol;
       stockMinutes = _read('/api/v1/me/portfolio/intraday?symbol=$symbol');
+      _loadSelectedOrderBook(symbol);
     });
     _requestHistoricalGapFill(symbol);
   }
@@ -705,6 +727,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                 if (!showEtfs && selected != null && _isEtf(selected)) {
                   selectedHolding = fvText(ordinary.first['symbol']);
                   stockMinutes = _read('/api/v1/me/portfolio/intraday?symbol=$selectedHolding');
+                  _loadSelectedOrderBook(selectedHolding!);
                 }
               }),
               icon: Icon(showEtfs ? Icons.expand_less : Icons.expand_more, size: 18),
@@ -770,6 +793,13 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                     unit: '元／股', height: 190,
                     previousClose: previousClose);
               },
+            ),
+            const SizedBox(height: 10),
+            StockOrderBookPanel(
+              key: ValueKey('today-order-book-${fvText(selected['symbol'])}'),
+              symbol: fvText(selected['symbol']),
+              snapshot: stockOrderBook,
+              onRefresh: _refreshSelectedOrderBook,
             ),
           ],
         ],

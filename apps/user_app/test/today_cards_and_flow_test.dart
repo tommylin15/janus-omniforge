@@ -37,6 +37,24 @@ class HomeFinanceApiStub extends legacy.Api {
            'market_price': '150', 'quote_state': 'stale', 'price_status': 'stale'},
       ]};
     }
+    if (path.startsWith('/api/v1/me/portfolio/order-book?symbol=')) {
+      final symbol = path.split('=').last;
+      return {
+        'symbol': symbol,
+        'status': 'available',
+        'source': 'shioaji_bidask',
+        'unit': 'lots',
+        'quote_at': '2026-11-06T10:01:00+08:00',
+        'bid': [
+          for (var i = 0; i < 5; i++)
+            {'price': '${100 - i}', 'volume': 10 + i}
+        ],
+        'ask': [
+          for (var i = 0; i < 5; i++)
+            {'price': '${101 + i}', 'volume': 20 + i}
+        ],
+      };
+    }
     if (path.startsWith('/api/v1/me/portfolio/intraday?symbol=')) {
       return {'items': <Object>[]};
     }
@@ -100,6 +118,8 @@ void main() {
     await tester.tap(find.byKey(const Key('today-next-holding')));
     await tester.pumpAndSettle();
     expect(find.textContaining('2327 · 今日分鐘走勢'), findsWidgets);
+    expect(api.requests.where((p) => p ==
+        '/api/v1/me/portfolio/order-book?symbol=2327').length, 1);
     expect(api.requests.where((p) => p == '/api/v1/me/portfolio/intraday?symbol=2327').length, 1);
 
 
@@ -115,6 +135,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('0050 · 今日分鐘走勢'), findsWidgets);
     expect(api.requests.where((p) => p == '/api/v1/me/portfolio/intraday?symbol=0050').length, 1);
+    expect(api.requests.where((p) => p ==
+        '/api/v1/me/portfolio/order-book?symbol=0050').length, 1);
     await tester.ensureVisible(find.byKey(const Key('today-etf-toggle')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('today-etf-toggle')));
