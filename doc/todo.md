@@ -1,22 +1,22 @@
 # Janus — 唯一 Active TODO
 
-## P0｜今日持股／大盤分鐘線缺口修復（2026-11-06）
+## 已結案｜今日持股／大盤分鐘線缺口修復｜Owner UAT PASS（2026-11-06）
 
 - [x] **根因與 SPEC**：2327 與 TAIEX 最新孤立分鐘點，原前端兩小時去重及 PostgreSQL 90 分鐘冷卻，頁面再次開啟仍可能無法補收後段 Kbar。[V6 規格](spec/today-live-home-2026-11-04.md)。
 - [x] **CODE（待發版）**：只在進頁／回前景／切換標的嘗試歷史 1 分 K；去重 slot 縮至 30 分鐘；PG 跨 Owner 共用原子 claim、每檔每天 3 次上限保持，冷卻 30 分鐘；每 60 秒盤中讀價不呼叫歷史補收。真無資料不連假線。
 - [x] **CI／固定 Release**：Flutter [#42152043926](https://github.com/tommylin15/janus-omniforge/actions/runs/42152043926) PASS；完整 Python＋Flutter／四 GHCR 映像 digest Release [#42152171609](https://github.com/tommylin15/janus-omniforge/actions/runs/42152171609) PASS，immutable source `7a2100dd203328792d1d35af87413e9dfc8a4f8b`。
 - [x] **Dev 候選／Auth／100% 切流**：0% Candidate [#42152812792](https://github.com/tommylin15/janus-omniforge/actions/runs/42152812792) PASS；OAuth 與公開行情 parity [#42152981514](https://github.com/tommylin15/janus-omniforge/actions/runs/42152981514) PASS；API/App-only 100% [#42153121460](https://github.com/tommylin15/janus-omniforge/actions/runs/42153121460) PASS，未更動 Jobs、Scheduler、Owner 持股資料與 IAM。
 - [x] **獨立現役唯讀回驗**：[ #42153300173 ](https://github.com/tommylin15/janus-omniforge/actions/runs/42153300173) `API_LIVE_READBACK_PASS`，固定 build-id `7a2100dd203328792d1d35af87413e9dfc8a4f8b`，100% 流量，公開價格 HTTP 200，未登入 Owner 401/403，GCP mutation 0。這不是 Owner 登入當日 Kbar 覆蓋率的正向驗收。
-- [ ] **Owner 正向**：實際登入今日頁看 2327／TAIEX 當天歷史回補及缺口數；若來源真的缺值或三次額度用盡應維持 partial，不能用模擬 PASS 冒充全天完整。
+- [x] **Owner 實機操作驗收 PASS（2026-11-06）**：使用者於新版 Dev App 回報「分鐘點正常回補了」，確認先前個股與大盤斷線的分鐘點回補功能正常。本工項依真實使用者操作驗收結案；未附逐分鐘 PG rows、券商回補數量或全交易日完整涵蓋率，不將正向功能驗收延伸為所有分鐘都完整。
 
 
-## P0｜今日持股分鐘線下方五檔委託簿｜Dev 切流 PASS、Owner 五檔正向待驗（2026-11-06）
+## 已結案｜今日持股分鐘線下方五檔委託簿｜Owner UAT PASS（2026-11-06）
 
 - [x] **SPEC／程式／UI**：[Today V5](spec/today-live-home-2026-11-04.md#v5買賣五檔按需面板2026-11-06)。今日頁選股後同一張分鐘線下方顯示 Shioaji BidAsk 五檔委買／委賣價量、兩邊總張數、相對量條與實際來源時間；手動刷新、跟隨切股、ETF 適用，無行情不造值。Shioaji `snapshots()` 僅最佳一檔，故完整五檔採 `QuoteType.BidAsk` 訂閱快取；不參與原 60 秒刷新、不呼叫任何下單方法。
 - [x] **私有 Proxy／Owner API**：Shioaji Proxy `simulation=True`、單 Cloud Run 實例共用訂閱、130 秒需求租期、120 秒資料新鮮度、來源時間／交易市場檢查；Owner OAuth 限正股數 TWD 現有持股 `GET /api/v1/me/portfolio/order-book`；未持有 404、未登入 401／403；不新增資料表、Scheduler、Job 或付費資源。Proxy [部署 #42148419484](https://github.com/tommylin15/janus-omniforge/actions/runs/42148419484) PASS。
 - [x] **Flutter／整合／完整 Release**：Flutter [#42149261653](https://github.com/tommylin15/janus-omniforge/actions/runs/42149261653) PASS、固定全量 Python＋Flutter／GHCR digest [#42149287772](https://github.com/tommylin15/janus-omniforge/actions/runs/42149287772) PASS，固定 source SHA `c4a30876e544629e82089c65130e1b6f5062caa3`。早期五檔面板括號編譯錯誤 [#42148815439](https://github.com/tommylin15/janus-omniforge/actions/runs/42148815439) FAIL 為歷史，後已修復，未推失敗版。
 - [x] **Dev API/App 發布**：0% [#42149960939](https://github.com/tommylin15/janus-omniforge/actions/runs/42149960939) PASS → OAuth／公開盤中來源 parity [#42150196571](https://github.com/tommylin15/janus-omniforge/actions/runs/42150196571) PASS → API-only 100% [#42150459206](https://github.com/tommylin15/janus-omniforge/actions/runs/42150459206) PASS；保留前版 rollback，不改 Jobs／Scheduler／IAM／帳本。獨立現役 build-id／匿名 Owner 五檔邊界讀回 [#42150855735](https://github.com/tommylin15/janus-omniforge/actions/runs/42150855735) **PASS**：100% 固定 source SHA、真 GHCR digest、公開 market-home 200、未登入五檔 Owner API 401/403、未更動 GCP。
-- [ ] **唯一使用者正向待驗**：登入現役 Janus「今日」→切到持有的普通股或 ETF → 單張分鐘線下方可看到「買賣五檔｜按需快照」→ 驗證買一至買五、賣一至賣五、委託張數及來源時間；點刷新後只更新當前選取個股。若休市、僅部分回調、超過兩分鐘，顯示 missing/stale/partial 才正確；**目前缺 Owner 實機 BidAsk 真五檔正向收據，維持 PARTIAL**。
+- [x] **Owner 實機操作驗收 PASS（2026-11-06）**：使用者於新版 Dev App 回報「五檔買賣也有了」，確認分鐘圖下方的委買／委賣五檔介面已成功顯示。本工項按 Owner 實際功能驗收結案；未提供每一檔的逐筆數量、手動刷新前後比較或異常／過時來源畫面，這些未觀察情境不擴大宣稱測試 PASS。
 
 
 ## P0｜今日持股走勢聚焦與歷史分鐘缺口回補（2026-11-05）
