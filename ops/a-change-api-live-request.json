@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "c4a30876e544629e82089c65130e1b6f5062caa3",
-  "promotion_run": "42150459206",
+  "source_sha": "7a2100dd203328792d1d35af87413e9dfc8a4f8b",
+  "promotion_run": "42153121460",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-06 TODAY-V5 post 100%-Dev API/App promotion #42150459206. Independently read exact immutable SHA/build-id/digest and 100% traffic, health/public market, and anonymous 401/403 Owner order-book + intraday/stock guards. Shioaji Proxy BidAsk simulation-only deploy #42148419484; Owner authenticated five-level data remains separate UAT; no mutation.",
-  "request_attempt": 9
+  "purpose": "2026-11-06 Today V6 after API/App 100% promotion #42153121460: independently read live immutable SHA/traffic/health, public minute schema, owner intraday/order-book anonymous fences. Historic Shioaji Kbar 30m shared claim / 3-per-day source code in image; true Owner-positive filled 2327/TAIEX Kbar coverage requires authorized session, not proven by public readback. Read-only no owner/job/scheduler/traffic modifications.",
+  "request_attempt": 10
 }
