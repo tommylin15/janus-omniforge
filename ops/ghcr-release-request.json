@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "ad82558f2e5ba95d953177d61f1512a8d20244b2",
-  "purpose": "TODAY-V5 2026-11-06 one-shot demand-driven Shioaji simulation-only BidAsk five-level cached order book below selected stock minute chart; Owner authenticated endpoint, 120s freshness, missing/stale, no snapshots() polling, no orders, no new paid service, existing Dev API/App only; full Python/Flutter regression & fixed GHCR release.",
+  "sha": "28d553168f676f404cb901aa33243ae4a5936076",
+  "purpose": "TODAY-V6 2026-11-06 repair sparse 09:00-13:30 stock/TAIEX minutes after background resume. Owner entry-only Shioaji simulation-only historical Kbar gap refresh, 30-minute shared PG cooldown (still max three per symbol/day), no minute timer historical polling, preserve missing segments and canonical source separation. Existing dev API/App only, no new resources/jobs/scheduler/schema.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 50
+  "request_attempt": 51
 }
