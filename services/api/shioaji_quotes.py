@@ -166,3 +166,69 @@ class ShioajiQuotes:
                 accepted.append({"date": local.isoformat(), "value": str(value)})
         return {"status": payload["status"], "source": "shioaji_kbars",
                 "symbol": symbol, "date": trade_day, "points": accepted}
+
+    def order_book(self, symbol: str, market: str = "") -> dict:
+        """Read private, dated regular-lot five-level depth; never expose Proxy URL."""
+        empty = {"symbol": symbol, "status": "missing", "source": "shioaji_bidask",
+                 "unit": "lots", "bid": [], "ask": []}
+        if not re.fullmatch(r"[0-9A-Z]{4,10}", symbol):
+            raise ValueError("invalid order-book symbol")
+        token = _identity_token(self.base_url)
+        request = Request(self.base_url + "/order-book/" + symbol,
+                          headers={"Authorization": "Bearer " + token,
+                                   "Accept": "application/json"})
+        with urlopen(request, timeout=18) as response:
+            raw = response.read(MAX_BYTES + 1)
+        if len(raw) > MAX_BYTES:
+            raise ValueError("oversized order-book response")
+        payload = json.loads(raw)
+        if (not isinstance(payload, dict) or payload.get("symbol") != symbol
+                or payload.get("source") != "shioaji_bidask"
+                or payload.get("status") not in {"available", "missing"}):
+            raise ValueError("invalid order-book response")
+        if payload["status"] != "available":
+            return empty
+        book = payload.get("data")
+        if not isinstance(book, dict) or book.get("symbol") != symbol:
+            raise ValueError("invalid order-book book")
+        market = str(market).upper()
+        exchange = str(book.get("exchange") or "").upper()
+        if (market == "TWSE" and exchange != "TSE") or (
+                market in {"TPEX", "OTC", "TPEX_UNVERIFIED"} and exchange != "OTC"):
+            raise ValueError("order-book market mismatch")
+        if exchange not in {"TSE", "OTC"} or book.get("unit") != "lots" or (
+                book.get("source") != "shioaji_bidask"):
+            raise ValueError("invalid order-book provenance")
+        observed = _time(book.get("quote_time"))
+        received = _time(book.get("received_at"))
+        now = datetime.now(TAIPEI)
+        if (observed is None or received is None or observed > received
+                or received > now + timedelta(seconds=5)
+                or observed.astimezone(TAIPEI).date() != now.date()
+                or (now - received).total_seconds() > 120
+                or (now - observed).total_seconds() > 120):
+            return {**empty, "status": "stale"}
+
+        def valid_levels(value):
+            if not isinstance(value, list) or len(value) > 5:
+                raise ValueError("invalid order-book depth count")
+            parsed = []
+            for row in value:
+                if not isinstance(row, dict):
+                    raise ValueError("invalid order-book depth row")
+                price = _positive(row.get("price"))
+                volume = row.get("volume")
+                if (price is None or type(volume) is not int or
+                        volume < 0 or volume > 10**9):
+                    raise ValueError("invalid order-book depth value")
+                parsed.append({"price": str(price), "volume": volume})
+            return parsed
+
+        bid = valid_levels(book.get("bid"))
+        ask = valid_levels(book.get("ask"))
+        if not bid and not ask:
+            return empty
+        return {"symbol": symbol, "status": "available" if len(bid) == 5 and len(ask) == 5 else "partial",
+                "source": "shioaji_bidask", "quote_at": observed.isoformat(),
+                "received_at": received.isoformat(), "unit": "lots",
+                "bid": bid, "ask": ask}

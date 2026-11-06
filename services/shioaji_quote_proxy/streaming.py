@@ -49,10 +49,16 @@ class StreamCache:
         self.demand: dict[str, float] = {}
         self.subscribed: dict[str, Any] = {}
         self.latest: dict[str, dict] = {}
+        # Separate on-demand five-level BidAsk stream, never snapshots() polling.
+        self.book_demand: dict[str, float] = {}
+        self.book_subscribed: dict[str, Any] = {}
+        self.book_latest: dict[str, dict] = {}
         # The 150 subscription guard leaves room for non-stock subscriptions.
         self.max_subscriptions = 150
         self.client.set_on_quote_stk_v1_callback(self.on_stock)
         self.client.set_on_quote_idx_v1_callback(self.on_index)
+        if hasattr(self.client, "set_on_bidask_stk_v1_callback"):
+            self.client.set_on_bidask_stk_v1_callback(self.on_bidask)
 
     def _save(self, symbol: str, exchange: str, event: Any, *, index: bool = False) -> None:
         # Shioaji's simtrade flag describes an exchange-simulated tick; it must
@@ -101,6 +107,51 @@ class StreamCache:
         if symbol:
             self._save(symbol, market, event)
 
+    def on_bidask(self, exchange: Any, event: Any) -> None:
+        """Only a real, dated regular-lot five-level callback may fill this cache."""
+        symbol = str(getattr(event, "code", "")).strip().upper()
+        at = _to_time(event)
+        now = datetime.now(TAIPEI)
+        if (not symbol or not at or at > now or at.date() != now.date()
+                or getattr(event, "simtrade", False)
+                or getattr(event, "intraday_odd", False)):
+            return
+
+        def levels(price_field: str, volume_field: str) -> list[dict]:
+            prices = getattr(event, price_field, None)
+            volumes = getattr(event, volume_field, None)
+            if not isinstance(prices, (tuple, list)) or not isinstance(volumes, (tuple, list)):
+                return []
+            parsed = []
+            for price_raw, volume_raw in list(zip(prices, volumes))[:5]:
+                price = _positive(price_raw)
+                try:
+                    volume = int(volume_raw)
+                except (ValueError, TypeError, OverflowError):
+                    continue
+                if price is not None and volume >= 0:
+                    parsed.append({"price": str(price_raw), "volume": volume})
+            return parsed
+
+        bid = levels("bid_price", "bid_volume")
+        ask = levels("ask_price", "ask_volume")
+        if not bid and not ask:
+            return
+        observation = {
+            "symbol": symbol,
+            "exchange": str(getattr(exchange, "value", exchange)).upper(),
+            "quote_time": at.isoformat(),
+            "received_at": now.isoformat(),
+            "source": "shioaji_bidask",
+            "unit": "lots",
+            "bid": bid,
+            "ask": ask,
+        }
+        with self.lock:
+            old = self.book_latest.get(symbol)
+            if old is None or at.isoformat() >= old["quote_time"]:
+                self.book_latest[symbol] = observation
+
     def on_index(self, event: Any) -> None:
         if str(getattr(event, "code", "")) == "IX0001":
             self._save("TAIEX", "TSE", event, index=True)
@@ -110,6 +161,17 @@ class StreamCache:
 
     def _unsubscribe_expired(self, now: float) -> None:
         import shioaji as sj
+        for symbol, end in tuple(self.book_demand.items()):
+            if now < end:
+                continue
+            self.book_demand.pop(symbol, None)
+            contract = self.book_subscribed.pop(symbol, None)
+            self.book_latest.pop(symbol, None)
+            if contract is not None:
+                try:
+                    self.client.unsubscribe(contract, quote_type=sj.QuoteType.BidAsk)
+                except Exception:
+                    pass
         for symbol, end in tuple(self.demand.items()):
             if now < end:
                 continue
@@ -130,7 +192,7 @@ class StreamCache:
             self._unsubscribe_expired(now)
             for symbol in symbols:
                 self.demand[symbol] = now + 130
-                if symbol in self.subscribed or len(self.subscribed) >= self.max_subscriptions:
+                if symbol in self.subscribed or len(self.subscribed) + len(self.book_subscribed) >= self.max_subscriptions:
                     continue
                 contract = self._contract(symbol)
                 if contract is None:
@@ -158,6 +220,37 @@ class StreamCache:
                     current[symbol] = dict(row)
             return current
 
+    def read_book(self, symbol: str) -> dict | None:
+        """Demand once on stock selection/manual refresh; no periodic snapshot query."""
+        now = monotonic()
+        with self.lock:
+            self._unsubscribe_expired(now)
+            self.book_demand[symbol] = now + 130
+            if (symbol not in self.book_subscribed
+                    and len(self.subscribed) + len(self.book_subscribed) < self.max_subscriptions):
+                contract = self._contract(symbol)
+                if contract is not None:
+                    try:
+                        import shioaji as sj
+                        self.client.subscribe(contract, quote_type=sj.QuoteType.BidAsk)
+                        self.book_subscribed[symbol] = contract
+                    except Exception:
+                        pass
+            cold = symbol not in self.book_latest
+        if cold:
+            sleep(1.0)
+        now_local = datetime.now(TAIPEI)
+        with self.lock:
+            row = self.book_latest.get(symbol)
+            if row:
+                received = datetime.fromisoformat(row["received_at"])
+                at = datetime.fromisoformat(row["quote_time"])
+                if (received.date() == now_local.date()
+                        and 0 <= (now_local - received).total_seconds() <= 120
+                        and 0 <= (now_local - at).total_seconds() <= 120):
+                    return dict(row)
+        return None
+
     def subscribed_count(self) -> int:
         with self.lock:
-            return len(self.subscribed)
+            return len(self.subscribed) + len(self.book_subscribed)

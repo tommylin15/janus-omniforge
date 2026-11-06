@@ -1319,6 +1319,28 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                 "source": "shioaji_kbars", "date": trade_day.isoformat(),
                 "bar_semantics": "historical_1m_close_not_realtime"}
 
+    @private.get("/portfolio/order-book")
+    def portfolio_order_book(symbol: str = Query(..., pattern=r"^[0-9A-Z]{4,10}$"),
+                             current: AuthenticatedUser = Depends(user)):
+        """One-shot Owner-only five-level reading; never tied to minute polling."""
+        positions = repository.positions(current.user_id)
+        if not any(str(row.get("symbol")) == symbol
+                   and row.get("currency") == "TWD"
+                   and Decimal(str(row.get("shares") or 0)) > 0 for row in positions):
+            raise HTTPException(status_code=404, detail="未持有此標的")
+        source = getattr(quotes, "order_book", None)
+        if not callable(source):
+            return {"symbol": symbol, "status": "unavailable",
+                    "source": "shioaji_bidask", "unit": "lots", "bid": [], "ask": []}
+        identities = repository.stock_identities({symbol})
+        market = (identities.get(symbol) or {}).get("market", "")
+        try:
+            return source(symbol, market=market)
+        except Exception as error:
+            LOGGER.warning("Owner order-book unavailable: %s", type(error).__name__)
+            return {"symbol": symbol, "status": "unavailable",
+                    "source": "shioaji_bidask", "unit": "lots", "bid": [], "ask": []}
+
     @private.get("/portfolio/intraday")
     def portfolio_intraday(symbol: str = Query(..., pattern=r"^[0-9A-Z]{4,10}$"),
                            current: AuthenticatedUser = Depends(user)):

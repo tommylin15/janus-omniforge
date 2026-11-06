@@ -254,3 +254,45 @@ def test_twenty_concurrent_quote_readers_singleflight():
     assert source.calls == 1
     assert sum(row["status"] == "updated" for row in results) == 1
     assert all(row["status"] in {"updated","fresh","in_flight"} for row in results)
+
+
+
+def test_private_order_book_transport_validates_market_timestamp_and_levels(monkeypatch):
+    now = datetime.now(TZ)
+    book = {
+        "symbol": "2330", "exchange": "TSE", "source": "shioaji_bidask",
+        "quote_time": (now - timedelta(seconds=2)).isoformat(),
+        "received_at": now.isoformat(), "unit": "lots",
+        "bid": [{"price": str(100 - i), "volume": i + 1} for i in range(5)],
+        "ask": [{"price": str(101 + i), "volume": i + 2} for i in range(5)]
+    }
+    response = {"status": "available", "symbol": "2330",
+                "source": "shioaji_bidask", "data": book}
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *_): pass
+        def read(self, *_): return json.dumps(response).encode()
+    requests = []
+    def fake_open(request, timeout):
+        requests.append(request)
+        return Response()
+    monkeypatch.setattr("services.api.shioaji_quotes._identity_token", lambda _: "token")
+    monkeypatch.setattr("services.api.shioaji_quotes.urlopen", fake_open)
+    source = ShioajiQuotes()
+    result = source.order_book("2330", "TWSE")
+    assert result["status"] == "available"
+    assert len(result["bid"]) == 5
+    assert len(result["ask"]) == 5
+    assert result["unit"] == "lots"
+    assert requests[0].get_header("Authorization") == "Bearer token"
+    assert "/order-book/2330" in requests[0].full_url
+    with __import__("pytest").raises(ValueError, match="mismatch"):
+        source.order_book("2330", "TPEX")
+    book["received_at"] = (now - timedelta(minutes=5)).isoformat()
+    result = source.order_book("2330", "TWSE")
+    assert result["status"] == "stale"
+    assert result["bid"] == []
+    book["received_at"] = now.isoformat()
+    book["ask"][0]["volume"] = -1
+    with __import__("pytest").raises(ValueError, match="depth value"):
+        source.order_book("2330", "TWSE")

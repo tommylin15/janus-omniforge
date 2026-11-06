@@ -160,6 +160,25 @@ class ShioajiManager:
             LOGGER.error("Shioaji simulation login failed: %s", type(e).__name__)
             return False
 
+    def get_order_book(self, symbol: str) -> Dict[str, Any] | None:
+        """Five-level depth from simulation-only BidAsk subscription cache."""
+        try:
+            with self._connection_lock:
+                if not self.logged_in:
+                    self.initialize()
+                if not self.logged_in or self.api is None:
+                    return None
+                if not hasattr(self, "_stream_cache"):
+                    if __package__:
+                        from .streaming import StreamCache
+                    else:
+                        from streaming import StreamCache
+                    self._stream_cache = StreamCache(self.api)
+            return self._stream_cache.read_book(symbol)
+        except Exception as error:
+            LOGGER.warning("Shioaji BidAsk unavailable: %s", type(error).__name__)
+            return None
+
     def historical_minutes(self, symbol: str, trade_day: datetime.date) -> Dict[str, Any]:
         """At most one backend query per API backfill claim, simulation-only."""
         with self._connection_lock:
@@ -417,6 +436,21 @@ def get_quotes(symbols: str = Query(..., description="Comma-separated stock symb
         "count": len(quotes),
         "timestamp": datetime.now(TAIWAN_TZ).isoformat(),
         "quotes": quotes,
+    }
+
+
+@app.get("/order-book/{symbol}")
+def order_book(symbol: str) -> Dict[str, Any]:
+    """Private IAM-only five-level book: one demand, never SDK snapshots polling."""
+    sym = symbol.strip().upper()
+    if not re.fullmatch(r"[0-9A-Z]{4,10}", sym):
+        raise HTTPException(status_code=400, detail="Invalid order-book symbol")
+    data = CLIENT.get_order_book(sym) if CLIENT else None
+    return {
+        "status": "available" if data else "missing",
+        "symbol": sym,
+        "source": "shioaji_bidask",
+        "data": data,
     }
 
 

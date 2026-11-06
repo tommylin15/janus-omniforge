@@ -370,3 +370,56 @@ def test_fetch_endpoint_allowlist_validation():
     client = TestClient(proxy.app)
     assert client.post("/fetch", json={"url": "https://evil.example.com/test"}).status_code == 400
     assert client.post("/fetch", json={"url": "http://blave.org/studio"}).status_code == 400
+
+
+
+def test_bidask_five_levels_shared_and_unsubscribed_without_snapshot(monkeypatch):
+    from datetime import datetime, timezone, timedelta
+    from types import SimpleNamespace
+    import sys
+    from services.shioaji_quote_proxy.streaming import StreamCache
+    from services.shioaji_quote_proxy import streaming
+    events = []
+    class Client:
+        contracts = SimpleNamespace(get=lambda code: code)
+        def set_on_quote_stk_v1_callback(self, fn): self.quote = fn
+        def set_on_quote_idx_v1_callback(self, fn): self.index = fn
+        def set_on_bidask_stk_v1_callback(self, fn): self.bidask = fn
+        def subscribe(self, contract, *, quote_type): events.append(("on", contract, quote_type))
+        def unsubscribe(self, contract, *, quote_type): events.append(("off", contract, quote_type))
+        def snapshots(self, *_): raise AssertionError("SDK snapshots forbidden")
+    monkeypatch.setitem(sys.modules, "shioaji", SimpleNamespace(
+        QuoteType=SimpleNamespace(Quote="quote", BidAsk="bidask")))
+    monkeypatch.setattr(streaming, "sleep", lambda _: None)
+    client = Client()
+    cache = StreamCache(client)
+    now = datetime.now(timezone(timedelta(hours=8)))
+    book = SimpleNamespace(code="2330", datetime=now, simtrade=False, intraday_odd=False,
+                           bid_price=[100, 99.5, 99, 98.5, 98],
+                           ask_price=[100.5, 101, 101.5, 102, 102.5],
+                           bid_volume=[12, 20, 18, 10, 9],
+                           ask_volume=[5, 8, 12, 15, 19])
+    assert cache.read_book("2330") is None
+    client.bidask(SimpleNamespace(value="TSE"), book)
+    assert len(cache.read_book("2330")["bid"]) == 5
+    assert cache.read_book("2330")["ask"][0]["volume"] == 5
+    assert events == [("on", "2330", "bidask")]
+    book.simtrade = True
+    book.bid_volume[0] = 999
+    client.bidask(SimpleNamespace(value="TSE"), book)
+    assert cache.read_book("2330")["bid"][0]["volume"] == 12
+    cache.book_demand["2330"] = -1
+    cache._unsubscribe_expired(0)
+    assert ("off", "2330", "bidask") in events
+    assert cache.read_book("2330") is None
+
+
+def test_proxy_order_book_returns_missing_not_fabricated_levels(monkeypatch):
+    from services.shioaji_quote_proxy import main
+    with TestClient(app) as client:
+        assert client.get("/order-book/$$").status_code == 400
+        monkeypatch.setattr(main.CLIENT, "get_order_book", lambda symbol: None)
+        result = client.get("/order-book/2330")
+        assert result.status_code == 200
+        assert result.json()["status"] == "missing"
+        assert result.json()["data"] is None
