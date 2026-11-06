@@ -176,6 +176,8 @@ void main() {
     });
     await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('today-tab-longterm')));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('研究狀態'), 250,
         scrollable: find.byType(Scrollable).first);
     expect(find.text('模型驗證尚未完成'), findsOneWidget);
@@ -202,11 +204,13 @@ void main() {
     });
     await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('today-tab-longterm')));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('與你最相關的追蹤'), 180,
       scrollable: find.byType(Scrollable).first);
     expect(find.text('與你最相關的追蹤'), findsOneWidget);
     expect(find.text('台積電：有 1 項待追蹤筆記'), findsOneWidget);
-    expect(find.text('加權指數'), findsOneWidget);
+    expect(find.text('市場長期趨勢'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -245,6 +249,10 @@ void main() {
     expect(find.text('今日'), findsOneWidget);
     expect(find.text('加權指數'), findsOneWidget);
     expect(find.text('櫃買指數'), findsNothing);
+    await tester.tap(find.byKey(const Key('today-tab-longterm')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('融資餘額 · 近兩週'), 180,
+        scrollable: find.byType(Scrollable).first);
     // TWSE EOD margin & institution monetary flows replace the obsolete
     // day-trade/share-count cards; the no-data state remains visible.
     expect(find.text('融資餘額 · 近兩週'), findsOneWidget);

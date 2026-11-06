@@ -902,6 +902,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
 
       if ((report['model_validation_status'] ?? data['model_validation_status']) != 'validated') {
         return fvPanel(child: ExpansionTile(
+          key: const PageStorageKey<String>('today-research-state'),
           title: const Text('研究狀態'),
           subtitle: Text(loading ? '研究內容載入中' : unavailable ? '研究內容尚未就緒' : '模型驗證尚未完成'),
           children: [

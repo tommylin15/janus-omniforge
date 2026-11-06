@@ -264,6 +264,10 @@ void main() {
     expect(find.textContaining('前一正式收盤價缺值'), findsOneWidget);
     expect(find.byKey(const Key('today-taiex-expand')), findsOneWidget);
     expect(find.byKey(const Key('intraday-session-fixed-chart')), findsNothing);
+    await tester.tap(find.byKey(const Key('today-tab-longterm')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.textContaining('法人官方買賣超金額未取得'), 200,
+        scrollable: find.byType(Scrollable).first);
     expect(find.textContaining('法人官方買賣超金額未取得'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
