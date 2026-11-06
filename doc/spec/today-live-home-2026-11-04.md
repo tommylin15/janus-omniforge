@@ -130,3 +130,10 @@
 - Flutter CI [#42152043926](https://github.com/tommylin15/janus-omniforge/actions/runs/42152043926) PASS、完整 Python＋Flutter + 4 GHCR digest [#42152171609](https://github.com/tommylin15/janus-omniforge/actions/runs/42152171609) PASS；0% [#42152812792](https://github.com/tommylin15/janus-omniforge/actions/runs/42152812792)、OAuth/market parity [#42152981514](https://github.com/tommylin15/janus-omniforge/actions/runs/42152981514)、API/App-only 100% [#42153121460](https://github.com/tommylin15/janus-omniforge/actions/runs/42153121460) 均 PASS。
 - 獨立現役固定 SHA、GHCR digest、App build-id、Owner 匿名隔離、公開價格 200／TAIEX 分鐘資料契約唯讀回驗 [#42153300173](https://github.com/tommylin15/janus-omniforge/actions/runs/42153300173) PASS。
 - **尚待**：沒有已登入 Owner 身分實際讓 2327／TAIEX 重新進頁後再讀 Kbars 的正向收據，也沒有本輪缺口數／PG Kbar rows 前後對照，因此只可宣稱 CODE／TEST／Dev live deploy PASS，不宣稱市場全天分鐘資料已經完整。
+
+
+### V5／V6 Owner 實機驗收結案（2026-11-06）
+
+- **驗收來源**：使用者在既有 Dev App 重新進入「今日」頁後回報：「分鐘點正常回補了，五檔買賣也有了」。據此將 V6 持股／大盤分鐘缺口回補，以及 V5 個股分鐘圖下方買賣五檔**使用者操作驗收**判定為 `OWNER_UAT_PASS / CLOSED`。
+- 此回報證實新版畫面上的分鐘回補與五檔顯示可用，並與上述同版 Flutter／Python、Private Proxy、API-only 100% 切流及獨立 Runtime 收據共同支持功能結案。**不推定** 09:00–13:30 每分鐘都完整、所有持股均有五檔、每檔的數量正確、手動刷新及休市／缺值分支都已逐一測試；未附逐分鐘 PG row count 或券商原始五檔回應。既有無資料不造點、三次回補上限及五檔新鮮度控制不變。
+- 前文關於「Owner 尚待」「NOT_VERIFIED」均屬本次驗收**之前**的歷史狀態；當前以此段使用者確認為準，不為已通過的正常顯示再要求重複驗收。
