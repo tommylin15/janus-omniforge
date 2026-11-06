@@ -153,6 +153,36 @@ void main() {
   });
 
 
+  testWidgets('minute volume renders only real Shioaji Kbar entries', (tester) async {
+    _mobile(tester);
+    final today = DateTime.now().toUtc().add(const Duration(hours: 8));
+    final day = '${today.year}-${today.month.toString().padLeft(2, '0')}-'
+        '${today.day.toString().padLeft(2, '0')}';
+    Widget display(List<dynamic> rows) => MaterialApp(home: Scaffold(
+      body: SingleChildScrollView(child: FvIntradayProgressChart(
+        rows: rows, label: '2330 分鐘量', unit: '元／股',
+        previousClose: 100, height: 150,
+      )),
+    ));
+    await tester.pumpWidget(display([
+      {'date': '${day}T09:00:00+08:00', 'value': '101',
+       'volume': '82', 'source': 'shioaji_kbars'},
+      {'date': '${day}T09:01:00+08:00', 'value': '102',
+       'volume': '43', 'source': 'shioaji_kbars'},
+    ]));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('intraday-session-volume-chart')), findsOneWidget);
+    expect(find.byKey(const Key('intraday-volume-missing')), findsNothing);
+    await tester.pumpWidget(display([
+      {'date': '${day}T09:00:00+08:00', 'value': '101',
+       'volume': '82', 'source': 'shioaji'},
+    ]));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('intraday-session-volume-chart')), findsNothing);
+    expect(find.byKey(const Key('intraday-volume-missing')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Today hides stale highlights and marks actual observed intraday extrema',
       (tester) async {
     _mobile(tester);

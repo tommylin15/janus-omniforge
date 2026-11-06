@@ -148,6 +148,31 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Today tabs keep minute chart separate from long-term research', (tester) async {
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = HomeFinanceApiStub();
+    await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
+    await tester.pumpAndSettle();
+    expect(find.text('持股今日走勢'), findsOneWidget);
+    expect(find.text('融資餘額 · 近兩週'), findsNothing);
+    expect(api.requests.where((p) => p == '/api/v1/public/market-leverage-flow'), isEmpty);
+    await tester.tap(find.byKey(const Key('today-tab-longterm')));
+    await tester.pumpAndSettle();
+    expect(find.text('市場長期趨勢'), findsOneWidget);
+    expect(find.text('持股今日走勢'), findsNothing);
+    expect(api.requests.where((p) => p == '/api/v1/public/market-leverage-flow').length, 1);
+    await tester.tap(find.byKey(const Key('today-tab-live')));
+    await tester.pumpAndSettle();
+    expect(find.text('持股今日走勢'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('today-tab-longterm')));
+    await tester.pumpAndSettle();
+    expect(api.requests.where((p) => p == '/api/v1/public/market-leverage-flow').length, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('credit panel uses dated TWD financing and investor money deltas',
       (tester) async {
     tester.view.physicalSize = const Size(390, 850);
