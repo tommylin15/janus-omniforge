@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "c4a30876e544629e82089c65130e1b6f5062caa3",
+  "sha": "7a2100dd203328792d1d35af87413e9dfc8a4f8b",
   "digest": "",
-  "release_run": "42149287772",
+  "release_run": "42152171609",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-06 Today V5 Shioaji BidAsk 5-level read-only depth below selected-minute chart. Full Python/Flutter fixed source GHCR release PASS #42149287772, proxy simulation-only deployment PASS #42148419484. Create existing Dev API 0%-traffic candidate only; preserve active traffic, Jobs, Scheduler, IAM and current owner data.",
-  "request_attempt": 53
+  "purpose": "2026-11-06 Today V6 stock and TAIEX 09:00-13:30 true minute Kbar on-entry gap repair. Full Python/Flutter/fixed 4 GHCR image digest release PASS #42152171609, source 7a2100dd; 30-minute PG shared cooldown and max 3/day, no tick-polling of Kbars or fabricated points. Deploy existing Dev API 0% candidate without affecting current owner traffic/jobs/scheduler/IAM.",
+  "request_attempt": 54
 }
