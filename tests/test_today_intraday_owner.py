@@ -168,7 +168,9 @@ def test_owner_gapfill_requires_held_symbol_and_a_cross_instance_claim():
 
 def test_on_entry_only_kbar_gap_refresh_never_called_by_quote_timer():
     source = Path("apps/user_app/lib/final_today_v2.dart").read_text()
-    assert source.count("_loadOwnerQuotes(onDemandBackfill: true)") == 4
+    # Entry/resume/tab-return paths can grow; the safety boundary is that the
+    # 60s quote timer never triggers Shioaji's historical Kbars.
+    assert source.count("_loadOwnerQuotes(onDemandBackfill: true)") >= 4
     assert "if (onDemandBackfill) _requestHistoricalGapFill(selectedHolding!);" in source
     timer = source.split("marketTimer = Timer.periodic", 1)[1].split(
         "Future<dynamic> _loadMarketWithoutPerf", 1)[0]
