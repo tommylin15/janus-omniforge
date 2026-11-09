@@ -59,6 +59,10 @@ Specialist／CEO 等 AI-only 區塊未就緒時，可以 bounded unavailable／h
 
 ## 5.2 關注
 
+**2026-11-09 關注雙 Tab（最新需求）**：關注頁比照首頁持股精簡呈現，預設「盤中變化」，橫向選股列切換 A／B／C 本人關注標的，僅繪製選定個股 09:00–13:30 的真實分鐘資料並以正式前收設 0% 基準；「長期觀察」讀取已發布的原始日收盤，提供近 5／20／60／120 日選擇。選股及期間在兩個 Tab 間保留；長期行情按需取一次，不與分鐘行情混算。
+**安全與使用限制**：新增 Owner 限定 GET /api/v1/me/watchlist/intraday?symbol=，只可查本人 active watchlist，仍不放寬原持股專用 GET /api/v1/me/portfolio/intraday；Shioaji 歷史 1 分 K 補收僅在初次選股／重入盤中按需，涵蓋本人已持有或已關注的標的，受 PostgreSQL 每檔每日 3 次、30 分鐘冷卻節流，60 秒 Timer 不調用歷史補收。盤中輪詢只在 Watchlist 前景、盤中變化 Tab 且台股交易時段內進行，重用後端 QuoteRouter 分散式單飛。無有效前收、缺價與 stale 狀態均明示，不造假補點、不把觀看股票視為持股或計算持股損益。
+**清單操作**：A／B／C 分類與 S 持股、目標價、鎖定、加入／移除、原長按排序完整保留於預設收合的「管理關注清單」。已退出名冊而仍有效關注的標的仍保留並顯示缺值及狀態；不要求先持有才能查看走勢。是否正式上線以 GitHub CI、Release 與 Live readback 證據判定。
+
 以 authenticated owner 的 active watchlist 為中心，不顯示平台推薦榜，也不因搜尋／page load 觸發 scraper、Agent 或 LLM。
 
 - 搜尋支援股票代號與中文名稱，使用 canonical stock-master search contract；第一層輸入 dialog 的主要動作明確標示「搜尋」，選定股票後才在設定／確認步驟使用「儲存」。
