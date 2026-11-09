@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "151fa91c64bb04e07bdfbc9f0238590464012580",
-  "purpose": "2026-11-09 soft limit-up/limit-down Taiwan stock prices in both Holdings and Today. Pastel fills (soft red/green) only for valid quote with tick-rounded 10% exchange limit, without changing price/PnL or quote polling. Flutter User App #42546399188 PASS and Janus selective CI #42546399187 PASS. Release fixed full source; no storage/Jobs/traffic mutation in this stage. Prior widget CI failed; regression fixed in 151fa91c.",
+  "sha": "e47d71313764409dafb01124ba663c414abe8a67",
+  "purpose": "2026-11-09 Watchlist selected-ticker UI mirrors Today live and long-term dual tabs: Owner-only watchlist intraday read, guarded Shioaji historical backfill for active watched symbol, Kline EOD 5/20/60/120 daily periods, soft limit-price hints and collapsible list management. No new schemas, Jobs, scheduling, paid services, storage/IAM or Owner financial mutations. Main UI commit e47d7131; Flutter full #42550747405 PASS, Selective CI #42550747267 PASS, backend Analysis Product #42550616746 PASS. Full fixed SHA release required before existing Dev API-only rollout.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 54
+  "request_attempt": 55
 }
