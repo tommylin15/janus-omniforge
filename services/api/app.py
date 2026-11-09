@@ -1587,6 +1587,9 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             result.append({
                 **row, **movement,
                 "instrument_kind": identity.get("instrument_kind"),
+                "currency": ("TWD" if str(identity.get("market") or "").upper()
+                             in {"TWSE", "TPEX", "OTC", "TPEX_UNVERIFIED"}
+                             else row.get("currency")),
                 "previous_close_source": (
                     "official_previous_close" if movement.get("previous_close") is not None
                     and movement.get("previous_close_date") else None

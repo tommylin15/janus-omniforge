@@ -391,8 +391,12 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
               Padding(
                 padding: const EdgeInsets.only(right: 7),
                 child: Material(
-                  color: selectedSymbol == row['symbol']
-                      ? const Color(0xFFD4ECEE) : Colors.white,
+                  color: fvPriceLimitState(row) == FvPriceLimit.up
+                      ? fvLimitUpFill
+                      : fvPriceLimitState(row) == FvPriceLimit.down
+                          ? fvLimitDownFill
+                          : selectedSymbol == row['symbol']
+                              ? const Color(0xFFD4ECEE) : Colors.white,
                   borderRadius: BorderRadius.circular(19),
                   child: InkWell(
                     key: Key('watch-select-' + fvText(row['symbol'])),
