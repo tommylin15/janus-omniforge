@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "1f18915c2a91222d009c65a171fb1c641c44642d",
+  "sha": "03d2550ac5d97d35fade1c3497ae079c9bda0bba",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-06 Today V7, full GHCR Release #42172490074 PASS, Shioaji simulation-only Proxy #42171459704 PASS, 079 volume migration #42171720754 PASS, 0% Dev candidate #42173114571 PASS. Read-only verify OAuth Owner/Admin/MCP deny, fixed /app build-id and current public TAIEX/2330 quote parity; no GCP write or traffic mutation. Proceed with only existing Dev API/App if PASS.",
-  "request_attempt": 49
+  "purpose": "2026-11-09 pastel price-limit UI. Full GHCR Release PASS #42546654664, exact fixed source 03d2550a, Dev 0% candidate #42547180838 PASS. Read-only OAuth Owner/Admin/MCP deny and quote parity, fixed /app build-id. No IAM/GCP writes, no traffic promotion.",
+  "request_attempt": 50
 }
