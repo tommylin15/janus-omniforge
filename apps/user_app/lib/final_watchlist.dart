@@ -224,9 +224,14 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
           minutes = null;
           history = null;
           historySymbol = null;
-          if (selectedSymbol != null && watchTab == 0) {
-            minutes = _readMinutes(selectedSymbol!);
-            requestBackfill(selectedSymbol!);
+          if (selectedSymbol != null) {
+            if (watchTab == 0) {
+              minutes = _readMinutes(selectedSymbol!);
+              requestBackfill(selectedSymbol!);
+            } else {
+              historySymbol = selectedSymbol;
+              history = _readHistory(selectedSymbol!);
+            }
           }
         } else if (selectedSymbol != null && watchTab == 0) {
           // No upstream provider call on minute-chart read: cached PG only.
@@ -351,6 +356,257 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'))); }
   }
 
+
+  Widget _tabs() => Row(children: [
+    Expanded(child: FilledButton(
+      key: const Key('watch-tab-live'), onPressed: () => switchTab(0),
+      style: FilledButton.styleFrom(
+        backgroundColor: watchTab == 0 ? fvTeal : fvSoft,
+        foregroundColor: watchTab == 0 ? Colors.white : fvInk),
+      child: const Text('盤中變化'),
+    )),
+    const SizedBox(width: 9),
+    Expanded(child: FilledButton(
+      key: const Key('watch-tab-longterm'), onPressed: () => switchTab(1),
+      style: FilledButton.styleFrom(
+        backgroundColor: watchTab == 1 ? fvTeal : fvSoft,
+        foregroundColor: watchTab == 1 ? Colors.white : fvInk),
+      child: const Text('長期觀察'),
+    )),
+  ]);
+
+  Widget _selector(List<dynamic> rows) {
+    final list = rows.map(fvMap).toList();
+    return fvPanel(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 15),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('選擇關注股',
+          style: TextStyle(color: fvInk, fontSize: 15, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 9),
+        SingleChildScrollView(
+          key: const Key('watch-symbol-strip'),
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            for (final row in list)
+              Padding(
+                padding: const EdgeInsets.only(right: 7),
+                child: Material(
+                  color: selectedSymbol == row['symbol']
+                      ? const Color(0xFFD4ECEE) : Colors.white,
+                  borderRadius: BorderRadius.circular(19),
+                  child: InkWell(
+                    key: Key('watch-select-' + fvText(row['symbol'])),
+                    onTap: () => selectSymbol(fvText(row['symbol'])),
+                    borderRadius: BorderRadius.circular(19),
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 37, maxWidth: 145),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: selectedSymbol == row['symbol']
+                            ? fvTeal : const Color(0xFFD6E1E4),
+                            width: selectedSymbol == row['symbol'] ? 1.5 : 0.8),
+                        borderRadius: BorderRadius.circular(19),
+                      ),
+                      child: Column(mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(fvText(row['tier'], missing: 'C') + ' · ' +
+                            fvText(row['symbol']),
+                          style: const TextStyle(
+                            color: fvInk, fontSize: 12, fontWeight: FontWeight.w800)),
+                        Text(fvText(row['stock_name'], missing: ''),
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: fvMuted, fontSize: 10)),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _selectedSummary(Map<String, dynamic> row) {
+    final symbol = fvText(row['symbol']);
+    final priceStatus = fvText(row['price_status'], missing: 'missing');
+    final fresh = priceStatus == 'available' && row['quote_state'] == 'intraday';
+    final validChange = priceStatus == 'available' &&
+        row['change'] != null && row['change_percent'] != null;
+    return fvPanel(child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Text(legacy.stockDisplayName(row),
+          key: const Key('watch-selected-stock'),
+          style: const TextStyle(color: fvInk, fontSize: 17,
+            fontWeight: FontWeight.w800))),
+        fvStatusPill(priceStatus),
+      ]),
+      const SizedBox(height: 4),
+      Text((fresh ? '盤中' : '非即時') + ' · 價格日 ' +
+          fvText(row['price_date'], missing: '缺值'),
+        key: const Key('watch-quote-status'),
+        style: const TextStyle(color: fvMuted, fontSize: 11)),
+      const SizedBox(height: 9),
+      Row(children: [
+        const Text('現價  ', style: TextStyle(color: fvMuted, fontSize: 12)),
+        Expanded(child: Align(alignment: Alignment.centerLeft,
+          child: fvLimitPriceText(
+            row,
+            legacy.accountingNumber(row['market_price'],
+                decimals: 2, missing: '行情尚未取得'),
+            key: const Key('watch-selected-price'),
+            fontSize: 23,
+            ordinaryColor: priceStatus == 'available'
+                ? fvSignedColor(row['change']) : fvMuted))),
+        if (validChange)
+          Text(legacy.accountingNumber(row['change'], decimals: 2) +
+                '  ' + fvSignedPercent(row['change_percent']),
+            key: Key('watch-price-change-$symbol'),
+            style: TextStyle(color: fvSignedColor(row['change']),
+              fontSize: 13, fontWeight: FontWeight.w800)),
+      ]),
+      const SizedBox(height: 5),
+      Text('前收 ' + legacy.accountingNumber(row['previous_close'],
+             decimals: 2) + ' · 來源 ' +
+           fvText(row['price_source'], missing: '待取得'),
+        style: const TextStyle(color: fvMuted, fontSize: 11)),
+      const SizedBox(height: 10),
+      Wrap(spacing: 6, runSpacing: 6, children: [
+        if (row['held'] == true) fvTag('已持有',
+          icon: Icons.account_balance_wallet_outlined),
+        fvTag(row['held'] == true ? 'S 持股'
+            : fvText(row['tier'], missing: 'C') + ' 池',
+          icon: Icons.bookmark_outline),
+        if (row['tier_confirmed'] != true) fvTag('待確認分類'),
+        if (row['sync_locked'] == true) fvTag('已鎖定'),
+        fvTag(row['target_price'] == null ? '目標價未設定'
+            : '目標 ' + legacy.accountingNumber(row['target_price'],
+                decimals: 2), icon: Icons.track_changes_outlined),
+        if (fvInt(row['pending_note_count']) > 0)
+          fvTag('待追蹤 ' + fvInt(row['pending_note_count']).toString(),
+              icon: Icons.flag_outlined),
+        if (row['in_market'] == false)
+          fvTag('已退出有效名冊 · 仍保留關注', warning: true),
+      ]),
+      const SizedBox(height: 6),
+      Wrap(spacing: 6, runSpacing: 4, children: [
+        if (widget.onOpenStock != null)
+          TextButton.icon(
+            onPressed: () => widget.onOpenStock?.call(symbol),
+            icon: const Icon(Icons.open_in_new, size: 17),
+            label: const Text('個股詳情')),
+        TextButton.icon(onPressed: () => editPool(row),
+          icon: const Icon(Icons.tune, size: 17),
+          label: const Text('觀察池設定')),
+      ]),
+    ]));
+  }
+
+  Widget _intradayChart(String symbol) => FutureBuilder<dynamic>(
+    key: ValueKey('watch-minute-future-$symbol'),
+    future: minutes,
+    builder: (context, state) {
+      if (state.connectionState != ConnectionState.done) {
+        return fvBoundedState('關注股分鐘資料載入中');
+      }
+      if (state.hasError || state.data == null) {
+        return fvBoundedState('分鐘資料尚無法讀取；不以舊行情冒充即時');
+      }
+      final root = fvMap(state.data);
+      final today = fvText(root['as_of'], missing: '');
+      final referenceDate = fvText(root['previous_close_date'], missing: '');
+      final previousClose = root['previous_close_source'] ==
+              'official_previous_close' &&
+          today.isNotEmpty && referenceDate.isNotEmpty &&
+          referenceDate.compareTo(today) < 0
+              ? fvNumber(root['previous_close']) : null;
+      return Column(children: [
+        FvIntradayProgressChart(
+          key: ValueKey('watch-minute-chart-$symbol'),
+          rows: fvRows(root['items']),
+          label: '$symbol · 今日分鐘走勢',
+          unit: '元／股', height: 185, previousClose: previousClose,
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
+          child: Text('固定 09:00–13:30；分鐘線僅顯示實際資料，不補虛構點。',
+            style: TextStyle(color: fvMuted, fontSize: 11)),
+        ),
+      ]);
+    },
+  );
+
+  Widget _historyChart(String symbol) => Column(children: [
+    fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('正式歷史收盤價',
+          style: TextStyle(color: fvInk, fontSize: 16,
+            fontWeight: FontWeight.w800)),
+        const SizedBox(height: 3),
+        const Text('與盤中分鐘點分開；原始日收盤未還原除權息。',
+          style: TextStyle(color: fvMuted, fontSize: 11)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 7, runSpacing: 4, children: [
+          for (final days in const [5, 20, 60, 120])
+            ChoiceChip(
+              key: Key('watch-history-$days'),
+              visualDensity: VisualDensity.compact,
+              label: Text('近$days日'),
+              selected: historyDays == days,
+              onSelected: (_) => setState(() => historyDays = days),
+            ),
+        ]),
+      ])),
+    FutureBuilder<dynamic>(
+      key: ValueKey('watch-history-future-$symbol'),
+      future: history,
+      builder: (context, state) {
+        if (state.connectionState != ConnectionState.done)
+          return fvBoundedState('正式歷史收盤載入中');
+        if (state.hasError || state.data == null)
+          return fvBoundedState('正式日收盤暫時無法取得');
+        final series = fvRows(state.data).map(fvMap).map((row) =>
+          <String, dynamic>{'date': row['trade_date'], 'value': row['close']}
+        ).where((point) => fvText(point['date'], missing: '').isNotEmpty).toList();
+        series.sort((a, b) => fvText(a['date']).compareTo(fvText(b['date'])));
+        final visible = series.length > historyDays
+            ? series.sublist(series.length - historyDays) : series;
+        if (visible.length < 2)
+          return fvBoundedState('有效日收盤少於兩期，無法繪製長期趨勢');
+        return FvVisualSeriesChart(
+          key: ValueKey('watch-history-chart-$symbol-$historyDays'),
+          rows: visible,
+          label: '$symbol · 近$historyDays日收盤',
+          unit: '元／股', height: 180, showTable: false, dailyTable: true,
+        );
+      },
+    ),
+  ]);
+
+  Widget _selectedContent(List<dynamic> rows) {
+    if (rows.isEmpty) return const SizedBox.shrink();
+    final selected = rows.map(fvMap).firstWhere(
+      (row) => fvText(row['symbol']) == selectedSymbol,
+      orElse: () => fvMap(rows.first),
+    );
+    final symbol = fvText(selected['symbol']);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _selector(rows),
+      _selectedSummary(selected),
+      if (watchTab == 0) _intradayChart(symbol)
+      else _historyChart(symbol),
+      fvPanel(padding: EdgeInsets.zero, child: ListTile(
+        key: const Key('watch-manage-toggle'),
+        title: const Text('管理關注清單',
+          style: TextStyle(color: fvInk, fontWeight: FontWeight.w800)),
+        subtitle: const Text('展開後可排序、調整及移除；平時不重複顯示大卡片'),
+        trailing: Icon(managing ? Icons.expand_less : Icons.expand_more),
+        onTap: () => setState(() => managing = !managing),
+      )),
+    ]);
+  }
+
   Widget header(BuildContext context, int? count, {int followups = 0}) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -385,11 +641,11 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
               ],
             ),
           ),
-          fvSectionTitle(
-            context,
-            '我的關注',
-            trailing: count == null || count == 0 ? null : '長按拖曳排序',
-          ),
+          _tabs(),
+          const SizedBox(height: 10),
+          if (managing)
+            fvSectionTitle(context, '我的關注',
+              trailing: count == null || count == 0 ? null : '長按拖曳排序'),
         ],
       );
 
@@ -586,6 +842,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                 header: Column(children: [
                   header(context, rows.length, followups: rows.fold<int>(0,
                       (total, row) => total + fvInt(fvMap(row)['pending_note_count']))),
+                  _selectedContent(rows),
                   if (snapshot.connectionState != ConnectionState.done)
                     fvBoundedState('清單更新中，保留上次有效資料', icon: Icons.sync),
                   if (snapshot.hasError)
@@ -595,7 +852,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                     ])),
                 ]),
                 footer: const SizedBox(height: 8),
-                itemCount: rows.length,
+                itemCount: managing ? rows.length : 0,
                 buildDefaultDragHandles: false,
                 onReorder: (oldIndex, newIndex) => reorder(rows, oldIndex, newIndex),
                 itemBuilder: (context, index) => ReorderableDelayedDragStartListener(
