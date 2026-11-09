@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "1f18915c2a91222d009c65a171fb1c641c44642d",
-  "promotion_run": "42173514753",
+  "source_sha": "03d2550ac5d97d35fade1c3497ae079c9bda0bba",
+  "promotion_run": "42547517993",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-06 Today V7 post API-only 100% Dev promotion #42173514753. Independently verify immutable source/build-id, GHCR digest and active 100% traffic, health/public intraday schema, anonymized Owner intraday+five-level API fences. Shioaji simulation-only Proxy #42171459704 and additive PG 079 #42171720754 PASS; no GCP/job/scheduler/owner mutations. Owner authenticated mobile positive UAT remains separate.",
-  "request_attempt": 11
+  "purpose": "2026-11-09 pastel limit-up/down price display deployed on existing Dev API/App by API-only 100% promotion #42547517993 (full Release #42546654664, candidate #42547180838, OAuth boundary #42547349496 all PASS). Independently verify 100% route, Ready immutable GHCR source, canonical build-id, health/public intraday market-home schema and unauthorized Owner holdings/intraday/order-book API fences. No GCP/Job/Scheduler/Owner mutations; authenticated visual mobile UAT still separate.",
+  "request_attempt": 12
 }
