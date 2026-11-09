@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "03d2550ac5d97d35fade1c3497ae079c9bda0bba",
+  "sha": "a12898bc2c97c4ddbe5d7aeda3361187bce99f10",
   "digest": "",
-  "release_run": "42546654664",
+  "release_run": "42551010365",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-09 pastel limit-up/limit-down price accents for Today and Holdings. Exact full GHCR source 03d2550ac5d97d35fade1c3497ae079c9bda0bba: full Python, Flutter and four public GHCR immutable digest checks PASS #42546654664. Deploy existing Dev API/App 0%-traffic candidate only; keep current 100% traffic, Owner data, Jobs, Scheduler, Proxy, DB, IAM unchanged.",
-  "request_attempt": 56
+  "purpose": "2026-11-09 Janus Watchlist dual-tab: selected stock live minutes and 5/20/60/120 EOD trend, owner-scoped watchlist minute reader and bounded on-demand Shioaji Kbars. Exact source a12898bc2c97c4ddbe5d7aeda3361187bce99f10, full Release #42551010365 attempt 2 PASS (Python, Flutter, four public immutable GHCR images). Deploy only existing Dev API 0% candidate; preserve old 100%, Jobs, Scheduler, PostgreSQL, IAM and Owner data.",
+  "request_attempt": 57
 }
