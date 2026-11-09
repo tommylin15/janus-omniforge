@@ -1,5 +1,12 @@
 # Janus 最新驗收證據索引
 
+## 2026-11-09 首頁／持股頁漲跌停淡色反底｜工程發布與獨立 Live PASS，Owner 視覺 UAT 待確認
+
+- **視覺範圍**：首頁「盤中變化」橫向精簡持股選擇列以淡紅（漲停）／淡綠（跌停）標記，選定個股另顯示柔和反底現價；「持股／記帳」持股表格只反底現價，日損益與總損益色彩和業務數字維持原設計。共用台股最小跳動單位換算精確漲跌停價：前收 374 的漲停價 411.0（漲幅約 9.89%）亦正確標記。過時／缺價／無可信前收／未確認普通限幅規則的 ETF 一律不推定，避免假紅綠；已知國內 0050 按其適用單位處理。不修改 Shioaji Proxy、資料來源、分鐘圖、Owner PnL、批次或 schema。
+- **程式與測試**：UI 初始提交 [96d6104](https://github.com/tommylin15/janus-omniforge/commit/96d61046785a64cc0567c5bc228380447d3dd8d4)，測試修正 [151fa91](https://github.com/tommylin15/janus-omniforge/commit/151fa91c64bb04e07bdfbc9f0238590464012580)；保留原 Text key，修復舊分鐘圖 fixture 固定歷史前收導致的跨日期失敗。Flutter 全量 #42546399188 PASS，Selective CI #42546399187 PASS。固定上線映像原始來源 SHA `03d2550ac5d97d35fade1c3497ae079c9bda0bba`，完整 Python＋Flutter＋GHCR Build/Digest Release [#42546654664](https://github.com/tommylin15/janus-omniforge/actions/runs/42546654664) SUCCESS。
+- **Dev 正式切流**：同 SHA 既有 API 0% Candidate [#42547180838](https://github.com/tommylin15/janus-omniforge/actions/runs/42547180838) PASS → OAuth／Owner/Admin／MCP／行情 parity [#42547349496](https://github.com/tommylin15/janus-omniforge/actions/runs/42547349496) PASS → API-only direct 100% Promotion [#42547517993](https://github.com/tommylin15/janus-omniforge/actions/runs/42547517993) SUCCESS，保留前版 source `1f18915c2a91222d009c65a171fb1c641c44642d` 作可回復基準；未做回滾演練，沒有修改 Jobs／Scheduler／Storage／IAM／Owner 資料。
+- **獨立線上驗收**：[A-CHANGE read-only #42547817859](https://github.com/tommylin15/janus-omniforge/actions/runs/42547817859) SUCCESS，核對現役單一 100% revision、不可變 GHCR 映像、`/app/build-id.txt` 與來源 SHA 一致、`/app/` 及 health 200、公開大盤分鐘結構、未登入 Owner 持股分鐘點／五檔／個股等私密 API 401/403；不觸發 GCP／Owner 寫入。**ENGINEERING_RELEASE=PASS、INDEPENDENT_PUBLIC_LIVE=PASS、OWNER_MOBILE_VISUAL_UAT=NOT_VERIFIED**，僅待使用者在手機檢查漲停（例如 2327）是否呈現淡紅底、普通漲跌無底、跌停呈淡綠底，不以模擬資料代替真實登入驗收。
+
 ## 2026-11-05 持股報表市值占比／市值成本走勢｜CLOSED／PASS（Owner 實機驗收）
 
 - **固定應用 source**：`9f078c37e2a2c1d363a509acfec1816bea1a1d11`。Flutter 4 項舊報表回歸／Material ancestor 異常已修復，[Flutter 全量 #41963948202](https://github.com/tommylin15/janus-omniforge/actions/runs/41963948202) PASS；[CI #41964040067](https://github.com/tommylin15/janus-omniforge/actions/runs/41964040067) PASS；[Python+Flutter Web+四 GHCR 完整 Release #41964040291](https://github.com/tommylin15/janus-omniforge/actions/runs/41964040291) PASS。
