@@ -97,3 +97,29 @@ def test_eod_quote_read_restricts_latest_lookup_to_requested_symbols():
     assert "publication.stock_serving_recent" in sql
     assert "publication.stock_latest" not in sql
     assert "ORDER BY r.sort_at DESC LIMIT 1" in sql
+
+
+
+def test_active_watchlist_symbol_lookup_is_owner_scoped():
+    from uuid import uuid4
+    target = uuid4()
+    hits = []
+
+    class Connection:
+        def execute(self, sql, params):
+            hits.append((sql, params))
+            return self
+
+        def fetchone(self):
+            return {"exists": 1}
+
+    class Repo(PostgresWorkspaceRepository):
+        @contextmanager
+        def _connection(self):
+            yield Connection()
+
+    assert Repo("test").is_watchlisted_symbol(target, "2327") is True
+    assert hits == [(
+        "SELECT 1 FROM private.watchlist WHERE user_id=%s AND symbol=%s AND active LIMIT 1",
+        (target, "2327"),
+    )]

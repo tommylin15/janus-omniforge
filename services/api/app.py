@@ -1289,10 +1289,14 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         trade_day = clock.date()
         if symbol != "TAIEX":
             positions = repository.positions(current.user_id)
-            if not any(str(row.get("symbol")) == symbol and
+            held = any(str(row.get("symbol")) == symbol and
                        row.get("currency") == "TWD" and
-                       Decimal(str(row.get("shares") or 0)) > 0 for row in positions):
-                raise HTTPException(status_code=404, detail="未持有此標的")
+                       Decimal(str(row.get("shares") or 0)) > 0 for row in positions)
+            watched_reader = getattr(repository, "is_watchlisted_symbol", None)
+            watched = (bool(watched_reader(current.user_id, symbol))
+                       if not held and callable(watched_reader) else False)
+            if not held and not watched:
+                raise HTTPException(status_code=404, detail="未持有或未關注此標的")
         if clock.weekday() >= 5 or clock.hour * 60 + clock.minute < 560:
             return {"status": "not_session", "saved": 0, "symbol": symbol,
                     "date": trade_day.isoformat()}
@@ -1341,19 +1345,11 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             return {"symbol": symbol, "status": "unavailable",
                     "source": "shioaji_bidask", "unit": "lots", "bid": [], "ask": []}
 
-    @private.get("/portfolio/intraday")
-    def portfolio_intraday(symbol: str = Query(..., pattern=r"^[0-9A-Z]{4,10}$"),
-                           current: AuthenticatedUser = Depends(user)):
-        """Owner-only persisted observations; never triggers an upstream quote."""
-        owned = repository.positions(current.user_id)
-        if not any(str(p.get("symbol")) == symbol and
-                   p.get("currency") == "TWD" and
-                   Decimal(str(p.get("shares") or 0)) > 0 for p in owned):
-            raise HTTPException(status_code=404, detail="未持有此標的")
+    def stored_symbol_intraday(symbol: str) -> dict[str, Any]:
+        """Shared bounded price-series read. Both routes enforce Owner scope first."""
         today = datetime.now(TAIPEI).date()
         rows = repository.stock_intraday_points(symbol, trade_date=today)
-        # Use the previously published official close for a real zero-percent
-        # reference. Never infer it from today's first sampled quote.
+        # Only an official dated prior close can anchor the zero-percent axis.
         prior = {}
         reader = getattr(repository, "official_previous_closes", None)
         if reader is not None:
@@ -1362,7 +1358,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             except Exception as error:
                 LOGGER.warning("intraday official previous close unavailable: %s",
                                type(error).__name__)
-        return jsonable_encoder({
+        return {
             "symbol": symbol, "as_of": today.isoformat(), "items": rows,
             "observation_kind": (
                 "historical_kbars_and_live_observations"
@@ -1384,7 +1380,27 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                 and str(prior["previous_close_date"]) < today.isoformat()
                 else None
             ),
-        })
+        }
+
+    @private.get("/portfolio/intraday")
+    def portfolio_intraday(symbol: str = Query(..., pattern=r"^[0-9A-Z]{4,10}$"),
+                           current: AuthenticatedUser = Depends(user)):
+        """Held positions only. No upstream quote request on chart reading."""
+        owned = repository.positions(current.user_id)
+        if not any(str(p.get("symbol")) == symbol and
+                   p.get("currency") == "TWD" and
+                   Decimal(str(p.get("shares") or 0)) > 0 for p in owned):
+            raise HTTPException(status_code=404, detail="未持有此標的")
+        return jsonable_encoder(stored_symbol_intraday(symbol))
+
+    @private.get("/watchlist/intraday")
+    def watchlist_intraday(symbol: str = Query(..., pattern=r"^[0-9A-Z]{4,10}$"),
+                           current: AuthenticatedUser = Depends(user)):
+        """Read only the requesting owner's active watchlist symbol observations."""
+        watched = getattr(repository, "is_watchlisted_symbol", None)
+        if not callable(watched) or not watched(current.user_id, symbol):
+            raise HTTPException(status_code=404, detail="未關注此標的")
+        return jsonable_encoder(stored_symbol_intraday(symbol))
 
     @private.post("/portfolio/quotes/refresh")
     def refresh_portfolio_quotes(current: AuthenticatedUser = Depends(user)):
@@ -1565,7 +1581,17 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                        "quote_at": quote.get("quote_at"),
                        "is_final": bool(quote.get("is_final")),
                        "route_version": ROUTE_VERSION}
-            result.append({**row, **movement})
+            # Supply already-authorized identity and dated official reference
+            # metadata for shared visual-limit treatment, not invented quotes.
+            identity = identities.get(str(row["symbol"])) or {}
+            result.append({
+                **row, **movement,
+                "instrument_kind": identity.get("instrument_kind"),
+                "previous_close_source": (
+                    "official_previous_close" if movement.get("previous_close") is not None
+                    and movement.get("previous_close_date") else None
+                ),
+            })
         return jsonable_encoder(result)
 
     @private.post("/watchlist",status_code=201)

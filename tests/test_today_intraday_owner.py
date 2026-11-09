@@ -178,3 +178,59 @@ def test_on_entry_only_kbar_gap_refresh_never_called_by_quote_timer():
     assert "market.then((_) => _loadOwnerQuotes())" in timer
     assert "(minute - 540) ~/ 30" in source
     assert "_backfillInFlight.contains(symbol)" in source
+
+
+
+def test_watchlist_intraday_is_owner_bound_and_never_fetches_an_upstream_quote():
+    repo = Repository()
+    requested = []
+    repo.is_watchlisted_symbol = lambda owner, symbol: symbol == "2327"
+    repo.positions = lambda owner: []
+    repo.stock_intraday_points = lambda symbol, trade_date=None: (
+        requested.append((symbol, trade_date)) or [
+            {"date": "2026-11-09T09:02:00+08:00", "value": "411",
+             "source": "shioaji_kbars", "volume": "13"}
+        ]
+    )
+    repo.official_previous_closes = lambda dates: {
+        "2327": {"previous_close": "374", "previous_close_date": "2026-11-06"}
+    }
+    claims = {"iss": "https://accounts.google.com", "aud": "user-client",
+              "sub": "google-a", "email": "owner@example.com",
+              "email_verified": True, "exp": 1900000000}
+    client = TestClient(create_app(repo, Store(), lambda *_: claims,
+                                  audience="user-client"))
+    path = "/api/v1/me/watchlist/intraday?symbol=2327"
+    assert client.get(path).status_code == 401
+    assert client.get("/api/v1/me/watchlist/intraday?symbol=2330",
+                      headers=auth()).status_code == 404
+    assert client.get("/api/v1/me/watchlist/intraday?symbol=2327%27",
+                      headers=auth()).status_code == 422
+    response = client.get(path, headers=auth())
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["symbol"] == "2327"
+    assert payload["previous_close"] == "374"
+    assert payload["is_full_day"] is False
+    assert payload["historical_kbar_count"] == 1
+    assert len(requested) == 1
+
+
+def test_active_watchlist_symbol_can_request_existing_throttled_kbar_backfill():
+    repo = Repository()
+    repo.positions = lambda owner: []
+    repo.is_watchlisted_symbol = lambda owner, symbol: symbol == "2327"
+    repo.reserve_session_kbar_backfill = lambda symbol, day, now: False
+
+    claims = {"iss": "https://accounts.google.com", "aud": "user-client",
+              "sub": "google-a", "email": "owner@example.com",
+              "email_verified": True, "exp": 1900000000}
+    client = TestClient(create_app(repo, Store(), lambda *_: claims,
+                                  audience="user-client"))
+    endpoint = "/api/v1/me/market/minute-backfill"
+    assert client.post(endpoint, json={"symbol": "2330"},
+                       headers=auth()).status_code == 404
+    response = client.post(endpoint, json={"symbol": "2327"}, headers=auth())
+    assert response.status_code == 200
+    assert response.json()["status"] in {"not_session", "unavailable",
+                                         "cached_or_throttled"}

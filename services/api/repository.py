@@ -522,6 +522,14 @@ class PostgresWorkspaceRepository:
             ).fetchall()
             return [dict(row) for row in rows]
 
+    def is_watchlisted_symbol(self, user_id: UUID, symbol: str) -> bool:
+        """Fast owner authorization for a single *active* watched ticker."""
+        with self._connection() as connection:
+            return connection.execute(
+                "SELECT 1 FROM private.watchlist WHERE user_id=%s AND symbol=%s "
+                "AND active LIMIT 1", (user_id, symbol),
+            ).fetchone() is not None
+
     def watchlist(self, user_id: UUID) -> list[dict[str, Any]]:
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(
