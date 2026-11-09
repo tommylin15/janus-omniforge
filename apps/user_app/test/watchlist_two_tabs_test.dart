@@ -96,7 +96,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('watch-history-chart-2330-60')), findsOneWidget);
 
+    // The chart is long and the picker may sit above the viewport.
+    // Move the *outer* list, then the picker scrolls horizontally if needed.
+    await tester.drag(find.byKey(const Key('final-watchlist-scroll')),
+        const Offset(0, 570));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('watch-select-2327')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('watch-select-2327')));
     await tester.pumpAndSettle();
     expect(api.calls, contains('/api/v1/public/kline/2327?limit=120'));
@@ -116,7 +122,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('watch-2330')), findsNothing);
     final toggle = find.byKey(const Key('watch-manage-toggle'));
+    // Expanding this control requires a vertical scroll of the outer page,
+    // not a horizontal scroll of the ticker-strip list.
+    await tester.drag(find.byKey(const Key('final-watchlist-scroll')),
+        const Offset(0, -640));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
     await tester.tap(toggle);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('watch-2330')), findsWidgets);
