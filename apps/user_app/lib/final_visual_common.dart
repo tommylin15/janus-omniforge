@@ -114,7 +114,6 @@ Widget fvLimitPriceText(Map<String, dynamic> row, String value, {
   final ink = state == FvPriceLimit.up ? fvLimitUpInk
       : state == FvPriceLimit.down ? fvLimitDownInk : ordinaryColor;
   final content = Container(
-    key: key,
     padding: active
         ? const EdgeInsets.symmetric(horizontal: 5, vertical: 2)
         : EdgeInsets.zero,
@@ -122,7 +121,7 @@ Widget fvLimitPriceText(Map<String, dynamic> row, String value, {
       color: state == FvPriceLimit.up ? fvLimitUpFill : fvLimitDownFill,
       borderRadius: BorderRadius.circular(6),
     ) : null,
-    child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
+    child: Text(value, key: key, maxLines: 1, overflow: TextOverflow.ellipsis,
       style: TextStyle(color: ink, fontSize: fontSize,
           fontWeight: FontWeight.w800)),
   );

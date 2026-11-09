@@ -39,9 +39,13 @@ void main() {
         body: fvLimitPriceText(quote('2327', entry.$1), entry.$1,
           key: const Key('limit-price')),
       )));
-      final decoration = tester.widget<Container>(
-          find.byKey(const Key('limit-price'))).decoration! as BoxDecoration;
-      expect(decoration.color, entry.$2);
+      final ancestor = find.ancestor(
+        of: find.byKey(const Key('limit-price')),
+        matching: find.byType(Container),
+      );
+      expect(tester.widgetList<Container>(ancestor).any((container) =>
+          (container.decoration is BoxDecoration) &&
+          (container.decoration! as BoxDecoration).color == entry.$2), isTrue);
       expect(find.byTooltip(entry.$3), findsOneWidget);
     }
   });

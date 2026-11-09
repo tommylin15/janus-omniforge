@@ -190,6 +190,14 @@ void main() {
     final day = '${local.year.toString().padLeft(4, '0')}-'
         '${local.month.toString().padLeft(2, '0')}-'
         '${local.day.toString().padLeft(2, '0')}';
+    // The baseline must use a recent prior session on any test date.
+    var previousTradingDay = DateTime(local.year, local.month, local.day)
+        .subtract(const Duration(days: 1));
+    while (previousTradingDay.weekday > DateTime.friday) {
+      previousTradingDay =
+          previousTradingDay.subtract(const Duration(days: 1));
+    }
+    final previousDate = previousTradingDay.toIso8601String().substring(0, 10);
     final api = TodayApiStub({
       'sections': {
         'taiex': {'status': 'available', 'as_of': day,
@@ -198,8 +206,7 @@ void main() {
             {'date': '${day}T09:01:00+08:00', 'value': '43000'},
             {'date': '${day}T09:02:00+08:00', 'value': '42500'},
           ], 'history_points': [
-            {'date': '2026-10-29', 'value': '42000'},
-            {'date': '2026-10-30', 'value': '42500'},
+            {'date': previousDate, 'value': '42500'},
           ]}},
       },
     });

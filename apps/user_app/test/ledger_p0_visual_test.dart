@@ -101,8 +101,10 @@ void main() {
     final price = find.byKey(const Key('holding-latest-price-2327'));
     await tester.scrollUntilVisible(price, 160,
         scrollable: find.byType(Scrollable).first);
-    final deco = tester.widget<Container>(price).decoration! as BoxDecoration;
-    expect(deco.color, fvLimitUpFill);
+    final ancestor = find.ancestor(of: price, matching: find.byType(Container));
+    expect(tester.widgetList<Container>(ancestor).any((container) =>
+        (container.decoration is BoxDecoration) &&
+        (container.decoration! as BoxDecoration).color == fvLimitUpFill), isTrue);
     expect(find.text('411.00'), findsOneWidget);
     expect(find.text('-686,438'), findsOneWidget);
     expect(tester.takeException(), isNull);
