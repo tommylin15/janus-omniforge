@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'final_perf.dart';
+import 'final_visual_series.dart';
 import 'final_visual_common.dart';
 import 'main.dart' as legacy;
 
@@ -24,6 +25,89 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
   Future<dynamic>? pendingLoad;
   Timer? quoteTimer;
   bool foreground = true;
+  int watchTab = 0; // 0: minute change; 1: formal EOD series
+  int historyDays = 20;
+  bool managing = false;
+  String? selectedSymbol;
+  String? historySymbol;
+  Future<dynamic>? minutes;
+  Future<dynamic>? history;
+  final Set<String> backfillAttempts = <String>{};
+  final Set<String> backfillInFlight = <String>{};
+
+  Future<dynamic> _readMinutes(String symbol) =>
+      widget.api.get('/api/v1/me/watchlist/intraday?symbol=$symbol')
+          .timeout(const Duration(seconds: 15));
+
+  Future<dynamic> _readHistory(String symbol) =>
+      widget.api.get('/api/v1/public/kline/$symbol?limit=120')
+          .timeout(const Duration(seconds: 20));
+
+  void selectSymbol(String symbol) {
+    if (selectedSymbol == symbol) return;
+    setState(() {
+      selectedSymbol = symbol;
+      if (watchTab == 0) {
+        minutes = _readMinutes(symbol);
+      } else {
+        historySymbol = symbol;
+        history = _readHistory(symbol);
+      }
+    });
+    if (watchTab == 0) requestBackfill(symbol);
+  }
+
+  void switchTab(int tab) {
+    if (watchTab == tab) return;
+    quoteTimer?.cancel();
+    setState(() {
+      watchTab = tab;
+      if (selectedSymbol != null) {
+        if (tab == 0) {
+          minutes = _readMinutes(selectedSymbol!);
+        } else if (historySymbol != selectedSymbol || history == null) {
+          historySymbol = selectedSymbol;
+          history = _readHistory(selectedSymbol!);
+        }
+      }
+    });
+    if (tab == 0) {
+      reload(force: false);
+      _startQuoteTimer();
+      if (selectedSymbol != null) requestBackfill(selectedSymbol!);
+    }
+  }
+
+  void requestBackfill(String symbol) {
+    // Event-demanded only: not called in 60s quote timer.
+    if (!widget.active || !foreground || watchTab != 0) return;
+    final now = DateTime.now().toUtc().add(const Duration(hours: 8));
+    final minute = now.hour * 60 + now.minute;
+    if (now.weekday > DateTime.friday || minute < 560) return;
+    final slot = ((minute - 540) ~/ 30).clamp(0, 9);
+    final key = now.year.toString() + '-' + now.month.toString() +
+        '-' + now.day.toString() + '/' + symbol + '/' + slot.toString();
+    if (backfillInFlight.contains(symbol) || !backfillAttempts.add(key)) return;
+    unawaited(_backfill(symbol));
+  }
+
+  Future<void> _backfill(String symbol) async {
+    backfillInFlight.add(symbol);
+    try {
+      final result = fvMap(await widget.api.post(
+        '/api/v1/me/market/minute-backfill', {'symbol': symbol})
+        .timeout(const Duration(seconds: 26)));
+      if (!mounted || selectedSymbol != symbol || watchTab != 0) return;
+      if (result['status'] == 'available' ||
+          result['status'] == 'cached_or_throttled') {
+        setState(() => minutes = _readMinutes(symbol));
+      }
+    } catch (_) {
+      // The stored minutes remain readable without broker backfill.
+    } finally {
+      backfillInFlight.remove(symbol);
+    }
+  }
 
   bool get marketHours {
     final taipei = DateTime.now().toUtc().add(const Duration(hours: 8));
@@ -32,7 +116,8 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
   }
 
   bool get quotesActive =>
-      widget.active && foreground && (ModalRoute.of(context)?.isCurrent ?? true);
+      widget.active && foreground && watchTab == 0 &&
+      (ModalRoute.of(context)?.isCurrent ?? true);
 
   @override
   void initState() {
@@ -67,11 +152,20 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     if (!identical(oldWidget.api, widget.api)) {
       // Owner/API token transitions must never reuse another owner's snapshot.
       lastGoodData = null;
+      selectedSymbol = null;
+      historySymbol = null;
+      minutes = null;
+      history = null;
+      backfillAttempts.clear();
+      backfillInFlight.clear();
       data = widget.active ? _load(force: true) : Future<dynamic>.value(null);
     }
     if (oldWidget.active != widget.active) {
       if (widget.active) {
-        reload(force: false);
+        if (watchTab == 0) {
+          reload(force: false);
+          if (selectedSymbol != null) requestBackfill(selectedSymbol!);
+        }
         _startQuoteTimer();
       } else {
         quoteTimer?.cancel();
@@ -84,7 +178,10 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     foreground = state == AppLifecycleState.resumed;
     if (foreground) {
       if (widget.active) {
-        reload(force: false);
+        if (watchTab == 0) {
+          reload(force: false);
+          if (selectedSymbol != null) requestBackfill(selectedSymbol!);
+        }
         _startQuoteTimer();
       }
     } else {
@@ -117,8 +214,26 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
           // Allow bounded mobile latency; 9s caused false failures even when
           // the authenticated Owner endpoint eventually returned HTTP 200.
           .timeout(const Duration(seconds: 25));
-      if (generation == loadGeneration) lastGoodData = response;
-      return generation == loadGeneration ? response : null;
+      if (generation != loadGeneration || !mounted) return null;
+      lastGoodData = response;
+      if (response is List) {
+        final symbols = fvRows(response).map(fvMap)
+            .map((row) => fvText(row['symbol'], missing: '')).toList();
+        if (!symbols.contains(selectedSymbol)) {
+          selectedSymbol = symbols.isEmpty ? null : symbols.first;
+          minutes = null;
+          history = null;
+          historySymbol = null;
+          if (selectedSymbol != null && watchTab == 0) {
+            minutes = _readMinutes(selectedSymbol!);
+            requestBackfill(selectedSymbol!);
+          }
+        } else if (selectedSymbol != null && watchTab == 0) {
+          // No upstream provider call on minute-chart read: cached PG only.
+          minutes = _readMinutes(selectedSymbol!);
+        }
+      }
+      return response;
     } finally {
       stopwatch.stop();
       FinalPerf.recordCore('watchlist', stopwatch.elapsed);
