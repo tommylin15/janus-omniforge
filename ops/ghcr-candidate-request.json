@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "1f18915c2a91222d009c65a171fb1c641c44642d",
+  "sha": "03d2550ac5d97d35fade1c3497ae079c9bda0bba",
   "digest": "",
-  "release_run": "42172490074",
+  "release_run": "42546654664",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-06 Today V7 fixed full GHCR source after Python 2174 pass and Flutter PASS. Two-tab split, observed-price dynamic range, official zero, real Kbar-only Volume (Shioaji Proxy #42171459704 deployed and PostgreSQL migration 079 #42171720754 applied). Create existing Dev API/App 0%-traffic candidate only, preserving old live 100%, IAM, Jobs, Scheduler and owner data.",
-  "request_attempt": 55
+  "purpose": "2026-11-09 pastel limit-up/limit-down price accents for Today and Holdings. Exact full GHCR source 03d2550ac5d97d35fade1c3497ae079c9bda0bba: full Python, Flutter and four public GHCR immutable digest checks PASS #42546654664. Deploy existing Dev API/App 0%-traffic candidate only; keep current 100% traffic, Owner data, Jobs, Scheduler, Proxy, DB, IAM unchanged.",
+  "request_attempt": 56
 }
