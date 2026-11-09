@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "03d2550ac5d97d35fade1c3497ae079c9bda0bba",
-  "promotion_run": "42547517993",
+  "source_sha": "a12898bc2c97c4ddbe5d7aeda3361187bce99f10",
+  "promotion_run": "42552188866",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-09 pastel limit-up/down price display deployed on existing Dev API/App by API-only 100% promotion #42547517993 (full Release #42546654664, candidate #42547180838, OAuth boundary #42547349496 all PASS). Independently verify 100% route, Ready immutable GHCR source, canonical build-id, health/public intraday market-home schema and unauthorized Owner holdings/intraday/order-book API fences. No GCP/Job/Scheduler/Owner mutations; authenticated visual mobile UAT still separate.",
-  "request_attempt": 12
+  "purpose": "2026-11-09 independent readonly live acceptance of Janus Watchlist live/longterm tabs and owner-scoped minute API. Full GHCR Release #42551010365 attempt 2 PASS, candidate #42551893505 PASS, OAuth boundary #42552063237 PASS, API-only Dev 100% promotion #42552188866 PASS. Verify exact serving GHCR build SHA/digest, single 100% traffic and Ready, public health/market intraday schema, anonymous 401 for new watchlist intraday and original portfolio/orderbook. No GCP, traffic or owner mutation. Manual authenticated Watchlist mobile visual UAT separate.",
+  "request_attempt": 13
 }
