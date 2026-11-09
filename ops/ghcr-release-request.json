@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "25d9d939062463e5eccfc76b7cd2b2c91838b830",
-  "purpose": "TODAY-V7 full fixed source after correcting brittle test that counted 4 instead of 5 legal on-entry Tab reload sites; 60-second quote timer still never calls historical Shioaji Kbars. Two visible-demand tabs, dynamic observed price-scale and reference 0%, real optional Shioaji Volume persisted via Dev 079 (PASS #42171720754) and Proxy (PASS #42171459704). Prior Release #42172072665 Python 2173 passed, 1 obsolete count assertion failed; re-run full gate before API-only promotion.",
+  "sha": "151fa91c64bb04e07bdfbc9f0238590464012580",
+  "purpose": "2026-11-09 soft limit-up/limit-down Taiwan stock prices in both Holdings and Today. Pastel fills (soft red/green) only for valid quote with tick-rounded 10% exchange limit, without changing price/PnL or quote polling. Flutter User App #42546399188 PASS and Janus selective CI #42546399187 PASS. Release fixed full source; no storage/Jobs/traffic mutation in this stage. Prior widget CI failed; regression fixed in 151fa91c.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 53
+  "request_attempt": 54
 }
