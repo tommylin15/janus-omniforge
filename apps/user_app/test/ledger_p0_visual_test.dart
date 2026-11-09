@@ -82,6 +82,32 @@ void _phone(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets('Holdings limits color the price only', (tester) async {
+    _phone(tester);
+    final snapshot = _snapshot();
+    (snapshot['positions'] as List).add({
+      'symbol': '2327', 'stock_name': '國巨', 'currency': 'TWD',
+      'instrument_kind': 'EQUITY', 'shares': '4000',
+      'average_cost': '582.61', 'market_price': '411.00',
+      'price_status': 'available', 'quote_state': 'intraday',
+      'previous_close': '374', 'previous_close_source': 'shioaji_previous_close',
+      'change': '37.00', 'change_percent': '0.0989',
+      'day_change_amount': '148000', 'unrealized_pnl': '-686438',
+      'unrealized_return': '-0.29',
+    });
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(
+      HoldingsP0Api(snapshot), now: () => DateTime.utc(2026, 11, 9, 2))));
+    await tester.pumpAndSettle();
+    final price = find.byKey(const Key('holding-latest-price-2327'));
+    await tester.scrollUntilVisible(price, 160,
+        scrollable: find.byType(Scrollable).first);
+    final deco = tester.widget<Container>(price).decoration! as BoxDecoration;
+    expect(deco.color, fvLimitUpFill);
+    expect(find.text('411.00'), findsOneWidget);
+    expect(find.text('-686,438'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Phone Ledger has one Hero, cumulative upper and daily lower',
       (tester) async {
     _phone(tester);

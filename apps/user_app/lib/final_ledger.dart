@@ -933,12 +933,13 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                 Expanded(flex: 22, child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(legacy.accountingNumber(row['market_price'],
+                    fvLimitPriceText(
+                      row,
+                      legacy.accountingNumber(row['market_price'],
                           decimals: 2, missing: '—'),
                       key: Key('holding-latest-price-$symbol'),
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: valid ? fvSignedColor(row['change']) : fvInk,
-                        fontSize: 13, fontWeight: FontWeight.w800)),
+                      ordinaryColor: valid ? fvSignedColor(row['change']) : fvInk,
+                    ),
                     Text('成本 ${legacy.accountingNumber(row['average_cost'], decimals: 2)}',
                       maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: fvMuted, fontSize: 10)),

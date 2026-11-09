@@ -48,6 +48,90 @@ String fvSignedPercent(Object? value, {int decimals = 2}) {
   return '$sign${percent.toStringAsFixed(decimals)}%';
 }
 
+/// UI-only limit hint: exchange tick rounding matters (374 -> 411.0).
+enum FvPriceLimit { none, up, down }
+
+const fvLimitUpFill = Color(0xFFFFE8E8);
+const fvLimitDownFill = Color(0xFFE3F3EA);
+const fvLimitUpInk = Color(0xFFAD3232);
+const fvLimitDownInk = Color(0xFF167149);
+
+double _fvStockTick(double value) {
+  if (value < 10) return 0.01;
+  if (value < 50) return 0.05;
+  if (value < 100) return 0.1;
+  if (value < 500) return 0.5;
+  if (value < 1000) return 1;
+  return 5;
+}
+
+/// Only show an exchange limit where both current quote and reference are valid.
+/// ETF limits vary by underlying; do not guess overseas/inverse ETF caps.
+FvPriceLimit fvPriceLimitState(Map<String, dynamic> row) {
+  if (row['currency'] != 'TWD' || row['price_status'] != 'available') {
+    return FvPriceLimit.none;
+  }
+  if (!{'intraday', 'eod_final', 'closing_pending_eod'}
+      .contains(row['quote_state'])) return FvPriceLimit.none;
+  if (!{'official_previous_close', 'mis_previous_close', 'shioaji_previous_close'}
+      .contains(row['previous_close_source'])) return FvPriceLimit.none;
+
+  final price = fvNumber(row['market_price']);
+  final basis = fvNumber(row['previous_close']);
+  if (price == null || basis == null || !price.isFinite || !basis.isFinite ||
+      price <= 0 || basis <= 0) return FvPriceLimit.none;
+
+  final symbol = fvText(row['symbol'], missing: '');
+  final kind = fvText(row['instrument_kind'], missing: '').toUpperCase();
+  // 0050 is a known Taiwan-components ETF with a regular 10% price band.
+  // Other ETFs require explicit exchange limit metadata before marking.
+  final domesticEtf = kind == 'ETF' && symbol == '0050';
+  final stock = kind == 'EQUITY' || kind == 'STOCK' ||
+      (kind.isEmpty && RegExp(r'^[1-9][0-9]{3}$').hasMatch(symbol));
+  if (!domesticEtf && !stock) return FvPriceLimit.none;
+
+  double tick(double theoretical) => domesticEtf
+      ? (theoretical < 50 ? 0.01 : 0.05)
+      : _fvStockTick(theoretical);
+  final theoreticalUp = basis * 1.10;
+  final theoreticalDown = basis * 0.90;
+  final upTick = tick(theoreticalUp);
+  final downTick = tick(theoreticalDown);
+  final upper = ((theoreticalUp / upTick) + 1e-8).floor() * upTick;
+  final lower = ((theoreticalDown / downTick) - 1e-8).ceil() * downTick;
+  if ((price - upper).abs() < 0.0001) return FvPriceLimit.up;
+  if ((price - lower).abs() < 0.0001) return FvPriceLimit.down;
+  return FvPriceLimit.none;
+}
+
+Widget fvLimitPriceText(Map<String, dynamic> row, String value, {
+  Key? key,
+  double fontSize = 13,
+  Color ordinaryColor = fvInk,
+}) {
+  final state = fvPriceLimitState(row);
+  final active = state != FvPriceLimit.none;
+  final ink = state == FvPriceLimit.up ? fvLimitUpInk
+      : state == FvPriceLimit.down ? fvLimitDownInk : ordinaryColor;
+  final content = Container(
+    key: key,
+    padding: active
+        ? const EdgeInsets.symmetric(horizontal: 5, vertical: 2)
+        : EdgeInsets.zero,
+    decoration: active ? BoxDecoration(
+      color: state == FvPriceLimit.up ? fvLimitUpFill : fvLimitDownFill,
+      borderRadius: BorderRadius.circular(6),
+    ) : null,
+    child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
+      style: TextStyle(color: ink, fontSize: fontSize,
+          fontWeight: FontWeight.w800)),
+  );
+  return !active ? content : Tooltip(
+    message: state == FvPriceLimit.up ? '漲停價' : '跌停價',
+    child: content,
+  );
+}
+
 List<dynamic> fvRows(dynamic value) {
   if (value is List) return value;
   if (value is Map && value['items'] is List) return value['items'] as List;

@@ -663,10 +663,14 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     final symbol = fvText(row['symbol']);
     final name = fvText(row['stock_name'], missing: '');
     final selected = selectedHolding == symbol;
+    final limit = fvPriceLimitState(row);
+    final limitColor = limit == FvPriceLimit.up ? fvLimitUpInk : fvLimitDownInk;
     return Padding(
       padding: const EdgeInsets.only(right: 7),
       child: Material(
-        color: selected ? const Color(0xFFD4ECEE) : Colors.white,
+        color: limit == FvPriceLimit.up ? fvLimitUpFill
+            : limit == FvPriceLimit.down ? fvLimitDownFill
+            : selected ? const Color(0xFFD4ECEE) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           key: Key('today-live-holding-$symbol'),
@@ -677,8 +681,10 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: selected ? fvTeal
-                  : const Color(0xFFD6E1E4), width: selected ? 1.5 : 0.8),
+              border: Border.all(color: limit != FvPriceLimit.none
+                  ? limitColor.withValues(alpha: 0.38)
+                  : selected ? fvTeal : const Color(0xFFD6E1E4),
+                  width: selected ? 1.5 : 0.8),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               if (selected) ...[
@@ -692,6 +698,12 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                 Flexible(child: Text(name, maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: fvMuted, fontSize: 11))),
+              ],
+              if (limit != FvPriceLimit.none) ...[
+                const SizedBox(width: 5),
+                Text(limit == FvPriceLimit.up ? '漲停' : '跌停',
+                    style: TextStyle(color: limitColor, fontSize: 10,
+                        fontWeight: FontWeight.w800)),
               ],
             ]),
           ),
@@ -807,6 +819,26 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                   child: const Text('詳情', style: TextStyle(fontSize: 12)),
                 ),
             ]),
+            if (fvPriceLimitState(selected) != FvPriceLimit.none)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(children: [
+                  const Text('現價', style: TextStyle(color: fvMuted, fontSize: 11)),
+                  const SizedBox(width: 7),
+                  fvLimitPriceText(selected,
+                    legacy.accountingNumber(selected['market_price'],
+                      decimals: 2, missing: '—'),
+                    key: const Key('today-selected-limit-price'),
+                    fontSize: 17),
+                  const SizedBox(width: 7),
+                  Text(fvPriceLimitState(selected) == FvPriceLimit.up
+                    ? '漲停' : '跌停',
+                    style: TextStyle(
+                      color: fvPriceLimitState(selected) == FvPriceLimit.up
+                        ? fvLimitUpInk : fvLimitDownInk,
+                      fontWeight: FontWeight.w700, fontSize: 11)),
+                ]),
+              ),
             _backfillCaption(fvText(selected['symbol'])),
             const SizedBox(height: 2),
             FutureBuilder<dynamic>(

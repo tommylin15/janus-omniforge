@@ -90,7 +90,48 @@ class HomeFinanceApiStub extends legacy.Api {
   }
 }
 
+class LimitHomeFinanceApiStub extends HomeFinanceApiStub {
+  @override
+  Future<dynamic> get(String path) async {
+    final response = await super.get(path);
+    if (path == '/api/v1/me/portfolio/quotes') {
+      final data = Map<String, dynamic>.from(response as Map);
+      final positions = List<Map<String, dynamic>>.from(
+          (data['positions'] as List).map((row) =>
+              Map<String, dynamic>.from(row as Map)));
+      positions.firstWhere((row) => row['symbol'] == '2327').addAll({
+        'market_price': '411.00', 'previous_close': '374',
+        'previous_close_source': 'shioaji_previous_close',
+        'instrument_kind': 'EQUITY', 'quote_state': 'intraday',
+        'price_status': 'available',
+      });
+      return {...data, 'market_open': true, 'positions': positions};
+    }
+    return response;
+  }
+}
+
 void main() {
+  testWidgets('Today selector highlights a selected limit-up quote',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(
+        home: FinalTodayPage(LimitHomeFinanceApiStub())));
+    await tester.pumpAndSettle();
+    final option = find.byKey(const Key('today-live-holding-2327'));
+    await tester.ensureVisible(option);
+    await tester.pumpAndSettle();
+    await tester.tap(option);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('today-selected-limit-price')), findsOneWidget);
+    expect(find.text('411.00'), findsOneWidget);
+    expect(find.text('漲停'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('ordinary holdings appear in compact ticker strip; arrow and ETF switches reuse one chart',
       (tester) async {
     tester.view.physicalSize = const Size(390, 850);
