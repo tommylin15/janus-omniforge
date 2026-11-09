@@ -1,5 +1,13 @@
 # Janus 最新驗收證據索引
 
+## 2026-11-09 關注頁盤中／長期雙 Tab｜工程發布／獨立 Live PASS，Owner 手機 UAT 未驗證
+
+- **實作**：關注頁預設「盤中變化」，精簡橫向選股列，單一選定關注股現價、漲跌幅、目標價、A／B／C 與 S 標籤，以及 09:00–13:30 真實分鐘圖／官方前收 0% 軸；「長期觀察」按需顯示近 5／20／60／120 日正式日收盤趨勢。Tab 固定在上方、選股及長期期間保留、舊大卡片與拖曳排序改為預設收合的管理清單，目標價／鎖定／移除與原有權限不刪除。延續溫和漲跌停底色，只反映可信現價。缺分鐘、缺前收、過時價格不補假值。關注不代表持有，不新增 PnL 或交易行為。
+- **API 安全**：新增 `GET /api/v1/me/watchlist/intraday?symbol=`，只允許本人 active 關注股票；原 `/portfolio/intraday` 仍僅允許本人持股。既有 Shioaji 日內歷史 Kbar 補洞的人工需求觸發准入擴及本人 active watchlist，仍沿用 PostgreSQL 跨實例 30 分鐘 cooldown 與每檔每日三次限制，沒有嵌入 60 秒 quote timer；後端 quote router 分散式 singleflight 沿用。長期資料使用既有公開正式 OHLCV，未引入新 schema、Job、Scheduler、GCP 費用或 IAM。
+- **CI／測試**：後端 [Analysis Product #42550616746](https://github.com/tommylin15/janus-omniforge/actions/runs/42550616746) PASS，Flutter [全套 #42550747405](https://github.com/tommylin15/janus-omniforge/actions/runs/42550747405) PASS（包含新增雙 Tab 390px、懶載入、管理與跨標的測試），selective CI [#42550747267](https://github.com/tommylin15/janus-omniforge/actions/runs/42550747267) PASS；起初測試暴露 offscreen 操作，已將 Tab 固定頂部修復。固定發布來源 `a12898bc2c97c4ddbe5d7aeda3361187bce99f10`，完整 Python／Flutter／四映像 GHCR Release [#42551010365](https://github.com/tommylin15/janus-omniforge/actions/runs/42551010365) 第 2 次執行全 PASS（第 1 次 API Docker build 因 Ubuntu archive 套件站逾時而失敗；不視為程式錯誤，已按同 SHA 重跑失敗 Job；匿名拉取四 digest 驗證成功）。
+- **受控正式切流**：0% candidate [#42551893505](https://github.com/tommylin15/janus-omniforge/actions/runs/42551893505) PASS → OAuth／Owner／Admin／MCP／行情 parity [#42552063237](https://github.com/tommylin15/janus-omniforge/actions/runs/42552063237) PASS → 既有 Dev API-only direct 100% Promotion [#42552188866](https://github.com/tommylin15/janus-omniforge/actions/runs/42552188866) SUCCESS。舊固定來源 `03d2550ac5d97d35fade1c3497ae079c9bda0bba` 與 revision 保留作可回復基準，不宣稱執行真實 rollback rehearsal。
+- **獨立 Live 證據**：[A-CHANGE #42552331770](https://github.com/tommylin15/janus-omniforge/actions/runs/42552331770) SUCCESS，收據 `API_LIVE_READBACK_PASS`，驗證單一 100% 正式流量、固定 SHA／GHCR image／健康狀態、公開股價歷史正常（200），Owner 相關 API 包含新 `/watchlist/intraday` 在未登入時拒絕（401／403），`gcp_mutations=0`。**ENGINEERING_RELEASE=PASS，PUBLIC_LIVE_READBACK=PASS，AUTHENTICATED_OWNER_WATCHLIST_VISUAL_UAT=NOT_VERIFIED**。驗證網址：<https://janus-api-2oo7qbkd5q-uc.a.run.app/app/>。下一個人工驗收只須在登入手機驗收選股切換、分鐘圖（有效交易日時）、5／20／60／120 日圖及管理功能，未驗證前不冒稱真人 UAT PASS。
+
 ## 2026-11-09 首頁／持股頁漲跌停淡色反底｜工程發布與獨立 Live PASS，Owner 視覺 UAT 待確認
 
 - **視覺範圍**：首頁「盤中變化」橫向精簡持股選擇列以淡紅（漲停）／淡綠（跌停）標記，選定個股另顯示柔和反底現價；「持股／記帳」持股表格只反底現價，日損益與總損益色彩和業務數字維持原設計。共用台股最小跳動單位換算精確漲跌停價：前收 374 的漲停價 411.0（漲幅約 9.89%）亦正確標記。過時／缺價／無可信前收／未確認普通限幅規則的 ETF 一律不推定，避免假紅綠；已知國內 0050 按其適用單位處理。不修改 Shioaji Proxy、資料來源、分鐘圖、Owner PnL、批次或 schema。
