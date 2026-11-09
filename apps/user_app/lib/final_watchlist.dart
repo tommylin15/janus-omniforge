@@ -614,7 +614,6 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
   Widget header(BuildContext context, int? count, {int followups = 0}) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          fvPageTitle(context, '關注', subtitle: 'A／B／C 觀察池；S 為實際持股'),
           fvPanel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -645,8 +644,6 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
               ],
             ),
           ),
-          _tabs(),
-          const SizedBox(height: 10),
           if (managing)
             fvSectionTitle(context, '我的關注',
               trailing: count == null || count == 0 ? null : '長按拖曳排序'),
@@ -802,8 +799,19 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
         color: fvCanvas,
         child: SafeArea(
           bottom: false,
-          child: FutureBuilder<dynamic>(
-            future: data,
+          child: Column(children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  fvPageTitle(context, '關注', subtitle: watchTab == 0
+                      ? '盤中走勢與即時觀察'
+                      : '正式日收盤與中長期價格變化'),
+                  _tabs(),
+                ]),
+            ),
+            Expanded(child: FutureBuilder<dynamic>(
+              future: data,
             builder: (context, snapshot) {
               final rows = List<dynamic>.from(fvRows(snapshot.data ?? lastGoodData));
               rows.sort((a,b) { final x = '${fvMap(a)['tier'] ?? 'C'}'.compareTo('${fvMap(b)['tier'] ?? 'C'}'); return x != 0 ? x : fvInt(fvMap(a)['sort_order']).compareTo(fvInt(fvMap(b)['sort_order'])); });
@@ -870,7 +878,8 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                 ),
               );
             },
-          ),
+            )),
+          ]),
         ),
       );
 }
