@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "d7df1aa4f21427d99b0fb024c5cb502e381fb118",
+  "sha": "6a61ca534bb19b6298e4a62bc22f700f4bd525c2",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-10 color-only daily share price change without +/- in holdings; TAIEX points and % visible on Today, total return without 參考. GHCR fixed release #42754592473 PASS; Dev existing API 0%-traffic immutable candidate #42755286361 PASS. Run independent readonly OAuth/Owner/Admin/MCP boundary and public TAIEX + symbol quotes/minute parity against existing 100%; do not change GCP, Owner data, Jobs, Scheduler, traffic or API throttling. Gate before reversible API-only 100% promotion.",
-  "request_attempt": 55
+  "purpose": "2026-11-10 Janus holdings screenshot-align correction. Exact full release #42757920981 success, 0%-traffic Dev API/App candidate #42759310235 success, source 6a61ca534bb19b6298e4a62bc22f700f4bd525c2. Run readonly auth (OAuth, private Owner/Admin/MCP) boundaries, public TAIEX and symbol/day minute quote parity against current live 100%; no GCP mutation or traffic changes. Candidate app has strict common header/main and secondary four-column grid with gutters verified by Flutter full #42757584970. Promote only after PASS.",
+  "request_attempt": 56
 }
