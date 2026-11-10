@@ -166,7 +166,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('daily and total PnL amounts and percentages share type size',
+  testWidgets('daily PnL retains large amount but quotes smaller move (percent)',
       (tester) async {
     _phone(tester);
     await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(
@@ -181,11 +181,51 @@ void main() {
     final sizes = [dayAmount, dayPercent, totalAmount, totalPercent]
         .map((finder) => tester.widget<Text>(finder).style?.fontSize)
         .toList();
-    expect(sizes, everyElement(18));
+    expect(sizes, [18, 13, 18, 18]);
+    expect(tester.widget<Text>(dayPercent).data, '+0.10（+0.32%）');
+    expect(tester.widget<Text>(dayAmount).data, '3,000');
+    expect(find.byTooltip('每股當日漲跌點數（漲跌幅），非整筆持股損益'),
+        findsOneWidget);
     for (final finder in [dayAmount, dayPercent, totalAmount, totalPercent]) {
       expect(tester.widget<Text>(finder).maxLines, 1);
       expect(tester.widget<Text>(finder).softWrap, isFalse);
     }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('daily move shows negative per-share delta and percent in one label',
+      (tester) async {
+    _phone(tester);
+    final snapshot = _snapshot();
+    final row = (snapshot['positions'] as List).first as Map;
+    row['change'] = '-1.50';
+    row['change_percent'] = '-0.0125';
+    row['day_change_amount'] = '-45000';
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(
+      HoldingsP0Api(snapshot), now: () => DateTime.utc(2026, 10, 12, 7))));
+    await tester.pumpAndSettle();
+    final daily = find.byKey(const Key('holding-daily-change-00719B'));
+    await tester.scrollUntilVisible(daily, 150,
+        scrollable: find.byType(Scrollable).first);
+    expect(tester.widget<Text>(daily).data, '-1.50（-1.25%）');
+    expect(tester.widget<Text>(daily).style!.fontSize, 13);
+    expect(tester.widget<Text>(
+        find.byKey(const Key('holding-day-amount-00719B'))).data, '-45,000');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('daily missing price change is explicit, never guessed from percent',
+      (tester) async {
+    _phone(tester);
+    final snapshot = _snapshot();
+    (snapshot['positions'] as List).first['change'] = null;
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(
+      HoldingsP0Api(snapshot), now: () => DateTime.utc(2026, 10, 12, 7))));
+    await tester.pumpAndSettle();
+    final daily = find.byKey(const Key('holding-daily-change-00719B'));
+    await tester.scrollUntilVisible(daily, 150,
+        scrollable: find.byType(Scrollable).first);
+    expect(tester.widget<Text>(daily).data, '增減缺值');
     expect(tester.takeException(), isNull);
   });
 
