@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "6a61ca534bb19b6298e4a62bc22f700f4bd525c2",
-  "promotion_run": "42780637407",
+  "source_sha": "ac9e0309302248eabcc8d7a6553d479cacf2f828",
+  "promotion_run": "42796276597",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-10 Owner real screenshot mobile holdings alignment final Dev readback: source 6a61ca534bb19b6298e4a62bc22f700f4bd525c2, shared four-column header/main/secondary grid and gutters, 390px and 320px large-number regression tests #42757584970 PASS, full Release #42757920981 PASS, 0% candidate #42759310235 PASS, readonly OAuth/Owner/Admin/MCP/public quote parity #42759529462 PASS, existing Dev 100% API-only promotion #42780637407 PASS. Independently verify one 100%-Ready active revision with exact immutable image digest and /app/build-id.txt source SHA, public market HTTP 200 with nonempty rows and private Owner anonymous denied; GCP and Owner mutations 0. Authenticated Owner mobile visual validation remains NOT_VERIFIED until user confirms.",
-  "request_attempt": 18
+  "purpose": "2026-11-10 Today V8 existing Dev 100% API-only promotion #42796276597 PASS. Source ac9e0309302248eabcc8d7a6553d479cacf2f828 full release #42794861330, Flutter+2179 Python PASS, candidate #42795775968 and OAuth/Owner/Admin/MCP/quote parity #42796075164 PASS. Independently verify one Ready 100%-traffic immutable digest, app build-id exact source, public market-home including >=2 official TAIEX EOD rows, public EOD financing/institutional status and dates, anonymous Owner/Admin rejection and no GCP/Owner mutations. If official capital-flow returns missing record as partial rather than fabricate. Owner authenticated 390px visual UAT separate.",
+  "request_attempt": 19
 }
