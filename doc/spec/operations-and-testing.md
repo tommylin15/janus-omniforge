@@ -379,3 +379,10 @@
 - [更早的 2026-10-15 基線](../archive/documentation-baseline-2026-10-15-operations-and-testing.md)。
 
 維護方式：同一事件的新結果取代本頁摘要時，把完整舊收據移到 archive 並留下連結；不要每次重新追加全部結案歷史。
+
+## 2026-11-10｜Today V8 盤中缺口與長期市場資訊（Dev 工程驗收 PASS）
+
+- 固定 source：`ac9e0309302248eabcc8d7a6553d479cacf2f828`；Python 2,179 tests PASS、Flutter全量PASS、四 GHCR digest PASS：[Release #42794861330](https://github.com/tommylin15/janus-omniforge/actions/runs/42794861330)。第一次 release #42793337045 的 mock fixture FAIL 已修正重跑，歷史不可塗改。
+- 0% Candidate [#42795775968](https://github.com/tommylin15/janus-omniforge/actions/runs/42795775968) → OAuth/Owner/Admin/MCP/行情 parity [#42796075164](https://github.com/tommylin15/janus-omniforge/actions/runs/42796075164) → 可回復 API-only 100% [#42796276597](https://github.com/tommylin15/janus-omniforge/actions/runs/42796276597) → 獨立 Live [#42796710267](https://github.com/tommylin15/janus-omniforge/actions/runs/42796710267) 全 PASS；舊 active source `6a61ca534bb19b6298e4a62bc22f700f4bd525c2` 保留 rollback，無 Jobs/PG/Scheduler/IAM/Owner mutation。
+- Live source/digest/build-id、單一100% Ready、匿名 Owner/Admin 隔離、public market-home HTTP 200 完成獨立驗收；TAIEX EOD 30期；融資 available 10期（2026-11-09）、法人 available 3類（2026-11-10）。真實頁面只在取得分鐘點時連線，新增使用者按需回補且仍保留PG 30分鐘／每日3次限制。
+- 尚無 Owner 已登入手機截圖及下次真盤中 2327/TAIEX Kbar 回補前後資料收據；上述不等同 Owner UAT PASS 或整日270點全覆蓋。工程與公開 Runtime驗收關閉，Owner正向驗收另依Active TODO。
