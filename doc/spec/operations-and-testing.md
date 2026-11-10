@@ -1,5 +1,14 @@
 # Janus 最新驗收證據索引
 
+## 2026-11-10 持股股數完整、損益同級字與首頁／關注柔和分鐘線｜Dev 工程與獨立 Live PASS
+
+- **UI 契約與程式**：同一持股四欄資料列取消股票欄下方重複代號、改顯示完整「股數」；股數遇超長文字只在自己的欄位中 scaleDown，不以省略號隱藏。當日及總損益金額與百分比共用 18px 主數值等級，仍可分別在欄內縮放。共用 FvIntradayProgressChart 線寬從 2.7 降至 1.7 logical px、淡色連續分鐘區域填色、微弱網格與觀測點柔和光圈；真實新增的分鐘點可短暫 320ms 強調，不永久脈動也不觸發報價。把最新觀測、當日已觀測最高／最低的實際價、時間和幅度移到圖上方；點按或橫滑選擇真實分鐘，詳述性資料說明預設收合。固定 09:00–13:30 X 軸、可信前收 0% 線、來源缺口、真實券商 Kbar 量能和缺值語意保留；不把分鐘 K 收盤最高低冒充逐筆成交最高低。
+- **Flutter 測試與完整 Release**：修正一項測試將未縮放 Text intrinsic width 誤作畫面寬度的假失敗；重新以 FittedBox 外層欄位寬度驗證，並補股數顯示／同字級／圖表前置資訊與展開測試。Flutter 全量靜態分析、test、Web build [#42749454063](https://github.com/tommylin15/janus-omniforge/actions/runs/42749454063) PASS，Selective CI [#42749553585](https://github.com/tommylin15/janus-omniforge/actions/runs/42749553585) PASS；固定 full Release [#42749743428](https://github.com/tommylin15/janus-omniforge/actions/runs/42749743428) Python + Flutter + 四 GHCR image + anonymous digest 全 PASS。GitHub Release run 實際 head source SHA `219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c`，不是先前的 UI 文件 commit `a3567444`。
+- **Dev 受控切流**：最初 0% Candidate [#42750456512](https://github.com/tommylin15/janus-omniforge/actions/runs/42750456512) 由於 request SHA 與完整 Release head 不一致被 gate 拒絕，沒有變更 service／traffic；修正使用真實固定 Release head SHA 而不降低驗證條件。後續 0% [#42750587323](https://github.com/tommylin15/janus-omniforge/actions/runs/42750587323) SUCCESS、OAuth／Owner／Admin／MCP 身分邊界與當日個股／大盤分鐘行情 parity [#42750805643](https://github.com/tommylin15/janus-omniforge/actions/runs/42750805643) SUCCESS、API-only 100% [#42750939949](https://github.com/tommylin15/janus-omniforge/actions/runs/42750939949) SUCCESS；保留舊 Dev image/source `dcfaed5d5912172223f9f334ea1fede7deb5a125` 回復。未觸碰 Jobs／Scheduler／PG／IAM／Owner data。
+- **獨立 Live 回驗**：[A-CHANGE #42751111497](https://github.com/tommylin15/janus-omniforge/actions/runs/42751111497) `API_LIVE_READBACK_PASS`：現役單一 100% Ready revision、不可變 GHCR digest、/app/build-id.txt 等於 `219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c`、公開行情 200＋非空、Owner API 未登入拒絕、gcp_mutations=0。**ENGINEERING_RELEASE=PASS、PUBLIC_LIVE_READBACK=PASS、OWNER_AUTHENTICATED_MOBILE_VISUAL_UAT=NOT_VERIFIED**；本人登入手機視覺效果須獨立確認，不拿匿名負測冒充正向。
+- **開啟入口**：[Janus Dev App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/)；可直接查看今日首頁及持股。正常縱向捲動保留，較不重要資訊不擋主要走勢。
+
+
 ## 2026-11-10 持股清單雙層卡改成單一橫列四欄｜ENGINEERING_RELEASE PASS／LIVE PASS
 
 - **最新設計**：撤回前版「每檔股票上下兩大區」排版。Flutter final_ledger.dart 改為單一橫列「股票｜現價｜當日損益｜總損益」，表頭只列一次，主數值維持大字，股數、成本、當日漲跌百分比及累積報酬率各放在其數值欄下方；不使用橫向捲動，長金額在欄內縮放，保留原始字串、漲跌停柔和底色、missing/stale 及點選個股詳情；可正常垂直捲動。
