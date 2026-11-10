@@ -123,6 +123,20 @@ def test_backfilled_kbars_are_separate_from_quote_snapshot_rows_and_have_provena
     ]
 
 
+
+def test_sparse_kbar_claim_detects_interior_and_trailing_gaps():
+    from services.api.repository import PostgresWorkspaceRepository
+
+    needs = PostgresWorkspaceRepository._needs_session_kbar_backfill
+    assert not needs(range(239), 240)  # the current unfinished minute
+    assert needs([m for m in range(240) if m not in (120, 121)], 240)
+    assert needs(range(220), 240)  # stopped quoting near the end
+    assert needs(range(20, 240), 240)  # morning gap
+    assert needs([], 60)
+    assert not needs(range(60), 60)
+
+
+
 def test_owner_gapfill_requires_held_symbol_and_a_cross_instance_claim():
     repo = Repository()
     repo.positions = lambda owner: [
