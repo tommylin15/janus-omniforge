@@ -1021,7 +1021,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                             color: hasPnl
                                 ? fvSignedColor(row['unrealized_pnl']) : fvMuted),
                           amount(hasPnl
-                              ? '${legacy.portfolioReturnLabel(row['unrealized_return'])}${reference ? ' 參考' : ''}'
+                              ? legacy.portfolioReturnLabel(row['unrealized_return'])
                               : '待估值',
                             key: Key('holding-return-$symbol'),
                             color: hasPnl
