@@ -900,11 +900,25 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               row['unrealized_pnl'] != null;
           final missingReason =
               legacy.portfolioMissingReasonLabel(row['missing_reason']);
+          final dailyPriceDelta = fvNumber(row['change']);
+          final hasDailyPriceDelta = valid && dailyPriceDelta != null &&
+              dailyPriceDelta.isFinite;
+          // Price movement is per share; the larger figure below remains
+          // the existing owner-level daily unrealized PnL estimate.
+          final dailyMove = hasDailyPriceDelta
+              ? '${dailyPriceDelta > 0 ? '+' : dailyPriceDelta < 0 ? '-' : ''}'
+                  '${legacy.accountingNumber(dailyPriceDelta.abs(), decimals: 2)}'
+                  '（${fvSignedPercent(row['change_percent'])}）'
+              : valid ? '增減缺值' : '待行情';
 
-          // Keep the large main figures on the same horizontal line. The
-          // both PnL amounts and percentages use the same readable type scale;
-          // each cell independently scales long values, never wraps the card.
-          Widget amount(String value, {required Key key, required Color color}) =>
+          // Keep the large PnL figures in one horizontal row. Daily per-share
+          // movement and its percent are secondary and smaller. A FittedBox
+          // scales a long combined label inside its own cell without wrapping.
+          Widget amount(String value, {
+            required Key key,
+            required Color color,
+            double fontSize = 18,
+          }) =>
               Align(
                 alignment: Alignment.centerRight,
                 child: FittedBox(
@@ -912,7 +926,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                   alignment: Alignment.centerRight,
                   child: Text(value, key: key,
                     maxLines: 1, softWrap: false,
-                    style: TextStyle(color: color, fontSize: 18,
+                    style: TextStyle(color: color, fontSize: fontSize,
                         fontWeight: FontWeight.w800)),
                 ),
               );
@@ -1003,12 +1017,14 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                             key: Key('holding-day-amount-$symbol'),
                             color: valid
                                 ? fvSignedColor(row['day_change_amount']) : fvMuted),
-                          amount(valid
-                              ? fvSignedPercent(row['change_percent'])
-                              : '待行情',
-                            key: Key('holding-daily-change-$symbol'),
-                            color: valid
-                                ? fvSignedColor(row['change_percent']) : fvMuted),
+                          Tooltip(
+                            message: '每股當日漲跌點數（漲跌幅），非整筆持股損益',
+                            child: amount(dailyMove,
+                              key: Key('holding-daily-change-$symbol'),
+                              fontSize: 13,
+                              color: hasDailyPriceDelta
+                                  ? fvSignedColor(dailyPriceDelta) : fvMuted),
+                          ),
                         ],
                       )),
                       Expanded(flex: 27, child: Column(
