@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "a356744493b646f8892da962a1b96feef3e37e3d",
+  "sha": "219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c",
   "digest": "",
   "release_run": "42749743428",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-10 持股／首頁最新 UI：持股列取消股票代號只顯示完整股數、日與總損益金額百分比同 18px；今日及關注共用分鐘圖細線淡色輔助與最高最低最新價／觀測時間上移、選點滑動、說明收合、真新點短暫強調。Flutter full CI #42749454063 PASS, GHCR full Release #42749743428 PASS，固定 source a356744493b646f8892da962a1b96feef3e37e3d。部署現有 Dev API 0% candidate，不切流、不改 Jobs/Scheduler/PG/IAM/owner data，也不新增行情輪詢。後續必須獨立 auth/market parity 與 API-only reversible promote。",
-  "request_attempt": 60
+  "purpose": "2026-11-10 手機持股股數／損益字級與首頁分鐘圖柔和化合併 UI：Flutter #42749454063 PASS，固定完整 GHCR Release #42749743428 PASS。上次 0% candidate #42750456512 因 request SHA a356... ≠ GitHub Release run head SHA 219b... 被安全 gate 擋下，未部署未切流；現使用可驗證真實 Release head SHA 219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c 重新建立相同編譯映像的 0% candidate，不放寬 SHA/gate、不變 Jobs/Scheduler/PG/Owner/IAM。須先 auth/market parity 後另作 reversible API promotion。",
+  "request_attempt": 61
 }
