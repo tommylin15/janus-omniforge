@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "e6f4de420df9c7a04604ebe82a9f110205bbc195",
-  "purpose": "2026-11-10 今日／關注／持股手機閱讀優化：主要數字放大；今日單一選股器（含ETF）、大盤摘要按需詳圖、分鐘圖與五檔互斥；關注資訊依重要性上移、池管理下沉；持股兩行大字卡。允許正常垂直捲動，不動API、資料庫、Job、Scheduler、IAM與付費資源。Flutter全量測試入口 #42738468943；本次固定來源為此release request commit，API-only候選與切流需另行受控驗證。",
+  "sha": "8e1a94f28d293b79e90b0684deab51f1d67d279e",
+  "purpose": "2026-11-10 mobile readability and one-stock-first UI release. Latest code 8e1a94f28d293b79e90b0684deab51f1d67d279e; Flutter full workflow #42738741651, CI must pass before serving change. Rendered Today compact market + single picker (ETF included), exclusive minute/book panel, larger typography, Watchlist lower-priority collapsible metadata and Ledger two-row cards. Existing dev API-only deployment, no new resources/schema/Jobs/IAM and no immediate traffic change. This request creates a new immutable release SHA; separately verify candidate and Owner boundary prior to cutover.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 56
+  "request_attempt": 57
 }
