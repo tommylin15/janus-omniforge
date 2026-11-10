@@ -121,10 +121,11 @@ void main() {
     await tester.pumpWidget(MaterialApp(
         home: FinalTodayPage(LimitHomeFinanceApiStub())));
     await tester.pumpAndSettle();
-    final option = find.byKey(const Key('today-live-holding-2327'));
-    await tester.ensureVisible(option);
+    final picker = find.byKey(const Key('today-holding-picker'));
+    await tester.ensureVisible(picker);
+    await tester.tap(picker);
     await tester.pumpAndSettle();
-    await tester.tap(option);
+    await tester.tap(find.byKey(const Key('today-live-holding-2327')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('today-selected-limit-price')), findsOneWidget);
     expect(find.text('411.00'), findsOneWidget);
@@ -132,7 +133,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('ordinary holdings appear in compact ticker strip; arrow and ETF switches reuse one chart',
+
+  testWidgets('Today has one stock picker, ETF access and chart/book switch',
       (tester) async {
     tester.view.physicalSize = const Size(390, 850);
     tester.view.devicePixelRatio = 1;
@@ -142,50 +144,36 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(find.byKey(const Key('today-live-holding-2330')), 180,
-        scrollable: find.byType(Scrollable).first);
-    expect(find.byKey(const Key('today-live-holding-2330')), findsOneWidget);
-    expect(find.byKey(const Key('today-live-holding-2327')), findsOneWidget);
-    expect(find.byKey(const Key('today-live-holding-2382')), findsOneWidget);
-    expect(find.byKey(const Key('today-live-holding-0050')), findsNothing);
+    final picker = find.byKey(const Key('today-holding-picker'));
+    await tester.ensureVisible(picker);
+    expect(picker, findsOneWidget);
+    expect(find.byKey(const Key('today-holding-symbol-strip')), findsNothing);
+    expect(find.byKey(const Key('today-etf-toggle')), findsNothing);
     expect(find.text('持股今日走勢'), findsOneWidget);
-    expect(find.text('3 股 · 3 ETF'), findsOneWidget);
-    expect(find.byKey(const Key('today-holding-symbol-strip')), findsOneWidget);
-    // Price, day PnL, cash and asset totals belong to holdings/ledger, not Today.
-    expect(find.textContaining('當日持股變動'), findsNothing);
-    expect(find.textContaining('參考總資產'), findsNothing);
-    expect(find.textContaining('150.00'), findsNothing);
     expect(find.byKey(const Key('today-selected-holding-name')), findsOneWidget);
+    expect(api.requests.where((p) => p.contains('/portfolio/order-book?')), isEmpty);
     await tester.tap(find.byKey(const Key('today-next-holding')));
     await tester.pumpAndSettle();
     expect(find.textContaining('2327 · 今日分鐘走勢'), findsWidgets);
-    expect(api.requests.where((p) => p ==
-        '/api/v1/me/portfolio/order-book?symbol=2327').length, 1);
     expect(api.requests.where((p) => p == '/api/v1/me/portfolio/intraday?symbol=2327').length, 1);
 
-
-    await tester.ensureVisible(find.byKey(const Key('today-etf-toggle')));
+    await tester.tap(find.byKey(const Key('today-stock-tab-book')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('today-etf-toggle')));
+    expect(find.text('買賣五檔｜按需快照'), findsOneWidget);
+    expect(find.textContaining('2327 · 今日分鐘走勢'), findsNothing);
+    expect(api.requests.where((p) => p ==
+        '/api/v1/me/portfolio/order-book?symbol=2327').length, 1);
+    await tester.tap(find.byKey(const Key('today-stock-tab-chart')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('2327 · 今日分鐘走勢'), findsWidgets);
+
+    await tester.tap(picker);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('today-live-holding-0050')), findsOneWidget);
-    expect(find.byKey(const Key('today-live-holding-00697B')), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const Key('today-live-holding-0050')));
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('today-live-holding-0050')));
     await tester.pumpAndSettle();
     expect(find.textContaining('0050 · 今日分鐘走勢'), findsWidgets);
     expect(api.requests.where((p) => p == '/api/v1/me/portfolio/intraday?symbol=0050').length, 1);
-    expect(api.requests.where((p) => p ==
-        '/api/v1/me/portfolio/order-book?symbol=0050').length, 1);
-    await tester.ensureVisible(find.byKey(const Key('today-etf-toggle')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('today-etf-toggle')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('today-live-holding-0050')), findsNothing);
-    expect(find.textContaining('2330 · 今日分鐘走勢'), findsWidgets);
-    // Returning to the original ticker correctly fetches one fresh chart.
-    expect(api.requests.where((p) => p == '/api/v1/me/portfolio/intraday?symbol=2330').length, 2);
     expect(tester.takeException(), isNull);
   });
 
