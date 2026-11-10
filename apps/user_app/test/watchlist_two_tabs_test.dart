@@ -133,7 +133,7 @@ void main() {
     await tester.tap(toggle);
     await tester.pumpAndSettle();
     // Managed cards now appear below the selected stock's chart and actions.
-    await tester.scrollUntilVisible(find.byKey(const ValueKey('watch-2330')),
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('watch-2330')).first,
         160, scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('watch-2330')), findsWidgets);
