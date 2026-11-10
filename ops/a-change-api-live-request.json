@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547",
-  "promotion_run": "42740369550",
+  "source_sha": "dcfaed5d5912172223f9f334ea1fede7deb5a125",
+  "promotion_run": "42744710766",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-10 independent readonly Dev live acceptance following mobile readability UI API-only 100% promotion #42740369550 PASS, full GHCR Release #42738969612 PASS, candidate #42739680653 PASS and auth/market parity #42739933792 attempt2 PASS. Verify one 100% Ready revision, fixed GHCR digest/build SHA, /app/ health and public market API, anonymous 401/403 for Owner Watchlist/Portfolio/order-book, no GCP, traffic, Jobs, Scheduler, Owner data or other writes. Authenticated Owner mobile visual UAT separate and not assumed.",
-  "request_attempt": 14
+  "purpose": "2026-11-10 independent readonly live acceptance following single-row four-column Ledger UI. Fixed Flutter 390/320 width #42741643378 PASS, GHCR full release #42741975318 PASS, 0% candidate #42744305103 PASS, auth+quote parity #42744533202 PASS, API-only 100% promotion #42744710766 PASS. Verify active 100% Ready single revision, immutable GHCR image/digest/build-id exact source SHA dcfaed5d..., /app/ and public quote health, Owner private anonymous 401/403. No GCP, Jobs, Scheduler, traffic or Owner data writes. Authenticated Owner phone visual remains separate.",
+  "request_attempt": 15
 }
