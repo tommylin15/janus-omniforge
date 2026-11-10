@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "d7df1aa4f21427d99b0fb024c5cb502e381fb118",
+  "sha": "6a61ca534bb19b6298e4a62bc22f700f4bd525c2",
   "digest": "",
-  "release_run": "42754592473",
+  "release_run": "42757920981",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-10 single Dev UI release for Today TAIEX current index/day points/day percent, quote time/previous close, Ledger total return without redundant 參考, daily per-share price move (percent) with 13px and NO +/- signs, red up green down, large daily PnL remains. Flutter full CI #42754292599 PASS, GHCR Python/Flutter/four images/digest #42754592473 PASS, exact release head d7df1aa4f21427d99b0fb024c5cb502e381fb118. Deploy only existing dev API/App immutable 0%-traffic revision; preserve 100% serving 219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c; no Jobs/Scheduler/PG/IAM/owner data changes. Separate candidate auth/quotes boundary and reversible 100% promote required.",
-  "request_attempt": 62
+  "purpose": "2026-11-10 screenshot-aligned holdings grid UI. Final source 6a61ca534bb19b6298e4a62bc22f700f4bd525c2, Flutter all widget tests and Web build #42757584970 PASS (including 390px dense 4-cell geometry, 320px large font); full release #42757920981 four GHCR digests and anonymous verify PASS. Stage immutable existing Dev API/App candidate at 0% traffic only; leave current 100% d7df1aa4f21427d99b0fb024c5cb502e381fb118, Jobs/Scheduler/PG/IAM/Owner untouched. Subsequent separate auth+market parity, reversible API-only 100% promotion, independent live readback required.",
+  "request_attempt": 63
 }
