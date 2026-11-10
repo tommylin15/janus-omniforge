@@ -182,7 +182,9 @@ void main() {
         .map((finder) => tester.widget<Text>(finder).style?.fontSize)
         .toList();
     expect(sizes, [18, 13, 18, 18]);
-    expect(tester.widget<Text>(dayPercent).data, '+0.10（+0.32%）');
+    expect(tester.widget<Text>(dayPercent).data, '0.10（0.32%）');
+    expect(tester.widget<Text>(dayPercent).style!.color,
+        fvSignedColor('0.10'));
     expect(tester.widget<Text>(dayAmount).data, '3,000');
     expect(find.byTooltip('每股當日漲跌點數（漲跌幅），非整筆持股損益'),
         findsOneWidget);
@@ -207,8 +209,10 @@ void main() {
     final daily = find.byKey(const Key('holding-daily-change-00719B'));
     await tester.scrollUntilVisible(daily, 150,
         scrollable: find.byType(Scrollable).first);
-    expect(tester.widget<Text>(daily).data, '-1.50（-1.25%）');
+    expect(tester.widget<Text>(daily).data, '1.50（1.25%）');
     expect(tester.widget<Text>(daily).style!.fontSize, 13);
+    expect(tester.widget<Text>(daily).style!.color,
+        fvSignedColor('-1.50'));
     expect(tester.widget<Text>(
         find.byKey(const Key('holding-day-amount-00719B'))).data, '-45,000');
     expect(tester.takeException(), isNull);
