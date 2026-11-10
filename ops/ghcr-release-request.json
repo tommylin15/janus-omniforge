@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "1b49e9f7b20013e3803ed7f5faa4e1f5838bc448",
-  "purpose": "2026-11-10 Owner reference screenshot holdings alignment: all four stock columns share a common header/main-figure/secondary-figure grid (25:23:25:27), minimum adjacent 6px content gutters; large current price/day/total PnL fit inside each own cell; shares/cost/daily per-share movement (percent)/total return all aligned on their own secondary row; minor responsive type size reductions while preserving red-up green-down, no +/- daily share movement, no redundant 參考; no financial calculation or API changes. Source UI commit 1bb27384e18bd01166081d6e6787552302cd7c7e, expanded geometry regression commit b34d0295caf5e4cf0815f53978a0f905cc361aae, Flutter full analyze/tests/build #42757584970 SUCCESS. Deploy only existing Dev API/App via immutable GHCR full Release → 0% candidate → OAuth/Owner/Admin/MCP + quote parity → reversible API-only 100% → independent readback. No new resources, no Jobs/Scheduler/PG/IAM/Owner data mutations.",
+  "sha": "4525d9a802be4c8a7aaf8d6dd34155a9f042f9f9",
+  "purpose": "2026-11-10 Today live chart actual minute-hole detection + manual retry and long-term TAIEX EOD/financing/institutional headline restored. API repo code, Flutter widget, tests and doc already committed on main. Latest Flutter full #42792379430 SUCCESS, selective #42792379382 SUCCESS, targeted intraday Python #42791440018 SUCCESS. Publish exact current request commit using fixed GITHUB_SHA, run full Python+Flutter tests, GHCR four immutable images and anonymous digests. Following existing-Dev 0% candidate, auth and quote parity, API-only reversible 100%, independent readback only. No Jobs/Scheduler/PG/IAM or Owner mutations, no new paid resources.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 62
+  "request_attempt": 63
 }
