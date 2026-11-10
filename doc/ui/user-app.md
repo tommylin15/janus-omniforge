@@ -1,11 +1,11 @@
 # Janus UI — User App 頁面
 
-## 2026-11-10｜盤中缺口與長期市場資訊首屏修復（待發布）
+## 2026-11-10｜盤中缺口與長期市場資訊首屏修復（Dev 工程與獨立 Live PASS）
 
 - 盤中圖維持實際相鄰分鐘才連線，缺值不造假；後端回補資格由實際時間槽檢查開頭、中段與末段缺口，避免整日覆蓋達85%便忽略局部缺口。保留共享PG限流：30分鐘、每日3次，不由60秒行情輪詢抓歷史K棒。Shioaji維持simulation=True。
 - 持股與大盤既有補收狀態提供「重查缺口」按需操作，前端有5分鐘防重按，不繞過後端限制；未回補成功時保留斷線與缺值提示。
 - 長期觀察最上方顯示「加權指數最新正式收盤、相較前一有效正式收盤點差／漲跌幅、比較日期及來源」，僅取已發布日行情，不混盤中報價或估測。下方5／20／30日趨勢、融資兩週、法人買賣超、本人追蹤／研究狀態均保留，正常上下捲動。
-- 本版仍需Flutter/Python CI、固定發行、Dev live readback及Owner實機驗收，未驗證不宣稱已發布成功。
+- **已發布補充**：每日行情內嵌大明細表改為「查看收盤明細」底層面板，不占用長期首頁空間；新增「更新資料」重試當次盤後研究來源；個人追蹤 API 無資料時保留可見缺值狀態，不直接隱藏整區。全量 Release [#42794861330](https://github.com/tommylin15/janus-omniforge/actions/runs/42794861330)、0% [#42795775968](https://github.com/tommylin15/janus-omniforge/actions/runs/42795775968)、auth parity [#42796075164](https://github.com/tommylin15/janus-omniforge/actions/runs/42796075164)、Dev 100% [#42796276597](https://github.com/tommylin15/janus-omniforge/actions/runs/42796276597)、獨立 Live [#42796710267](https://github.com/tommylin15/janus-omniforge/actions/runs/42796710267) 全 PASS。固定 source `ac9e0309302248eabcc8d7a6553d479cacf2f828`，公開 EOD 30 期、融資 10 期、法人 3 類；Owner 真人 UI 與下次真盤中缺口覆蓋尚未驗證，不虛報 PASS。
 
 ## 2026-11-10｜手機閱讀與單檔主視圖（覆蓋舊版高密度佈局）
 
