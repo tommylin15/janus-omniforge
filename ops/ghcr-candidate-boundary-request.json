@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "a12898bc2c97c4ddbe5d7aeda3361187bce99f10",
+  "sha": "2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-09 Watchlist dual-tab: full GHCR Release #42551010365 PASS (attempt 2), Dev API/App 0% candidate #42551893505 PASS. Read-only verify OAuth Owner/Admin/MCP 401 and protected boundaries, fixed /app build-id plus public market parity before reversible Dev API-only cutover. No GCP write, no traffic change.",
-  "request_attempt": 51
+  "purpose": "2026-11-10 mobile-first Today/Watchlist/Holdings Flutter UI. Fixed full Release #42738969612 PASS and existing dev 0%-traffic API candidate #42739680653 PASS. Independent read-only Owner/Admin/OAuth/MCP authentication and public market comparison on candidate before reversible API-only promotion. No GCP, traffic or owner writes.",
+  "request_attempt": 52
 }
