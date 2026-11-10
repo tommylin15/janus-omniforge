@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "a12898bc2c97c4ddbe5d7aeda3361187bce99f10",
+  "sha": "2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547",
   "digest": "",
-  "release_run": "42551010365",
+  "release_run": "42738969612",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-09 Janus Watchlist dual-tab: selected stock live minutes and 5/20/60/120 EOD trend, owner-scoped watchlist minute reader and bounded on-demand Shioaji Kbars. Exact source a12898bc2c97c4ddbe5d7aeda3361187bce99f10, full Release #42551010365 attempt 2 PASS (Python, Flutter, four public immutable GHCR images). Deploy only existing Dev API 0% candidate; preserve old 100%, Jobs, Scheduler, PostgreSQL, IAM and Owner data.",
-  "request_attempt": 57
+  "purpose": "2026-11-10 mobile typography + selected-stock Today/Watchlist and readable Holdings UI. Flutter CI #42738741651 PASS and fixed full Python/Flutter/four GHCR Release #42738969612 PASS from SHA 2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547. Deploy existing dev janus-api only as immutable 0%-traffic candidate, preserve current 100% API and all Jobs/Scheduler/PG/IAM/Owner state. Independent auth readback and separate promotion gate follow.",
+  "request_attempt": 58
 }
