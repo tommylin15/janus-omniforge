@@ -263,6 +263,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.requests.where((p) =>
         p == '/api/v1/public/market-leverage-flow').length, 2);
+    // The personal card is intentionally below the capital-flow detail,
+    // and is built lazily by the scrollable when it reaches the viewport.
+    await tester.scrollUntilVisible(
+        find.byKey(const Key('today-longterm-personal-empty')), 220,
+        scrollable: find.byType(Scrollable).first);
     expect(find.byKey(const Key('today-longterm-personal-empty')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
