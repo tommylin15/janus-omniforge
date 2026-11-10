@@ -60,14 +60,14 @@ class StockOrderBookPanel extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 7),
           child: Row(children: [
             if (!buy) Text('賣${index + 1}',
-                style: const TextStyle(fontSize: 10, color: _muted)),
+                style: const TextStyle(fontSize: 13, color: _muted)),
             if (!buy) const SizedBox(width: 4),
             Expanded(child: Text(buy ? '${index + 1} · $price' : price,
               maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
                   color: tone))),
             Text(volume?.toString() ?? '—',
-                style: const TextStyle(fontSize: 12, color: _ink,
+                style: const TextStyle(fontSize: 14, color: _ink,
                     fontWeight: FontWeight.w700)),
           ]),
         ),
@@ -104,7 +104,7 @@ class StockOrderBookPanel extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             const Expanded(child: Text('買賣五檔｜按需快照',
-                style: TextStyle(color: _ink, fontSize: 15,
+                style: TextStyle(color: _ink, fontSize: 17,
                     fontWeight: FontWeight.w800))),
             IconButton(
               key: Key('today-order-book-refresh-$symbol'),
@@ -133,7 +133,7 @@ class StockOrderBookPanel extends StatelessWidget {
             Text('資料時間 ${_time(data['quote_at'])} · '
                 '${status == 'partial' ? '部分檔位' : '五檔完整'}',
                 key: Key('today-order-book-time-$symbol'),
-                style: const TextStyle(fontSize: 11, color: _muted)),
+                style: const TextStyle(fontSize: 13, color: _muted)),
             const SizedBox(height: 9),
             Row(children: [
               Expanded(child: Text('委買 $totalBid 張',
