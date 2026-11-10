@@ -836,7 +836,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     },
   );
 
-  // Overview stays visible, but its full chart is a secondary on-demand view.
+  // A single compact index card keeps today's point and percent change
+  // visible without opening the chart. The chart remains on-demand.
   Widget _compactMarket() => FutureBuilder<dynamic>(
     future: market,
     builder: (context, snapshot) {
@@ -844,7 +845,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       final section = fvMap(fvMap(root['sections'])['taiex']);
       if (section.isEmpty) {
         return Column(children: [
-          fvPanel(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          fvPanel(padding: const EdgeInsets.symmetric(
+              horizontal: 14, vertical: 10),
             child: const Row(children: [
               Text('加權指數', style: TextStyle(color: fvInk,
                   fontSize: 15, fontWeight: FontWeight.w800)),
@@ -855,8 +857,19 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
               ? '大盤行情暫時無法取得' : '大盤資料仍在讀取；其他資訊可先使用'),
         ]);
       }
+      final data = fvMap(section['data']);
+      final current = fvNumber(data['close'] ?? data['index'] ?? data['value']);
+      final previous = _taiexSummaryPreviousClose(section);
+      final comparable = current != null && current.isFinite && current > 0 &&
+          previous != null && previous.isFinite && previous > 0;
+      final change = comparable ? current - previous : null;
+      final ratio = comparable ? change! / previous : null;
+      final changeColor = change == null ? fvMuted : fvSignedColor(change);
+      final points = change == null ? '—' :
+          '${change > 0 ? '+' : change < 0 ? '-' : ''}${legacy.accountingNumber(change.abs(), decimals: 2)} 點';
+      final percent = ratio == null ? '—' : fvSignedPercent(ratio);
       return fvPanel(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         child: InkWell(
           key: const Key('today-market-summary'),
           onTap: () => showModalBottomSheet<void>(
@@ -866,34 +879,67 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                 height: MediaQuery.sizeOf(sheetContext).height * 0.7,
                 child: ListView(padding: const EdgeInsets.all(16), children: [
                   const Text('加權指數 · 今日分鐘走勢',
-                      style: TextStyle(color: fvInk, fontSize: 20, fontWeight: FontWeight.w800)),
+                      style: TextStyle(color: fvInk, fontSize: 20,
+                          fontWeight: FontWeight.w800)),
                   const SizedBox(height: 10),
                   _market(),
                 ]),
               ),
             ),
           ),
-          child: Row(children: [
-            const Text('加權指數', style: TextStyle(color: fvInk,
-                fontSize: 15, fontWeight: FontWeight.w800)),
-            const SizedBox(width: 12),
-            Expanded(child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(_value(section), textAlign: TextAlign.end,
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: fvInk, fontSize: 21,
-                      fontWeight: FontWeight.w800)),
-                Text(_freshness(section).isEmpty
-                    ? legacy.uiLabel(section['status'] ?? 'partial')
-                    : _freshness(section),
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: fvMuted, fontSize: 13)),
-              ],
-            )),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: fvTeal),
-          ]),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(children: [
+                const Text('加權指數', style: TextStyle(color: fvInk,
+                    fontSize: 15, fontWeight: FontWeight.w800)),
+                const SizedBox(width: 10),
+                Expanded(child: Align(alignment: Alignment.centerRight,
+                  child: FittedBox(fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(_value(section),
+                      key: const Key('today-market-index-value'),
+                      maxLines: 1, softWrap: false,
+                      style: const TextStyle(color: fvInk, fontSize: 24,
+                          fontWeight: FontWeight.w900)),
+                  ),
+                )),
+                const SizedBox(width: 6),
+                const Icon(Icons.chevron_right, color: fvTeal),
+              ]),
+              const SizedBox(height: 3),
+              Row(children: [
+                Expanded(child: Text(_taiexQuoteLabel(section),
+                    key: const Key('today-market-quote-status'),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: fvMuted, fontSize: 12))),
+                const SizedBox(width: 6),
+                if (comparable)
+                  Flexible(flex: 3, child: Align(
+                    alignment: Alignment.centerRight,
+                    child: FittedBox(fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text(points,
+                          key: const Key('today-market-change-points'),
+                          maxLines: 1, softWrap: false,
+                          style: TextStyle(color: changeColor, fontSize: 17,
+                              fontWeight: FontWeight.w800)),
+                        const SizedBox(width: 8),
+                        Text(percent,
+                          key: const Key('today-market-change-percent'),
+                          maxLines: 1, softWrap: false,
+                          style: TextStyle(color: changeColor, fontSize: 17,
+                              fontWeight: FontWeight.w800)),
+                      ]),
+                    ),
+                  ))
+                else
+                  const Text('漲跌待可比前收',
+                    key: Key('today-market-change-unavailable'),
+                    style: TextStyle(color: fvMuted, fontSize: 13)),
+              ]),
+            ],
+          ),
         ),
       );
     },
