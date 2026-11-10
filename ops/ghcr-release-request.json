@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "e47d71313764409dafb01124ba663c414abe8a67",
-  "purpose": "2026-11-09 Watchlist selected-ticker UI mirrors Today live and long-term dual tabs: Owner-only watchlist intraday read, guarded Shioaji historical backfill for active watched symbol, Kline EOD 5/20/60/120 daily periods, soft limit-price hints and collapsible list management. No new schemas, Jobs, scheduling, paid services, storage/IAM or Owner financial mutations. Main UI commit e47d7131; Flutter full #42550747405 PASS, Selective CI #42550747267 PASS, backend Analysis Product #42550616746 PASS. Full fixed SHA release required before existing Dev API-only rollout.",
+  "sha": "e6f4de420df9c7a04604ebe82a9f110205bbc195",
+  "purpose": "2026-11-10 今日／關注／持股手機閱讀優化：主要數字放大；今日單一選股器（含ETF）、大盤摘要按需詳圖、分鐘圖與五檔互斥；關注資訊依重要性上移、池管理下沉；持股兩行大字卡。允許正常垂直捲動，不動API、資料庫、Job、Scheduler、IAM與付費資源。Flutter全量測試入口 #42738468943；本次固定來源為此release request commit，API-only候選與切流需另行受控驗證。",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 55
+  "request_attempt": 56
 }
