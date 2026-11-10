@@ -166,6 +166,77 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('dense holdings have aligned main and secondary rows with real gutters',
+      (tester) async {
+    _phone(tester);
+    final snapshot = _snapshot();
+    final original = Map<String, dynamic>.from(
+        (snapshot['positions'] as List).first as Map);
+    snapshot['positions'] = <Map<String, dynamic>>[
+      original,
+      {
+        ...original,
+        'symbol': '3711',
+        'stock_name': '日月光投控',
+        'shares': '2000',
+        'market_price': '605.00',
+        'average_cost': '561.32',
+        'day_change_amount': '88000',
+        'change': '44.00',
+        'change_percent': '0.0784',
+        'unrealized_pnl': '87360',
+        'unrealized_return': '0.08',
+      },
+      {
+        ...original,
+        'symbol': '5876',
+        'stock_name': '上海商銀',
+        'shares': '140000',
+        'market_price': '50.80',
+        'average_cost': '39.93',
+        'day_change_amount': '-84000',
+        'change': '-0.60',
+        'change_percent': '-0.0117',
+        'unrealized_pnl': '1521980',
+        'unrealized_return': '0.27',
+      },
+    ];
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(
+      HoldingsP0Api(snapshot), now: () => DateTime.utc(2026, 10, 12, 7))));
+    await tester.pumpAndSettle();
+
+    for (final symbol in ['3711', '5876', '00719B']) {
+      final mainRow = find.byKey(Key('holding-primary-row-$symbol'));
+      final secondaryRow = find.byKey(Key('holding-secondary-row-$symbol'));
+      await tester.scrollUntilVisible(secondaryRow, 120,
+          scrollable: find.byType(Scrollable).first);
+      expect(mainRow, findsOneWidget);
+      expect(secondaryRow, findsOneWidget);
+      // The four figures are on one horizontal band; the four supporting
+      // details occupy another. No independent Column can straddle a neighbor.
+      expect(tester.getBottomLeft(mainRow).dy,
+          lessThan(tester.getTopLeft(secondaryRow).dy));
+      expect(tester.getSize(find.byKey(Key('holding-main-row-$symbol'))).height,
+          lessThan(85));
+
+      final cost = find.byKey(Key('holding-cost-$symbol'));
+      final move = find.byKey(Key('holding-daily-change-$symbol'));
+      final costFit = find.ancestor(
+          of: cost, matching: find.byType(FittedBox)).first;
+      final moveFit = find.ancestor(
+          of: move, matching: find.byType(FittedBox)).first;
+      // Even 561.32 next to 44.00（7.84%） must have a visible gutter.
+      expect(tester.getTopLeft(moveFit).dx -
+          tester.getTopRight(costFit).dx, greaterThanOrEqualTo(5));
+      expect((tester.getBottomLeft(costFit).dy -
+          tester.getBottomLeft(moveFit).dy).abs(), lessThan(1));
+    }
+    expect(find.text('成本 561.32'), findsOneWidget);
+    expect(find.text('44.00（7.84%）'), findsOneWidget);
+    expect(find.text('1,521,980'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('daily PnL retains large amount but quotes smaller move (percent)',
       (tester) async {
     _phone(tester);
@@ -181,7 +252,7 @@ void main() {
     final sizes = [dayAmount, dayPercent, totalAmount, totalPercent]
         .map((finder) => tester.widget<Text>(finder).style?.fontSize)
         .toList();
-    expect(sizes, [18, 13, 18, 18]);
+    expect(sizes, [18, 12, 18, 18]);
     expect(tester.widget<Text>(dayPercent).data, '0.10（0.32%）');
     expect(tester.widget<Text>(dayPercent).style!.color,
         fvSignedColor('0.10'));
@@ -210,7 +281,7 @@ void main() {
     await tester.scrollUntilVisible(daily, 150,
         scrollable: find.byType(Scrollable).first);
     expect(tester.widget<Text>(daily).data, '1.50（1.25%）');
-    expect(tester.widget<Text>(daily).style!.fontSize, 13);
+    expect(tester.widget<Text>(daily).style!.fontSize, 12);
     expect(tester.widget<Text>(daily).style!.color,
         fvSignedColor('-1.50'));
     expect(tester.widget<Text>(
