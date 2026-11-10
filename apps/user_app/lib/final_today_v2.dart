@@ -159,8 +159,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     );
   }
 
-  void _loadResearch() {
-    if (!widget.active || researchLoaded) return;
+  void _loadResearch({bool refresh = false}) {
+    if (!widget.active || (researchLoaded && !refresh)) return;
     researchLoaded = true;
     marketFlows = _read('/api/v1/public/market-leverage-flow',
         timeout: const Duration(seconds: 28));
@@ -658,7 +658,21 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     builder: (context, snapshot) {
       // No spinner here: market baseline remains visible while this resolves.
       final items = fvRows(fvMap(snapshot.data)['items']);
-      if (items.isEmpty) return const SizedBox.shrink();
+      if (items.isEmpty) {
+        return fvPanel(child: Row(children: [
+          const Icon(Icons.bookmark_outline, color: fvTeal),
+          const SizedBox(width: 8),
+          Expanded(child: Text(
+            snapshot.connectionState != ConnectionState.done
+                ? '個人追蹤載入中'
+                : snapshot.data == null
+                    ? '個人追蹤暫時無法取得，可重新整理長期資料'
+                    : '目前沒有新的個人追蹤項目',
+            key: const Key('today-longterm-personal-empty'),
+            style: const TextStyle(fontSize: 13, color: fvMuted),
+          )),
+        ]));
+      }
       return fvPanel(child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1149,7 +1163,20 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           priorValue <= 0 ? null : difference / priorValue;
       final sourceIds = fvRows(data['history_source_ids']);
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        fvSectionTitle(context, '市場長期趨勢', trailing: '只使用已保存日收盤'),
+        Row(children: [
+          const Expanded(child: Text('市場長期趨勢',
+              style: TextStyle(color: fvInk, fontSize: 17,
+                  fontWeight: FontWeight.w800))),
+          TextButton.icon(
+            key: const Key('today-longterm-refresh'),
+            onPressed: () => setState(() {
+              market = _loadMarketWithoutPerf();
+              _loadResearch(refresh: true);
+            }),
+            icon: const Icon(Icons.refresh, size: 17),
+            label: const Text('更新資料'),
+          ),
+        ]),
         if (latest != null)
           fvPanel(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
