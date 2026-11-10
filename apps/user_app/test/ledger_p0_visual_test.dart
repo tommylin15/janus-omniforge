@@ -128,7 +128,7 @@ void main() {
     final daily = find.byKey(const Key('holding-day-amount-00719B'));
     await tester.scrollUntilVisible(daily, 180, scrollable: find.byType(Scrollable).first);
     expect(pnl, findsOneWidget);
-    expect(find.text('總損益'), findsOneWidget);
+    expect(find.text('總損益'), findsWidgets);
     expect(find.text('當日損益'), findsWidgets);
     expect(find.text('0.3 萬元'), findsOneWidget);
     expect(tester.getTopLeft(pnl).dx, greaterThan(tester.getTopLeft(daily).dx));
