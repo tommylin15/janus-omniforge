@@ -1,5 +1,13 @@
 # Janus 最新驗收證據索引
 
+## 2026-11-10 今日／關注／持股手機字級與單檔聚焦｜工程發布與獨立 Dev Live PASS，Owner 視覺 UAT 待驗
+
+- **範圍**：今日／關注／持股關鍵現價、損益、名稱與狀態字級放大；今日大盤縮成首屏單行摘要、完整分鐘圖點開顯示，持股只留單一下拉選股器＋左右切換（含 ETF），分鐘圖和 Shioaji 五檔以同區 Tab 互斥；關注頁先主數字／選定圖，觀察池設定與管理資訊移到圖下；持股改成名稱／現價與日損益／總損益兩層可點卡。**垂直捲動正常保留**，僅盡量減少不必要捲動。數字仍由既有 API／Owner 來源決定，缺值／stale／漲跌停淡色提示不造假。
+- **Code／測試**：Flutter Today、Watchlist、Ledger、共用視覺／五檔元件及相關 widget tests 更新；全量 Flutter 靜態分析、tests、Web build [#42738741651](https://github.com/tommylin15/janus-omniforge/actions/runs/42738741651) PASS；selective CI PASS。早期因舊版選股／懶載入測試與未引用函式而失敗的流程是歷史，不視為最終成功。本次固定正式來源 SHA 2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547；Python＋Flutter＋四個不可變 GHCR 映像正式 Release [#42738969612](https://github.com/tommylin15/janus-omniforge/actions/runs/42738969612) PASS。
+- **Dev 受控切流**：既有 API/App 0% 候選 [#42739680653](https://github.com/tommylin15/janus-omniforge/actions/runs/42739680653) PASS → OAuth／Owner／Admin／MCP 與公開盤中行情比對 [#42739933792](https://github.com/tommylin15/janus-omniforge/actions/runs/42739933792) attempt 2 PASS（第 1 次因候選與舊版同為暫時 stale 而未達盤中門檻，沒有放寬 guard）→ 可回復 API-only 100% [#42740369550](https://github.com/tommylin15/janus-omniforge/actions/runs/42740369550) PASS → 獨立唯讀線上驗收 [#42740540025](https://github.com/tommylin15/janus-omniforge/actions/runs/42740540025) PASS。保留舊版 immutable source a12898bc2c97c4ddbe5d7aeda3361187bce99f10 作 rollback 入口；未更新既有 Jobs、Scheduler、DB、IAM、Owner 資料或付費資源。
+- **完成界線**：ENGINEERING_RELEASE=PASS、PUBLIC_LIVE_READBACK=PASS、AUTHENTICATED_OWNER_MOBILE_VISUAL_UAT=NOT_VERIFIED；請於 [Janus Dev App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/) 使用本人身分在手機查核今日選股含 ETF、走勢／五檔 Tab、關注狀態與管理下沉、持股兩行大字卡、較小／放大字體時仍可自然捲動且無溢出。匿名負測不代表本人登入正向視覺通過。
+
+
 ## 2026-11-09 關注頁盤中／長期雙 Tab｜工程發布／獨立 Live PASS，Owner 手機 UAT 未驗證
 
 - **實作**：關注頁預設「盤中變化」，精簡橫向選股列，單一選定關注股現價、漲跌幅、目標價、A／B／C 與 S 標籤，以及 09:00–13:30 真實分鐘圖／官方前收 0% 軸；「長期觀察」按需顯示近 5／20／60／120 日正式日收盤趨勢。Tab 固定在上方、選股及長期期間保留、舊大卡片與拖曳排序改為預設收合的管理清單，目標價／鎖定／移除與原有權限不刪除。延續溫和漲跌停底色，只反映可信現價。缺分鐘、缺前收、過時價格不補假值。關注不代表持有，不新增 PnL 或交易行為。
