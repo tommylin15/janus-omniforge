@@ -53,6 +53,43 @@ def test_market_home_keeps_core_sections_when_brief_is_missing():
     assert "secret" not in str(body)
 
 
+def test_market_home_includes_quote_previous_close_and_tick_timestamp(monkeypatch):
+    """An authenticated exchange quote's reference must travel with its index value."""
+    from services.api.quote_router import QuoteRouter
+
+    now = datetime.now(ZoneInfo("Asia/Taipei"))
+    today = now.date()
+    previous = today - timedelta(days=1)
+
+    def query(identifier, _sql, _parameters):
+        if identifier == "core.benchmark_v1":
+            return [{"benchmark_id": "TAIEX", "trade_date": previous,
+                     "close": "25000", "source_id": "official",
+                     "provenance_id": "benchmark-published"}]
+        return []
+
+    quote = {
+        "price": "25125.5", "previous_close": "25000",
+        "price_date": today.isoformat(), "quote_at": now.isoformat(),
+        "source": "twse_mis", "state": "intraday",
+    }
+    monkeypatch.setattr(QuoteRouter, "resolve",
+                        lambda self, *args, **kwargs: ({"TAIEX": quote}, {"status": "fresh"}))
+    client = TestClient(create_app(object(), object(),
+                            query_core=CoreQueryService(query)))
+    response = client.get("/api/v1/public/market-home")
+    assert response.status_code == 200
+    section = response.json()["sections"]["taiex"]
+    assert section["as_of"] == today.isoformat()
+    assert section["data"]["close"] == "25125.5"
+    assert section["data"]["quote_previous_close"] == "25000"
+    assert section["data"]["quote_at"] == now.isoformat()
+    assert section["data"]["quote_state"] == "intraday"
+    assert section["data"]["quote_source"] == "twse_mis"
+    # Official Core history remains separate from the non-final MIS tick.
+    assert section["data"]["history_points"][0]["value"] == "25000"
+
+
 def test_market_home_is_public_and_independent_of_admin_auth():
     core = CoreQueryService(lambda _identifier, _sql, _parameters: [])
     api = TestClient(create_app(object(), object(), query_core=core), raise_server_exceptions=False)
