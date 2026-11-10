@@ -902,7 +902,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               legacy.portfolioMissingReasonLabel(row['missing_reason']);
 
           // Keep the large main figures on the same horizontal line. The
-          // second small line belongs to each cell, not a second card row.
+          // both PnL amounts and percentages use the same readable type scale;
+          // each cell independently scales long values, never wraps the card.
           Widget amount(String value, {required Key key, required Color color}) =>
               Align(
                 alignment: Alignment.centerRight,
@@ -1002,14 +1003,12 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                             key: Key('holding-day-amount-$symbol'),
                             color: valid
                                 ? fvSignedColor(row['day_change_amount']) : fvMuted),
-                          Text(valid
+                          amount(valid
                               ? fvSignedPercent(row['change_percent'])
                               : '待行情',
                             key: Key('holding-daily-change-$symbol'),
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: valid
-                                ? fvSignedColor(row['change_percent']) : fvMuted,
-                                fontSize: 12)),
+                            color: valid
+                                ? fvSignedColor(row['change_percent']) : fvMuted),
                         ],
                       )),
                       Expanded(flex: 27, child: Column(
@@ -1021,14 +1020,12 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                             key: Key('holding-pnl-$symbol'),
                             color: hasPnl
                                 ? fvSignedColor(row['unrealized_pnl']) : fvMuted),
-                          Text(hasPnl
+                          amount(hasPnl
                               ? '${legacy.portfolioReturnLabel(row['unrealized_return'])}${reference ? ' 參考' : ''}'
                               : '待估值',
                             key: Key('holding-return-$symbol'),
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: hasPnl
-                                ? fvSignedColor(row['unrealized_return']) : fvMuted,
-                                fontSize: 12)),
+                            color: hasPnl
+                                ? fvSignedColor(row['unrealized_return']) : fvMuted),
                         ],
                       )),
                     ],
