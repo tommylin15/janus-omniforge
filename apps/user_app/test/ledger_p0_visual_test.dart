@@ -204,7 +204,11 @@ void main() {
     expect(find.textContaining('00719B · 123,456,789'), findsNothing);
     final rowWidth = tester.getSize(
         find.byKey(const Key('holding-main-row-00719B'))).width;
-    expect(tester.getSize(shares).width, lessThan(rowWidth * 0.4));
+    // The Text keeps its intrinsic width; FittedBox scales the painted glyphs
+    // into the stock column. Verify the actual viewport, not raw Text size.
+    final fit = find.ancestor(
+        of: shares, matching: find.byType(FittedBox)).first;
+    expect(tester.getSize(fit).width, lessThan(rowWidth * 0.4));
     expect(tester.takeException(), isNull);
   });
 
