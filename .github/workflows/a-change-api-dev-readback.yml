@@ -73,8 +73,24 @@ jobs:
           assert market_code==200,"market_home_unavailable"
           market_json=json.loads(market_raw) if market_raw else {}
           sections=(market_json.get("sections") or {}) if isinstance(market_json,dict) else {}
-          minutes=((sections.get("taiex") or {}).get("data") or {}).get("intraday_points") or []
+          taiex=((sections.get("taiex") or {}).get("data") or {})
+          minutes=taiex.get("intraday_points") or []
           assert isinstance(minutes,list),"index_minutes_schema_invalid"
+          eod=taiex.get("history_points") or []
+          assert isinstance(eod,list) and len(eod)>=2,"index_eod_history_missing"
+          flow_code,flow_raw=get("/api/v1/public/market-leverage-flow")
+          assert flow_code==200,"market_leverage_flow_unavailable"
+          flow_root=json.loads(flow_raw) if flow_raw else {}
+          assert isinstance(flow_root,dict),"market_leverage_flow_schema_invalid"
+          margin=flow_root.get("margin") or {}
+          institution=flow_root.get("institutional") or {}
+          assert isinstance(margin,dict) and isinstance(institution,dict),"market_leverage_flow_sections_invalid"
+          capital_flow={"http":flow_code,"margin_status":margin.get("status"),
+                        "margin_as_of":margin.get("as_of"),
+                        "margin_history_count":len(margin.get("history") or []),
+                        "institutional_status":institution.get("status"),
+                        "institutional_as_of":institution.get("as_of"),
+                        "institutional_item_count":len(institution.get("items") or [])}
           public_code,public_data=get("/api/v1/public/history/2330?limit=1&offset=0")
           public_rows=None
           if public_code==200:
@@ -108,6 +124,9 @@ jobs:
                   "health_and_app":True,"anonymous_owner_admin":codes,
                   "public_market_home_http":market_code,
                   "taiex_observed_minute_count":len(minutes),
+                  "taiex_eod_history_count":len(eod),
+                  "taiex_eod_latest_date":eod[-1].get("date") if eod else None,
+                  "longterm_capital_flow":capital_flow,
                   "anonymous_stock_minutes":codes.get("/api/v1/me/portfolio/intraday"),
                   "anonymous_stock_order_book":codes.get("/api/v1/me/portfolio/order-book"),
                   "public_stock_http":public_code,"public_rows_present":public_rows,
@@ -121,6 +140,8 @@ jobs:
           print(json.dumps({"status":result["status"],
               "active_percent":100,"source_sha":result["source_sha"],
               "public_stock_http":public_code,"public_rows_present":public_rows,
+              "taiex_eod_history_count":len(eod),
+              "longterm_capital_flow":capital_flow,
               "owner_authenticated_positive":"NOT_VERIFIED","gcp_mutations":0}))
           PY
       - uses: actions/upload-artifact@v4
