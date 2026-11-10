@@ -470,13 +470,29 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
             setState(() => selectedMinute =
               startMinute + (fraction * (endMinute - startMinute)).round());
           },
+          onHorizontalDragUpdate: (detail) {
+            if (points.isEmpty) return;
+            final fraction = ((detail.localPosition.dx - 45) /
+                math.max(1.0, bounds.maxWidth - 58)).clamp(0.0, 1.0);
+            final target =
+                startMinute + (fraction * (endMinute - startMinute)).round();
+            if (target != selectedMinute) setState(() => selectedMinute = target);
+          },
           child: Semantics(
             label: '${widget.label}，09:00 至 13:30 固定時間軸，0% 前收基準，漲紅跌綠，可點選真實分鐘點',
             child: SizedBox(height: widget.height, width: double.infinity,
-              child: CustomPaint(
-                key: const Key('intraday-session-fixed-chart'),
-                painter: _SessionProgressPainter(points, selectedMinute,
-                    previous, fvGain, fvLoss),
+              child: TweenAnimationBuilder<double>(
+                // Animate the actual newest point once on data update, not a
+                // perpetual pulse that could imply fresh quote activity.
+                key: ValueKey('intraday-point-${latest?.minute ?? -1}'),
+                tween: Tween<double>(begin: 0.65, end: 1.0),
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
+                builder: (context, pointEmphasis, child) => CustomPaint(
+                  key: const Key('intraday-session-fixed-chart'),
+                  painter: _SessionProgressPainter(points, selectedMinute,
+                      previous, fvGain, fvLoss, pointEmphasis),
+                ),
               ),
             ),
           ),
@@ -544,12 +560,13 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
 
 class _SessionProgressPainter extends CustomPainter {
   const _SessionProgressPainter(this.points, this.selectedMinute,
-      this.previousClose, this.gainColor, this.lossColor);
+      this.previousClose, this.gainColor, this.lossColor, this.pointEmphasis);
   final List<_SessionPoint> points;
   final int? selectedMinute;
   final double previousClose;
   final Color gainColor;
   final Color lossColor;
+  final double pointEmphasis;
   static const int start = 9 * 60;
   static const int end = 13 * 60 + 30;
   static const double left = 45;
@@ -572,6 +589,20 @@ class _SessionProgressPainter extends CustomPainter {
     canvas.drawLine(Offset(left + width, top), Offset(left + width, top + height), axis);
     canvas.drawLine(Offset(left, top), Offset(left + width, top), axis);
     canvas.drawLine(Offset(left, top + height), Offset(left + width, top + height), axis);
+    // Faint reading guides orient prices without competing with the series.
+    final guide = Paint()
+      ..color = fvMuted.withValues(alpha: 0.10)
+      ..strokeWidth = 0.7;
+    for (final fraction in [0.25, 0.75]) {
+      final guideY = top + height * fraction;
+      canvas.drawLine(Offset(left, guideY),
+          Offset(left + width, guideY), guide);
+    }
+    for (final minute in [10 * 60 + 30, 12 * 60]) {
+      final guideX = x(minute);
+      canvas.drawLine(Offset(guideX, top),
+          Offset(guideX, top + height), guide);
+    }
     // Neutral zero line, rendered with explicit dash to distinguish from data.
     final reference = Paint()..color = fvMuted..strokeWidth = 1.2;
     for (double at = left; at < left + width; at += 10) {
@@ -599,25 +630,43 @@ class _SessionProgressPainter extends CustomPainter {
       canvas.drawLine(Offset(progressX, top), Offset(progressX, top + height),
           Paint()..color = fvSoft..strokeWidth = 1);
     }
+    // Translucent fills are confined to each observed one-minute segment.
+    // They never bridge missing minutes or paint into the future region.
+    void fillSegment(Offset a, Offset b, Color color) {
+      final path = Path()
+        ..moveTo(a.dx, zeroY)
+        ..lineTo(a.dx, a.dy)
+        ..lineTo(b.dx, b.dy)
+        ..lineTo(b.dx, zeroY)
+        ..close();
+      canvas.drawPath(path, Paint()..color = color.withValues(alpha: 0.055));
+    }
     void draw(Offset a, Offset b, Color color) {
       canvas.drawLine(a, b, Paint()
-        ..color = color..strokeWidth = 2.7..strokeCap = StrokeCap.round);
+        ..color = color
+        ..strokeWidth = 1.7
+        ..strokeCap = StrokeCap.round);
     }
     for (var i = 1; i < points.length; i++) {
       final before = points[i - 1], after = points[i];
-      // 1–2 minute observations can form a segment; longer gaps stay blank.
       if (after.minute - before.minute > 1) continue;
       final a = offset(before), b = offset(after);
       if (before.change * after.change < 0) {
         final fraction = before.change.abs() /
             (before.change.abs() + after.change.abs());
         final crossing = Offset(a.dx + (b.dx - a.dx) * fraction, zeroY);
-        draw(a, crossing, before.change > 0 ? gainColor : lossColor);
-        draw(crossing, b, after.change > 0 ? gainColor : lossColor);
+        final colorA = before.change > 0 ? gainColor : lossColor;
+        final colorB = after.change > 0 ? gainColor : lossColor;
+        fillSegment(a, crossing, colorA);
+        fillSegment(crossing, b, colorB);
+        draw(a, crossing, colorA);
+        draw(crossing, b, colorB);
       } else {
         final sign = before.change == 0 ? after.change : before.change;
-        draw(a, b, sign > 0 ? gainColor :
-            sign < 0 ? lossColor : fvMuted);
+        final color = sign > 0 ? gainColor :
+            sign < 0 ? lossColor : fvMuted;
+        fillSegment(a, b, color);
+        draw(a, b, color);
       }
     }
     if (points.isNotEmpty) {
@@ -625,17 +674,23 @@ class _SessionProgressPainter extends CustomPainter {
         (a, b) => (b.minute - selectedMinute!).abs() <
             (a.minute - selectedMinute!).abs() ? b : a);
       final highlight = offset(selected);
-      canvas.drawCircle(highlight, 4.4,
-          Paint()..color = selected.change > 0 ? gainColor :
-            selected.change < 0 ? lossColor : fvMuted);
-      canvas.drawCircle(highlight, 2.0, Paint()..color = Colors.white);
+      final selectedColor = selected.change > 0 ? gainColor :
+          selected.change < 0 ? lossColor : fvMuted;
+      // Soft halo emphasizes the last recorded point, not live activity.
+      final haloRadius = selectedMinute == null
+          ? 8.0 * pointEmphasis : 7.0;
+      canvas.drawCircle(highlight, haloRadius,
+          Paint()..color = selectedColor.withValues(alpha: 0.13));
+      canvas.drawCircle(highlight, 3.6, Paint()..color = selectedColor);
+      canvas.drawCircle(highlight, 1.5, Paint()..color = Colors.white);
     }
   }
   @override
   bool shouldRepaint(covariant _SessionProgressPainter old) {
     if (selectedMinute != old.selectedMinute ||
         previousClose != old.previousClose || points.length != old.points.length ||
-        gainColor != old.gainColor || lossColor != old.lossColor) return true;
+        gainColor != old.gainColor || lossColor != old.lossColor ||
+        pointEmphasis != old.pointEmphasis) return true;
     for (var i = 0; i < points.length; i++) {
       if (points[i] != old.points[i]) return true;
     }
