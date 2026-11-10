@@ -1,5 +1,13 @@
 # Janus 最新驗收證據索引
 
+## 2026-11-10 持股四欄共用主／副列版面對齊｜Dev Engineering／Live PASS
+
+- **手機截圖修正**：四欄仍是「股票｜現價｜當日損益｜總損益」同排，但取消各個 Expanded 獨立 Column 的主副資料對齊，改為所有股票共用相同 25:23:25:27 header／primary／secondary 列，欄位內容各自留 3px padding（相鄰欄約 6px visual gutter）；長股數、成本、價差或損益在自己的欄寬等比縮放，不再讓「成本」與當日漲跌貼成一串。小幅調整名稱／價／副資訊字級，不更動 canonical 金額、來源、紅漲綠跌、股數或百分比。
+- **測試與固定映像**：[Flutter full #42757584970](https://github.com/tommylin15/janus-omniforge/actions/runs/42757584970) PASS（390px 長金額、相鄰欄實際 viewport gap、320px 放大字體、全量 analyze、widget tests、Web build）；[Python＋Flutter＋四 GHCR images／digest Release #42757920981](https://github.com/tommylin15/janus-omniforge/actions/runs/42757920981) PASS。真實 Release head SHA `6a61ca534bb19b6298e4a62bc22f700f4bd525c2`。
+- **Dev 切流**：[0% fixed candidate #42759310235](https://github.com/tommylin15/janus-omniforge/actions/runs/42759310235) PASS；[OAuth／Owner／Admin／MCP 與盤中行情 parity #42759529462](https://github.com/tommylin15/janus-omniforge/actions/runs/42759529462) PASS；[reversible API-only 100% promotion #42780637407](https://github.com/tommylin15/janus-omniforge/actions/runs/42780637407) PASS，前版 `d7df1aa4f21427d99b0fb024c5cb502e381fb118` 保留 rollback，無 Jobs／Scheduler／PG／IAM／Owner mutation。
+- **獨立 Live**：[A-CHANGE #42780879663](https://github.com/tommylin15/janus-omniforge/actions/runs/42780879663) `API_LIVE_READBACK_PASS`：單一現役 Ready revision 100%，不可變映像 SHA＋`/app/build-id.txt` 與 `6a61ca534bb19b6298e4a62bc22f700f4bd525c2` 一致；公開行情 HTTP 200 且有資料、Owner 匿名拒絕、`gcp_mutations=0`。**ENGINEERING_RELEASE=PASS；PUBLIC_LIVE_READBACK=PASS；OWNER_AUTHENTICATED_MOBILE_VISUAL_UAT=NOT_VERIFIED**。手機登入後可於 [Janus Dev App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/) 確認視覺間距，未取得本人視覺回報不冒充完成。
+
+
 ## 2026-11-10 最新首頁與持股可讀性修正｜ENGINEERING RELEASE／LIVE PASS，Owner 手機視覺待驗
 
 - **改動**：Today TAIEX 首屏顯示漲跌點數與幅度及行情新鮮度（需合法 previous close／日期），不改既有 60 秒有界輪詢；Ledger 當日損益的每股漲跌副標改為 `1.50（1.25%）`，不顯示正負號、用紅漲綠跌；金額仍大字，總損益百分比不再加「參考」。非即時行情 Tooltip、缺值提示、持股損益來源維持不變。
