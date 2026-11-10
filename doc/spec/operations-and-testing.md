@@ -1,5 +1,13 @@
 # Janus 最新驗收證據索引
 
+## 2026-11-10 持股清單雙層卡改成單一橫列四欄｜ENGINEERING_RELEASE PASS／LIVE PASS
+
+- **最新設計**：撤回前版「每檔股票上下兩大區」排版。Flutter final_ledger.dart 改為單一橫列「股票｜現價｜當日損益｜總損益」，表頭只列一次，主數值維持大字，股數、成本、當日漲跌百分比及累積報酬率各放在其數值欄下方；不使用橫向捲動，長金額在欄內縮放，保留原始字串、漲跌停柔和底色、missing/stale 及點選個股詳情；可正常垂直捲動。
+- **程式與測試**：主程式 [70ea247](https://github.com/tommylin15/janus-omniforge/commit/70ea2475002078485629a3faa000f0e727555511)，390px 同排幾何、320px 放大字體、既有漲跌停回歸測試；Flutter 全量分析、test、Web build [#42741643378](https://github.com/tommylin15/janus-omniforge/actions/runs/42741643378) PASS。固定來源 SHA dcfaed5d5912172223f9f334ea1fede7deb5a125；完整 Python＋Flutter＋四 GHCR image 匿名 digest 驗證 [#42741975318](https://github.com/tommylin15/janus-omniforge/actions/runs/42741975318) PASS。
+- **受控發布**：0% Dev API Candidate [#42744305103](https://github.com/tommylin15/janus-omniforge/actions/runs/42744305103) PASS → OAuth／Owner／Admin／MCP 隔離及真實大盤、個股分鐘資料 parity [#42744533202](https://github.com/tommylin15/janus-omniforge/actions/runs/42744533202) PASS → 現有 Dev API/App 可回復 100% [#42744710766](https://github.com/tommylin15/janus-omniforge/actions/runs/42744710766) PASS。前版 source 2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547 保留為回復基準；沒有調整 Jobs／Scheduler／PG／IAM／Owner 資料。
+- **獨立 Runtime**：[A-CHANGE #42744905355](https://github.com/tommylin15/janus-omniforge/actions/runs/42744905355) API_LIVE_READBACK_PASS：現役唯一 100% Ready revision、固定 GHCR digest、/app/build-id.txt 精確等於 dcfaed5d5912172223f9f334ea1fede7deb5a125、公開行情 HTTP 200 與非空資料、私有 API 匿名拒絕、gcp_mutations=0。**ENGINEERING_RELEASE=PASS、PUBLIC_LIVE_READBACK=PASS、OWNER_AUTHENTICATED_MOBILE_VISUAL_UAT=NOT_VERIFIED**；不得將匿名負測包裝成本人登入後的視覺驗收。本人可於 [Dev App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/) 查看持股四欄同排，仍能正常上下捲動。
+
+
 ## 2026-11-10 今日／關注／持股手機字級與單檔聚焦｜工程發布與獨立 Dev Live PASS，Owner 視覺 UAT 待驗
 
 - **範圍**：今日／關注／持股關鍵現價、損益、名稱與狀態字級放大；今日大盤縮成首屏單行摘要、完整分鐘圖點開顯示，持股只留單一下拉選股器＋左右切換（含 ETF），分鐘圖和 Shioaji 五檔以同區 Tab 互斥；關注頁先主數字／選定圖，觀察池設定與管理資訊移到圖下；持股改成名稱／現價與日損益／總損益兩層可點卡。**垂直捲動正常保留**，僅盡量減少不必要捲動。數字仍由既有 API／Owner 來源決定，缺值／stale／漲跌停淡色提示不造假。
