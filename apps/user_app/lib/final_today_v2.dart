@@ -461,7 +461,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                               unit: '點', height: 235, previousClose: previousClose)
                           : FvVisualSeriesChart(
                               rows: usable, label: '加權指數 · 收盤',
-                              unit: '點', height: 235, dailyTable: true),
+                              unit: '點', height: 235, dailyTable: true,
+                              showTable: false),
                     ),
                   ]),
                 ),
@@ -483,9 +484,48 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       if (intradayOnly)
         FvIntradayProgressChart(rows: intraday, label: '加權指數 · 盤中',
             unit: '點', height: 190, previousClose: previousClose)
-      else
+      else ...[
         FvVisualSeriesChart(rows: shown, label: '加權指數 · 官方收盤',
-            unit: '點', height: 160, dailyTable: true),
+            unit: '點', height: 160, dailyTable: true, showTable: false),
+        Align(alignment: Alignment.centerRight, child: TextButton.icon(
+          key: const Key('today-longterm-history-details'),
+          icon: const Icon(Icons.list_alt, size: 17),
+          label: const Text('查看收盤明細'),
+          onPressed: shown.isEmpty ? null : () => showModalBottomSheet<void>(
+            context: context, isScrollControlled: true,
+            builder: (sheetContext) => SafeArea(child: SizedBox(
+              height: MediaQuery.sizeOf(sheetContext).height * 0.7,
+              child: Column(children: [
+                Row(children: [
+                  const Expanded(child: Padding(
+                    padding: EdgeInsets.only(left: 16),
+                    child: Text('加權指數 · 官方收盤明細',
+                        style: TextStyle(color: fvInk, fontSize: 18,
+                            fontWeight: FontWeight.w800)),
+                  )),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: '關閉收盤明細',
+                    onPressed: () => Navigator.pop(sheetContext)),
+                ]),
+                Expanded(child: ListView.builder(
+                  itemCount: shown.length,
+                  itemBuilder: (context, index) {
+                    final row = fvMap(shown[shown.length - index - 1]);
+                    return ListTile(
+                      dense: true,
+                      title: Text(fvText(row['date'])),
+                      trailing: Text(
+                        '${legacy.accountingNumber(row['value'], decimals: 2)} 點',
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                    );
+                  },
+                )),
+              ]),
+            )),
+          ),
+        )),
+      ],
       Padding(
         padding: const EdgeInsets.fromLTRB(5, 3, 5, 12),
         child: Text('正式收盤截至 $asOf · 來源 ${sources.isEmpty ? '待查' : sources.join('、')}'
