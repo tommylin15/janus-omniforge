@@ -243,7 +243,7 @@ void main() {
     await tester.scrollUntilVisible(find.text('持股今日走勢'), 180,
         scrollable: find.byType(Scrollable).first);
     expect(find.text('持股今日走勢'), findsOneWidget);
-    expect(find.byKey(const Key('today-live-holding-2330')), findsOneWidget);
+    expect(find.byKey(const Key('today-holding-picker')), findsOneWidget);
     expect(find.textContaining('非即時 · 價格日 2026-11-03'), findsWidgets);
     expect(api.requests.where((p) => p == '/api/v1/me/portfolio/intraday?symbol=2330').length, 1);
     await tester.scrollUntilVisible(find.textContaining('2330 · 今日分鐘走勢'), 140,
@@ -277,7 +277,7 @@ void main() {
     expect(find.text('大盤資料仍在讀取；其他資訊可先使用'), findsOneWidget);
     api.marketResponse.complete(api.market);
     await tester.pumpAndSettle();
-    expect(find.text('加權指數走勢'), findsOneWidget);
+    expect(find.byKey(const Key('today-market-summary')), findsOneWidget);
     expect(find.text('加權指數'), findsOneWidget);
     expect(api.requests.where((p) => p == '/api/v1/public/market-home').length, 1);
     expect(tester.takeException(), isNull);
@@ -298,8 +298,12 @@ void main() {
     });
     await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('today-market-summary')));
+    await tester.pumpAndSettle();
     expect(find.textContaining('前一正式收盤價缺值'), findsOneWidget);
     expect(find.byKey(const Key('today-taiex-expand')), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('intraday-session-fixed-chart')), findsNothing);
     await tester.tap(find.byKey(const Key('today-tab-longterm')));
     await tester.pumpAndSettle();
