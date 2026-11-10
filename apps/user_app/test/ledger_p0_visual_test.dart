@@ -132,7 +132,8 @@ void main() {
     expect(find.text('當日損益'), findsWidgets);
     expect(find.text('0.3 萬元'), findsOneWidget);
     expect(tester.getTopLeft(pnl).dx, greaterThan(tester.getTopLeft(daily).dx));
-    expect(find.text('00719B · 30,000 股'), findsOneWidget);
+    expect(find.text('30,000 股'), findsOneWidget);
+    expect(find.text('00719B · 30,000 股'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -160,7 +161,27 @@ void main() {
     expect(tester.getSize(find.byKey(const Key('holding-main-row-00719B')))
         .height, lessThan(85));
     expect(find.text('成本 31.16'), findsOneWidget);
-    expect(find.text('00719B · 30,000 股'), findsOneWidget);
+    expect(find.text('30,000 股'), findsOneWidget);
+    expect(find.text('00719B · 30,000 股'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('long share counts remain legible without ticker prefix',
+      (tester) async {
+    _phone(tester);
+    final snapshot = _snapshot();
+    (snapshot['positions'] as List).first['shares'] = '123456789';
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(
+      HoldingsP0Api(snapshot), now: () => DateTime.utc(2026, 10, 12, 7))));
+    await tester.pumpAndSettle();
+    final shares = find.byKey(const Key('holding-shares-00719B'));
+    await tester.scrollUntilVisible(shares, 150,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('123,456,789 股'), findsOneWidget);
+    expect(find.textContaining('00719B · 123,456,789'), findsNothing);
+    final rowWidth = tester.getSize(
+        find.byKey(const Key('holding-main-row-00719B'))).width;
+    expect(tester.getSize(shares).width, lessThan(rowWidth * 0.4));
     expect(tester.takeException(), isNull);
   });
 
@@ -449,7 +470,8 @@ void main() {
     expect(find.text('總額暫不發布'), findsWidgets);
     await tester.scrollUntilVisible(find.byKey(const Key('holding-pnl-00719B')),
       180, scrollable: find.byType(Scrollable).first);
-    expect(find.text('00719B · 30,000 股'), findsOneWidget);
+    expect(find.text('30,000 股'), findsOneWidget);
+    expect(find.text('00719B · 30,000 股'), findsNothing);
     expect(find.text('成本 31.16'), findsOneWidget);
     expect(find.text('待估值'), findsOneWidget);
     expect(tester.takeException(), isNull);
