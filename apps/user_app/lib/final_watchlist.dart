@@ -382,7 +382,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     final symbols = list.map((row) => fvText(row['symbol'])).toList();
     final index = symbols.indexOf(selectedSymbol ?? '');
     final active = index < 0 ? list.first : list[index];
-    return Row(children: [
+    return Material(color: Colors.transparent, child: Row(children: [
       IconButton(
         key: const Key('watch-previous-stock'),
         tooltip: '上一檔關注股',
@@ -423,7 +423,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
             ? () => selectSymbol(symbols[index + 1]) : null,
         icon: const Icon(Icons.chevron_right, size: 26),
       ),
-    ]);
+    ]));
   }
 
   Widget _selectedSummary(Map<String, dynamic> row) {
@@ -473,7 +473,9 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
   }
 
   // Less frequent pool management, tags and links belong below the chart.
-  Widget _selectedMetadata(Map<String, dynamic> row) => ExpansionTile(
+  Widget _selectedMetadata(Map<String, dynamic> row) => Material(
+    color: Colors.transparent,
+    child: ExpansionTile(
     key: const Key('watch-more-info'),
     title: const Text('觀察設定與更多狀態',
       style: TextStyle(color: fvInk, fontWeight: FontWeight.w800, fontSize: 15)),
@@ -499,7 +501,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
           label: const Text('觀察池設定')),
       ]),
     ],
-  );
+  ));
 
   Widget _intradayChart(String symbol) => FutureBuilder<dynamic>(
     key: ValueKey('watch-minute-future-$symbol'),
