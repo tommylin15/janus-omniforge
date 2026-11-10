@@ -1,11 +1,12 @@
 # Janus — 唯一 Active TODO
 
-## P0｜2026-11-10 盤中分鐘缺口與長期大盤摘要（程式已提交，待驗收）
+## 2026-11-10｜今日盤中分鐘缺口與長期大盤摘要（工程／Dev 100%／獨立 Live PASS；Owner UAT 待驗）
 
-- [x] **CODE**：回補判斷改採合併真實分鐘槽的盤初／中段／尾段缺口檢查（不再只看85%總覆蓋率）；保留PG 30分鐘冷卻與每日3次、60秒行情讀價不觸發Kbar。Flutter增加「重查缺口」按需入口，前端五分鐘防連按；長期首屏新增已保存收盤點數、前期漲跌點數／百分比、來源日。原融資／法人／研究內容仍在下方。
-- [x] **測試碼**：Python新增首／中／尾缺口分類，Flutter新增正式收盤首屏及缺比較日測試；尚未執行，不標PASS。
-- [ ] **CI／Release**：全量Python／Flutter測試、Flutter analyze/build與固定SHA四映像Release尚無本輪成功收據。
-- [ ] **Dev與Owner驗收**：按既有安全runbook執行0% Candidate→Auth／行情parity→可回復100%切流→live readback；本人盤中2327／TAIEX驗證K棒補足與未取得仍斷線、長期資訊可見。不可引用舊版PASS冒稱本次完成。
+- [x] **CODE／UI**：Kbar 回補資格改為真實分鐘時間槽，檢查盤初／內部／末段缺口，不再僅看85%總量；保留PG 30分鐘冷卻、每檔每日3次與60秒行情不抓歷史Kbar。Flutter新增「重查缺口」（前端5分鐘防連按）；長期首屏加入最新正式收盤、比較日漲跌點數／百分比、融資與法人日期摘要，內嵌長明細表改成按需底層明細，重試失敗來源可按「更新資料」，無本人追蹤改顯示狀態而非整塊消失。沒有新資源／migration／行情來源／Jobs／Scheduler／IAM／Owner 資料變更。
+- [x] **全量 CI／不可變 Release**：Python 2,179 PASS、Flutter analyze／tests／Web build及四 GHCR digest [#42794861330](https://github.com/tommylin15/janus-omniforge/actions/runs/42794861330) PASS，固定原始碼 `ac9e0309302248eabcc8d7a6553d479cacf2f828`。第一次 Release [#42793337045](https://github.com/tommylin15/janus-omniforge/actions/runs/42793337045) 因舊 mock 仍使用總量 query 而 FAIL，已修正並以新版全量驗收通過；歷史FAIL不塗改。
+- [x] **既有 Dev 100% 切流**：0% Candidate [#42795775968](https://github.com/tommylin15/janus-omniforge/actions/runs/42795775968) PASS → OAuth／Owner／Admin／MCP／市場報價 parity [#42796075164](https://github.com/tommylin15/janus-omniforge/actions/runs/42796075164) PASS → 可回復 API-only 100% [#42796276597](https://github.com/tommylin15/janus-omniforge/actions/runs/42796276597) PASS，原現役 `6a61ca534bb19b6298e4a62bc22f700f4bd525c2` 留作 rollback。
+- [x] **獨立 Live 讀回**：[ #42796710267 ](https://github.com/tommylin15/janus-omniforge/actions/runs/42796710267) `API_LIVE_READBACK_PASS`；單一 active 100% Ready、build-id 精確等於上述 SHA、不可變 digest、公開行情 HTTP 200、匿名 Owner／Admin 拒絕、GCP mutation 0。加權指數正式歷史 30 期；官方融資 10 期（截至2026-11-09）、法人3類（資料日2026-11-10）、兩者 available；完整缺失或需重查的分鐘不假補，User App 已正式切流。
+- [ ] **Owner 手機視覺／真盤中正向 UAT**：在 [Dev App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/) 登入，確認長期圖原灰色大空間已消失、收盤摘要／明細／融資／法人可見；下次盤中以2327與TAIEX檢查重查前後實際 Kbar 缺口，未取得仍合法斷線。沒有本次真人登入與逐分鐘PG讀回證據，不把此項寫成PASS。**工程發布與公共 Runtime驗收已結案，Owner UAT為唯一剩餘使用者操作驗收。**
 
 ## 2026-11-10｜持股四欄對齊避免重疊（依手機截圖；Dev 工程與 Runtime PASS）
 
