@@ -3,14 +3,14 @@
 ## 2026-11-10｜持股清單改回同排四欄（本輪優先）
 
 - [x] **UI/CODE**：覆蓋前版上下分層卡，每檔改為「股票｜現價｜當日損益｜總損益」同一橫列；主要數字 17–20px，股數／成本／報酬率留在各欄的小字下方，保留原始精確值、漲跌停柔和底色、缺值與點入個股；不新增橫向捲動。已寫入 Flutter main，主程式 [70ea247](https://github.com/tommylin15/janus-omniforge/commit/70ea2475002078485629a3faa000f0e727555511)。
-- [x] **驗證**：390px 同排幾何與 320px 放大字體 regression test 已加入；Flutter 全量靜態分析、test、Web build [#42741643378](https://github.com/tommylin15/janus-omniforge/actions/runs/42741643378) PASS；固定 GHCR Release [#42741975318](https://github.com/tommylin15/janus-omniforge/actions/runs/42741975318) Python／Flutter 階段 PASS。
-- [ ] **正式發布／Runtime**：以固定來源 dcfaed5d5912172223f9f334ea1fede7deb5a125 為準。GHCR Release #42741975318 四映像發布需全 PASS 後，依現役流程做 Dev API-only 0% candidate → 身分權限／行情驗收 → 100% reversible promotion → 唯讀 runtime readback。最後 checked 時 API image build 仍 in_progress（其他三映像成功），**尚未新版本切流，不能稱完成**。
+- [x] **全量 CI／Release**：390px 同排幾何與 320px 放大字體 regression test，Flutter 靜態分析／test／Web build [#42741643378](https://github.com/tommylin15/janus-omniforge/actions/runs/42741643378) PASS；固定來源 `dcfaed5d5912172223f9f334ea1fede7deb5a125`，Python／Flutter／四個 GHCR digest [Release #42741975318](https://github.com/tommylin15/janus-omniforge/actions/runs/42741975318) 全 PASS。
+- [x] **Dev 100% 切流與獨立 Live PASS**：固定 0% Candidate [#42744305103](https://github.com/tommylin15/janus-omniforge/actions/runs/42744305103) → OAuth／Owner／Admin／MCP／公開盤中行情 parity [#42744533202](https://github.com/tommylin15/janus-omniforge/actions/runs/42744533202) → 可回復 API-only 100% [#42744710766](https://github.com/tommylin15/janus-omniforge/actions/runs/42744710766) → 獨立唯讀 Runtime [#42744905355](https://github.com/tommylin15/janus-omniforge/actions/runs/42744905355) 全 PASS。現役單一 100% Ready、GHCR immutable digest／build-id 對應 `dcfaed5d5912172223f9f334ea1fede7deb5a125`，公開股價 200、未登入 Owner 隔離、GCP/Owner mutation=0。保留前版 `2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547` 回復入口；Jobs、Scheduler、DB、IAM 未變。**工程切流與獨立線上驗收完成**。
 - [ ] **Owner 手機驗收**：新版本 Dev 上線後確認單檔四欄同排及較大字級無數字遺漏或不必要斷行；保持正常垂直捲動。
 
 
 ## 2026-11-10｜手機大字級與單檔資訊聚焦（已發布，待 Owner 畫面 UAT）
 
-- [x] **CODE／SPEC**：今日單一含 ETF 選股器、次要大盤圖按需、分鐘與買賣五檔共用切換區；關注圖表優先／管理下沉；持股兩行大字卡。**正常捲動保留**，僅改善資訊優先級，詳細見 [User UI](ui/user-app.md)。
+- [x] **CODE／SPEC**：今日單一含 ETF 選股器、次要大盤圖按需、分鐘與買賣五檔共用切換區；關注圖表優先／管理下沉；持股大字卡（後續已由本頁上方 2026-11-10 同排四欄新版覆蓋）。**正常捲動保留**，僅改善資訊優先級，詳細見 [User UI](ui/user-app.md)。
 - [x] **Flutter 全量與固定 Release**：[Flutter #42738741651](https://github.com/tommylin15/janus-omniforge/actions/runs/42738741651) PASS；固定 2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547 的四映像 [GHCR #42738969612](https://github.com/tommylin15/janus-omniforge/actions/runs/42738969612) PASS。
 - [x] **Dev Candidate → Auth/行情 → API-only 100% → 唯讀 Live**：[0% #42739680653](https://github.com/tommylin15/janus-omniforge/actions/runs/42739680653)、[Boundary #42739933792](https://github.com/tommylin15/janus-omniforge/actions/runs/42739933792) attempt 2、[Promote #42740369550](https://github.com/tommylin15/janus-omniforge/actions/runs/42740369550)、[Readback #42740540025](https://github.com/tommylin15/janus-omniforge/actions/runs/42740540025) 全 PASS；未更動 Jobs／Scheduler／PG／Owner 資料。
 - [ ] **唯一待驗 Owner 手機視覺 UAT**：登入 Dev App 驗證字級、390px 寬及系統放大字體、今日單檔選擇／ETF／走勢五檔切換、關注詳細資訊下移、持股資訊大字且仍可正常上下捲動。未實機確認前不宣稱 Owner UAT PASS。
