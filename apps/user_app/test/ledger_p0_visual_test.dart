@@ -136,6 +136,55 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+
+  testWidgets('390px holdings keep price, daily and total PnL on one row',
+      (tester) async {
+    _phone(tester);
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(
+      HoldingsP0Api(_snapshot()), now: () => DateTime.utc(2026, 10, 12, 7))));
+    await tester.pumpAndSettle();
+    final price = find.byKey(const Key('holding-latest-price-00719B'));
+    final daily = find.byKey(const Key('holding-day-amount-00719B'));
+    final pnl = find.byKey(const Key('holding-pnl-00719B'));
+    await tester.scrollUntilVisible(price, 150,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.byKey(const Key('ledger-holdings-single-row-header')),
+        findsOneWidget);
+    expect(find.byKey(const Key('holding-main-row-00719B')), findsOneWidget);
+    expect(tester.getTopLeft(price).dx, lessThan(tester.getTopLeft(daily).dx));
+    expect(tester.getTopLeft(daily).dx, lessThan(tester.getTopLeft(pnl).dx));
+    expect((tester.getCenter(price).dy - tester.getCenter(daily).dy).abs(),
+        lessThan(8));
+    expect((tester.getCenter(daily).dy - tester.getCenter(pnl).dy).abs(),
+        lessThan(8));
+    expect(tester.getSize(find.byKey(const Key('holding-main-row-00719B')))
+        .height, lessThan(85));
+    expect(find.text('成本 31.16'), findsOneWidget);
+    expect(find.text('00719B · 30,000 股'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('narrow phone can scale individual amounts without row overflow',
+      (tester) async {
+    _phone(tester);
+    tester.view.physicalSize = const Size(320, 730);
+    await tester.pumpWidget(MaterialApp(
+      home: MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(1.25)),
+        child: FinalLedgerPage(HoldingsP0Api(_snapshot()),
+            now: () => DateTime.utc(2026, 10, 12, 7)),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final price = find.byKey(const Key('holding-latest-price-00719B'));
+    await tester.scrollUntilVisible(price, 150,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.byKey(const Key('holding-main-row-00719B')), findsOneWidget);
+    expect(find.byKey(const Key('holding-day-amount-00719B')), findsOneWidget);
+    expect(find.byKey(const Key('holding-pnl-00719B')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Cash and total assets use one decimal ten-thousand TWD without double PnL',
       (tester) async {
     _phone(tester);
