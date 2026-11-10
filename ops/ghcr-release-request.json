@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "8e1a94f28d293b79e90b0684deab51f1d67d279e",
-  "purpose": "2026-11-10 mobile readability and one-stock-first UI release. Latest code 8e1a94f28d293b79e90b0684deab51f1d67d279e; Flutter full workflow #42738741651, CI must pass before serving change. Rendered Today compact market + single picker (ETF included), exclusive minute/book panel, larger typography, Watchlist lower-priority collapsible metadata and Ledger two-row cards. Existing dev API-only deployment, no new resources/schema/Jobs/IAM and no immediate traffic change. This request creates a new immutable release SHA; separately verify candidate and Owner boundary prior to cutover.",
+  "sha": "1bfd6dfabfeca226e5ab74699b1ff5de0749fe34",
+  "purpose": "2026-11-10 Holdings one-row mobile correction after previous two-tier card: 4 columns stock / current price / daily PnL / total PnL with readable 17-20px main figures, secondary cost/shares/return under each column; no extra vertical subcard and no horizontal scrolling. Exact quote and PnL values, limit-price soft fill, stale/missing statuses and tap-to-detail preserved. Source code 70ea2475002078485629a3faa000f0e727555511; regression tests 02b9d6a050f01ea08477260277f8dd9d342af399; Flutter full static/test/web #42741643378 PASS. No API/schema/Jobs/Scheduler/PG/IAM/paid resources. This request builds fixed GHCR source for existing dev API-only candidate and reversible promotion.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 57
+  "request_attempt": 58
 }
