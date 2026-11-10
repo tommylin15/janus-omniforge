@@ -854,6 +854,10 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   }
 
 
+
+  // Compact four-column holdings list: one visual row per symbol.
+  // Exact published numbers stay intact; FittedBox only scales unusually
+  // wide values within their own cell instead of wrapping the whole card.
   Widget holdings(List<dynamic> positions) {
     if (positions.isEmpty) {
       return fvBoundedState('目前無持股或持股資料尚未取得');
@@ -863,7 +867,26 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         (fvNumber(row['day_change_amount']) ?? 0).abs();
     sorted.sort((a, b) => magnitude(b).compareTo(magnitude(a)));
 
+    Widget heading(String label, int flex, {bool first = false}) => Expanded(
+      flex: flex,
+      child: Text(label,
+        maxLines: 1, overflow: TextOverflow.ellipsis,
+        textAlign: first ? TextAlign.left : TextAlign.end,
+        style: const TextStyle(color: fvMuted, fontSize: 13,
+            fontWeight: FontWeight.w700)),
+    );
+
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Padding(
+        key: const Key('ledger-holdings-single-row-header'),
+        padding: const EdgeInsets.fromLTRB(9, 0, 9, 8),
+        child: Row(children: [
+          heading('股票', 25, first: true),
+          heading('現價', 23),
+          heading('當日損益', 25),
+          heading('總損益', 27),
+        ]),
+      ),
       for (final (index, row) in sorted.indexed) ...[
         Builder(builder: (context) {
           final symbol = fvText(row['symbol']);
@@ -875,117 +898,138 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               row['change_percent'] != null;
           final hasPnl = (row['price_status'] == 'available' || reference) &&
               row['unrealized_pnl'] != null;
-          final missingReason = legacy.portfolioMissingReasonLabel(row['missing_reason']);
+          final missingReason =
+              legacy.portfolioMissingReasonLabel(row['missing_reason']);
+
+          // Keep the large main figures on the same horizontal line. The
+          // second small line belongs to each cell, not a second card row.
+          Widget amount(String value, {required Key key, required Color color}) =>
+              Align(
+                alignment: Alignment.centerRight,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(value, key: key,
+                    maxLines: 1, softWrap: false,
+                    style: TextStyle(color: color, fontSize: 18,
+                        fontWeight: FontWeight.w800)),
+                ),
+              );
+
           return Card(
-            margin: const EdgeInsets.only(bottom: 8),
+            margin: const EdgeInsets.only(bottom: 5),
             elevation: 0,
             clipBehavior: Clip.antiAlias,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
             child: Ink(
               decoration: fvPastelDecoration(
                 tone: !hasPnl ? FvCardTone.peach
                     : index.isEven ? FvCardTone.mint : FvCardTone.sky,
-                radius: 16,
+                radius: 12,
               ),
               child: InkWell(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 key: Key('holding-row-$symbol'),
                 onTap: () => widget.onOpenStock?.call(symbol),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                      Expanded(child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 9, vertical: 9),
+                  child: Row(
+                    key: Key('holding-main-row-$symbol'),
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(flex: 25, child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min, children: [
                           Row(children: [
-                            Flexible(child: Text(name, maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: fvInk,
-                                    fontSize: 17, fontWeight: FontWeight.w800))),
-                            if (reference) const Padding(
-                              padding: EdgeInsets.only(left: 5),
-                              child: Tooltip(message: '非即時參考報價',
-                                child: Icon(Icons.schedule, size: 14, color: fvMuted))),
+                            Expanded(child: Text(name,
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: fvInk,
+                                  fontSize: 17, fontWeight: FontWeight.w800))),
+                            if (reference)
+                              const Tooltip(message: '非即時參考報價',
+                                child: Icon(Icons.schedule, color: fvMuted, size: 13)),
                             if (missingReason.isNotEmpty && !reference)
-                              Padding(padding: const EdgeInsets.only(left: 5),
-                                child: Tooltip(message: missingReason,
-                                  child: const Icon(Icons.info_outline,
-                                      color: fvMuted, size: 15))),
+                              Tooltip(message: missingReason,
+                                child: const Icon(Icons.info_outline,
+                                    color: fvMuted, size: 13)),
                           ]),
                           Text('$symbol · ${legacy.accountingNumber(row['shares'])} 股',
                             maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: fvMuted, fontSize: 13)),
+                            style: const TextStyle(color: fvMuted, fontSize: 12)),
                         ],
                       )),
-                      const SizedBox(width: 9),
-                      Expanded(child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end, children: [
-                          fvLimitPriceText(row,
-                              legacy.accountingNumber(row['market_price'],
-                                  decimals: 2, missing: '—'),
-                              key: Key('holding-latest-price-$symbol'),
-                              fontSize: 21,
-                              ordinaryColor: valid ? fvSignedColor(row['change']) : fvInk),
+                      Expanded(flex: 23, child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min, children: [
+                          Align(alignment: Alignment.centerRight,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: fvLimitPriceText(row,
+                                legacy.accountingNumber(row['market_price'],
+                                    decimals: 2, missing: '—'),
+                                key: Key('holding-latest-price-$symbol'),
+                                fontSize: 20,
+                                ordinaryColor: valid
+                                    ? fvSignedColor(row['change']) : fvInk),
+                            ),
+                          ),
                           Text('成本 ${legacy.accountingNumber(row['average_cost'], decimals: 2)}',
                             maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: fvMuted, fontSize: 13)),
+                            style: const TextStyle(color: fvMuted, fontSize: 12)),
                         ],
                       )),
-                    ]),
-                    const SizedBox(height: 8),
-                    const Divider(height: 1),
-                    const SizedBox(height: 8),
-                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Expanded(child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          const Text('當日損益', style: TextStyle(
-                            color: fvMuted, fontSize: 13, fontWeight: FontWeight.w600)),
-                          Text(valid ? legacy.accountingNumber(row['day_change_amount']) : '—',
+                      Expanded(flex: 25, child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min, children: [
+                          amount(valid
+                              ? legacy.accountingNumber(row['day_change_amount'])
+                              : '—',
                             key: Key('holding-day-amount-$symbol'),
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: valid ? fvSignedColor(row['day_change_amount']) : fvMuted,
-                              fontSize: 18, fontWeight: FontWeight.w800)),
-                          Text(valid ? fvSignedPercent(row['change_percent']) : '待行情',
+                            color: valid
+                                ? fvSignedColor(row['day_change_amount']) : fvMuted),
+                          Text(valid
+                              ? fvSignedPercent(row['change_percent'])
+                              : '待行情',
                             key: Key('holding-daily-change-$symbol'),
                             maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: valid ? fvSignedColor(row['change_percent']) : fvMuted,
-                              fontSize: 13)),
+                            style: TextStyle(color: valid
+                                ? fvSignedColor(row['change_percent']) : fvMuted,
+                                fontSize: 12)),
                         ],
                       )),
-                      const SizedBox(width: 8),
-                      Expanded(child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end, children: [
-                          const Text('總損益', style: TextStyle(
-                            color: fvMuted, fontSize: 13, fontWeight: FontWeight.w600)),
-                          Text(hasPnl ? legacy.accountingNumber(row['unrealized_pnl']) : '—',
+                      Expanded(flex: 27, child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min, children: [
+                          amount(hasPnl
+                              ? legacy.accountingNumber(row['unrealized_pnl'])
+                              : '—',
                             key: Key('holding-pnl-$symbol'),
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: hasPnl ? fvSignedColor(row['unrealized_pnl']) : fvMuted,
-                              fontSize: 18, fontWeight: FontWeight.w800)),
+                            color: hasPnl
+                                ? fvSignedColor(row['unrealized_pnl']) : fvMuted),
                           Text(hasPnl
                               ? '${legacy.portfolioReturnLabel(row['unrealized_return'])}${reference ? ' 參考' : ''}'
                               : '待估值',
                             key: Key('holding-return-$symbol'),
                             maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: hasPnl ? fvSignedColor(row['unrealized_return']) : fvMuted,
-                              fontSize: 13)),
+                            style: TextStyle(color: hasPnl
+                                ? fvSignedColor(row['unrealized_return']) : fvMuted,
+                                fontSize: 12)),
                         ],
                       )),
-                    ]),
-                  ]),
+                    ],
+                  ),
                 ),
               ),
             ),
           );
         }),
       ],
-      const Padding(padding: EdgeInsets.fromLTRB(6, 2, 6, 10),
-        child: Text('當日損益為持股價格變動估計，非當日實際交易損益；點選個股可看完整明細。',
-          style: TextStyle(color: fvMuted, fontSize: 13))),
+      const Padding(padding: EdgeInsets.fromLTRB(6, 4, 6, 10),
+        child: Text('當日損益為價格變動估計，非實際交易損益；點選個股查看完整明細。',
+          style: TextStyle(color: fvMuted, fontSize: 12))),
     ]);
   }
 
