@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "1bfd6dfabfeca226e5ab74699b1ff5de0749fe34",
-  "purpose": "2026-11-10 Holdings one-row mobile correction after previous two-tier card: 4 columns stock / current price / daily PnL / total PnL with readable 17-20px main figures, secondary cost/shares/return under each column; no extra vertical subcard and no horizontal scrolling. Exact quote and PnL values, limit-price soft fill, stale/missing statuses and tap-to-detail preserved. Source code 70ea2475002078485629a3faa000f0e727555511; regression tests 02b9d6a050f01ea08477260277f8dd9d342af399; Flutter full static/test/web #42741643378 PASS. No API/schema/Jobs/Scheduler/PG/IAM/paid resources. This request builds fixed GHCR source for existing dev API-only candidate and reversible promotion.",
+  "sha": "a356744493b646f8892da962a1b96feef3e37e3d",
+  "purpose": "2026-11-10 UI compact follow-up: remove ticker prefix from holdings share-count label and fit full shares, use equal 18px emphasis for daily/total PnL amounts and percentages, and improve Today/Watchlist intraday graph with 1.7px soft stroke, faint gap-safe shaded segments and guides, latest/high/low prices+actual times above the graph, drag selection, folded notes, finite 320ms new-observed-point emphasis. Flutter full analyze/tests/Web build #42749454063 PASS; CI #42749553585 PASS. Fixed source a356744493b646f8892da962a1b96feef3e37e3d. Reuse existing dev resources and API-only promotion; no schema, Jobs, Scheduler, IAM, PG, owner data, paid resources or new quote polling. Release only at this immutable SHA; candidate, auth and public quote parity, 100% reversible API cutover and independent live readback remain required.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 58
+  "request_attempt": 59
 }
