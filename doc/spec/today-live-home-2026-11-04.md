@@ -154,3 +154,10 @@
 - Flutter 全量 [#42171993798](https://github.com/tommylin15/janus-omniforge/actions/runs/42171993798) PASS；最初 Full Release [#42172072665](https://github.com/tommylin15/janus-omniforge/actions/runs/42172072665) 因原測試寫死 4 個入口、現在合法增至 5 個而 FAIL，已修正檢查重點為 60 秒行情不得取 K 棒。新 Full Python／Flutter／4 GHCR digest [#42172490074](https://github.com/tommylin15/janus-omniforge/actions/runs/42172490074) PASS，固定 source `1f18915c2a91222d009c65a171fb1c641c44642d`。
 - 0% Candidate [#42173114571](https://github.com/tommylin15/janus-omniforge/actions/runs/42173114571) PASS、OAuth/市場行情邊界 [#42173332672](https://github.com/tommylin15/janus-omniforge/actions/runs/42173332672) PASS、既有 Dev API/App 100% 切流 [#42173514753](https://github.com/tommylin15/janus-omniforge/actions/runs/42173514753) PASS、獨立現役唯讀 [#42173680941](https://github.com/tommylin15/janus-omniforge/actions/runs/42173680941) `API_LIVE_READBACK_PASS`，active_percent 100、固定 build-id 如上、公開 2330 HTTP 200、未登入 Owner 401/403、GCP mutation 0。原版 rollback 保留，未改 Jobs／Scheduler／IAM。
 - **Owner 正向 UAT 未驗證**：尚缺這版實機兩 Tab、價格動態 Y 軸及有真實 Kbar Volume 時量柱的操作收據。工程發布 PASS 不等於每檔分鐘成交量真值已讀回；沒有來源時仍應顯示 missing。
+
+## V8｜2026-11-10 盤中斷線與長期收盤摘要
+
+- 原回補SQL採max(即時樣本數,歷史K棒數)與交易分鐘85%作門檻，可能在大部分分鐘完整時忽略中間或尾部缺口；本次改為合併兩種真實來源的分鐘槽集合，檢查盤初、內部不連續、末端落後；容忍尚未完成的末端一分鐘。PG單飛、每檔每日3次、30分鐘冷卻及真K棒來源都不變。
+- 前端可由使用者按「重查缺口」嘗試一次歷史回補，5分鐘內不重複操作；仍受PG冷卻及額度節流。60秒行情定時器不呼叫K棒；無真實回傳不得接假線。
+- 長期頁頂端以market-home的已保存日收盤紀錄顯示最近一日點位、與前一有效日收盤的差額及幅度，標示二個日期與來源。無可比日不顯示漲跌，盤中資料與正式日收盤分離；原有5/20/30日圖、融資/法人及研究區塊保留。
+- 必須驗證Python缺口分類、Flutter首屏及無前日分支、完整CI、固定映像Release、Dev 0%→100%安全切流及真實Owner盤中讀回；未取得證據時標記NOT_VERIFIED，不自行推估券商資料覆蓋率。
