@@ -1,5 +1,13 @@
 # Janus 最新驗收證據索引
 
+## 2026-11-10 最新首頁與持股可讀性修正｜ENGINEERING RELEASE／LIVE PASS，Owner 手機視覺待驗
+
+- **改動**：Today TAIEX 首屏顯示漲跌點數與幅度及行情新鮮度（需合法 previous close／日期），不改既有 60 秒有界輪詢；Ledger 當日損益的每股漲跌副標改為 `1.50（1.25%）`，不顯示正負號、用紅漲綠跌；金額仍大字，總損益百分比不再加「參考」。非即時行情 Tooltip、缺值提示、持股損益來源維持不變。
+- **Tests**：[Flutter #42754292599](https://github.com/tommylin15/janus-omniforge/actions/runs/42754292599) PASS、[selective #42754292310](https://github.com/tommylin15/janus-omniforge/actions/runs/42754292310) PASS、[四 GHCR Release #42754592473](https://github.com/tommylin15/janus-omniforge/actions/runs/42754592473) PASS，固定映像 source `d7df1aa4f21427d99b0fb024c5cb502e381fb118`。
+- **Cloud Run**：[0% Candidate #42755286361](https://github.com/tommylin15/janus-omniforge/actions/runs/42755286361) PASS → [auth／market parity #42755482662](https://github.com/tommylin15/janus-omniforge/actions/runs/42755482662) PASS → [existing Dev API-only 100% #42755637698](https://github.com/tommylin15/janus-omniforge/actions/runs/42755637698) PASS → [independent read-only #42755780823](https://github.com/tommylin15/janus-omniforge/actions/runs/42755780823) `API_LIVE_READBACK_PASS`，讀回現役 100%、build-id 等於 source SHA、公有行情 200、有行數、Owner 未登入拒絕、gcp_mutations=0。舊 `219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c` 保留 rollback，未改 Jobs、Scheduler、資料庫、IAM、Owner 資料。
+- **驗收界線**：ENGINEERING_RELEASE=PASS；PUBLIC_LIVE_READBACK=PASS；OWNER_AUTHENTICATED_MOBILE_VISUAL_UAT=NOT_VERIFIED。使用者可直接於 [Janus Dev App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/) 進行手機視覺驗收。
+
+
 ## 2026-11-10 持股股數完整、損益同級字與首頁／關注柔和分鐘線｜Dev 工程與獨立 Live PASS
 
 - **UI 契約與程式**：同一持股四欄資料列取消股票欄下方重複代號、改顯示完整「股數」；股數遇超長文字只在自己的欄位中 scaleDown，不以省略號隱藏。當日及總損益金額與百分比共用 18px 主數值等級，仍可分別在欄內縮放。共用 FvIntradayProgressChart 線寬從 2.7 降至 1.7 logical px、淡色連續分鐘區域填色、微弱網格與觀測點柔和光圈；真實新增的分鐘點可短暫 320ms 強調，不永久脈動也不觸發報價。把最新觀測、當日已觀測最高／最低的實際價、時間和幅度移到圖上方；點按或橫滑選擇真實分鐘，詳述性資料說明預設收合。固定 09:00–13:30 X 軸、可信前收 0% 線、來源缺口、真實券商 Kbar 量能和缺值語意保留；不把分鐘 K 收盤最高低冒充逐筆成交最高低。
