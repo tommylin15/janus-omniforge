@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "6a61ca534bb19b6298e4a62bc22f700f4bd525c2",
+  "sha": "ac9e0309302248eabcc8d7a6553d479cacf2f828",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-10 Janus holdings screenshot-align correction. Exact full release #42757920981 success, 0%-traffic Dev API/App candidate #42759310235 success, source 6a61ca534bb19b6298e4a62bc22f700f4bd525c2. Run readonly auth (OAuth, private Owner/Admin/MCP) boundaries, public TAIEX and symbol/day minute quote parity against current live 100%; no GCP mutation or traffic changes. Candidate app has strict common header/main and secondary four-column grid with gutters verified by Flutter full #42757584970. Promote only after PASS.",
-  "request_attempt": 56
+  "purpose": "2026-11-10 Today V8 existing-Dev API candidate. Exact source ac9e0309302248eabcc8d7a6553d479cacf2f828 full Release #42794861330 PASS (2179 Python, Flutter full and four GHCR digests); 0%-traffic Candidate #42795775968 PASS. Independent read-only Auth boundary: Google OAuth metadata, anonymous Owner/Admin/MCP isolation and TAIEX/stock minute quote parity compared with currently active 100% revision. No changes to traffic, GCP, PG, IAM, Jobs or Owner data. Promote reversible API only if all parity checks PASS.",
+  "request_attempt": 57
 }
