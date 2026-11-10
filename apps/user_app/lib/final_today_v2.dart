@@ -877,9 +877,20 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
             const Text('加權指數', style: TextStyle(color: fvInk,
                 fontSize: 15, fontWeight: FontWeight.w800)),
             const SizedBox(width: 12),
-            Expanded(child: Text(_value(section), textAlign: TextAlign.end,
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: fvInk, fontSize: 21, fontWeight: FontWeight.w800))),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(_value(section), textAlign: TextAlign.end,
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: fvInk, fontSize: 21,
+                      fontWeight: FontWeight.w800)),
+                Text(_freshness(section).isEmpty
+                    ? legacy.uiLabel(section['status'] ?? 'partial')
+                    : _freshness(section),
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: fvMuted, fontSize: 13)),
+              ],
+            )),
             const SizedBox(width: 8),
             const Icon(Icons.chevron_right, color: fvTeal),
           ]),
