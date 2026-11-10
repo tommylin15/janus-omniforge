@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "dcfaed5d5912172223f9f334ea1fede7deb5a125",
+  "sha": "219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-10 持股清單單一四欄橫列 UI：release #42741975318 全 PASS，Dev 0%-traffic API candidate #42744305103 PASS。驗證固定 build-id /app/、OAuth Owner/Admin/MCP 未登入隔離以及 candidate 和 100% 現役公開行情 parity；不做 GCP、流量、Owner 寫入，通過後另行執行 reversible API-only 切流。",
-  "request_attempt": 53
+  "purpose": "2026-11-10 首頁柔和分鐘圖及持股股數/損益字級調整。固定 GHCR Release #42749743428 PASS（真實 head SHA 219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c）、Dev 0% Candidate #42750587323 PASS。執行 readonly OAuth/Owner/Admin/MCP 未登入邊界及候選/現役同日大盤個股分鐘行情 parity，不變更 GCP/Owner 資料及流量。通過方可另行 API-only promote。",
+  "request_attempt": 54
 }
