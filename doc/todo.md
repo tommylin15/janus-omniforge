@@ -1,5 +1,14 @@
 # Janus — 唯一 Active TODO
 
+## 2026-11-10｜持股股數／損益字級、首頁分鐘圖柔和與資訊上移（已發布，Owner 手機 UAT 待驗）
+
+- [x] **UI/CODE／SPEC**：持股清單股票欄取消重複代號、僅顯示完整股數，長股數在欄內等比縮放；當日／總損益金額與百分比 Text 同 18px 並保留紅綠色、四欄同排。今日與關注共用分鐘圖線寬 2.7→1.7px、只對真實連續分鐘段增加淡底與細輔助線；最新／觀測最高／觀測最低價、時間及幅度移到圖上方，支援點擊／滑動選擇、短暫真實新分鐘點強調；資料缺口與量能來源仍如實呈現，冗長技術說明預設收合；沒有更改 Shioaji/行情輪詢。已更新 [UI 契約](ui/user-app.md)。
+- [x] **Flutter 測試與 Release**：長股數 FittedBox viewport test 修正初版測錯 intrinsic Text width 的斷言；新增 390px／長股數／損益同字級／圖上方三項數字與資料說明收合等 widget tests。Flutter 全量分析、測試、Web build [#42749454063](https://github.com/tommylin15/janus-omniforge/actions/runs/42749454063) PASS；固定 Python＋Flutter＋四 GHCR 映像＋digest [#42749743428](https://github.com/tommylin15/janus-omniforge/actions/runs/42749743428) PASS。發布實際 head SHA `219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c`。
+- [x] **Dev 0% → Auth/行情 → 100% → 獨立 Runtime PASS**：0% Candidate [#42750587323](https://github.com/tommylin15/janus-omniforge/actions/runs/42750587323) PASS，權限與行情 parity [#42750805643](https://github.com/tommylin15/janus-omniforge/actions/runs/42750805643) PASS，API-only 100% [#42750939949](https://github.com/tommylin15/janus-omniforge/actions/runs/42750939949) PASS，獨立唯讀 [#42751111497](https://github.com/tommylin15/janus-omniforge/actions/runs/42751111497) API_LIVE_READBACK_PASS：現役 100%、build-id 精確對應固定 SHA、公開行情 200、未登入 Owner 受拒、gcp_mutations=0；保留舊版 `dcfaed5d5912172223f9f334ea1fede7deb5a125` rollback。第 1 次 Candidate [#42750456512](https://github.com/tommylin15/janus-omniforge/actions/runs/42750456512) 因誤用文件 commit SHA 而被安全 gate 阻擋、未切流，已修正至真實 Release head SHA 並完整重驗，並未放寬 gate。
+- [ ] **Owner 手機視覺 UAT**：本人登入 [Dev App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/) 確認股數完整、不顯示代號、損益金額與百分比易讀、今日走勢較細且高低最新資訊免下捲查找、觀測缺口不被假線補齊。此項未有真人畫面證據，不宣稱已驗收。
+- **不在本次範圍**：不改 Jobs／Scheduler／PG／IAM／Owner 帳本／模型數字／報價來源或增加付費 GCP。
+
+
 ## 2026-11-10｜持股清單改回同排四欄（本輪優先）
 
 - [x] **UI/CODE**：覆蓋前版上下分層卡，每檔改為「股票｜現價｜當日損益｜總損益」同一橫列；主要數字 17–20px，股數／成本／報酬率留在各欄的小字下方，保留原始精確值、漲跌停柔和底色、缺值與點入個股；不新增橫向捲動。已寫入 Flutter main，主程式 [70ea247](https://github.com/tommylin15/janus-omniforge/commit/70ea2475002078485629a3faa000f0e727555511)。
