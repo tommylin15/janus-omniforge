@@ -233,6 +233,18 @@ void main() {
     await tester.tap(find.byKey(const Key('today-trend-30')));
     await tester.pumpAndSettle();
     expect(api.requests.length, before);
+    // Do not embed an oversized daily table below the graph; details are
+    // available on demand and must not trigger a second market API call.
+    expect(find.text('圖表資料'), findsNothing);
+    await tester.ensureVisible(find.byKey(const Key('today-longterm-history-details')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('today-longterm-history-details')));
+    await tester.pumpAndSettle();
+    expect(find.text('加權指數 · 官方收盤明細'), findsOneWidget);
+    expect(find.text('2026-09-30'), findsWidgets);
+    expect(api.requests.length, before);
+    await tester.tap(find.byTooltip('關閉收盤明細'));
+    await tester.pumpAndSettle();
     // The period chips and zoom icon are at different vertical offsets.
     // Scroll the zoom control back into the visible 390x844 viewport.
     await tester.ensureVisible(find.byKey(const Key('today-taiex-expand')));
