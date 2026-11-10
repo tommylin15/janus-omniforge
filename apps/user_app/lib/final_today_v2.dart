@@ -862,8 +862,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       final previous = _taiexSummaryPreviousClose(section);
       final comparable = current != null && current.isFinite && current > 0 &&
           previous != null && previous.isFinite && previous > 0;
-      final change = comparable ? current - previous : null;
-      final ratio = comparable ? change! / previous : null;
+      final change = comparable ? current! - previous! : null;
+      final ratio = comparable ? change! / previous! : null;
       final changeColor = change == null ? fvMuted : fvSignedColor(change);
       final points = change == null ? '—' :
           '${change > 0 ? '+' : change < 0 ? '-' : ''}${legacy.accountingNumber(change.abs(), decimals: 2)} 點';
