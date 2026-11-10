@@ -36,6 +36,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   final Set<String> _backfillAttemptKeys = <String>{};
   final Set<String> _backfillInFlight = <String>{};
   final Map<String, String> _backfillStatus = <String, String>{};
+  final Map<String, DateTime> _manualBackfillAt = <String, DateTime>{};
   int historyDays = 20;
   int todayTab = 0; // 0: live, 1: long-horizon
   bool researchLoaded = false;
@@ -79,7 +80,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   }
 
 
-  void _requestHistoricalGapFill(String symbol) {
+  void _requestHistoricalGapFill(String symbol, {bool manual = false}) {
     // Shioaji history is only demanded on entry, foreground resume or stock
     // selection, never by the 60s quote timer. PG enforces max 3/day and 30m cooldown.
     if (!widget.active || !foreground || todayTab != 0) return;
@@ -88,8 +89,19 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     if (taipei.weekday > 5 || minute < 560) return;
     final day = '${taipei.year}-${taipei.month}-${taipei.day}';
     final slot = ((minute - 540) ~/ 30).clamp(0, 9);
-    if (_backfillInFlight.contains(symbol) ||
-        !_backfillAttemptKeys.add('$day/$symbol/$slot')) return;
+    if (_backfillInFlight.contains(symbol)) return;
+    final key = '$day/$symbol/$slot';
+    if (manual) {
+      // A visible user's retry is still gated by the existing PostgreSQL
+      // 30-minute cooldown and daily quota. Prevent repeated taps locally.
+      final now = DateTime.now();
+      final last = _manualBackfillAt[symbol];
+      if (last != null && now.difference(last) < const Duration(minutes: 5)) return;
+      _manualBackfillAt[symbol] = now;
+    } else if (!_backfillAttemptKeys.add(key)) {
+      return;
+    }
+    _backfillAttemptKeys.add(key);
     _fetchHistoricalGapFill(symbol);
   }
 
@@ -128,8 +140,16 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         : '歷史 K 棒暫不可用，保留實際觀測點與缺口';
     return Padding(
       padding: const EdgeInsets.only(top: 3),
-      child: Text(message, key: Key('today-backfill-status-$symbol'),
-          style: const TextStyle(color: fvMuted, fontSize: 11)),
+      child: Row(children: [
+        Expanded(child: Text(message, key: Key('today-backfill-status-$symbol'),
+            style: const TextStyle(color: fvMuted, fontSize: 11))),
+        if (!running && marketHours)
+          TextButton(
+            key: Key('today-backfill-retry-$symbol'),
+            onPressed: () => _requestHistoricalGapFill(symbol, manual: true),
+            child: const Text('重查缺口', style: TextStyle(fontSize: 12)),
+          ),
+      ]),
     );
   }
 
@@ -1031,8 +1051,66 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     builder: (context, snapshot) {
       final root = fvMap(snapshot.data ?? lastGoodMarket);
       final sections = fvMap(root['sections']);
+      final section = fvMap(sections['taiex']);
+      final data = fvMap(section['data']);
+      // The long-horizon headline is based on two real dated EOD records,
+      // never on an intraday sample or a provisional current quote.
+      final closes = fvRows(data['history_points']).map(fvMap)
+          .where((row) {
+            final date = DateTime.tryParse(fvText(row['date'], missing: ''));
+            final value = fvNumber(row['value']);
+            return date != null && value != null &&
+                value.isFinite && value > 0;
+          }).toList()
+        ..sort((a, b) => fvText(a['date']).compareTo(fvText(b['date'])));
+      final latest = closes.isEmpty ? null : closes.last;
+      final prior = closes.length < 2 ? null : closes[closes.length - 2];
+      final latestValue = latest == null ? null : fvNumber(latest['value']);
+      final priorValue = prior == null ? null : fvNumber(prior['value']);
+      final difference = latestValue == null || priorValue == null
+          ? null : latestValue - priorValue;
+      final changeRatio = difference == null || priorValue == null ||
+          priorValue <= 0 ? null : difference / priorValue;
+      final sourceIds = fvRows(data['history_source_ids']);
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        fvSectionTitle(context, '市場長期趨勢', trailing: '官方日收盤，不混入盤中點'),
+        fvSectionTitle(context, '市場長期趨勢', trailing: '只使用已保存日收盤'),
+        if (latest != null)
+          fvPanel(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('加權指數 · 最新正式收盤',
+                  style: TextStyle(color: fvMuted, fontSize: 13)),
+              const SizedBox(height: 3),
+              Row(children: [
+                Expanded(child: FittedBox(
+                  fit: BoxFit.scaleDown, alignment: Alignment.centerLeft,
+                  child: Text('${legacy.accountingNumber(latestValue, decimals: 2)} 點',
+                      key: const Key('today-longterm-close'),
+                      maxLines: 1, softWrap: false,
+                      style: const TextStyle(color: fvInk,
+                          fontSize: 25, fontWeight: FontWeight.w900)),
+                )),
+                if (difference != null && changeRatio != null)
+                  Text(
+                    '${difference > 0 ? '+' : difference < 0 ? '-' : ''}'
+                    '${legacy.accountingNumber(difference.abs(), decimals: 2)} 點'
+                    '（${fvSignedPercent(changeRatio)}）',
+                    key: const Key('today-longterm-change'),
+                    style: TextStyle(color: fvSignedColor(difference),
+                        fontSize: 13, fontWeight: FontWeight.w800),
+                  ),
+              ]),
+              const SizedBox(height: 4),
+              Text('收盤日 ${fvText(latest['date'])}'
+                  ' · ${prior == null ? '缺少前期可比收盤' : '比較日 ${fvText(prior['date'])}'}'
+                  ' · 來源 ${sourceIds.isEmpty ? '待查' : sourceIds.join('、')}',
+                  key: const Key('today-longterm-asof'),
+                  style: const TextStyle(color: fvMuted, fontSize: 11)),
+            ]),
+          )
+        else
+          fvBoundedState('尚無兩期可比較的正式收盤資料；不使用盤中價格替代'),
+        const SizedBox(height: 8),
         if (sections['taiex'] != null)
           _taiexTrend(sections['taiex'], intradayOnly: false)
         else
