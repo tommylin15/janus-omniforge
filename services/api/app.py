@@ -655,7 +655,15 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                     # MIS quote is a distinct, non-final observation. Preserve
                     # official Core close-history; never splice MIS into EOD line.
                     "data": {**(section.get("data") or {}),
-                             "benchmark_id": "TAIEX", "close": quote.get("price")},
+                             "benchmark_id": "TAIEX", "close": quote.get("price"),
+                             # Exchange-provided previous close, tick timestamp
+                             # and freshness state travel with this same quote.
+                             # The UI must not infer a live change from a
+                             # stale official Core close or first minute sample.
+                             "quote_previous_close": quote.get("previous_close"),
+                             "quote_at": quote.get("quote_at"),
+                             "quote_state": quote.get("state"),
+                             "quote_source": quote.get("source")},
                     "quote_state": quote.get("state"),
                     "is_final": False,
                 })
