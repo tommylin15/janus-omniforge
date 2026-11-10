@@ -80,7 +80,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('watch-tab-live')), findsOneWidget);
     expect(find.byKey(const Key('watch-tab-longterm')), findsOneWidget);
-    expect(find.byKey(const Key('watch-symbol-strip')), findsOneWidget);
+    expect(find.byKey(const Key('watch-stock-picker')), findsOneWidget);
     expect(find.byKey(const Key('watch-minute-chart-2330')), findsOneWidget);
     expect(find.text('已持有'), findsOneWidget);
     expect(api.calls, contains('/api/v1/me/watchlist/intraday?symbol=2330'));
@@ -101,7 +101,8 @@ void main() {
     await tester.drag(find.byKey(const Key('final-watchlist-scroll')),
         const Offset(0, 570));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('watch-select-2327')));
+    await tester.ensureVisible(find.byKey(const Key('watch-stock-picker')));
+    await tester.tap(find.byKey(const Key('watch-stock-picker')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('watch-select-2327')));
     await tester.pumpAndSettle();
