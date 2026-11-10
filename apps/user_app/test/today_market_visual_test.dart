@@ -215,8 +215,9 @@ void main() {
     expect(find.text('今天值得看'), findsNothing);
     expect(api.requests.where((p) => p.contains('today-changes')), isEmpty);
     expect(find.byKey(const Key('today-tab-live')), findsOneWidget);
-    await tester.scrollUntilVisible(find.byKey(const Key('intraday-observed-high')), 150,
-        scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.byKey(const Key('today-market-summary')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('intraday-observed-high')));
     expect(find.textContaining('09:01'), findsWidgets);
     expect(find.textContaining('09:02'), findsWidgets);
     expect(find.byKey(const Key('session-start-0900')), findsOneWidget);
@@ -302,7 +303,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('前一正式收盤價缺值'), findsOneWidget);
     expect(find.byKey(const Key('today-taiex-expand')), findsOneWidget);
-    await tester.pageBack();
+    await tester.tapAt(const Offset(8, 8)); // dismiss the bottom sheet barrier
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('intraday-session-fixed-chart')), findsNothing);
     await tester.tap(find.byKey(const Key('today-tab-longterm')));
