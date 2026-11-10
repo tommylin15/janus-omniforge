@@ -1,5 +1,13 @@
 # Janus — 唯一 Active TODO
 
+## 2026-11-10｜手機大字級與單檔資訊聚焦（已發布，待 Owner 畫面 UAT）
+
+- [x] **CODE／SPEC**：今日單一含 ETF 選股器、次要大盤圖按需、分鐘與買賣五檔共用切換區；關注圖表優先／管理下沉；持股兩行大字卡。**正常捲動保留**，僅改善資訊優先級，詳細見 [User UI](ui/user-app.md)。
+- [x] **Flutter 全量與固定 Release**：[Flutter #42738741651](https://github.com/tommylin15/janus-omniforge/actions/runs/42738741651) PASS；固定 2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547 的四映像 [GHCR #42738969612](https://github.com/tommylin15/janus-omniforge/actions/runs/42738969612) PASS。
+- [x] **Dev Candidate → Auth/行情 → API-only 100% → 唯讀 Live**：[0% #42739680653](https://github.com/tommylin15/janus-omniforge/actions/runs/42739680653)、[Boundary #42739933792](https://github.com/tommylin15/janus-omniforge/actions/runs/42739933792) attempt 2、[Promote #42740369550](https://github.com/tommylin15/janus-omniforge/actions/runs/42740369550)、[Readback #42740540025](https://github.com/tommylin15/janus-omniforge/actions/runs/42740540025) 全 PASS；未更動 Jobs／Scheduler／PG／Owner 資料。
+- [ ] **唯一待驗 Owner 手機視覺 UAT**：登入 Dev App 驗證字級、390px 寬及系統放大字體、今日單檔選擇／ETF／走勢五檔切換、關注詳細資訊下移、持股資訊大字且仍可正常上下捲動。未實機確認前不宣稱 Owner UAT PASS。
+
+
 ## P0｜今日首頁兩個 Tab 與自動縮放分時線（2026-11-06）
 
 - [x] **UI／CODE**：首頁上方固定「盤中變化／長期觀察」切換。盤中變化只放加權指數即時行情、09:00–13:30 分鐘圖、選股與單張個股分鐘圖、買賣五檔；長期觀察放 5／20／30 日官方收盤指數、融資近兩週、法人官方資金流、本人追蹤與研究狀態。只在進入長期 Tab 讀其 API；切回盤中才恢復原本有界 60 秒行情讀取，不建立另一組 Scheduler／批次。
