@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "dcfaed5d5912172223f9f334ea1fede7deb5a125",
-  "promotion_run": "42744710766",
+  "source_sha": "219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c",
+  "promotion_run": "42750939949",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-10 independent readonly live acceptance following single-row four-column Ledger UI. Fixed Flutter 390/320 width #42741643378 PASS, GHCR full release #42741975318 PASS, 0% candidate #42744305103 PASS, auth+quote parity #42744533202 PASS, API-only 100% promotion #42744710766 PASS. Verify active 100% Ready single revision, immutable GHCR image/digest/build-id exact source SHA dcfaed5d..., /app/ and public quote health, Owner private anonymous 401/403. No GCP, Jobs, Scheduler, traffic or Owner data writes. Authenticated Owner phone visual remains separate.",
-  "request_attempt": 15
+  "purpose": "2026-11-10 獨立驗證新版持股股數僅顯示數量、損益金額百分比同級與更柔和前置三指標分鐘圖 UI 的 Dev 正式上線。完整固定 GHCR #42749743428 PASS (head SHA 219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c)，0% Candidate #42750587323 PASS，權限與最新行情 parity #42750805643 PASS，Dev API-only 100% promotion #42750939949 PASS。唯讀檢查單一 100% Ready revision、immutable digest/build-id、/app/ 與公開當日行情 200、匿名 Owner 401/403；不寫 Owner/GCP，不變 Jobs/Scheduler；本人登入手機視覺 UAT 尚未提供，必須獨立標記。",
+  "request_attempt": 16
 }
