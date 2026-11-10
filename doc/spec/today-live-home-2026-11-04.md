@@ -161,3 +161,11 @@
 - 前端可由使用者按「重查缺口」嘗試一次歷史回補，5分鐘內不重複操作；仍受PG冷卻及額度節流。60秒行情定時器不呼叫K棒；無真實回傳不得接假線。
 - 長期頁頂端以market-home的已保存日收盤紀錄顯示最近一日點位、與前一有效日收盤的差額及幅度，標示二個日期與來源。無可比日不顯示漲跌，盤中資料與正式日收盤分離；原有5/20/30日圖、融資/法人及研究區塊保留。
 - 必須驗證Python缺口分類、Flutter首屏及無前日分支、完整CI、固定映像Release、Dev 0%→100%安全切流及真實Owner盤中讀回；未取得證據時標記NOT_VERIFIED，不自行推估券商資料覆蓋率。
+
+### V8 工程發布、獨立 Dev Live 與尚未驗證的 Owner 範圍（2026-11-10）
+
+- 針對「長期觀察」已將原內嵌 20 期表移出主要滑動區，改以「查看收盤明細」按需底層頁；重載失敗可選「更新資料」，個人追蹤空資料可見 bounded status，不因 null 返回整區消失。
+- 完整 Release [#42794861330](https://github.com/tommylin15/janus-omniforge/actions/runs/42794861330) PASS：Python 2179 pass、Flutter analyze/test/Web build PASS、四組 GHCR digest PASS；exact release source `ac9e0309302248eabcc8d7a6553d479cacf2f828`。第一次 Release [#42793337045](https://github.com/tommylin15/janus-omniforge/actions/runs/42793337045) 因舊測試雙重計數 mock 不支援新分鐘查詢而 FAIL，修正後重跑成功；保留失敗歷史。
+- Dev：0% [#42795775968](https://github.com/tommylin15/janus-omniforge/actions/runs/42795775968) PASS、OAuth/Owner/Admin/MCP 與實際行情 parity [#42796075164](https://github.com/tommylin15/janus-omniforge/actions/runs/42796075164) PASS、API-only 可回復 100% [#42796276597](https://github.com/tommylin15/janus-omniforge/actions/runs/42796276597) PASS；舊現役 `6a61ca534bb19b6298e4a62bc22f700f4bd525c2` 保留 rollback；未改 Jobs、Scheduler、PG、IAM、Owner 帳本。
+- 獨立 public/anonymous runtime [#42796710267](https://github.com/tommylin15/janus-omniforge/actions/runs/42796710267) `API_LIVE_READBACK_PASS`：現役 100% Ready、build-id 匹配、owner/admin 拒絕、GCP mutation 0。加權指數正式日線 30 筆；上市融資 available 10 筆截至 2026-11-09；法人 available 3 類，截至 2026-11-10。這代表資料入口可取，不代表個人手機版已視覺確認或所有 270 根分鐘 K 棒完整。
+- **Owner 正向 UAT 保持 NOT_VERIFIED**：使用者登入手機對照新長期首屏、收盤底層明細、融資及法人；下次真盤中觀察 2327/TAIEX 斷線與按需回補情形。無使用者操作結果與逐分鐘 PG 覆蓋證據，不把來源未提供的分鐘資料插值或宣稱全日無缺口。
