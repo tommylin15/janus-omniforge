@@ -313,6 +313,7 @@ typedef _MinuteVolume = ({int minute, double volume});
 
 class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
   int? selectedMinute;
+  bool showChartNotes = false;
   static const int startMinute = 9 * 60;
   static const int endMinute = 13 * 60 + 30;
 
@@ -394,36 +395,73 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
     final progress = latest == null ? 0.0 :
       (latest.minute - startMinute) / (endMinute - startMinute) * 100.0;
 
+    // Keep price, extrema and their actual observation times above the graph.
     Widget extremum(String label, _SessionPoint? point, String key) {
-      if (point == null) return const SizedBox.shrink();
-      return Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(color: fvMuted, fontSize: 11)),
-          const SizedBox(height: 2),
+      if (point == null) return const Expanded(child: SizedBox.shrink());
+      return Expanded(child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min, children: [
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: fvMuted, fontSize: 12)),
+          Align(alignment: Alignment.centerLeft,
+            child: FittedBox(fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(legacy.accountingNumber(point.price, decimals: 2),
+                maxLines: 1, softWrap: false,
+                style: const TextStyle(color: fvInk,
+                  fontWeight: FontWeight.w800, fontSize: 17)),
+            ),
+          ),
           Text(_time(point.minute), key: Key(key),
-            style: const TextStyle(color: fvInk, fontWeight: FontWeight.w800)),
-          Text('${legacy.accountingNumber(point.price, decimals: 2)} ${widget.unit}',
-            style: const TextStyle(color: fvMuted, fontSize: 11)),
+            style: const TextStyle(color: fvMuted,
+                fontWeight: FontWeight.w600, fontSize: 12)),
           Text(_percent(point.change), key: Key('$key-percent'),
             style: TextStyle(color: fvSignedColor(point.change),
-                fontWeight: FontWeight.w800, fontSize: 12)),
-        ],
+              fontWeight: FontWeight.w800, fontSize: 13)),
+        ]),
       ));
     }
 
     return fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-          Expanded(child: Text(widget.label, style: const TextStyle(
-              color: fvInk, fontWeight: FontWeight.w800))),
+          Expanded(child: Text(widget.label, maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: fvInk, fontSize: 17,
+              fontWeight: FontWeight.w800))),
           Text('盤中進度 ${progress.toStringAsFixed(0)}%',
               key: const Key('intraday-session-progress'),
-              style: const TextStyle(color: fvMuted, fontSize: 11)),
+              style: const TextStyle(color: fvMuted, fontSize: 12)),
         ]),
         const SizedBox(height: 5),
-        Text('09:00 起跑 → 13:30 終點 · 前收 ${legacy.accountingNumber(previous, decimals: 2)} ${widget.unit}',
-          style: const TextStyle(color: fvMuted, fontSize: 11)),
-        const SizedBox(height: 9),
+        Text('09:00–13:30 · 前收 ${legacy.accountingNumber(previous, decimals: 2)} ${widget.unit} · 0% 基準',
+          style: const TextStyle(color: fvMuted, fontSize: 12)),
+        if (high != null && low != null && latest != null) ...[
+          const SizedBox(height: 9),
+          Container(
+            key: const Key('intraday-top-summary'),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+            decoration: BoxDecoration(
+              color: fvCanvas,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              extremum('最新', latest, 'intraday-observed-latest'),
+              extremum(hasHistoricalBars ? '分鐘最高' : '觀測最高', high, 'intraday-observed-high'),
+              extremum(hasHistoricalBars ? '分鐘最低' : '觀測最低', low, 'intraday-observed-low'),
+            ]),
+          ),
+        ],
+        if (selectedMinute != null && chosen != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 5),
+            child: Text('選取 ${_time(chosen.minute)}：${legacy.accountingNumber(chosen.price, decimals: 2)} ${widget.unit} · ${_percent(chosen.change)}',
+              key: const Key('intraday-selected-observation'),
+              style: TextStyle(color: fvSignedColor(chosen.change),
+                  fontSize: 13, fontWeight: FontWeight.w700)),
+          ),
+        const SizedBox(height: 8),
         LayoutBuilder(builder: (context, bounds) => GestureDetector(
           onTapDown: (detail) {
             if (points.isEmpty) return;
@@ -447,8 +485,8 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
           const SizedBox(height: 7),
           const Text('分鐘成交量 · 券商 K 棒原始單位',
               key: Key('intraday-volume-title'),
-              style: TextStyle(fontSize: 10, color: fvMuted)),
-          SizedBox(height: 58, width: double.infinity,
+              style: TextStyle(fontSize: 12, color: fvMuted)),
+          SizedBox(height: 38, width: double.infinity,
             child: CustomPaint(
               key: const Key('intraday-session-volume-chart'),
               painter: _SessionVolumePainter(volumePoints),
@@ -458,7 +496,7 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
             padding: EdgeInsets.only(top: 5),
             child: Text('分鐘成交量尚無可信來源，不估算或填補',
               key: Key('intraday-volume-missing'),
-              style: TextStyle(fontSize: 10, color: fvMuted)),
+              style: TextStyle(fontSize: 12, color: fvMuted)),
           ),
         const SizedBox(height: 2),
         const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -469,37 +507,36 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
           Text('13:30', key: Key('session-end-1330'),
               style: TextStyle(color: fvMuted, fontSize: 11)),
         ]),
-        const SizedBox(height: 8),
-        if (chosen != null)
-          Text('觀測 ${_time(chosen.minute)}：${legacy.accountingNumber(chosen.price, decimals: 2)} ${widget.unit} · ${_percent(chosen.change)}',
-            key: const Key('intraday-selected-observation'),
-            style: TextStyle(color: fvSignedColor(chosen.change), fontSize: 12,
-                fontWeight: FontWeight.w700)),
         if (points.isEmpty)
-          const Text('今日尚無實際分鐘點，固定交易時段與 0% 線僅供參考',
-              style: TextStyle(color: fvMuted, fontSize: 11)),
-        if (points.length < 2 && points.isNotEmpty)
+          const Text('今日尚無實際分鐘點；不補假行情',
+              key: Key('intraday-empty-points'),
+              style: TextStyle(color: fvMuted, fontSize: 12)),
+        if (points.length == 1)
           const Text('只有一個觀測點，無法形成連續線段',
-              style: TextStyle(color: fvMuted, fontSize: 11)),
+              style: TextStyle(color: fvMuted, fontSize: 12)),
         if (gaps > 0)
           Text('存在 $gaps 段超過 1 分鐘的缺口，線段不跨越缺口',
               key: const Key('intraday-session-gaps'),
-              style: const TextStyle(color: fvMuted, fontSize: 11)),
-        if (high != null && low != null && latest != null) ...[
-          const Divider(height: 16),
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            extremum(hasHistoricalBars ? '分鐘線最高' : '觀測最高', high, 'intraday-observed-high'),
-            extremum(hasHistoricalBars ? '分鐘線最低' : '觀測最低', low, 'intraday-observed-low'),
-            extremum('最新觀測', latest, 'intraday-observed-latest'),
-          ]),
-        ],
-        const SizedBox(height: 6),
-        Text(complete
-            ? '已涵蓋所需交易時段的觀測分鐘點；不代表逐筆成交最高／最低。'
-            : (hasHistoricalBars
-            ? '含券商歷史 1 分 K 收盤價（非即時）、即時觀測；高低只統計有資料的分鐘收盤價，非逐筆成交高低。'
-            : '僅統計實際收集的分鐘點，高低時間與漲跌幅不代表全天完整行情。'),
-          style: const TextStyle(color: fvMuted, fontSize: 10)),
+              style: const TextStyle(color: fvMuted, fontSize: 12)),
+        Align(alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            key: const Key('intraday-chart-notes-toggle'),
+            onPressed: () => setState(() => showChartNotes = !showChartNotes),
+            icon: Icon(showChartNotes
+                ? Icons.expand_less : Icons.info_outline, size: 16),
+            label: Text(showChartNotes ? '收起資料說明' : '資料說明',
+                style: const TextStyle(fontSize: 12)),
+          ),
+        ),
+        if (showChartNotes)
+          Padding(padding: const EdgeInsets.only(bottom: 5),
+            child: Text(complete
+                ? '已涵蓋所需交易時段的觀測分鐘點；不代表逐筆成交最高／最低。'
+                : (hasHistoricalBars
+                  ? '含券商歷史 1 分 K 收盤價（非即時）及即時觀測；高低只統計有資料的分鐘收盤價，非逐筆成交高低。'
+                  : '僅統計實際收集的分鐘點，高低時間與漲跌幅不代表全天完整行情。'),
+              style: const TextStyle(color: fvMuted, fontSize: 12)),
+          ),
       ],
     ));
   }
