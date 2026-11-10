@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "b43b132f041cf729e663df8dbd0522501354ad71",
-  "purpose": "2026-11-10 Dev API/App: Today TAIEX compact summary now visibly shows same-day index level, plus/minus index points and daily percent in red/green, using same-quote previous_close and quote timestamp or strictly prior official Core benchmark with source. Stale and missing dates fail closed, no extra quote polls. Ledger total PnL % removes redundant 參考 suffix, retains indicative tooltip and calculations. Flutter full analyze/tests/web #42753468687 PASS, selective CI #42753583661 PASS; source b43b132f041cf729e663df8dbd0522501354ad71. Release full fixed Python/Flutter GHCR four images using existing resources, then API-only 0% candidate/auth+market parity/100% reversible dev promotion/readback. No API traffic change in release, no Jobs/Scheduler/DB/IAM/owner data mutations.",
+  "sha": "197bed1bc418584db3816725600f2d3816d547ba",
+  "purpose": "2026-11-10 combined Janus Dev UI API/App: Today TAIEX headline current index plus daily point/percent move from paired trusted prior close, timestamp/freshness; holdings total-return percent without 參考 suffix; daily column secondary per-share move (percent) in 13px with no +/- signs, red rising/green falling, 18px daily PnL amount retained; 4-column stock row top aligned. Flutter full analyze/widget tests/Web build #42754292599 PASS including positive/negative colors, narrow view, previous-close fallback and null guards; selective CI #42754292310. Fixed source 197bed1bc418584db3816725600f2d3816d547ba. Full Python+Flutter GHCR Release required then existing Dev API only 0% candidate/auth/market parity/100% reversible promote/independent live acceptance. Keep existing Jobs/Scheduler/PG/IAM/Owner data and resources; no new paid services or extra quote polling.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 60
+  "request_attempt": 61
 }
