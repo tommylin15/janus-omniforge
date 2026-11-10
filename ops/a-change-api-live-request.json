@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "a12898bc2c97c4ddbe5d7aeda3361187bce99f10",
-  "promotion_run": "42552188866",
+  "source_sha": "2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547",
+  "promotion_run": "42740369550",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-09 independent readonly live acceptance of Janus Watchlist live/longterm tabs and owner-scoped minute API. Full GHCR Release #42551010365 attempt 2 PASS, candidate #42551893505 PASS, OAuth boundary #42552063237 PASS, API-only Dev 100% promotion #42552188866 PASS. Verify exact serving GHCR build SHA/digest, single 100% traffic and Ready, public health/market intraday schema, anonymous 401 for new watchlist intraday and original portfolio/orderbook. No GCP, traffic or owner mutation. Manual authenticated Watchlist mobile visual UAT separate.",
-  "request_attempt": 13
+  "purpose": "2026-11-10 independent readonly Dev live acceptance following mobile readability UI API-only 100% promotion #42740369550 PASS, full GHCR Release #42738969612 PASS, candidate #42739680653 PASS and auth/market parity #42739933792 attempt2 PASS. Verify one 100% Ready revision, fixed GHCR digest/build SHA, /app/ health and public market API, anonymous 401/403 for Owner Watchlist/Portfolio/order-book, no GCP, traffic, Jobs, Scheduler, Owner data or other writes. Authenticated Owner mobile visual UAT separate and not assumed.",
+  "request_attempt": 14
 }
