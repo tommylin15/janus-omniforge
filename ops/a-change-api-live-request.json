@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c",
-  "promotion_run": "42750939949",
+  "source_sha": "d7df1aa4f21427d99b0fb024c5cb502e381fb118",
+  "promotion_run": "42755637698",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-10 獨立驗證新版持股股數僅顯示數量、損益金額百分比同級與更柔和前置三指標分鐘圖 UI 的 Dev 正式上線。完整固定 GHCR #42749743428 PASS (head SHA 219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c)，0% Candidate #42750587323 PASS，權限與最新行情 parity #42750805643 PASS，Dev API-only 100% promotion #42750939949 PASS。唯讀檢查單一 100% Ready revision、immutable digest/build-id、/app/ 與公開當日行情 200、匿名 Owner 401/403；不寫 Owner/GCP，不變 Jobs/Scheduler；本人登入手機視覺 UAT 尚未提供，必須獨立標記。",
-  "request_attempt": 16
+  "purpose": "2026-11-10 independent readonly Dev live acceptance: TAIEX headline daily point and percent, holdings total return no 參考, and per-share daily movement 1.50（1.25%） with NO +/− signs, red up green down, large daily PnL retained. Flutter full analyze/widget/web #42754292599 PASS, release four immutable GHCR #42754592473 PASS, 0% candidate #42755286361 PASS, auth/market quote parity #42755482662 PASS, reversible existing Dev API-only 100% promotion #42755637698 PASS. Verify only one active 100%-Ready revision, exact immutable GHCR digest and /app/build-id.txt equals d7df1aa4f21427d99b0fb024c5cb502e381fb118, public market 200, anonymous Owner reject, gcp_mutations=0. Owner authenticated mobile UI UAT remains separate.",
+  "request_attempt": 17
 }
