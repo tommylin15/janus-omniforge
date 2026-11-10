@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547",
+  "sha": "dcfaed5d5912172223f9f334ea1fede7deb5a125",
   "digest": "",
-  "release_run": "42738969612",
+  "release_run": "42741975318",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-10 mobile typography + selected-stock Today/Watchlist and readable Holdings UI. Flutter CI #42738741651 PASS and fixed full Python/Flutter/four GHCR Release #42738969612 PASS from SHA 2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547. Deploy existing dev janus-api only as immutable 0%-traffic candidate, preserve current 100% API and all Jobs/Scheduler/PG/IAM/Owner state. Independent auth readback and separate promotion gate follow.",
-  "request_attempt": 58
+  "purpose": "2026-11-10 持股清單單行四欄 UI 修正：固定 release SHA dcfaed5d5912172223f9f334ea1fede7deb5a125；Flutter 390px／320px 放大字級、full tests、web build #42741643378 PASS，完整 Python/Flutter/四 GHCR 映像加匿名 digest readback #42741975318 PASS。僅對現有 dev Janus API 建立 0% candidate，保留目前 2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547 100% 與 Jobs／Scheduler／DB／IAM／Owner 不變。後續獨立 auth+行情驗收後才可切流。",
+  "request_attempt": 59
 }
