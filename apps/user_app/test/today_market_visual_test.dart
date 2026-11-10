@@ -100,6 +100,95 @@ void main() {
     expect(rising.min, lessThan(0));
   });
 
+  testWidgets('home TAIEX shows today's point delta and percent without opening chart',
+      (tester) async {
+    _mobile(tester);
+    final now = DateTime.now().toUtc();
+    final local = now.add(const Duration(hours: 8));
+    final day = local.toIso8601String().substring(0, 10);
+    final api = TodayApiStub({
+      'sections': {
+        'taiex': {
+          'status': 'available', 'as_of': day,
+          'data': {
+            'close': '25125.50', 'quote_previous_close': '25000',
+            'quote_at': now.toIso8601String(),
+            'quote_state': 'intraday', 'quote_source': 'twse_mis',
+          },
+        },
+      },
+    });
+    await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('today-market-summary')), findsOneWidget);
+    expect(find.text('25,125.50'), findsOneWidget);
+    expect(find.text('+125.50 點'), findsOneWidget);
+    expect(find.text('+0.50%'), findsOneWidget);
+    expect(find.byKey(const Key('today-market-quote-status')), findsOneWidget);
+    expect(find.byKey(const Key('today-taiex-expand')), findsNothing);
+    expect(api.requests.where((path) =>
+        path == '/api/v1/public/market-home').length, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('index decline uses official earlier session and fits narrow phone',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final local = DateTime.now().toUtc().add(const Duration(hours: 8));
+    final day = local.toIso8601String().substring(0, 10);
+    final prior = DateTime.utc(local.year, local.month, local.day)
+        .subtract(const Duration(days: 1)).toIso8601String().substring(0, 10);
+    final api = TodayApiStub({
+      'sections': {
+        'taiex': {
+          'status': 'available', 'as_of': day,
+          'data': {
+            'close': '24750',
+            'history_points': [
+              {'date': prior, 'value': '25000',
+               'source_id': 'official-taiex', 'provenance_id': 'published'},
+            ],
+          },
+        },
+      },
+    });
+    await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
+    await tester.pumpAndSettle();
+    expect(find.text('24,750.00'), findsOneWidget);
+    expect(find.text('-250.00 點'), findsOneWidget);
+    expect(find.text('-1.00%'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home TAIEX does not invent change with missing prior close',
+      (tester) async {
+    _mobile(tester);
+    final api = TodayApiStub({
+      'sections': {
+        'taiex': {
+          'status': 'partial', 'as_of': '2026-11-10',
+          'data': {
+            'close': '25125.5', 'return_percent': '0.50',
+            // Without a dated prior Core point or exchange previous close,
+            // a percent in a legacy payload is not enough to imply a tick.
+            'history_points': [
+              {'date': '2026-11-09', 'value': '25000'},
+            ],
+          },
+        },
+      },
+    });
+    await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
+    await tester.pumpAndSettle();
+    expect(find.text('漲跌待可比前收'), findsOneWidget);
+    expect(find.byKey(const Key('today-market-change-points')), findsNothing);
+    expect(find.byKey(const Key('today-market-change-percent')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('TAIEX published 30-day trend changes period and zooms without API refetch',
       (tester) async {
     _mobile(tester);
