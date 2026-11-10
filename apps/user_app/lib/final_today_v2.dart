@@ -836,6 +836,56 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     },
   );
 
+  // An exchange MIS tick may contain its own prior close; otherwise use
+  // a strictly earlier, published Core TAIEX close with real lineage.
+  double? _taiexSummaryPreviousClose(Map<String, dynamic> section) {
+    final data = fvMap(section['data']);
+    final date = fvText(section['as_of'], missing: '');
+    final at = DateTime.tryParse(fvText(data['quote_at'], missing: ''));
+    final state = fvText(data['quote_state'], missing: '');
+    final quoteDay = at?.toUtc().add(const Duration(hours: 8))
+        .toIso8601String().substring(0, 10);
+    final exchangeReference = fvNumber(data['quote_previous_close']);
+    if (date.isNotEmpty && quoteDay == date &&
+        {'intraday', 'closing_pending_eod', 'stale'}.contains(state) &&
+        exchangeReference != null && exchangeReference.isFinite &&
+        exchangeReference > 0) {
+      return exchangeReference;
+    }
+    final tradeDate = DateTime.tryParse(date);
+    if (tradeDate == null) return null;
+    final candidates = fvRows(data['history_points']).map(fvMap).where((row) {
+      final observedDate = DateTime.tryParse(fvText(row['date'], missing: ''));
+      final close = fvNumber(row['value']);
+      return observedDate != null && observedDate.isBefore(tradeDate) &&
+          tradeDate.difference(observedDate).inDays <= 7 &&
+          close != null && close.isFinite && close > 0 &&
+          fvText(row['source_id'], missing: '').isNotEmpty &&
+          fvText(row['provenance_id'], missing: '').isNotEmpty;
+    }).toList()
+      ..sort((a, b) => fvText(b['date']).compareTo(fvText(a['date'])));
+    return candidates.isEmpty ? null : fvNumber(candidates.first['value']);
+  }
+
+  String _taiexQuoteLabel(Map<String, dynamic> section) {
+    final data = fvMap(section['data']);
+    final at = DateTime.tryParse(fvText(data['quote_at'], missing: ''));
+    final state = fvText(data['quote_state'], missing: '');
+    final date = fvText(section['as_of'], missing: '');
+    final now = DateTime.now();
+    final today = now.toUtc().add(const Duration(hours: 8));
+    final tick = at?.toUtc().add(const Duration(hours: 8));
+    final sameDay = tick != null && tick.year == today.year &&
+        tick.month == today.month && tick.day == today.day;
+    final age = at == null ? null : now.difference(at).inSeconds;
+    if (marketHours && state == 'intraday' && sameDay &&
+        age != null && age >= 0 && age <= 120) {
+      return '盤中 ${tick!.hour.toString().padLeft(2, '0')}:${tick.minute.toString().padLeft(2, '0')}';
+    }
+    if (state.isNotEmpty) return '非即時 · ${date.isEmpty ? '日期缺值' : date}';
+    return date.isNotEmpty ? '資料日 $date' : '行情日期缺值';
+  }
+
   // A single compact index card keeps today's point and percent change
   // visible without opening the chart. The chart remains on-demand.
   Widget _compactMarket() => FutureBuilder<dynamic>(
@@ -863,7 +913,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       final comparable = current != null && current.isFinite && current > 0 &&
           previous != null && previous.isFinite && previous > 0;
       final change = comparable ? current! - previous! : null;
-      final ratio = comparable ? change! / previous! : null;
+      final ratio = comparable && change != null ? change / previous! : null;
       final changeColor = change == null ? fvMuted : fvSignedColor(change);
       final points = change == null ? '—' :
           '${change > 0 ? '+' : change < 0 ? '-' : ''}${legacy.accountingNumber(change.abs(), decimals: 2)} 點';
