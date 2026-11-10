@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "a356744493b646f8892da962a1b96feef3e37e3d",
-  "purpose": "2026-11-10 UI compact follow-up: remove ticker prefix from holdings share-count label and fit full shares, use equal 18px emphasis for daily/total PnL amounts and percentages, and improve Today/Watchlist intraday graph with 1.7px soft stroke, faint gap-safe shaded segments and guides, latest/high/low prices+actual times above the graph, drag selection, folded notes, finite 320ms new-observed-point emphasis. Flutter full analyze/tests/Web build #42749454063 PASS; CI #42749553585 PASS. Fixed source a356744493b646f8892da962a1b96feef3e37e3d. Reuse existing dev resources and API-only promotion; no schema, Jobs, Scheduler, IAM, PG, owner data, paid resources or new quote polling. Release only at this immutable SHA; candidate, auth and public quote parity, 100% reversible API cutover and independent live readback remain required.",
+  "sha": "b43b132f041cf729e663df8dbd0522501354ad71",
+  "purpose": "2026-11-10 Dev API/App: Today TAIEX compact summary now visibly shows same-day index level, plus/minus index points and daily percent in red/green, using same-quote previous_close and quote timestamp or strictly prior official Core benchmark with source. Stale and missing dates fail closed, no extra quote polls. Ledger total PnL % removes redundant 參考 suffix, retains indicative tooltip and calculations. Flutter full analyze/tests/web #42753468687 PASS, selective CI #42753583661 PASS; source b43b132f041cf729e663df8dbd0522501354ad71. Release full fixed Python/Flutter GHCR four images using existing resources, then API-only 0% candidate/auth+market parity/100% reversible dev promotion/readback. No API traffic change in release, no Jobs/Scheduler/DB/IAM/owner data mutations.",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 59
+  "request_attempt": 60
 }
