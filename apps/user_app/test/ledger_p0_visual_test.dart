@@ -166,6 +166,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('daily and total PnL amounts and percentages share type size',
+      (tester) async {
+    _phone(tester);
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(
+      HoldingsP0Api(_snapshot()), now: () => DateTime.utc(2026, 10, 12, 7))));
+    await tester.pumpAndSettle();
+    final dayAmount = find.byKey(const Key('holding-day-amount-00719B'));
+    await tester.scrollUntilVisible(dayAmount, 150,
+        scrollable: find.byType(Scrollable).first);
+    final dayPercent = find.byKey(const Key('holding-daily-change-00719B'));
+    final totalAmount = find.byKey(const Key('holding-pnl-00719B'));
+    final totalPercent = find.byKey(const Key('holding-return-00719B'));
+    final sizes = [dayAmount, dayPercent, totalAmount, totalPercent]
+        .map((finder) => tester.widget<Text>(finder).style?.fontSize)
+        .toList();
+    expect(sizes, everyElement(18));
+    for (final finder in [dayAmount, dayPercent, totalAmount, totalPercent]) {
+      expect(tester.widget<Text>(finder).maxLines, 1);
+      expect(tester.widget<Text>(finder).softWrap, isFalse);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('long share counts remain legible without ticker prefix',
       (tester) async {
     _phone(tester);
