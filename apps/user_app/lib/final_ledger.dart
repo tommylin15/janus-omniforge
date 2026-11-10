@@ -955,9 +955,21 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                                 child: const Icon(Icons.info_outline,
                                     color: fvMuted, size: 13)),
                           ]),
-                          Text('$symbol · ${legacy.accountingNumber(row['shares'])} 股',
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: fvMuted, fontSize: 12)),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '${legacy.accountingNumber(row['shares'])} 股',
+                                key: Key('holding-shares-$symbol'),
+                                maxLines: 1,
+                                softWrap: false,
+                                style: const TextStyle(
+                                    color: fvMuted, fontSize: 13),
+                              ),
+                            ),
+                          ),
                         ],
                       )),
                       Expanded(flex: 23, child: Column(
