@@ -31,6 +31,10 @@
 
 外部設計參考只可吸收 presentation pattern，不取得 Janus data model／runtime authority；Active UI contract 仍以本目錄文件為準。
 
+### 2026-11-10 可讀性字階與垂直優先級
+
+今日／關注／持股採大數字優先：報價與重要損益 26～30、名稱 18～22、一般欄位 15～17、狀態與日期 13～14、底部導覽 14（均為 logical px）。降低同屏重複選股導覽與可刪除的敘述，先安排主數字與圖，再安排完整狀態與操作。**正常縱向捲動必須保留**；小手機、放大字體、缺值說明皆不可被強制截斷。詳細內容見 [User App 2026-11-10](user-app.md#2026-11-10手機閱讀與單檔主視圖覆蓋舊版高密度佈局)。
+
 ## 3. Responsive Layout
 
 | 裝置 | Layout | Navigation | Detail／History |
