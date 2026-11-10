@@ -905,10 +905,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               dailyPriceDelta.isFinite;
           // Price movement is per share; the larger figure below remains
           // the existing owner-level daily unrealized PnL estimate.
-          final dailyMove = hasDailyPriceDelta
-              ? '${dailyPriceDelta > 0 ? '+' : dailyPriceDelta < 0 ? '-' : ''}'
-                  '${legacy.accountingNumber(dailyPriceDelta.abs(), decimals: 2)}'
-                  '（${fvSignedPercent(row['change_percent'])}）'
+          final dailyPercent = fvNumber(row['change_percent']);
+          final dailyMove = hasDailyPriceDelta && dailyPercent != null &&
+                  dailyPercent.isFinite
+              ? '${legacy.accountingNumber(dailyPriceDelta.abs(), decimals: 2)}'
+                  '（${(dailyPercent.abs() * 100).toStringAsFixed(2)}%）'
               : valid ? '增減缺值' : '待行情';
 
           // Keep the large PnL figures in one horizontal row. Daily per-share
