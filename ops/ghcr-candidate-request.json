@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "dcfaed5d5912172223f9f334ea1fede7deb5a125",
+  "sha": "a356744493b646f8892da962a1b96feef3e37e3d",
   "digest": "",
-  "release_run": "42741975318",
+  "release_run": "42749743428",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-10 持股清單單行四欄 UI 修正：固定 release SHA dcfaed5d5912172223f9f334ea1fede7deb5a125；Flutter 390px／320px 放大字級、full tests、web build #42741643378 PASS，完整 Python/Flutter/四 GHCR 映像加匿名 digest readback #42741975318 PASS。僅對現有 dev Janus API 建立 0% candidate，保留目前 2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547 100% 與 Jobs／Scheduler／DB／IAM／Owner 不變。後續獨立 auth+行情驗收後才可切流。",
-  "request_attempt": 59
+  "purpose": "2026-11-10 持股／首頁最新 UI：持股列取消股票代號只顯示完整股數、日與總損益金額百分比同 18px；今日及關注共用分鐘圖細線淡色輔助與最高最低最新價／觀測時間上移、選點滑動、說明收合、真新點短暫強調。Flutter full CI #42749454063 PASS, GHCR full Release #42749743428 PASS，固定 source a356744493b646f8892da962a1b96feef3e37e3d。部署現有 Dev API 0% candidate，不切流、不改 Jobs/Scheduler/PG/IAM/owner data，也不新增行情輪詢。後續必須獨立 auth/market parity 與 API-only reversible promote。",
+  "request_attempt": 60
 }
