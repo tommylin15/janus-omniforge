@@ -769,10 +769,18 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
                     fontSize: 16, fontWeight: FontWeight.w800)),
           ]),
           const SizedBox(height: 3),
-          Text(isLive ? '盤中 $checkedAt'
-              : '非即時 · 價格日 ${quoteDate.isEmpty ? '缺值' : quoteDate}',
-              key: const Key('today-selected-quote-status'),
-              style: const TextStyle(color: fvMuted, fontSize: 13)),
+          Row(children: [
+            Expanded(child: Text(isLive ? '盤中 $checkedAt'
+                : '非即時 · 價格日 ${quoteDate.isEmpty ? '缺值' : quoteDate}',
+                key: const Key('today-selected-quote-status'),
+                style: const TextStyle(color: fvMuted, fontSize: 13))),
+            if (fvPriceLimitState(selected) != FvPriceLimit.none)
+              Text(fvPriceLimitState(selected) == FvPriceLimit.up ? '漲停' : '跌停',
+                style: TextStyle(
+                  color: fvPriceLimitState(selected) == FvPriceLimit.up
+                      ? fvLimitUpInk : fvLimitDownInk,
+                  fontSize: 13, fontWeight: FontWeight.w800)),
+          ]),
           const SizedBox(height: 10),
           Row(children: [
             Expanded(child: FilledButton(
@@ -835,8 +843,17 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       final root = fvMap(snapshot.data ?? lastGoodMarket);
       final section = fvMap(fvMap(root['sections'])['taiex']);
       if (section.isEmpty) {
-        return fvBoundedState(snapshot.connectionState == ConnectionState.done
-            ? '大盤行情暫時無法取得' : '大盤資料仍在讀取；其他資訊可先使用');
+        return Column(children: [
+          fvPanel(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: const Row(children: [
+              Text('加權指數', style: TextStyle(color: fvInk,
+                  fontSize: 15, fontWeight: FontWeight.w800)),
+              Spacer(),
+              Text('行情尚未取得', style: TextStyle(color: fvMuted, fontSize: 14)),
+            ])),
+          fvBoundedState(snapshot.connectionState == ConnectionState.done
+              ? '大盤行情暫時無法取得' : '大盤資料仍在讀取；其他資訊可先使用'),
+        ]);
       }
       return fvPanel(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
