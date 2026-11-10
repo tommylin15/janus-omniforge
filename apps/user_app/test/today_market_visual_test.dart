@@ -217,6 +217,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('today-tab-longterm')));
     await tester.pumpAndSettle();
+    // A visible verified EOD headline must not require scrolling into the plot.
+    expect(find.byKey(const Key('today-longterm-close')), findsOneWidget);
+    expect(find.text('48,900.00 點'), findsOneWidget);
+    expect(find.byKey(const Key('today-longterm-change')), findsOneWidget);
+    expect(find.textContaining('收盤日 2026-09-30'), findsOneWidget);
     await tester.scrollUntilVisible(find.byKey(const Key('today-trend-5')), 180,
       scrollable: find.byType(Scrollable).first);
     expect(find.text('加權指數走勢'), findsOneWidget);
@@ -397,6 +402,8 @@ void main() {
     expect(find.byKey(const Key('intraday-session-fixed-chart')), findsNothing);
     await tester.tap(find.byKey(const Key('today-tab-longterm')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('today-longterm-close')), findsOneWidget);
+    expect(find.byKey(const Key('today-longterm-change')), findsNothing);
     await tester.scrollUntilVisible(find.textContaining('法人官方買賣超金額未取得'), 200,
         scrollable: find.byType(Scrollable).first);
     expect(find.textContaining('法人官方買賣超金額未取得'), findsOneWidget);
