@@ -42,6 +42,34 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('high low and last are above the softer chart and notes are folded',
+      (tester) async {
+    _mobile(tester);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: ListView(children: [
+      const FvIntradayProgressChart(label: '2330 · 今日走勢',
+        unit: '元／股', previousClose: 100,
+        rows: [
+          {'date': '2026-11-10T09:00:00+08:00', 'value': '100'},
+          {'date': '2026-11-10T09:01:00+08:00', 'value': '102'},
+          {'date': '2026-11-10T09:02:00+08:00', 'value': '98'},
+        ]),
+    ]))));
+    await tester.pumpAndSettle();
+    final summary = find.byKey(const Key('intraday-top-summary'));
+    final chart = find.byKey(const Key('intraday-session-fixed-chart'));
+    expect(summary, findsOneWidget);
+    expect(tester.getBottomLeft(summary).dy,
+        lessThan(tester.getTopLeft(chart).dy));
+    expect(find.byKey(const Key('intraday-observed-high')), findsOneWidget);
+    expect(find.byKey(const Key('intraday-observed-low')), findsOneWidget);
+    expect(find.byKey(const Key('intraday-observed-latest')), findsOneWidget);
+    expect(find.textContaining('高低只統計有資料'), findsNothing);
+    await tester.tap(find.byKey(const Key('intraday-chart-notes-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('僅統計實際收集的分鐘點'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('missing official previous close never invents 0-percent moves',
       (tester) async {
     _mobile(tester);
