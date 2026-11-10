@@ -322,7 +322,14 @@ void main() {
     await tester.scrollUntilVisible(find.byKey(const Key('holding-pnl-5876')),
         170, scrollable: find.byType(Scrollable).first);
     expect(find.text('500'), findsWidgets);
-    expect(find.textContaining('參考'), findsWidgets);
+    // The total-return cell is compact: no redundant 參考 suffix after %.
+    // Stale/indicative status remains available on the stock-name tooltip.
+    final totalReturn = tester.widget<Text>(
+        find.byKey(const Key('holding-return-5876')));
+    expect(totalReturn.data, endsWith('%'));
+    expect(totalReturn.data, isNot(contains('參考')));
+    expect(find.byTooltip('非即時參考報價'), findsWidgets);
+    expect(find.textContaining('非正式收盤總額'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
