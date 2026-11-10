@@ -42,6 +42,7 @@ class _FinalJanusAppState extends State<FinalJanusApp> {
       scaffoldBackgroundColor:
           brightness == Brightness.light ? _canvas : const Color(0xFF0C171D),
       textTheme: ThemeData(brightness: brightness).textTheme.apply(
+            fontSizeFactor: 1.08,
             bodyColor: brightness == Brightness.light ? _ink : null,
             displayColor: brightness == Brightness.light ? _ink : null,
           ),
@@ -64,7 +65,7 @@ class _FinalJanusAppState extends State<FinalJanusApp> {
               fontWeight: states.contains(WidgetState.selected)
                   ? FontWeight.w800
                   : FontWeight.w600,
-              fontSize: 12,
+              fontSize: 14,
             )),
       ),
     );
