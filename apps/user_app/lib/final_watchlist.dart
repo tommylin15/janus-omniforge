@@ -451,7 +451,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
           if (validChange)
             Text('${legacy.accountingNumber(row['change'], decimals: 2)}  '
                 '${fvSignedPercent(row['change_percent'])}',
-              key: Key('watch-price-change-$'+'symbol'),
+              key: Key('watch-price-change-$symbol'),
               style: TextStyle(color: fvSignedColor(row['change']),
                   fontSize: 16, fontWeight: FontWeight.w800)),
         ]),
