@@ -255,6 +255,15 @@ void main() {
     expect(api.requests.length, before);
     await tester.tap(find.byTooltip('關閉大盤走勢'));
     await tester.pumpAndSettle();
+    // Transient official-source failures must be retryable without leaving
+    // the long-term tab and must not silently remove personal tracking.
+    await tester.ensureVisible(find.byKey(const Key('today-longterm-refresh')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('today-longterm-refresh')));
+    await tester.pumpAndSettle();
+    expect(api.requests.where((p) =>
+        p == '/api/v1/public/market-leverage-flow').length, 2);
+    expect(find.byKey(const Key('today-longterm-personal-empty')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
