@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c",
+  "sha": "d7df1aa4f21427d99b0fb024c5cb502e381fb118",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-10 首頁柔和分鐘圖及持股股數/損益字級調整。固定 GHCR Release #42749743428 PASS（真實 head SHA 219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c）、Dev 0% Candidate #42750587323 PASS。執行 readonly OAuth/Owner/Admin/MCP 未登入邊界及候選/現役同日大盤個股分鐘行情 parity，不變更 GCP/Owner 資料及流量。通過方可另行 API-only promote。",
-  "request_attempt": 54
+  "purpose": "2026-11-10 color-only daily share price change without +/- in holdings; TAIEX points and % visible on Today, total return without 參考. GHCR fixed release #42754592473 PASS; Dev existing API 0%-traffic immutable candidate #42755286361 PASS. Run independent readonly OAuth/Owner/Admin/MCP boundary and public TAIEX + symbol quotes/minute parity against existing 100%; do not change GCP, Owner data, Jobs, Scheduler, traffic or API throttling. Gate before reversible API-only 100% promotion.",
+  "request_attempt": 55
 }
