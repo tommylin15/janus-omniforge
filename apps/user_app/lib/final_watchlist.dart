@@ -485,6 +485,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
         fvTag(row['held'] == true ? 'S 持股' : '${fvText(row['tier'], missing: 'C')} 池'),
         if (row['tier_confirmed'] != true) fvTag('待確認分類'),
         if (row['sync_locked'] == true) fvTag('已鎖定'),
+        fvTag('來源 ${fvText(row['price_source'], missing: '待取得')}'),
         fvTag(row['target_price'] == null ? '目標價未設定'
             : '目標 ${legacy.accountingNumber(row['target_price'], decimals: 2)}'),
         if (fvInt(row['pending_note_count']) > 0)
