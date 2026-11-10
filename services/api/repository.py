@@ -885,6 +885,24 @@ class PostgresWorkspaceRepository:
         """Same-day owner-authorized observed or separately sourced 1m Kbars."""
         return self._session_minute_rows(symbol, trade_date)
 
+    @staticmethod
+    def _needs_session_kbar_backfill(minute_indices, expected: int) -> bool:
+        """Detect actual missing minute slots, not only aggregate 85% coverage.
+
+        A recent quote cannot disguise earlier holes. Keep the broker request
+        separate from every read; the existing shared claim still limits calls.
+        """
+        observed = sorted({int(slot) for slot in minute_indices
+                           if 0 <= int(slot) < expected})
+        if not observed:
+            return True
+        if len(observed) < expected * 0.85:
+            return True
+        # Ignore a single not-yet-closed minute at the right edge.
+        if observed[0] > 0 or observed[-1] < expected - 2:
+            return True
+        return any(b - a > 1 for a, b in zip(observed, observed[1:]))
+
     def reserve_session_kbar_backfill(self, symbol: str, trade_day, now) -> bool:
         """Cross-instance sparse-data claim: 30-minute cooldown, max 3/day.
 
@@ -914,16 +932,23 @@ class PostgresWorkspaceRepository:
                              else "symbol=%s")
                 args = (start, clock) if symbol == "TAIEX" else (symbol, start, clock)
                 samples = connection.execute(
-                    f"""SELECT count(DISTINCT minute_at) AS count FROM {table}
-                        WHERE {criterion} AND minute_at >= %s AND minute_at < %s""",
+                    f"""SELECT minute_at FROM {table}
+                        WHERE {criterion} AND minute_at >= %s AND minute_at < %s
+                        ORDER BY minute_at ASC LIMIT 271""",
                     args,
-                ).fetchone()["count"]
+                ).fetchall()
                 bars = connection.execute(
-                    """SELECT count(*) AS count FROM control.operational_session_kbars
-                       WHERE symbol=%s AND minute_at >= %s AND minute_at < %s""",
+                    """SELECT minute_at FROM control.operational_session_kbars
+                       WHERE symbol=%s AND minute_at >= %s AND minute_at < %s
+                       ORDER BY minute_at ASC LIMIT 271""",
                     (symbol, start, clock),
-                ).fetchone()["count"]
-                if max(int(samples or 0), int(bars or 0)) >= expected * 0.85:
+                ).fetchall()
+                observed_slots = [
+                    row["minute_at"].astimezone(taipei).hour * 60 +
+                    row["minute_at"].astimezone(taipei).minute - 540
+                    for row in (*samples, *bars)
+                ]
+                if not self._needs_session_kbar_backfill(observed_slots, expected):
                     return False
                 claim = connection.execute(
                     """INSERT INTO control.operational_kbar_backfill_state
