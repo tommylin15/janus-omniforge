@@ -1,5 +1,12 @@
 # Janus — 唯一 Active TODO
 
+## 2026-11-10｜持股四欄對齊避免重疊（依手機截圖；Dev 工程與 Runtime PASS）
+
+- [x] **UI／測試**：手機持股四欄「股票／現價／當日損益／總損益」沿用 25:23:25:27 同比例；表頭、主數字和副資訊改為共用橫列對齊，內容欄左右各保留 3px，成本與每股當日增減（%）不再視覺貼合。名稱 16.5px、現價 19px、股數 12px、成本 11.5px、當日增減 12px；長數字在各欄自行等比縮放，維持紅漲綠跌及現有財務數字，未改 API、Owner 或計算。Flutter 全量分析、widgets、Web build [#42757584970](https://github.com/tommylin15/janus-omniforge/actions/runs/42757584970) PASS，含 390px 密集大額與 320px 放大字體、相鄰欄間距幾何測試。
+- [x] **Release 與 Dev Runtime**：固定四 GHCR Release [#42757920981](https://github.com/tommylin15/janus-omniforge/actions/runs/42757920981) PASS（真實來源 `6a61ca534bb19b6298e4a62bc22f700f4bd525c2`）；Dev 0% Candidate [#42759310235](https://github.com/tommylin15/janus-omniforge/actions/runs/42759310235) PASS → OAuth／Owner／Admin／MCP 與公開行情 parity [#42759529462](https://github.com/tommylin15/janus-omniforge/actions/runs/42759529462) PASS → 可回復 API-only 100% [#42780637407](https://github.com/tommylin15/janus-omniforge/actions/runs/42780637407) PASS → 獨立唯讀 runtime [#42780879663](https://github.com/tommylin15/janus-omniforge/actions/runs/42780879663) `API_LIVE_READBACK_PASS`：現役 100%、build-id 精確相等、公開行情 200 且非空、匿名 Owner 拒絕、`gcp_mutations=0`。前版 `d7df1aa4f21427d99b0fb024c5cb502e381fb118` 保留回復；未更動 Jobs／Scheduler／PG／IAM／Owner 資料。
+- [ ] **Owner 本人手機目視**：登入 [Dev App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/) 確認成本及當日增減不再擠在一起、長金額和股數無裁切；無真人登入視覺收據，維持 NOT_VERIFIED。工程與獨立 Runtime 結案不等待新手機截圖。
+
+
 ## 2026-11-10｜首頁大盤漲跌摘要＋持股當日增減數無符號（Dev 已發布）
 
 - [x] **CODE／UI**：今日大盤摘要可直接看 TAIEX 指數、同日漲跌點數及百分比；同筆報價前收、報價時間／狀態或具日期來源的前一正式 Core 收盤才可計算，缺值不可造漲跌。持股總損益百分比移除尾隨「參考」；當日損益 18px 金額下方改為 **13px 每股當日漲跌數（幅度%）**，例如 `1.50（1.25%）`，兩個量均不出現 `+`/`−`、只以台股紅漲綠跌、平盤中性色區分。持股四欄改頂端對齊，保留非即時 Tooltip 及原損益計算。詳見 [UI 契約](ui/user-app.md)。
