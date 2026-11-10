@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c",
+  "sha": "d7df1aa4f21427d99b0fb024c5cb502e381fb118",
   "digest": "",
-  "release_run": "42749743428",
+  "release_run": "42754592473",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-10 手機持股股數／損益字級與首頁分鐘圖柔和化合併 UI：Flutter #42749454063 PASS，固定完整 GHCR Release #42749743428 PASS。上次 0% candidate #42750456512 因 request SHA a356... ≠ GitHub Release run head SHA 219b... 被安全 gate 擋下，未部署未切流；現使用可驗證真實 Release head SHA 219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c 重新建立相同編譯映像的 0% candidate，不放寬 SHA/gate、不變 Jobs/Scheduler/PG/Owner/IAM。須先 auth/market parity 後另作 reversible API promotion。",
-  "request_attempt": 61
+  "purpose": "2026-11-10 single Dev UI release for Today TAIEX current index/day points/day percent, quote time/previous close, Ledger total return without redundant 參考, daily per-share price move (percent) with 13px and NO +/- signs, red up green down, large daily PnL remains. Flutter full CI #42754292599 PASS, GHCR Python/Flutter/four images/digest #42754592473 PASS, exact release head d7df1aa4f21427d99b0fb024c5cb502e381fb118. Deploy only existing dev API/App immutable 0%-traffic revision; preserve 100% serving 219b6a1e85c5d5ee5b57a53d57a42b0b25f2198c; no Jobs/Scheduler/PG/IAM/owner data changes. Separate candidate auth/quotes boundary and reversible 100% promote required.",
+  "request_attempt": 62
 }
