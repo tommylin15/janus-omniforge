@@ -889,7 +889,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               ),
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
-                key: Key('holding-row-$'+'symbol'),
+                key: Key('holding-row-$symbol'),
                 onTap: () => widget.onOpenStock?.call(symbol),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -912,7 +912,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                                   child: const Icon(Icons.info_outline,
                                       color: fvMuted, size: 15))),
                           ]),
-                          Text('$'+'symbol · ${legacy.accountingNumber(row['shares'])} 股',
+                          Text('$symbol · ${legacy.accountingNumber(row['shares'])} 股',
                             maxLines: 1, overflow: TextOverflow.ellipsis,
                             style: const TextStyle(color: fvMuted, fontSize: 13)),
                         ],
@@ -923,7 +923,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                           fvLimitPriceText(row,
                               legacy.accountingNumber(row['market_price'],
                                   decimals: 2, missing: '—'),
-                              key: Key('holding-latest-price-$'+'symbol'),
+                              key: Key('holding-latest-price-$symbol'),
                               fontSize: 21,
                               ordinaryColor: valid ? fvSignedColor(row['change']) : fvInk),
                           Text('成本 ${legacy.accountingNumber(row['average_cost'], decimals: 2)}',
@@ -941,13 +941,13 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                           const Text('當日損益', style: TextStyle(
                             color: fvMuted, fontSize: 13, fontWeight: FontWeight.w600)),
                           Text(valid ? legacy.accountingNumber(row['day_change_amount']) : '—',
-                            key: Key('holding-day-amount-$'+'symbol'),
+                            key: Key('holding-day-amount-$symbol'),
                             maxLines: 1, overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: valid ? fvSignedColor(row['day_change_amount']) : fvMuted,
                               fontSize: 18, fontWeight: FontWeight.w800)),
                           Text(valid ? fvSignedPercent(row['change_percent']) : '待行情',
-                            key: Key('holding-daily-change-$'+'symbol'),
+                            key: Key('holding-daily-change-$symbol'),
                             maxLines: 1, overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: valid ? fvSignedColor(row['change_percent']) : fvMuted,
@@ -960,7 +960,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                           const Text('總損益', style: TextStyle(
                             color: fvMuted, fontSize: 13, fontWeight: FontWeight.w600)),
                           Text(hasPnl ? legacy.accountingNumber(row['unrealized_pnl']) : '—',
-                            key: Key('holding-pnl-$'+'symbol'),
+                            key: Key('holding-pnl-$symbol'),
                             maxLines: 1, overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: hasPnl ? fvSignedColor(row['unrealized_pnl']) : fvMuted,
@@ -968,7 +968,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                           Text(hasPnl
                               ? '${legacy.portfolioReturnLabel(row['unrealized_return'])}${reference ? ' 參考' : ''}'
                               : '待估值',
-                            key: Key('holding-return-$'+'symbol'),
+                            key: Key('holding-return-$symbol'),
                             maxLines: 1, overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: hasPnl ? fvSignedColor(row['unrealized_return']) : fvMuted,
