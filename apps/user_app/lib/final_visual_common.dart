@@ -179,7 +179,7 @@ int fvInt(Object? value) => int.tryParse('${value ?? ''}') ?? 0;
 
 Widget fvPageTitle(BuildContext context, String title, {String? subtitle}) =>
     Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 7),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -273,7 +273,7 @@ Widget fvStatusPill(Object? value) {
       label,
       style: const TextStyle(
         color: fvTeal,
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: FontWeight.w700,
       ),
     ),
@@ -296,7 +296,7 @@ Widget fvTag(String text, {bool warning = false, Color? color, IconData? icon}) 
           text,
           style: TextStyle(
             color: color ?? (warning ? const Color(0xFF9A5A10) : fvTeal),
-            fontSize: 11,
+            fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
         )),
@@ -337,7 +337,7 @@ Widget fvMetricTile(
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: valueColor ?? fvInk,
-              fontSize: 17,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
               height: 1.15,
             ),
@@ -350,7 +350,7 @@ Widget fvMetricTile(
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: detailColor ?? fvMuted,
-                fontSize: 10.5,
+                fontSize: 13,
               ),
             ),
           ],
