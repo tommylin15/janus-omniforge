@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "2b7e50d83cd3cb6d9f5d4f12fdc0d7b0e64a1547",
+  "sha": "dcfaed5d5912172223f9f334ea1fede7deb5a125",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-10 mobile-first Today/Watchlist/Holdings Flutter UI. Fixed full Release #42738969612 PASS and existing dev 0%-traffic API candidate #42739680653 PASS. Independent read-only Owner/Admin/OAuth/MCP authentication and public market comparison on candidate before reversible API-only promotion. No GCP, traffic or owner writes.",
-  "request_attempt": 52
+  "purpose": "2026-11-10 持股清單單一四欄橫列 UI：release #42741975318 全 PASS，Dev 0%-traffic API candidate #42744305103 PASS。驗證固定 build-id /app/、OAuth Owner/Admin/MCP 未登入隔離以及 candidate 和 100% 現役公開行情 parity；不做 GCP、流量、Owner 寫入，通過後另行執行 reversible API-only 切流。",
+  "request_attempt": 53
 }
