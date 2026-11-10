@@ -81,8 +81,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
 
 
   void _requestHistoricalGapFill(String symbol, {bool manual = false}) {
-    // Shioaji history is only demanded on entry, foreground resume or stock
-    // selection, never by the 60s quote timer. PG enforces max 3/day and 30m cooldown.
+    // Shioaji history is demanded on entry, resume, stock selection or
+    // explicit user retry, never by the 60s quote timer. PG still limits 3/day
+    // and enforces its cross-reader 30-minute cooldown.
     if (!widget.active || !foreground || todayTab != 0) return;
     final taipei = DateTime.now().toUtc().add(const Duration(hours: 8));
     final minute = taipei.hour * 60 + taipei.minute;
@@ -133,6 +134,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   Widget _backfillCaption(String symbol) {
     final running = _backfillInFlight.contains(symbol);
     final status = _backfillStatus[symbol];
+    final recentManual = _manualBackfillAt[symbol];
+    final manualCooling = recentManual != null &&
+        DateTime.now().difference(recentManual) < const Duration(minutes: 5);
     if (!running && status == null) return const SizedBox.shrink();
     final message = running ? '正在查詢今日缺漏的歷史 1 分 K（非即時行情）…'
         : status == 'available' ? '已讀回歷史 1 分 K，與即時觀測合併顯示'
@@ -146,8 +150,10 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         if (!running && marketHours)
           TextButton(
             key: Key('today-backfill-retry-$symbol'),
-            onPressed: () => _requestHistoricalGapFill(symbol, manual: true),
-            child: const Text('重查缺口', style: TextStyle(fontSize: 12)),
+            onPressed: manualCooling
+                ? null : () => _requestHistoricalGapFill(symbol, manual: true),
+            child: Text(manualCooling ? '稍後重試' : '重查缺口',
+                style: const TextStyle(fontSize: 12)),
           ),
       ]),
     );
@@ -1046,6 +1052,36 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     },
   );
 
+  Widget _longTermFlowSnapshot() => FutureBuilder<dynamic>(
+    future: marketFlows,
+    builder: (context, snapshot) {
+      final result = fvMap(snapshot.data);
+      final margin = fvMap(result['margin']);
+      final flow = fvMap(result['institutional']);
+      final history = fvRows(margin['history']).map(fvMap).toList();
+      final latest = history.isEmpty ? null : history.last;
+      final balance = latest == null
+          ? null : fvNumber(latest['balance_thousand_twd']);
+      final flowDate = fvText(flow['as_of'], missing: '缺值');
+      final marginDate = fvText(margin['as_of'], missing: '缺值');
+      return fvPanel(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('盤後資金快覽',
+              style: TextStyle(color: fvInk, fontSize: 14,
+                  fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text(balance == null
+              ? '融資餘額：${snapshot.connectionState == ConnectionState.done ? '暫無資料' : '載入中'}'
+              : '融資餘額 ${_billions(balance, divisor: 100000)} 億元 · $marginDate',
+              style: const TextStyle(color: fvInk, fontSize: 12)),
+          Text('三大法人買賣超資料日：$flowDate · 詳細金額見下方',
+              style: const TextStyle(color: fvMuted, fontSize: 11)),
+        ]),
+      );
+    },
+  );
+
   Widget _historicalMarket() => FutureBuilder<dynamic>(
     future: market,
     builder: (context, snapshot) {
@@ -1110,6 +1146,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           )
         else
           fvBoundedState('尚無兩期可比較的正式收盤資料；不使用盤中價格替代'),
+        const SizedBox(height: 8),
+        _longTermFlowSnapshot(),
         const SizedBox(height: 8),
         if (sections['taiex'] != null)
           _taiexTrend(sections['taiex'], intradayOnly: false)
