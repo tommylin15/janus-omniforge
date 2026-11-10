@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "d7df1aa4f21427d99b0fb024c5cb502e381fb118",
-  "promotion_run": "42755637698",
+  "source_sha": "6a61ca534bb19b6298e4a62bc22f700f4bd525c2",
+  "promotion_run": "42780637407",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-10 independent readonly Dev live acceptance: TAIEX headline daily point and percent, holdings total return no 參考, and per-share daily movement 1.50（1.25%） with NO +/− signs, red up green down, large daily PnL retained. Flutter full analyze/widget/web #42754292599 PASS, release four immutable GHCR #42754592473 PASS, 0% candidate #42755286361 PASS, auth/market quote parity #42755482662 PASS, reversible existing Dev API-only 100% promotion #42755637698 PASS. Verify only one active 100%-Ready revision, exact immutable GHCR digest and /app/build-id.txt equals d7df1aa4f21427d99b0fb024c5cb502e381fb118, public market 200, anonymous Owner reject, gcp_mutations=0. Owner authenticated mobile UI UAT remains separate.",
-  "request_attempt": 17
+  "purpose": "2026-11-10 Owner real screenshot mobile holdings alignment final Dev readback: source 6a61ca534bb19b6298e4a62bc22f700f4bd525c2, shared four-column header/main/secondary grid and gutters, 390px and 320px large-number regression tests #42757584970 PASS, full Release #42757920981 PASS, 0% candidate #42759310235 PASS, readonly OAuth/Owner/Admin/MCP/public quote parity #42759529462 PASS, existing Dev 100% API-only promotion #42780637407 PASS. Independently verify one 100%-Ready active revision with exact immutable image digest and /app/build-id.txt source SHA, public market HTTP 200 with nonempty rows and private Owner anonymous denied; GCP and Owner mutations 0. Authenticated Owner mobile visual validation remains NOT_VERIFIED until user confirms.",
+  "request_attempt": 18
 }
