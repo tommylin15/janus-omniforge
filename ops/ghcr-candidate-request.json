@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "6a61ca534bb19b6298e4a62bc22f700f4bd525c2",
+  "sha": "ac9e0309302248eabcc8d7a6553d479cacf2f828",
   "digest": "",
-  "release_run": "42757920981",
+  "release_run": "42794861330",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-10 screenshot-aligned holdings grid UI. Final source 6a61ca534bb19b6298e4a62bc22f700f4bd525c2, Flutter all widget tests and Web build #42757584970 PASS (including 390px dense 4-cell geometry, 320px large font); full release #42757920981 four GHCR digests and anonymous verify PASS. Stage immutable existing Dev API/App candidate at 0% traffic only; leave current 100% d7df1aa4f21427d99b0fb024c5cb502e381fb118, Jobs/Scheduler/PG/IAM/Owner untouched. Subsequent separate auth+market parity, reversible API-only 100% promotion, independent live readback required.",
-  "request_attempt": 63
+  "purpose": "2026-11-10 Today V8 minute gap and longterm information fix. Exact full release source ac9e0309302248eabcc8d7a6553d479cacf2f828, full Python 2179 PASS, Flutter release PASS, GHCR four pinned digest verification #42794861330 SUCCESS; changes only to existing API/App (backfill detection, owner UI longterm EOD/flow, details sheet and refresh), no new resources or schema. Install immutable Dev API 0%-traffic candidate only; keep prior active serving 6a61ca534bb19b6298e4a62bc22f700f4bd525c2 at 100% pending separate OAuth/Owner/Admin/MCP and quote parity, then reversible API-only promotion and live readback. No Jobs/Scheduler/PG/IAM/Owner mutations.",
+  "request_attempt": 64
 }
