@@ -953,7 +953,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       horizontal: 9, vertical: 9),
                   child: Row(
                     key: Key('holding-main-row-$symbol'),
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(flex: 25, child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
