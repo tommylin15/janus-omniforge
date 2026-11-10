@@ -100,7 +100,7 @@ void main() {
     expect(rising.min, lessThan(0));
   });
 
-  testWidgets('home TAIEX shows today's point delta and percent without opening chart',
+  testWidgets("home TAIEX shows today's point delta and percent without opening chart",
       (tester) async {
     _mobile(tester);
     final now = DateTime.now().toUtc();
