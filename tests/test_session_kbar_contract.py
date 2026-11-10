@@ -22,11 +22,13 @@ class _Conn:
             self.claims += 1
         return self
 
+    def fetchall(self):
+        # New gap detection reads actual minute slots instead of aggregate counts.
+        count = 14 if "control.operational_session_kbars" in self.sql else 12
+        return [{"minute_at": datetime(2026, 11, 5, 9, minute, tzinfo=TAIPEI)}
+                for minute in range(count)]
+
     def fetchone(self):
-        if "count(DISTINCT minute_at)" in self.sql:
-            return {"count": 12}
-        if "count(*)" in self.sql:
-            return {"count": 14}
         if "RETURNING symbol" in self.sql:
             return {"symbol": "2330"} if self.claims == 1 else None
         return None
