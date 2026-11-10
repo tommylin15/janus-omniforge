@@ -1,5 +1,12 @@
 # Janus — 唯一 Active TODO
 
+## P0｜2026-11-10 盤中分鐘缺口與長期大盤摘要（程式已提交，待驗收）
+
+- [x] **CODE**：回補判斷改採合併真實分鐘槽的盤初／中段／尾段缺口檢查（不再只看85%總覆蓋率）；保留PG 30分鐘冷卻與每日3次、60秒行情讀價不觸發Kbar。Flutter增加「重查缺口」按需入口，前端五分鐘防連按；長期首屏新增已保存收盤點數、前期漲跌點數／百分比、來源日。原融資／法人／研究內容仍在下方。
+- [x] **測試碼**：Python新增首／中／尾缺口分類，Flutter新增正式收盤首屏及缺比較日測試；尚未執行，不標PASS。
+- [ ] **CI／Release**：全量Python／Flutter測試、Flutter analyze/build與固定SHA四映像Release尚無本輪成功收據。
+- [ ] **Dev與Owner驗收**：按既有安全runbook執行0% Candidate→Auth／行情parity→可回復100%切流→live readback；本人盤中2327／TAIEX驗證K棒補足與未取得仍斷線、長期資訊可見。不可引用舊版PASS冒稱本次完成。
+
 ## 2026-11-10｜持股四欄對齊避免重疊（依手機截圖；Dev 工程與 Runtime PASS）
 
 - [x] **UI／測試**：手機持股四欄「股票／現價／當日損益／總損益」沿用 25:23:25:27 同比例；表頭、主數字和副資訊改為共用橫列對齊，內容欄左右各保留 3px，成本與每股當日增減（%）不再視覺貼合。名稱 16.5px、現價 19px、股數 12px、成本 11.5px、當日增減 12px；長數字在各欄自行等比縮放，維持紅漲綠跌及現有財務數字，未改 API、Owner 或計算。Flutter 全量分析、widgets、Web build [#42757584970](https://github.com/tommylin15/janus-omniforge/actions/runs/42757584970) PASS，含 390px 密集大額與 320px 放大字體、相鄰欄間距幾何測試。
