@@ -1,0 +1,80 @@
+name: Janus 5876 and 3231 bounded source evidence
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/market-minute-source-bounded-probe.yml'
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  read-proxy:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read existing private simulation proxy once per symbol, metadata only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          export JANUS_SOURCE_BASE="$(gcloud run services describe shioaji-quote-proxy --project=gen-lang-client-0593591102 --region=asia-east1 --format='value(status.url)')"
+          if [[ "${JANUS_SOURCE_BASE}" != https://* ]]; then exit 1; fi
+          TARGET=janus-user-api@gen-lang-client-0593591102.iam.gserviceaccount.com
+          TOKEN="$(gcloud auth print-identity-token --impersonate-service-account="$TARGET" --audiences="$JANUS_SOURCE_BASE" 2>/dev/null || true)"
+          IDENTITY=janus-user-api
+          if [[ -z "$TOKEN" ]]; then
+            TOKEN="$(gcloud auth print-identity-token --audiences="$JANUS_SOURCE_BASE" 2>/dev/null || true)"
+            IDENTITY=ci
+          fi
+          if [[ -z "$TOKEN" ]]; then
+            echo 'private_proxy_identity_token=unavailable'
+            exit 2
+          fi
+          export JANUS_SOURCE_IDENTITY="$IDENTITY" JANUS_SOURCE_TOKEN="$TOKEN"
+          python3 - <<'PY'
+          import os,json,datetime,urllib.request,urllib.error
+          from urllib.parse import urlencode
+          base=os.environ['JANUS_SOURCE_BASE'].rstrip('/')
+          token=os.environ['JANUS_SOURCE_TOKEN']
+          now=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+          day=now.date().isoformat()
+          def get(path):
+              try:
+                  req=urllib.request.Request(base+path,headers={'Authorization':'Bearer '+token,'Accept':'application/json'})
+                  with urllib.request.urlopen(req,timeout=20) as response:
+                      return response.status,json.loads(response.read(240000))
+              except urllib.error.HTTPError as error:
+                  return error.code,{}
+              except Exception as error:
+                  return type(error).__name__,{}
+          health_code,health=get('/health')
+          quote_code,quote=get('/quotes?'+urlencode({'symbols':'5876,3231'}))
+          result={'scope':'readonly_source_bounded','identity':os.environ['JANUS_SOURCE_IDENTITY'],
+                  'day':day,'simulation_mode':(health.get('shioaji') or {}).get('mode'),
+                  'logged_in':(health.get('shioaji') or {}).get('logged_in'),
+                  'health_http':health_code,'quote_http':quote_code,'quotes':{},'kbars':{},
+                  'owner_or_pg_mutations':0}
+          for symbol in ('5876','3231'):
+              tick=(quote.get('quotes') or {}).get(symbol) or {}
+              age=None
+              try:
+                  at=datetime.datetime.fromisoformat(tick['trade_time'])
+                  age=round((now-at).total_seconds())
+              except (KeyError,ValueError,TypeError):pass
+              result['quotes'][symbol]={'source':tick.get('source'),'trade_age_seconds':age,
+                  'has_exchange_previous_close':tick.get('previous_close') is not None}
+              code,body=get('/kbars?'+urlencode({'symbol':symbol,'day':day}))
+              points=body.get('points') or []
+              result['kbars'][symbol]={'http':code,'status':body.get('status'),
+                  'source':body.get('source'),'count':len(points),
+                  'first_at':points[0].get('date') if points else None,
+                  'last_at':points[-1].get('date') if points else None}
+          assert health_code==200 and result['simulation_mode']=='simulation_only'
+          print(json.dumps(result,ensure_ascii=False,sort_keys=True))
+          PY
