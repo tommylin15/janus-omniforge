@@ -1762,6 +1762,8 @@ void main() {
       api.reads,
       isNot(contains('/api/v1/me/journal/monthly-summary?year=$year')),
     );
+    expect(api.reads, isNot(contains('/api/v1/me/journal/history?year=$year')));
+    expect(api.reads, isNot(contains('/api/v1/me/journal/records?year=$year')));
     expect(
       api.reads,
       isNot(contains('/api/v1/me/journal/symbol-summary?year=$year')),
@@ -1779,6 +1781,8 @@ void main() {
       api.reads,
       contains('/api/v1/me/journal/records?year=$year'),
     );
+    expect(api.reads.where((path) => path == '/api/v1/me/journal/records?year=$year').length, 1);
+    expect(api.reads, isNot(contains('/api/v1/me/journal/history?year=$year')));
     expect(
       api.reads,
       isNot(contains('/api/v1/me/journal/symbol-summary?year=$year')),
