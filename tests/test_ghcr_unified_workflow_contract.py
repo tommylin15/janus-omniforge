@@ -56,7 +56,8 @@ def test_active_ghcr_release_is_exact_sha_tested_before_immutable_public_publish
     assert "flutter test" in GHCR and "python -m pytest -q tests" in GHCR
     assert "docker buildx build" in GHCR
     assert 'sha-${GITHUB_SHA}' in GHCR
-    assert "skopeo inspect --no-creds" in GHCR
+    assert 'ghcr_public_inspect.py' in GHCR
+    assert 'org.opencontainers.image.revision' in GHCR
 
 
 def test_active_ghcr_operations_keep_canonical_and_jobs_fail_closed():
@@ -107,7 +108,7 @@ def test_candidate_and_boundary_keep_source_lease_and_negative_auth_guards():
     jobs = workflow['jobs']
     candidate = '\n'.join(step.get('run', '') for step in jobs['candidate']['steps'])
     boundary = '\n'.join(step.get('run', '') for step in jobs['auth-boundary']['steps'])
-    for guard in ('skopeo inspect --no-creds', 'git merge-base --is-ancestor',
+    for guard in ('ghcr_public_inspect.py', 'git merge-base --is-ancestor',
                   'ghcr_release_lease.py acquire', 'ghcr_release_lease.py assert',
                   'ghcr_candidate_lease_guard.py', '--no-traffic',
                   'candidate_full_release_not_verified'):
