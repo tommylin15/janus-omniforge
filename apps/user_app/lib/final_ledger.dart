@@ -287,14 +287,14 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     }
   }
 
-  // Render annual PnL as soon as it arrives; history/queue must not block it.
+  // The holdings first paint needs annual PnL and queue status only.
+  // History is requested once when the Records section is actually opened.
   void loadDeferredCore() {
     final generation = ++deferredGeneration;
     final currentYear = DateTime.now().year;
     coreData.then((_) {
       final paths = [
         '/api/v1/me/journal/pnl?year=$currentYear',
-        '/api/v1/me/journal/history?year=$currentYear',
         '/api/v1/me/journal/recalculation-status',
       ];
       for (var index = 0; index < paths.length; index++) {
@@ -302,7 +302,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         unawaited(cached(paths[slot]).then((value) {
           if (!mounted || generation != deferredGeneration) return;
           setState(() {
-            final next = List<dynamic>.from(deferredCore ?? [null, null, null]);
+            final next = List<dynamic>.from(deferredCore ?? [null, null]);
             next[slot] = value;
             deferredCore = next;
             if (slot == 0) pnlRequestFinished = true;
@@ -1329,8 +1329,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               final summary = fvRows(values[0]);
               final canonicalPositions = fvRows(values[1]);
               final currentPnl = fvRows(deferredCore == null ? null : deferredCore![0]);
-              final loadedRecalcStatus = deferredCore != null && deferredCore![2] is Map
-                  ? Map<String, dynamic>.from(deferredCore![2] as Map)
+              final loadedRecalcStatus = deferredCore != null && deferredCore![1] is Map
+                  ? Map<String, dynamic>.from(deferredCore![1] as Map)
                   : <String, dynamic>{'status': 'IDLE', 'can_retry': false};
               final effectiveRecalcStatus = recalcStatus ?? loadedRecalcStatus;
               if (recalcStatus == null && recalcActive(loadedRecalcStatus)) {
