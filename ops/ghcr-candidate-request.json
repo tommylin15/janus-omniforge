@@ -7,6 +7,6 @@
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-11 本年/月份/個股已實現損益改由Owner ledger_version inline derived summaries + cache及單一journal/records API，解決Private Mart stale月摘要導致大量「待更新」、四個HTTP併查逾時。固定GHCR full Release #42968898297 PASS，source 965d50ec。只建立既有Dev API固定digest 0%候選，保持現役775fdc53 100%、不更動Jobs/Scheduler/PG/IAM/Owner/付費資源。須通過Auth/行情 parity與可逆切流門檻。",
-  "request_attempt": 67
+  "purpose": "2026-11-11 既有 Dev API 月／個股 realized PnL single-request 修復。首次 0% candidate #42969568268 已通過 full Release #42968898297 但租約釋放後 GitHub readback=lease_release_readback_failed，該次標為FAIL不可作安全收據；另以 GitHub GET refs/tags/janus-ghcr-deploy-global-v1 確認404 ABSENT，主幹現版前進，故發起新鮮 candidate 0% idempotent 重讀/重試，仍保留現役 source 775fdc53 100%，不得直接 promotion。不變更Jobs/Scheduler/PG/IAM/Owner或付費資源。",
+  "request_attempt": 68
 }
