@@ -167,9 +167,12 @@ jobs:
           cache: true
       - name: Build Flutter
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends python3-pil
-          python3 tool/generate_brand_assets.py
+          test -s web/icons/Icon-512.png
+          test -s web/icons/Icon-192.png
+          test -s web/icons/maskable-512.png
+          test -s web/apple-touch-icon.png
+          test -s web/favicon.png
+          test -s assets/branding/janus_app_icon_512.png
           flutter pub get
           flutter analyze --no-fatal-infos lib test
           flutter test
