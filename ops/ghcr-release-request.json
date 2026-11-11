@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "e7737b7b7f5f327bc447111126b0f0414bdadac1",
-  "purpose": "2026-11-11 修復持股/記帳→紀錄：月與個股已實現損益因Private Mart ledger_version與現行交易不一致被清空，前端顯示一堆「待更新」。現改用既有moving-average/手續費/股利/沖銷規則的versioned owner-ledger即時計算並共用cache，紀錄頁四請求縮成單一/auth owner records API，完整回應失敗不誤顯示待更新；月/個股快取不需依賴Private Mart批次。修復測試與型別兼容後 Flutter full+Web #42968488308 PASS，selective Python #42968596267 PASS。沿用現有Dev GCP/Proxy/OAuth，只做固定GHCR full release、0% API候選、授權/公共行情/Owner 401負向、API-only可逆100%與獨立Live；不修改PG實體資料、Jobs、Scheduler、IAM或付費資源，保留rollback，未登入Owner正向資料另行驗收。",
+  "sha": "418adfd6ac3ddac3a068065a2d7d5159e69f54fc",
+  "purpose": "2026-11-11 owner /journal/records 月/個股 realized PnL即時版已先完成Dev Release+100%+Live source965d50ec；第二輪UI性能收尾：持股首屏原本還有不被使用的/journal/history GET，與新records API造成重複讀取，現移除，延遲讀取只留年度損益與recalculation-status，紀錄頁才讀一筆records API；保留已上線的版本化 owner-ledger 計算與不造數據。Flutter full+web #42970622783 PASS，selective CI #42970622707 PASS；要求重新完整固定GHCR source發布與0%→Auth/market parity→API-only可逆100%→獨立Live readback，現役965d50ec可Rollback。仍不改Jobs、Scheduler、PG、IAM、Owner帳本或新增付費資源。",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 67
+  "request_attempt": 68
 }
