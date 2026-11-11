@@ -604,6 +604,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         : '$currency ${legacy.accountingNumber(value)}';
   }
 
+  Future<void> editCashPosition() async {
+    final saved = await legacy.showCashPositionEditor(context, widget.api);
+    if (saved && mounted) reload();
+  }
+
   Widget assetOverview(Map<String, dynamic> assets) {
     final cash = fvMap(assets['cash']);
     final cashText = cash['cash_status'] == 'available'
@@ -641,6 +646,18 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                 Text(cashText, maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: fvInk, fontSize: 23,
                     fontWeight: FontWeight.w800)),
+                TextButton.icon(
+                  key: const Key('ledger-cash-edit'),
+                  onPressed: editCashPosition,
+                  style: TextButton.styleFrom(
+                    foregroundColor: fvTeal,
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 28),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: const Icon(Icons.edit_outlined, size: 15),
+                  label: Text(cash['cash_status'] == 'available' ? '調整現金' : '設定現金'),
+                ),
               ])),
             const SizedBox(width: 8),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
@@ -1456,6 +1473,29 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     ],
                   ),
                   if (section == 0) assetOverview(assets),
+                  if (section == 0 && !coreLoading &&
+                      values.length > 1 && values[1] != null &&
+                      positions.isEmpty)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('尚未建立持股', style: TextStyle(
+                              color: fvInk, fontSize: 15, fontWeight: FontWeight.w700)),
+                            const Text('可先設定現金，再新增第一筆買進交易；不需要先加入關注股。'),
+                            const SizedBox(height: 8),
+                            FilledButton.icon(
+                              key: const Key('ledger-first-trade'),
+                              onPressed: addTrade,
+                              icon: const Icon(Icons.add),
+                              label: const Text('新增第一筆交易'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   if (section == 0) metricGrid(
                     marketValue: marketValue,
                     daily: dayTotal,

@@ -2163,28 +2163,21 @@ class ProfilePage extends StatelessWidget {
       ]);
 }
 
-class CashPositionCard extends StatefulWidget {
-  const CashPositionCard(this.api, {super.key});
-  final Api api;
-
-  @override
-  State<CashPositionCard> createState() => _CashPositionCardState();
-}
-
-class _CashPositionCardState extends State<CashPositionCard> {
-  late Future<dynamic> position = widget.api.get('/api/v1/me/cash-position');
-
-  @override
-  void didUpdateWidget(CashPositionCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.api != oldWidget.api) {
-      position = widget.api.get('/api/v1/me/cash-position');
+Future<bool> showCashPositionEditor(BuildContext context, Api api) async {
+  Map<String, dynamic> row;
+  try {
+    row = Map<String, dynamic>.from(await api.get('/api/v1/me/cash-position'));
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('現金設定無法讀取，請稍後重新整理；未執行任何寫入')));
     }
+    return false;
   }
-
-  Future<void> edit(Map row) async {
+  if (!context.mounted) return false;
     final input = TextEditingController(text: '${row['cash_balance'] ?? ''}');
     var saving = false;
+    var saved = false;
     String? error;
     try {
       await showDialog<void>(
@@ -2220,10 +2213,11 @@ class _CashPositionCardState extends State<CashPositionCard> {
                   }
                   update(() { saving = true; error = null; });
                   try {
-                    await widget.api.put('/api/v1/me/cash-position', {
+                    await api.put('/api/v1/me/cash-position', {
                       'amount': input.text.trim().replaceAll(',', ''),
                       'expected_version': row['cash_version'] ?? 0,
                     });
+                    saved = true;
                     if (dialogContext.mounted) Navigator.pop(dialogContext);
                   } catch (_) {
                     if (dialogContext.mounted) {
@@ -2243,7 +2237,32 @@ class _CashPositionCardState extends State<CashPositionCard> {
     } finally {
       input.dispose();
     }
-    if (mounted) {
+    return saved;
+}
+
+
+class CashPositionCard extends StatefulWidget {
+  const CashPositionCard(this.api, {super.key});
+  final Api api;
+
+  @override
+  State<CashPositionCard> createState() => _CashPositionCardState();
+}
+
+class _CashPositionCardState extends State<CashPositionCard> {
+  late Future<dynamic> position = widget.api.get('/api/v1/me/cash-position');
+
+  @override
+  void didUpdateWidget(CashPositionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.api != oldWidget.api) {
+      position = widget.api.get('/api/v1/me/cash-position');
+    }
+  }
+
+  Future<void> edit() async {
+    final saved = await showCashPositionEditor(context, widget.api);
+    if (saved && mounted) {
       setState(() { position = widget.api.get('/api/v1/me/cash-position'); });
     }
   }
@@ -2271,7 +2290,7 @@ class _CashPositionCardState extends State<CashPositionCard> {
         trailing: IconButton(
           tooltip: '修改現金部位',
           icon: const Icon(Icons.edit_outlined),
-          onPressed: () => edit(row),
+          onPressed: edit,
         ),
       ));
     },
@@ -2495,6 +2514,7 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
   var price = '${initial?['price'] ?? ''}';
   var amount = '${initial?['cash_amount'] ?? ''}';
   var memo = '${initial?['memo'] ?? ''}';
+  var instrumentLookupFailed = false;
 
   String? positiveNumber(String? value) {
     final number = num.tryParse(value?.trim() ?? '');
@@ -2558,8 +2578,7 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                                       displayStringForOption: stockDisplayName,
                                       optionsBuilder: (value) async {
                                         final query = value.text.trim();
-                                        if (query.isEmpty ||
-                                            query.length > 80) {
+                                        if (query.length > 80) {
                                           return const <Map<String, dynamic>>[];
                                         }
                                         try {
@@ -2574,11 +2593,25 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                                               )
                                               .timeout(
                                                   const Duration(seconds: 10));
-                                          return (result['items'] as List).map(
-                                              (row) =>
-                                                  Map<String, dynamic>.from(
-                                                      row));
+                                          final items = result['items'];
+                                          if (items is! List) throw const FormatException('invalid instrument list');
+                                          if (instrumentLookupFailed && dialogContext.mounted) {
+                                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                                              if (dialogContext.mounted) {
+                                                setDialogState(() => instrumentLookupFailed = false);
+                                              }
+                                            });
+                                          }
+                                          return items.map((row) =>
+                                              Map<String, dynamic>.from(row));
                                         } catch (_) {
+                                          if (!instrumentLookupFailed && dialogContext.mounted) {
+                                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                                              if (dialogContext.mounted) {
+                                                setDialogState(() => instrumentLookupFailed = true);
+                                              }
+                                            });
+                                          }
                                           return const <Map<String, dynamic>>[];
                                         }
                                       },
@@ -2594,7 +2627,8 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                                         maxLength: 80,
                                         decoration: const InputDecoration(
                                           labelText: '股票／ETF 代號或名稱',
-                                          helperText: '搜尋股票／ETF；查無結果會嘗試查詢官方名冊',
+                                          helperText: '點選欄位展開標的；輸入代號或名稱可搜尋股票／ETF',
+                                          suffixIcon: Icon(Icons.search),
                                         ),
                                         onChanged: (_) => symbol = '',
                                         validator: (_) => symbol.isEmpty
@@ -2602,6 +2636,12 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                                             : null,
                                       ),
                                     ),
+                                    if (instrumentLookupFailed)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 6),
+                                        child: Text('股票名冊查詢失敗，請重新輸入搜尋；不要將缺資料當作沒有股票',
+                                            style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                                      ),
                                     if (type != 'CASH_DIV')
                                       TextFormField(
                                           initialValue: shares,

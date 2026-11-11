@@ -1632,7 +1632,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return {"items": rows, "lookup_status": status}
 
     @private.get("/journal/instruments")
-    def trade_instruments(q: str = Query(..., min_length=1, max_length=80),
+    def trade_instruments(q: str = Query(..., min_length=0, max_length=80),
                           current: AuthenticatedUser = Depends(user)):
         return jsonable_encoder(_owner_tradeable_search(q))
 

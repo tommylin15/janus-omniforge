@@ -592,9 +592,9 @@ class PostgresWorkspaceRepository:
             ).fetchall()]
 
     def search_trade_instruments(self, query: str) -> list[dict[str, Any]]:
+        # New owners can select from the shared master without prior holdings.
+        # A blank query provides a bounded starter list, not a fake portfolio.
         query = query.strip()
-        if not query:
-            return []
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(
                 """SELECT sm.symbol,sm.name AS stock_name,sm.market,sm.enabled,
@@ -603,10 +603,10 @@ class PostgresWorkspaceRepository:
                    LEFT JOIN control.official_instrument_identity_provenance ip
                      ON ip.symbol=sm.symbol
                    WHERE sm.market IN ('TWSE','TPEX') AND sm.enabled
-                   AND (strpos(lower(sm.symbol),lower(%s))>0 OR strpos(sm.name,%s)>0)
+                   AND (%s='' OR strpos(lower(sm.symbol),lower(%s))>0 OR strpos(sm.name,%s)>0)
                    ORDER BY (lower(sm.symbol)=lower(%s)) DESC,
                             (strpos(sm.name,%s)=1) DESC,sm.symbol LIMIT 20""",
-                (query, query, query, query),
+                (query, query, query, query, query),
             ).fetchall()]
 
     def register_verified_etf(self, identity: Any) -> None:
