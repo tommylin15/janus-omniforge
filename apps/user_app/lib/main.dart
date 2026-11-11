@@ -2175,71 +2175,79 @@ Future<bool> showCashPositionEditor(BuildContext context, Api api) async {
     return false;
   }
   if (!context.mounted) return false;
-    final input = TextEditingController(text: '${row['cash_balance'] ?? ''}');
-    var saving = false;
-    var saved = false;
-    String? error;
-    try {
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => StatefulBuilder(
-          builder: (context, update) => AlertDialog(
-            title: const Text('調整目前現金部位'),
-            content: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Text('輸入調整後的實際現金金額（新臺幣元）。存款、提款或資金移轉可直接覆寫；之後股票買賣會自動增減。'),
-              const SizedBox(height: 12),
-              TextField(
-                controller: input,
-                autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: '目前現金（元）', prefixText: 'NTD '),
-              ),
-              if (error != null) Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(error!, style: TextStyle(
-                  color: Theme.of(dialogContext).colorScheme.error))),
-            ]),
-            actions: [
-              TextButton(onPressed: saving ? null
-                : () => Navigator.pop(dialogContext),
-                child: const Text('取消')),
-              FilledButton(
-                onPressed: saving ? null : () async {
-                  final amount = num.tryParse(input.text.trim().replaceAll(',', ''));
-                  if (amount == null || !amount.isFinite || amount < 0) {
-                    update(() => error = '請輸入有效的現金金額');
-                    return;
-                  }
-                  update(() { saving = true; error = null; });
-                  try {
-                    await api.put('/api/v1/me/cash-position', {
-                      'amount': input.text.trim().replaceAll(',', ''),
-                      'expected_version': row['cash_version'] ?? 0,
-                    });
-                    saved = true;
-                    if (dialogContext.mounted) Navigator.pop(dialogContext);
-                  } catch (_) {
-                    if (dialogContext.mounted) {
-                      update(() {
-                        saving = false;
-                        error = '儲存結果未確認，請重新載入現金餘額後再操作';
-                      });
-                    }
-                  }
-                },
-                child: Text(saving ? '儲存中…' : '儲存餘額'),
-              ),
-            ],
-          ),
-        ),
-      );
-    } finally {
-      input.dispose();
-    }
-    return saved;
-}
 
+  // TextFormField owns its editing controller for the entire dialog route
+  // transition. Disposing a manual TextEditingController immediately after
+  // Navigator.pop can leave the reversing route holding a dead controller.
+  var input = '${row['cash_balance'] ?? ''}';
+  var saving = false;
+  var saved = false;
+  String? error;
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, update) => AlertDialog(
+        title: const Text('調整目前現金部位'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('輸入調整後的實際現金金額（新臺幣元）。存款、提款或資金移轉可直接覆寫；之後股票買賣會自動增減。'),
+          const SizedBox(height: 12),
+          TextFormField(
+            initialValue: input,
+            onChanged: (text) => input = text,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+                labelText: '目前現金（元）', prefixText: 'NTD '),
+          ),
+          if (error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(error!,
+                  style: TextStyle(
+                      color: Theme.of(dialogContext).colorScheme.error)),
+            ),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: saving ? null : () => Navigator.pop(dialogContext),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: saving ? null : () async {
+              final normalized = input.trim().replaceAll(',', '');
+              final amount = num.tryParse(normalized);
+              if (amount == null || !amount.isFinite || amount < 0) {
+                update(() => error = '請輸入有效的現金金額');
+                return;
+              }
+              update(() {
+                saving = true;
+                error = null;
+              });
+              try {
+                await api.put('/api/v1/me/cash-position', {
+                  'amount': normalized,
+                  'expected_version': row['cash_version'] ?? 0,
+                });
+                saved = true;
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
+              } catch (_) {
+                if (dialogContext.mounted) {
+                  update(() {
+                    saving = false;
+                    error = '儲存結果未確認，請重新載入現金餘額後再操作';
+                  });
+                }
+              }
+            },
+            child: Text(saving ? '儲存中…' : '儲存餘額'),
+          ),
+        ],
+      ),
+    ),
+  );
+  return saved;
+}
 
 class CashPositionCard extends StatefulWidget {
   const CashPositionCard(this.api, {super.key});
