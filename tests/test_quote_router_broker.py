@@ -33,6 +33,29 @@ class QuoteRepository(Repository):
         return {s: dict(r) for s, r in self.eod.items() if s in identities}
 
 
+def test_regular_session_same_day_provider_quote_skips_slow_eod_query():
+    class Repository:
+        def __init__(self):
+            self.reads = []
+        def last_quotes(self, identities):
+            self.reads.append(("live", tuple(identities)))
+            return {"2330": {
+                "price": "170", "source": "shioaji",
+                "quote_at": "2026-11-11T09:06:00+08:00",
+                "received_at": "2026-11-11T09:06:05+08:00",
+            }}
+        def eod_quotes(self, identities):
+            self.reads.append(("eod", tuple(identities)))
+            raise AssertionError("same-session broker quote must not read slow EOD")
+
+    repo = Repository()
+    at = datetime(2026, 11, 11, 9, 6, 10, tzinfo=TAIPEI)
+    result = QuoteRouter(repo, object()).read({"2330": {"market": "TWSE"}}, now=at)
+    assert result["2330"]["price"] == "170"
+    assert result["2330"]["state"] == "intraday"
+    assert repo.reads == [("live", ("2330",))]
+
+
 def test_last_success_survives_source_failure_and_new_router_instance():
     repository = QuoteRepository()
     at = (datetime.now(TAIPEI) - timedelta(seconds=10)).isoformat()

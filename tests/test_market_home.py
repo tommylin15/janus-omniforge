@@ -7,6 +7,25 @@ from packages.web_api import CoreQueryService
 from services.api.app import create_app
 
 
+def test_public_home_warm_read_does_not_wait_for_broker_refresh(monkeypatch):
+    import services.api.app as app_module
+    from services.api.quote_router import QuoteRouter
+
+    calls = []
+    def resolve(self, identities, *, refresh=False, force=False, now=None):
+        calls.append(bool(refresh))
+        if refresh:
+            raise AssertionError("public quote refresh must not block first paint")
+        return {}, {"status": "cached"}
+
+    monkeypatch.setattr(QuoteRouter, "resolve", resolve)
+    monkeypatch.setenv("JANUS_MIS_QUOTES_ENABLED", "false")
+    core = CoreQueryService(lambda *_: [])
+    api = TestClient(create_app(object(), object(), query_core=core))
+    assert api.get("/api/v1/public/market-home").status_code == 200
+    assert calls == [False]
+
+
 def test_public_market_home_cache_expires_without_changing_dates(monkeypatch):
     import services.api.app as app_module
 

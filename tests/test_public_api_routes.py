@@ -120,6 +120,35 @@ def test_stock_header_uses_current_identity_and_bounded_price_without_report():
     assert api.get("/api/v1/public/stock-header/9999").status_code == 404
 
 
+def test_stock_header_uses_enabled_identity_and_serving_only_projection():
+    class Repository:
+        def stock_identities(self, symbols):
+            assert symbols == {"2330"}
+            return {"2330": {"symbol": "2330", "enabled": True, "market": "UNKNOWN", "name": "台積電"}}
+
+    class GuardedPublic(Public):
+        def require_enabled_symbol(self, symbol):
+            raise AssertionError("already enabled identity needs no second public lookup")
+
+    class ServingOnlyCore(Core):
+        def page(self, *args, **kwargs):
+            raise AssertionError("stock-header must not fall back to Iceberg")
+        def visual_series(self, symbol, metric, *, limit):
+            assert (symbol, metric, limit) == ("2330", "close", 2)
+            return {"data_status": "available", "points": [
+                {"date": "2026-11-10", "value": "171"},
+                {"date": "2026-11-11", "value": "170"},
+            ]}
+
+    api = TestClient(create_app(Repository(), object(),
+                                public=GuardedPublic(), query_core=ServingOnlyCore()))
+    response = api.get("/api/v1/public/stock-header/2330")
+    assert response.status_code == 200
+    assert response.json()["close"] == "170"
+    assert response.json()["previous_close"] == "171"
+    assert response.json()["trade_date"] == "2026-11-11"
+
+
 def test_stock_header_withholds_price_when_core_is_unavailable():
     repository = SimpleNamespace(stock_identities=lambda _symbols: {})
     api = TestClient(create_app(repository, object(), public=Public(), query_core=MissingDatasetCore()))

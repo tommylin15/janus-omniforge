@@ -65,7 +65,20 @@ class QuoteRouter:
     def read(self, identities, *, now=None):
         now = now or datetime.now(TAIPEI)
         live = self._live(identities)
-        eod = self._eod(identities)
+        # During regular trading hours a provider-authored same-day quote
+        # necessarily outranks the previous official close. Avoid an
+        # unnecessary per-owner PostgreSQL EOD lookup on the hot read path.
+        # The EOD lookup remains mandatory for missing/older observations and
+        # after the closing handoff so official closes retain precedence.
+        current_day = now.astimezone(TAIPEI).date()
+        regular = market_phase(now) == "regular"
+        needs_eod = {
+            symbol: identity for symbol, identity in identities.items()
+            if not (regular
+                    and live.get(symbol, {}).get("source") in {"shioaji", "twse_mis"}
+                    and _day(live[symbol]) == current_day)
+        }
+        eod = self._eod(needs_eod) if needs_eod else {}
         result = {}
         for symbol in identities:
             live_row = dict(live.get(symbol) or {})

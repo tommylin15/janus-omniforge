@@ -369,7 +369,8 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         from .stock_supplement import wake_stock_supplement
         wake_stock_supplement(repository,pipeline_service)
 
-    def resolve_prices(identities: dict[str, dict[str, Any]], *, force: bool = False):
+    def resolve_prices(identities: dict[str, dict[str, Any]], *, force: bool = False,
+                       cache_only: bool = False):
         # Read *all* actual owner holdings, even outside the research 500
         # and including TPEx ETFs; exact exchange-symbol echo is checked
         # by MIS before accepting candidate or verified OTC observations.
@@ -386,7 +387,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             # it remains available after market close and while an EOD
             # projection is late. The MIS tick date stays authoritative and
             # old observations remain STALE; only regular hours auto-refresh.
-            refresh=bool(mis) and authorized and (phase == "regular" or force),
+            refresh=bool(mis) and authorized and not cache_only and (phase == "regular" or force),
             force=force, now=current,
         )
         # Official TPEx OpenAPI provides *EOD only*, never an intraday
@@ -632,13 +633,24 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return public_report_list("market", scope_id, analysis_as_of)
 
     market_home_lock = Lock()
+    market_quote_schedule_lock = Lock()
+    market_quote_next_at = 0.0
+
+    def refresh_index_after_response() -> None:
+        # Page demand only, not a new scheduler. Shared PG quote lease still
+        # serializes provider requests across Cloud Run instances.
+        try:
+            resolve_prices({"TAIEX": {"market": "TWSE_INDEX", "enabled": True}})
+        except Exception as error:
+            LOGGER.warning("post-response index quote refresh unavailable: %s",
+                           type(error).__name__)
 
     @lru_cache(maxsize=1)
     def market_home_snapshot(minute: int):
         result = query_core.market_home()
         prices, refresh, current, phase, authorized = resolve_prices({
             "TAIEX": {"market": "TWSE_INDEX", "enabled": True},
-        })
+        }, cache_only=True)
         quote = prices.get("TAIEX")
         section = (result.get("sections") or {}).get("taiex")
         if quote and isinstance(section, dict):
@@ -685,9 +697,20 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return result
 
     @public_router.get("/market-home", response_model=MarketHomeOut)
-    def market_home():
+    def market_home(background_tasks: BackgroundTasks):
+        nonlocal market_quote_next_at
         with market_home_lock:
-            return jsonable_encoder(market_home_snapshot(int(monotonic()) // 60))
+            result = jsonable_encoder(market_home_snapshot(int(monotonic()) // 60))
+        # Do not hold the public response open during broker / PG singleflight
+        # or let many simultaneous readers queue identical background tasks.
+        if (os.getenv("JANUS_MIS_QUOTES_ENABLED", "false").lower() == "true"
+                and market_phase(datetime.now(TAIPEI)) == "regular"):
+            with market_quote_schedule_lock:
+                now = monotonic()
+                if now >= market_quote_next_at:
+                    market_quote_next_at = now + 50
+                    background_tasks.add_task(refresh_index_after_response)
+        return result
 
     @public_router.get("/market-leverage-flow")
     def market_leverage_flow():
@@ -718,8 +741,19 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     @public_router.get("/stock-header/{symbol}")
     def stock_header(symbol: str):
-        symbol = public.require_enabled_symbol(symbol)
-        identity = repository.stock_identities({symbol}).get(symbol)
+        # The public allowlist view is precisely control.stock_master.enabled.
+        # Reuse the identity already required for this route instead of
+        # initializing the entire PublicMart/Iceberg catalog just to check it.
+        normalized = str(symbol).strip().upper()
+        if not re.fullmatch(r"[A-Z0-9._-]{1,20}", normalized):
+            raise PublicStockNotFound("stock not found")
+        identity = repository.stock_identities({normalized}).get(normalized)
+        if identity is None:
+            symbol = public.require_enabled_symbol(normalized)
+        elif identity.get("enabled") is not True:
+            raise PublicStockNotFound("stock not found")
+        else:
+            symbol = normalized
         name, identity_status, _ = stock_identity(identity)
         result = {"symbol": symbol, "stock_name": name, "identity_status": identity_status,
                   "instrument_kind": identity.get("instrument_kind") if identity else None,
@@ -727,8 +761,20 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                   "previous_close": None, "change": None, "change_percent": None}
         persisted_rows = []
         try:
-            page = query_core.page("ohlcv", symbol, limit=2, offset=0)
-            persisted_rows = list(page.rows)
+            visual_reader = getattr(query_core, "visual_series", None)
+            if callable(visual_reader):
+                # Serving-only PG read: a missing price projection must not
+                # trigger a 60-second Iceberg scan on the public quote header.
+                series = visual_reader(symbol, "close", limit=2)
+                persisted_rows = [
+                    {"trade_date": point.get("date"), "close": point.get("value")}
+                    for point in reversed(series.get("points") or [])
+                    if isinstance(point, dict) and point.get("value") is not None
+                ]
+            else:
+                # Compatibility for injected CoreQuery fixtures.
+                page = query_core.page("ohlcv", symbol, limit=2, offset=0)
+                persisted_rows = list(page.rows)
             if persisted_rows:
                 row = persisted_rows[0]
                 result.update(close=row.get("close"), trade_date=row.get("trade_date"),
