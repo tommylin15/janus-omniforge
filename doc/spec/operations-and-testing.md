@@ -1,11 +1,11 @@
 # Janus 最新驗收證據索引
 
-## 2026-11-11 Owner 已實現損益與紀錄頁延遲｜Full Release／現役 Dev Live PASS
+## 2026-11-11 Owner 已實現損益與紀錄頁延遲｜Release／Dev Live PASS；Owner UAT 完成
 
 - **程式**：月／個股摘要不再依賴落後的 Private Mart ledger_version，使用 Owner ledger/version 計算的共同 annual/month/symbol 有界快取，已有交易不再因舊 Mart 空列而誤標「待更新」。紀錄頁合併為單一 Owner `/journal/records`，不在持股首屏額外載入未使用的交易歷史；保留缺值/衝突/逾時的明確狀態，Owner 認證未放寬。移動平均、手續費、稅、股利、更正、沖銷使用既有計算規則，沒有改真實交易帳本。
 - **固定版本與完整測試**：首輪 [Flutter #42968488308](https://github.com/tommylin15/janus-omniforge/actions/runs/42968488308) 與 [Python CI #42968596267](https://github.com/tommylin15/janus-omniforge/actions/runs/42968596267) PASS → [full release #42968898297](https://github.com/tommylin15/janus-omniforge/actions/runs/42968898297) PASS（source 965d50ec）。第二輪 [Flutter #42970622783](https://github.com/tommylin15/janus-omniforge/actions/runs/42970622783) 與 [selective #42970622707](https://github.com/tommylin15/janus-omniforge/actions/runs/42970622707) PASS → [full immutable release #42970929789](https://github.com/tommylin15/janus-omniforge/actions/runs/42970929789) PASS，source `0fab0e9c43fe59a18e1f39cf02112959c7e61ab3`。
 - **現役 Dev 讀回**：第二輪 [0% Candidate #42971563776](https://github.com/tommylin15/janus-omniforge/actions/runs/42971563776) PASS、[OAuth/Owner/Admin/MCP + 公開行情 parity #42971772461](https://github.com/tommylin15/janus-omniforge/actions/runs/42971772461) PASS、[API-only 100% #42971889927](https://github.com/tommylin15/janus-omniforge/actions/runs/42971889927) PASS、[獨立 Live #42972065939](https://github.com/tommylin15/janus-omniforge/actions/runs/42972065939) `API_LIVE_READBACK_PASS`：單一 Ready 100% revision、正確 build SHA/digest、公開 stock 200、TAIEX EOD 30 期、融資 10 期、法人 3 類、匿名 Owner/records 權限拒絕、GCP mutation 0；前版 `965d50ec8d1139e87ab242638063e69dd8459dc9` 留作 rollback。未更新 Jobs／Scheduler／PG／IAM／Owner。
-- **仍未知**：Owner 正向登入與實際月份數值、年度與個股核對、使用者手機頁面延遲沒有獨立正向證據，`OWNER_AUTHENTICATED_RECORDS=NOT_VERIFIED`、`MOBILE_LATENCY_SECONDS=UNKNOWN`。不能將 100% 發布或匿名 401 冒充已登入 Owner 的功能驗收。
+- **本人驗收與證據界線**：2026-11-11 使用者收到紀錄頁修復發布結果後明確回覆「驗收完畢」，因此記為 `OWNER_MOBILE_RECORDS_UAT=USER_REPORTED_PASS`、此工作線 CLOSED。以上 CI／100% Dev／Live 有獨立技術收據；**沒有**已登入 Owner 的原始 API 費稅／月損益對帳輸出、逐筆前後數字、手機載入客觀秒數，故 `OWNER_LEDGER_NUMERIC_RECONCILIATION=UNKNOWN`、`MOBILE_LATENCY_SECONDS=UNKNOWN`。不將主觀 UAT 當成資料庫對帳或量化效能 benchmark。
 
 ## 2026-11-11 雙圖／行情後端修復｜ENGINEERING_RELEASE PASS／PUBLIC_LIVE PASS
 
