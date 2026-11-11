@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "078703f88d880ee86a42d025e49d9ede10115d63",
-  "purpose": "2026-11-11 新用戶全功能起步修正：股票空白名冊、現金池首次維護/持股快捷、首筆買進入口、Flutter controller lifecycle 修復；擴充 Flutter 新帳號真操作 fixture。完整 GHCR Release 第二輪：第一輪 #43045533033 的 2184 Python PASS／2 舊測試仍要求 skopeo，已更新為驗證公開 OCI manifest/labels；Flutter gate PASS。保持現役 API 100% 不變直到全 release、0%-candidate、auth/market gate PASS，無 Jobs/Scheduler/PG/IAM/Owner 寫入，固定 digest 並保存 rollback。",
+  "sha": "cb660d719cf5d242338088c58b4e6194f576ac4f",
+  "purpose": "2026-11-11 新用戶首次交易、現金設定、空持股入口與Cash Dialog生命週期修復；Python full與Flutter full均已PASS。GHCR full release #43046264622的四元件映像皆PASS，但release-verify沒有checkout造成OCI標籤檢驗腳本檔案不存在，現已補checkout，重新申請完整不可變 release。保留0fab0e9c現役100%，之後按0% candidate→OAuth/Owner/Admin/MCP/市場parity→API-only 100%→Live readback；不更動Jobs/Scheduler/PG/IAM/Owner資料。",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 70
+  "request_attempt": 71
 }
