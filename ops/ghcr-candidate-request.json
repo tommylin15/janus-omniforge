@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "3a67ce86f8fe598eb6ec66768b39736714658d6c",
+  "sha": "775fdc5343a46d26e1922063c59bc60ed283fe03",
   "digest": "",
-  "release_run": "42940631055",
+  "release_run": "42943952618",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-11 今日/關注分鐘線修正：全量 Release #42940631055 PASS (source 3a67ce86；Flutter/Python+4 GHCR immutable images)。僅建立既有 Dev API 0% Candidate，驗證 raw-price fallback 與 Owner minute-route，保持既有服務100%流量、不改 Jobs/Scheduler/PG/IAM/Owner 資料。",
-  "request_attempt": 65
+  "purpose": "2026-11-11 兩圖盤中價格/分鐘資料修復暨慢查/503處理。完整 Release #42943952618 Python+Flutter+GHCR4映像PASS，來源775fdc53。僅建立既有Dev janus-api 的固定digest 0% Candidate；保留當前100% ac9e0309 作可逆rollback。候選須通過 public market-home、stock-header/2330、OAuth/Owner/Admin/MCP負向邊界與真實分鐘讀回才允許改動API流量。不更新 Jobs/Scheduler/PG/IAM，Shioaji simulation=true，缺值不造假。",
+  "request_attempt": 66
 }
