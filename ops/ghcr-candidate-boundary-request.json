@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "ac9e0309302248eabcc8d7a6553d479cacf2f828",
+  "sha": "3a67ce86f8fe598eb6ec66768b39736714658d6c",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-10 Today V8 existing-Dev API candidate. Exact source ac9e0309302248eabcc8d7a6553d479cacf2f828 full Release #42794861330 PASS (2179 Python, Flutter full and four GHCR digests); 0%-traffic Candidate #42795775968 PASS. Independent read-only Auth boundary: Google OAuth metadata, anonymous Owner/Admin/MCP isolation and TAIEX/stock minute quote parity compared with currently active 100% revision. No changes to traffic, GCP, PG, IAM, Jobs or Owner data. Promote reversible API only if all parity checks PASS.",
-  "request_attempt": 57
+  "purpose": "2026-11-11 今日與關注分鐘圖修復：固定版本 Release #42940631055 PASS，0%-traffic Candidate #42941321071 PASS；獨立驗證 OAuth、Owner/Admin/MCP 拒絕越權與公開台股行情路徑等效；只讀，不切正式流量、不更動 Jobs/Scheduler/PG/IAM/Owner 資料。",
+  "request_attempt": 58
 }
