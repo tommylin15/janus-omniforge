@@ -24,11 +24,14 @@ jobs:
         with:
           channel: stable
           cache: true
-      - name: Generate Janus PNG branding assets
+      - name: Verify checked-in Janus branding assets
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends python3-pil
-          python3 tool/generate_brand_assets.py
+          test -s web/icons/Icon-512.png
+          test -s web/icons/Icon-192.png
+          test -s web/icons/maskable-512.png
+          test -s assets/branding/janus_app_icon_512.png
+          test -s web/apple-touch-icon.png
+          test -s web/favicon.png
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos lib test
       - run: flutter test

@@ -20,8 +20,11 @@ WORKDIR /app/apps/user_app
 COPY apps/user_app/pubspec.yaml ./
 RUN flutter pub get
 COPY apps/user_app .
-RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pil && rm -rf /var/lib/apt/lists/*
-RUN python3 tool/generate_brand_assets.py
+# Install assets are checked into the source tree; avoid apt in Flutter build.
+RUN test -s web/icons/Icon-512.png && test -s web/icons/Icon-192.png && \
+    test -s web/icons/maskable-512.png && \
+    test -s web/apple-touch-icon.png && test -s web/favicon.png && \
+    test -s assets/branding/janus_app_icon_512.png
 ARG GOOGLE_USER_CLIENT_ID
 ARG GOOGLE_ADMIN_CLIENT_ID
 ARG JANUS_GIT_SHA=local
