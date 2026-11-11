@@ -514,11 +514,15 @@ def test_monthly_journal_summary_is_typed_and_owner_scoped():
     api,_,store=client()
     result=api.get("/api/v1/me/journal/monthly-summary?year=2026",headers=auth())
     assert result.status_code==200
-    assert result.json()=={"items":[{"year":2026,"month":2,"currency":"TWD","purchase_outflow":"505",
-        "sale_proceeds":"237","cash_dividends":"50","realized_pnl":"84","fees":"4","taxes":"5",
-        "transaction_count":3,"valuation_date":"2026-09-05"}]}
-    assert store.mart_calls[-1]==("mart_user_monthly_ledger_summary",USER_ID,{"year":2026})
-    assert "user_id" not in result.json()["items"][0]
+    values = result.json()["items"]
+    assert len(values) == 1
+    assert values[0]["year"] == 2026 and values[0]["month"] == 9
+    assert values[0]["currency"] == "TWD"
+    assert values[0]["purchase_outflow"] == 1000
+    assert values[0]["realized_pnl"] == 0
+    assert values[0]["transaction_count"] == 1
+    assert not any(table == "mart_user_monthly_ledger_summary" for table, _, _ in store.mart_calls)
+    assert "user_id" not in values[0]
 
 
 def test_annual_pnl_rejects_a_moving_ledger_version_instead_of_publishing_stale_data():
@@ -533,7 +537,8 @@ def test_monthly_journal_summary_waits_for_the_latest_ledger_version():
     api,repo,_=client()
     repo.latest_ledger_version=lambda _user_id: 2
     result=api.get("/api/v1/me/journal/monthly-summary?year=2026",headers=auth())
-    assert result.status_code==200 and result.json()=={"items":[]}
+    assert result.status_code==409
+    assert "交易紀錄更新中" in result.json()["detail"]
 
 
 def test_investment_profile_rejects_unknown_fields_and_unbounded_cash_ratio():

@@ -103,11 +103,11 @@ def test_symbol_and_monthly_summary_use_current_owner_ledger_not_stale_private_m
     assert symbol.status_code == 200
     assert symbol.json()["items"][0]["symbol"] == "2330"
     assert symbol.json()["items"][0]["stock_name"] == "台積電"
-    assert symbol.json()["items"][0]["realized_pnl"] == "0"
+    assert symbol.json()["items"][0]["realized_pnl"] == 0
     month = api.get("/api/v1/me/journal/monthly-summary?year=2026", headers=auth())
     assert month.status_code == 200
     assert month.json()["items"][0]["month"] == 1
-    assert month.json()["items"][0]["realized_pnl"] == "0"
+    assert month.json()["items"][0]["realized_pnl"] == 0
     assert not any("ledger_summary" in table for table, _, _ in store.calls)
 
 
@@ -123,7 +123,7 @@ def test_one_owner_records_request_replaces_four_serial_views_and_preserves_auth
     assert data["history"][0]["stock_name"] == "台積電"
     assert data["symbols"][0]["symbol"] == "2330"
     assert data["monthly"][0]["month"] == 1
-    assert data["annual"][0]["realized_pnl"] == "0"
+    assert data["annual"][0]["realized_pnl"] == 0
     assert not any("ledger_summary" in table for table, _, _ in store.calls)
 
 
