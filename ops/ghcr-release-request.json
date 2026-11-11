@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "608f24ac6e456d77a9963500db466477d4078a89",
-  "purpose": "2026-11-10 Today V8 repaired: detect actual minute gaps in merged saved snapshots/kbars, manual retry under 30-min/3-per-day PG shared quota, EOD and capital-flow headlines visible above chart, large embedded long-term table replaced by bounded on-demand details, explicit state and manual refresh for missing historical/research data. Initial release #42793337045 blocked safely: session-kbar mock fixture expected aggregate counts and was fixed at 8eddcc62. Updated Flutter daily-detail + lazy personal state tests fixed at 608f24ac, latest selective CI #42794591953 PASS, Flutter full run #42794591919. Publish new exact current request commit with Python/Flutter full tests and four digest-pinned GHCR images. Only existing Dev API candidate/auth/100% readback after success; no Jobs/Scheduler/PG/IAM/Owner mutation, no new resources.",
+  "sha": "fc2cdfbb343f92c98ada393a274dafe7d7683e02",
+  "purpose": "2026-11-11 修復今日/關注兩頁盤中圖：正式前收缺值仍保留已讀到的真實分鐘價格走勢，僅不計算0%與百分比；關注頁回補狀態和PG重新讀取、重查入口；今日分鐘查詢載入/失敗明確區分。Flutter 全測 + analyze + web build #42940327501 PASS；selective CI 另列。只在既有Dev以固定GHCR API映像走0%候選、Auth對等與API-only可逆100%切流。保留既有Jobs/Scheduler/PG/IAM/Owner資料，不新增付費資源或假分鐘點。",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 64
+  "request_attempt": 65
 }
