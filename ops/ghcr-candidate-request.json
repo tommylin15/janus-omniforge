@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "775fdc5343a46d26e1922063c59bc60ed283fe03",
+  "sha": "965d50ec8d1139e87ab242638063e69dd8459dc9",
   "digest": "",
-  "release_run": "42943952618",
+  "release_run": "42968898297",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-11 兩圖盤中價格/分鐘資料修復暨慢查/503處理。完整 Release #42943952618 Python+Flutter+GHCR4映像PASS，來源775fdc53。僅建立既有Dev janus-api 的固定digest 0% Candidate；保留當前100% ac9e0309 作可逆rollback。候選須通過 public market-home、stock-header/2330、OAuth/Owner/Admin/MCP負向邊界與真實分鐘讀回才允許改動API流量。不更新 Jobs/Scheduler/PG/IAM，Shioaji simulation=true，缺值不造假。",
-  "request_attempt": 66
+  "purpose": "2026-11-11 本年/月份/個股已實現損益改由Owner ledger_version inline derived summaries + cache及單一journal/records API，解決Private Mart stale月摘要導致大量「待更新」、四個HTTP併查逾時。固定GHCR full Release #42968898297 PASS，source 965d50ec。只建立既有Dev API固定digest 0%候選，保持現役775fdc53 100%、不更動Jobs/Scheduler/PG/IAM/Owner/付費資源。須通過Auth/行情 parity與可逆切流門檻。",
+  "request_attempt": 67
 }
