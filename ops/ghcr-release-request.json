@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "fc2cdfbb343f92c98ada393a274dafe7d7683e02",
-  "purpose": "2026-11-11 修復今日/關注兩頁盤中圖：正式前收缺值仍保留已讀到的真實分鐘價格走勢，僅不計算0%與百分比；關注頁回補狀態和PG重新讀取、重查入口；今日分鐘查詢載入/失敗明確區分。Flutter 全測 + analyze + web build #42940327501 PASS；selective CI 另列。只在既有Dev以固定GHCR API映像走0%候選、Auth對等與API-only可逆100%切流。保留既有Jobs/Scheduler/PG/IAM/Owner資料，不新增付費資源或假分鐘點。",
+  "sha": "1902829f78faad053a52e855c6c61d3b362b60f8",
+  "purpose": "2026-11-11 修復 Dev API 盤中兩圖因慢行情/DB連線造成空圖和503。證據：#42942841400 public health 200，但market-home/stock-header候選與active多次12s逾時，Cloud Run有限日誌QueryCanceled=8、ConnectionTimeout=2。最小修正：regular同日可信券商價格避免多餘EOD PG查詢；公開stock-header使用已核對啟用名冊、serving-only原價序列不啟動Iceberg冷查；公開market-home只讀PG快取，回應後有限流的單次quote refresh，維持舊30m/3次broker Kbars限制、Owner、provenance、simulation=true。不動現役Jobs/Scheduler/PG/IAM/Owner或付費資源。此輪必須先完整Python/Flutter+4固定GHCR映像PASS，再做0% Candidate、Auth/行情讀回與可逆API-only Dev切流。",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 65
+  "request_attempt": 66
 }
