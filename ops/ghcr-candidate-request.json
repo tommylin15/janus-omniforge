@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "ac9e0309302248eabcc8d7a6553d479cacf2f828",
+  "sha": "3a67ce86f8fe598eb6ec66768b39736714658d6c",
   "digest": "",
-  "release_run": "42794861330",
+  "release_run": "42940631055",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-10 Today V8 minute gap and longterm information fix. Exact full release source ac9e0309302248eabcc8d7a6553d479cacf2f828, full Python 2179 PASS, Flutter release PASS, GHCR four pinned digest verification #42794861330 SUCCESS; changes only to existing API/App (backfill detection, owner UI longterm EOD/flow, details sheet and refresh), no new resources or schema. Install immutable Dev API 0%-traffic candidate only; keep prior active serving 6a61ca534bb19b6298e4a62bc22f700f4bd525c2 at 100% pending separate OAuth/Owner/Admin/MCP and quote parity, then reversible API-only promotion and live readback. No Jobs/Scheduler/PG/IAM/Owner mutations.",
-  "request_attempt": 64
+  "purpose": "2026-11-11 今日/關注分鐘線修正：全量 Release #42940631055 PASS (source 3a67ce86；Flutter/Python+4 GHCR immutable images)。僅建立既有 Dev API 0% Candidate，驗證 raw-price fallback 與 Owner minute-route，保持既有服務100%流量、不改 Jobs/Scheduler/PG/IAM/Owner 資料。",
+  "request_attempt": 65
 }
