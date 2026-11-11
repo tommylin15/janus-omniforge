@@ -372,7 +372,7 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
     final points = byMinute.entries.map((entry) =>
         (minute: entry.key, price: entry.value.price,
          change: hasReference
-             ? (entry.value.price / previous! - 1) * 100.0
+             ? (entry.value.price / previous - 1) * 100.0
              : entry.value.price)).toList()
       ..sort((a, b) => a.minute.compareTo(b.minute));
     final volumePoints = byMinute.entries
