@@ -102,6 +102,38 @@ def test_no_snapshot_polling_and_shared_subscription(monkeypatch):
     assert count == ["2330"]
 
 
+def test_simulation_callback_with_old_trade_time_is_not_live_even_if_just_received(monkeypatch):
+    from datetime import datetime, timezone, timedelta
+    from types import SimpleNamespace
+    import sys
+    from services.shioaji_quote_proxy import streaming
+    from services.shioaji_quote_proxy.streaming import StreamCache
+
+    class Client:
+        contracts = SimpleNamespace(get=lambda code: code)
+        def set_on_quote_stk_v1_callback(self, fn): self.cb = fn
+        def set_on_quote_idx_v1_callback(self, fn): pass
+        def subscribe(self, *_, **__): pass
+        def unsubscribe(self, *_, **__): pass
+
+    monkeypatch.setitem(sys.modules, "shioaji",
+                        SimpleNamespace(QuoteType=SimpleNamespace(Quote="quote")))
+    monkeypatch.setattr(streaming, "sleep", lambda _: None)
+    cache = StreamCache(Client())
+    now = datetime.now(timezone(timedelta(hours=8)))
+    # A simulation source may replay a 5-minute-old trade right now.
+    stale = SimpleNamespace(code="2330", datetime=now - timedelta(minutes=5),
+                            close=100, reference=99, total_volume=1, simtrade=False)
+    cache.on_stock(SimpleNamespace(value="TSE"), stale)
+    assert cache.latest["2330"]["received_at"].startswith(now.date().isoformat())
+    assert cache.read(["2330"]) == {}
+    # A real fresh trade becomes usable without inventing a timestamp.
+    fresh = SimpleNamespace(code="2330", datetime=datetime.now(timezone(timedelta(hours=8))),
+                            close=101, reference=99, total_volume=2, simtrade=False)
+    cache.on_stock(SimpleNamespace(value="TSE"), fresh)
+    assert cache.read(["2330"])["2330"]["close"] == 101
+
+
 def test_stock_etf_reference_is_retained_when_price_chg_missing(monkeypatch):
     from datetime import datetime, timezone, timedelta
     from types import SimpleNamespace

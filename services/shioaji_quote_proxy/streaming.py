@@ -216,7 +216,13 @@ class StreamCache:
                 if not row:
                     continue
                 received = datetime.fromisoformat(row["received_at"])
-                if received.date() == at.date() and 0 <= (at - received).total_seconds() <= 120:
+                traded = datetime.fromisoformat(row["trade_time"])
+                # A simulation callback can arrive now carrying an old
+                # exchange trade. Receipt time alone cannot label it live.
+                # Reject the old trade so the proxy can try same-day TWSE MIS.
+                if (received.date() == at.date() and traded.date() == at.date()
+                        and 0 <= (at - received).total_seconds() <= 120
+                        and 0 <= (at - traded).total_seconds() <= 120):
                     current[symbol] = dict(row)
             return current
 
