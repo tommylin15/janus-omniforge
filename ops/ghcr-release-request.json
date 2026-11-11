@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "1902829f78faad053a52e855c6c61d3b362b60f8",
-  "purpose": "2026-11-11 修復 Dev API 盤中兩圖因慢行情/DB連線造成空圖和503。證據：#42942841400 public health 200，但market-home/stock-header候選與active多次12s逾時，Cloud Run有限日誌QueryCanceled=8、ConnectionTimeout=2。最小修正：regular同日可信券商價格避免多餘EOD PG查詢；公開stock-header使用已核對啟用名冊、serving-only原價序列不啟動Iceberg冷查；公開market-home只讀PG快取，回應後有限流的單次quote refresh，維持舊30m/3次broker Kbars限制、Owner、provenance、simulation=true。不動現役Jobs/Scheduler/PG/IAM/Owner或付費資源。此輪必須先完整Python/Flutter+4固定GHCR映像PASS，再做0% Candidate、Auth/行情讀回與可逆API-only Dev切流。",
+  "sha": "e7737b7b7f5f327bc447111126b0f0414bdadac1",
+  "purpose": "2026-11-11 修復持股/記帳→紀錄：月與個股已實現損益因Private Mart ledger_version與現行交易不一致被清空，前端顯示一堆「待更新」。現改用既有moving-average/手續費/股利/沖銷規則的versioned owner-ledger即時計算並共用cache，紀錄頁四請求縮成單一/auth owner records API，完整回應失敗不誤顯示待更新；月/個股快取不需依賴Private Mart批次。修復測試與型別兼容後 Flutter full+Web #42968488308 PASS，selective Python #42968596267 PASS。沿用現有Dev GCP/Proxy/OAuth，只做固定GHCR full release、0% API候選、授權/公共行情/Owner 401負向、API-only可逆100%與獨立Live；不修改PG實體資料、Jobs、Scheduler、IAM或付費資源，保留rollback，未登入Owner正向資料另行驗收。",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 66
+  "request_attempt": 67
 }
