@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "0fab0e9c43fe59a18e1f39cf02112959c7e61ab3",
+  "sha": "aaef41171804a4f51d80608e282cc04982c0c0de",
   "digest": "",
-  "release_run": "42970929789",
+  "release_run": "43047426258",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-11 第二輪持股/記帳效能收尾：移除持股首屏多餘的Owner /journal/history?year query，保留YTD PnL與recalculation status；紀錄頁進入才一筆 /journal/records。固定4 GHCR+Python+Flutter full release #42970929789 PASS source0fab0e9c，Flutter full #42970622783 PASS, selective #42970622707 PASS。僅建立既有Dev janus-api 0%固定digest Candidate，保留現役965d50ec 100%（已完成前輪UI月個股版本化損益），無Jobs/Scheduler/PG/IAM/Owner新資源或付費變更。候選須完整通過OAuth/Owner/Market gating後才能切流。",
-  "request_attempt": 69
+  "purpose": "2026-11-11 新用戶初次使用：空白股票/ETF名冊與搜尋、持股頁現金池初設/修改、首筆交易入口、Cash Dialog controller生命週期修正。完整 Python/Flutter及四GHCR immutable Release #43047426258 PASS，source aaef4117。僅既有 Dev janus-api 固定映像0%-traffic Candidate，現役0fab0e9c仍100%。不動Jobs/Scheduler/PG/IAM/Owner資料；待OAuth/Owner/Admin/MCP和公開行情parity驗證才可API-only 100%切流。",
+  "request_attempt": 70
 }
