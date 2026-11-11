@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "965d50ec8d1139e87ab242638063e69dd8459dc9",
-  "promotion_run": "42970187286",
+  "source_sha": "0fab0e9c43fe59a18e1f39cf02112959c7e61ab3",
+  "promotion_run": "42971889927",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-11 owner /journal/records consolidated records and live ledger_version derived realized PnL month/symbol/year. Full release #42968898297 source965d50ec, 0% candidate #42969885414, Auth/Owner/Admin/MCP+new route negative boundary and public quote parity #42970039084, API-only 100% promotion #42970187286 all PASS. Independently read canonical 100% Ready revision, immutable build SHA, /app/ 200, public stock/TAIEX longterm/margin/inst status, protected /api/v1/me/journal/records?year=2026 401/403 and Owner API boundary; no GCP/Owner mutations; private signed-in Owner exact months and latency requires distinct UAT.",
-  "request_attempt": 21
+  "purpose": "2026-11-11 第二輪持股記帳/紀錄頁效能收尾：移除在持股頁提前發起但不使用的Owner交易歷史查詢；紀錄頁保留單一安全records API；正確Owner ledger version-derived realized PnL最先已在965d50ec完成上線。新固定GHCR full #42970929789 source0fab0e9c PASS、0% #42971563776 PASS、auth/public parity #42971772461 PASS、API-only100% #42971889927 PASS。獨立驗證canonical Dev 100% Ready與不可變build-id，公開行情/加權指數30期/融資與法人、Owner /journal/records?year=2026未登入401/403、無GCP/Owner變更；不將匿名驗收當真人每月損益/手機秒數。",
+  "request_attempt": 22
 }
