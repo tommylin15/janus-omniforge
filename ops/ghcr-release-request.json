@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "e273baa5602a2687aab820f6ccac0b4218f23f0d",
-  "purpose": "2026-11-11 新用戶首次使用閉環：交易搜尋空白即提供不依賴持股的 TWSE/TPEx shared master 20筆，現金池持股頁直接初始設定/調整、空持股第一筆交易入口，修復現金對話框 controller 過早 dispose；Owner 隔離/ledger CAS/idempotency/缺值原則保留。新用戶 Flutter widget 與 API 測試加強，CI npm/apt 無關的圖示檔使用已提交 assets，GHCR匿名固定digest核對改以標準OCI公開HTTP（無新增服務/秘密）。本次僅既有 Dev API App 切流，Release 仍 full Python/Flutter/GHCR，0% Candidate→Auth/Market parity→API-only可逆100%→Live，Jobs/PG/Scheduler/IAM/Owner資料均不修改；舊現役0fab0e9c保留 rollback。",
+  "sha": "078703f88d880ee86a42d025e49d9ede10115d63",
+  "purpose": "2026-11-11 新用戶全功能起步修正：股票空白名冊、現金池首次維護/持股快捷、首筆買進入口、Flutter controller lifecycle 修復；擴充 Flutter 新帳號真操作 fixture。完整 GHCR Release 第二輪：第一輪 #43045533033 的 2184 Python PASS／2 舊測試仍要求 skopeo，已更新為驗證公開 OCI manifest/labels；Flutter gate PASS。保持現役 API 100% 不變直到全 release、0%-candidate、auth/market gate PASS，無 Jobs/Scheduler/PG/IAM/Owner 寫入，固定 digest 並保存 rollback。",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 69
+  "request_attempt": 70
 }
