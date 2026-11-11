@@ -518,8 +518,8 @@ def test_monthly_journal_summary_is_typed_and_owner_scoped():
     assert len(values) == 1
     assert values[0]["year"] == 2026 and values[0]["month"] == 9
     assert values[0]["currency"] == "TWD"
-    assert values[0]["purchase_outflow"] == 1000
-    assert values[0]["realized_pnl"] == 0
+    assert values[0]["purchase_outflow"] == "1000"
+    assert values[0]["realized_pnl"] == "0"
     assert values[0]["transaction_count"] == 1
     assert not any(table == "mart_user_monthly_ledger_summary" for table, _, _ in store.mart_calls)
     assert "user_id" not in values[0]

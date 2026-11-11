@@ -107,7 +107,7 @@ def test_symbol_and_monthly_summary_use_current_owner_ledger_not_stale_private_m
     month = api.get("/api/v1/me/journal/monthly-summary?year=2026", headers=auth())
     assert month.status_code == 200
     assert month.json()["items"][0]["month"] == 1
-    assert month.json()["items"][0]["realized_pnl"] == 0
+    assert month.json()["items"][0]["realized_pnl"] == "0"
     assert not any("ledger_summary" in table for table, _, _ in store.calls)
 
 
