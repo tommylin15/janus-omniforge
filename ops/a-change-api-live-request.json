@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "775fdc5343a46d26e1922063c59bc60ed283fe03",
-  "promotion_run": "42946507915",
+  "source_sha": "965d50ec8d1139e87ab242638063e69dd8459dc9",
+  "promotion_run": "42970187286",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-11 Dev API-only fixed GHCR 100% promotion #42946507915 PASS, immutable release #42943952618 source 775fdc53, candidate #42944621819, automated OAuth/Owner/Admin/MCP+live TAIEX/2330 parity #42944864987 attempt3 PASS, proxy Shioaji simulation stale callback patch #42945494536 PASS. Independently verify canonical /app build ID, 100% Ready single active revision & immutable GHCR image, health, public TAIEX EOD 2+, long-term financing/institutional, 3231/5876 200 + prior close + intraday date/source in regular session, Owner/Admin 401/403; no GCP/Owner mutations. Private Owner 390px UI and historical Kbar fill require separate OAuth evidence.",
-  "request_attempt": 20
+  "purpose": "2026-11-11 owner /journal/records consolidated records and live ledger_version derived realized PnL month/symbol/year. Full release #42968898297 source965d50ec, 0% candidate #42969885414, Auth/Owner/Admin/MCP+new route negative boundary and public quote parity #42970039084, API-only 100% promotion #42970187286 all PASS. Independently read canonical 100% Ready revision, immutable build SHA, /app/ 200, public stock/TAIEX longterm/margin/inst status, protected /api/v1/me/journal/records?year=2026 401/403 and Owner API boundary; no GCP/Owner mutations; private signed-in Owner exact months and latency requires distinct UAT.",
+  "request_attempt": 21
 }
