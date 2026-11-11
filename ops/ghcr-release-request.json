@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "418adfd6ac3ddac3a068065a2d7d5159e69f54fc",
-  "purpose": "2026-11-11 owner /journal/records 月/個股 realized PnL即時版已先完成Dev Release+100%+Live source965d50ec；第二輪UI性能收尾：持股首屏原本還有不被使用的/journal/history GET，與新records API造成重複讀取，現移除，延遲讀取只留年度損益與recalculation-status，紀錄頁才讀一筆records API；保留已上線的版本化 owner-ledger 計算與不造數據。Flutter full+web #42970622783 PASS，selective CI #42970622707 PASS；要求重新完整固定GHCR source發布與0%→Auth/market parity→API-only可逆100%→獨立Live readback，現役965d50ec可Rollback。仍不改Jobs、Scheduler、PG、IAM、Owner帳本或新增付費資源。",
+  "sha": "e273baa5602a2687aab820f6ccac0b4218f23f0d",
+  "purpose": "2026-11-11 新用戶首次使用閉環：交易搜尋空白即提供不依賴持股的 TWSE/TPEx shared master 20筆，現金池持股頁直接初始設定/調整、空持股第一筆交易入口，修復現金對話框 controller 過早 dispose；Owner 隔離/ledger CAS/idempotency/缺值原則保留。新用戶 Flutter widget 與 API 測試加強，CI npm/apt 無關的圖示檔使用已提交 assets，GHCR匿名固定digest核對改以標準OCI公開HTTP（無新增服務/秘密）。本次僅既有 Dev API App 切流，Release 仍 full Python/Flutter/GHCR，0% Candidate→Auth/Market parity→API-only可逆100%→Live，Jobs/PG/Scheduler/IAM/Owner資料均不修改；舊現役0fab0e9c保留 rollback。",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 68
+  "request_attempt": 69
 }
