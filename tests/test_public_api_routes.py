@@ -97,7 +97,10 @@ def client(public: Public) -> TestClient:
 def test_stock_header_uses_current_identity_and_bounded_price_without_report():
     class Repository:
         def stock_identities(self, symbols):
-            assert symbols == {"2330"}
+            # The optimized route uses the same stock-master enabled predicate
+            # before the public-index fallback for unknown symbols.
+            if symbols != {"2330"}:
+                return {}
             return {"2330": {"name": "台積電", "market": "TWSE", "enabled": True}}
 
     class HeaderCore(Core):
