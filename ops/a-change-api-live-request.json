@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "ac9e0309302248eabcc8d7a6553d479cacf2f828",
-  "promotion_run": "42796276597",
+  "source_sha": "775fdc5343a46d26e1922063c59bc60ed283fe03",
+  "promotion_run": "42946507915",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-10 Today V8 existing Dev 100% API-only promotion #42796276597 PASS. Source ac9e0309302248eabcc8d7a6553d479cacf2f828 full release #42794861330, Flutter+2179 Python PASS, candidate #42795775968 and OAuth/Owner/Admin/MCP/quote parity #42796075164 PASS. Independently verify one Ready 100%-traffic immutable digest, app build-id exact source, public market-home including >=2 official TAIEX EOD rows, public EOD financing/institutional status and dates, anonymous Owner/Admin rejection and no GCP/Owner mutations. If official capital-flow returns missing record as partial rather than fabricate. Owner authenticated 390px visual UAT separate.",
-  "request_attempt": 19
+  "purpose": "2026-11-11 Dev API-only fixed GHCR 100% promotion #42946507915 PASS, immutable release #42943952618 source 775fdc53, candidate #42944621819, automated OAuth/Owner/Admin/MCP+live TAIEX/2330 parity #42944864987 attempt3 PASS, proxy Shioaji simulation stale callback patch #42945494536 PASS. Independently verify canonical /app build ID, 100% Ready single active revision & immutable GHCR image, health, public TAIEX EOD 2+, long-term financing/institutional, 3231/5876 200 + prior close + intraday date/source in regular session, Owner/Admin 401/403; no GCP/Owner mutations. Private Owner 390px UI and historical Kbar fill require separate OAuth evidence.",
+  "request_attempt": 20
 }

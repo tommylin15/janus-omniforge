@@ -22,6 +22,7 @@ jobs:
         run: |
           python - <<'PY'
           import json,re,subprocess,urllib.request,urllib.error
+          from datetime import datetime,timedelta,timezone
           from pathlib import Path
           q=json.loads(Path("ops/a-change-api-live-request.json").read_text())
           assert q["intent"]=="a-change-api-only-postpromote-readonly"
@@ -117,6 +118,25 @@ jobs:
               "has_published_prior_close":etf.get("previous_close") not in (None,""),
               "owner_day_pnl":"NOT_VERIFIED_NO_OWNER_SESSION",
           }
+          # The two screenshot symbols must be independently visible after
+          # the API-only traffic cutover; private Owner content stays protected.
+          tw=datetime.now(timezone(timedelta(hours=8)))
+          trading=tw.weekday()<5 and 540<=tw.hour*60+tw.minute<810
+          symbol_quotes={}
+          for symbol in ("3231","5876"):
+              code,raw=get("/api/v1/public/stock-header/"+symbol)
+              assert code==200,("stock_public_unavailable",symbol,code)
+              row=json.loads(raw)
+              assert row.get("close") not in (None,""),("stock_price_missing",symbol)
+              assert row.get("previous_close") not in (None,""),("stock_reference_missing",symbol)
+              if trading:
+                  assert row.get("trade_date")==tw.date().isoformat(),("stock_not_today",symbol)
+                  assert row.get("quote_state")=="intraday",("stock_not_intraday",symbol)
+                  assert row.get("price_source") in ("shioaji","twse_mis"),("stock_source_invalid",symbol)
+              symbol_quotes[symbol]={
+                  "http":code,"trade_date":row.get("trade_date"),
+                  "quote_state":row.get("quote_state"),"source":row.get("price_source"),
+                  "has_official_close_baseline":row.get("previous_close") not in (None,"")}
           result={"status":"API_LIVE_READBACK_PASS","source_sha":q["source_sha"],
                   "promotion_run":q["promotion_run"],
                   "active_revision":active[0]["revisionName"],
@@ -131,6 +151,8 @@ jobs:
                   "anonymous_stock_order_book":codes.get("/api/v1/me/portfolio/order-book"),
                   "public_stock_http":public_code,"public_rows_present":public_rows,
                   "etf_0050_public_probe":etf_probe,
+                  "repaired_symbol_quotes":symbol_quotes,
+                  "is_regular_session":trading,
                   "owner_authenticated_positive":"NOT_VERIFIED_NO_USER_SESSION",
                   "owner_change_business_rows":"UNKNOWN",
                   "live_390px_user_screenshot":"NOT_VERIFIED",
