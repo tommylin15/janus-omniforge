@@ -21,6 +21,22 @@ class FinalFakeApi extends legacy.Api {
     reads.add(path);
     final value = values[path];
     if (value is Exception) throw value;
+    if (value == null && path.startsWith('/api/v1/me/journal/records?year=')) {
+      // Existing test fixtures preserve the old four route payloads. Adapt
+      // only the fake transport to the new single owner-scoped records route.
+      final year = path.split('=').last;
+      dynamic data(String name) {
+        final row = values['/api/v1/me/journal/$name?year=$year'];
+        if (row is Exception) throw row;
+        return row is Map ? row['items'] ?? const <dynamic>[] :
+            row ?? const <dynamic>[];
+      }
+      return {
+        'ledger_version': 1, 'source': 'owner_ledger_derived',
+        'history': data('history'), 'monthly': data('monthly-summary'),
+        'symbols': data('symbol-summary'), 'annual': data('pnl'),
+      };
+    }
     return value ?? const [];
   }
 
@@ -78,9 +94,14 @@ class DeferredLedgerApi extends FinalFakeApi {
 
   @override
   Future<dynamic> get(String path) {
-    if (path.startsWith('/api/v1/me/journal/history')) {
+    if (path.startsWith('/api/v1/me/journal/records?year=')) {
       reads.add(path);
-      return history.future;
+      return history.future.then((rows) => <String, dynamic>{
+        'source': 'owner_ledger_derived',
+        'ledger_version': 1,
+        'history': rows, 'monthly': const <dynamic>[],
+        'symbols': const <dynamic>[], 'annual': const <dynamic>[],
+      });
     }
     return super.get(path);
   }
@@ -1211,7 +1232,7 @@ void main() {
 
     expect(
       api.reads,
-      contains('/api/v1/me/journal/symbol-summary?year=2025'),
+      contains('/api/v1/me/journal/records?year=2025'),
     );
     expect(find.text('2025 年 10 月'), findsOneWidget);
 
@@ -1756,11 +1777,11 @@ void main() {
 
     expect(
       api.reads,
-      contains('/api/v1/me/journal/monthly-summary?year=$year'),
+      contains('/api/v1/me/journal/records?year=$year'),
     );
     expect(
       api.reads,
-      contains('/api/v1/me/journal/symbol-summary?year=$year'),
+      isNot(contains('/api/v1/me/journal/symbol-summary?year=$year')),
     );
     expect(
       api.reads,
