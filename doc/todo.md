@@ -1,5 +1,14 @@
 # Janus — 唯一 Active TODO
 
+## 2026-11-11｜新用戶零資料首次使用（待 CI／部署／Owner 真登入）
+
+- [x] **程式修復**：[939a5bcf](https://github.com/tommylin15/janus-omniforge/commit/939a5bcf8bf06c11bf77f386cd64fe64c3ce54d8)：交易搜尋空字串開放 20 筆官方名冊上限，不依賴既有持股；持股直接設定／調整現金；「新增第一筆交易」。仍保留 Owner 認證與現金版本 CAS。
+- [ ] **測試**：首輪 Flutter [#43030521831](https://github.com/tommylin15/janus-omniforge/actions/runs/43030521831) FAIL（既有手機首屏測試假定更新股價一定可見）；selective CI [#43030521663](https://github.com/tommylin15/janus-omniforge/actions/runs/43030521663) FAIL（舊測試預期空查詢為 422、SQL 4 參數）。本輪修正舊契約後需新 CI，舊失敗不能視為通過。
+- **功能盤點，靜態程式證據**：Google OAuth 建立各 Owner private.users；新帳號從全市場名冊搜尋股票／ETF 並新增買進、賣出與股利；現金首次建檔 cash_version=0；關注池空清單新增；投資屬性、券商費率各 version=0；筆記、個股詳情、個人策略、紀錄及報表沒有資料時須明確空態／不填假數字。相關流程的 **新用戶真實正向操作尚未驗收**。
+- [ ] Flutter 空用戶／新現金首次儲存測試，以及 Python 回歸 CI PASS。
+- [ ] 固定 GHCR Release → Dev 0% → OAuth／行情 parity → API-only 100% → Live readback。
+- [ ] 真正新帳戶登入、選股、現金首建／修改、首筆交易、關注、設定、空報表手機 UAT。
+
 ## 2026-11-11｜已實現損益「待更新」與紀錄頁延遲（工程／Dev 100%／獨立 Live PASS；Owner 本人驗收完成）
 
 - [x] **根因及工程**：月／個股摘要舊端點依賴 Private Mart 快照；若 `ledger_version` 比最新交易事件落後就清空 `items`，前端誤把每個空摘要當「已實現損益 待更新」。紀錄頁同時發起歷史、月份、個股、年度四個 owner API，且 9 秒逾時靜默變成空資料。修正改由既有 `calculate_marts` 移動平均成本、費稅、現金股利、沖銷更正規則直接自 Owner ledger 版本化衍生 annual/monthly/symbol，單一 owner `/journal/records?year=` API 載入全部；逾時/409 不假裝已完成。

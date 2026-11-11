@@ -61,11 +61,13 @@ def test_trade_search_includes_registered_etf_and_uses_bound_parameters():
     repository = Repository('test')
     assert repository.search_trade_instruments(' 元 ') == [row]
     sql, params = queries[0]
-    assert params == ('元',) * 4
+    assert params == ('元',) * 5
     assert 'market_universe_members' not in sql
+    assert 'private.current_positions' not in sql
     assert 'LIMIT 20' in sql
-    assert repository.search_trade_instruments(' ') == []
-    assert len(queries) == 1
+    assert repository.search_trade_instruments(' ') == [row]
+    assert len(queries) == 2
+    assert queries[1][1] == ('',) * 5
 
 
 def test_eod_quote_read_restricts_latest_lookup_to_requested_symbols():

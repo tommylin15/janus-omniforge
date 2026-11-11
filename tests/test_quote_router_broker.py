@@ -395,7 +395,10 @@ def test_trade_instrument_search_is_authenticated_and_accepts_one_character():
     assert response.json()['items'][0]['symbol'] == '00719B'
     assert searches == ['元']
     assert client.get('/api/v1/me/journal/instruments', params={'q': '元'}).status_code == 401
-    assert client.get('/api/v1/me/journal/instruments', params={'q': ''}, headers={'Authorization': 'Bearer user'}).status_code == 422
+    first_use = client.get('/api/v1/me/journal/instruments', params={'q': ''}, headers={'Authorization': 'Bearer user'})
+    assert first_use.status_code == 200
+    assert first_use.json()['items'][0]['symbol'] == '00719B'
+    assert searches == ['元', '']
 
 
 def test_published_core_eod_does_not_claim_fresh_after_seven_days_or_in_the_future():

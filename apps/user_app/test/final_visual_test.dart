@@ -1757,7 +1757,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('更新持股股價'), findsOneWidget);
+    // Cash first-use action takes some of the phone's above-the-fold space.
+    expect(find.byKey(const Key('ledger-cash-edit')), findsOneWidget);
     expect(
       api.reads,
       isNot(contains('/api/v1/me/journal/monthly-summary?year=$year')),
