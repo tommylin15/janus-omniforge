@@ -1,8 +1,8 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "965d50ec8d1139e87ab242638063e69dd8459dc9",
+  "sha": "0fab0e9c43fe59a18e1f39cf02112959c7e61ab3",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-11 owner realized PnL月/個股與紀錄頁優化，GHCR full release #42968898297 PASS source 965d50ec，0%-traffic fixed-digest candidate #42969885414 PASS（首次 #42969568268 因租約readback FAIL，已以新鮮執行安全修復）。獨立驗證 OAuth/Owner/Admin/MCP負向(含新增 /api/v1/me/journal/records?year=2026 401/403)、公開行情 market-home/stock-header與現役等效；絕不將匿名防護冒充Owner已登入損益內容。全程只讀，保留100%現役，無GCP/DB/Job/權限改動。",
-  "request_attempt": 60
+  "purpose": "2026-11-11 Owner 記帳首屏無用歷史查詢移除，source 0fab0e9c GHCR full-release #42970929789 PASS、0% Candidate #42971563776 PASS。只讀獨立驗證 OAuth/Owner/Admin/MCP 含新增 /api/v1/me/journal/records?year=2026 匿名401與 public TAIEX/stock 2330 live-versus-active 日期來源等效，拒絕出現逾時、503或錯誤的新版本。Owner正向登入數值仍另案，無GCP/DB/Jobs/Scheduler/IAM mutations。",
+  "request_attempt": 61
 }
