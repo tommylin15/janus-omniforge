@@ -1,5 +1,12 @@
 # Janus 最新驗收證據索引
 
+## 2026-11-11 Owner 已實現損益與紀錄頁延遲｜Full Release／現役 Dev Live PASS
+
+- **程式**：月／個股摘要不再依賴落後的 Private Mart ledger_version，使用 Owner ledger/version 計算的共同 annual/month/symbol 有界快取，已有交易不再因舊 Mart 空列而誤標「待更新」。紀錄頁合併為單一 Owner `/journal/records`，不在持股首屏額外載入未使用的交易歷史；保留缺值/衝突/逾時的明確狀態，Owner 認證未放寬。移動平均、手續費、稅、股利、更正、沖銷使用既有計算規則，沒有改真實交易帳本。
+- **固定版本與完整測試**：首輪 [Flutter #42968488308](https://github.com/tommylin15/janus-omniforge/actions/runs/42968488308) 與 [Python CI #42968596267](https://github.com/tommylin15/janus-omniforge/actions/runs/42968596267) PASS → [full release #42968898297](https://github.com/tommylin15/janus-omniforge/actions/runs/42968898297) PASS（source 965d50ec）。第二輪 [Flutter #42970622783](https://github.com/tommylin15/janus-omniforge/actions/runs/42970622783) 與 [selective #42970622707](https://github.com/tommylin15/janus-omniforge/actions/runs/42970622707) PASS → [full immutable release #42970929789](https://github.com/tommylin15/janus-omniforge/actions/runs/42970929789) PASS，source `0fab0e9c43fe59a18e1f39cf02112959c7e61ab3`。
+- **現役 Dev 讀回**：第二輪 [0% Candidate #42971563776](https://github.com/tommylin15/janus-omniforge/actions/runs/42971563776) PASS、[OAuth/Owner/Admin/MCP + 公開行情 parity #42971772461](https://github.com/tommylin15/janus-omniforge/actions/runs/42971772461) PASS、[API-only 100% #42971889927](https://github.com/tommylin15/janus-omniforge/actions/runs/42971889927) PASS、[獨立 Live #42972065939](https://github.com/tommylin15/janus-omniforge/actions/runs/42972065939) `API_LIVE_READBACK_PASS`：單一 Ready 100% revision、正確 build SHA/digest、公開 stock 200、TAIEX EOD 30 期、融資 10 期、法人 3 類、匿名 Owner/records 權限拒絕、GCP mutation 0；前版 `965d50ec8d1139e87ab242638063e69dd8459dc9` 留作 rollback。未更新 Jobs／Scheduler／PG／IAM／Owner。
+- **仍未知**：Owner 正向登入與實際月份數值、年度與個股核對、使用者手機頁面延遲沒有獨立正向證據，`OWNER_AUTHENTICATED_RECORDS=NOT_VERIFIED`、`MOBILE_LATENCY_SECONDS=UNKNOWN`。不能將 100% 發布或匿名 401 冒充已登入 Owner 的功能驗收。
+
 ## 2026-11-11 雙圖／行情後端修復｜ENGINEERING_RELEASE PASS／PUBLIC_LIVE PASS
 
 - **實作與測試**：Flutter 真實分鐘原價模式與回補可視狀態、後端 public PG 讀取避開 slow Core/Iceberg/同步刷新、simulation-only Proxy stale tick guard。服務原始碼 `775fdc5343a46d26e1922063c59bc60ed283fe03` full Python＋Flutter＋GHCR [#42943952618](https://github.com/tommylin15/janus-omniforge/actions/runs/42943952618) PASS；Proxy 獨立 [#42945494536](https://github.com/tommylin15/janus-omniforge/actions/runs/42945494536) tests/deploy PASS。

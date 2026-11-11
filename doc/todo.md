@@ -1,10 +1,12 @@
 # Janus — 唯一 Active TODO
 
-## 2026-11-11｜已實現損益月份與個股「待更新」及紀錄頁延遲（工程已提交，Release／Live 尚待驗）
+## 2026-11-11｜已實現損益「待更新」與紀錄頁延遲（工程／Dev 100%／獨立 Live PASS；Owner UAT 待驗）
 
 - [x] **根因及工程**：月／個股摘要舊端點依賴 Private Mart 快照；若 `ledger_version` 比最新交易事件落後就清空 `items`，前端誤把每個空摘要當「已實現損益 待更新」。紀錄頁同時發起歷史、月份、個股、年度四個 owner API，且 9 秒逾時靜默變成空資料。修正改由既有 `calculate_marts` 移動平均成本、費稅、現金股利、沖銷更正規則直接自 Owner ledger 版本化衍生 annual/monthly/symbol，單一 owner `/journal/records?year=` API 載入全部；逾時/409 不假裝已完成。
 - [x] **CI**：Python API 與回歸 [#42968596267](https://github.com/tommylin15/janus-omniforge/actions/runs/42968596267) PASS，Flutter 全量與 Web build [#42968488308](https://github.com/tommylin15/janus-omniforge/actions/runs/42968488308) PASS；舊 mock 契約與 JSON Decimal 型別造成的第一輪失敗已修復，舊記錄保留。
-- [ ] **Full Release／Dev 正式切流／Live 驗收**：已由 `ops/ghcr-release-request.json` 發起 [GHCR Release #42968898297](https://github.com/tommylin15/janus-omniforge/actions/runs/42968898297)；需固定 source SHA、0% Candidate、Auth+public market parity、可逆 API-only 100%、獨立 100% Live readback 才可關閉工程。Owner 登入的月份數值／實機載入秒數無證據維持待驗。
+- [x] **固定 Release／Dev 100%／Live PASS（兩輪）**：第一輪核心修復 full [#42968898297](https://github.com/tommylin15/janus-omniforge/actions/runs/42968898297) → 0% [#42969885414](https://github.com/tommylin15/janus-omniforge/actions/runs/42969885414) → Auth + public行情 [#42970039084](https://github.com/tommylin15/janus-omniforge/actions/runs/42970039084) → API-only 100% [#42970187286](https://github.com/tommylin15/janus-omniforge/actions/runs/42970187286) → 獨立 Live [#42970356061](https://github.com/tommylin15/janus-omniforge/actions/runs/42970356061) 全 PASS；source `965d50ec8d1139e87ab242638063e69dd8459dc9`。第二輪移除持股首屏多餘的交易歷史 GET，Flutter full／Web [#42970622783](https://github.com/tommylin15/janus-omniforge/actions/runs/42970622783) PASS，fixed GHCR [#42970929789](https://github.com/tommylin15/janus-omniforge/actions/runs/42970929789) → 0% [#42971563776](https://github.com/tommylin15/janus-omniforge/actions/runs/42971563776) → Auth＋行情 parity [#42971772461](https://github.com/tommylin15/janus-omniforge/actions/runs/42971772461) → API-only 100% [#42971889927](https://github.com/tommylin15/janus-omniforge/actions/runs/42971889927) → 獨立 Live [#42972065939](https://github.com/tommylin15/janus-omniforge/actions/runs/42972065939) 全 PASS。**現役 source `0fab0e9c43fe59a18e1f39cf02112959c7e61ab3`**，舊 `965d50ec...` 保留 rollback；未更動 Jobs／Scheduler／PG／IAM／Owner 資料或增加付費資源。首次 0% [#42969568268](https://github.com/tommylin15/janus-omniforge/actions/runs/42969568268) 因 GitHub Lease 釋放後讀回失敗 FAIL，不能代替成功收據；用新 run 安全重驗通過。
+
+- [ ] **Owner 本人驗收與實際延遲**：已驗證正式 API/權限／Flutter CI，但本次並無已登入 Owner 月、個股損益真實數字和手機載入耗時的正向收據。於 [Dev App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/) 進「持股／記帳 → 紀錄」，應顯示實際月、個股、年度一致的已實現損益，而非多筆「待更新」；確認切換年份、展開交易，若真的讀取失敗應顯示明確錯誤。未取得真實數字／秒數前不虛報 UAT PASS。
 
 ## 2026-11-11｜今日／關注分鐘圖修復（Dev／公開 Live PASS；Owner 手機 UAT 已回報完成）
 
