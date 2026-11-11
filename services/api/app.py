@@ -44,7 +44,7 @@ from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSumm
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
 from .private_pipeline import ledger_net_cash_flow, stock_identity
 from .portfolio_value_history import build_portfolio_value_history
-from .fast_annual_pnl import FastPnlTooLarge, FastPnlVersionMoved, read_annual_pnl
+from .fast_annual_pnl import FastPnlTooLarge, FastPnlVersionMoved, read_annual_pnl, read_pnl_breakdowns
 from .private_recalc_queue import CloudRunPrivateRecalcTrigger, QueuedPrivateRecalculator
 from .public_runtime import build_admin_service, build_core_service, build_pipeline_service, build_public_service
 from .store import PrivateIcebergStore
@@ -1471,19 +1471,63 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             raise HTTPException(status_code=409, detail="交易紀錄更新中，請重新整理後重試") from error
         return jsonable_encoder(rows)
 
+    def live_ledger_breakdowns(owner_id: UUID, year: int):
+        try:
+            return read_pnl_breakdowns(repository, owner_id, year)
+        except FastPnlTooLarge as error:
+            raise HTTPException(status_code=409, detail="交易筆數超出即時計算範圍，請使用完整報表重建") from error
+        except FastPnlVersionMoved as error:
+            raise HTTPException(status_code=409, detail="交易紀錄更新中，請重新整理後重試") from error
+
     @private.get("/journal/monthly-summary", response_model=MonthlyLedgerSummaryOut)
     def monthly_ledger_summary(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
-        rows=store.mart("mart_user_monthly_ledger_summary",current.user_id,year=year)
-        if rows and max(row.get("ledger_version",0) for row in rows)!=repository.latest_ledger_version(current.user_id):
-            rows=[]
-        return {"items":jsonable_encoder(rows)}
+        views, _ = live_ledger_breakdowns(current.user_id, year)
+        return {"items": jsonable_encoder(views["monthly"])}
 
     @private.get("/journal/symbol-summary")
     def symbol_ledger_summary(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
-        rows=store.mart("mart_user_symbol_ledger_summary",current.user_id,year=year)
-        if rows and max(row.get("ledger_version",0) for row in rows)!=repository.latest_ledger_version(current.user_id):
-            rows=[]
-        return {"items":jsonable_encoder(rows)}
+        views, _ = live_ledger_breakdowns(current.user_id, year)
+        symbols = {str(row.get("symbol")) for row in views["symbols"] if row.get("symbol")}
+        names = repository.stock_identities(symbols) if symbols else {}
+        enriched = []
+        for row in views["symbols"]:
+            name, state, reason = stock_identity(names.get(str(row.get("symbol"))))
+            enriched.append({**row, "stock_name": name,
+                             "identity_status": state, "identity_missing_reason": reason})
+        return {"items": jsonable_encoder(enriched)}
+
+    @private.get("/journal/records")
+    def journal_records(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
+        """One owner-scoped request for all record-tab data, never waits for Mart."""
+        before = repository.latest_ledger_version(current.user_id)
+        events = repository.ledger_history(current.user_id, None, year)
+        views, version = live_ledger_breakdowns(current.user_id, year)
+        if version != before:
+            raise HTTPException(status_code=409, detail="交易紀錄更新中，請重新整理後重試")
+        symbols = {
+            str(row["symbol"]) for row in events + views["symbols"] if row.get("symbol")
+        }
+        identities = repository.stock_identities(symbols) if symbols else {}
+        history_rows = []
+        for row in events:
+            name, state, reason = stock_identity(identities.get(str(row.get("symbol"))))
+            history_rows.append({
+                **row, "stock_name": name, "identity_status": state,
+                "identity_missing_reason": reason, "net_cash_flow": ledger_net_cash_flow(row),
+            })
+        symbol_rows = []
+        for row in views["symbols"]:
+            name, state, reason = stock_identity(identities.get(str(row.get("symbol"))))
+            symbol_rows.append({
+                **row, "stock_name": name, "identity_status": state,
+                "identity_missing_reason": reason,
+            })
+        return jsonable_encoder({
+            "history": history_rows, "monthly": views["monthly"],
+            "symbols": symbol_rows, "annual": views["annual"],
+            "ledger_version": version, "source": "owner_ledger_derived",
+            "history_may_be_truncated": len(events) >= 200,
+        })
 
     def portfolio_mart(table: str, current: AuthenticatedUser, **filters: Any) -> dict[str, Any]:
         rows=jsonable_encoder(store.mart(table,current.user_id,**filters))

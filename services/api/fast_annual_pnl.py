@@ -22,18 +22,52 @@ class FastPnlVersionMoved(RuntimeError):
 
 
 @lru_cache(maxsize=256)
-def _cached_rows(repository: Any, user_id: Any, year: int, version: int) -> tuple[dict[str, Any], ...]:
+def _cached_marts(repository: Any, user_id: Any, year: int, version: int) -> dict[str, tuple[dict[str, Any], ...]]:
+    """Compute all three ledger-derived breakdowns once per owner/year/version.
+
+    This is a short-lived derived view, not a publication to Private Mart.
+    Unlike the persisted snapshots it is never stale after a new ledger event.
+    """
     events = repository.ledger_for_fast_pnl(user_id)
     if len(events) > 20000:
         raise FastPnlTooLarge("owner ledger exceeds bounded inline path")
     actual_version = max((int(row["ledger_version"]) for row in events), default=0)
     if actual_version != version:
         raise FastPnlVersionMoved("ledger changed during inline calculation")
-    # Reuse the existing moving-average, reversal, fee and cash-dividend rules.
-    # An empty quote map prevents market reads; valuation dates never affect
-    # historical realized PnL.
+    # Identical moving-average, fee, dividend and reversal semantics for annual,
+    # monthly and per-symbol numbers. No market network, GCS or Iceberg reads.
     marts = calculate_marts(events, {}, date(year, 12, 31))
-    return tuple(dict(row) for row in marts["mart_user_annual_pnl"] if row["year"] == year)
+    return {
+        key: tuple(dict(row) for row in marts[key] if row["year"] == year)
+        for key in ("mart_user_annual_pnl", "mart_user_monthly_ledger_summary",
+                    "mart_user_symbol_ledger_summary")
+    }
+
+
+@lru_cache(maxsize=256)
+def _cached_rows(repository: Any, user_id: Any, year: int, version: int) -> tuple[dict[str, Any], ...]:
+    return _cached_marts(repository, user_id, year, version)["mart_user_annual_pnl"]
+
+
+def read_pnl_breakdowns(repository: Any, user_id: Any, year: int) -> tuple[dict[str, list[dict[str, Any]]], int]:
+    """All realized PnL views at one ledger version; one cached calculation."""
+    for _ in range(3):
+        version = int(repository.latest_ledger_version(user_id))
+        try:
+            tables = _cached_marts(repository, user_id, year, version)
+        except FastPnlVersionMoved:
+            continue
+        if int(repository.latest_ledger_version(user_id)) == version:
+            as_of = min(datetime.now(TAIPEI).date(), date(year, 12, 31)).isoformat()
+            return ({
+                "annual": [{**row, "valuation_date": as_of}
+                           for row in tables["mart_user_annual_pnl"]],
+                "monthly": [{**row, "valuation_date": as_of}
+                            for row in tables["mart_user_monthly_ledger_summary"]],
+                "symbols": [{**row, "valuation_date": as_of}
+                            for row in tables["mart_user_symbol_ledger_summary"]],
+            }, version)
+    raise FastPnlVersionMoved("ledger advanced during inline calculation")
 
 
 def read_annual_pnl(repository: Any, user_id: Any, year: int) -> tuple[list[dict[str, Any]], int]:

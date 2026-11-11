@@ -314,12 +314,18 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
 
   Future<List<dynamic>> loadSection(int target, int year) {
     return switch (target) {
-      1 => Future.wait([
-          cached('/api/v1/me/journal/history?year=$year'),
-          cached('/api/v1/me/journal/monthly-summary?year=$year'),
-          cached('/api/v1/me/journal/symbol-summary?year=$year'),
-          cached('/api/v1/me/journal/pnl?year=$year'),
-        ]),
+      1 => widget.api.get('/api/v1/me/journal/records?year=$year')
+          .timeout(const Duration(seconds: 18)).then((response) {
+            final data = fvMap(response);
+            if (data['ledger_version'] == null ||
+                data['source'] != 'owner_ledger_derived') {
+              throw const FormatException('紀錄摘要來源或版本無效');
+            }
+            return <dynamic>[
+              fvRows(data['history']), fvRows(data['monthly']),
+              fvRows(data['symbols']), fvRows(data['annual']),
+            ];
+          }),
       // Chart report owns a lazy private snapshot-history read. Do not load
       // annual PnL / XIRR / transactions for the report tab.
       2 => Future.value(const <dynamic>[]),
@@ -1098,7 +1104,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   }
 
   String realizedPnlLabel(Map<String, dynamic>? row) {
-    if (row == null) return '已實現損益 待更新';
+    if (row == null) return '已實現損益 資料不足';
     final currency = fvText(row['currency'], missing: 'TWD');
     return '已實現損益 $currency ${legacy.accountingNumber(row['realized_pnl'], missing: '資料不足')}';
   }
@@ -1107,7 +1113,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     if (raw == null) return '年度已實現損益 資料不足';
     final rows = fvRows(raw);
     if (rows.isEmpty) {
-      return history.isEmpty ? '年度已實現損益 0' : '年度已實現損益 待更新';
+      return history.isEmpty ? '年度已實現損益 0' : '年度已實現損益 資料不足';
     }
     if (rows.length > 1) return '年度已實現損益 多幣別';
     return '年度${realizedPnlLabel(fvMap(rows.first))}';
@@ -1303,7 +1309,10 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         if (snapshot.connectionState != ConnectionState.done) {
           return fvBoundedState(loading);
         }
-        return builder(snapshot.data ?? const <dynamic>[]);
+        if (snapshot.hasError || snapshot.data == null) {
+          return fvBoundedState('紀錄摘要暫時無法讀取，請按右上角重新整理');
+        }
+        return builder(snapshot.data!);
       },
     );
   }

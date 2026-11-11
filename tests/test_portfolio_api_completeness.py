@@ -97,14 +97,34 @@ def test_history_enriches_canonical_stock_name_server_side():
     assert response.json()[0]["identity_status"] == "available"
 
 
-def test_symbol_summary_is_owner_scoped_and_served_from_current_private_mart():
+def test_symbol_and_monthly_summary_use_current_owner_ledger_not_stale_private_mart():
     api, _, store = make_client()
-    response = api.get("/api/v1/me/journal/symbol-summary?year=2026", headers=auth())
+    symbol = api.get("/api/v1/me/journal/symbol-summary?year=2026", headers=auth())
+    assert symbol.status_code == 200
+    assert symbol.json()["items"][0]["symbol"] == "2330"
+    assert symbol.json()["items"][0]["stock_name"] == "台積電"
+    assert symbol.json()["items"][0]["realized_pnl"] == "0"
+    month = api.get("/api/v1/me/journal/monthly-summary?year=2026", headers=auth())
+    assert month.status_code == 200
+    assert month.json()["items"][0]["month"] == 1
+    assert month.json()["items"][0]["realized_pnl"] == "0"
+    assert not any("ledger_summary" in table for table, _, _ in store.calls)
+
+
+def test_one_owner_records_request_replaces_four_serial_views_and_preserves_auth():
+    api, _, store = make_client()
+    route = "/api/v1/me/journal/records?year=2026"
+    assert api.get(route).status_code == 401
+    response = api.get(route, headers=auth())
     assert response.status_code == 200
-    assert response.json()["items"][0]["symbol"] == "2330"
-    assert response.json()["items"][0]["stock_name"] == "台積電"
-    assert response.json()["items"][0]["realized_pnl"] == "150"
-    assert store.calls[-1] == ("mart_user_symbol_ledger_summary", USER_ID, {"year": 2026})
+    data = response.json()
+    assert data["source"] == "owner_ledger_derived"
+    assert data["ledger_version"] == 7
+    assert data["history"][0]["stock_name"] == "台積電"
+    assert data["symbols"][0]["symbol"] == "2330"
+    assert data["monthly"][0]["month"] == 1
+    assert data["annual"][0]["realized_pnl"] == "0"
+    assert not any("ledger_summary" in table for table, _, _ in store.calls)
 
 
 def test_positions_are_joined_from_one_summary_anchored_snapshot():

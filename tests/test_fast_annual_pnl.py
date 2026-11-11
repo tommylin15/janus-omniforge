@@ -10,6 +10,7 @@ from services.api.private_pipeline import TAIPEI
 
 from services.api.fast_annual_pnl import (
     FastPnlTooLarge, FastPnlVersionMoved, _cached_rows, read_annual_pnl,
+    read_pnl_breakdowns,
 )
 
 USER = UUID("00000000-0000-0000-0000-000000000001")
@@ -94,6 +95,28 @@ def test_owner_isolation_and_empty_year_zero_not_missing():
     other, version = read_annual_pnl(repo, OTHER, 2026)
     assert version == 2
     assert other[0]["realized_pnl"] == Decimal("50")
+
+
+def test_monthly_and_symbol_realized_summaries_share_exact_annual_rules_and_cache():
+    events = [
+        row(1, "BUY", date(2025, 12, 10), 10, 100, fee=10),
+        row(2, "SELL", date(2026, 1, 10), 5, 120, fee=2, tax=3),
+        row(3, "CASH_DIV", date(2026, 2, 1), cash=50, fee=1),
+    ]
+    repo = Repository({USER: events})
+    views, version = read_pnl_breakdowns(repo, USER, 2026)
+    assert version == 3
+    assert views["annual"][0]["realized_pnl"] == Decimal("139")
+    assert [r["realized_pnl"] for r in views["monthly"]] == [Decimal("90"), Decimal("49")]
+    assert views["symbols"][0]["realized_pnl"] == Decimal("139")
+    assert read_annual_pnl(repo, USER, 2026)[0][0]["realized_pnl"] == Decimal("139")
+    assert repo.reads == 1
+    updated = row(4, "SELL", date(2026, 3, 1), 2, 110)
+    repo.events[USER].append(updated)
+    next_views, next_version = read_pnl_breakdowns(repo, USER, 2026)
+    assert next_version == 4
+    assert next_views["annual"][0]["realized_pnl"] != views["annual"][0]["realized_pnl"]
+    assert repo.reads == 2
 
 
 def test_bounded_rejection_and_racing_version_are_explicit():
