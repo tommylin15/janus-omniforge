@@ -1,12 +1,12 @@
 # Janus UI — User App 頁面
 
-## 2026-11-11｜今日／關注分鐘圖修復（Dev API 100%／獨立公共 Live PASS；Owner 分鐘圖待驗）
+## 2026-11-11｜今日／關注分鐘圖修復（Dev API 100%／獨立公共 Live PASS；Owner UAT 已回報完成）
 
 - **原始異常**：Owner 截圖中 5876 在 09:28 僅有約 09:05 的一個分鐘觀測；3231 有真實現價但正式前收缺值，使圖表完全不畫。圖表改為即使前收缺值也繪出真實原始價格／高低最新值；只有日期與來源核准的前收才顯示百分比及 0% 虛線，缺分鐘不連假線、09:00–13:30 軸固定。今日頁區分載入／讀取失敗；關注頁顯示歷史 Kbar 回補狀態並提供使用者按需「重查缺口」，仍受 PG 每檔每 30 分鐘／每日 3 次與 Owner 授權限制。
 - **後端故障證據與修復**：先前公開 API 有 503／12–30 秒逾時，有限 Cloud Run 日誌含 `QueryCanceled`、`ConnectionTimeout`（[#42942841400](https://github.com/tommylin15/janus-omniforge/actions/runs/42942841400)）。現版讀取避免個股首屏觸發 Iceberg 冷查詢、盤中有效當日成交免重複 EOD 掃描、market-home 不等待同步 broker refresh，改成按頁面需求回應後有界刷新。Shioaji simulation-only Proxy 的回呼需同時核對成交時間與接收時間，過期成交不當新行情，改交既有 TWSE MIS 備援；Proxy 原址 Dev 部署 [#42945494536](https://github.com/tommylin15/janus-omniforge/actions/runs/42945494536) PASS。未擴張 IAM 或新增排程；私人 Proxy CI 測試身分沒有直接 mint token 權限，未繞過。
 - **固定發布與實際生效**：修正版不可變 GHCR full Release 固定 source `775fdc5343a46d26e1922063c59bc60ed283fe03`，[#42943952618](https://github.com/tommylin15/janus-omniforge/actions/runs/42943952618) Python＋Flutter＋四映像 PASS → 0% Candidate [#42944621819](https://github.com/tommylin15/janus-omniforge/actions/runs/42944621819) PASS → OAuth／Owner／Admin／MCP 負測及當日 TAIEX/2330 公開行情正測 [#42944864987](https://github.com/tommylin15/janus-omniforge/actions/runs/42944864987) 第三次 PASS → GHCR API-only 100% [#42946507915](https://github.com/tommylin15/janus-omniforge/actions/runs/42946507915) PASS → 獨立現役 [#42946704452](https://github.com/tommylin15/janus-omniforge/actions/runs/42946704452) `API_LIVE_READBACK_PASS`。單一現役 Ready 100%、build ID 與 digest 對應、Owner/Admin 匿名拒絕；原版 `ac9e0309302248eabcc8d7a6553d479cacf2f828` 保留 rollback，不變更其他 Jobs／Scheduler／PG／IAM／Owner 內容。
 - **市場資料實證**：獨立三檔 [#42946245806](https://github.com/tommylin15/janus-omniforge/actions/runs/42946245806) 確認 2330／3231／5876 於 2026-11-11 盤中皆 HTTP 200、`intraday`、有前收與漲跌，候選查詢約 1.83–2.77 秒；獨立 100% 現役 [#42946704452](https://github.com/tommylin15/janus-omniforge/actions/runs/42946704452) 亦 PASS 3231／5876 來源日、盤中狀態與前收正向斷言。加權指數 EOD 30 期，融資 10 期、法人 3 類均 available。
-- **仍須本人正向 UAT**：真實已登入 Owner 的 `/portfolio/intraday`、`/watchlist/intraday`、歷史 `/market/minute-backfill` 受 OAuth 防護；本次 GitHub CI 身分無法取得私有 Proxy ID token，Janus MCP 的 private context 亦無有效正向讀回。故 **5876／3231 實際 1 分 K 已保存數、缺口是否填滿、手機 390px 圖形與兩輪分鐘刷新皆為 UNKNOWN／NOT_VERIFIED**，不可用公開行情或離線 Flutter tests 冒充。Owner 可於 [Janus Dev App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/) 進入「今日」3231、「關注」5876，查看 Kbar 狀態及操作「重查缺口」；真無來源不畫假線。
+- **Owner 實際操作回報**：使用者於 2026-11-11 在要求查核「今日 3231」與「關注 5876」之後回覆「完成」，此為兩張圖的 Owner 本人正向操作驗收回報，範圍依使用者回報記錄為 PASS。公開 API/Full Release 證據另見上方；獨立 Kbar PG row count、缺口完整率與兩輪 60 秒刷新原始收據未提供，仍 UNKNOWN，不以 UI UAT 冒充資料完整性核證。
 
 ## 2026-11-10｜盤中缺口與長期市場資訊首屏修復（Dev 工程與獨立 Live PASS）
 

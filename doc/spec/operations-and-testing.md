@@ -4,7 +4,7 @@
 
 - **實作與測試**：Flutter 真實分鐘原價模式與回補可視狀態、後端 public PG 讀取避開 slow Core/Iceberg/同步刷新、simulation-only Proxy stale tick guard。服務原始碼 `775fdc5343a46d26e1922063c59bc60ed283fe03` full Python＋Flutter＋GHCR [#42943952618](https://github.com/tommylin15/janus-omniforge/actions/runs/42943952618) PASS；Proxy 獨立 [#42945494536](https://github.com/tommylin15/janus-omniforge/actions/runs/42945494536) tests/deploy PASS。
 - **GCP 已讀回**：0% Candidate [#42944621819](https://github.com/tommylin15/janus-omniforge/actions/runs/42944621819)、OAuth + public quote strict parity [#42944864987](https://github.com/tommylin15/janus-omniforge/actions/runs/42944864987) attempt3、100% API-only [#42946507915](https://github.com/tommylin15/janus-omniforge/actions/runs/42946507915)、independent immutable live [#42946704452](https://github.com/tommylin15/janus-omniforge/actions/runs/42946704452) 全 PASS。現役 build SHA 一致、100% Ready、Owner/ Admin 匿名拒絕；其他 Jobs／Scheduler／PG／IAM／Owner 未修改；前版 `ac9e0309302248eabcc8d7a6553d479cacf2f828` 可回復。
-- **真實行情範圍**：[三檔公開讀回 #42946245806](https://github.com/tommylin15/janus-omniforge/actions/runs/42946245806) 2330／3231／5876 當日 intraday 200、有前收／漲跌；獨立 post-promote 3231／5876 亦過同日即時及前收斷言。TAIEX EOD 30 期、融資10期、法人3類 available。市場公開正向 **PASS**；私有 Owner 簽入盤中分鐘與 Kbar row 覆蓋未有權限，**OWNER_MOBILE_VISUAL_UAT=NOT_VERIFIED／K_BAR_COVERAGE=UNKNOWN**，不得稱全資料完整。
+- **真實行情範圍**：[三檔公開讀回 #42946245806](https://github.com/tommylin15/janus-omniforge/actions/runs/42946245806) 2330／3231／5876 當日 intraday 200、有前收／漲跌；獨立 post-promote 3231／5876 亦過同日即時及前收斷言。TAIEX EOD 30 期、融資10期、法人3類 available。市場公開正向 **PASS**；私有 Owner 簽入盤中分鐘與 Kbar row 覆蓋未有權限，**OWNER_MOBILE_VISUAL_UAT=USER_REPORTED_PASS_2026-11-11／K_BAR_COVERAGE=UNKNOWN（無逐分鐘資料收據）**，不得稱全資料完整。
 
 
 ## 2026-11-10 持股四欄共用主／副列版面對齊｜Dev Engineering／Live PASS
