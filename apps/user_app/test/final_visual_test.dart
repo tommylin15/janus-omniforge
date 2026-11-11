@@ -317,6 +317,10 @@ void main() {
     expect(find.text('已退出有效名冊 · 仍保留關注'), findsOneWidget);
     expect(find.byIcon(Icons.drag_handle), findsNothing);
 
+    // Backfill diagnostics may extend the chart above the search action.
+    // Scroll the requested control into view before interacting on a phone.
+    await tester.ensureVisible(find.text('搜尋股票代號或中文名稱'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('搜尋股票代號或中文名稱'));
     await tester.pumpAndSettle();
     expect(find.text('搜尋關注股票'), findsOneWidget);
