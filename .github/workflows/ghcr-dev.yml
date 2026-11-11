@@ -529,6 +529,7 @@ jobs:
               "/api/v1/me/analysis/2330/changes",
               "/api/v1/me/journal/positions",
               "/api/v1/me/journal/pnl",
+              "/api/v1/me/journal/records?year=2026",
               "/api/v1/me/portfolio/summary",
               "/api/v1/me/portfolio/performance",
               "/api/v1/admin/data-governance",

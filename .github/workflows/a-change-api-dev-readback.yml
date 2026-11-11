@@ -59,6 +59,7 @@ jobs:
               assert get(path)[0]==200,path
           protected=("/api/v1/me/profile",
                      "/api/v1/me/portfolio/intraday?symbol=2330",
+                     "/api/v1/me/journal/records?year=2026",
                      "/api/v1/me/watchlist/intraday?symbol=2330",
                      "/api/v1/me/portfolio/order-book?symbol=2330",
                      "/api/v1/me/portfolio/value-history?days=365",
