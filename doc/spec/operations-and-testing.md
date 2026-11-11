@@ -1,5 +1,12 @@
 # Janus 最新驗收證據索引
 
+## 2026-11-11 雙圖／行情後端修復｜ENGINEERING_RELEASE PASS／PUBLIC_LIVE PASS
+
+- **實作與測試**：Flutter 真實分鐘原價模式與回補可視狀態、後端 public PG 讀取避開 slow Core/Iceberg/同步刷新、simulation-only Proxy stale tick guard。服務原始碼 `775fdc5343a46d26e1922063c59bc60ed283fe03` full Python＋Flutter＋GHCR [#42943952618](https://github.com/tommylin15/janus-omniforge/actions/runs/42943952618) PASS；Proxy 獨立 [#42945494536](https://github.com/tommylin15/janus-omniforge/actions/runs/42945494536) tests/deploy PASS。
+- **GCP 已讀回**：0% Candidate [#42944621819](https://github.com/tommylin15/janus-omniforge/actions/runs/42944621819)、OAuth + public quote strict parity [#42944864987](https://github.com/tommylin15/janus-omniforge/actions/runs/42944864987) attempt3、100% API-only [#42946507915](https://github.com/tommylin15/janus-omniforge/actions/runs/42946507915)、independent immutable live [#42946704452](https://github.com/tommylin15/janus-omniforge/actions/runs/42946704452) 全 PASS。現役 build SHA 一致、100% Ready、Owner/ Admin 匿名拒絕；其他 Jobs／Scheduler／PG／IAM／Owner 未修改；前版 `ac9e0309302248eabcc8d7a6553d479cacf2f828` 可回復。
+- **真實行情範圍**：[三檔公開讀回 #42946245806](https://github.com/tommylin15/janus-omniforge/actions/runs/42946245806) 2330／3231／5876 當日 intraday 200、有前收／漲跌；獨立 post-promote 3231／5876 亦過同日即時及前收斷言。TAIEX EOD 30 期、融資10期、法人3類 available。市場公開正向 **PASS**；私有 Owner 簽入盤中分鐘與 Kbar row 覆蓋未有權限，**OWNER_MOBILE_VISUAL_UAT=NOT_VERIFIED／K_BAR_COVERAGE=UNKNOWN**，不得稱全資料完整。
+
+
 ## 2026-11-10 持股四欄共用主／副列版面對齊｜Dev Engineering／Live PASS
 
 - **手機截圖修正**：四欄仍是「股票｜現價｜當日損益｜總損益」同排，但取消各個 Expanded 獨立 Column 的主副資料對齊，改為所有股票共用相同 25:23:25:27 header／primary／secondary 列，欄位內容各自留 3px padding（相鄰欄約 6px visual gutter）；長股數、成本、價差或損益在自己的欄寬等比縮放，不再讓「成本」與當日漲跌貼成一串。小幅調整名稱／價／副資訊字級，不更動 canonical 金額、來源、紅漲綠跌、股數或百分比。

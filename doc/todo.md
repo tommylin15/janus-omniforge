@@ -1,5 +1,13 @@
 # Janus — 唯一 Active TODO
 
+## 2026-11-11｜今日／關注分鐘圖修復（Dev 工程／公開 Live 已結案；Owner 正向分鐘驗收尚缺）
+
+- [x] **圖表＋行情修正**：3231 缺前收可顯示真實價格線但不假造 0%；5876 不連虛構分鐘，保留回補結果與重查缺口。API 避免公開首屏 Iceberg 冷查、同步 broker 等待、同日重複 EOD 讀取；Shioaji Proxy 過期 callback 不再冒充新報價。Proxy test+deploy [#42945494536](https://github.com/tommylin15/janus-omniforge/actions/runs/42945494536) PASS，simulation-only 未改。
+- [x] **Full Release → Dev 100%**：固定 GHCR [#42943952618](https://github.com/tommylin15/janus-omniforge/actions/runs/42943952618) PASS（source `775fdc5343a46d26e1922063c59bc60ed283fe03`），0% [#42944621819](https://github.com/tommylin15/janus-omniforge/actions/runs/42944621819) PASS，Auth／盤中 parity [#42944864987](https://github.com/tommylin15/janus-omniforge/actions/runs/42944864987) attempt3 PASS，可逆 API-only 100% [#42946507915](https://github.com/tommylin15/janus-omniforge/actions/runs/42946507915) PASS。前一來源 `ac9e0309` 保留 rollback，不改其他 Jobs／Scheduler／資料／IAM。
+- [x] **獨立正式 Live**：[三檔公開行情 #42946245806](https://github.com/tommylin15/janus-omniforge/actions/runs/42946245806) 與 [100% 現役 #42946704452](https://github.com/tommylin15/janus-omniforge/actions/runs/42946704452) PASS；3231、5876 同日 `intraday`／HTTP200、有前收；大盤 EOD 30 期、融資 10 期、法人 3 類；build ID/immutable digest、匿名 Owner fence PASS。
+- [ ] **唯一剩餘本次原始雙圖 Owner 驗收**：本人登入 [Dev App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/) 盤中選「今日 3231」與「關注 5876」，確認已保留真實分鐘價格、來源／前收、圖形不留永久查詢轉圈；有實際 Kbar 時應連續成線，若只一點需讀取下方回補狀態並用「重查缺口」；盤中至少兩輪 60 秒刷新。CI 不能取得 Owner OAuth/私有 Proxy token，**實際 Kbar row count、完整分鐘覆蓋及手機畫面仍 NOT_VERIFIED**，不可宣稱此次 Owner 原始兩圖 full UAT PASS。既有其他 Owner UAT 不因本次公共驗收自行結案。
+
+
 ## 2026-11-10｜今日盤中分鐘缺口與長期大盤摘要（工程／Dev 100%／獨立 Live PASS；Owner UAT 待驗）
 
 - [x] **CODE／UI**：Kbar 回補資格改為真實分鐘時間槽，檢查盤初／內部／末段缺口，不再僅看85%總量；保留PG 30分鐘冷卻、每檔每日3次與60秒行情不抓歷史Kbar。Flutter新增「重查缺口」（前端5分鐘防連按）；長期首屏加入最新正式收盤、比較日漲跌點數／百分比、融資與法人日期摘要，內嵌長明細表改成按需底層明細，重試失敗來源可按「更新資料」，無本人追蹤改顯示狀態而非整塊消失。沒有新資源／migration／行情來源／Jobs／Scheduler／IAM／Owner 資料變更。
