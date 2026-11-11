@@ -1,13 +1,12 @@
 # Janus — 唯一 Active TODO
 
-## 2026-11-11｜新用戶零資料首次使用（待 CI／部署／Owner 真登入）
+## 2026-11-11｜新用戶零資料首次使用｜工程／Dev Live PASS；新 Google 帳號真人 UAT 待驗
 
-- [x] **程式修復**：[939a5bcf](https://github.com/tommylin15/janus-omniforge/commit/939a5bcf8bf06c11bf77f386cd64fe64c3ce54d8)：交易搜尋空字串開放 20 筆官方名冊上限，不依賴既有持股；持股直接設定／調整現金；「新增第一筆交易」。仍保留 Owner 認證與現金版本 CAS。
-- [ ] **測試**：首輪 Flutter [#43030521831](https://github.com/tommylin15/janus-omniforge/actions/runs/43030521831) FAIL（既有手機首屏測試假定更新股價一定可見）；selective CI [#43030521663](https://github.com/tommylin15/janus-omniforge/actions/runs/43030521663) FAIL（舊測試預期空查詢為 422、SQL 4 參數）。本輪修正舊契約後需新 CI，舊失敗不能視為通過。
-- **功能盤點，靜態程式證據**：Google OAuth 建立各 Owner private.users；新帳號從全市場名冊搜尋股票／ETF 並新增買進、賣出與股利；現金首次建檔 cash_version=0；關注池空清單新增；投資屬性、券商費率各 version=0；筆記、個股詳情、個人策略、紀錄及報表沒有資料時須明確空態／不填假數字。相關流程的 **新用戶真實正向操作尚未驗收**。
-- [ ] Flutter 空用戶／新現金首次儲存測試，以及 Python 回歸 CI PASS。
-- [ ] 固定 GHCR Release → Dev 0% → OAuth／行情 parity → API-only 100% → Live readback。
-- [ ] 真正新帳戶登入、選股、現金首建／修改、首筆交易、關注、設定、空報表手機 UAT。
+- [x] **根因及修復**：交易新增時 Flutter Autocomplete 空查詢原本直接回傳空選單，後端 `/api/v1/me/journal/instruments?q=` 亦拒絕空字串；現在可先顯示最多 20 筆有效 TWSE／TPEx 共同股票名冊，再依名稱／代號縮小搜尋，查詢失敗明確顯示，不需先有持股、關注或交易。持股總資產卡增加「設定現金／調整現金」及空持股「新增第一筆交易」入口；現金讀取最新 `cash_version` 後以 Owner/CAS/Idempotency 寫入，首次版本 0 合法，沒有預填假餘額。Flutter 新戶回歸發現並修正現金視窗 `TextEditingController` 過早 dispose 的真實問題。
+- [x] **回歸／完整 Release**：Flutter 零現金首次儲存、空持股入口、第一筆股票選取情境與既有全量 analyze／widget／Web build、Python 全量測試 PASS；四元件不可變 GHCR image／匿名 digest 讀回 [#43047426258](https://github.com/tommylin15/janus-omniforge/actions/runs/43047426258) PASS。固定現役 source **`aaef41171804a4f51d80608e282cc04982c0c0de`**。此前 #43030521831／#43030521663 的舊測試契約失敗、#43043579043 真實 Dialog 控制器失效、#43045533033 舊 skopeo 契約失敗、#43046264622 readback Job 漏 checkout 均保留失敗紀錄；完成修正與整套 Release 重驗後始確認 PASS。CI 的 Ubuntu Pillow／skopeo apt DNS 依賴改由已提交品牌資產檢查／公開 OCI digest 驗證，保留來源 SHA 與標籤核對。
+- [x] **Dev API-only 100% 與獨立 Live**：0% Candidate [#43048394140](https://github.com/tommylin15/janus-omniforge/actions/runs/43048394140) PASS → OAuth／Owner／Admin／MCP 負向權限與公開行情 parity [#43048751516](https://github.com/tommylin15/janus-omniforge/actions/runs/43048751516) PASS → 既有 Dev API 可逆 100% [#43048993502](https://github.com/tommylin15/janus-omniforge/actions/runs/43048993502) PASS → 獨立唯讀 Live [#43049349108](https://github.com/tommylin15/janus-omniforge/actions/runs/43049349108) `API_LIVE_READBACK_PASS`。現役單一 100% Ready、`/app/build-id.txt` 與固定 source 一致、GHCR digest、公開市場行情及未登入 Owner fence 均有真實收據；前版 `0fab0e9c43fe59a18e1f39cf02112959c7e61ab3` 保留 rollback；不改 Jobs／Scheduler／PG／IAM／Owner 帳本或新增付費資源。
+- **新帳號其餘功能盤點（靜態實作與既有測試，非真人 UAT）**：Google OIDC `resolve_user` 首次自動建立 owner-scoped `private.users`；關注股空清單新增，持股／交易／股利預覽與入帳依 Owner 控制；投資風險屬性和券商費率支援 version 0；筆記、個股詳情、個人策略、零持股紀錄／報表需保留真實空態及缺值，不可造假已實現損益。上述其餘首次儲存／顯示 **尚無真正全新 Google 帳號端到端正向收據**。
+- [ ] **唯一剩餘 Owner 真人 UAT**：以真正沒有交易／關注／現金的新 Google 帳號登入 [Dev Live App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/)，確認股票下拉與 2330 名稱搜尋、首筆交易試算／確認儲存、首次現金設定／再次調整與讀回、關注新增、投資設定與空報表。沒有本人 Google OAuth 登入／實際私有資料寫入讀回憑證前，狀態維持 `NEW_ACCOUNT_AUTHENTICATED_UAT=NOT_VERIFIED`；**工程發布與公開 Live 判定 `PASS`，不等於新帳號全功能人工驗收已完成**。
 
 ## 2026-11-11｜已實現損益「待更新」與紀錄頁延遲（工程／Dev 100%／獨立 Live PASS；Owner 本人驗收完成）
 

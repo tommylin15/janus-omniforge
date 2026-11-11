@@ -1,5 +1,12 @@
 # Janus 最新驗收證據索引
 
+## 2026-11-11 新用戶首登與持股／交易／現金起步｜ENGINEERING_RELEASE／DEV_LIVE PASS；新帳戶 Owner UAT 未驗
+
+- **發現與實作**：交易股票/ETF 的 Autocomplete 與 Owner instrument API 原不提供空查詢下拉；改用共用市場名冊最多20筆作初始清單，名稱／代號搜尋及失敗狀態不再依賴既有持股。持股頁總資產卡直接提供現金池首次設定／修改，空持股顯示新增第一筆交易。Cash Dialog 改由表單自管輸入 controller，修復彈窗退場階段的已釋放 controller 例外；後端 Owner scope、現金首次版本0與後續 CAS、冪等、交易 preview/append 規則均保留。不自行修改任何私人持股／交易／現金資料。
+- **CI／全量與固定 GHCR**：[正式 Full Release #43047426258](https://github.com/tommylin15/janus-omniforge/actions/runs/43047426258) Python full＋Flutter analyze／全部 widget（含零帳戶首次現金／選股／入口）＋Web build＋四個不可變 GHCR digest 匿名讀回 PASS；固定 source `aaef41171804a4f51d80608e282cc04982c0c0de`。初期 #43030521831／#43030521663、#43043579043、#43045533033、#43046264622 等失敗收據保留：包含老契約斷言、真 Dialog controller BUG、舊 skopeo 契約、readback Job 缺 checkout；修復後不是以 selective CI 冒充完整 Release。為排除 Github runner Ubuntu apt DNS 依賴，Flutter 靜態 PWA 圖示直接檢查原始檔、GHCR 公開 OCI manifest/config digest 與 revision labels 改由有界 Python 工具驗證。
+- **Dev 受控發布**：[0% #43048394140](https://github.com/tommylin15/janus-omniforge/actions/runs/43048394140) → [OAuth／Owner／Admin／MCP／行情 parity #43048751516](https://github.com/tommylin15/janus-omniforge/actions/runs/43048751516) → [可逆 API-only 100% #43048993502](https://github.com/tommylin15/janus-omniforge/actions/runs/43048993502) → [獨立 Live #43049349108](https://github.com/tommylin15/janus-omniforge/actions/runs/43049349108) 全 PASS，`API_LIVE_READBACK_PASS`：單一 100% Ready revision、正確 `/app/build-id.txt`、不可變 digest、公開大盤／融資／法人讀回及匿名 Owner/API fence，唯讀檢查沒有 GCP／Owner mutations。前版 `0fab0e9c43fe59a18e1f39cf02112959c7e61ab3` 保留 rollback；沒有 Jobs／Scheduler／PG／IAM 變更或新增付費資源。
+- **驗收邊界與入口**：`NEW_OWNER_FIRST_USE_FLUTTER_FIXTURE=PASS`、`FULL_RELEASE=PASS`、`DEV_API_100_PERCENT=PASS`、`PUBLIC_LIVE_READBACK=PASS`。但尚無真正全新 Google 帳號完成首次登入、現金設定與更新、首筆交易成功落帳、關注與風險設定/券商設定、空態報表的正向手機收據，故 `NEW_ACCOUNT_AUTHENTICATED_UAT=NOT_VERIFIED`。手動驗收入口：[Janus Dev Live App](https://janus-api-2oo7qbkd5q-uc.a.run.app/app/)；不要拿匿名 401／Flutter fixture 代替 Owner 真人流程。
+
 ## 2026-11-11 Owner 已實現損益與紀錄頁延遲｜Release／Dev Live PASS；Owner UAT 完成
 
 - **程式**：月／個股摘要不再依賴落後的 Private Mart ledger_version，使用 Owner ledger/version 計算的共同 annual/month/symbol 有界快取，已有交易不再因舊 Mart 空列而誤標「待更新」。紀錄頁合併為單一 Owner `/journal/records`，不在持股首屏額外載入未使用的交易歷史；保留缺值/衝突/逾時的明確狀態，Owner 認證未放寬。移動平均、手續費、稅、股利、更正、沖銷使用既有計算規則，沒有改真實交易帳本。
