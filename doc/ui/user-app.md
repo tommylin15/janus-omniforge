@@ -1,11 +1,11 @@
 # Janus UI — User App 頁面
 
-## 2026-11-11｜記帳「已實現損益 待更新」與紀錄頁反應慢（已發布 Dev／Live PASS）
+## 2026-11-11｜記帳「已實現損益 待更新」與紀錄頁反應慢（Dev／Live PASS；Owner UAT 已完成）
 
 - **根因**：過去 `/journal/monthly-summary`、`/journal/symbol-summary` 從 Private Mart 讀取舊的 ledger_version，發現版本落後就清空整個摘要，導致即使有真實交易仍顯示許多「待更新」。紀錄頁四支 Owner GET 併發加上 9 秒吞錯逾時；持股首屏又提前取一份未使用的歷史交易資料，增添等待。
 - **實作**：Owner ledger 每版用既有移動平均成本、手續費、稅、股利與沖銷規則一次衍生年度／月份／個股已實現損益；以 owner/year/ledger_version 有界快取、更新版本即重新計算、不讀過期 Mart、缺值不補假數字。新增單一 Owner `GET /api/v1/me/journal/records?year=...` 合併交易歷史＋月份／個股／年度資料；Flutter 紀錄頁只請求一次且將 409、失敗或逾時明確顯示，未載入成功不稱待更新。持股首屏移除不使用的歷史 GET，只按需讀年度損益與重算狀態。
 - **工程／部署收據**：第一輪 [fixed GHCR #42968898297](https://github.com/tommylin15/janus-omniforge/actions/runs/42968898297)、[0% #42969885414](https://github.com/tommylin15/janus-omniforge/actions/runs/42969885414)、[Auth/行情 #42970039084](https://github.com/tommylin15/janus-omniforge/actions/runs/42970039084)、[100% #42970187286](https://github.com/tommylin15/janus-omniforge/actions/runs/42970187286)、[Live #42970356061](https://github.com/tommylin15/janus-omniforge/actions/runs/42970356061) 全 PASS。第二輪移除首屏重複讀取 [Flutter #42970622783](https://github.com/tommylin15/janus-omniforge/actions/runs/42970622783)、[fixed GHCR #42970929789](https://github.com/tommylin15/janus-omniforge/actions/runs/42970929789)、[0% #42971563776](https://github.com/tommylin15/janus-omniforge/actions/runs/42971563776)、[Auth/行情 #42971772461](https://github.com/tommylin15/janus-omniforge/actions/runs/42971772461)、[100% #42971889927](https://github.com/tommylin15/janus-omniforge/actions/runs/42971889927)、[獨立 Live #42972065939](https://github.com/tommylin15/janus-omniforge/actions/runs/42972065939) 全 PASS；現役 immutable source `0fab0e9c43fe59a18e1f39cf02112959c7e61ab3`，Ready、100% flow、Owner 匿名 401/403 防護及公開行情讀回成功，保留前版 rollback。
-- **驗收範圍**：本輪修復使用原有 Dev，不更動 Owner 帳本、PG、Jobs、Scheduler、IAM 或付費資源；Flutter 和公開 Runtime **PASS**。Owner 實際登入後的月份／個股金額、手機畫面是否仍顯示「待更新」與實測耗時 **NOT_VERIFIED**（無 Owner OAuth session）；不將匿名安全讀回冒充實際損益數值驗收。
+- **Owner 手機 UAT 結案（2026-11-11 使用者回報）**：本輪修復使用既有 Dev，不更動 Owner 帳本、PG、Jobs、Scheduler、IAM 或付費資源；Flutter 和公開 Runtime **PASS**。使用者於「持股／記帳 → 紀錄」修正上線後回覆「驗收完畢」，因此將**本次畫面／操作驗收**標為 **USER_REPORTED_PASS** 並結案；技術發布證據與本人驗收分別紀錄。由於未取得 Owner API 月／個股逐筆對帳資料及實測載入秒數，獨立數字核對與客觀效能指標仍 **UNKNOWN**，不推稱已完成量化效能測試。
 
 ## 2026-11-11｜今日／關注分鐘圖修復（Dev API 100%／獨立公共 Live PASS；Owner UAT 已回報完成）
 
