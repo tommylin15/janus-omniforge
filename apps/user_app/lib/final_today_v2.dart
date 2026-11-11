@@ -890,6 +890,12 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
               key: ValueKey('today-intraday-$symbol'),
               future: stockMinutes,
               builder: (context, state) {
+                if (state.connectionState != ConnectionState.done) {
+                  return fvBoundedState('正在讀取已保存的今日分鐘資料');
+                }
+                if (state.hasError || state.data == null) {
+                  return fvBoundedState('分鐘資料暫時無法讀取，請稍後重試');
+                }
                 final data = fvMap(state.data);
                 final points = fvRows(data['items']);
                 final referenceDate = fvText(data['previous_close_date'], missing: '');

@@ -34,6 +34,8 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
   Future<dynamic>? history;
   final Set<String> backfillAttempts = <String>{};
   final Set<String> backfillInFlight = <String>{};
+  final Map<String, String> backfillStatuses = <String, String>{};
+  final Map<String, DateTime> manualBackfillAt = <String, DateTime>{};
 
   Future<dynamic> _readMinutes(String symbol) =>
       widget.api.get('/api/v1/me/watchlist/intraday?symbol=$symbol')
@@ -78,7 +80,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     }
   }
 
-  void requestBackfill(String symbol) {
+  void requestBackfill(String symbol, {bool manual = false}) {
     // Event-demanded only: not called in 60s quote timer.
     if (!widget.active || !foreground || watchTab != 0) return;
     final now = DateTime.now().toUtc().add(const Duration(hours: 8));
@@ -87,7 +89,15 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     final slot = ((minute - 540) ~/ 30).clamp(0, 9);
     final key = now.year.toString() + '-' + now.month.toString() +
         '-' + now.day.toString() + '/' + symbol + '/' + slot.toString();
-    if (backfillInFlight.contains(symbol) || !backfillAttempts.add(key)) return;
+    if (backfillInFlight.contains(symbol)) return;
+    if (manual) {
+      final now = DateTime.now();
+      final last = manualBackfillAt[symbol];
+      if (last != null && now.difference(last) < const Duration(minutes: 5)) return;
+      manualBackfillAt[symbol] = now;
+    } else if (!backfillAttempts.add(key)) {
+      return;
+    }
     unawaited(_backfill(symbol));
   }
 
@@ -98,14 +108,17 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
         '/api/v1/me/market/minute-backfill', {'symbol': symbol})
         .timeout(const Duration(seconds: 26)));
       if (!mounted || selectedSymbol != symbol || watchTab != 0) return;
-      if (result['status'] == 'available' ||
-          result['status'] == 'cached_or_throttled') {
-        setState(() => minutes = _readMinutes(symbol));
-      }
+      // Even a throttled or failed broker call may have stored observations
+      // from another tab or an in-flight shared request. Re-read PG only.
+      setState(() {
+        backfillStatuses[symbol] = fvText(result['status'], missing: 'unavailable');
+        minutes = _readMinutes(symbol);
+      });
     } catch (_) {
-      // The stored minutes remain readable without broker backfill.
+      if (mounted) setState(() => backfillStatuses[symbol] = 'unavailable');
     } finally {
       backfillInFlight.remove(symbol);
+      if (mounted && selectedSymbol == symbol && watchTab == 0) setState(() {});
     }
   }
 
@@ -158,6 +171,8 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
       history = null;
       backfillAttempts.clear();
       backfillInFlight.clear();
+      backfillStatuses.clear();
+      manualBackfillAt.clear();
       data = widget.active ? _load(force: true) : Future<dynamic>.value(null);
     }
     if (oldWidget.active != widget.active) {
@@ -534,6 +549,21 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
           child: Text('固定 09:00–13:30；分鐘線僅顯示實際資料，不補虛構點。',
             style: TextStyle(color: fvMuted, fontSize: 11)),
         ),
+        if (backfillInFlight.contains(symbol))
+          const Text('正在查詢歷史 1 分 K（非即時行情）…',
+            style: TextStyle(color: fvMuted, fontSize: 11))
+        else if (backfillStatuses[symbol] != null)
+          Padding(padding: const EdgeInsets.only(top: 3), child: Row(children: [
+            Expanded(child: Text(switch (backfillStatuses[symbol]) {
+              'available' => '已讀回券商歷史 1 分 K',
+              'cached_or_throttled' => '回補額度暫未開放；顯示已保存的分鐘點',
+              'missing' => '券商尚無歷史 K 棒；顯示已保存的分鐘點',
+              _ => '券商歷史 K 棒暫不可用；顯示已保存的分鐘點',
+            }, style: const TextStyle(color: fvMuted, fontSize: 11))),
+            TextButton(
+              onPressed: () => requestBackfill(symbol, manual: true),
+              child: const Text('重查缺口', style: TextStyle(fontSize: 12))),
+          ])),
       ]);
     },
   );

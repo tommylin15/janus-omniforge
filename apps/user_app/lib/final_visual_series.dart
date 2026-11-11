@@ -271,8 +271,9 @@ class _SeriesPainter extends CustomPainter {
 ///
 /// Unlike a generic series, the horizontal coordinate is the actual clock
 /// minute, not the position within the list of observed points. A missing
-/// interval is never bridged or inferred; the 0% reference must come from a
-/// verified, positive previous close supplied by the caller.
+/// interval is never bridged or inferred. Missing official previous-close data
+/// switches to a raw-price axis; it never suppresses genuine observations or
+/// invents a 0% baseline.
 class FvIntradayProgressChart extends StatefulWidget {
   const FvIntradayProgressChart({
     required this.rows, required this.label, required this.unit,
@@ -308,6 +309,17 @@ FvIntradayAxisRange fvIntradayAxisRange(Iterable<double> changes) {
   return FvIntradayAxisRange(mid - span / 2 - padding, mid + span / 2 + padding);
 }
 
+/// Raw-price fallback is used only when there is no verified zero reference.
+/// Its range depends on observed prices, never an invented closing price.
+FvIntradayAxisRange fvIntradayPriceAxisRange(Iterable<double> prices) {
+  final valid = prices.where((price) => price.isFinite && price > 0).toList();
+  if (valid.isEmpty) return const FvIntradayAxisRange(0, 1);
+  final low = valid.reduce(math.min);
+  final high = valid.reduce(math.max);
+  final padding = math.max(0.05, math.max((high - low) * 0.08, high * 0.002));
+  return FvIntradayAxisRange(low - padding, high + padding);
+}
+
 typedef _SessionPoint = ({int minute, double price, double change});
 typedef _MinuteVolume = ({int minute, double volume});
 
@@ -328,18 +340,7 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
     final hasHistoricalBars = widget.rows.any((item) =>
         fvText(fvMap(item)['source'], missing: '') == 'shioaji_kbars');
     final previous = widget.previousClose;
-    if (previous == null || !previous.isFinite || previous <= 0) {
-      return fvPanel(child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(widget.label, style: const TextStyle(
-              color: fvInk, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
-          const Text('前一正式收盤價缺值，無法計算 0% 基準與漲跌幅',
-              key: Key('intraday-missing-previous-close'),
-              style: TextStyle(color: fvMuted)),
-        ],
-      ));
-    }
+    final hasReference = previous != null && previous.isFinite && previous > 0;
     // Convert source timestamps to Asia/Taipei before checking session window.
     // Prefer the latest dated session if a mixed-date response arrives.
     final dated = <({DateTime time, int minute, double price, double? volume})>[];
@@ -370,7 +371,9 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
     }
     final points = byMinute.entries.map((entry) =>
         (minute: entry.key, price: entry.value.price,
-         change: (entry.value.price / previous - 1) * 100.0)).toList()
+         change: hasReference
+             ? (entry.value.price / previous! - 1) * 100.0
+             : entry.value.price)).toList()
       ..sort((a, b) => a.minute.compareTo(b.minute));
     final volumePoints = byMinute.entries
         .where((e) => e.value.volume != null)
@@ -416,9 +419,10 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
           Text(_time(point.minute), key: Key(key),
             style: const TextStyle(color: fvMuted,
                 fontWeight: FontWeight.w600, fontSize: 12)),
-          Text(_percent(point.change), key: Key('$key-percent'),
-            style: TextStyle(color: fvSignedColor(point.change),
-              fontWeight: FontWeight.w800, fontSize: 13)),
+          if (hasReference)
+            Text(_percent(point.change), key: Key('$key-percent'),
+              style: TextStyle(color: fvSignedColor(point.change),
+                fontWeight: FontWeight.w800, fontSize: 13)),
         ]),
       ));
     }
@@ -435,8 +439,15 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
               style: const TextStyle(color: fvMuted, fontSize: 12)),
         ]),
         const SizedBox(height: 5),
-        Text('09:00–13:30 · 前收 ${legacy.accountingNumber(previous, decimals: 2)} ${widget.unit} · 0% 基準',
+        Text(hasReference
+            ? '09:00–13:30 · 前收 ${legacy.accountingNumber(previous, decimals: 2)} ${widget.unit} · 0% 基準'
+            : '09:00–13:30 · 實際分鐘價格 · 無 0% 基準',
           style: const TextStyle(color: fvMuted, fontSize: 12)),
+        if (!hasReference)
+          const Padding(padding: EdgeInsets.only(top: 4),
+            child: Text('前一正式收盤價缺值：仍顯示實際價格，不計算漲跌幅',
+              key: Key('intraday-missing-previous-close'),
+              style: TextStyle(color: fvMuted, fontSize: 12))),
         if (high != null && low != null && latest != null) ...[
           const SizedBox(height: 9),
           Container(
@@ -456,7 +467,7 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
         if (selectedMinute != null && chosen != null)
           Padding(
             padding: const EdgeInsets.only(top: 5),
-            child: Text('選取 ${_time(chosen.minute)}：${legacy.accountingNumber(chosen.price, decimals: 2)} ${widget.unit} · ${_percent(chosen.change)}',
+            child: Text('選取 ${_time(chosen.minute)}：${legacy.accountingNumber(chosen.price, decimals: 2)} ${widget.unit}${hasReference ? ' · ${_percent(chosen.change)}' : ''}',
               key: const Key('intraday-selected-observation'),
               style: TextStyle(color: fvSignedColor(chosen.change),
                   fontSize: 13, fontWeight: FontWeight.w700)),
@@ -479,7 +490,7 @@ class _FvIntradayProgressChartState extends State<FvIntradayProgressChart> {
             if (target != selectedMinute) setState(() => selectedMinute = target);
           },
           child: Semantics(
-            label: '${widget.label}，09:00 至 13:30 固定時間軸，0% 前收基準，漲紅跌綠，可點選真實分鐘點',
+            label: '${widget.label}，09:00 至 13:30 固定時間軸，${hasReference ? '0% 前收基準，漲紅跌綠' : '前收缺值，原始價格走勢'}，可點選真實分鐘點',
             child: SizedBox(height: widget.height, width: double.infinity,
               child: TweenAnimationBuilder<double>(
                 // Animate the actual newest point once on data update, not a
@@ -563,7 +574,7 @@ class _SessionProgressPainter extends CustomPainter {
       this.previousClose, this.gainColor, this.lossColor, this.pointEmphasis);
   final List<_SessionPoint> points;
   final int? selectedMinute;
-  final double previousClose;
+  final double? previousClose;
   final Color gainColor;
   final Color lossColor;
   final double pointEmphasis;
@@ -578,11 +589,14 @@ class _SessionProgressPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final width = math.max(1.0, size.width - left - right);
     final height = math.max(1.0, size.height - top - bottom);
-    final range = fvIntradayAxisRange(points.map((p) => p.change));
+    final hasReference = previousClose != null && previousClose!.isFinite && previousClose! > 0;
+    final range = hasReference
+        ? fvIntradayAxisRange(points.map((p) => p.change))
+        : fvIntradayPriceAxisRange(points.map((p) => p.price));
     double x(int minute) => left + (minute - start) / (end - start) * width;
     double y(double change) =>
         top + (range.max - change) / (range.max - range.min) * height;
-    final zeroY = y(0);
+    final zeroY = hasReference ? y(0) : top + height;
     Offset offset(_SessionPoint p) => Offset(x(p.minute), y(p.change));
     final axis = Paint()..color = fvSoft..strokeWidth = 1.0;
     canvas.drawLine(Offset(left, top), Offset(left, top + height), axis);
@@ -603,11 +617,13 @@ class _SessionProgressPainter extends CustomPainter {
       canvas.drawLine(Offset(guideX, top),
           Offset(guideX, top + height), guide);
     }
-    // Neutral zero line, rendered with explicit dash to distinguish from data.
-    final reference = Paint()..color = fvMuted..strokeWidth = 1.2;
-    for (double at = left; at < left + width; at += 10) {
-      canvas.drawLine(Offset(at, zeroY),
-          Offset(math.min(at + 5, left + width), zeroY), reference);
+    // The dashed zero line is shown only with an authenticated dated reference.
+    if (hasReference) {
+      final reference = Paint()..color = fvMuted..strokeWidth = 1.2;
+      for (double at = left; at < left + width; at += 10) {
+        canvas.drawLine(Offset(at, zeroY),
+            Offset(math.min(at + 5, left + width), zeroY), reference);
+      }
     }
     void label(String value, double placeY) {
       final painter = TextPainter(
@@ -616,13 +632,13 @@ class _SessionProgressPainter extends CustomPainter {
           textDirection: TextDirection.ltr)..layout();
       painter.paint(canvas, Offset(1, placeY - painter.height / 2));
     }
-    // Match a trading screen's PRICE axis, not a rigid percent ruler.
-    // The dashed 0% line remains the verified previous-close reference.
-    String axisPrice(double change) => legacy.accountingNumber(
-        previousClose * (1 + change / 100),
-        decimals: previousClose >= 1000 ? 0 : 2);
+    // Price labels remain meaningful without a prior close; only the
+    // percentage transformation and dashed baseline are omitted then.
+    String axisPrice(double value) => legacy.accountingNumber(
+        hasReference ? previousClose! * (1 + value / 100) : value,
+        decimals: (hasReference ? previousClose! : value) >= 1000 ? 0 : 2);
     label(axisPrice(range.max), top);
-    label('0%', zeroY);
+    if (hasReference) label('0%', zeroY);
     label(axisPrice(range.min), top + height);
     // The not-yet-observed future is visibly empty rather than stretched.
     if (points.isNotEmpty) {
@@ -651,6 +667,10 @@ class _SessionProgressPainter extends CustomPainter {
       final before = points[i - 1], after = points[i];
       if (after.minute - before.minute > 1) continue;
       final a = offset(before), b = offset(after);
+      if (!hasReference) {
+        draw(a, b, fvTeal);
+        continue;
+      }
       if (before.change * after.change < 0) {
         final fraction = before.change.abs() /
             (before.change.abs() + after.change.abs());
@@ -674,7 +694,8 @@ class _SessionProgressPainter extends CustomPainter {
         (a, b) => (b.minute - selectedMinute!).abs() <
             (a.minute - selectedMinute!).abs() ? b : a);
       final highlight = offset(selected);
-      final selectedColor = selected.change > 0 ? gainColor :
+      final selectedColor = !hasReference ? fvTeal :
+          selected.change > 0 ? gainColor :
           selected.change < 0 ? lossColor : fvMuted;
       // Soft halo emphasizes the last recorded point, not live activity.
       final haloRadius = selectedMinute == null

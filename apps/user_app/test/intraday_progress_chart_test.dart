@@ -81,9 +81,21 @@ void main() {
     ]))));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('intraday-missing-previous-close')), findsOneWidget);
-    expect(find.byKey(const Key('intraday-session-fixed-chart')), findsNothing);
-    expect(find.textContaining('觀測最高'), findsNothing);
+    expect(find.byKey(const Key('intraday-session-fixed-chart')), findsOneWidget);
+    expect(find.textContaining('觀測最高'), findsOneWidget);
+    expect(find.textContaining('實際分鐘價格 · 無 0% 基準'), findsOneWidget);
+    expect(find.textContaining('0% 基準與漲跌幅'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  test('raw-price axis is bounded around real observations without using zero', () {
+    final range = fvIntradayPriceAxisRange([170, 171, 169]);
+    expect(range.min, lessThan(169));
+    expect(range.max, greaterThan(171));
+    expect(range.min, greaterThan(0));
+    final single = fvIntradayPriceAxisRange([50.1]);
+    expect(single.min, lessThan(50.1));
+    expect(single.max, greaterThan(50.1));
   });
 
   testWidgets('a zero or one sample retains fixed axis without invented connecting lines',
