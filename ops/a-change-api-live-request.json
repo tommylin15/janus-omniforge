@@ -1,12 +1,12 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "0fab0e9c43fe59a18e1f39cf02112959c7e61ab3",
-  "promotion_run": "42971889927",
+  "source_sha": "aaef41171804a4f51d80608e282cc04982c0c0de",
+  "promotion_run": "43048993502",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-11 第二輪持股記帳/紀錄頁效能收尾：移除在持股頁提前發起但不使用的Owner交易歷史查詢；紀錄頁保留單一安全records API；正確Owner ledger version-derived realized PnL最先已在965d50ec完成上線。新固定GHCR full #42970929789 source0fab0e9c PASS、0% #42971563776 PASS、auth/public parity #42971772461 PASS、API-only100% #42971889927 PASS。獨立驗證canonical Dev 100% Ready與不可變build-id，公開行情/加權指數30期/融資與法人、Owner /journal/records?year=2026未登入401/403、無GCP/Owner變更；不將匿名驗收當真人每月損益/手機秒數。",
-  "request_attempt": 22
+  "purpose": "2026-11-11 新用戶零持股第一筆交易選股、現金池初設/修改與現金Dialog修復。Python/Flutter/full GHCR digest release #43047426258 PASS，Candidate 0% #43048394140 PASS，OAuth/Owner/Admin/MCP/市場 parity #43048751516 PASS，既有Dev API-only 100%切流 #43048993502 PASS。獨立驗證正式App /app/build-id.txt source aaef4117、Cloud Run單一100% Ready、immutable GHCR digest、public市場EOD/融資/法人、匿名Owner/records/cash/instrument 401/403，任何Owner真帳號正向新戶操作未做不可標PASS；不變更GCP資源、Jobs、Scheduler、PG、IAM及Owner帳本。",
+  "request_attempt": 23
 }
