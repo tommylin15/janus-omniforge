@@ -220,6 +220,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
+      - uses: actions/checkout@v4
       - name: Verify anonymous pull
         run: |
           mkdir -p receipts
