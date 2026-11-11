@@ -222,10 +222,9 @@ jobs:
     steps:
       - name: Verify anonymous pull
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo jq
           mkdir -p receipts
           for component in ingestion-core intelligence-mart private-pipeline api; do
-            skopeo inspect --no-creds "docker://ghcr.io/tommylin15/janus-${component}:sha-${GITHUB_SHA}" > "receipts/${component}.json"
+            python3 scripts/gcp/ghcr_public_inspect.py "ghcr.io/tommylin15/janus-${component}:sha-${GITHUB_SHA}" > "receipts/${component}.json"
             digest="$(jq -r '.Digest // empty' "receipts/${component}.json")"
             [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
           done
@@ -288,16 +287,14 @@ jobs:
           sha="$(jq -r .sha ops/ghcr-candidate-request.json)"
           declared="$(jq -r '.digest // ""' ops/ghcr-candidate-request.json)"
           git merge-base --is-ancestor "$sha" HEAD
-          # Read manifest from public GHCR using exact, previously published SHA tag.
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends skopeo
-          skopeo inspect --no-creds "docker://ghcr.io/tommylin15/janus-api:sha-${sha}" > /tmp/ghcr-identity.json
+          # Read the public GHCR manifest/config using bounded anonymous HTTP.
+          python3 scripts/gcp/ghcr_public_inspect.py "ghcr.io/tommylin15/janus-api:sha-${sha}" > /tmp/ghcr-identity.json
           digest="$(jq -r '.Digest // empty' /tmp/ghcr-identity.json)"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 2
           [[ -z "$declared" || "$declared" == "$digest" ]] || exit 2
           image="ghcr.io/tommylin15/janus-api@${digest}"
           # Recheck exact immutable digest, without any registry credentials.
-          skopeo inspect --no-creds "docker://${image}" > /tmp/ghcr-by-digest.json
+          python3 scripts/gcp/ghcr_public_inspect.py "${image}" > /tmp/ghcr-by-digest.json
           test "$(jq -r .Digest /tmp/ghcr-by-digest.json)" = "$digest"
           test "$(jq -r '.Labels["org.opencontainers.image.revision"]' /tmp/ghcr-identity.json)" = "$sha"
           test "$(jq -r '.Labels["org.opencontainers.image.source"]' /tmp/ghcr-identity.json)" = "https://github.com/tommylin15/janus-omniforge"

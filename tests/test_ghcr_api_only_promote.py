@@ -56,7 +56,7 @@ def test_preflight_binds_green_receipts_to_exact_source_and_historical_request(m
             if mismatch == 'candidate-source': historical['sha'] = 'd' * 40
             if mismatch == 'candidate-release': historical['release_run'] = '999999999'
             return json.dumps(historical)
-        if args[0] == 'skopeo':
+        if len(args) > 1 and args[1] == 'scripts/gcp/ghcr_public_inspect.py':
             return json.dumps({'Digest': 'sha256:' + 'e' * 64,
                                'Labels': {'org.opencontainers.image.revision': req['source_sha']}})
         return ''

@@ -32,8 +32,8 @@ jobs:
           service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - name: Validate isolated API traffic contracts
         run: python -m pytest -q tests/test_ghcr_api_only_promote.py tests/test_ghcr_api_promote.py tests/test_ghcr_release_lease.py
-      - name: Install immutable registry inspector
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: Use bounded public GHCR manifest inspector (no apt)
+        run: python -m py_compile scripts/gcp/ghcr_public_inspect.py
       - name: Verify full release, candidate and OAuth gates then promote API only
         run: python scripts/gcp/ghcr_api_only_promote.py --receipt /tmp/ghcr-api-only-promote.json
       - name: Preserve bounded acceptance and rollback receipt

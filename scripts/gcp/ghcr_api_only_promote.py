@@ -84,8 +84,8 @@ def preflight(payload: dict) -> None:
         raise ValueError("candidate_source_receipt_invalid")
     command(["git", "merge-base", "--is-ancestor", candidate_run["headSha"], "HEAD"])
     api.jobs.automated_oauth_acceptance(source, payload["auth_boundary_run"])
-    manifest = json.loads(command(["skopeo", "inspect", "--no-creds",
-                                   "docker://ghcr.io/tommylin15/janus-api:sha-" + source]))
+    manifest = json.loads(command(["python", "scripts/gcp/ghcr_public_inspect.py",
+                                   "ghcr.io/tommylin15/janus-api:sha-" + source]))
     digest = manifest.get("Digest")
     if (not isinstance(digest, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
             or manifest.get("Labels", {}).get("org.opencontainers.image.revision") != source):
@@ -112,7 +112,7 @@ def live_pair(payload: dict) -> tuple[dict, str, str, str]:
     image = api.revision_image(revision)
     if not IMAGE_RE.fullmatch(image):
         raise ValueError("candidate_digest_not_pinned")
-    manifest = json.loads(command(["skopeo", "inspect", "--no-creds", "docker://" + image]))
+    manifest = json.loads(command(["python", "scripts/gcp/ghcr_public_inspect.py", image]))
     if (manifest.get("Digest") != image.rsplit("@", 1)[-1]
             or manifest.get("Labels", {}).get("org.opencontainers.image.revision") != payload["source_sha"]):
         raise ValueError("candidate_image_source_mismatch")
