@@ -1,12 +1,13 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "aaef41171804a4f51d80608e282cc04982c0c0de",
-  "promotion_run": "43048993502",
+  "source_sha": "c5a5c9e99bc0393fe226ec5da36b73afe66af4fc",
+  "promotion_run": "43142428769",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-11 新用戶零持股第一筆交易選股、現金池初設/修改與現金Dialog修復。Python/Flutter/full GHCR digest release #43047426258 PASS，Candidate 0% #43048394140 PASS，OAuth/Owner/Admin/MCP/市場 parity #43048751516 PASS，既有Dev API-only 100%切流 #43048993502 PASS。獨立驗證正式App /app/build-id.txt source aaef4117、Cloud Run單一100% Ready、immutable GHCR digest、public市場EOD/融資/法人、匿名Owner/records/cash/instrument 401/403，任何Owner真帳號正向新戶操作未做不可標PASS；不變更GCP資源、Jobs、Scheduler、PG、IAM及Owner帳本。",
-  "request_attempt": 23
+  "purpose": "2026-11-12 個人策略兩Tab、資產與風險與個人策略設定搬移、Admin-only與開放控制。完整Release #43141170205、Candidate #43141823351、OAuth/個人策略權限/盤中行情 #43142298617、API-only 100% #43142428769 全PASS。獨立唯讀驗證正式 App build-id、單一100% Ready、GHCR digest、個人策略與Admin開放設定匿名拒絕，以及市場與既有Owner保護；不改GCP、Jobs、Scheduler、PG、IAM或Owner資料。真人帳號正向操作仍需如實獨立標記。",
+  "request_attempt": 24,
+  "personal_strategy_access_check": true
 }
