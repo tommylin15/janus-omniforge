@@ -71,7 +71,43 @@ class _ShellApi implements AdminApi {
   Future<dynamic> put(String path, Map<String, dynamic> body) async => body;
 }
 
+class _StrategyAccessApi extends _ShellApi {
+  bool allowed = false;
+  int version = 0;
+  final writes = <Map<String, dynamic>>[];
+  @override
+  Future<dynamic> get(String path) async {
+    if (path == '/api/v1/admin/settings/personal_strategy_access') {
+      return {'value': version == 0 ? null : {'allow_all_users': allowed}, 'version': version};
+    }
+    return super.get(path);
+  }
+  @override
+  Future<dynamic> put(String path, Map<String, dynamic> body) async {
+    writes.add(body);
+    allowed = (body['value'] as Map)['allow_all_users'] == true;
+    version++;
+    return {'value': {'allow_all_users': allowed}, 'version': version};
+  }
+}
+
 void main() {
+  testWidgets('admin strategy access defaults closed and saves versioned toggle', (tester) async {
+    final api = _StrategyAccessApi();
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AdminPersonalStrategyAccess(api))));
+    await tester.pumpAndSettle();
+    final toggle = find.byType(SwitchListTile);
+    expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(toggle).value, isTrue);
+    expect(api.writes.single, {'value': {'allow_all_users': true}, 'expected_version': 0});
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+    expect(api.writes.last, {'value': {'allow_all_users': false}, 'expected_version': 1});
+  });
+
   test('admin workspace requires an explicit admin route or build mode', () {
     expect(
       adminWorkspaceRequested(Uri.parse('https://example.test/app/admin')),

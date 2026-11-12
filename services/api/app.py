@@ -2103,7 +2103,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             return True
         try:
             value = admin_service.setting("personal_strategy_access").get("value")
-            return isinstance(value, dict) and value.get("allow_all_users") is True
+            return isinstance(value, dict) and set(value) == {"allow_all_users"} and value.get("allow_all_users") is True
         except Exception:
             return False
 

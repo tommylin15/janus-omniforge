@@ -165,6 +165,22 @@ class AdminServiceTests(unittest.TestCase):
             self.admin.save_setting("schedule", {"time": "09:00", "enabled": True}, actor="operator", expected_version=0)
         self.assertEqual(self.admin.audit()[0]["resource_key"], "schedule")
 
+    def test_personal_strategy_access_setting_is_versioned_and_audited(self):
+        key = "personal_strategy_access"
+        self.assertEqual(self.admin.setting(key)["value"], None)
+        saved = self.admin.save_setting(key, {"allow_all_users": True}, actor="operator", expected_version=0)
+        self.assertEqual(saved["version"], 1)
+        self.assertEqual(self.admin.setting(key)["value"], {"allow_all_users": True})
+        for invalid in (None, {}, {"allow_all_users": "true"}, {"allow_all_users": 1},
+                        {"allow_all_users": True, "extra": True}):
+            with self.assertRaises(AdminValidationError):
+                self.admin.save_setting(key, invalid, actor="operator")
+        with self.assertRaises(Exception):
+            self.admin.save_setting(key, {"allow_all_users": False}, actor="operator", expected_version=0)
+        closed = self.admin.save_setting(key, {"allow_all_users": False}, actor="operator", expected_version=1)
+        self.assertEqual(closed["value"], {"allow_all_users": False})
+        self.assertEqual(self.admin.audit()[0]["resource_key"], key)
+
     def test_private_recalc_worker_setting_is_bounded_2_to_8_and_audited(self):
         saved = self.admin.save_setting(
             "private_recalc_workers", {"workers": 4}, actor="operator"

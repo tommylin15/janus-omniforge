@@ -137,7 +137,7 @@ class QueryCore:
 
 
 def client(claims=None,public=None,query_core=None,raise_server_exceptions=True,private_recalculator=None,
-           allow_user_admin=False):
+           allow_user_admin=False,admin_service=None):
     repo,store=Repository(),Store()
     private_recalculator=private_recalculator or Recalculator()
     values=claims or {"iss":"https://accounts.google.com","aud":"user-client","sub":"google-a","email":"old@example.com","email_verified":True,"exp":1_900_000_000}
@@ -152,7 +152,7 @@ def client(claims=None,public=None,query_core=None,raise_server_exceptions=True,
                    admin_verifier=verify_admin,admin_audience="admin-client",
                    admin_emails=frozenset({"admin@example.com", "old@example.com"}
                                           if allow_user_admin else {"admin@example.com"}),
-                   public=public,private_recalculator=private_recalculator)
+                   public=public,private_recalculator=private_recalculator,admin_service=admin_service)
     return TestClient(app, raise_server_exceptions=raise_server_exceptions),repo,store
 
 
@@ -680,3 +680,35 @@ def test_watchlist_price_change_requires_a_matching_published_reference():
     assert _watchlist_price_change(row, {"price": "130", "price_date": "2026-10-06"})["change"] is None
     assert _watchlist_price_change({**row, "previous_close": None}, None)["change"] is None
 
+
+
+def test_personal_strategy_admin_only_default_and_operator_toggle():
+    class Settings:
+        value = None
+        fail = False
+        def setting(self, key):
+            assert key == "personal_strategy_access"
+            if self.fail:
+                raise RuntimeError("settings unavailable")
+            return {"value": self.value}
+
+    settings = Settings()
+    general, _, _ = client(admin_service=settings)
+    admin_user, _, _ = client(admin_service=settings, allow_user_admin=True)
+    root = "/api/v1/me/personal-strategy"
+    assert general.get(root + "/access").status_code == 401
+    assert general.get(root + "/access", headers=auth()).json() == {"allowed": False}
+    assert general.get(root + "/templates", headers=auth()).status_code == 403
+    assert admin_user.get(root + "/access", headers=auth()).json() == {"allowed": True}
+    assert admin_user.get(root + "/templates", headers=auth()).status_code == 200
+    assert general.put("/api/v1/admin/settings/personal_strategy_access",
+                       headers=auth(), json={"value": {"allow_all_users": True}}).status_code == 403
+    settings.value = {"allow_all_users": True}
+    assert general.get(root + "/templates", headers=auth()).status_code == 200
+    settings.value = {"allow_all_users": "true"}
+    assert general.get(root + "/templates", headers=auth()).status_code == 403
+    settings.value = {"allow_all_users": False}
+    assert general.get(root + "/templates", headers=auth()).status_code == 403
+    settings.fail = True
+    assert general.get(root + "/access", headers=auth()).json() == {"allowed": False}
+    assert admin_user.get(root + "/access", headers=auth()).json() == {"allowed": True}
