@@ -79,8 +79,23 @@ jobs:
               assert code in (401,403),(path,code)
               codes[path.split("?")[0]]=code
           if q.get("market_index_quote_check") is True:
-              subprocess.run(["python", "scripts/gcp/market_index_quote_probe.py",
-                              "--base", base], check=True, timeout=110)
+              proxy_revision=q.get("market_index_proxy_revision")
+              if proxy_revision:
+                  proxy=cmd(["gcloud","run","services","describe","shioaji-quote-proxy",
+                             "--project=gen-lang-client-0593591102",
+                             "--region=asia-east1","--format=json"])
+                  assert any(c.get("type")=="Ready" and c.get("status")=="True"
+                             for c in proxy.get("status",{}).get("conditions",[]))
+                  proxy_active=[x for x in proxy.get("status",{}).get("traffic",[])
+                                if (x.get("percent") or 0)>0]
+                  assert len(proxy_active)==1 and proxy_active[0]["percent"]==100
+                  assert proxy_active[0]["revisionName"]==proxy_revision
+                  print(json.dumps({"scope":"index_proxy_identity","revision":proxy_revision,
+                                    "traffic":100,"result":"PASS"}))
+              quote_args=["python", "scripts/gcp/market_index_quote_probe.py", "--base", base]
+              if q.get("market_index_observe") is True:
+                  quote_args += ["--observe-seconds", "16"]
+              subprocess.run(quote_args, check=True, timeout=170)
           market_code,market_raw=get("/api/v1/public/market-home")
           assert market_code==200,"market_home_unavailable"
           market_json=json.loads(market_raw) if market_raw else {}

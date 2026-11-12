@@ -12,7 +12,7 @@ SOURCES = {"shioaji", "twse_mis"}
 STATUSES = {"updated", "fresh", "idle", "unavailable", "in_flight", "blocked", "throttled"}
 
 
-def probe(base):
+def probe(base, observe_seconds=0):
     def read(force=False):
         req = urllib.request.Request(base.rstrip("/") + PATH + ("?force=true" if force else ""),
                                      headers={"Accept": "application/json"})
@@ -62,12 +62,37 @@ def probe(base):
         assert new["day"] >= old["day"], "index_date_regressed"
         if new["at"] and old["at"]:
             assert datetime.fromisoformat(new["at"]) >= datetime.fromisoformat(old["at"]), "index_tick_regressed"
+    observation = {"status": "NOT_REQUESTED"}
+    if observe_seconds:
+        assert 15 <= observe_seconds <= 20
+        observation = {"status": "OFF_SESSION", "interval_seconds": observe_seconds}
+        if second["session"] == "regular":
+            baseline = second["quote"]
+            samples = []
+            for _ in range(2):
+                time.sleep(observe_seconds)
+                sample = read()
+                samples.append(sample)
+                if (sample["quote"] and sample["quote"]["state"] == "intraday"
+                        and datetime.fromisoformat(sample["quote"]["at"]) >
+                            datetime.fromisoformat(baseline["at"])):
+                    break
+            observation = {"status": "ADVANCED" if samples[-1]["quote"]
+                           and samples[-1]["quote"]["state"] == "intraday"
+                           and datetime.fromisoformat(samples[-1]["quote"]["at"]) >
+                               datetime.fromisoformat(baseline["at"]) else "NOT_ADVANCED",
+                           "interval_seconds": observe_seconds, "samples": samples}
+            print(json.dumps({"scope": "public_index_quote_observation",
+                              "baseline": baseline, **observation}, sort_keys=True))
+            assert observation["status"] == "ADVANCED", "index_real_timestamp_did_not_advance"
     print(json.dumps({"result": "PASS", "scope": "public_index_quote_auto_and_manual",
-                      "first": first, "last": second}, sort_keys=True))
+                      "first": first, "last": second, "observation": observation}, sort_keys=True))
     return first, second
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", required=True)
-    probe(parser.parse_args().base)
+    parser.add_argument("--observe-seconds", type=int, default=0)
+    args = parser.parse_args()
+    probe(args.base, args.observe_seconds)
