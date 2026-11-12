@@ -87,7 +87,86 @@ void _mobile(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
+class IndexTodayApiStub extends TodayApiStub {
+  IndexTodayApiStub(super.market);
+  int indexReads = 0;
+  bool fail = false;
+  @override
+  Future<dynamic> get(String path) async {
+    if (path.startsWith('/api/v1/public/market-index-quote')) {
+      requests.add(path);
+      indexReads++;
+      if (fail) throw StateError('offline');
+      return {
+        'schema_version': 'market-index-quote.v1',
+        'refresh_status': 'updated',
+        'section': {
+          'as_of': '2026-11-12',
+          'data': {'close': '${25000 + 10 * indexReads}', 'quote_previous_close': '24900',
+            'quote_at': '2026-11-12T10:00:${indexReads.toString().padLeft(2, '0')}+08:00',
+            'quote_state': 'intraday', 'quote_source': 'shioaji'},
+        },
+      };
+    }
+    return super.get(path);
+  }
+}
+
 void main() {
+  testWidgets('TAIEX fast polling and manual refresh are independent of holdings and market-home', (tester) async {
+    _mobile(tester);
+    final api = IndexTodayApiStub({'sections': {'taiex': {
+      'as_of': '2026-11-11', 'data': {'close': '24900'}
+    }}});
+    final clock = DateTime.parse('2026-11-12T10:00:20+08:00');
+    await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api, clock: () => clock)));
+    await tester.pumpAndSettle();
+    expect(api.indexReads, 1);
+    expect(find.text('25,010.00'), findsOneWidget);
+    expect(find.text('盤中 10:00:01'), findsOneWidget);
+    final homeReads = api.requests.where((p) => p == '/api/v1/public/market-home').length;
+    final holdingsReads = api.requests.where((p) => p == '/api/v1/me/portfolio/quotes').length;
+    await tester.pump(const Duration(seconds: 15));
+    await tester.pumpAndSettle();
+    expect(api.indexReads, 2);
+    expect(find.text('25,020.00'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('today-index-refresh')));
+    await tester.pumpAndSettle();
+    expect(api.indexReads, 3);
+    expect(api.requests, contains('/api/v1/public/market-index-quote?force=true'));
+    expect(find.text('25,030.00'), findsOneWidget);
+    expect(api.requests.where((p) => p == '/api/v1/public/market-home').length, homeReads);
+    expect(api.requests.where((p) => p == '/api/v1/me/portfolio/quotes').length, holdingsReads);
+    api.fail = true;
+    await tester.pump(const Duration(seconds: 15));
+    await tester.pumpAndSettle();
+    expect(find.text('25,030.00'), findsOneWidget);
+    expect(find.text('行情暫未更新'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('today-tab-longterm')));
+    await tester.pumpAndSettle();
+    final before = api.indexReads;
+    await tester.pump(const Duration(seconds: 16));
+    expect(api.indexReads, before);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('TAIEX off-session has manual action but no automatic request', (tester) async {
+    _mobile(tester);
+    final api = IndexTodayApiStub({'sections': {'taiex': {
+      'as_of': '2026-11-11', 'data': {'close': '24900'}
+    }}});
+    await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api,
+      clock: () => DateTime.parse('2026-11-12T16:00:00+08:00'))));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 16));
+    expect(api.indexReads, 0);
+    await tester.tap(find.byKey(const Key('today-index-refresh')));
+    await tester.pumpAndSettle();
+    expect(api.indexReads, 1);
+    expect(api.requests, contains('/api/v1/public/market-index-quote?force=true'));
+    await tester.pumpWidget(const SizedBox());
+  });
+
   test('intraday axis follows actual extremes, keeps zero and has a quiet-market floor', () {
     final falling = fvIntradayAxisRange([-7.17, -9.89, -6.55]);
     expect(falling.min, lessThan(-9.89));

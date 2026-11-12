@@ -169,3 +169,11 @@
 - Dev：0% [#42795775968](https://github.com/tommylin15/janus-omniforge/actions/runs/42795775968) PASS、OAuth/Owner/Admin/MCP 與實際行情 parity [#42796075164](https://github.com/tommylin15/janus-omniforge/actions/runs/42796075164) PASS、API-only 可回復 100% [#42796276597](https://github.com/tommylin15/janus-omniforge/actions/runs/42796276597) PASS；舊現役 `6a61ca534bb19b6298e4a62bc22f700f4bd525c2` 保留 rollback；未改 Jobs、Scheduler、PG、IAM、Owner 帳本。
 - 獨立 public/anonymous runtime [#42796710267](https://github.com/tommylin15/janus-omniforge/actions/runs/42796710267) `API_LIVE_READBACK_PASS`：現役 100% Ready、build-id 匹配、owner/admin 拒絕、GCP mutation 0。加權指數正式日線 30 筆；上市融資 available 10 筆截至 2026-11-09；法人 available 3 類，截至 2026-11-10。這代表資料入口可取，不代表個人手機版已視覺確認或所有 270 根分鐘 K 棒完整。
 - **Owner 正向 UAT 保持 NOT_VERIFIED**：使用者登入手機對照新長期首屏、收盤底層明細、融資及法人；下次真盤中觀察 2327/TAIEX 斷線與按需回補情形。無使用者操作結果與逐分鐘 PG 覆蓋證據，不把來源未提供的分鐘資料插值或宣稱全日無缺口。
+
+## 2026-11-12｜大盤即時摘要獨立更新（核定）
+
+- 只在今日／盤中變化可見、App 前景、台北工作日 09:00–13:30，每 15 秒讀取 `GET /api/v1/public/market-index-quote`；開頁與返回前景立即檢查，非盤中不自動發網路請求。大盤分鐘圖、market-home、持股及觀察股維持 60 秒；長期研究不加入快輪詢。
+- 新 API 僅 TAIEX，按需取既有 Shioaji simulation-only Proxy（MIS 備援不變），同請求讀回 PostgreSQL；不掃 Core、不讀 Owner 持股、不經市場大包 60 秒快取。回應 `market-index-quote.v1`、section／session／checked_at／refresh_status，no-store，缺值明示。
+- TAIEX 獨立 PG advisory lock、15 秒共享 receipt TTL；股票保留原 lock 與 60 秒。混合請求按兩 lane 拆分；手動 `?force=true` 保留 10 秒來源節流。跨 instance 同 lane 不重疊，若鎖占用回 in_flight＋最近合法報價；UI 手動最多一次有界 follow-up。Proxy callback 及 MIS 備援自有節流／實際來源時間不變，15 秒是檢查頻率而非保證每次有新成交。
+- 摘要顯示實際 tick 秒數、更新中／暫未更新／休市及「立即更新」；不重載全頁。保留最近有效值，拒絕倒退日期／時間，正式同日收盤優先，前收仍以同筆來源或有 provenance 的較早正式歷史。不得以查詢時間冒充行情時間。
+- 不新增 Scheduler、常駐服務、付費資源、資料表、IAM 或交易操作。驗收：API 單一指數、同請求讀回／no-store、15/60/10 秒契約、lock 隔離、前景／休市／手動／失敗保持值、既有行情及權限回歸、固定 GHCR Release → Candidate → 100% → Live。

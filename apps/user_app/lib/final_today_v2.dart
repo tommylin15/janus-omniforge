@@ -9,11 +9,12 @@ import 'final_visual_common.dart';
 import 'main.dart' as legacy;
 
 class FinalTodayPage extends StatefulWidget {
-  const FinalTodayPage(this.api, {this.onOpenStock, this.active = true, super.key});
+  const FinalTodayPage(this.api, {this.onOpenStock, this.active = true, this.clock, super.key});
 
   final legacy.Api api;
   final ValueChanged<String>? onOpenStock;
   final bool active;
+  final DateTime Function()? clock;
 
   @override
   State<FinalTodayPage> createState() => _FinalTodayPageState();
@@ -32,6 +33,12 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   bool showOrderBook = false;
   dynamic lastGoodOwnerQuotes;
   Timer? marketTimer;
+  Timer? indexTimer;
+  Map<String, dynamic>? indexSection;
+  bool indexBusy = false;
+  String? indexRefreshStatus;
+  int indexGeneration = 0;
+  DateTime _now() => widget.clock?.call() ?? DateTime.now();
   bool foreground = true;
   final Set<String> _backfillAttemptKeys = <String>{};
   final Set<String> _backfillInFlight = <String>{};
@@ -46,7 +53,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   static const marketColdTimeout = Duration(seconds: 24);
 
   bool get marketHours {
-    final taipei = DateTime.now().toUtc().add(const Duration(hours: 8));
+    final taipei = _now().toUtc().add(const Duration(hours: 8));
     final minutes = taipei.hour * 60 + taipei.minute;
     return taipei.weekday <= 5 && minutes >= 540 && minutes < 810;
   }
@@ -74,6 +81,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _startMarketTimer();
+        _startIndexTimer();
         _requestHistoricalGapFill('TAIEX');
       }
     });
@@ -171,6 +179,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   void _switchTodayTab(int next) {
     if (next == todayTab) return;
     marketTimer?.cancel();
+    indexTimer?.cancel();
     setState(() {
       todayTab = next;
       if (next == 1) {
@@ -183,8 +192,104 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     });
     if (next == 0) {
       _startMarketTimer();
+      _startIndexTimer();
       _requestHistoricalGapFill('TAIEX');
     }
+  }
+
+  void _startIndexTimer() {
+    indexTimer?.cancel();
+    if (!widget.active || !foreground || todayTab != 0) return;
+    if (marketActive && marketHours) unawaited(_refreshIndex());
+    // The local timer can remain armed across the opening bell; it makes
+    // zero network requests while off-session, hidden or in the background.
+    indexTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (marketActive && marketHours) unawaited(_refreshIndex());
+    });
+  }
+
+  Future<void> _refreshIndex({bool manual = false}) async {
+    if (!mounted || !marketActive || indexBusy || (!manual && !marketHours)) return;
+    final generation = ++indexGeneration;
+    final api = widget.api;
+    setState(() => indexBusy = true);
+    try {
+      final path = '/api/v1/public/market-index-quote${manual ? '?force=true' : ''}';
+      dynamic raw = await api.get(path).timeout(const Duration(seconds: 23));
+      if (!mounted || generation != indexGeneration || !identical(api, widget.api)) return;
+      // Another instance may hold the index lock. A manual action gets one
+      // bounded follow-up read, not another forced provider request.
+      if (manual && raw is Map && raw['refresh_status'] == 'in_flight') {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        if (!mounted || generation != indexGeneration || !marketActive) return;
+        raw = await api.get('/api/v1/public/market-index-quote')
+            .timeout(const Duration(seconds: 23));
+      }
+      if (!mounted || generation != indexGeneration || !identical(api, widget.api)) return;
+      final response = fvMap(raw);
+      final next = fvMap(response['section']);
+      final nextData = fvMap(next['data']);
+      final nextPrice = fvNumber(nextData['close']);
+      final valid = response['schema_version'] == 'market-index-quote.v1' &&
+          nextPrice != null && nextPrice.isFinite && nextPrice > 0 &&
+          fvText(next['as_of'], missing: '').isNotEmpty;
+      setState(() {
+        if (valid && _newerIndex(next, indexSection ?? {})) indexSection = next;
+        indexRefreshStatus = response['schema_version'] == 'market-index-quote.v1'
+            ? fvText(response['refresh_status'], missing: 'unavailable')
+            : 'unavailable';
+        if (!valid && indexRefreshStatus != 'in_flight') indexRefreshStatus = 'unavailable';
+      });
+    } catch (_) {
+      if (mounted && generation == indexGeneration) setState(() => indexRefreshStatus = 'unavailable');
+    } finally {
+      if (mounted && generation == indexGeneration) setState(() => indexBusy = false);
+    }
+  }
+
+  bool _newerIndex(Map<String, dynamic> next, Map<String, dynamic> previous) {
+    if (previous.isEmpty) return true;
+    final nextDay = fvText(next['as_of'], missing: '');
+    final priorDay = fvText(previous['as_of'], missing: '');
+    if (nextDay != priorDay) return nextDay.compareTo(priorDay) > 0;
+    final n = fvMap(next['data']);
+    final p = fvMap(previous['data']);
+    final previousFinal = previous['is_final'] == true ||
+        (p['close'] != null && fvText(p['quote_state'], missing: '').isEmpty);
+    if (previousFinal && next['is_final'] != true) return false;
+    if (next['is_final'] == true && !previousFinal) return true;
+    final nextAt = DateTime.tryParse(fvText(n['quote_at'], missing: ''));
+    final priorAt = DateTime.tryParse(fvText(p['quote_at'], missing: ''));
+    return nextAt != null && (priorAt == null || !nextAt.isBefore(priorAt));
+  }
+
+  Map<String, dynamic> _indexSummary(Map<String, dynamic> base) {
+    final next = indexSection;
+    if (next == null || !_newerIndex(next, base)) return base;
+    // Preserve dated official history for the provenance-aware prior-close fallback.
+    return {...base, ...next, 'data': {...fvMap(base['data']), ...fvMap(next['data'])}};
+  }
+
+  Widget _indexRefreshControls() {
+    final status = indexBusy ? '更新中…'
+        : indexRefreshStatus == 'unavailable' || indexRefreshStatus == 'blocked'
+            ? '行情暫未更新'
+        : indexRefreshStatus == 'in_flight' ? '共用行情更新中'
+        : marketHours ? '每 15 秒檢查' : '休市 · 手動更新';
+    return Row(children: [
+      Expanded(child: Text(status, key: const Key('today-index-refresh-status'),
+          style: const TextStyle(color: fvMuted, fontSize: 11), maxLines: 1,
+          overflow: TextOverflow.ellipsis)),
+      TextButton.icon(
+        key: const Key('today-index-refresh'),
+        onPressed: indexBusy ? null : () => unawaited(_refreshIndex(manual: true)),
+        style: TextButton.styleFrom(visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 8), foregroundColor: fvTeal),
+        icon: indexBusy ? const SizedBox(width: 14, height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.refresh, size: 17),
+        label: const Text('立即更新', style: TextStyle(fontSize: 12)),
+      ),
+    ]);
   }
 
   void _startMarketTimer() {
@@ -221,6 +326,11 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     if (!identical(oldWidget.api, widget.api)) {
       researchLoaded = false;
       lastGoodMarket = null;
+      indexGeneration++;
+      indexSection = null;
+      indexBusy = false;
+      indexRefreshStatus = null;
+      _startIndexTimer();
       market = widget.active ? _readCoreMarket() : Future<dynamic>.value(null);
       marketFlows = Future<dynamic>.value(null);
       brief = Future<dynamic>.value(null);
@@ -241,9 +351,11 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           }
         });
         _startMarketTimer();
+        _startIndexTimer();
         if (todayTab == 0) _requestHistoricalGapFill('TAIEX');
       } else {
         marketTimer?.cancel();
+        indexTimer?.cancel();
       }
     }
   }
@@ -264,16 +376,19 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           }
         });
         _startMarketTimer();
+        _startIndexTimer();
         if (todayTab == 0) _requestHistoricalGapFill('TAIEX');
       }
     } else {
       marketTimer?.cancel();
+      indexTimer?.cancel();
     }
   }
 
   @override
   void dispose() {
     marketTimer?.cancel();
+    indexTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -958,7 +1073,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     final at = DateTime.tryParse(fvText(data['quote_at'], missing: ''));
     final state = fvText(data['quote_state'], missing: '');
     final date = fvText(section['as_of'], missing: '');
-    final now = DateTime.now();
+    final now = _now();
     final today = now.toUtc().add(const Duration(hours: 8));
     final tick = at?.toUtc().add(const Duration(hours: 8));
     final sameDay = tick != null && tick.year == today.year &&
@@ -966,7 +1081,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     final age = at == null ? null : now.difference(at).inSeconds;
     if (marketHours && state == 'intraday' && sameDay &&
         age != null && age >= 0 && age <= 120) {
-      return '盤中 ${tick.hour.toString().padLeft(2, '0')}:${tick.minute.toString().padLeft(2, '0')}';
+      return '盤中 ${tick.hour.toString().padLeft(2, '0')}:${tick.minute.toString().padLeft(2, '0')}:${tick.second.toString().padLeft(2, '0')}';
     }
     if (state.isNotEmpty) return '非即時 · ${date.isEmpty ? '日期缺值' : date}';
     return date.isNotEmpty ? '資料日 $date' : '行情日期缺值';
@@ -978,16 +1093,19 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     future: market,
     builder: (context, snapshot) {
       final root = fvMap(snapshot.data ?? lastGoodMarket);
-      final section = fvMap(fvMap(root['sections'])['taiex']);
+      final section = _indexSummary(fvMap(fvMap(root['sections'])['taiex']));
       if (section.isEmpty) {
         return Column(children: [
           fvPanel(padding: const EdgeInsets.symmetric(
               horizontal: 14, vertical: 10),
-            child: const Row(children: [
-              Text('加權指數', style: TextStyle(color: fvInk,
-                  fontSize: 15, fontWeight: FontWeight.w800)),
-              Spacer(),
-              Text('行情尚未取得', style: TextStyle(color: fvMuted, fontSize: 14)),
+            child: Column(children: [
+              const Row(children: [
+                Text('加權指數', style: TextStyle(color: fvInk,
+                    fontSize: 15, fontWeight: FontWeight.w800)),
+                Spacer(),
+                Text('行情尚未取得', style: TextStyle(color: fvMuted, fontSize: 14)),
+              ]),
+              _indexRefreshControls(),
             ])),
           fvBoundedState(snapshot.connectionState == ConnectionState.done
               ? '大盤行情暫時無法取得' : '大盤資料仍在讀取；其他資訊可先使用'),
@@ -1006,7 +1124,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       final percent = ratio == null ? '—' : fvSignedPercent(ratio);
       return fvPanel(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        child: InkWell(
+        child: Column(children: [
+        InkWell(
           key: const Key('today-market-summary'),
           onTap: () => showModalBottomSheet<void>(
             context: context, isScrollControlled: true,
@@ -1077,6 +1196,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
             ],
           ),
         ),
+        const Divider(height: 8),
+        _indexRefreshControls(),
+        ]),
       );
     },
   );
