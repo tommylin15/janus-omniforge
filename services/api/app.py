@@ -28,8 +28,7 @@ from packages.admin_api import AdminConflictError, AdminValidationError
 from packages.web_api import (PublicReportNotFound, PublicReportWaiting, PublicStockNotFound,
                               QueryValidationError)
 from .auth import (AuthenticatedAdmin, AuthenticatedUser, GoogleAdminAuthenticator,
-                   GoogleUserAuthenticator, allowed_admin_emails,
-                   allowed_user_emails)
+                   GoogleUserAuthenticator, allowed_admin_emails)
 from .context_sources import ContextSourceError, ContextSourceService, CoreContextReader
 from .mcp_adapter import McpAdapter
 from .mcp_oauth import McpOAuth, OAuthSettings, RepositoryOAuthCodeStore, parse_form
@@ -313,8 +312,10 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         ))
 
     contexts = ContextSourceService(repository,store,core)
+    # Any verified Google account may create and access its own owner-scoped workspace;
+    # GOOGLE_USER_ALLOWED_EMAILS remains enforced only on MCP OAuth (OAuthSettings).
     auth = GoogleUserAuthenticator(audience or os.getenv("GOOGLE_USER_CLIENT_ID", ""), repository,
-                                   allowed_emails=allowed_user_emails(), verifier=verifier)
+                                   verifier=verifier)
     admin_auth = GoogleAdminAuthenticator(
         admin_audience or os.getenv("GOOGLE_ADMIN_CLIENT_ID", ""),
         admin_emails if admin_emails is not None else allowed_admin_emails(),

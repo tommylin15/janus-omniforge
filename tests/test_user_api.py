@@ -712,3 +712,31 @@ def test_personal_strategy_admin_only_default_and_operator_toggle():
     settings.fail = True
     assert general.get(root + "/access", headers=auth()).json() == {"allowed": False}
     assert admin_user.get(root + "/access", headers=auth()).json() == {"allowed": True}
+
+
+def test_new_google_user_allowed_on_user_api_when_mcp_allowlist_set(monkeypatch):
+    monkeypatch.setenv("GOOGLE_USER_ALLOWED_EMAILS", "existing@example.com")
+    monkeypatch.setenv("MCP_OAUTH_ISSUER", "https://mcp-oauth.example.com")
+    monkeypatch.setenv("MCP_RESOURCE_URL", "https://mcp.example.com/mcp")
+    monkeypatch.setenv("GOOGLE_USER_CLIENT_ID", "user-client")
+    monkeypatch.setenv("GOOGLE_USER_CLIENT_SECRET", "user-secret")
+    monkeypatch.setenv("MCP_OAUTH_SIGNING_KEY", "test-signing-key-at-least-32-bytes")
+    from services.api.mcp_oauth import OAuthSettings
+
+    new_user_claims = {
+        "iss": "https://accounts.google.com",
+        "aud": "user-client",
+        "sub": "new-google-sub",
+        "email": "newuser@example.com",
+        "email_verified": True,
+        "exp": 1_900_000_000,
+    }
+    api, repo, _ = client(claims=new_user_claims)
+    repo.search_trade_instruments = lambda q: [{"symbol": "0050", "stock_name": "元大台灣50", "market": "TWSE", "enabled": True, "instrument_kind": "ETF"}]
+
+    instruments = api.get("/api/v1/me/journal/instruments", params={"q": "0050"}, headers=auth())
+    assert instruments.status_code == 200
+    assert instruments.json()["items"][0]["symbol"] == "0050"
+    assert api.get("/api/v1/me/profile", headers=auth()).status_code == 200
+    assert api.get("/api/v1/admin/session", headers=auth()).status_code == 403
+    assert OAuthSettings.from_env().allowed_emails == frozenset({"existing@example.com"})
