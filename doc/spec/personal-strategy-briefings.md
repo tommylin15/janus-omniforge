@@ -249,3 +249,11 @@ GitHub程式及runtime為實作現況；本文件是功能契約；已撰寫程�
 ## 2026-11-12 功能開放控制
 
 以已驗證 User email 對照既有 Admin allowlist；一般使用者僅在 Admin setting `personal_strategy_access.value.allow_all_users` 為 true 時可使用。缺設定、讀取失敗或值非法均視為未開放；`GET /api/v1/me/personal-strategy/access` 只回傳本人 allowed，UI 不信任前端 email。其他策略 API 逐請求檢查，未開放回 403；獨立的手動觀察池 tier 更新仍可使用。既有 `PERSONAL_STRATEGY_ENABLED` 生成服務開關、Owner 隔離及週額度不變。開關以既有版本與 Admin audit 保存，不需 migration；關閉不刪既有資料，也不取消已送出的工作。
+
+### 2026-11-12 發布及有界驗收收據
+
+- 正式 serving 來源 `c5a5c9e99bc0393fe226ec5da36b73afe66af4fc`，Cloud Run `janus-api-00708-hun` 單一 100% Ready，固定 GHCR API digest `sha256:f107df3fb11cd5f14e0cef3a76f27a6ad0876db656149e4ed3c9a63135ee2a89`；上一版 `aaef41171804a4f51d80608e282cc04982c0c0de` 保留可逆回復。未請求回滾演練，不冒稱演練完成。
+- [完整 Release 43141170205](https://github.com/tommylin15/janus-omniforge/actions/runs/43141170205)：Python 2189 PASS、2 skipped、2 deselected；Flutter 190 PASS、analyze／Web build PASS；四 GHCR 固定來源／digest readback PASS。新增回歸涵蓋 Admin 預設、一般帳號拒絕、開關兩態、版本衝突、fail-closed、Tab 保留輸入與既有投資屬性儲存。
+- [Candidate 43141823351](https://github.com/tommylin15/janus-omniforge/actions/runs/43141823351) 0% PASS；[Auth boundary 43142298617](https://github.com/tommylin15/janus-omniforge/actions/runs/43142298617) OAuth metadata／Owner／Admin／MCP negative PASS，新策略 access、summary、templates 與 Admin 開放設定四個匿名 GET 401；兩版 2330 及大盤同日即時行情 PASS。前兩次 43142041013 因先讀大盤背景更新與個股共用 quote lease 而觀測到兩版昨收，修正驗收順序為先個股、有界三次讀取且保留 same-day/provider/intraday 原硬門檻；最終兩版均實際讀到 2026-11-12 Shioaji intraday，未降低門檻。
+- [API-only 切流 43142428769](https://github.com/tommylin15/janus-omniforge/actions/runs/43142428769) PASS；[獨立 Live 43142584381](https://github.com/tommylin15/janus-omniforge/actions/runs/43142584381) PASS，正式 build-id 正確、單一 100% Ready、新增匿名權限路由拒絕、公開行情及既有 Owner 邊界通過。無 Jobs／Scheduler／PG migration／GCS／IAM 或 Owner 私有資料變更；無 AI 生成呼叫。
+- 工程發布及可自動驗收範圍 CLOSED／PASS。真人 Admin／一般使用者 Google 登入後的頁面操作及真實設定開關未以真人憑證實測，記為 NOT_VERIFIED；不得將 CI 的模擬身分或匿名 runtime 驗證冒充正向真人驗收。此版只交付 UI 整合與功能權限，不宣稱完整個人策略研究功能已完成。
