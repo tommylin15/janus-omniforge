@@ -162,6 +162,37 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('strategy settings tab contains both forms and preserves edits', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = MockStrategyApi();
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PersonalStrategyPage(api))));
+    await tester.pumpAndSettle();
+    expect(find.text('策略與報告'), findsOneWidget);
+    expect(find.byType(PortfolioDashboard), findsNothing);
+    await tester.tap(find.text('策略設定'));
+    await tester.pumpAndSettle();
+    expect(find.text('資產與風險'), findsOneWidget);
+    expect(find.text('個人策略設定'), findsOneWidget);
+    await tester.ensureVisible(find.text('儲存投資屬性'));
+    await tester.tap(find.text('儲存投資屬性'));
+    await tester.pumpAndSettle();
+    expect(api.calls, contains('PUT /api/v1/me/investment-profile'));
+    final custom = find.widgetWithText(TextFormField, '自訂規則／個人補充（進場、退出、A/B/C條件）');
+    await tester.ensureVisible(custom);
+    await tester.enterText(custom, '未儲存的策略補充');
+    await tester.tap(find.text('策略與報告'));
+    await tester.pumpAndSettle();
+    expect(find.text('盤前'), findsOneWidget);
+    expect(find.text('資產與風險'), findsNothing);
+    await tester.tap(find.text('策略設定'));
+    await tester.pumpAndSettle();
+    expect(find.text('未儲存的策略補充'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('PersonalStrategySettings renders 5 templates, risk form, and 390px bounded', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -235,7 +266,7 @@ void main() {
     api.summary['requests'] = [{'kind': 'strategy', 'status': 'QUEUED'}];
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: PersonalStrategySettings(api))));
     await tester.pumpAndSettle();
-    expect(find.text('策略正在產出；請至個人策略頁查看進度或重試原請求。'), findsOneWidget);
+    expect(find.text('策略正在產出；請至「策略與報告」查看進度或重試原請求。'), findsOneWidget);
     final field = find.widgetWithText(TextFormField, '資金需求／不可動用資金（必填）');
     await tester.ensureVisible(field);
     await tester.enterText(field, '保留草稿');
@@ -243,7 +274,7 @@ void main() {
     await tester.ensureVisible(find.text('更新產出狀態（保留目前填寫內容）'));
     await tester.tap(find.text('更新產出狀態（保留目前填寫內容）'));
     await tester.pumpAndSettle();
-    expect(find.text('策略正在產出；請至個人策略頁查看進度或重試原請求。'), findsNothing);
+    expect(find.text('策略正在產出；請至「策略與報告」查看進度或重試原請求。'), findsNothing);
     expect(find.text('保留草稿'), findsOneWidget);
     expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, '產出個人策略並生效（每週一次）')).onPressed, isNull);
   });

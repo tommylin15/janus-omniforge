@@ -411,6 +411,9 @@ class AdminService:
             raise AdminValidationError("retention requires cleanup_enabled and days between 1 and 3650")
         if key == "source_config" and not isinstance(value, dict):
             raise AdminValidationError("source_config must be an object")
+        if key == "personal_strategy_access":
+            if not isinstance(value, dict) or set(value) != {"allow_all_users"} or not isinstance(value.get("allow_all_users"), bool):
+                raise AdminValidationError("personal_strategy_access requires boolean allow_all_users")
         if key == "private_recalc_workers":
             if (
                 not isinstance(value, dict)

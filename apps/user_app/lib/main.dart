@@ -1,4 +1,3 @@
-import 'personal_strategy.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -2116,10 +2115,8 @@ class ProfilePage extends StatelessWidget {
             leading: const Icon(Icons.account_circle),
             title: Text(email),
             subtitle: const Text('Google 帳號')),
-        PortfolioDashboard(api),
         CashPositionCard(api),
         BrokerProfileCard(api),
-        PersonalStrategySettings(api),
         UsagePrivacy(api.usage),
         const Divider(),
         const ListTile(title: Text('外觀')),

@@ -515,3 +515,25 @@ def test_gateway_canary_requires_authenticated_invalid_request(monkeypatch, stat
     else:
         with pytest.raises(ValueError, match='gateway_authenticated_probe_failed'):
             gateway.probe_gateway()
+
+
+
+def test_personal_strategy_access_boundary():
+    from types import SimpleNamespace
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from services.api.personal_strategy import router
+
+    current = SimpleNamespace(user_id=uuid4(), email="user@example.test")
+    state = {"allowed": False}
+    app = FastAPI()
+    app.include_router(router(None, lambda: current, access_policy=lambda user: state["allowed"]))
+    client = TestClient(app)
+    root = "/api/v1/me/personal-strategy"
+    assert client.get(root + "/access").json() == {"allowed": False}
+    for path in ("", "/templates", "/reports/premarket", "/export"):
+        assert client.get(root + path).status_code == 403
+    assert client.put(root + "/pause", json={"paused": True}).status_code == 403
+    state["allowed"] = True
+    assert client.get(root + "/access").json() == {"allowed": True}
+    assert client.get(root + "/templates").status_code == 200

@@ -252,10 +252,30 @@ class FinalWorkspace extends StatefulWidget {
 class _FinalWorkspaceState extends State<FinalWorkspace> {
   int page = 0;
   final visited = <int>{0};
+  bool strategyAllowed = false;
+  int accessGeneration = 0;
   @override
   void initState() {
     super.initState();
     unawaited(widget.api.usage.start());
+    unawaited(loadStrategyAccess());
+  }
+
+  Future<void> loadStrategyAccess() async {
+    final generation = ++accessGeneration;
+    bool allowed = false;
+    try {
+      final result = await widget.api.get('/api/v1/me/personal-strategy/access');
+      allowed = result is Map && result['allowed'] == true;
+    } catch (_) { /* Fail closed; other pages remain available. */ }
+    if (!mounted || generation != accessGeneration) return;
+    setState(() {
+      strategyAllowed = allowed;
+      if (!allowed) {
+        visited.remove(3);
+        if (page == 3) { page = 4; visited.add(4); }
+      }
+    });
   }
 
   @override
@@ -265,6 +285,7 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
   }
 
   void selectPage(int value) {
+    unawaited(loadStrategyAccess());
     widget.api.usage
         .select(['today', 'watchlist', 'journal', 'profile', 'profile'][value]);
     final restoring = value != page && visited.contains(value);
@@ -288,6 +309,8 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
       oldWidget.api.usage.dispose();
       unawaited(widget.api.usage.start());
       page = 0;
+      strategyAllowed = false;
+      unawaited(loadStrategyAccess());
       visited
         ..clear()
         ..add(0);
@@ -310,14 +333,15 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
       FinalTodayPage(widget.api, active: page == 0, onOpenStock: openStock),
       FinalWatchlistPage(widget.api, active: page == 1, onOpenStock: openStock),
       FinalLedgerPage(widget.api, active: page == 2, onOpenStock: openStock),
-      PersonalStrategyPage(widget.api, active: page == 3),
+      if (strategyAllowed) PersonalStrategyPage(widget.api, active: page == 3) else const SizedBox.shrink(),
       legacy.ProfilePage(api: widget.api, email: widget.email, onTheme: widget.onTheme),
     ];
-    const destinations = [
+    final visiblePages = [0, 1, 2, if (strategyAllowed) 3, 4];
+    final destinations = [
       NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: '今日'),
       NavigationDestination(icon: Icon(Icons.star_outline), selectedIcon: Icon(Icons.star), label: '關注'),
       NavigationDestination(icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: '持股／記帳'),
-      NavigationDestination(icon: Icon(Icons.psychology_outlined), selectedIcon: Icon(Icons.psychology), label: '個人策略'),
+      if (strategyAllowed) const NavigationDestination(icon: Icon(Icons.psychology_outlined), selectedIcon: Icon(Icons.psychology), label: '個人策略'),
       NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: '我的'),
     ];
     return LayoutBuilder(builder: (context, constraints) {
@@ -330,10 +354,10 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
                 Row(children: [
                   if (wide)
                     NavigationRail(
-                      selectedIndex: page,
+                      selectedIndex: visiblePages.indexOf(page),
                       labelType: NavigationRailLabelType.all,
-                      onDestinationSelected: selectPage,
-                      destinations: const [
+                      onDestinationSelected: (index) => selectPage(visiblePages[index]),
+                      destinations: [
                         NavigationRailDestination(
                             icon: Icon(Icons.today_outlined),
                             selectedIcon: Icon(Icons.today),
@@ -346,7 +370,7 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
                             icon: Icon(Icons.edit_note_outlined),
                             selectedIcon: Icon(Icons.edit_note),
                             label: Text('持股／記帳')),
-                        NavigationRailDestination(icon: Icon(Icons.psychology_outlined), label: Text('個人策略')),
+                        if (strategyAllowed) const NavigationRailDestination(icon: Icon(Icons.psychology_outlined), label: Text('個人策略')),
                         NavigationRailDestination(
                             icon: Icon(Icons.person_outline),
                             selectedIcon: Icon(Icons.person),
@@ -381,8 +405,8 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
                 ? null
                 : NavigationBar(
                     height: 72,
-                    selectedIndex: page,
-                    onDestinationSelected: selectPage,
+                    selectedIndex: visiblePages.indexOf(page),
+                    onDestinationSelected: (index) => selectPage(visiblePages[index]),
                     destinations: destinations,
                   ),
           ));

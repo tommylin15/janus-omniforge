@@ -51,6 +51,8 @@ class PersonalStrategyPage extends StatefulWidget {
 }
 class _PersonalStrategyPageState extends State<PersonalStrategyPage> with WidgetsBindingObserver {
   String type = 'premarket';
+  int selectedTab = 0;
+  bool settingsVisited = false;
   Map<String, dynamic> summary = {};
   List<dynamic> reports = [];
   String? error;
@@ -114,13 +116,52 @@ class _PersonalStrategyPageState extends State<PersonalStrategyPage> with Widget
     final active = _map(summary['active']);
     final requests = _list(summary['requests']);
     final used = requests.any((v) => v['kind'] == type);
-    return SafeArea(child: ListView(padding: const EdgeInsets.all(18), children: [
-      Row(children: [Expanded(child: Text('個人策略', style: Theme.of(context).textTheme.headlineSmall)),
-        IconButton(onPressed: load, icon: const Icon(Icons.refresh), tooltip: '重新整理')]),
-      const Text('AI研究報告唯讀；每類最近3份。修改策略請至「我的」。'),
+    return SafeArea(child: DefaultTabController(
+      length: 2,
+      child: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
+          child: Row(children: [
+            Expanded(child: Text('個人策略', style: Theme.of(context).textTheme.headlineSmall)),
+            if (selectedTab == 0)
+              IconButton(onPressed: load, icon: const Icon(Icons.refresh), tooltip: '重新整理'),
+          ]),
+        ),
+        TabBar(
+          tabs: const [Tab(text: '策略與報告'), Tab(text: '策略設定')],
+          onTap: (index) {
+            if (index == selectedTab) return;
+            setState(() {
+              selectedTab = index;
+              if (index == 1) settingsVisited = true;
+            });
+            if (index == 0) load();
+          },
+        ),
+        Expanded(child: IndexedStack(index: selectedTab, children: [
+          _reports(active, requests, used),
+          if (settingsVisited)
+            SingleChildScrollView(
+              key: const PageStorageKey('personal-strategy-settings'),
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                legacy.PortfolioDashboard(widget.api),
+                const SizedBox(height: 12),
+                PersonalStrategySettings(widget.api, embedded: true, active: widget.active && selectedTab == 1),
+              ]),
+            )
+          else const SizedBox.shrink(),
+        ])),
+      ]),
+    ));
+  }
+
+  Widget _reports(Map<String, dynamic> active, List<dynamic> requests, bool used) {
+    return ListView(padding: const EdgeInsets.all(18), children: [
+      const Text('AI研究報告唯讀；每類最近3份。修改策略請至「策略設定」。'),
       if (loading) const LinearProgressIndicator(),
       if (error != null) Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-      if (active.isEmpty && !loading) const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('請先到「我的」產出個人策略'))),
+      if (active.isEmpty && !loading) const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('請先到「策略設定」產出個人策略'))),
       if (active.isNotEmpty) Card(child: ExpansionTile(title: Text('${_map(_map(active['rules'])['template'])['name'] ?? '生效策略'}'),
         subtitle: Text('生效 ${active['created_at']}'), children: [Padding(padding: const EdgeInsets.all(16), child: ResearchMarkdown('${active['markdown']}'))])),
       if (active.isNotEmpty) SwitchListTile(title: const Text('暫停新建／加碼建議'), value: active['paused'] == true,
@@ -153,13 +194,15 @@ class _PersonalStrategyPageState extends State<PersonalStrategyPage> with Widget
           ResearchMarkdown('${item['markdown']}'),
         ]))),
       if (!loading && reports.isEmpty) const Padding(padding: EdgeInsets.all(20), child: Text('此類尚無報告')),
-    ]));
+    ]);
   }
 }
 
 class PersonalStrategySettings extends StatefulWidget {
-  const PersonalStrategySettings(this.api, {super.key});
+  const PersonalStrategySettings(this.api, {this.embedded = false, this.active = true, super.key});
   final legacy.Api api;
+  final bool embedded;
+  final bool active;
   @override
   State<PersonalStrategySettings> createState() => _PersonalStrategySettingsState();
 }
@@ -175,6 +218,17 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
   Map<String, dynamic>? prepared;
   @override
   void initState() { super.initState(); load(); }
+  @override
+  void didUpdateWidget(PersonalStrategySettings oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active && loaded && !busy) refreshStatus();
+  }
+  Future<void> refreshStatus() async {
+    try {
+      final result = await widget.api.get(_root).timeout(const Duration(seconds: 25));
+      if (mounted) setState(() { summary = _map(result); error = null; });
+    } catch (e) { if (mounted) setState(() => error = settingsError(e)); }
+  }
   @override
   void dispose() { for (final c in [custom, liquidity, protected, cash, position, sector, loss, drawdown]) { c.dispose(); } super.dispose(); }
   Future<void> load() async {
@@ -234,7 +288,7 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
   String settingsError(Object e) {
     final message = e.toString().replaceFirst('Exception: ', '');
     if (message.contains('loc:') || message.contains('FormatException')) return '設定格式不符，請檢查必填欄位與風險限制後重新預覽。';
-    if (e is TimeoutException) return '服務回應逾時；產出狀態請至個人策略頁確認，避免重複送出。';
+    if (e is TimeoutException) return '服務回應逾時；產出狀態請至「策略與報告」確認，避免重複送出。';
     return message;
   }
   String? get generationBlock {
@@ -242,7 +296,7 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
     if (summary['enabled'] != true) return '個人策略產出服務目前未啟用。';
     if (summary['strategy_locked'] == true) return '本週已成功產出，請於下週重置後變更。';
     if (_list(summary['requests']).any((r) => r['kind'] == 'strategy' && ['QUEUED', 'RUNNING'].contains(r['status']))) {
-      return '策略正在產出；請至個人策略頁查看進度或重試原請求。';
+      return '策略正在產出；請至「策略與報告」查看進度或重試原請求。';
     }
     if (prepared == null) return '請先完成欄位並預覽策略與風險限制。';
     if (prepared!['blocked'] == true) return '請依預覽提示修正策略，再重新預覽。';
@@ -270,7 +324,7 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
       if (!mounted) return;
       if (generate) {
         await load();
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('策略已送出；請至個人策略頁查看進度')));
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('策略已送出；請至「策略與報告」查看進度')));
       } else { setState(() => prepared = _map(result)); }
     } catch (e) { if (mounted) setState(() => error = settingsError(e)); }
     finally { if (mounted) setState(() => busy = false); }
@@ -279,8 +333,8 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
     child: TextFormField(controller: c, enabled: !busy, validator: (_) => percentageError(c), keyboardType: const TextInputType.numberWithOptions(decimal: true),
       decoration: InputDecoration(labelText: '$label（%）'), onChanged: (_) => changed()));
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-        child: Card(
+  Widget build(BuildContext context) {
+    final card = Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Form(key: form, child: Column(
@@ -326,12 +380,7 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
                   ],
                   if (summary['strategy_locked'] == true) Text('本週已使用；下次可變更：${summary['next_change_at']}'),
                   if (generationBlock != null) Text(generationBlock!),
-                  TextButton(onPressed: busy ? null : () async {
-                    try {
-                      final result = await widget.api.get(_root).timeout(const Duration(seconds: 25));
-                      if (mounted) setState(() { summary = _map(result); error = null; });
-                    } catch (e) { if (mounted) setState(() => error = settingsError(e)); }
-                  }, child: const Text('更新產出狀態（保留目前填寫內容）')),
+                  TextButton(onPressed: busy ? null : refreshStatus, child: const Text('更新產出狀態（保留目前填寫內容）')),
                   FilledButton(onPressed: generationBlock != null ? null : () => action(true), child: const Text('產出個人策略並生效（每週一次）')),
                   TextButton(onPressed: busy ? null : () async {
                     try { final result = await widget.api.get('$_root/export'); await Clipboard.setData(ClipboardData(text: jsonEncode(result))); }
@@ -358,6 +407,7 @@ class _PersonalStrategySettingsState extends State<PersonalStrategySettings> {
               ],
             )),
           ),
-        ),
-      );
+        );
+    return widget.embedded ? card : SingleChildScrollView(child: card);
+  }
 }

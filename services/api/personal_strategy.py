@@ -234,33 +234,42 @@ class PersonalResearchTrigger:
             raise RuntimeError('personal research dispatch unavailable')
 
 
-def router(repository, user_dependency, trigger=None):
+def router(repository, user_dependency, trigger=None, *, access_policy):
     service=PersonalStrategyService(repository,trigger)
     routes=APIRouter(prefix='/api/v1/me/personal-strategy',tags=['personal-strategy'])
+    def permitted(current=Depends(user_dependency)):
+        if not access_policy(current):
+            raise HTTPException(403, 'personal strategy access is restricted')
+        return current
+
+    @routes.get('/access')
+    def access(current=Depends(user_dependency)):
+        return {'allowed': bool(access_policy(current))}
+
     def key(value:str=Header(alias='Idempotency-Key',min_length=8,max_length=128)): return value
     @routes.get('/templates')
-    def templates(current=Depends(user_dependency)):
+    def templates(current=Depends(permitted)):
         return {'items':[{'id':k,**v} for k,v in TEMPLATES.items()]}
     @routes.get('')
-    def summary(current=Depends(user_dependency)): return jsonable_encoder(service.summary(current.user_id))
+    def summary(current=Depends(permitted)): return jsonable_encoder(service.summary(current.user_id))
     @routes.put('/draft')
-    def save_draft(value:StrategyDraft,current=Depends(user_dependency)):
+    def save_draft(value:StrategyDraft,current=Depends(permitted)):
         return service.save_draft(current.user_id,value)
     @routes.post('/preview')
-    def draft(value:StrategyInput,current=Depends(user_dependency)): return preview(value)
+    def draft(value:StrategyInput,current=Depends(permitted)): return preview(value)
     @routes.post('/generate',status_code=202)
-    def generate(value:StrategyInput,current=Depends(user_dependency),token=Depends(key)):
+    def generate(value:StrategyInput,current=Depends(permitted),token=Depends(key)):
         return jsonable_encoder(service.enqueue(current.user_id,'strategy',value.model_dump(),token))
     @routes.post('/reports',status_code=202)
-    def request_report(value:ReportInput,current=Depends(user_dependency),token=Depends(key)):
+    def request_report(value:ReportInput,current=Depends(permitted),token=Depends(key)):
         try: return jsonable_encoder(service.enqueue(current.user_id,value.report_type,value.model_dump(),token))
         except ValueError as e: raise HTTPException(422,str(e)) from None
     @routes.get('/reports/{kind}')
-    def reports(kind:str,current=Depends(user_dependency)): return jsonable_encoder(service.reports(current.user_id,kind))
+    def reports(kind:str,current=Depends(permitted)): return jsonable_encoder(service.reports(current.user_id,kind))
     @routes.get('/requests/{request_id}')
-    def request_status(request_id:UUID,current=Depends(user_dependency)): return jsonable_encoder(service.status(current.user_id,request_id))
+    def request_status(request_id:UUID,current=Depends(permitted)): return jsonable_encoder(service.status(current.user_id,request_id))
     @routes.post('/requests/{request_id}/retry',status_code=202)
-    def retry(request_id:UUID,current=Depends(user_dependency)):
+    def retry(request_id:UUID,current=Depends(permitted)):
         try: return jsonable_encoder(service.retry(current.user_id,request_id))
         except ValueError as e: raise HTTPException(422,str(e)) from None
     @routes.put('/watchlist/{symbol}')
@@ -268,11 +277,11 @@ def router(repository, user_dependency, trigger=None):
     class Pause(Strict):
         paused: bool
     @routes.put('/pause')
-    def pause(value:Pause,current=Depends(user_dependency)): return service.pause(current.user_id,value.paused)
+    def pause(value:Pause,current=Depends(permitted)): return service.pause(current.user_id,value.paused)
     @routes.post('/seed/preview')
-    def seed_preview(value:SeedInput,current=Depends(user_dependency)): return service.seed(current.user_id,value)
+    def seed_preview(value:SeedInput,current=Depends(permitted)): return service.seed(current.user_id,value)
     @routes.post('/seed/apply')
-    def seed_apply(value:SeedInput,current=Depends(user_dependency)): return service.seed(current.user_id,value,True)
+    def seed_apply(value:SeedInput,current=Depends(permitted)): return service.seed(current.user_id,value,True)
     @routes.get('/export')
-    def export(current=Depends(user_dependency)): return jsonable_encoder(service.export(current.user_id))
+    def export(current=Depends(permitted)): return jsonable_encoder(service.export(current.user_id))
     return routes

@@ -483,7 +483,7 @@ class _AdminWorkspaceState extends State<AdminWorkspace> {
     [0, 1],
     [0, 1],
     [0, 2, 3, 4],
-    [0, 1]
+    [0, 1, 2]
   ];
   void updateRoute() {
     SystemNavigator.routeInformationUpdated(
@@ -619,7 +619,8 @@ class _AdminWorkspaceState extends State<AdminWorkspace> {
           },
           labels: const [
             '模型與報告管理',
-            '券商與隱私設定'
+            '券商與隱私設定',
+            '功能開放控制',
           ],
           pages: [
             () => AdminAnalysisPage(widget.api),
@@ -627,6 +628,7 @@ class _AdminWorkspaceState extends State<AdminWorkspace> {
                 section: 'settings',
                 brokerProfile: widget.brokerProfile,
                 usage: widget.usage),
+            () => AdminPersonalStrategyAccess(widget.api),
           ]),
     ];
     return LayoutBuilder(
@@ -2103,3 +2105,66 @@ String _storageName(Object? role) =>
       'cloudbuild': '舊建置檔案'
     }[role] ??
     '其他儲存空間';
+
+
+// The existing versioned Admin settings store provides optimistic locking and audit.
+class AdminPersonalStrategyAccess extends StatefulWidget {
+  const AdminPersonalStrategyAccess(this.api, {super.key});
+  final AdminApi api;
+  @override
+  State<AdminPersonalStrategyAccess> createState() => _AdminPersonalStrategyAccessState();
+}
+
+class _AdminPersonalStrategyAccessState extends State<AdminPersonalStrategyAccess> {
+  static const endpoint = '/api/v1/admin/settings/personal_strategy_access';
+  bool? enabled;
+  int version = 0;
+  bool busy = false;
+  String? error;
+  @override
+  void initState() { super.initState(); load(); }
+
+  Future<void> load() async {
+    setState(() { busy = true; error = null; enabled = null; });
+    try {
+      final data = await widget.api.get(endpoint) as Map;
+      final value = data['value'];
+      if (mounted) setState(() {
+        enabled = value is Map && value['allow_all_users'] == true;
+        version = data['version'] as int;
+      });
+    } catch (_) {
+      if (mounted) setState(() => error = '無法讀取開放狀態，請重新整理');
+    } finally { if (mounted) setState(() => busy = false); }
+  }
+
+  Future<void> save(bool value) async {
+    setState(() { busy = true; error = null; });
+    try {
+      await widget.api.put(endpoint, {
+        'value': {'allow_all_users': value},
+        'expected_version': version,
+      });
+      if (mounted) await load();
+    } catch (_) {
+      if (mounted) setState(() { enabled = null; error = '儲存未確認，請重新整理後再試'; });
+    } finally { if (mounted) setState(() => busy = false); }
+  }
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(16),
+    children: [
+      Card(child: Column(children: [
+        const ListTile(title: Text('個人策略開放權限'),
+          subtitle: Text('預設僅 Admin 帳號；關閉時一般使用者不能進入頁面或呼叫策略 API。')),
+        if (enabled != null)
+          SwitchListTile(title: const Text('開放一般使用者使用個人策略'),
+            value: enabled!, onChanged: busy ? null : save),
+        if (busy) const LinearProgressIndicator(),
+        if (error != null) ListTile(title: Text(error!)),
+        TextButton(onPressed: busy ? null : load, child: const Text('重新整理')),
+      ])),
+    ],
+  );
+}

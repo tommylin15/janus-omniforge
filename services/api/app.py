@@ -2098,7 +2098,16 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     api.include_router(public_router)
     api.include_router(private)
     from .personal_strategy import router as personal_strategy_router
-    api.include_router(personal_strategy_router(repository, user))
+    def personal_strategy_allowed(current):
+        if current.email.strip().lower() in admin_auth.allowed_emails:
+            return True
+        try:
+            value = admin_service.setting("personal_strategy_access").get("value")
+            return isinstance(value, dict) and value.get("allow_all_users") is True
+        except Exception:
+            return False
+
+    api.include_router(personal_strategy_router(repository, user, access_policy=personal_strategy_allowed))
     api.include_router(admin)
     api.include_router(legacy_core)
     return api
