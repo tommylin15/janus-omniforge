@@ -674,6 +674,13 @@ jobs:
               assert cand["stock_state"] == "intraday", "candidate_stock_state_not_intraday"
           PY
 
+      - name: Verify lightweight TAIEX auto and manual quote path
+        shell: bash
+        run: |
+          if [[ "$(jq -r '.market_index_quote_check // false' ops/ghcr-candidate-boundary-request.json)" == true ]]; then
+            python scripts/gcp/market_index_quote_probe.py --base "$JANUS_CANDIDATE_URL"
+          fi
+
   jobs-baseline:
     needs: detect
     if: needs.detect.outputs.operation == 'jobs-baseline'

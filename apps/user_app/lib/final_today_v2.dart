@@ -275,6 +275,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         : indexRefreshStatus == 'unavailable' || indexRefreshStatus == 'blocked'
             ? '行情暫未更新'
         : indexRefreshStatus == 'in_flight' ? '共用行情更新中'
+        : indexRefreshStatus == 'throttled' ? '更新節流 · 保留行情'
         : marketHours ? '每 15 秒檢查' : '休市 · 手動更新';
     return Row(children: [
       Expanded(child: Text(status, key: const Key('today-index-refresh-status'),

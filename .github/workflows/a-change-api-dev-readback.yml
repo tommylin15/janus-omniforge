@@ -78,6 +78,9 @@ jobs:
               code,_=get(path)
               assert code in (401,403),(path,code)
               codes[path.split("?")[0]]=code
+          if q.get("market_index_quote_check") is True:
+              subprocess.run(["python", "scripts/gcp/market_index_quote_probe.py",
+                              "--base", base], check=True, timeout=110)
           market_code,market_raw=get("/api/v1/public/market-home")
           assert market_code==200,"market_home_unavailable"
           market_json=json.loads(market_raw) if market_raw else {}

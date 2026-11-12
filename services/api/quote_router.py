@@ -50,6 +50,7 @@ def _day(row):
 class QuoteRouter:
     def __init__(self, repository, source, tpex_source=None):
         self.repository, self.source = repository, source
+        self._index_attempt_at = None
         if tpex_source is None:
             from .tpex_quotes import TpexDailyQuotes
             tpex_source = TpexDailyQuotes()
@@ -188,6 +189,16 @@ class QuoteRouter:
         due = self._due(identities, force=force, now=now)
         if not due:
             return {"status": "fresh", "requested": 0, "updated": 0}
+        if set(due) == {"TAIEX"}:
+            # Receipt timestamps are provider observations, not poll times.
+            # Do not fake their freshness just to suppress repeated polls
+            # when a stream returns the same tick or has no data.
+            threshold = MANUAL_THROTTLE_SECONDS if force else INDEX_TTL_SECONDS
+            elapsed = ((now - self._index_attempt_at).total_seconds()
+                       if self._index_attempt_at is not None else None)
+            if elapsed is not None and 0 <= elapsed < threshold:
+                return {"status": "throttled", "requested": 0, "updated": 0}
+            self._index_attempt_at = now
         try:
             rows = self.source.prices(due)
             received = datetime.now(TAIPEI)

@@ -177,3 +177,5 @@
 - TAIEX 獨立 PG advisory lock、15 秒共享 receipt TTL；股票保留原 lock 與 60 秒。混合請求按兩 lane 拆分；手動 `?force=true` 保留 10 秒來源節流。跨 instance 同 lane 不重疊，若鎖占用回 in_flight＋最近合法報價；UI 手動最多一次有界 follow-up。Proxy callback 及 MIS 備援自有節流／實際來源時間不變，15 秒是檢查頻率而非保證每次有新成交。
 - 摘要顯示實際 tick 秒數、更新中／暫未更新／休市及「立即更新」；不重載全頁。保留最近有效值，拒絕倒退日期／時間，正式同日收盤優先，前收仍以同筆來源或有 provenance 的較早正式歷史。不得以查詢時間冒充行情時間。
 - 不新增 Scheduler、常駐服務、付費資源、資料表、IAM 或交易操作。驗收：API 單一指數、同請求讀回／no-store、15/60/10 秒契約、lock 隔離、前景／休市／手動／失敗保持值、既有行情及權限回歸、固定 GHCR Release → Candidate → 100% → Live。
+
+- 補充節流：跨 instance 以 PG 同 lane singleflight 與已保存 receipt 共享，來源未送新 tick／查詢失敗時，各 API instance 另有 15 秒（手動 10 秒）attempt 冷卻；不改寫 receipt 作假新鮮。Proxy 既有 MIS fallback 每 symbol 60 秒節流維持；此版不另建分散式失敗狀態表，故不能聲稱所有 instance 在來源失效時共用精確的 attempt TTL。

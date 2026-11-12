@@ -524,8 +524,8 @@ def test_index_15_second_ttl_and_independent_distributed_lane():
     assert router.refresh(index, now=now + timedelta(seconds=14))["status"] == "fresh"
     assert router.refresh(index, now=now + timedelta(seconds=15))["updated"] == 1
     assert router.refresh(stocks, now=now + timedelta(seconds=15))["status"] == "fresh"
-    assert router.refresh(index, force=True, now=now + timedelta(seconds=9))["status"] == "fresh"
-    assert router.refresh(index, force=True, now=now + timedelta(seconds=10))["updated"] == 1
+    assert router.refresh(index, force=True, now=now + timedelta(seconds=24))["status"] == "throttled"
+    assert router.refresh(index, force=True, now=now + timedelta(seconds=25))["updated"] == 1
     assert calls == [("TAIEX",), ("2330",), ("TAIEX",), ("TAIEX",)]
 
 
@@ -548,3 +548,20 @@ def test_index_busy_does_not_block_equities_and_never_dispatches_duplicate():
     assert calls == []
     router.refresh({"2330": {"market":"TWSE"}})
     assert calls == [("2330",)]
+
+
+def test_index_failed_provider_attempt_is_bounded_without_faking_receipt():
+    now = datetime(2026, 10, 6, 10, 0, tzinfo=TAIPEI)
+    calls = []
+    class Source:
+        def prices(self, identities):
+            calls.append(tuple(identities))
+            return {}
+    repo = QuoteRepository()
+    router = QuoteRouter(repo, Source())
+    index = {"TAIEX": {"market": "TWSE_INDEX"}}
+    assert router.refresh(index, now=now)["status"] == "unavailable"
+    assert router.refresh(index, now=now + timedelta(seconds=1))["status"] == "throttled"
+    assert router.refresh(index, force=True, now=now + timedelta(seconds=9))["status"] == "throttled"
+    assert router.refresh(index, force=True, now=now + timedelta(seconds=10))["status"] == "unavailable"
+    assert repo.saved == {} and calls == [("TAIEX",), ("TAIEX",)]
