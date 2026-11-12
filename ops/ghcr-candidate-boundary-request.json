@@ -1,8 +1,9 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "aaef41171804a4f51d80608e282cc04982c0c0de",
+  "sha": "c5a5c9e99bc0393fe226ec5da36b73afe66af4fc",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-11 新用戶首次交易/現金起步修正候選版 source aaef4117：full immutable Release #43047426258 PASS；0% Candidate #43048394140 PASS。獨立只讀測試 OAuth/Owner/Admin/MCP 未授權拒絕，App build-id，公開市場行情對比現役版本；不讀寫 Owner 私人資料，不切流、不改Jobs/Scheduler/PG/IAM；不把匿名驗收冒充真人新用戶登入UAT。",
-  "request_attempt": 62
+  "purpose": "2026-11-12 個人策略雙 Tab 與 Admin-only 開放控制：完整 GHCR Release #43141170205 PASS，固定映像 0% Candidate #43141823351 PASS。對新版獨立驗證 OAuth/Owner/Admin/MCP、個人策略權限 API 匿名拒絕與公開行情等效；不讀寫 Owner 真實資料、不切流、不改 Jobs/Scheduler/PG/IAM。",
+  "request_attempt": 63,
+  "personal_strategy_access_check": true
 }
