@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "c5a5c9e99bc0393fe226ec5da36b73afe66af4fc",
+  "sha": "1a052667bf1cc71caabec55c2f6c033cf8f78079",
   "digest": "",
-  "release_run": "43141170205",
+  "release_run": "43146386806",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-12 個人策略雙 Tab、投資屬性搬移、Admin-only 預設與版本化開放控制。完整 Python 2189／Flutter 190 PASS、四 GHCR 映像固定來源及匿名 digest 讀回 PASS；只部署既有 Dev API 0% Candidate，保留現役 100%、Jobs、Scheduler、PG、IAM 與 Owner 資料。後續須通過 OAuth/Owner/Admin/MCP 及個人策略權限 API 匿名拒絕驗收才切流。",
-  "request_attempt": 71
+  "purpose": "2026-11-12 TAIEX 15秒獨立更新、手動刷新、秒級實際報價時間、PG獨立lock/15秒receipt TTL及有界失敗冷卻。完整Python 2196／Flutter 192 PASS、四GHCR固定映像及公開digest驗證PASS；只部署現有Dev API 0% Candidate，保留現役c5a5c9e9 100%及Jobs/Scheduler/PG/IAM/Owner；新TAIEX API與舊行情/權限完整驗收後才切流。",
+  "request_attempt": 72
 }
