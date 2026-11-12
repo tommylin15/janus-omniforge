@@ -5,6 +5,7 @@ on:
     paths: ['ops/a-change-api-live-request.json']
 permissions:
   contents: read
+  actions: read
   id-token: write
 jobs:
   readback:
@@ -13,6 +14,32 @@ jobs:
     environment: dev
     steps:
       - uses: actions/checkout@v4
+      - name: Verify requested proxy deployment receipt before live readback
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          run="$(jq -r '.market_index_proxy_run // empty' ops/a-change-api-live-request.json)"
+          if [[ -n "$run" ]]; then
+            [[ "$run" =~ ^[0-9]+$ ]]
+            expected="$(jq -r '.market_index_proxy_source_sha' ops/a-change-api-live-request.json)"
+            [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
+            timeout 300 gh run watch "$run" --interval 10 --exit-status
+            gh run view "$run" --json headSha,status,conclusion,workflowName | jq -e --arg sha "$expected" '
+              .headSha==$sha and .status=="completed" and .conclusion=="success" and
+              .workflowName=="Deploy Shioaji Quote Proxy to Cloud Run (asia-east1)"' >/dev/null
+            gh run view "$run" --log > /tmp/proxy-deploy-log.txt
+            python - <<'PY'
+          import os, re
+          from pathlib import Path
+          raw=Path("/tmp/proxy-deploy-log.txt").read_text(errors="replace")
+          matches=re.findall(r"Service \[shioaji-quote-proxy\] revision \[(shioaji-quote-proxy-[a-z0-9-]+)\] has been deployed",raw)
+          assert len(set(matches))==1,"proxy_deployment_revision_receipt_missing"
+          with open(os.environ["GITHUB_ENV"],"a") as out:
+              out.write("EXPECTED_PROXY_REVISION="+matches[0]+"\n")
+          PY
+            rm -f /tmp/proxy-deploy-log.txt
+          fi
       - uses: ./.github/actions/setup-janus
         with:
           install-deps: minimal
@@ -21,7 +48,7 @@ jobs:
       - name: Read exact live source, API and anonymous owner fences
         run: |
           python - <<'PY'
-          import json,re,subprocess,urllib.request,urllib.error
+          import json,os,re,subprocess,urllib.request,urllib.error
           from datetime import datetime,timedelta,timezone
           from pathlib import Path
           q=json.loads(Path("ops/a-change-api-live-request.json").read_text())
@@ -79,7 +106,7 @@ jobs:
               assert code in (401,403),(path,code)
               codes[path.split("?")[0]]=code
           if q.get("market_index_quote_check") is True:
-              proxy_revision=q.get("market_index_proxy_revision")
+              proxy_revision=q.get("market_index_proxy_revision") or os.environ.get("EXPECTED_PROXY_REVISION")
               if proxy_revision:
                   proxy=cmd(["gcloud","run","services","describe","shioaji-quote-proxy",
                              "--project=gen-lang-client-0593591102",

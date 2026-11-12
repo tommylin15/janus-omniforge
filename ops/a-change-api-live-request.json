@@ -1,13 +1,17 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "c5a5c9e99bc0393fe226ec5da36b73afe66af4fc",
-  "promotion_run": "43142428769",
+  "source_sha": "1a052667bf1cc71caabec55c2f6c033cf8f78079",
+  "promotion_run": "43147367292",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-12 個人策略兩Tab、資產與風險與個人策略設定搬移、Admin-only與開放控制。完整Release #43141170205、Candidate #43141823351、OAuth/個人策略權限/盤中行情 #43142298617、API-only 100% #43142428769 全PASS。獨立唯讀驗證正式 App build-id、單一100% Ready、GHCR digest、個人策略與Admin開放設定匿名拒絕，以及市場與既有Owner保護；不改GCP、Jobs、Scheduler、PG、IAM或Owner資料。真人帳號正向操作仍需如實獨立標記。",
-  "request_attempt": 24,
-  "personal_strategy_access_check": true
+  "purpose": "2026-11-12 TAIEX 15秒輕量摘要/手動刷新/秒級真實報價與獨立鎖。Release #43146386806、Candidate #43147037906、OAuth及行情/新API #43147232130、API-only 100% #43147367292 PASS。Candidate實際使用MIS備援，故獨立既有Proxy #43147583548調整TAIEX fallback 15秒/股票60秒及原始時間戳cache。正式readback須先取得該Proxy部署成功且精確來源/Revision收據，再驗兩服務100% Ready、App build-id、原Owner/Admin/MCP保護及市場公開行情；16秒間隔最多兩輪真實TAIEX時間戳前進。無新資源/PG migration/Jobs/Scheduler/Owner資料變更。",
+  "request_attempt": 25,
+  "personal_strategy_access_check": true,
+  "market_index_quote_check": true,
+  "market_index_observe": true,
+  "market_index_proxy_run": "43147583548",
+  "market_index_proxy_source_sha": "9b173a7d43d26da7399c3b8e861ccf97a3e80e52"
 }
