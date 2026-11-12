@@ -155,3 +155,53 @@ def test_market_home_dataset_failure_only_affects_that_section():
     assert body["sections"]["taiex"]["status"] == "available"
     assert body["sections"]["market-activity"]["status"] == "unavailable"
     assert "private backend detail" not in str(body)
+
+
+def test_index_quote_is_lightweight_same_request_and_no_store(monkeypatch):
+    from services.api.quote_router import QuoteRouter
+    import services.api.app as app_module
+
+    now = datetime.now(ZoneInfo("Asia/Taipei"))
+    calls = []
+    class Core:
+        def market_home(self):
+            raise AssertionError("lightweight endpoint must not query market-home")
+    def resolve(self, identities, *, refresh=False, force=False, now=None):
+        calls.append((identities, refresh, force))
+        return {"TAIEX": {"price": "25125.5", "previous_close": "25000",
+                           "price_date": now.date().isoformat(), "quote_at": now.isoformat(),
+                           "source": "shioaji", "state": "intraday"}}, {"status": "updated"}
+    monkeypatch.setattr(QuoteRouter, "resolve", resolve)
+    monkeypatch.setenv("JANUS_MIS_QUOTES_ENABLED", "true")
+    monkeypatch.setattr(app_module, "market_phase", lambda _: "regular")
+    client = TestClient(create_app(object(), object(), query_core=Core()))
+    response = client.get("/api/v1/public/market-index-quote?force=true")
+    assert response.status_code == 200
+    assert "no-store" in response.headers["cache-control"]
+    body = response.json()
+    assert body["schema_version"] == "market-index-quote.v1"
+    assert body["refresh_status"] == "updated"
+    assert body["section"]["data"]["close"] == "25125.5"
+    assert body["section"]["data"]["quote_previous_close"] == "25000"
+    assert body["section"]["data"]["quote_source"] == "shioaji"
+    assert calls == [({"TAIEX": {"market": "TWSE_INDEX", "enabled": True}}, True, True)]
+
+
+def test_index_quote_off_session_only_manual_refresh_and_missing_is_explicit(monkeypatch):
+    from services.api.quote_router import QuoteRouter
+    import services.api.app as app_module
+    calls = []
+    def resolve(self, identities, *, refresh=False, force=False, now=None):
+        calls.append((refresh, force))
+        return {}, {"status": "unavailable" if refresh else "idle"}
+    monkeypatch.setattr(QuoteRouter, "resolve", resolve)
+    monkeypatch.setattr(app_module, "market_phase", lambda _: "closed")
+    monkeypatch.setenv("JANUS_MIS_QUOTES_ENABLED", "true")
+    client = TestClient(create_app(object(), object(), query_core=object()))
+    body = client.get("/api/v1/public/market-index-quote").json()
+    assert body["section"] is None and body["session"] == "closed"
+    assert client.get("/api/v1/public/market-index-quote?force=true").json()["refresh_status"] == "unavailable"
+    assert calls == [(False, False), (True, True)]
+    monkeypatch.setenv("JANUS_MIS_QUOTES_ENABLED", "false")
+    assert client.get("/api/v1/public/market-index-quote?force=true").json()["refresh_status"] == "blocked"
+    assert calls[-1] == (False, True)

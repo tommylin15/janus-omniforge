@@ -10,6 +10,7 @@ from .intraday_quotes import TAIPEI, market_phase
 LOGGER = logging.getLogger(__name__)
 ROUTE_VERSION = "latest-price.v2"
 TTL_SECONDS = 60
+INDEX_TTL_SECONDS = 15
 MANUAL_THROTTLE_SECONDS = 10
 
 
@@ -152,12 +153,12 @@ class QuoteRouter:
     def _due(self, identities, *, force=False, now=None):
         now = now or datetime.now(TAIPEI)
         current = self._live(identities)
-        threshold = MANUAL_THROTTLE_SECONDS if force else TTL_SECONDS
         due = {}
         for symbol, identity in identities.items():
             market = str(identity.get("market", "")).upper()
             if identity.get("enabled") is False or market not in {"TWSE", "TWSE_INDEX", "TPEX", "OTC", "TPEX_UNVERIFIED"}:
                 continue
+            threshold = MANUAL_THROTTLE_SECONDS if force else (INDEX_TTL_SECONDS if symbol == "TAIEX" else TTL_SECONDS)
             row = current.get(symbol)
             received = _timestamp(row.get("received_at")) if row else None
             if received is None or (now - received).total_seconds() >= threshold:
@@ -167,7 +168,16 @@ class QuoteRouter:
     def refresh(self, identities, *, force=False, now=None):
         # Distributed singleflight: a PostgreSQL advisory session lock is
         # held across upstream I/O and quote persistence. Recheck TTL inside.
-        guard = getattr(self.repository, "quote_refresh_guard", None)
+        if "TAIEX" in identities and len(identities) > 1:
+            index = self.refresh({"TAIEX": identities["TAIEX"]}, force=force, now=now)
+            stocks = self.refresh({s: v for s, v in identities.items() if s != "TAIEX"}, force=force, now=now)
+            statuses = {index["status"], stocks["status"]}
+            updated = index["updated"] + stocks["updated"]
+            return {"status": "updated" if updated else ("in_flight" if "in_flight" in statuses else ("unavailable" if "unavailable" in statuses else "fresh")),
+                    "requested": index["requested"] + stocks["requested"], "updated": updated}
+        guard = (getattr(self.repository, "index_quote_refresh_guard", None)
+                 if set(identities) == {"TAIEX"} else None)
+        guard = guard or getattr(self.repository, "quote_refresh_guard", None)
         with (guard() if guard is not None else nullcontext(True)) as acquired:
             if not acquired:
                 return {"status": "in_flight", "requested": 0, "updated": 0}

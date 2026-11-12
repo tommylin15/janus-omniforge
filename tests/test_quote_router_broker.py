@@ -495,3 +495,56 @@ def test_eod_precedence_rejects_future_day_and_older_quote():
         out = QuoteRouter(repo, object()).read({"2330": {"market": "TWSE"}}, now=now)
         assert out["2330"]["state"] == "stale"
         assert out["2330"]["price"] == "115"
+
+
+def test_index_15_second_ttl_and_independent_distributed_lane():
+    from contextlib import contextmanager
+    now = datetime(2026, 11, 12, 10, 0, tzinfo=TAIPEI)
+    calls, lanes = [], []
+    class Repo(QuoteRepository):
+        @contextmanager
+        def quote_refresh_guard(self):
+            lanes.append("stocks")
+            yield True
+        @contextmanager
+        def index_quote_refresh_guard(self):
+            lanes.append("index")
+            yield True
+    class Source:
+        def prices(self, identities):
+            calls.append(tuple(identities))
+            return {s: {"price":"100", "quote_at": now.isoformat(),
+                        "received_at": now.isoformat()} for s in identities}
+    repo = Repo()
+    router = QuoteRouter(repo, Source())
+    index = {"TAIEX": {"market": "TWSE_INDEX"}}
+    stocks = {"2330": {"market": "TWSE"}}
+    assert router.refresh({**index, **stocks}, now=now)["updated"] == 2
+    assert calls == [("TAIEX",), ("2330",)] and lanes == ["index", "stocks"]
+    assert router.refresh(index, now=now + timedelta(seconds=14))["status"] == "fresh"
+    assert router.refresh(index, now=now + timedelta(seconds=15))["updated"] == 1
+    assert router.refresh(stocks, now=now + timedelta(seconds=15))["status"] == "fresh"
+    assert router.refresh(index, force=True, now=now + timedelta(seconds=9))["status"] == "fresh"
+    assert router.refresh(index, force=True, now=now + timedelta(seconds=10))["updated"] == 1
+    assert calls == [("TAIEX",), ("2330",), ("TAIEX",), ("TAIEX",)]
+
+
+def test_index_busy_does_not_block_equities_and_never_dispatches_duplicate():
+    from contextlib import contextmanager
+    class Repo(QuoteRepository):
+        @contextmanager
+        def index_quote_refresh_guard(self):
+            yield False
+        @contextmanager
+        def quote_refresh_guard(self):
+            yield True
+    calls = []
+    class Source:
+        def prices(self, identities):
+            calls.append(tuple(identities))
+            return {}
+    router = QuoteRouter(Repo(), Source())
+    assert router.refresh({"TAIEX": {"market":"TWSE_INDEX"}})["status"] == "in_flight"
+    assert calls == []
+    router.refresh({"2330": {"market":"TWSE"}})
+    assert calls == [("2330",)]

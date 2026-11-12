@@ -712,6 +712,33 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                     background_tasks.add_task(refresh_index_after_response)
         return result
 
+    @public_router.get("/market-index-quote")
+    def market_index_quote(force: bool = False):
+        # TAIEX-only path: no market-home/Core scan or Owner holdings query.
+        # Read back the durable quote in the same request.
+        prices, refresh, current, phase, authorized = resolve_prices(
+            {"TAIEX": {"market": "TWSE_INDEX", "enabled": True}}, force=force)
+        quote = prices.get("TAIEX") or {}
+        price = quote.get("price")
+        section = None
+        if price is not None and quote.get("price_date"):
+            section = {
+                "status": "available" if quote.get("state") == "intraday" else "partial",
+                "as_of": quote["price_date"],
+                "quote_state": quote.get("state"),
+                "is_final": bool(quote.get("is_final")),
+                "provenance": {"source": quote.get("source"), "route_version": ROUTE_VERSION},
+                "data": {"benchmark_id": "TAIEX", "close": price,
+                         "quote_previous_close": quote.get("previous_close"),
+                         "quote_at": quote.get("quote_at"), "quote_state": quote.get("state"),
+                         "quote_source": quote.get("source")},
+            }
+        return JSONResponse(jsonable_encoder({
+            "schema_version": "market-index-quote.v1", "symbol": "TAIEX",
+            "section": section, "session": phase, "checked_at": current.isoformat(),
+            "refresh_status": "blocked" if not authorized else refresh.get("status", "idle"),
+        }), headers={"Cache-Control": "no-store, max-age=0"})
+
     @public_router.get("/market-leverage-flow")
     def market_leverage_flow():
         # Separate from minute quotes and the existing market-home.v1 snapshot.

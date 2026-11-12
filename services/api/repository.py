@@ -628,21 +628,25 @@ class PostgresWorkspaceRepository:
                 "minimum_cash_ratio":None,"ai_context_opt_in":False,"version":0,"updated_at":None}
 
     @contextmanager
-    def quote_refresh_guard(self):
+    def _quote_refresh_guard(self, key):
         """Nonblocking distributed quote singleflight with PG session lock."""
         with self._connection() as connection:
             acquired = bool(connection.execute(
-                "SELECT pg_try_advisory_lock(hashtext(%s)) AS acquired",
-                ("janus-shared-live-quotes-v1",),
+                "SELECT pg_try_advisory_lock(hashtext(%s)) AS acquired", (key,),
             ).fetchone()["acquired"])
             try:
                 yield acquired
             finally:
                 if acquired:
                     connection.execute(
-                        "SELECT pg_advisory_unlock(hashtext(%s))",
-                        ("janus-shared-live-quotes-v1",),
+                        "SELECT pg_advisory_unlock(hashtext(%s))", (key,),
                     )
+
+    def quote_refresh_guard(self):
+        return self._quote_refresh_guard("janus-shared-live-quotes-v1")
+
+    def index_quote_refresh_guard(self):
+        return self._quote_refresh_guard("janus-taiex-live-quotes-v1")
 
     def last_quotes(self, identities) -> dict[str, dict[str, Any]]:
         if not identities:
