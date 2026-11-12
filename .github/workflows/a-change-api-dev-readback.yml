@@ -66,6 +66,13 @@ jobs:
                      "/api/v1/me/today-changes?session=postmarket",
                      "/api/v1/me/analysis/2330/changes",
                      "/api/v1/admin/batch-dashboard")
+          if q.get("personal_strategy_access_check") is True:
+              protected += (
+                  "/api/v1/me/personal-strategy/access",
+                  "/api/v1/me/personal-strategy",
+                  "/api/v1/me/personal-strategy/templates",
+                  "/api/v1/admin/settings/personal_strategy_access",
+              )
           codes={}
           for path in protected:
               code,_=get(path)

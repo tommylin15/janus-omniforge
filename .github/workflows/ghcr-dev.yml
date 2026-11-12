@@ -537,6 +537,19 @@ jobs:
           ):
               assert_private(path)
 
+          # Probe feature-specific endpoints only for the explicitly requested
+          # release that implements the personal-strategy access contract.
+          with open("ops/ghcr-candidate-boundary-request.json") as file:
+              boundary_request = json.load(file)
+          if boundary_request.get("personal_strategy_access_check") is True:
+              for path in (
+                  "/api/v1/me/personal-strategy/access",
+                  "/api/v1/me/personal-strategy",
+                  "/api/v1/me/personal-strategy/templates",
+                  "/api/v1/admin/settings/personal_strategy_access",
+              ):
+                  assert_private(path)
+
           # The new GCS inventory is POST-only and must reject requests before
           # any backend metadata scan without an authenticated Admin audience.
           code, _, _ = request("/api/v1/admin/gcs-storage/inspect", {})

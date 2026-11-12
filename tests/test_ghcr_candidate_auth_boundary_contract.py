@@ -49,3 +49,17 @@ def test_boundary_runs_after_explicit_readonly_request_and_accepts_prior_ghcr_tr
     assert '"janus-api-g53d655ccb108-config"' not in text
     assert '.no_gcp_mutation == true' in text
     assert "update-traffic" not in text
+
+
+def test_personal_strategy_feature_access_is_checked_at_candidate_and_live():
+    candidate = (ROOT / ".github/workflows/ghcr-dev.yml").read_text()
+    boundary = candidate.split("  auth-boundary:", 1)[1].split("  # ============ JOBS ROLLOUT", 1)[0]
+    live = (ROOT / ".github/workflows/a-change-api-dev-readback.yml").read_text()
+    for source in (boundary, live):
+        assert 'get("personal_strategy_access_check") is True' in source
+        for route in ("/api/v1/me/personal-strategy/access",
+                      "/api/v1/me/personal-strategy",
+                      "/api/v1/me/personal-strategy/templates",
+                      "/api/v1/admin/settings/personal_strategy_access"):
+            assert f'"{route}",' in source
+        assert 'code in (401,403)' in source
