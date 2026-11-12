@@ -63,3 +63,13 @@ def test_personal_strategy_feature_access_is_checked_at_candidate_and_live():
                       "/api/v1/admin/settings/personal_strategy_access"):
             assert f'"{route}",' in source
         assert 'code in (401,403)' in source
+
+
+def test_stock_parity_probe_avoids_index_refresh_race_without_weakening_gate():
+    text = (ROOT / ".github/workflows/ghcr-dev.yml").read_text()
+    boundary = text.split("  auth-boundary:", 1)[1].split("  # ============ JOBS ROLLOUT", 1)[0]
+    assert "for delay in (0, 3, 8):" in boundary
+    assert boundary.index("stock_status, stock, attempts = stock_probe(base)") < boundary.index('home_status, home = request(base, "/api/v1/public/market-home")')
+    assert '"stock_attempts":attempts' in boundary
+    assert 'assert cand["stock_date"] == day' in boundary
+    assert 'assert cand["stock_state"] == "intraday"' in boundary

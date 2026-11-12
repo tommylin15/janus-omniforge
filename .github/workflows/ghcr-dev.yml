@@ -604,7 +604,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           python3 - <<'PY'
-          import json, os, urllib.error, urllib.request
+          import json, os, time, urllib.error, urllib.request
           from datetime import datetime, timedelta, timezone
           candidate = os.environ["JANUS_CANDIDATE_URL"].rstrip("/")
           active = "https://janus-api-2oo7qbkd5q-uc.a.run.app"
@@ -623,10 +623,30 @@ jobs:
               except Exception as exc:
                   return type(exc).__name__, {}
 
+          def stock_probe(base):
+              # market-home schedules an index refresh after its response;
+              # the global quote lease may be held when the next stock GET
+              # arrives. Probe stock first, and retry boundedly without
+              # relaxing the same-day / provider / intraday assertions.
+              attempts = []
+              for delay in (0, 3, 8):
+                  if delay:
+                      time.sleep(delay)
+                  code, row = request(base, "/api/v1/public/stock-header/2330")
+                  attempts.append({"http":code, "trade_date":row.get("trade_date"),
+                                   "source":row.get("price_source"),
+                                   "state":row.get("quote_state"),
+                                   "refresh":row.get("refresh_status")})
+                  if not regular or (code == 200 and row.get("trade_date") == day
+                      and row.get("price_source") in {"shioaji", "twse_mis"}
+                      and row.get("quote_state") == "intraday"):
+                      break
+              return code, row, attempts
+
           result = {}
           for name, base in (("candidate", candidate), ("active", active)):
+              stock_status, stock, attempts = stock_probe(base)
               home_status, home = request(base, "/api/v1/public/market-home")
-              stock_status, stock = request(base, "/api/v1/public/stock-header/2330")
               section = (home.get("sections") or {}).get("taiex") or {}
               data = section.get("data") or {}
               result[name] = {
@@ -638,6 +658,7 @@ jobs:
                   "stock_date":stock.get("trade_date"),
                   "stock_source":stock.get("price_source"),
                   "stock_state":stock.get("quote_state"),
+                  "stock_attempts":attempts,
               }
           print(json.dumps({"scope":"anonymous_public_quotes_only",
                             "session":"regular" if regular else "off_session",

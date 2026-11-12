@@ -3,7 +3,7 @@
   "sha": "c5a5c9e99bc0393fe226ec5da36b73afe66af4fc",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-12 個人策略雙 Tab 與 Admin-only 開放控制：完整 GHCR Release #43141170205 PASS，固定映像 0% Candidate #43141823351 PASS。對新版獨立驗證 OAuth/Owner/Admin/MCP、個人策略權限 API 匿名拒絕與公開行情等效；不讀寫 Owner 真實資料、不切流、不改 Jobs/Scheduler/PG/IAM。",
-  "request_attempt": 63,
+  "purpose": "2026-11-12 個人策略雙 Tab 與 Admin-only 開放控制：完整 GHCR Release #43141170205 PASS，固定映像 0% Candidate #43141823351 PASS。對新版獨立驗證 OAuth/Owner/Admin/MCP、個人策略權限 API 匿名拒絕與公開行情等效；不讀寫 Owner 真實資料、不切流、不改 Jobs/Scheduler/PG/IAM。 前兩次 #43142041013 的個人策略/OAuth/匿名權限均PASS，惟現役與候選2330皆為昨收；依既有跨instance quote lease，先測個股再測大盤，最多3次有界重試並輸出refresh_status，原今日／provider／intraday硬門檻不放寬。",
+  "request_attempt": 64,
   "personal_strategy_access_check": true
 }
