@@ -455,3 +455,66 @@ def test_proxy_order_book_returns_missing_not_fabricated_levels(monkeypatch):
         assert result.status_code == 200
         assert result.json()["status"] == "missing"
         assert result.json()["data"] is None
+
+
+def test_taiex_mis_fallback_15_seconds_shared_cache_and_equities_60(monkeypatch):
+    from datetime import datetime, timedelta
+    from types import SimpleNamespace
+    import services.shioaji_quote_proxy.main as proxy
+
+    manager = ShioajiManager()
+    manager.logged_in = True
+    manager._stream_cache = SimpleNamespace(read=lambda symbols: {})
+    clock = [100.0]
+    tick = datetime.now(proxy.TAIWAN_TZ) - timedelta(seconds=75)
+    calls = []
+    def fetch(symbols):
+        calls.append(tuple(symbols))
+        at = (tick + timedelta(seconds=clock[0] - 100)).isoformat()
+        return {s: {"symbol": s, "trade_time": at, "received_at": at,
+                    "source": "twse_mis", "close": 100, "previous_close": 99}
+                for s in symbols}
+    monkeypatch.setattr(proxy, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(proxy, "fetch_twse_mis", fetch)
+    first = manager.get_quotes(["TAIEX", "2330"])
+    assert set(first) == {"TAIEX", "2330"}
+    clock[0] = 105
+    cached = manager.get_quotes(["TAIEX", "2330"])
+    assert cached == {"TAIEX": first["TAIEX"]}
+    assert calls == [("TAIEX", "2330")]
+    clock[0] = 115
+    updated = manager.get_quotes(["TAIEX", "2330"])
+    assert updated["TAIEX"]["trade_time"] != first["TAIEX"]["trade_time"]
+    assert "2330" not in updated
+    assert calls[-1] == ("TAIEX",)
+    clock[0] = 159
+    manager.get_quotes(["TAIEX", "2330"])
+    assert calls[-1] == ("TAIEX",)
+    clock[0] = 160
+    manager.get_quotes(["TAIEX", "2330"])
+    assert calls[-1] == ("2330",)
+    assert len(calls) == 4
+
+
+def test_taiex_mis_cache_never_changes_original_time_on_failure(monkeypatch):
+    from datetime import datetime, timedelta
+    from types import SimpleNamespace
+    import services.shioaji_quote_proxy.main as proxy
+
+    manager = ShioajiManager()
+    manager.logged_in = True
+    manager._stream_cache = SimpleNamespace(read=lambda symbols: {})
+    clock = [100.0]
+    tick = (datetime.now(proxy.TAIWAN_TZ) - timedelta(seconds=10)).isoformat()
+    row = {"symbol": "TAIEX", "trade_time": tick, "received_at": tick,
+           "source": "twse_mis", "close": 100, "previous_close": 99}
+    monkeypatch.setattr(proxy, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(proxy, "fetch_twse_mis", lambda _: {"TAIEX": row})
+    assert manager.get_quotes(["TAIEX"])["TAIEX"] == row
+    clock[0] = 115
+    monkeypatch.setattr(proxy, "fetch_twse_mis", lambda _: {})
+    assert manager.get_quotes(["TAIEX"])["TAIEX"] == row
+    # Shioaji takes precedence when its own real tick has a reference.
+    stream = {**row, "source": "shioaji", "close": 101}
+    manager._stream_cache = SimpleNamespace(read=lambda symbols: {"TAIEX": stream})
+    assert manager.get_quotes(["TAIEX"])["TAIEX"] == stream

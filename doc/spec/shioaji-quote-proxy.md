@@ -118,3 +118,7 @@
 5. 並行 ETF Migration 075 是另一張工程卡，本輪行情 Dev Release 不代表該 migration 或 ETF 手機驗收完成。
 
 **治理：** Dev 真實 parallel-live，保留既有 Job／Scheduler／IAM／原始資料不變；僅針對已確認失敗的環節修正，並維持已核准可回復版本。任何 Live 項目缺乏正向證據均保留 UNKNOWN／OPEN。
+
+## 2026-11-12｜TAIEX 輕量刷新備援修正
+
+大盤候選驗收實際採用 TWSE MIS（當日即時），而 Proxy 原本所有 symbol fallback 60 秒會成為 15 秒大盤 UI 的瓶頸。本次僅將 TAIEX MIS 按需 fallback 限制為 15 秒，股票仍 60 秒。共享最近有效 TAIEX MIS 原始 quote/received 時間：節流期間或暫時缺值可回傳同一筆真實觀測（台北當日且 tick/receipt 均不超過 120 秒），不改寫時間、不回退較舊觀測；Shioaji 合法有前收的當日 tick 仍優先。沿既有單 instance Proxy、IAM 私有端點、simulation=True、按需訂閱，無新增資源、常駐輪詢、交易 API 或股票節流變更。

@@ -179,3 +179,5 @@
 - 不新增 Scheduler、常駐服務、付費資源、資料表、IAM 或交易操作。驗收：API 單一指數、同請求讀回／no-store、15/60/10 秒契約、lock 隔離、前景／休市／手動／失敗保持值、既有行情及權限回歸、固定 GHCR Release → Candidate → 100% → Live。
 
 - 補充節流：跨 instance 以 PG 同 lane singleflight 與已保存 receipt 共享，來源未送新 tick／查詢失敗時，各 API instance 另有 15 秒（手動 10 秒）attempt 冷卻；不改寫 receipt 作假新鮮。Proxy 既有 MIS fallback 每 symbol 60 秒節流維持；此版不另建分散式失敗狀態表，故不能聲稱所有 instance 在來源失效時共用精確的 attempt TTL。
+
+- 盤中 Candidate 43147232130 實際 TAIEX 走 MIS 備援；因此進一步將既有 Proxy **TAIEX 專用** MIS fallback 由 60 秒改為 15 秒，股票維持 60 秒。修正先前本節「MIS 備援節流不變」為僅股票不變；同筆真實 TAIEX fallback 在節流／暫時失敗時可重用原時間戳，仍受 120 秒真實觀測限制，無新服務、排程或付費資源。

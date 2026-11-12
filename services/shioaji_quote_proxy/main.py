@@ -115,6 +115,7 @@ class ShioajiManager:
         self.api: Any = None
         self._connection_lock = Lock()
         self._fallback_checked: Dict[str, float] = {}
+        self._index_mis_cache: Optional[Dict[str, Any]] = None
         self.logged_in: bool = False
         self.contracts_fetched: bool = False
         self.last_login_attempt: Optional[datetime] = None
@@ -230,11 +231,43 @@ class ShioajiManager:
             for symbol in symbols:
                 missing = symbol not in quotes
                 missing_prior = not missing and quotes[symbol].get("previous_close") is None
-                if (missing or missing_prior) and now - self._fallback_checked.get(symbol, -1e12) >= 60:
+                # Only TAIEX follows the new lightweight 15-second lane.
+                # Equities retain the original 60-second provider budget.
+                interval = 15 if symbol == "TAIEX" else 60
+                if (missing or missing_prior) and now - self._fallback_checked.get(symbol, -1e12) >= interval:
                     self._fallback_checked[symbol] = now
                     pending.append(symbol)
-        if pending:
-            for symbol, mis in fetch_twse_mis(pending).items():
+        fallback = fetch_twse_mis(pending) if pending else {}
+        if "TAIEX" in symbols:
+            # Reuse the same real MIS observation during the throttle or a
+            # transient source failure; never stamp a cached row as newly received.
+            with self._connection_lock:
+                incoming = fallback.get("TAIEX")
+                cached = self._index_mis_cache
+                if incoming is not None:
+                    try:
+                        incoming_at = datetime.fromisoformat(str(incoming["trade_time"]))
+                        cached_at = datetime.fromisoformat(str(cached["trade_time"])) if cached else None
+                        if incoming_at.tzinfo is not None and (cached_at is None or incoming_at >= cached_at):
+                            self._index_mis_cache = dict(incoming)
+                        elif cached_at is not None:
+                            fallback.pop("TAIEX", None)
+                    except (KeyError, TypeError, ValueError):
+                        fallback.pop("TAIEX", None)
+                cached = self._index_mis_cache
+                if "TAIEX" not in fallback and cached is not None:
+                    try:
+                        at = datetime.fromisoformat(str(cached["trade_time"])).astimezone(TAIWAN_TZ)
+                        received = datetime.fromisoformat(str(cached["received_at"])).astimezone(TAIWAN_TZ)
+                        clock = datetime.now(TAIWAN_TZ)
+                        if (at.date() == received.date() == clock.date()
+                                and 0 <= (clock - at).total_seconds() <= 120
+                                and 0 <= (clock - received).total_seconds() <= 120):
+                            fallback["TAIEX"] = dict(cached)
+                    except (KeyError, TypeError, ValueError):
+                        pass
+        if fallback:
+            for symbol, mis in fallback.items():
                 if symbol not in quotes:
                     quotes[symbol] = mis
                     continue
