@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "aaef41171804a4f51d80608e282cc04982c0c0de",
+  "sha": "c5a5c9e99bc0393fe226ec5da36b73afe66af4fc",
   "digest": "",
-  "release_run": "43047426258",
+  "release_run": "43141170205",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-11 新用戶初次使用：空白股票/ETF名冊與搜尋、持股頁現金池初設/修改、首筆交易入口、Cash Dialog controller生命週期修正。完整 Python/Flutter及四GHCR immutable Release #43047426258 PASS，source aaef4117。僅既有 Dev janus-api 固定映像0%-traffic Candidate，現役0fab0e9c仍100%。不動Jobs/Scheduler/PG/IAM/Owner資料；待OAuth/Owner/Admin/MCP和公開行情parity驗證才可API-only 100%切流。",
-  "request_attempt": 70
+  "purpose": "2026-11-12 個人策略雙 Tab、投資屬性搬移、Admin-only 預設與版本化開放控制。完整 Python 2189／Flutter 190 PASS、四 GHCR 映像固定來源及匿名 digest 讀回 PASS；只部署既有 Dev API 0% Candidate，保留現役 100%、Jobs、Scheduler、PG、IAM 與 Owner 資料。後續須通過 OAuth/Owner/Admin/MCP 及個人策略權限 API 匿名拒絕驗收才切流。",
+  "request_attempt": 71
 }
