@@ -1,7 +1,7 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "4fcedfd77c98ac6b34f8dcb27f1b9f55f22af520",
-  "purpose": "2026-11-12 大盤 TAIEX 獨立15秒摘要、實際報價秒數及手動刷新，保留股票/圖表60秒；獨立 PostgreSQL quote lock、source receipt TTL及失敗有界節流；新增候選與正式 API probe。完整 Python/Flutter gate及固定映像，後續0% Candidate→權限/行情→API-only 100%→Live。保留現役c5a5c9e9、既有Jobs/Scheduler/PG schema/IAM/Owner資料，不新增資源或付費服務。",
+  "sha": "0b3e5487f9430d79ae7bce369146a07041ce897c",
+  "purpose": "2026-11-13 開放新 Google 帳號登入 User API（GOOGLE_USER_ALLOWED_EMAILS 僅保留於 MCP OAuth），解除新用戶新增交易時股票名冊查詢 403 阻擋。完整 Python/Flutter gate 及固定映像，後續 0% Candidate→權限/行情→API-only 100%→Live。保留現役 1a052667、既有 Jobs/Scheduler/PG schema/IAM/Owner 資料，不新增資源或付費服務。",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
     "ingestion-core",
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 73
+  "request_attempt": 74
 }
