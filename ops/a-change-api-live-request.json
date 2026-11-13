@@ -1,17 +1,15 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "1a052667bf1cc71caabec55c2f6c033cf8f78079",
-  "promotion_run": "43147367292",
+  "source_sha": "ba654f65ac56d6a721be398c5a6e60978506a1fb",
+  "promotion_run": "43334074560",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-12 TAIEX 15秒輕量摘要/手動刷新/秒級真實報價與獨立鎖。Release #43146386806、Candidate #43147037906、OAuth及行情/新API #43147232130、API-only 100% #43147367292 PASS。Candidate實際使用MIS備援，故獨立既有Proxy #43147583548調整TAIEX fallback 15秒/股票60秒及原始時間戳cache。正式readback須先取得該Proxy部署成功且精確來源/Revision收據，再驗兩服務100% Ready、App build-id、原Owner/Admin/MCP保護及市場公開行情；16秒間隔最多兩輪真實TAIEX時間戳前進。無新資源/PG migration/Jobs/Scheduler/Owner資料變更。",
-  "request_attempt": 25,
+  "purpose": "2026-11-13 開放新 Google 帳號登入 User API（GOOGLE_USER_ALLOWED_EMAILS 僅保留於 MCP OAuth）。Release #43332609602、Candidate #43333612494、Auth Boundary #43333864731、API-only 100% #43334074560 全 PASS。獨立唯讀驗證現役 100% Ready、App build-id、原 Owner/Admin/MCP 保護及市場公開行情；無新資源/PG migration/Jobs/Scheduler/Owner 資料變更。",
+  "request_attempt": 26,
   "personal_strategy_access_check": true,
-  "market_index_quote_check": true,
-  "market_index_observe": true,
-  "market_index_proxy_run": "43147583548",
-  "market_index_proxy_source_sha": "9b173a7d43d26da7399c3b8e861ccf97a3e80e52"
+  "market_index_quote_check": false,
+  "market_index_observe": false
 }
