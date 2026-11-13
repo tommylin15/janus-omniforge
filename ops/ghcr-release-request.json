@@ -1,6 +1,6 @@
 {
   "intent": "dev-ghcr-full-release",
-  "sha": "b7efa22a8ca9dc0c47b56bb79daddcb5f793dd39",
+  "sha": "a7e9eb4b967ac87fc203e8720d8745a2a1d30031",
   "purpose": "2026-11-13 新帳號首次新增交易未設定券商費率時，改為即時引導設定手續費折扣與最低費用並自動重試試算；未遮蔽真實試算錯誤訊息。完整 Python/Flutter gate 及固定映像，後續 0% Candidate→權限/行情→API-only 100%→Live。保留現役 ba654f65、既有 Jobs/Scheduler/PG schema/IAM/Owner 資料，不新增資源或付費服務。",
   "scope": "full-python-flutter-ghcr",
   "requested_component_scope": [
@@ -13,5 +13,5 @@
   "api_only_promotion": true,
   "keep_existing_jobs": true,
   "no_api_traffic_changes": true,
-  "request_attempt": 75
+  "request_attempt": 76
 }
