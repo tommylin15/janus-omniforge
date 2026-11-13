@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "ba654f65ac56d6a721be398c5a6e60978506a1fb",
+  "sha": "c0d94cf82924d8c49ceaaa4e82e5b415465d16de",
   "digest": "",
-  "release_run": "43332609602",
+  "release_run": "43341065218",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-13 開放新 Google 帳號登入 User API（GOOGLE_USER_ALLOWED_EMAILS 僅保留於 MCP OAuth），解除新用戶新增交易時股票名冊查詢 403 阻擋。完整 Python/Flutter PASS、四 GHCR 固定映像及公開 digest 驗證 #43332609602 PASS；只部署現有 Dev API 0% Candidate，保留現役 1a052667 100% 及 Jobs/Scheduler/PG/IAM/Owner；權限與行情完整驗收後才切流。",
-  "request_attempt": 73
+  "purpose": "2026-11-13 新帳號首次新增交易未設定券商費率時，改為即時引導設定手續費折扣與最低費用並自動重試試算；完整 Python/Flutter PASS、四 GHCR 固定映像及公開 digest 驗證 #43341065218 PASS；只部署現有 Dev API 0% Candidate，保留現役 ba654f65 100% 及 Jobs/Scheduler/PG/IAM/Owner；權限與行情完整驗收後才切流。",
+  "request_attempt": 74
 }
