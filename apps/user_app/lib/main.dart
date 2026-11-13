@@ -2246,6 +2246,112 @@ Future<bool> showCashPositionEditor(BuildContext context, Api api) async {
   return saved;
 }
 
+Future<bool> showBrokerFeeSetupDialog(BuildContext context, Api api) async {
+  Map<String, dynamic> row;
+  try {
+    row = Map<String, dynamic>.from(await api.get('/api/v1/me/broker-profile'));
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('券商費率設定無法讀取，請稍後再試')));
+    }
+    return false;
+  }
+  if (!context.mounted) return false;
+  var discount = '${row['fee_discount_multiplier'] ?? '1'}';
+  var minimum = '${row['minimum_fee'] ?? '20'}';
+  var saving = false;
+  var saved = false;
+  String? error;
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, update) => AlertDialog(
+        title: const Text('設定券商手續費率'),
+        content: SizedBox(
+          width: 340,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('首次新增買賣交易前，請先確認券商手續費折扣與最低手續費（可隨時於「我的」調整）。'),
+                const SizedBox(height: 8),
+                TextFormField(
+                  initialValue: discount,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (value) => discount = value,
+                  decoration: const InputDecoration(
+                    labelText: '手續費折扣倍率（0～1）',
+                    helperText: '1 = 無折扣（0.1425%）；例如 6 折請填 0.6',
+                  ),
+                ),
+                TextFormField(
+                  initialValue: minimum,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (value) => minimum = value,
+                  decoration: const InputDecoration(labelText: '最低手續費（TWD）'),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                ],
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: saving ? null : () => Navigator.pop(dialogContext),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: saving
+                ? null
+                : () async {
+                    final parsedDiscount = num.tryParse(discount.trim());
+                    final parsedMinimum = num.tryParse(minimum.trim());
+                    if (parsedDiscount == null || parsedDiscount < 0 || parsedDiscount > 1) {
+                      update(() => error = '手續費折扣倍率需介於 0 至 1 之間');
+                      return;
+                    }
+                    if (parsedMinimum == null || parsedMinimum < 0) {
+                      update(() => error = '最低手續費需為大於等於 0 的數字');
+                      return;
+                    }
+                    update(() {
+                      saving = true;
+                      error = null;
+                    });
+                    try {
+                      await api.put('/api/v1/me/broker-profile', {
+                        'fee_discount_multiplier': discount.trim(),
+                        'minimum_fee': minimum.trim(),
+                        'cash_strategy': row['cash_strategy'] ?? 'balanced',
+                        'declared_cash': row['declared_cash'],
+                        'cash_as_of': row['cash_as_of'],
+                        'expected_version': row['version'] ?? 0,
+                      });
+                      saved = true;
+                      if (dialogContext.mounted) Navigator.pop(dialogContext);
+                    } catch (_) {
+                      if (dialogContext.mounted) {
+                        update(() {
+                          saving = false;
+                          error = '儲存失敗，請核對數值後重試';
+                        });
+                      }
+                    }
+                  },
+            child: Text(saving ? '儲存中…' : '儲存並繼續試算'),
+          ),
+        ],
+      ),
+    ),
+  );
+  return saved;
+}
+
 class CashPositionCard extends StatefulWidget {
   const CashPositionCard(this.api, {super.key});
   final Api api;

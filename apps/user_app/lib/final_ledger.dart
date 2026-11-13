@@ -386,14 +386,36 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     );
   }
 
+  bool _isMissingBrokerProfileError(Object error) =>
+      error.toString().contains('請先在券商設定保存手續費折扣與最低費用');
+
+  String _readableApiError(Object error) {
+    final text = error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '').trim();
+    return text.isEmpty ? '請稍後再試' : text;
+  }
+
+  Future<dynamic> _previewTradeWithBrokerSetup(Map<String, dynamic> payload) async {
+    try {
+      return await widget.api
+          .post('/api/v1/me/journal/preview', payload)
+          .timeout(const Duration(seconds: 10));
+    } catch (error) {
+      if (!_isMissingBrokerProfileError(error) || !mounted) rethrow;
+      final configured = await legacy.showBrokerFeeSetupDialog(context, widget.api);
+      if (!configured || !mounted) return null;
+      return await widget.api
+          .post('/api/v1/me/journal/preview', payload)
+          .timeout(const Duration(seconds: 10));
+    }
+  }
+
   Future<void> addTrade() async {
     final payload = await legacy.transactionDialog(context, api: widget.api);
     if (payload == null) return;
     var saveStarted = false;
     try {
-      final preview = await widget.api.post('/api/v1/me/journal/preview', payload)
-          .timeout(const Duration(seconds: 5));
-      if (!mounted) return;
+      final preview = await _previewTradeWithBrokerSetup(payload);
+      if (preview == null || !mounted) return;
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -424,12 +446,12 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         SnackBar(content: Text('交易已保存：股數 ${legacy.accountingNumber(fvMap(saved['transaction_result'])['remaining_shares'])}；${legacy.portfolioPendingMessage}')),
       );
       reload();
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(saveStarted
               ? '交易結果尚未確認，請先重新載入核對紀錄'
-              : '試算失敗，交易尚未送出')),
+              : '試算失敗：${_readableApiError(error)}')),
         );
         if (saveStarted) reload();
       }
@@ -444,14 +466,22 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       title: '建立更正',
     );
     if (replacement == null || !mounted) return;
+    Future<dynamic> submitCorrection() => widget.api.post(
+          '/api/v1/me/journal/events/${row['event_id']}/corrections',
+          {
+            'expected_version': row['record_version'],
+            'replacement': replacement,
+          },
+        );
     try {
-      await widget.api.post(
-        '/api/v1/me/journal/events/${row['event_id']}/corrections',
-        {
-          'expected_version': row['record_version'],
-          'replacement': replacement,
-        },
-      );
+      try {
+        await submitCorrection();
+      } catch (error) {
+        if (!_isMissingBrokerProfileError(error) || !mounted) rethrow;
+        final configured = await legacy.showBrokerFeeSetupDialog(context, widget.api);
+        if (!configured || !mounted) return;
+        await submitCorrection();
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(legacy.portfolioPendingMessage)),
