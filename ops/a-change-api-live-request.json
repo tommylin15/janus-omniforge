@@ -1,14 +1,14 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "ba654f65ac56d6a721be398c5a6e60978506a1fb",
-  "promotion_run": "43334074560",
+  "source_sha": "c0d94cf82924d8c49ceaaa4e82e5b415465d16de",
+  "promotion_run": "43342785774",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-13 開放新 Google 帳號登入 User API（GOOGLE_USER_ALLOWED_EMAILS 僅保留於 MCP OAuth）。Release #43332609602、Candidate #43333612494、Auth Boundary #43333864731、API-only 100% #43334074560 全 PASS。獨立唯讀驗證現役 100% Ready、App build-id、原 Owner/Admin/MCP 保護及市場公開行情；無新資源/PG migration/Jobs/Scheduler/Owner 資料變更。",
-  "request_attempt": 26,
+  "purpose": "2026-11-13 新帳號首次新增交易未設定券商費率時，改為即時引導設定手續費折扣與最低費用並自動重試試算。Release #43341065218、Candidate #43341776300、Auth Boundary #43342012382、API-only 100% #43342785774 全 PASS。獨立唯讀驗證現役 100% Ready、App build-id、原 Owner/Admin/MCP 保護及市場公開行情；無新資源/PG migration/Jobs/Scheduler/Owner 資料變更。",
+  "request_attempt": 27,
   "personal_strategy_access_check": true,
   "market_index_quote_check": false,
   "market_index_observe": false
