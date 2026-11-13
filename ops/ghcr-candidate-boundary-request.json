@@ -1,10 +1,10 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "ba654f65ac56d6a721be398c5a6e60978506a1fb",
+  "sha": "c0d94cf82924d8c49ceaaa4e82e5b415465d16de",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-13 開放新 Google 帳號登入 User API（GOOGLE_USER_ALLOWED_EMAILS 僅保留於 MCP OAuth）。Release #43332609602 與 0% Candidate #43333612494 PASS；驗證既有 OAuth、個人策略、Owner/Admin/MCP 與盤中行情等效性；不切流、不改 Jobs/Scheduler/PG/IAM 或 Owner 資料。",
-  "request_attempt": 66,
+  "purpose": "2026-11-13 新帳號首次新增交易未設定券商費率時，改為即時引導設定手續費折扣與最低費用並自動重試試算。Release #43341065218 與 0% Candidate #43341776300 PASS；驗證既有 OAuth、個人策略、Owner/Admin/MCP 與盤中行情等效性；不切流、不改 Jobs/Scheduler/PG/IAM 或 Owner 資料。",
+  "request_attempt": 67,
   "personal_strategy_access_check": true,
   "market_index_quote_check": true
 }
