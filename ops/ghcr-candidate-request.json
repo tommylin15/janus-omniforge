@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "1a052667bf1cc71caabec55c2f6c033cf8f78079",
+  "sha": "ba654f65ac56d6a721be398c5a6e60978506a1fb",
   "digest": "",
-  "release_run": "43146386806",
+  "release_run": "43332609602",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-12 TAIEX 15秒獨立更新、手動刷新、秒級實際報價時間、PG獨立lock/15秒receipt TTL及有界失敗冷卻。完整Python 2196／Flutter 192 PASS、四GHCR固定映像及公開digest驗證PASS；只部署現有Dev API 0% Candidate，保留現役c5a5c9e9 100%及Jobs/Scheduler/PG/IAM/Owner；新TAIEX API與舊行情/權限完整驗收後才切流。",
-  "request_attempt": 72
+  "purpose": "2026-11-13 開放新 Google 帳號登入 User API（GOOGLE_USER_ALLOWED_EMAILS 僅保留於 MCP OAuth），解除新用戶新增交易時股票名冊查詢 403 阻擋。完整 Python/Flutter PASS、四 GHCR 固定映像及公開 digest 驗證 #43332609602 PASS；只部署現有 Dev API 0% Candidate，保留現役 1a052667 100% 及 Jobs/Scheduler/PG/IAM/Owner；權限與行情完整驗收後才切流。",
+  "request_attempt": 73
 }
