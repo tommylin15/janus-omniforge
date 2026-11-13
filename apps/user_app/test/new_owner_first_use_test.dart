@@ -203,13 +203,15 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('ledger-first-trade')));
+    final firstTrade = find.byKey(const Key('ledger-first-trade'));
+    await tester.ensureVisible(firstTrade);
+    await tester.tap(firstTrade);
     await tester.pumpAndSettle();
 
     final stockField = find.widgetWithText(TextFormField, '股票／ETF 代號或名稱');
     await tester.enterText(stockField, '0050');
     await tester.pumpAndSettle();
-    await tester.tap(find.text('元大台灣50（0050）').last);
+    await tester.tap(find.text('元大台灣50（0050） · ETF').last);
     await tester.pumpAndSettle();
 
     final shares = find.widgetWithText(TextFormField, '股數');
