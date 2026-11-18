@@ -415,7 +415,10 @@ void main() {
     expect(find.text('持股市值'), findsOneWidget);
     expect(find.text('本年已實現損益'), findsOneWidget);
     expect(find.text('0.0 萬元'), findsOneWidget);
-    expect(find.byKey(const Key('recalculate-pnl')), findsOneWidget);
+    final recalc = find.byKey(const Key('recalculate-pnl'));
+    await tester.scrollUntilVisible(recalc, 180,
+        scrollable: find.byType(Scrollable).first);
+    expect(recalc, findsOneWidget);
     expect(find.text('重新計算年度損益'), findsOneWidget);
     expect(find.text('總額暫不發布'), findsWidgets);
     expect(find.text('持股'), findsWidgets);
@@ -486,8 +489,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final button =
-        tester.widget<OutlinedButton>(find.byKey(const Key('recalculate-pnl')));
+    final recalc = find.byKey(const Key('recalculate-pnl'));
+    await tester.scrollUntilVisible(recalc, 180,
+        scrollable: find.byType(Scrollable).first);
+    final button = tester.widget<OutlinedButton>(recalc);
     // The background Mart queue does not lock the inline annual calculation.
     expect(button.onPressed, isNotNull);
     expect(find.text('重新計算年度損益'), findsOneWidget);
@@ -569,14 +574,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('重新嘗試'), findsOneWidget);
+    final retry = find.text('重新嘗試');
+    await tester.scrollUntilVisible(retry, 180,
+        scrollable: find.byType(Scrollable).first);
+    expect(retry, findsOneWidget);
     expect(
       find.text('重算失敗：Private Mart 寫入失敗，已停止本次工作'),
       findsOneWidget,
     );
 
-    await tester.ensureVisible(find.text('重新嘗試'));
-    await tester.tap(find.text('重新嘗試'));
+    await tester.ensureVisible(retry);
+    await tester.tap(retry);
     await tester.pumpAndSettle();
     expect(api.posts, contains('/api/v1/me/journal/recalculate'));
     expect(find.text('本年已實現損益已更新'), findsOneWidget);
@@ -620,7 +628,10 @@ void main() {
     expect(find.text('本年已實現損益'), findsOneWidget);
     expect(find.text('本年度確認無交易'), findsOneWidget);
     expect(find.text('待更新／尚未確認'), findsNothing);
-    expect(find.byKey(const Key('recalculate-pnl')), findsOneWidget);
+    final recalc = find.byKey(const Key('recalculate-pnl'));
+    await tester.scrollUntilVisible(recalc, 180,
+        scrollable: find.byType(Scrollable).first);
+    expect(recalc, findsOneWidget);
 
     await tester.tap(find.text('報表'));
     await tester.pumpAndSettle();
@@ -1842,11 +1853,14 @@ void main() {
         api, now: () => DateTime.utc(2026, 10, 8, 7))));
     await tester.pumpAndSettle();
     expect(api.history.isCompleted, false);
-    final day = tester.widget<Text>(find.byKey(const Key('holding-day-amount-2382')));
+    expect(find.text('持股市值'), findsOneWidget);
+    final dayFinder = find.byKey(const Key('holding-day-amount-2382'));
+    await tester.scrollUntilVisible(dayFinder, 180,
+        scrollable: find.byType(Scrollable).first);
+    final day = tester.widget<Text>(dayFinder);
     expect(day.data, '-52,500');
     final price = tester.widget<Text>(find.byKey(const Key('holding-latest-price-2382')));
     expect(price.style?.color, fvLoss);
-    expect(find.text('持股市值'), findsOneWidget);
     final navigationY = tester.getTopLeft(find.byType(SegmentedButton<int>)).dy;
     await tester.drag(find.byKey(const Key('final-ledger-scroll')), const Offset(0, -300));
     await tester.pumpAndSettle();
