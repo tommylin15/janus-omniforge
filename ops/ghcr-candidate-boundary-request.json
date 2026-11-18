@@ -1,10 +1,10 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "c0d94cf82924d8c49ceaaa4e82e5b415465d16de",
+  "sha": "d900060d6a990edc925e2bae53f8915a8d01f612",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-13 新帳號首次新增交易未設定券商費率時，改為即時引導設定手續費折扣與最低費用並自動重試試算。Release #43341065218 與 0% Candidate #43341776300 PASS；驗證既有 OAuth、個人策略、Owner/Admin/MCP 與盤中行情等效性；不切流、不改 Jobs/Scheduler/PG/IAM 或 Owner 資料。",
-  "request_attempt": 67,
+  "purpose": "2026-11-18 將持股／記帳移至下方選單最左側並設為預設分頁，且於持股頁面顯示加權指數卡片。Release #44218863416 與 0% Candidate #44219600704 PASS；驗證既有 OAuth、個人策略、Owner/Admin/MCP 與盤中行情等效性；不切流、不改 Jobs/Scheduler/PG/IAM 或 Owner 資料。",
+  "request_attempt": 68,
   "personal_strategy_access_check": true,
   "market_index_quote_check": true
 }
