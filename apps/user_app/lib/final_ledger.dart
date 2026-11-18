@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'final_portfolio_report.dart';
 import 'final_perf.dart';
 import 'final_visual_common.dart';
+import 'taiex_card.dart';
 import 'main.dart' as legacy;
 
 /// The query timestamp is not the timestamp of an actual market quote.
@@ -1502,7 +1503,16 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       ),
                     ],
                   ),
-                  if (section == 0) assetOverview(assets),
+                  if (section == 0) ...[
+                    TaiexMarketCard(
+                      api: widget.api,
+                      active: widget.active && section == 0,
+                      clock: widget.now,
+                      keyPrefix: 'ledger',
+                    ),
+                    const SizedBox(height: 10),
+                    assetOverview(assets),
+                  ],
                   if (section == 0 && !coreLoading &&
                       values.length > 1 && values[1] != null &&
                       positions.isEmpty)

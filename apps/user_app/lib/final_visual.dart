@@ -257,6 +257,7 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
   @override
   void initState() {
     super.initState();
+    widget.api.usage.feature = 'journal';
     unawaited(widget.api.usage.start());
     unawaited(loadStrategyAccess());
   }
@@ -287,7 +288,7 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
   void selectPage(int value) {
     unawaited(loadStrategyAccess());
     widget.api.usage
-        .select(['today', 'watchlist', 'journal', 'profile', 'profile'][value]);
+        .select(['journal', 'today', 'watchlist', 'profile', 'profile'][value]);
     final restoring = value != page && visited.contains(value);
     final stopwatch = restoring ? (Stopwatch()..start()) : null;
     setState(() {
@@ -307,6 +308,7 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.api != widget.api) {
       oldWidget.api.usage.dispose();
+      widget.api.usage.feature = 'journal';
       unawaited(widget.api.usage.start());
       page = 0;
       strategyAllowed = false;
@@ -330,17 +332,17 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
-      FinalTodayPage(widget.api, active: page == 0, onOpenStock: openStock),
-      FinalWatchlistPage(widget.api, active: page == 1, onOpenStock: openStock),
-      FinalLedgerPage(widget.api, active: page == 2, onOpenStock: openStock),
+      FinalLedgerPage(widget.api, active: page == 0, onOpenStock: openStock),
+      FinalTodayPage(widget.api, active: page == 1, onOpenStock: openStock),
+      FinalWatchlistPage(widget.api, active: page == 2, onOpenStock: openStock),
       if (strategyAllowed) PersonalStrategyPage(widget.api, active: page == 3) else const SizedBox.shrink(),
       legacy.ProfilePage(api: widget.api, email: widget.email, onTheme: widget.onTheme),
     ];
     final visiblePages = [0, 1, 2, if (strategyAllowed) 3, 4];
     final destinations = [
+      NavigationDestination(icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: '持股／記帳'),
       NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: '今日'),
       NavigationDestination(icon: Icon(Icons.star_outline), selectedIcon: Icon(Icons.star), label: '關注'),
-      NavigationDestination(icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: '持股／記帳'),
       if (strategyAllowed) const NavigationDestination(icon: Icon(Icons.psychology_outlined), selectedIcon: Icon(Icons.psychology), label: '個人策略'),
       NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: '我的'),
     ];
@@ -359,6 +361,10 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
                       onDestinationSelected: (index) => selectPage(visiblePages[index]),
                       destinations: [
                         NavigationRailDestination(
+                            icon: Icon(Icons.edit_note_outlined),
+                            selectedIcon: Icon(Icons.edit_note),
+                            label: Text('持股／記帳')),
+                        NavigationRailDestination(
                             icon: Icon(Icons.today_outlined),
                             selectedIcon: Icon(Icons.today),
                             label: Text('今日')),
@@ -366,10 +372,6 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
                             icon: Icon(Icons.star_outline),
                             selectedIcon: Icon(Icons.star),
                             label: Text('關注')),
-                        NavigationRailDestination(
-                            icon: Icon(Icons.edit_note_outlined),
-                            selectedIcon: Icon(Icons.edit_note),
-                            label: Text('持股／記帳')),
                         if (strategyAllowed) const NavigationRailDestination(icon: Icon(Icons.psychology_outlined), label: Text('個人策略')),
                         NavigationRailDestination(
                             icon: Icon(Icons.person_outline),

@@ -6,6 +6,7 @@ import 'final_perf.dart';
 import 'stock_order_book.dart';
 import 'final_visual_series.dart';
 import 'final_visual_common.dart';
+import 'taiex_card.dart';
 import 'main.dart' as legacy;
 
 class FinalTodayPage extends StatefulWidget {
@@ -52,11 +53,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   int marketGeneration = 0;
   static const marketColdTimeout = Duration(seconds: 24);
 
-  bool get marketHours {
-    final taipei = _now().toUtc().add(const Duration(hours: 8));
-    final minutes = taipei.hour * 60 + taipei.minute;
-    return taipei.weekday <= 5 && minutes >= 540 && minutes < 810;
-  }
+  bool get marketHours => taiexMarketHours(_now());
 
   bool get marketActive =>
       widget.active && foreground && todayTab == 0 &&
@@ -247,51 +244,11 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     }
   }
 
-  bool _newerIndex(Map<String, dynamic> next, Map<String, dynamic> previous) {
-    if (previous.isEmpty) return true;
-    final nextDay = fvText(next['as_of'], missing: '');
-    final priorDay = fvText(previous['as_of'], missing: '');
-    if (nextDay != priorDay) return nextDay.compareTo(priorDay) > 0;
-    final n = fvMap(next['data']);
-    final p = fvMap(previous['data']);
-    final previousFinal = previous['is_final'] == true ||
-        (p['close'] != null && fvText(p['quote_state'], missing: '').isEmpty);
-    if (previousFinal && next['is_final'] != true) return false;
-    if (next['is_final'] == true && !previousFinal) return true;
-    final nextAt = DateTime.tryParse(fvText(n['quote_at'], missing: ''));
-    final priorAt = DateTime.tryParse(fvText(p['quote_at'], missing: ''));
-    return nextAt != null && (priorAt == null || !nextAt.isBefore(priorAt));
-  }
+  bool _newerIndex(Map<String, dynamic> next, Map<String, dynamic> previous) =>
+      newerTaiexIndex(next, previous);
 
-  Map<String, dynamic> _indexSummary(Map<String, dynamic> base) {
-    final next = indexSection;
-    if (next == null || !_newerIndex(next, base)) return base;
-    // Preserve dated official history for the provenance-aware prior-close fallback.
-    return {...base, ...next, 'data': {...fvMap(base['data']), ...fvMap(next['data'])}};
-  }
-
-  Widget _indexRefreshControls() {
-    final status = indexBusy ? '更新中…'
-        : indexRefreshStatus == 'unavailable' || indexRefreshStatus == 'blocked'
-            ? '行情暫未更新'
-        : indexRefreshStatus == 'in_flight' ? '共用行情更新中'
-        : indexRefreshStatus == 'throttled' ? '更新節流 · 保留行情'
-        : marketHours ? '每 15 秒檢查' : '休市 · 手動更新';
-    return Row(children: [
-      Expanded(child: Text(status, key: const Key('today-index-refresh-status'),
-          style: const TextStyle(color: fvMuted, fontSize: 11), maxLines: 1,
-          overflow: TextOverflow.ellipsis)),
-      TextButton.icon(
-        key: const Key('today-index-refresh'),
-        onPressed: indexBusy ? null : () => unawaited(_refreshIndex(manual: true)),
-        style: TextButton.styleFrom(visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: 8), foregroundColor: fvTeal),
-        icon: indexBusy ? const SizedBox(width: 14, height: 14,
-            child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.refresh, size: 17),
-        label: const Text('立即更新', style: TextStyle(fontSize: 12)),
-      ),
-    ]);
-  }
+  Map<String, dynamic> _indexSummary(Map<String, dynamic> base) =>
+      mergeTaiexIndexSummary(base, indexSection);
 
   void _startMarketTimer() {
     marketTimer?.cancel();
@@ -454,11 +411,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     return parts.join(' · ');
   }
 
-  String _value(Map<String, dynamic> section) {
-    final data = fvMap(section['data']);
-    final value = data['close'] ?? data['index'] ?? data['value'];
-    return value == null ? '資料尚未取得' : legacy.accountingNumber(value, decimals: 2);
-  }
+  String _value(Map<String, dynamic> section) => taiexFormatValue(section);
 
   Widget _benchmark(String label, IconData icon, dynamic raw) {
     final section = fvMap(raw);
@@ -504,27 +457,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   }
 
 
-  double? _taiexPreviousClose(List<dynamic> observed, List<dynamic> history) {
-    // Benchmark history is already filtered for source and provenance in Core.
-    // Never derive the daily zero level from the first minute observation.
-    final sampleDays = observed.map((raw) {
-      final value = DateTime.tryParse(fvText(fvMap(raw)['date'], missing: ''));
-      return value?.toUtc().add(const Duration(hours: 8));
-    }).whereType<DateTime>().toList()..sort();
-    final reference = sampleDays.isEmpty
-        ? DateTime.now().toUtc().add(const Duration(hours: 8))
-        : sampleDays.last;
-    final day = DateTime.utc(reference.year, reference.month, reference.day);
-    final eligible = history.map(fvMap).where((row) {
-      final date = DateTime.tryParse(fvText(row['date'], missing: ''));
-      final close = fvNumber(row['value']);
-      return date != null && date.isBefore(day) &&
-          day.difference(date).inDays <= 7 &&
-          close != null && close.isFinite && close > 0;
-    }).toList()..sort((a, b) =>
-      fvText(b['date']).compareTo(fvText(a['date'])));
-    return eligible.isEmpty ? null : fvNumber(eligible.first['value']);
-  }
+  double? _taiexPreviousClose(List<dynamic> observed, List<dynamic> history) =>
+      taiexPreviousCloseFromHistory(observed, history, _now());
 
   Widget _taiexTrend(dynamic raw, {bool intradayOnly = true}) {
     final section = fvMap(raw);
@@ -1038,170 +972,37 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     },
   );
 
-  // An exchange MIS tick may contain its own prior close; otherwise use
-  // a strictly earlier, published Core TAIEX close with real lineage.
-  double? _taiexSummaryPreviousClose(Map<String, dynamic> section) {
-    final data = fvMap(section['data']);
-    final date = fvText(section['as_of'], missing: '');
-    final at = DateTime.tryParse(fvText(data['quote_at'], missing: ''));
-    final state = fvText(data['quote_state'], missing: '');
-    final quoteDay = at?.toUtc().add(const Duration(hours: 8))
-        .toIso8601String().substring(0, 10);
-    final exchangeReference = fvNumber(data['quote_previous_close']);
-    if (date.isNotEmpty && quoteDay == date &&
-        {'intraday', 'closing_pending_eod', 'stale'}.contains(state) &&
-        exchangeReference != null && exchangeReference.isFinite &&
-        exchangeReference > 0) {
-      return exchangeReference;
-    }
-    final tradeDate = DateTime.tryParse(date);
-    if (tradeDate == null) return null;
-    final candidates = fvRows(data['history_points']).map(fvMap).where((row) {
-      final observedDate = DateTime.tryParse(fvText(row['date'], missing: ''));
-      final close = fvNumber(row['value']);
-      return observedDate != null && observedDate.isBefore(tradeDate) &&
-          tradeDate.difference(observedDate).inDays <= 7 &&
-          close != null && close.isFinite && close > 0 &&
-          fvText(row['source_id'], missing: '').isNotEmpty &&
-          fvText(row['provenance_id'], missing: '').isNotEmpty;
-    }).toList()
-      ..sort((a, b) => fvText(b['date']).compareTo(fvText(a['date'])));
-    return candidates.isEmpty ? null : fvNumber(candidates.first['value']);
-  }
-
-  String _taiexQuoteLabel(Map<String, dynamic> section) {
-    final data = fvMap(section['data']);
-    final at = DateTime.tryParse(fvText(data['quote_at'], missing: ''));
-    final state = fvText(data['quote_state'], missing: '');
-    final date = fvText(section['as_of'], missing: '');
-    final now = _now();
-    final today = now.toUtc().add(const Duration(hours: 8));
-    final tick = at?.toUtc().add(const Duration(hours: 8));
-    final sameDay = tick != null && tick.year == today.year &&
-        tick.month == today.month && tick.day == today.day;
-    final age = at == null ? null : now.difference(at).inSeconds;
-    if (marketHours && state == 'intraday' && sameDay &&
-        age != null && age >= 0 && age <= 120) {
-      return '盤中 ${tick.hour.toString().padLeft(2, '0')}:${tick.minute.toString().padLeft(2, '0')}:${tick.second.toString().padLeft(2, '0')}';
-    }
-    if (state.isNotEmpty) return '非即時 · ${date.isEmpty ? '日期缺值' : date}';
-    return date.isNotEmpty ? '資料日 $date' : '行情日期缺值';
-  }
-
   // A single compact index card keeps today's point and percent change
   // visible without opening the chart. The chart remains on-demand.
   Widget _compactMarket() => FutureBuilder<dynamic>(
     future: market,
-    builder: (context, snapshot) {
-      final root = fvMap(snapshot.data ?? lastGoodMarket);
-      final section = _indexSummary(fvMap(fvMap(root['sections'])['taiex']));
-      if (section.isEmpty) {
-        return Column(children: [
-          fvPanel(padding: const EdgeInsets.symmetric(
-              horizontal: 14, vertical: 10),
-            child: Column(children: [
-              const Row(children: [
-                Text('加權指數', style: TextStyle(color: fvInk,
-                    fontSize: 15, fontWeight: FontWeight.w800)),
-                Spacer(),
-                Text('行情尚未取得', style: TextStyle(color: fvMuted, fontSize: 14)),
-              ]),
-              _indexRefreshControls(),
-            ])),
-          fvBoundedState(snapshot.connectionState == ConnectionState.done
-              ? '大盤行情暫時無法取得' : '大盤資料仍在讀取；其他資訊可先使用'),
-        ]);
-      }
-      final data = fvMap(section['data']);
-      final current = fvNumber(data['close'] ?? data['index'] ?? data['value']);
-      final previous = _taiexSummaryPreviousClose(section);
-      final comparable = current != null && current.isFinite && current > 0 &&
-          previous != null && previous.isFinite && previous > 0;
-      final change = comparable ? current - previous : null;
-      final ratio = comparable && change != null ? change / previous : null;
-      final changeColor = change == null ? fvMuted : fvSignedColor(change);
-      final points = change == null ? '—' :
-          '${change > 0 ? '+' : change < 0 ? '-' : ''}${legacy.accountingNumber(change.abs(), decimals: 2)} 點';
-      final percent = ratio == null ? '—' : fvSignedPercent(ratio);
-      return fvPanel(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        child: Column(children: [
-        InkWell(
-          key: const Key('today-market-summary'),
-          onTap: () => showModalBottomSheet<void>(
-            context: context, isScrollControlled: true,
-            builder: (sheetContext) => SafeArea(
-              child: SizedBox(
-                height: MediaQuery.sizeOf(sheetContext).height * 0.7,
-                child: ListView(padding: const EdgeInsets.all(16), children: [
-                  const Text('加權指數 · 今日分鐘走勢',
-                      style: TextStyle(color: fvInk, fontSize: 20,
-                          fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 10),
-                  _market(),
-                ]),
-              ),
-            ),
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(children: [
-                const Text('加權指數', style: TextStyle(color: fvInk,
-                    fontSize: 15, fontWeight: FontWeight.w800)),
-                const SizedBox(width: 10),
-                Expanded(child: Align(alignment: Alignment.centerRight,
-                  child: FittedBox(fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Text(_value(section),
-                      key: const Key('today-market-index-value'),
-                      maxLines: 1, softWrap: false,
-                      style: const TextStyle(color: fvInk, fontSize: 24,
-                          fontWeight: FontWeight.w900)),
-                  ),
-                )),
-                const SizedBox(width: 6),
-                const Icon(Icons.chevron_right, color: fvTeal),
-              ]),
-              const SizedBox(height: 3),
-              Row(children: [
-                Expanded(child: Text(_taiexQuoteLabel(section),
-                    key: const Key('today-market-quote-status'),
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: fvMuted, fontSize: 12))),
-                const SizedBox(width: 6),
-                if (comparable)
-                  Flexible(flex: 3, child: Align(
-                    alignment: Alignment.centerRight,
-                    child: FittedBox(fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerRight,
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Text(points,
-                          key: const Key('today-market-change-points'),
-                          maxLines: 1, softWrap: false,
-                          style: TextStyle(color: changeColor, fontSize: 17,
-                              fontWeight: FontWeight.w800)),
-                        const SizedBox(width: 8),
-                        Text(percent,
-                          key: const Key('today-market-change-percent'),
-                          maxLines: 1, softWrap: false,
-                          style: TextStyle(color: changeColor, fontSize: 17,
-                              fontWeight: FontWeight.w800)),
-                      ]),
-                    ),
-                  ))
-                else
-                  const Text('漲跌待可比前收',
-                    key: Key('today-market-change-unavailable'),
-                    style: TextStyle(color: fvMuted, fontSize: 13)),
-              ]),
-            ],
+    builder: (context, snapshot) => TaiexCompactCard(
+      snapshot: snapshot,
+      lastGoodMarket: lastGoodMarket,
+      indexSection: indexSection,
+      indexBusy: indexBusy,
+      indexRefreshStatus: indexRefreshStatus,
+      marketHours: marketHours,
+      now: _now(),
+      keyPrefix: 'today',
+      onRefreshIndex: () => unawaited(_refreshIndex(manual: true)),
+      onTapSummary: () => showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (sheetContext) => SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(sheetContext).height * 0.7,
+            child: ListView(padding: const EdgeInsets.all(16), children: [
+              const Text('加權指數 · 今日分鐘走勢',
+                  style: TextStyle(color: fvInk, fontSize: 20,
+                      fontWeight: FontWeight.w800)),
+              const SizedBox(height: 10),
+              _market(),
+            ]),
           ),
         ),
-        const Divider(height: 8),
-        _indexRefreshControls(),
-        ]),
-      );
-    },
+      ),
+    ),
   );
 
   Widget _market() => FutureBuilder<dynamic>(
