@@ -575,6 +575,7 @@ void main() {
       findsOneWidget,
     );
 
+    await tester.ensureVisible(find.text('重新嘗試'));
     await tester.tap(find.text('重新嘗試'));
     await tester.pumpAndSettle();
     expect(api.posts, contains('/api/v1/me/journal/recalculate'));
