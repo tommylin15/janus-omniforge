@@ -1,14 +1,14 @@
 {
   "intent": "a-change-api-only-postpromote-readonly",
   "scope": "existing-dev",
-  "source_sha": "c0d94cf82924d8c49ceaaa4e82e5b415465d16de",
-  "promotion_run": "43342785774",
+  "source_sha": "d900060d6a990edc925e2bae53f8915a8d01f612",
+  "promotion_run": "44220608302",
   "read_only": true,
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "purpose": "2026-11-13 新帳號首次新增交易未設定券商費率時，改為即時引導設定手續費折扣與最低費用並自動重試試算。Release #43341065218、Candidate #43341776300、Auth Boundary #43342012382、API-only 100% #43342785774 全 PASS。獨立唯讀驗證現役 100% Ready、App build-id、原 Owner/Admin/MCP 保護及市場公開行情；無新資源/PG migration/Jobs/Scheduler/Owner 資料變更。",
-  "request_attempt": 27,
+  "purpose": "2026-11-18 將持股／記帳移至下方選單最左側並設為預設分頁，且於持股頁面顯示加權指數卡片。Release #44218863416、Candidate #44219600704、Auth Boundary #44220418582、API-only 100% #44220608302 全 PASS。獨立唯讀驗證現役 100% Ready、App build-id、原 Owner/Admin/MCP 保護及市場公開行情；無新資源/PG migration/Jobs/Scheduler/Owner 資料變更。",
+  "request_attempt": 28,
   "personal_strategy_access_check": true,
   "market_index_quote_check": false,
   "market_index_observe": false
