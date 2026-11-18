@@ -247,9 +247,6 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   bool _newerIndex(Map<String, dynamic> next, Map<String, dynamic> previous) =>
       newerTaiexIndex(next, previous);
 
-  Map<String, dynamic> _indexSummary(Map<String, dynamic> base) =>
-      mergeTaiexIndexSummary(base, indexSection);
-
   void _startMarketTimer() {
     marketTimer?.cancel();
     if (marketActive && marketHours) {
