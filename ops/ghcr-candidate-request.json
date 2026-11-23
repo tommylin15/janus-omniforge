@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "d900060d6a990edc925e2bae53f8915a8d01f612",
+  "sha": "b745006b8892ebe098247c230359fe308fda0b58",
   "digest": "",
-  "release_run": "44218863416",
+  "release_run": "45096346213",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-18 將持股／記帳移至下方選單最左側並設為預設分頁，且於持股頁面顯示加權指數卡片；完整 Python/Flutter PASS、四 GHCR 固定映像及公開 digest 驗證 #44218863416 PASS；只部署現有 Dev API 0% Candidate，保留現役 c0d94cf8 100% 及 Jobs/Scheduler/PG/IAM/Owner；權限與行情完整驗收後才切流。",
-  "request_attempt": 75
+  "purpose": "2026-11-23 修復 mcp_adapter 將 structuredContent 序列化寫入 text content，使僅讀取 content 的 MCP Client 可取得完整明細；完整 Python/Flutter PASS 及四 GHCR 映像驗證 #45096346213 PASS；只部署現有 Dev API 0% Candidate，保留現役 100% 及 Jobs/Scheduler/PG/IAM/Owner；權限與邊界驗收後才切流。",
+  "request_attempt": 76
 }
