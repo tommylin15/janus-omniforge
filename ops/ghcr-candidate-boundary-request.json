@@ -1,10 +1,10 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "d900060d6a990edc925e2bae53f8915a8d01f612",
+  "sha": "b745006b8892ebe098247c230359fe308fda0b58",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-18 將持股／記帳移至下方選單最左側並設為預設分頁，且於持股頁面顯示加權指數卡片。Release #44218863416 與 0% Candidate #44219600704 PASS；驗證既有 OAuth、個人策略、Owner/Admin/MCP 與盤中行情等效性；不切流、不改 Jobs/Scheduler/PG/IAM 或 Owner 資料。",
-  "request_attempt": 68,
+  "purpose": "2026-11-23 修復 mcp_adapter 將 structuredContent 序列化寫入 text content。Release #45096346213 與 0% Candidate #45096941500 PASS；驗證既有 OAuth、個人策略、Owner/Admin/MCP 與盤中行情等效性；不切流、不改 Jobs/Scheduler/PG/IAM 或 Owner 資料。",
+  "request_attempt": 69,
   "personal_strategy_access_check": true,
   "market_index_quote_check": true
 }
