@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+import json
 from typing import Any, Literal, Mapping
 from uuid import UUID
 
@@ -118,11 +119,8 @@ class McpAdapter:
         except (ValidationError, ValueError, ContextSourceError):
             message = "The bounded selector is invalid or unavailable."
             return self._result(request_id, {"isError":True,"content":[{"type":"text","text":message}]}), 200, {}
-        if name == "janus_sources":
-            text = "Listed Janus source metadata."
-        else:
-            text = f"Returned {result['bounds']['returned']} bounded {result['resource']} record(s); status={result['status']}."
-        return self._result(request_id, {"structuredContent":result,"content":[{"type":"text","text":text}]}), 200, {}
+        payload = json.dumps(result, default=str, ensure_ascii=False, separators=(",", ":"))
+        return self._result(request_id, {"structuredContent":result,"content":[{"type":"text","text":payload}]}), 200, {}
 
     def _call(self, name: str, arguments: Mapping[str, Any], owner_id: UUID) -> dict[str, Any]:
         if name == "janus_sources":

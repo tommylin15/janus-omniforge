@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from uuid import UUID
 
@@ -249,3 +250,18 @@ def test_cash_context_not_configured_is_missing_without_a_fabricated_zero():
     assert result["status"] == "missing"
     assert result["records"][0]["cash_status"] == "not_configured"
     assert result["records"][0]["cash_balance"] is None
+
+
+def test_mcp_tool_calls_serialize_structured_content_into_text_content():
+    api = client()
+    for params in (
+        {"name": "janus_sources", "arguments": {}},
+        {"name": "janus_market_context", "arguments": {"symbol": "2330", "resource": "ohlcv", "limit": 1}},
+        {"name": "janus_private_context", "arguments": {"resource": "trades", "symbol": "2330", "year": 2026, "limit": 1}},
+    ):
+        response = rpc(api, "tools/call", params, token="valid")
+        assert response.status_code == 200
+        res = response.json()["result"]
+        assert len(res["content"]) == 1
+        assert res["content"][0]["type"] == "text"
+        assert json.loads(res["content"][0]["text"]) == res["structuredContent"]
