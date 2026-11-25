@@ -102,7 +102,7 @@ def build_batches(records: tuple[CorporateActionRecord, ...], *, max_b64_bytes: 
     return encoded_batches
 
 
-def _run_job_batch(cloud, fence, job_fn, terminal, b64_payload: str) -> str:
+def _run_job_batch(cloud, fence, job_fn, terminal, root: str, b64_payload: str) -> str:
     source = job_fn("janus-ingestion-core")
     fence()
     container = source["template"]["template"]["containers"][0]
@@ -117,7 +117,6 @@ def _run_job_batch(cloud, fence, job_fn, terminal, b64_payload: str) -> str:
         "etag": source["etag"],
         "overrides": {"taskCount": 1, "timeout": "300s", "containerOverrides": [override]},
     }
-    root = "https://run.googleapis.com/v2/projects/gen-lang-client-0593591102/locations/us-central1"
     operation = cloud(f"{root}/jobs/janus-ingestion-core:run", body, "POST")
     name = operation.get("name", "")
     if not name.startswith(root + "/operations/"):
@@ -141,7 +140,7 @@ def _run_job_batch(cloud, fence, job_fn, terminal, b64_payload: str) -> str:
 
 
 def main() -> None:
-    from ghcr_jobs_rollout import cloud, fence, job, terminal
+    from ghcr_jobs_rollout import ROOT, cloud, fence, job, terminal
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--start-date", default="2024-01-01")
@@ -158,12 +157,12 @@ def main() -> None:
         start_d,
         end_d,
         include_rights_detail=include_detail,
-        pause_seconds=0.15,
+        pause_seconds=0.02,
     )
     batches = build_batches(records)
     executions: list[str] = []
     for b64 in batches:
-        executions.append(_run_job_batch(cloud, fence, job, terminal, b64))
+        executions.append(_run_job_batch(cloud, fence, job, terminal, ROOT, b64))
 
     dates = [r.ex_date.isoformat() for r in records]
     receipt = {

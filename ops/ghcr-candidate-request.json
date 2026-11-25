@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "37f0539047a234ac0ba02b1095c60e49345341f3",
+  "sha": "da8d030c41365453a02960b5090b7140b59042a6",
   "digest": "",
-  "release_run": "45544861909",
+  "release_run": "45547736972",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-25 DIV-01..04 現金＋股票股利自動推算與逐筆／批次一鍵確認入帳（含 080 Migration #45544590751）；完整 Python/Flutter PASS 及四 GHCR 映像驗證 #45544861909 PASS；只部署現有 Dev API 0% Candidate，保留現役 100% 及 Jobs/Scheduler/PG/IAM/Owner；權限與邊界驗收後才切流。",
-  "request_attempt": 78
+  "purpose": "2026-11-25 DIV-01..04 升級：補齊 TWSE TWT49U + TPEx 歷史除權息抓取與強化手動股利防重複對帳容差；完整 Python/Flutter PASS 及四 GHCR 映像驗證 #45547736972 PASS；只部署現有 Dev API 0% Candidate，保留現役 100% 及 Jobs/Scheduler/PG/IAM/Owner；權限與邊界驗收後才切流。",
+  "request_attempt": 79
 }
