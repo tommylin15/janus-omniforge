@@ -16,17 +16,18 @@
 
 1. `/api/v1/me/journal/instruments?q=0050`、`/api/v1/me/watchlist/search?q=0050` 首先讀本地 `stock_master`，代碼精確命中立即回傳。
 2. 若輸入符合 ETF 候選代碼形狀且**沒有精確命中**，以固定官方端點確認證券別、名稱、上市／上櫃、實際掛牌日期後，透過有界 PostgreSQL `control.register_verified_etf` 登錄，再重新查本地資料庫。候選碼格式僅是「是否嘗試官方查詢」的條件，**不是官方身份認定**。
-3. TWSE 優先 `https://openapi.twse.com.tw/v1/opendata/t187ap47_L`（「基金基本資料彙總表」）；若 OpenAPI 回應不可用，回退 `https://isin.twse.com.tw/isin/class_main.jsp` 的上市 ETF 篩選。TPEx 使用同一 ISIN 目錄的上櫃 ETF 篩選。來源以固定 allowlist；拒絕任意 URL、空資料、重複衝突、未上市、代碼不符或非 ETF。
-4. 官方來源查詢失敗回傳 `lookup_status=official_unavailable`，不捏造標的也不讓未驗證代碼通過 UI 選取；官方查無則 `official_not_found`。快取一小時避免同一例外代碼反覆外呼。
+3. TWSE 優先 `https://openapi.twse.com.tw/v1/opendata/t187ap47_L`（「基金基本資料彙總表」，支援西元與民國年上市日及台幣別過濾）；若 OpenAPI 回應不可用，回退 `https://isin.twse.com.tw/isin/class_main.jsp` 的上市 ETF 篩選（支援 CP950/Big5 解碼）。TPEx 使用同一 ISIN 目錄的上櫃 ETF 篩選。於 Cloud Run 環境（`K_SERVICE`／`CLOUD_RUN_JOB`）預設透過 `asia-east1` 私有 IAM 代理 `shioaji-quote-proxy`（`POST /fetch`）存取固定官方 allowlist，失敗時才回退直連；拒絕任意 URL、空資料、重複衝突、未上市、代碼不符或非 ETF。
+4. 官方來源查詢失敗回傳 `lookup_status=official_unavailable`，不捏造標的也不讓未驗證代碼通過 UI 選取；官方查無則 `official_not_found`。前端新增交易與關注搜尋區分顯示 `official_unavailable`／`official_not_found` 提示。同時快取市場級名冊與例外代碼查詢一小時，避免重複外呼。
 5. 目前 Owner 交易表單使用 `TWD`，且無交易幣別切換。外幣加掛代碼末尾 `C`／`K` 暫不自動收錄；外幣交易另需有幣別欄位與換匯契約後才能啟用。
 6. 週同步附掛既有 `JANUS_UNIFIED_COLLECTION` worker，依 `control.etf_catalog_sync_state.last_success_at` 以七天週期更新。兩市場必須同時取得有效資料才接受 snapshot；同名重送 idempotent；只更新官方身份、不刪既有持股與交易、不用缺席推定下市。API 的即時補入即使不在同步週期，也可先處理已核實新 ETF。
 7. 官方資料記錄 `source_id`、固定 `source_url`、`listed_on`、`verified_on` 與 `instrument_kind`。已被操作員禁用的標的不可由同步重新開啟。
 
 ## 已修改的程式路徑
 
-- `packages/etf_catalog.py`：TWSE OpenAPI／ISIN 解析、官方來源可用性、候選代碼校驗、即時 lookup 與週資料集。
+- `packages/etf_catalog.py`：TWSE OpenAPI／ISIN 解析（含西元／民國年、台幣別過濾、CP950/Big5 解碼）、`asia-east1` 代理存取與降級、市場級一小時快取與週資料集。
+- `services/shioaji_quote_proxy/main.py`、`test_shioaji_proxy.py`、`.github/workflows/deploy-shioaji-quote-proxy.yml`：`/fetch` 白名單加入 `isin.twse.com.tw`、嚴格 CP950/Big5 解碼、`ingestion-core` Invoker IAM 綁定及部署後實測煙霧驗證。
 - `services/api/repository.py`、`services/api/app.py`：本地標的查詢、ETF 缺值補收、受限 DB 登錄與關注權限檢查。
-- `apps/user_app/lib/main.dart`：交易與關注畫面標的欄位、ETF 標記與查無資料提示。
+- `apps/user_app/lib/main.dart`、`final_watchlist.dart`、`test/widget_test.dart`：交易與關注畫面標的欄位、ETF 標記、15 秒搜尋逾時與 `official_unavailable`／`official_not_found` 提示。
 - `infra/postgres/migrations/075_etf_tradeable_catalog.sql`：控制表、有限資料登錄函式及修正不該補收的 ETF 研究需求。
 - `jobs/ingestion-core/ingestion_core/etf_catalog_sync.py`、`unified_collection.py`：在既有批次中每週執行，失敗不使其他市場收集結果被覆蓋。
 - `tests/test_etf_catalog.py`：來源格式、官方身份、期限、外幣、失敗降級與普通股研究母體隔離。

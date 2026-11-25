@@ -402,6 +402,64 @@ def test_fetch_endpoint_allowlist_validation():
     client = TestClient(proxy.app)
     assert client.post("/fetch", json={"url": "https://evil.example.com/test"}).status_code == 400
     assert client.post("/fetch", json={"url": "http://blave.org/studio"}).status_code == 400
+    assert "isin.twse.com.tw" in proxy.ALLOWED_INTEL_HOSTS
+    assert "openapi.twse.com.tw" in proxy.ALLOWED_INTEL_HOSTS
+
+
+def test_fetch_endpoint_allows_twse_isin_and_decodes_cp950_html(monkeypatch):
+    from types import SimpleNamespace
+    from fastapi.testclient import TestClient
+    from services.shioaji_quote_proxy import main as proxy
+
+    html_text = (
+        "<html><table><tr><td>1</td><td>TW0000056001</td><td>0056</td>"
+        "<td>元大高股息</td><td>上市</td><td>ETF</td><td></td>"
+        "<td>2007/12/26</td><td>CEOGEU</td><td></td></tr>"
+        "<tr><td>2</td><td>TW0000091902</td><td>00919</td>"
+        "<td>群益台灣精選高息</td><td>上市</td><td>ETF</td><td></td>"
+        "<td>2022/10/20</td><td>CEOGEU</td><td></td></tr></table></html>"
+    )
+    cp950_bytes = html_text.encode("cp950")
+    assert proxy._decode_upstream_body(cp950_bytes, "text/html", "isin.twse.com.tw") == html_text
+    assert proxy._decode_upstream_body(cp950_bytes, "text/html; charset=Big5", "isin.twse.com.tw") == html_text
+    assert proxy._decode_upstream_body(cp950_bytes, "text/html; charset=MS950", "isin.twse.com.tw") == html_text
+
+    seen = []
+
+    class FakeClient:
+        def __init__(self, **_):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def get(self, url, headers=None):
+            seen.append((url, headers))
+            ct = "application/json; charset=utf-8" if "openapi.twse.com.tw" in url else "text/html; charset=Big5"
+            content = b'[{"\xe5\x9f\xba\xe9\x87\x91\xe4\xbb\xa3\xe8\x99\x9f":"0056"}]' if "openapi.twse.com.tw" in url else cp950_bytes
+            return SimpleNamespace(
+                status_code=200,
+                url=url,
+                headers={"content-type": ct},
+                content=content,
+            )
+
+    monkeypatch.setattr(proxy.httpx, "Client", FakeClient)
+    client = TestClient(proxy.app)
+    isin_resp = client.post("/fetch", json={"url": "https://isin.twse.com.tw/isin/class_main.jsp?Page=1&chklike=Y&issuetype=I&market=1"})
+    assert isin_resp.status_code == 200
+    isin_data = isin_resp.json()
+    assert isin_data["status"] == "success"
+    assert isin_data["body"] == html_text
+    assert "\ufffd" not in isin_data["body"]
+
+    openapi_resp = client.post("/fetch", json={"url": "https://openapi.twse.com.tw/v1/opendata/t187ap47_L"})
+    assert openapi_resp.status_code == 200
+    assert openapi_resp.json()["status"] == "success"
+    assert len(seen) == 2
 
 
 

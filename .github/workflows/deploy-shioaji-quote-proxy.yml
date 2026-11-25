@@ -81,6 +81,12 @@ jobs:
             --role="roles/run.invoker" \
             --member="serviceAccount:janus-user-api@${PROJECT_ID}.iam.gserviceaccount.com" \
             --quiet
+          gcloud run services add-iam-policy-binding "${SERVICE_NAME}" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --role="roles/run.invoker" \
+            --member="serviceAccount:ingestion-core@${PROJECT_ID}.iam.gserviceaccount.com" \
+            --quiet
 
       - name: Describe Service URL
         id: service_info
@@ -95,4 +101,68 @@ jobs:
           URL="${{ steps.service_info.outputs.url }}"
           echo "Verified service status and active URL: ${URL}"
           gcloud run services describe "${SERVICE_NAME}" --project="${PROJECT_ID}" --region="${REGION}" --format="table(status.url,status.conditions[0].status,status.latestReadyRevisionName)"
+
+      - name: Verify live ETF catalogue via asia-east1 proxy
+        run: |
+          set -Eeuo pipefail
+          URL="${{ steps.service_info.outputs.url }}"
+          TOKEN="$(gcloud auth print-identity-token \
+            --impersonate-service-account="janus-user-api@${PROJECT_ID}.iam.gserviceaccount.com" \
+            --audiences="${URL}" 2>/dev/null || gcloud auth print-identity-token --audiences="${URL}" 2>/dev/null || true)"
+          if [[ -z "${TOKEN}" ]]; then
+            echo "proxy_etf_smoke=token_unavailable_or_forbidden"
+            exit 0
+          fi
+          export PROXY_BASE="${URL}" PROXY_TOKEN="${TOKEN}" PYTHONPATH=.
+          python3 - <<'PY'
+          import json, os, urllib.error, urllib.request
+          from packages import etf_catalog
+
+          base = os.environ["PROXY_BASE"].rstrip("/")
+          token = os.environ["PROXY_TOKEN"]
+
+          def fetch_via_proxy(target_url: str):
+              req = urllib.request.Request(
+                  f"{base}/fetch",
+                  data=json.dumps({"url": target_url, "timeout": 15}).encode("utf-8"),
+                  method="POST",
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Content-Type": "application/json",
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=25) as resp:
+                      return resp.status, json.loads(resp.read(4_000_000))
+              except urllib.error.HTTPError as exc:
+                  return exc.code, {}
+
+          openapi_code, openapi_payload = fetch_via_proxy(etf_catalog.TWSE_OPENAPI_URL)
+          if openapi_code == 403:
+              print("proxy_etf_smoke=token_unavailable_or_forbidden")
+              raise SystemExit(0)
+          assert openapi_code == 200 and openapi_payload.get("status") == "success", f"openapi proxy failed: {openapi_code} {openapi_payload.get('http_status')} {openapi_payload.get('error')}"
+          openapi_rows = etf_catalog.parse_twse_openapi_etfs(json.loads(openapi_payload["body"]))
+          openapi_map = {r.symbol: r for r in openapi_rows}
+          print(f"openapi_count={len(openapi_rows)}", {s: (openapi_map[s].name, openapi_map[s].listed_on.isoformat()) for s in ("0050", "0056", "00919") if s in openapi_map})
+
+          twse_isin_code, twse_isin_payload = fetch_via_proxy(f"{etf_catalog.ISIN_URL}?Page=1&chklike=Y&issuetype=I&market=1")
+          assert twse_isin_code == 200 and twse_isin_payload.get("status") == "success", f"twse isin proxy failed: {twse_isin_code} {twse_isin_payload.get('http_status')} {twse_isin_payload.get('error')}"
+          assert "\ufffd" not in twse_isin_payload["body"], "TWSE ISIN decoded body contains replacement character"
+          twse_isin_rows = etf_catalog.parse_isin_etfs(twse_isin_payload["body"], market="TWSE")
+          twse_isin_map = {r.symbol: r for r in twse_isin_rows}
+          print(f"twse_isin_count={len(twse_isin_rows)}", {s: (twse_isin_map[s].name, twse_isin_map[s].listed_on.isoformat()) for s in ("0050", "0056", "00919") if s in twse_isin_map})
+
+          tpex_isin_code, tpex_isin_payload = fetch_via_proxy(f"{etf_catalog.ISIN_URL}?Page=1&chklike=Y&issuetype=I&market=2")
+          assert tpex_isin_code == 200 and tpex_isin_payload.get("status") == "success", f"tpex isin proxy failed: {tpex_isin_code} {tpex_isin_payload.get('http_status')} {tpex_isin_payload.get('error')}"
+          assert "\ufffd" not in tpex_isin_payload["body"], "TPEx ISIN decoded body contains replacement character"
+          tpex_isin_rows = etf_catalog.parse_isin_etfs(tpex_isin_payload["body"], market="TPEX")
+          print(f"tpex_isin_count={len(tpex_isin_rows)}", [(r.symbol, r.name, r.listed_on.isoformat()) for r in tpex_isin_rows[:3]])
+
+          twse_union = {**twse_isin_map, **openapi_map}
+          for sym in ("0050", "0056", "00919"):
+              assert sym in twse_union, f"Missing {sym} in TWSE union"
+          assert len(tpex_isin_rows) >= 10, f"Unexpectedly small TPEx ETF count: {len(tpex_isin_rows)}"
+          print("proxy_etf_smoke=PASS")
+          PY
 

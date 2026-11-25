@@ -33,6 +33,7 @@ ALLOWED_INTEL_HOSTS = frozenset({
     "xn--g10a.tw",
     "www.twse.com.tw",
     "openapi.twse.com.tw",
+    "isin.twse.com.tw",
     "mis.twse.com.tw",
     "mops.twse.com.tw",
     "www.tpex.org.tw",
@@ -502,6 +503,29 @@ def get_quote(symbol: str) -> Dict[str, Any]:
     }
 
 
+_BIG5_CHARSETS = frozenset({"big5", "ms950", "cp950", "big5hkscs", "big5-hkscs"})
+
+
+def _decode_upstream_body(raw: bytes, content_type: str, host: str) -> str:
+    """Decode upstream bytes strictly using declared charset or Taiwan CP950/UTF-8 order."""
+    match = re.search(r"charset\s*=\s*['\"]?([A-Za-z0-9._-]+)", content_type or "", re.IGNORECASE)
+    declared = match.group(1).strip().lower() if match else ""
+    if declared in _BIG5_CHARSETS:
+        encodings = ("cp950", "big5", "utf-8-sig")
+    elif declared:
+        encodings = (declared, "utf-8-sig", "cp950", "big5")
+    elif host == "isin.twse.com.tw":
+        encodings = ("cp950", "big5", "utf-8-sig")
+    else:
+        encodings = ("utf-8-sig", "cp950", "big5")
+    for encoding in encodings:
+        try:
+            return raw.decode(encoding, errors="strict")
+        except (UnicodeError, LookupError):
+            continue
+    return raw.decode("utf-8", errors="replace")
+
+
 @app.post("/fetch")
 def fetch_external_intel(req: IntelFetchRequest) -> Dict[str, Any]:
     """Forward GET request to allowlisted Taiwan market intelligence & official APIs from asia-east1."""
@@ -533,7 +557,7 @@ def fetch_external_intel(req: IntelFetchRequest) -> Dict[str, Any]:
         with httpx.Client(timeout=timeout_sec, follow_redirects=True, max_redirects=3) as client:
             resp = client.get(raw_url, headers=req_headers)
             content_type = resp.headers.get("content-type", "")
-            text = resp.text[:1_500_000]
+            text = _decode_upstream_body(resp.content, content_type, host)[:2_000_000]
             return {
                 "status": "success" if resp.status_code == 200 else "upstream_error",
                 "http_status": resp.status_code,

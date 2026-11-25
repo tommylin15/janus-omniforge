@@ -278,15 +278,22 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
       ).toString());
       if (!mounted) return;
       final matches = fvRows(result);
+      final lookupStatus =
+          fvText(fvMap(result)['lookup_status'], missing: 'local');
+      final emptyMessage = switch (lookupStatus) {
+        'official_unavailable' => '官方 ETF 名冊暫時無法連線，請稍後重試',
+        'official_not_found' => '官方台幣 ETF 名冊查無此標的，請確認代號',
+        _ => '沒有符合的股票',
+      };
       final symbol = await showDialog<String>(
         context: context,
         builder: (context) => SimpleDialog(
           title: const Text('選擇股票'),
           children: [
             if (matches.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('沒有符合的股票'),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(emptyMessage),
               ),
             for (final item in matches)
               SimpleDialogOption(

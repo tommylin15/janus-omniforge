@@ -542,14 +542,21 @@ class _WatchlistPageState extends State<WatchlistPage> {
           path: '/api/v1/me/watchlist/search',
           queryParameters: {'q': query.trim()}).toString());
       if (!mounted) return;
-      final matches = _asList((result as Map)['items']);
+      final map = result as Map;
+      final matches = _asList(map['items']);
+      final lookupStatus = '${map['lookup_status'] ?? 'local'}';
+      final emptyMessage = switch (lookupStatus) {
+        'official_unavailable' => '官方 ETF 名冊暫時無法連線，請稍後重試',
+        'official_not_found' => '官方台幣 ETF 名冊查無此標的，請確認代號',
+        _ => '沒有符合的標的，請檢查代碼或稍後重試',
+      };
       symbol = await showDialog<String>(
           context: context,
           builder: (context) =>
               SimpleDialog(title: const Text('選擇股票或 ETF'), children: [
                 if (matches.isEmpty)
-                  const Padding(
-                      padding: EdgeInsets.all(16), child: Text('沒有符合的標的，請檢查代碼或稍後重試')),
+                  Padding(
+                      padding: const EdgeInsets.all(16), child: Text(emptyMessage)),
                 for (final row in matches)
                   SimpleDialogOption(
                       onPressed: () =>
@@ -2625,7 +2632,8 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
   var price = '${initial?['price'] ?? ''}';
   var amount = '${initial?['cash_amount'] ?? ''}';
   var memo = '${initial?['memo'] ?? ''}';
-  var instrumentLookupFailed = false;
+  String? instrumentLookupMessage;
+  var lookupRequestSeq = 0;
 
   String? positiveNumber(String? value) {
     final number = num.tryParse(value?.trim() ?? '');
@@ -2692,6 +2700,20 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                                         if (query.length > 80) {
                                           return const <Map<String, dynamic>>[];
                                         }
+                                        final seq = ++lookupRequestSeq;
+                                        void setMessage(String? nextMessage) {
+                                          if (seq != lookupRequestSeq ||
+                                              instrumentLookupMessage == nextMessage ||
+                                              !dialogContext.mounted) {
+                                            return;
+                                          }
+                                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                                            if (dialogContext.mounted && seq == lookupRequestSeq) {
+                                              setDialogState(() => instrumentLookupMessage = nextMessage);
+                                            }
+                                          });
+                                        }
+
                                         try {
                                           final result = await api
                                               .get(
@@ -2703,26 +2725,21 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                                                     }).toString(),
                                               )
                                               .timeout(
-                                                  const Duration(seconds: 10));
+                                                  const Duration(seconds: 15));
                                           final items = result['items'];
                                           if (items is! List) throw const FormatException('invalid instrument list');
-                                          if (instrumentLookupFailed && dialogContext.mounted) {
-                                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                                              if (dialogContext.mounted) {
-                                                setDialogState(() => instrumentLookupFailed = false);
-                                              }
-                                            });
+                                          final lookupStatus = '${result['lookup_status'] ?? 'local'}';
+                                          if (items.isEmpty && lookupStatus == 'official_unavailable') {
+                                            setMessage('官方 ETF 名冊暫時無法連線，請稍後重試；不要將暫時無法查詢當作沒有此標的');
+                                          } else if (items.isEmpty && lookupStatus == 'official_not_found') {
+                                            setMessage('官方台幣 ETF 名冊查無「$query」，請確認代號是否正確');
+                                          } else {
+                                            setMessage(null);
                                           }
                                           return items.map((row) =>
                                               Map<String, dynamic>.from(row));
                                         } catch (_) {
-                                          if (!instrumentLookupFailed && dialogContext.mounted) {
-                                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                                              if (dialogContext.mounted) {
-                                                setDialogState(() => instrumentLookupFailed = true);
-                                              }
-                                            });
-                                          }
+                                          setMessage('股票名冊查詢失敗，請重新輸入搜尋；不要將缺資料當作沒有股票');
                                           return const <Map<String, dynamic>>[];
                                         }
                                       },
@@ -2747,10 +2764,10 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                                             : null,
                                       ),
                                     ),
-                                    if (instrumentLookupFailed)
+                                    if (instrumentLookupMessage != null)
                                       Padding(
                                         padding: const EdgeInsets.only(top: 6),
-                                        child: Text('股票名冊查詢失敗，請重新輸入搜尋；不要將缺資料當作沒有股票',
+                                        child: Text(instrumentLookupMessage!,
                                             style: TextStyle(color: Theme.of(context).colorScheme.error)),
                                       ),
                                     if (type != 'CASH_DIV')

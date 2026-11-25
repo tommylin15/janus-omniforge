@@ -188,3 +188,137 @@ def test_migration_is_owner_only_and_research_universe_unchanged():
     assert "register_verified_etf('00878'" in sql
 
     assert "REVOKE CREATE ON SCHEMA control FROM janus_private_api" in sql
+
+
+def test_twse_openapi_parses_compact_gregorian_and_roc_dates_and_excludes_foreign_currency():
+    rows = [
+        {"基金代號": "0050", "基金簡稱": "元大台灣50", "上市日期": "2003/06/30", "計幣別": "新台幣"},
+        {"基金代號": "0056", "基金簡稱": "元大高股息", "上市日期": "20071226", "計幣別": "新臺幣"},
+        {"基金代號": "00919", "基金簡稱": "群益台灣精選高息", "上市日期": "111/10/20", "計幣別": "TWD"},
+        {"基金代號": "00929", "基金簡稱": "復華台灣科技優息", "上市日期": "1120609"},
+        {"基金代號": "00988", "基金簡稱": "美元ETF", "上市日期": "20240110", "計幣別": "美元"},
+    ]
+    found = parse_twse_openapi_etfs(rows, as_of=date(2026, 11, 25))
+    by_sym = {r.symbol: r for r in found}
+    assert set(by_sym) == {"0050", "0056", "00919", "00929"}
+    assert by_sym["0056"] == OfficialEtf("0056", "元大高股息", "TWSE", date(2007, 12, 26), "twse_openapi_etf")
+    assert by_sym["00919"] == OfficialEtf("00919", "群益台灣精選高息", "TWSE", date(2022, 10, 20), "twse_openapi_etf")
+    assert by_sym["00929"] == OfficialEtf("00929", "復華台灣科技優息", "TWSE", date(2023, 6, 9), "twse_openapi_etf")
+
+
+def test_cloud_run_uses_asia_east1_proxy_and_caches_market_for_one_hour(monkeypatch):
+    import json
+
+    catalog.clear_cache()
+    monkeypatch.setenv("K_SERVICE", "janus-api")
+    monkeypatch.delenv("JANUS_SHIOAJI_PROXY_URL", raising=False)
+    monkeypatch.setenv("JANUS_ETF_PROXY_ENABLED", "true")
+
+    calls = []
+
+    def fake_proxy(url, *, timeout_seconds, opener=None):
+        calls.append(url)
+        if url == catalog.TWSE_OPENAPI_URL:
+            return json.dumps([
+                {"基金代號": "0056", "基金簡稱": "元大高股息", "上市日期": "0961226"},
+                {"基金代號": "00919", "基金簡稱": "群益台灣精選高息", "上市日期": "20221020"},
+            ])
+        if "market=1" in url:
+            return _html([
+                _row("0056", "元大高股息", listed="2007/12/26"),
+                _row("00919", "群益台灣精選高息", listed="2022/10/20"),
+            ])
+        return _html([_row("00697B", "元大美債7-10", market="上櫃", listed="2017/06/23")])
+
+    def fail_direct(*_, **__):
+        raise AssertionError("Direct urlopen must not be called when proxy succeeds")
+
+    monkeypatch.setattr(catalog, "_fetch_text_via_proxy", fake_proxy)
+    monkeypatch.setattr(catalog, "urlopen", fail_direct)
+
+    try:
+        # Typing 0091 (non-match) populates all market caches; subsequent 00919/0056 do 0 network calls.
+        assert find_official_etf("0091") is None
+        assert len(calls) == 3
+        r_919 = find_official_etf("00919")
+        r_56 = find_official_etf("0056")
+        assert r_919 is not None and r_919.name == "群益台灣精選高息"
+        assert r_56 is not None and r_56.listed_on == date(2007, 12, 26)
+        assert len(calls) == 3
+    finally:
+        catalog.clear_cache()
+
+
+def test_proxy_fallback_to_direct_and_unapproved_proxy_rejected(monkeypatch):
+    import json
+
+    catalog.clear_cache()
+    monkeypatch.setenv("CLOUD_RUN_JOB", "janus-ingestion-core")
+
+    class _Headers:
+        def get_content_charset(self):
+            return "utf-8"
+
+    class _Resp:
+        def __init__(self, raw):
+            self.headers = _Headers()
+            self._raw = raw
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self, _):
+            return self._raw
+
+    try:
+        # Unapproved proxy endpoint must fail closed without falling back to direct.
+        monkeypatch.setenv("JANUS_SHIOAJI_PROXY_URL", "https://evil.example.com")
+        monkeypatch.setattr(catalog, "urlopen", lambda *_, **__: _Resp(b"[]"))
+        with pytest.raises(EtfCatalogUnavailable):
+            catalog.fetch_twse_openapi_etfs()
+
+        # Approved proxy failing transiently falls back to direct urlopen.
+        monkeypatch.delenv("JANUS_SHIOAJI_PROXY_URL", raising=False)
+        monkeypatch.setattr(
+            catalog,
+            "_fetch_text_via_proxy",
+            lambda *_, **__: (_ for _ in ()).throw(EtfCatalogUnavailable("proxy 502")),
+        )
+        direct_json = json.dumps([
+            {"基金代號": "0056", "基金簡稱": "元大高股息", "上市日期": "20071226"},
+        ]).encode("utf-8")
+        monkeypatch.setattr(catalog, "urlopen", lambda *_, **__: _Resp(direct_json))
+        records = catalog.fetch_twse_openapi_etfs()
+        assert records[0].symbol == "0056"
+    finally:
+        catalog.clear_cache()
+
+
+def test_direct_isin_fetch_decodes_cp950_bytes():
+    html = _html([
+        _row("0056", "元大高股息", listed="2007/12/26"),
+        _row("00919", "群益台灣精選高息", listed="2022/10/20"),
+    ])
+    cp950_bytes = html.encode("cp950")
+
+    class _Headers:
+        def get_content_charset(self):
+            return None
+
+    class _Resp:
+        headers = _Headers()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self, _):
+            return cp950_bytes
+
+    records = catalog.fetch_isin_etfs("TWSE", opener=lambda *_, **__: _Resp(), use_proxy=False)
+    assert [r.symbol for r in records] == ["0056", "00919"]

@@ -401,6 +401,52 @@ def test_trade_instrument_search_is_authenticated_and_accepts_one_character():
     assert searches == ['元', '']
 
 
+def test_trade_instrument_search_imports_official_etf_and_reports_unavailable(monkeypatch):
+    from datetime import date
+    from packages.etf_catalog import EtfCatalogUnavailable, OfficialEtf
+    import services.api.app as app_module
+
+    repository = QuoteRepository()
+    registered = []
+
+    def search(query):
+        return [dict(item) for item in registered if query in item['symbol'] or query in item['stock_name']]
+
+    def register(identity):
+        registered.append({
+            'symbol': identity.symbol,
+            'stock_name': identity.name,
+            'market': identity.market,
+            'enabled': True,
+            'instrument_kind': 'ETF',
+        })
+
+    repository.search_trade_instruments = search
+    repository.register_verified_etf = register
+    client = TestClient(create_app(repository, Store(), lambda *_: {
+        'sub': 'google-a', 'email': 'owner@example.com', 'email_verified': True, 'exp': 1_900_000_000,
+        'aud': 'user-client', 'iss': 'https://accounts.google.com',
+    }, audience='user-client'))
+
+    monkeypatch.setattr(
+        app_module,
+        'find_official_etf',
+        lambda sym: OfficialEtf('0056', '元大高股息', 'TWSE', date(2007, 12, 26), 'twse_openapi_etf') if sym == '0056' else None,
+    )
+    imported = client.get('/api/v1/me/journal/instruments', params={'q': '0056'}, headers={'Authorization': 'Bearer user'})
+    assert imported.status_code == 200
+    assert imported.json()['lookup_status'] == 'official_imported'
+    assert imported.json()['items'][0]['symbol'] == '0056'
+
+    def raise_unavailable(_):
+        raise EtfCatalogUnavailable('upstream timeout')
+
+    monkeypatch.setattr(app_module, 'find_official_etf', raise_unavailable)
+    unavailable = client.get('/api/v1/me/journal/instruments', params={'q': '00919'}, headers={'Authorization': 'Bearer user'})
+    assert unavailable.status_code == 200
+    assert unavailable.json() == {'items': [], 'lookup_status': 'official_unavailable'}
+
+
 def test_published_core_eod_does_not_claim_fresh_after_seven_days_or_in_the_future():
     repository = QuoteRepository()
     class NoSource:

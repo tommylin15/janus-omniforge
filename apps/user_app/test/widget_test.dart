@@ -338,6 +338,60 @@ void main() {
     expect(find.text('請從下拉選項選取標的；若查無結果請稍後重試'), findsOneWidget);
   });
 
+  testWidgets(
+      'transaction dialog surfaces official_unavailable and clears error once imported',
+      (tester) async {
+    Map<String, dynamic>? result;
+    final api = FakeApi({
+      '/api/v1/me/journal/instruments?q=005': {
+        'items': <dynamic>[],
+        'lookup_status': 'local',
+      },
+      '/api/v1/me/journal/instruments?q=0056': {
+        'items': <dynamic>[],
+        'lookup_status': 'official_unavailable',
+      },
+    });
+    await tester.pumpWidget(MaterialApp(
+        home: Builder(
+            builder: (context) => FilledButton(
+                onPressed: () async {
+                  result = await transactionDialog(context, api: api, initial: {
+                    'shares': '10',
+                    'price': '36',
+                  });
+                },
+                child: const Text('開啟')))));
+    await tester.tap(find.text('開啟'));
+    await tester.pumpAndSettle();
+
+    final field = find.widgetWithText(TextFormField, '股票／ETF 代號或名稱');
+    await tester.enterText(field, '0056');
+    await tester.pumpAndSettle();
+    expect(
+        find.text('官方 ETF 名冊暫時無法連線，請稍後重試；不要將暫時無法查詢當作沒有此標的'),
+        findsOneWidget);
+
+    api.values['/api/v1/me/journal/instruments?q=0056'] = {
+      'items': [
+        {'symbol': '0056', 'stock_name': '元大高股息', 'instrument_kind': 'ETF'}
+      ],
+      'lookup_status': 'official_imported',
+    };
+    await tester.enterText(field, '005');
+    await tester.pumpAndSettle();
+    await tester.enterText(field, '0056');
+    await tester.pumpAndSettle();
+    expect(
+        find.text('官方 ETF 名冊暫時無法連線，請稍後重試；不要將暫時無法查詢當作沒有此標的'),
+        findsNothing);
+    await tester.tap(find.text('元大高股息（0056） · ETF'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('儲存'));
+    await tester.pumpAndSettle();
+    expect(result, containsPair('symbol', '0056'));
+  });
+
   testWidgets('journal exposes holdings, records, reports, and notes',
       (tester) async {
     await tester
