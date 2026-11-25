@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'dividend_pending.dart';
 import 'final_portfolio_report.dart';
 import 'final_perf.dart';
 import 'final_visual_common.dart';
@@ -90,6 +91,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   bool recalcPollBusy = false;
   Map<String, dynamic>? recalcStatus;
   bool pnlRequestFinished = false;
+  bool dividendScanBusy = false;
+  Map<String, dynamic>? pendingDividends;
   bool foreground = true;
   int quoteGeneration = 0;
   DateTime? offSessionQuoteDate;
@@ -310,7 +313,66 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
           });
         }));
       }
+      unawaited(cached('/api/v1/me/dividends/pending').then((value) {
+        if (!mounted || generation != deferredGeneration) return;
+        if (value is Map) {
+          setState(() => pendingDividends = Map<String, dynamic>.from(value));
+        }
+      }));
     });
+  }
+
+  Future<void> openPendingDividends() async {
+    final changed = await showPendingDividendsSheet(
+      context,
+      api: widget.api,
+      now: widget.now,
+      initialData: pendingDividends,
+    );
+    if (mounted) {
+      if (changed) {
+        reload();
+      } else {
+        requestCache.remove('/api/v1/me/dividends/pending');
+        final refreshed = await safe('/api/v1/me/dividends/pending');
+        if (mounted && refreshed is Map) {
+          setState(() => pendingDividends = Map<String, dynamic>.from(refreshed));
+        }
+      }
+    }
+  }
+
+  Future<void> scanHistoricalDividends() async {
+    if (dividendScanBusy) return;
+    setState(() => dividendScanBusy = true);
+    try {
+      final result = await widget.api
+          .post('/api/v1/me/dividends/scan', const {})
+          .timeout(const Duration(seconds: 18));
+      requestCache.remove('/api/v1/me/dividends/pending');
+      final refreshed = await safe('/api/v1/me/dividends/pending');
+      if (!mounted) return;
+      if (refreshed is Map) {
+        setState(() => pendingDividends = Map<String, dynamic>.from(refreshed));
+      }
+      final summary = fvMap(result);
+      final created = fvInt(summary['newly_created']);
+      final recalc = fvInt(summary['recalculated']);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('歷史股利掃描完成：新增 $created 筆、更新 $recalc 筆')),
+      );
+      if (fvInt(pendingDividends?['pending_count']) > 0) {
+        await openPendingDividends();
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('歷史股利掃描失敗，請稍後重試')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => dividendScanBusy = false);
+    }
   }
 
   Future<List<dynamic>> loadSection(int target, int year) {
@@ -340,6 +402,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     setState(() {
       requestCache.clear();
       deferredCore = null;
+      pendingDividends = null;
       pnlRequestFinished = false;
       coreData = loadCore();
       sectionData = section == 0 ? null : loadSection(section, yearFilter);
@@ -1512,6 +1575,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     ),
                     const SizedBox(height: 10),
                     assetOverview(assets),
+                    PendingDividendsBanner(
+                      pendingCount: fvInt(pendingDividends?['pending_count']),
+                      items: fvRows(pendingDividends?['items']),
+                      onReview: openPendingDividends,
+                    ),
                   ],
                   if (section == 0 && !coreLoading &&
                       values.length > 1 && values[1] != null &&
@@ -1687,9 +1755,20 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                                       )
                                     : null,
                               ),
+                              OutlinedButton.icon(
+                                key: const Key('scan-historical-dividends'),
+                                onPressed: dividendScanBusy ? null : scanHistoricalDividends,
+                                icon: const Icon(Icons.savings_outlined, size: 18),
+                                label: Text(dividendScanBusy ? '掃描中' : '掃描歷史股利'),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 10),
+                          PendingDividendsBanner(
+                            pendingCount: fvInt(pendingDividends?['pending_count']),
+                            items: fvRows(pendingDividends?['items']),
+                            onReview: openPendingDividends,
+                          ),
                           records(history, monthly, symbolSummary),
                         ],
                       );

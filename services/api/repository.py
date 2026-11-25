@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 import json
 import os
@@ -155,6 +155,7 @@ class PostgresWorkspaceRepository:
                  value.price, value.cash_amount, value.fee, value.tax, value.currency, value.memo, key, json.dumps(fee_rule)),
             ).fetchone()
             self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", row["event_id"], None)
+            self._mark_pending_dividends_stale(connection, user_id, value.symbol, value.trade_date)
             result = self._ledger_result(connection, user_id, row)
             connection.execute("SELECT private.refresh_current_positions(%s)", (user_id,))
             self._sync_supplement_demand(connection)
@@ -254,6 +255,8 @@ class PostgresWorkspaceRepository:
         ).fetchone()
         self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", reversal_id, None)
         self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", row["event_id"], None)
+        self._mark_pending_dividends_stale(connection, user_id, original["symbol"], original["trade_date"])
+        self._mark_pending_dividends_stale(connection, user_id, value.symbol, value.trade_date)
         if original['symbol'] != value.symbol:
             self._ledger_result(connection, user_id, original)
         result = self._ledger_result(connection, user_id, row)
@@ -366,6 +369,7 @@ class PostgresWorkspaceRepository:
                  original["currency"],original["memo"],key,event_id),
             ).fetchone()
             self._change(connection,user_id,self._next_change_version(connection,user_id),"ledger",reversal_id,None)
+            self._mark_pending_dividends_stale(connection, user_id, original["symbol"], original["trade_date"])
             connection.execute("SELECT private.refresh_current_positions(%s)",(user_id,))
             self._sync_supplement_demand(connection)
             return dict(row)
@@ -1869,7 +1873,7 @@ class PostgresWorkspaceRepository:
             connection.execute("DELETE FROM private.assistant_threads WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_state WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_revisions WHERE user_id=%s",(user_id,))
-            for table in ("personal_reports","personal_research_requests","personal_strategy_state","personal_strategies","personal_strategy_seeds","analysis_feedback","change_log","mutation_keys","note_index","watchlist","mcp_servers","mcp_oauth_refresh_tokens","mcp_oauth_codes","broker_profile_revisions","investment_profiles","cash_balance_snapshots","current_positions","ledger_events","users"):
+            for table in ("personal_reports","personal_research_requests","personal_strategy_state","personal_strategies","personal_strategy_seeds","analysis_feedback","pending_dividend_events","change_log","mutation_keys","note_index","watchlist","mcp_servers","mcp_oauth_refresh_tokens","mcp_oauth_codes","broker_profile_revisions","investment_profiles","cash_balance_snapshots","current_positions","ledger_events","users"):
                 connection.execute(f"DELETE FROM private.{table} WHERE user_id=%s",(user_id,))
             self._sync_supplement_demand(connection)
             connection.execute("""UPDATE private.deletion_requests SET status='COMPLETED',cleanup_pending='{}',completed_at=now()
@@ -1909,6 +1913,551 @@ class PostgresWorkspaceRepository:
     def _require_owned_trade(connection: Any,user_id: UUID,event_id: UUID | None) -> None:
         if event_id and not connection.execute("SELECT 1 FROM private.ledger_events WHERE user_id=%s AND event_id=%s",(user_id,event_id)).fetchone():
             raise NotFoundError("trade event not found")
+
+    @staticmethod
+    def _mark_pending_dividends_stale(connection: Any, user_id: UUID, symbol: str, trade_date: date) -> None:
+        """補登或更正除權息日前之交易時，將尚未確認之 PENDING 草稿標記為 STALE 等待重算。"""
+        exists = connection.execute(
+            "SELECT to_regclass('private.pending_dividend_events') AS rel"
+        ).fetchone()
+        if not exists or exists["rel"] is None:
+            return
+        connection.execute(
+            """UPDATE private.pending_dividend_events
+                  SET status = 'STALE', updated_at = now()
+                WHERE user_id = %s
+                  AND symbol = %s
+                  AND status = 'PENDING'
+                  AND ex_date > %s""",
+            (user_id, str(symbol).strip().upper(), trade_date),
+        )
+
+    @staticmethod
+    def _load_owner_ledger_events(connection: Any, user_id: UUID) -> tuple[list[dict[str, Any]], int]:
+        rows = [dict(row) for row in connection.execute(
+            """SELECT event_id, user_id, ledger_version, event_action, event_type,
+                      trade_date, symbol, shares, price, cash_amount, fee, tax, currency
+                 FROM private.ledger_events
+                WHERE user_id = %s
+                ORDER BY trade_date, ledger_version LIMIT 20001""",
+            (user_id,),
+        ).fetchall()]
+        version = max((int(row["ledger_version"]) for row in rows), default=0)
+        return rows, version
+
+    @staticmethod
+    def _upsert_pending_draft(connection: Any, draft: dict[str, Any]) -> None:
+        connection.execute(
+            """INSERT INTO private.pending_dividend_events (
+                   draft_id, user_id, symbol, company_name, security_type, action_type,
+                   ex_date, payment_date, eligible_shares, rate_per_share,
+                   gross_cash_amount, estimated_remit_fee, estimated_nhi_fee, net_cash_amount,
+                   estimated_stock_shares, fractional_shares, confirmed_stock_shares,
+                   status, warnings, ledger_version_at_calc, confirmed_trade_id, user_note,
+                   created_at, updated_at
+               ) VALUES (
+                   %s, %s, %s, %s, %s, %s,
+                   %s, %s, %s, %s,
+                   %s, %s, %s, %s,
+                   %s, %s, %s,
+                   %s, %s::jsonb, %s, %s, %s,
+                   now(), now()
+               )
+               ON CONFLICT (user_id, symbol, ex_date, action_type) DO UPDATE SET
+                   company_name = EXCLUDED.company_name,
+                   security_type = EXCLUDED.security_type,
+                   payment_date = EXCLUDED.payment_date,
+                   eligible_shares = EXCLUDED.eligible_shares,
+                   rate_per_share = EXCLUDED.rate_per_share,
+                   gross_cash_amount = EXCLUDED.gross_cash_amount,
+                   estimated_remit_fee = EXCLUDED.estimated_remit_fee,
+                   estimated_nhi_fee = EXCLUDED.estimated_nhi_fee,
+                   net_cash_amount = EXCLUDED.net_cash_amount,
+                   estimated_stock_shares = EXCLUDED.estimated_stock_shares,
+                   fractional_shares = EXCLUDED.fractional_shares,
+                   confirmed_stock_shares = EXCLUDED.confirmed_stock_shares,
+                   status = EXCLUDED.status,
+                   warnings = EXCLUDED.warnings,
+                   ledger_version_at_calc = EXCLUDED.ledger_version_at_calc,
+                   confirmed_trade_id = EXCLUDED.confirmed_trade_id,
+                   user_note = EXCLUDED.user_note,
+                   updated_at = now()
+               WHERE private.pending_dividend_events.status NOT IN ('CONFIRMED', 'DISMISSED')""",
+            (
+                draft["draft_id"],
+                draft["user_id"],
+                draft["symbol"],
+                draft.get("company_name"),
+                draft["security_type"],
+                draft["action_type"],
+                draft["ex_date"],
+                draft.get("payment_date"),
+                draft["eligible_shares"],
+                draft["rate_per_share"],
+                draft.get("gross_cash_amount"),
+                draft["estimated_remit_fee"],
+                draft["estimated_nhi_fee"],
+                draft.get("net_cash_amount"),
+                draft.get("estimated_stock_shares"),
+                draft.get("fractional_shares"),
+                draft.get("confirmed_stock_shares"),
+                draft["status"],
+                json.dumps(draft.get("warnings") or []),
+                draft["ledger_version_at_calc"],
+                draft.get("confirmed_trade_id"),
+                draft.get("user_note"),
+            ),
+        )
+
+    def upsert_corporate_actions(self, records: list[dict[str, Any]]) -> int:
+        """同步寫入公共公司行動資料（僅更新非私人欄位）。"""
+        if not records:
+            return 0
+        with self._connection() as connection:
+            for item in records:
+                connection.execute(
+                    """INSERT INTO control.corporate_actions (
+                           action_id, symbol, market, security_type, ex_date, payment_date,
+                           action_type, cash_dividend_per_share, stock_dividend_ratio,
+                           par_value, source_name, source_updated_at
+                       ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       ON CONFLICT (symbol, ex_date, action_type) DO UPDATE SET
+                           market = EXCLUDED.market,
+                           security_type = EXCLUDED.security_type,
+                           payment_date = COALESCE(EXCLUDED.payment_date, control.corporate_actions.payment_date),
+                           cash_dividend_per_share = EXCLUDED.cash_dividend_per_share,
+                           stock_dividend_ratio = EXCLUDED.stock_dividend_ratio,
+                           par_value = EXCLUDED.par_value,
+                           source_name = EXCLUDED.source_name,
+                           source_updated_at = EXCLUDED.source_updated_at""",
+                    (
+                        item["action_id"],
+                        item["symbol"],
+                        item["market"],
+                        item.get("security_type", "common_stock"),
+                        item["ex_date"],
+                        item.get("payment_date"),
+                        item["action_type"],
+                        item.get("cash_dividend_per_share", Decimal("0")),
+                        item.get("stock_dividend_ratio", Decimal("0")),
+                        item.get("par_value", Decimal("10")),
+                        item.get("source_name", "TWSE"),
+                        item.get("source_updated_at"),
+                    ),
+                )
+        return len(records)
+
+    def _refresh_stale_drafts_in_tx(self, connection: Any, user_id: UUID) -> None:
+        """對標記為 STALE 的草稿執行確定性重算並回復 PENDING 或自動忽略。"""
+        from .dividend_engine import compute_dividend_draft, reconcile_draft_with_existing
+
+        stale_rows = [dict(row) for row in connection.execute(
+            "SELECT * FROM private.pending_dividend_events WHERE user_id = %s AND status = 'STALE'",
+            (user_id,),
+        ).fetchall()]
+        if not stale_rows:
+            return
+        events, ledger_version = self._load_owner_ledger_events(connection, user_id)
+        symbols = sorted({str(row["symbol"]) for row in stale_rows})
+        identities = self.stock_identities(set(symbols)) if symbols else {}
+        actions = {
+            (str(row["symbol"]), row["ex_date"], str(row["action_type"])): dict(row)
+            for row in connection.execute(
+                "SELECT * FROM control.corporate_actions WHERE symbol = ANY(%s)",
+                (symbols,),
+            ).fetchall()
+        }
+        for existing in stale_rows:
+            key = (str(existing["symbol"]), existing["ex_date"], str(existing["action_type"]))
+            action = actions.get(key)
+            if action is None:
+                continue
+            computed = compute_dividend_draft(
+                user_id=user_id,
+                action=action,
+                events=events,
+                ledger_version=ledger_version,
+                identity=identities.get(str(existing["symbol"])),
+            )
+            merged = reconcile_draft_with_existing(existing, computed)
+            if merged is not None:
+                self._upsert_pending_draft(connection, merged)
+
+    def list_pending_dividends(
+        self,
+        user_id: UUID,
+        *,
+        status: str = "PENDING",
+        symbol: str | None = None,
+    ) -> dict[str, Any]:
+        """取得使用者的待確認股利草稿清單與目前帳本版本。"""
+        with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ledger:{user_id}",))
+            self._refresh_stale_drafts_in_tx(connection, user_id)
+            version = connection.execute(
+                "SELECT COALESCE(MAX(ledger_version),0) AS version FROM private.ledger_events WHERE user_id=%s",
+                (user_id,),
+            ).fetchone()["version"]
+            clauses = ["user_id = %s", "status = %s"]
+            params: list[Any] = [user_id, status]
+            if symbol:
+                clauses.append("symbol = %s")
+                params.append(symbol.strip().upper())
+            items = [dict(row) for row in connection.execute(
+                f"""SELECT * FROM private.pending_dividend_events
+                     WHERE {' AND '.join(clauses)}
+                     ORDER BY ex_date DESC, symbol ASC, action_type ASC""",
+                params,
+            ).fetchall()]
+            pending_count = connection.execute(
+                "SELECT COUNT(*) AS cnt FROM private.pending_dividend_events WHERE user_id = %s AND status = 'PENDING'",
+                (user_id,),
+            ).fetchone()["cnt"]
+        return {
+            "pending_count": int(pending_count),
+            "ledger_version": int(version),
+            "items": items,
+        }
+
+    def scan_dividends(
+        self,
+        user_id: UUID,
+        *,
+        from_date: date | None = None,
+        symbols: list[str] | None = None,
+    ) -> dict[str, int]:
+        """掃描使用者持股期間之公司行動並產生／重算待確認股利草稿。"""
+        from .dividend_engine import compute_dividend_draft, reconcile_draft_with_existing
+
+        with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ledger:{user_id}",))
+            events, ledger_version = self._load_owner_ledger_events(connection, user_id)
+            if not events:
+                return {"newly_created": 0, "recalculated": 0, "already_recorded": 0}
+            held_symbols = sorted({str(row["symbol"]).strip().upper() for row in events if row.get("symbol")})
+            target_symbols = (
+                sorted({s.strip().upper() for s in symbols if s.strip()})
+                if symbols
+                else held_symbols
+            )
+            if not target_symbols:
+                return {"newly_created": 0, "recalculated": 0, "already_recorded": 0}
+            earliest_date = from_date or min(row["trade_date"] for row in events)
+            actions = [dict(row) for row in connection.execute(
+                """SELECT * FROM control.corporate_actions
+                    WHERE symbol = ANY(%s) AND ex_date >= %s
+                    ORDER BY ex_date ASC, symbol ASC""",
+                (target_symbols, earliest_date),
+            ).fetchall()]
+            if not actions:
+                return {"newly_created": 0, "recalculated": 0, "already_recorded": 0}
+            identities = self.stock_identities(set(target_symbols))
+            existing_rows = {
+                (str(row["symbol"]), row["ex_date"], str(row["action_type"])): dict(row)
+                for row in connection.execute(
+                    "SELECT * FROM private.pending_dividend_events WHERE user_id = %s AND symbol = ANY(%s)",
+                    (user_id, target_symbols),
+                ).fetchall()
+            }
+            newly_created = 0
+            recalculated = 0
+            already_recorded = 0
+            for action in actions:
+                key = (str(action["symbol"]).strip().upper(), action["ex_date"], str(action["action_type"]))
+                existing = existing_rows.get(key)
+                computed = compute_dividend_draft(
+                    user_id=user_id,
+                    action=action,
+                    events=events,
+                    ledger_version=ledger_version,
+                    identity=identities.get(key[0]),
+                )
+                merged = reconcile_draft_with_existing(existing, computed)
+                if merged is None:
+                    continue
+                if existing is None:
+                    self._upsert_pending_draft(connection, merged)
+                    if merged["status"] == "ALREADY_RECORDED":
+                        already_recorded += 1
+                    else:
+                        newly_created += 1
+                elif existing["status"] in {"CONFIRMED", "DISMISSED"}:
+                    continue
+                else:
+                    self._upsert_pending_draft(connection, merged)
+                    if merged["status"] == "ALREADY_RECORDED":
+                        already_recorded += 1
+                    else:
+                        recalculated += 1
+        return {
+            "newly_created": newly_created,
+            "recalculated": recalculated,
+            "already_recorded": already_recorded,
+        }
+
+    def patch_pending_dividend(self, user_id: UUID, draft_id: UUID, value: Any) -> dict[str, Any]:
+        """逐筆微調待確認草稿之匯費、二代健保補充保費、實領金額或實得股數。"""
+        with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ledger:{user_id}",))
+            row = connection.execute(
+                "SELECT * FROM private.pending_dividend_events WHERE user_id = %s AND draft_id = %s",
+                (user_id, draft_id),
+            ).fetchone()
+            if not row:
+                raise NotFoundError("pending dividend draft not found")
+            if row["status"] not in {"PENDING", "STALE"}:
+                raise ConflictError("已確認或已忽略的股利草稿無法再修改")
+            draft = dict(row)
+            if draft["action_type"] == "CASH_DIVIDEND":
+                remit = (
+                    value.estimated_remit_fee
+                    if value.estimated_remit_fee is not None
+                    else Decimal(str(draft["estimated_remit_fee"]))
+                )
+                nhi = (
+                    value.estimated_nhi_fee
+                    if value.estimated_nhi_fee is not None
+                    else Decimal(str(draft["estimated_nhi_fee"]))
+                )
+                gross = Decimal(str(draft["gross_cash_amount"]))
+                if value.net_cash_amount is not None:
+                    net_cash = value.net_cash_amount
+                else:
+                    net_cash = max(Decimal("0"), gross - remit - nhi)
+                updated = connection.execute(
+                    """UPDATE private.pending_dividend_events
+                          SET estimated_remit_fee = %s,
+                              estimated_nhi_fee = %s,
+                              net_cash_amount = %s,
+                              user_note = COALESCE(%s, user_note),
+                              updated_at = now()
+                        WHERE user_id = %s AND draft_id = %s
+                        RETURNING *""",
+                    (remit, nhi, net_cash, value.user_note, user_id, draft_id),
+                ).fetchone()
+            else:
+                shares = (
+                    value.confirmed_stock_shares
+                    if value.confirmed_stock_shares is not None
+                    else Decimal(str(draft["confirmed_stock_shares"] or 0))
+                )
+                updated = connection.execute(
+                    """UPDATE private.pending_dividend_events
+                          SET confirmed_stock_shares = %s,
+                              user_note = COALESCE(%s, user_note),
+                              updated_at = now()
+                        WHERE user_id = %s AND draft_id = %s
+                        RETURNING *""",
+                    (shares, value.user_note, user_id, draft_id),
+                ).fetchone()
+            return dict(updated)
+
+    def confirm_pending_dividends(
+        self,
+        user_id: UUID,
+        draft_ids: list[UUID],
+        expected_ledger_version: int,
+        *,
+        trade_date_override: date | None = None,
+    ) -> dict[str, Any]:
+        """以單一交易與樂觀鎖原子寫入一筆或多筆待確認股利至正式帳本。"""
+        from .dividend_engine import eligible_shares_before_ex_date
+
+        unique_ids = list(dict.fromkeys(draft_ids))
+        with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ledger:{user_id}",))
+            current_version = int(connection.execute(
+                "SELECT COALESCE(MAX(ledger_version),0) AS version FROM private.ledger_events WHERE user_id=%s",
+                (user_id,),
+            ).fetchone()["version"])
+            if current_version != expected_ledger_version:
+                raise ConflictError("交易版本已變更，請重新整理待確認股利")
+
+            rows = [dict(row) for row in connection.execute(
+                """SELECT * FROM private.pending_dividend_events
+                    WHERE user_id = %s AND draft_id = ANY(%s)
+                    ORDER BY ex_date ASC, symbol ASC, action_type ASC""",
+                (user_id, unique_ids),
+            ).fetchall()]
+            if len(rows) != len(unique_ids):
+                raise NotFoundError("pending dividend draft not found")
+            if any(row["status"] != "PENDING" for row in rows):
+                raise ConflictError("部分股利草稿狀態非待確認，請重新整理")
+
+            events, _ = self._load_owner_ledger_events(connection, user_id)
+            for draft in rows:
+                recomputed = eligible_shares_before_ex_date(events, draft["symbol"], draft["ex_date"])
+                if recomputed != Decimal(str(draft["eligible_shares"])):
+                    connection.execute(
+                        "UPDATE private.pending_dividend_events SET status='STALE', updated_at=now() WHERE user_id=%s AND draft_id=%s",
+                        (user_id, draft["draft_id"]),
+                    )
+                    raise ConflictError("除權息前持股已變動，請先重新整理股利推算")
+
+            confirmed_items: list[dict[str, Any]] = []
+            for draft in rows:
+                event_id = uuid4()
+                version = self._next_version(connection, user_id)
+                idem_key = f"dividend-draft:{draft['draft_id']}"
+                memo = (draft.get("user_note") or "").strip() or (
+                    f"自動推算除權息入帳 ({draft['ex_date']})"
+                )
+                if draft["action_type"] == "CASH_DIVIDEND":
+                    fee = Decimal(str(draft["estimated_remit_fee"] or 0))
+                    tax = Decimal(str(draft["estimated_nhi_fee"] or 0))
+                    net_cash = Decimal(str(draft["net_cash_amount"] or 0))
+                    cash_amount = net_cash + fee + tax
+                    trade_day = trade_date_override or draft.get("payment_date") or draft["ex_date"]
+                    ledger_row = connection.execute(
+                        """INSERT INTO private.ledger_events (
+                               event_id, user_id, ledger_version, event_action, event_type,
+                               trade_date, symbol, shares, price, cash_amount, fee, tax,
+                               currency, memo, idempotency_key, fee_rule_snapshot
+                           ) VALUES (
+                               %s, %s, %s, 'ORIGINAL', 'CASH_DIV',
+                               %s, %s, NULL, NULL, %s, %s, %s,
+                               'TWD', %s, %s, %s::jsonb
+                           ) RETURNING *""",
+                        (
+                            event_id,
+                            user_id,
+                            version,
+                            trade_day,
+                            draft["symbol"],
+                            cash_amount,
+                            fee,
+                            tax,
+                            memo[:500],
+                            idem_key,
+                            json.dumps({"rule_version": "dividend-auto-ledger.v1", "draft_id": str(draft["draft_id"])}),
+                        ),
+                    ).fetchone()
+                else:
+                    shares = Decimal(str(draft["confirmed_stock_shares"] or 0))
+                    if shares <= 0:
+                        raise ConflictError("實得股票股利股數必須大於 0 才可入帳")
+                    preferred_day = trade_date_override or draft.get("payment_date") or draft["ex_date"]
+                    # 若發放日當時已全數賣出，改用除權息日寫入以符合帳本持倉重播存在性檢核
+                    held_on_preferred = eligible_shares_before_ex_date(
+                        events, draft["symbol"], preferred_day + timedelta(days=1)
+                    )
+                    trade_day = preferred_day if held_on_preferred > 0 else draft["ex_date"]
+                    ledger_row = connection.execute(
+                        """INSERT INTO private.ledger_events (
+                               event_id, user_id, ledger_version, event_action, event_type,
+                               trade_date, symbol, shares, price, cash_amount, fee, tax,
+                               currency, memo, idempotency_key, fee_rule_snapshot
+                           ) VALUES (
+                               %s, %s, %s, 'ORIGINAL', 'STOCK_DIV',
+                               %s, %s, %s, NULL, NULL, 0, 0,
+                               'TWD', %s, %s, %s::jsonb
+                           ) RETURNING *""",
+                        (
+                            event_id,
+                            user_id,
+                            version,
+                            trade_day,
+                            draft["symbol"],
+                            shares,
+                            memo[:500],
+                            idem_key,
+                            json.dumps({"rule_version": "dividend-auto-ledger.v1", "draft_id": str(draft["draft_id"])}),
+                        ),
+                    ).fetchone()
+                    events.append(dict(ledger_row))
+
+                self._change(
+                    connection, user_id, self._next_change_version(connection, user_id), "ledger", event_id, None
+                )
+                connection.execute(
+                    """UPDATE private.pending_dividend_events
+                          SET status = 'CONFIRMED',
+                              confirmed_trade_id = %s,
+                              updated_at = now()
+                        WHERE user_id = %s AND draft_id = %s""",
+                    (event_id, user_id, draft["draft_id"]),
+                )
+                confirmed_items.append({
+                    "draft_id": draft["draft_id"],
+                    "event_id": event_id,
+                    "ledger_version": version,
+                    "event_type": ledger_row["event_type"],
+                    "trade_date": ledger_row["trade_date"],
+                })
+
+            connection.execute("SELECT private.refresh_current_positions(%s)", (user_id,))
+            self._sync_supplement_demand(connection)
+            final_version = int(connection.execute(
+                "SELECT COALESCE(MAX(ledger_version),0) AS version FROM private.ledger_events WHERE user_id=%s",
+                (user_id,),
+            ).fetchone()["version"])
+        return {
+            "confirmed_count": len(confirmed_items),
+            "ledger_version": final_version,
+            "items": confirmed_items,
+        }
+
+    def dismiss_pending_dividends(
+        self,
+        user_id: UUID,
+        draft_ids: list[UUID],
+        *,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        """將指定的待確認股利草稿標記為已忽略。"""
+        unique_ids = list(dict.fromkeys(draft_ids))
+        with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ledger:{user_id}",))
+            rows = [dict(row) for row in connection.execute(
+                "SELECT draft_id, status FROM private.pending_dividend_events WHERE user_id = %s AND draft_id = ANY(%s)",
+                (user_id, unique_ids),
+            ).fetchall()]
+            if len(rows) != len(unique_ids):
+                raise NotFoundError("pending dividend draft not found")
+            if any(row["status"] == "CONFIRMED" for row in rows):
+                raise ConflictError("已確認入帳的股利草稿不可忽略")
+            connection.execute(
+                """UPDATE private.pending_dividend_events
+                      SET status = 'DISMISSED',
+                          user_note = COALESCE(%s, user_note),
+                          updated_at = now()
+                    WHERE user_id = %s AND draft_id = ANY(%s)""",
+                (reason, user_id, unique_ids),
+            )
+        return {"dismissed_count": len(unique_ids), "draft_ids": unique_ids}
+
+    def scan_all_owners_dividends(self, *, from_date: date | None = None) -> dict[str, Any]:
+        """盤後批次替所有有交易紀錄的 Owner 掃描並推算待確認股利草稿。"""
+        from .dividend_engine import dividend_auto_scan_enabled
+
+        if not dividend_auto_scan_enabled():
+            return {"status": "disabled", "owners_scanned": 0, "newly_created": 0, "recalculated": 0, "already_recorded": 0, "errors": 0}
+
+        with self._connection() as connection:
+            rel = connection.execute(
+                """SELECT to_regclass('private.pending_dividend_events') AS drafts,
+                          to_regclass('control.corporate_actions') AS actions"""
+            ).fetchone()
+            if not rel or rel["drafts"] is None or rel["actions"] is None:
+                return {"status": "skipped", "reason": "schema_not_installed", "owners_scanned": 0, "newly_created": 0, "recalculated": 0, "already_recorded": 0, "errors": 0}
+            owner_rows = connection.execute(
+                "SELECT DISTINCT user_id FROM private.ledger_events"
+            ).fetchall()
+
+        totals = {"status": "succeeded", "owners_scanned": 0, "newly_created": 0, "recalculated": 0, "already_recorded": 0, "errors": 0}
+        for row in owner_rows:
+            uid = row["user_id"]
+            try:
+                res = self.scan_dividends(uid, from_date=from_date)
+                totals["owners_scanned"] += 1
+                totals["newly_created"] += int(res.get("newly_created", 0))
+                totals["recalculated"] += int(res.get("recalculated", 0))
+                totals["already_recorded"] += int(res.get("already_recorded", 0))
+            except Exception:
+                totals["errors"] += 1
+        if totals["errors"]:
+            totals["status"] = "partial"
+        return totals
 
 
 def repository_from_env() -> PostgresWorkspaceRepository:

@@ -33,7 +33,9 @@ from .context_sources import ContextSourceError, ContextSourceService, CoreConte
 from .mcp_adapter import McpAdapter
 from .mcp_oauth import McpOAuth, OAuthSettings, RepositoryOAuthCodeStore, parse_form
 from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSummaryOut, MarketHomeOut,
-                     BrokerProfileIn, CashPositionIn, CorrectionIn, HealthOut, InvestmentProfileIn, InvestmentProfileOut, LedgerEventIn,
+                     BrokerProfileIn, CashPositionIn, CorrectionIn,
+                     DividendConfirmIn, DividendDismissIn, DividendDraftPatchIn, DividendScanIn,
+                     HealthOut, InvestmentProfileIn, InvestmentProfileOut, LedgerEventIn,
                      LedgerReversalIn, MonthlyLedgerSummaryOut,
                      NoteIn, NoteRevisionIn, PortfolioExposureOut, PortfolioPerformanceOut,
                      PortfolioStressOut, PortfolioSummaryOut,
@@ -1089,6 +1091,58 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         background_tasks.add_task(supplement_stocks_safely)
         background_tasks.add_task(recalculate_private_mart_safely,current.user_id)
         return jsonable_encoder(result)
+
+    @private.get("/dividends/pending")
+    def pending_dividends(
+        status_filter: str = Query("PENDING", alias="status", pattern="^(PENDING|CONFIRMED|DISMISSED|ALREADY_RECORDED|STALE)$"),
+        symbol: str | None = Query(None, pattern=r"^[0-9A-Z.-]{1,16}$"),
+        current: AuthenticatedUser = Depends(user),
+    ):
+        return jsonable_encoder(
+            repository.list_pending_dividends(current.user_id, status=status_filter, symbol=symbol)
+        )
+
+    @private.post("/dividends/scan")
+    def scan_dividends(
+        value: DividendScanIn = Body(default_factory=DividendScanIn),
+        current: AuthenticatedUser = Depends(user),
+    ):
+        return jsonable_encoder(
+            repository.scan_dividends(current.user_id, from_date=value.from_date, symbols=value.symbols)
+        )
+
+    @private.patch("/dividends/pending/{draft_id}")
+    def patch_pending_dividend(
+        draft_id: UUID,
+        value: DividendDraftPatchIn,
+        current: AuthenticatedUser = Depends(user),
+    ):
+        return jsonable_encoder(repository.patch_pending_dividend(current.user_id, draft_id, value))
+
+    @private.post("/dividends/pending/confirm")
+    def confirm_pending_dividends(
+        value: DividendConfirmIn,
+        background_tasks: BackgroundTasks,
+        current: AuthenticatedUser = Depends(user),
+    ):
+        result = repository.confirm_pending_dividends(
+            current.user_id,
+            value.draft_ids,
+            value.expected_ledger_version,
+            trade_date_override=value.trade_date_override,
+        )
+        background_tasks.add_task(supplement_stocks_safely)
+        background_tasks.add_task(recalculate_private_mart_safely, current.user_id)
+        return jsonable_encoder(result)
+
+    @private.post("/dividends/pending/dismiss")
+    def dismiss_pending_dividends(
+        value: DividendDismissIn,
+        current: AuthenticatedUser = Depends(user),
+    ):
+        return jsonable_encoder(
+            repository.dismiss_pending_dividends(current.user_id, value.draft_ids, reason=value.reason)
+        )
 
     @private.post("/journal/recalculate")
     def recalculate_ledger(current: AuthenticatedUser = Depends(user)):

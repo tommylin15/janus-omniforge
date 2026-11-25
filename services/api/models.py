@@ -384,3 +384,35 @@ class ContextSelector(StrictModel):
         if self.start_date and self.end_date and (self.end_date - self.start_date).days > 366:
             raise ValueError("context date range cannot exceed 366 days")
         return self
+
+
+class DividendScanIn(StrictModel):
+    """手動掃描歷史或指定標的漏記股利之請求契約。"""
+
+    from_date: date | None = None
+    symbols: Annotated[list[Annotated[str, Field(pattern=r"^[0-9A-Z.-]{1,16}$")]], Field(max_length=100)] | None = None
+
+
+class DividendDraftPatchIn(StrictModel):
+    """逐筆微調待確認股利草稿之扣項、實領現金或實得股數。"""
+
+    estimated_remit_fee: Money | None = None
+    estimated_nhi_fee: Money | None = None
+    net_cash_amount: Money | None = None
+    confirmed_stock_shares: Annotated[Decimal, Field(max_digits=20, decimal_places=4, ge=0)] | None = None
+    user_note: Annotated[str | None, Field(max_length=500)] = None
+
+
+class DividendConfirmIn(StrictModel):
+    """逐筆或批次一鍵確認入帳請求（強制帶 expected_ledger_version 樂觀鎖）。"""
+
+    draft_ids: Annotated[list[UUID], Field(min_length=1, max_length=100)]
+    expected_ledger_version: Annotated[int, Field(ge=0)]
+    trade_date_override: date | None = None
+
+
+class DividendDismissIn(StrictModel):
+    """忽略單筆或多筆待確認股利草稿。"""
+
+    draft_ids: Annotated[list[UUID], Field(min_length=1, max_length=100)]
+    reason: Annotated[str | None, Field(max_length=500)] = None

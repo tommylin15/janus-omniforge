@@ -1,12 +1,13 @@
 # Janus — 唯一 Active TODO
 
-## 2026-11-25｜股利自動推算與一鍵入帳（DOC_ONLY，規格已同步 GitHub，工程未啟動）
+## 2026-11-25｜股利自動推算與一鍵入帳（DIV-01～04 程式與本地單元測試已完成；Dev Migration／部署／UAT 待驗）
 
-- [x] **規格定稿與 GitHub 文件同步（`DOC_ONLY`）**：已將 Drive `06_股利自動推算與一鍵入帳規格書.md`（v1.0）同步至 [SPEC](spec/dividend-auto-ledger.md)、[工程卡](execution-cards/dividend-auto-ledger.md) 與 [PROJECT_RULES §0.7](PROJECT_RULES.md#07-股利自動推算與一鍵入帳規格2026-11-25-最新決策)。此項僅代表規格文件同步，**不等於**程式實作、測試、Migration 或 Dev 部署已完成（`NOT_VERIFIED`）。
-- [ ] **DIV-01**：建立 `private.pending_dividend_events` 與補齊 `corporate_actions.stock_dividend_ratio` 之可逆向 Schema Migration，確認唯一鍵 `(owner_id, canonical_symbol, ex_date, action_type)` 與來源同步口徑。
-- [ ] **DIV-02**：實作後端純 `Decimal` 確定性股利推算引擎（重播 $Q_{\text{ex}-1}$、現金／股票推算、二代健保／ETF／KY／彈性面額邏輯、同日除權息拆分、防重複比對與盤後／補掃排程），並通過 TC-01～TC-08 邊界測試。
-- [ ] **DIV-03**：實作 5 支 Additive API 端點（`/me/dividends/pending`、`scan`、`PATCH {draft_id}`、`confirm`、`dismiss`），驗證 `expected_ledger_version` 樂觀鎖 `409 Conflict`、Single DB Transaction 原子入帳與跨 Owner 隔離。
-- [ ] **DIV-04**：實作 Flutter 待確認股利輕量提示列、分組清單頁、逐筆微調 Bottom Sheet、批次一鍵確認與歷史補掃入口，完成 390px／200% 字級無溢出測試及真實 Dev 驗收。
+- [x] **規格定稿與 GitHub 文件同步（`DOC_ONLY`）**：已將 Drive `06_股利自動推算與一鍵入帳規格書.md`（v1.0）同步至 [SPEC](spec/dividend-auto-ledger.md)、[工程卡](execution-cards/dividend-auto-ledger.md) 與 [PROJECT_RULES §0.7](PROJECT_RULES.md#07-股利自動推算與一鍵入帳規格2026-11-25-最新決策)。
+- [x] **DIV-01（程式＋靜態驗證完成；Dev Migration `NOT_VERIFIED`）**：新增 `infra/postgres/migrations/080_dividend_auto_ledger.sql`（含 `control.corporate_actions`、`private.pending_dividend_events` 與 `UNIQUE (user_id, symbol, ex_date, action_type)`）、可逆向降版腳本 `infra/postgres/migrations/rollback/080_dividend_auto_ledger_down.sql`，更新 `analysis_schema_bootstrap.py`、`serving-schema-migration-dev.yml` allow-list 與帳戶刪除清單，並新增 `packages/corporate_actions.py`（TWSE/TPEx 除權息解析器）。
+- [x] **DIV-02（程式＋離線單測完成）**：新增純 `Decimal` 確定性推算引擎 `services/api/dividend_engine.py`（重播 $Q_{\text{ex}-1}$、現金＋股票推算、二代健保／ETF／KY／彈性面額邏輯、同日除權息拆分、手動入帳防重複比對與盤後／補掃邏輯、`DIVIDEND_AUTO_SCAN_ENABLED` 開關），並完成盤後公共公司行動同步接線（`jobs/ingestion-core/ingestion_core/corporate_actions_sync.py`、`unified_collection.py`）與私人管線盤後自動掃描接線（`repository.scan_all_owners_dividends`、`services/api/private_pipeline_runtime.py`）；`tests/test_dividend_engine.py`（TC-01～TC-06）與 `tests/test_corporate_actions_sync.py` 通過。
+- [x] **DIV-03（程式＋模擬交易 DB API 單測完成）**：於 `services/api/models.py`、`repository.py`、`app.py` 實作 5 支 Additive API 端點（`/me/dividends/pending`、`scan`、`PATCH {draft_id}`、`confirm`、`dismiss`）、補登舊交易自動標記 `STALE`、Single Transaction 原子寫入 `private.ledger_events` 與 `expected_ledger_version` 樂觀鎖；`tests/test_dividend_api.py` 覆蓋 TC-07（`409 Conflict`）與 TC-08（跨 Owner `404` 隔離）通過。
+- [x] **DIV-04（UI＋Widget 測試完成；真實 Dev UAT `NOT_VERIFIED`）**：新增 `apps/user_app/lib/dividend_pending.dart` 並整合至 `final_ledger.dart`（輕量提示橫幅、分組核對清單、逐筆微調 Bottom Sheet、批次一鍵確認、歷史補掃與 409 衝突提示）；`apps/user_app/test/dividend_pending_test.dart`（含 390px／200% 字級無溢出）通過。
+- [ ] **Dev Migration（080）、CI/Release、Dev 部署與 Owner 真機 UAT（`NOT_VERIFIED`）**：尚未推送至 GitHub、尚未執行 `080_dividend_auto_ledger` Dev PostgreSQL Migration 與真實環境讀回驗證。
 
 ## 2026-11-23｜廢除四模型：API + 確定性計算 + AI 結構化分析重構（DOC_ONLY，規格已同步 GitHub，工程未啟動）
 

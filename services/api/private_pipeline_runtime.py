@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 import json
 import os
 
@@ -108,6 +108,14 @@ def main() -> None:
         execution_name=execution_name,
     )
     print(f"private pipeline checkpoint={completed}")
+    from .dividend_engine import dividend_auto_scan_enabled
+    if dividend_auto_scan_enabled() and os.environ.get("MOBILE_LEDGER_DATABASE_URL", "").strip():
+        try:
+            scan_repo = PostgresWorkspaceRepository(os.environ["MOBILE_LEDGER_DATABASE_URL"])
+            scan_summary = scan_repo.scan_all_owners_dividends(from_date=date.today() - timedelta(days=14))
+            print(json.dumps({"dividend_auto_scan": scan_summary}, sort_keys=True))
+        except Exception as error:
+            print(json.dumps({"dividend_auto_scan": {"status": "failed", "error_code": type(error).__name__[:64]}}, sort_keys=True))
 
 
 if __name__ == "__main__":
