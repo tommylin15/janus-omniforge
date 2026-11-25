@@ -231,12 +231,13 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
     analyst_ref = _write_immutable_json(
         store, bucket, f"executions/{execution.execution_id}/analyst-inputs.json", analyst_inputs)
 
-    # SEQ08 serves Risk12, Quant15, Fundamental15 and Valuation PE/PB.
-    # A missing new Registry pointer returns missing statuses, not Risk8.
+    # 2026-11-23 決策：正式廢除四模型推論，預設停用 seq08_native_serving（除非顯式啟用舊版相容旗標）
     risk_active_ref = None
     risk_quality_ref = None
-    from .seq08_native_serving import materialize
-    four_model_ref = materialize(store, bucket, analyst_inputs, execution.execution_id)
+    four_model_ref = None
+    if os.getenv("JANUS_FOUR_MODEL_SERVING_ENABLED", "false").strip().lower() == "true":
+        from .seq08_native_serving import materialize
+        four_model_ref = materialize(store, bucket, analyst_inputs, execution.execution_id)
 
     references = []
     computed_specialists = 0
