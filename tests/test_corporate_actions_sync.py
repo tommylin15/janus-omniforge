@@ -177,3 +177,74 @@ def test_scan_all_owners_dividends_respects_flag_and_aggregates(monkeypatch):
         "already_recorded": 0,
         "errors": 1,
     }
+
+
+def test_default_https_get_retries_on_transient_308(monkeypatch):
+    """驗證 _default_https_get 在 HiNetCDN 回傳 308 時會退避重試並成功取得內容。"""
+    from email.message import Message
+    from urllib.error import HTTPError
+    from packages import corporate_actions
+
+    attempts = {"count": 0}
+    sleeps: list[float] = []
+
+    class _FakeResponse:
+        def __init__(self, body: bytes) -> None:
+            self._body = body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self) -> bytes:
+            return self._body
+
+    def _fake_open_https(request, timeout=10):
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            hdrs = Message()
+            raise HTTPError(request.full_url, 308, "Permanent Redirect", hdrs, None)
+        return _FakeResponse(b'{"stat":"OK"}')
+
+    monkeypatch.setattr(corporate_actions, "_open_https", _fake_open_https)
+    monkeypatch.setattr(corporate_actions.time, "sleep", lambda sec: sleeps.append(sec))
+
+    body = corporate_actions._default_https_get("https://www.twse.com.tw/test")
+    assert body == b'{"stat":"OK"}'
+    assert attempts["count"] == 2
+    assert sleeps == [0.8]
+
+
+def test_twt49u_skips_cash_capital_increase_detail_fetch():
+    """純現金增資除權（除權息前收盤價 == 減除股利參考價）應略過 TWT49UDetail 查詢。"""
+    from packages import corporate_actions
+
+    called: list[tuple[str, date]] = []
+    payload = json.dumps(
+        {
+            "stat": "OK",
+            "fields": [
+                "資料日期",
+                "股票代號",
+                "股票名稱",
+                "除權息前收盤價",
+                "權值+息值",
+                "權/息",
+                "減除股利參考價",
+            ],
+            "data": [
+                ["114年01月06日", "6658", "聯策", "76.80", "1.135552", "權", "76.80"],
+            ],
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+    def _detail_fetcher(symbol: str, ex_date: date) -> bytes:
+        called.append((symbol, ex_date))
+        return b"{}"
+
+    records = corporate_actions.parse_twse_twt49u_rows(payload, detail_fetcher=_detail_fetcher)
+    assert called == []
+    assert records == ()

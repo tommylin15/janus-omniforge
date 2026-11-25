@@ -5,14 +5,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
+from http.cookiejar import CookieJar
 import json
 import re
 import time
 from typing import Any, Callable, Iterable
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import HTTPCookieProcessor, HTTPRedirectHandler, Request, build_opener
 from uuid import NAMESPACE_URL, uuid5
 
 ZERO = Decimal("0")
@@ -288,16 +291,74 @@ def parse_tpex_ex_dividend_rows(
     return tuple(records)
 
 
-def _default_https_get(url: str) -> bytes:
+def _parse_retry_after(headers: Any) -> float | None:
+    """解析 Retry-After 標頭秒數（限制最大等待 8 秒）。"""
+    if headers is None:
+        return None
+    raw = headers.get("Retry-After") if hasattr(headers, "get") else None
+    if raw is None:
+        return None
+    try:
+        seconds = float(str(raw).strip())
+    except ValueError:
+        return None
+    if seconds <= 0:
+        return None
+    return min(8.0, seconds)
+
+
+class _NoLoopRedirectHandler(HTTPRedirectHandler):
+    """攔截 307/308 或相同 URL 重導向，交由退避重試機制處理。"""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if code in (307, 308) or newurl == req.full_url:
+            return None
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_HTTP_OPENER = build_opener(HTTPCookieProcessor(CookieJar()), _NoLoopRedirectHandler())
+
+
+def _open_https(request: Request, *, timeout: int = 10):
+    """透過共用 CookieJar 與防迴圈 RedirectHandler 開啟 HTTPS 連線。"""
+    return _HTTP_OPENER.open(request, timeout=timeout)
+
+
+def _default_https_get(
+    url: str,
+    *,
+    max_attempts: int = 4,
+    backoff_seconds: float = 0.8,
+) -> bytes:
+    """發送 HTTPS GET 請求，對 HiNetCDN 307/308/429/5xx 與暫時性網路錯誤自動退避重試。"""
     request = Request(
         url,
         headers={
-            "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0 (compatible; JanusAI-CorporateActions/1.0)",
+            "Accept": "application/json, text/plain, */*",
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            ),
         },
     )
-    with urlopen(request, timeout=25) as response:
-        return response.read()
+    retryable_codes = {307, 308, 429, 500, 502, 503, 504}
+    for attempt in range(1, max_attempts + 1):
+        try:
+            with _open_https(request, timeout=10) as response:
+                return response.read()
+        except HTTPError as exc:
+            if exc.code not in retryable_codes or attempt >= max_attempts:
+                raise
+            delay = _parse_retry_after(exc.headers)
+            if delay is None:
+                delay = min(8.0, backoff_seconds * (2 ** (attempt - 1)))
+            time.sleep(delay)
+        except (URLError, TimeoutError, OSError):
+            if attempt >= max_attempts:
+                raise
+            delay = min(8.0, backoff_seconds * (2 ** (attempt - 1)))
+            time.sleep(delay)
+    raise RuntimeError(f"Unreachable retry loop for {url}")
 
 
 def fetch_twse_ex_dividend_preview(
@@ -341,11 +402,14 @@ def parse_twse_twt49u_rows(
     detail_fetcher: Callable[[str, date], bytes] | None = None,
     source_name: str = "TWSE_TWT49U",
     observed_at: datetime | None = None,
+    detail_workers: int = 1,
 ) -> tuple[CorporateActionRecord, ...]:
     """解析 TWSE TWT49U 除權息計算結果表；遇配股（權／權息）時可選查 TWT49UDetail 拆出精確配股率。"""
     doc = json.loads(payload)
     now = observed_at or datetime.now(timezone.utc)
-    records: list[CorporateActionRecord] = []
+    parsed_items: list[dict[str, Any]] = []
+    detail_targets: list[tuple[str, date]] = []
+
     for row in _extract_dict_rows(doc):
         symbol = str(_pick(row, "股票代號", "symbol", "Code") or "").strip().upper()
         if not re.fullmatch(r"[0-9A-Z]{4,8}", symbol):
@@ -356,27 +420,66 @@ def parse_twse_twt49u_rows(
         name = str(_pick(row, "股票名稱", "company_name", "名稱") or "").strip()
         security_type = _infer_security_type(symbol, name=name)
         kind = str(_pick(row, "權/息") or "").strip()
+        prev_close = _parse_decimal(_pick(row, "除權息前收盤價"))
+        div_ref = _parse_decimal(_pick(row, "減除股利參考價"))
+        # 若僅標示「權」且「除權息前收盤價 == 減除股利參考價」，屬現金增資除權，無配股／無配息
+        is_cash_capital_increase = (
+            kind == "權"
+            and prev_close is not None
+            and div_ref is not None
+            and prev_close == div_ref
+        )
+        item = {
+            "symbol": symbol,
+            "ex_date": ex_date,
+            "security_type": security_type,
+            "kind": kind,
+            "cash_total": _parse_decimal(_pick(row, "權值+息值"), default=ZERO) or ZERO,
+        }
+        parsed_items.append(item)
+        if kind != "息" and "權" in kind and not is_cash_capital_increase and detail_fetcher is not None:
+            detail_targets.append((symbol, ex_date))
 
+    detail_cache: dict[tuple[str, date], tuple[Decimal, Decimal]] = {}
+    if detail_targets and detail_fetcher is not None:
+        unique_targets = list(dict.fromkeys(detail_targets))
+        if detail_workers <= 1 or len(unique_targets) <= 1:
+            for sym, ex_d in unique_targets:
+                try:
+                    detail_cache[(sym, ex_d)] = parse_twse_twt49u_detail(detail_fetcher(sym, ex_d))
+                except Exception:
+                    pass
+        else:
+            with ThreadPoolExecutor(max_workers=detail_workers) as pool:
+                future_map = {
+                    pool.submit(detail_fetcher, sym, ex_d): (sym, ex_d)
+                    for sym, ex_d in unique_targets
+                }
+                for fut in as_completed(future_map):
+                    key = future_map[fut]
+                    try:
+                        detail_cache[key] = parse_twse_twt49u_detail(fut.result())
+                    except Exception:
+                        pass
+
+    records: list[CorporateActionRecord] = []
+    for item in parsed_items:
+        kind = item["kind"]
         cash_per_share = ZERO
         stock_ratio = ZERO
         if kind == "息":
-            cash_per_share = _parse_decimal(_pick(row, "權值+息值"), default=ZERO) or ZERO
-        elif "權" in kind and detail_fetcher is not None:
-            try:
-                detail_raw = detail_fetcher(symbol, ex_date)
-                cash_per_share, stock_ratio = parse_twse_twt49u_detail(detail_raw)
-            except Exception:
-                # 單筆明細暫時查詢失敗時不中斷整批歷史回補
-                continue
+            cash_per_share = item["cash_total"]
+        elif "權" in kind and (item["symbol"], item["ex_date"]) in detail_cache:
+            cash_per_share, stock_ratio = detail_cache[(item["symbol"], item["ex_date"])]
         elif "息" in kind:
-            cash_per_share = _parse_decimal(_pick(row, "權值+息值"), default=ZERO) or ZERO
+            cash_per_share = item["cash_total"]
 
         records.extend(
             _build_split_records(
-                symbol=symbol,
+                symbol=item["symbol"],
                 market="TWSE",
-                security_type=security_type,
-                ex_date=ex_date,
+                security_type=item["security_type"],
+                ex_date=item["ex_date"],
                 payment_date=None,
                 cash_per_share=cash_per_share,
                 stock_ratio=stock_ratio,
@@ -420,7 +523,7 @@ def fetch_twse_ex_dividend_history(
     *,
     transport: Callable[[str], bytes] | None = None,
     include_rights_detail: bool = True,
-    pause_seconds: float = 0.0,
+    pause_seconds: float = 0.15,
 ) -> tuple[CorporateActionRecord, ...]:
     """抓取指定區間的 TWSE TWT49U 歷史除權息計算結果。"""
     getter = transport or _default_https_get
@@ -466,7 +569,7 @@ def fetch_historical_corporate_actions(
     *,
     transport: Callable[[str], bytes] | None = None,
     include_rights_detail: bool = True,
-    pause_seconds: float = 0.0,
+    pause_seconds: float = 0.15,
 ) -> tuple[CorporateActionRecord, ...]:
     """一次抓取 TWSE TWT49U + TPEx 歷史除權息結果，並合併最新預告表去重。"""
     batches: list[tuple[CorporateActionRecord, ...]] = [
