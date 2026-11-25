@@ -448,3 +448,131 @@ def test_migration_080_and_allowlists_are_properly_wired():
     assert "080_dividend_auto_ledger" in bootstrap
     assert "080_dividend_auto_ledger" in workflow
     assert '"pending_dividend_events"' in repo_src
+
+
+def test_load_owner_ledger_events_includes_reversal_and_correction_fields():
+    """回歸測試：_load_owner_ledger_events 須選取 reverses_event_id／replaces_event_id，避免 REVERSAL 帳本報 KeyError。"""
+    from services.api.dividend_engine import compute_dividend_draft
+    from services.api.repository import PostgresWorkspaceRepository
+
+    captured_sql: list[str] = []
+
+    class _StubConn:
+        def execute(self, sql, params=None):
+            captured_sql.append(" ".join(sql.split()))
+            return _FakeCursor([])
+
+    PostgresWorkspaceRepository._load_owner_ledger_events(_StubConn(), OWNER_A)
+    assert captured_sql
+    assert "reverses_event_id" in captured_sql[0]
+    assert "replaces_event_id" in captured_sql[0]
+
+    buy_1 = uuid4()
+    buy_2 = uuid4()
+    buy_2_corr = uuid4()
+    events = [
+        {
+            "event_id": buy_1,
+            "user_id": OWNER_A,
+            "ledger_version": 1,
+            "event_action": "ORIGINAL",
+            "event_type": "BUY",
+            "reverses_event_id": None,
+            "replaces_event_id": None,
+            "trade_date": date(2025, 1, 10),
+            "symbol": "2330",
+            "shares": Decimal("1000"),
+            "price": Decimal("1000"),
+            "cash_amount": Decimal("1000000"),
+            "fee": Decimal("0"),
+            "tax": Decimal("0"),
+            "currency": "TWD",
+        },
+        {
+            "event_id": uuid4(),
+            "user_id": OWNER_A,
+            "ledger_version": 2,
+            "event_action": "REVERSAL",
+            "event_type": "BUY",
+            "reverses_event_id": buy_1,
+            "replaces_event_id": None,
+            "trade_date": date(2025, 1, 10),
+            "symbol": "2330",
+            "shares": Decimal("1000"),
+            "price": Decimal("1000"),
+            "cash_amount": Decimal("1000000"),
+            "fee": Decimal("0"),
+            "tax": Decimal("0"),
+            "currency": "TWD",
+        },
+        {
+            "event_id": buy_2,
+            "user_id": OWNER_A,
+            "ledger_version": 3,
+            "event_action": "ORIGINAL",
+            "event_type": "BUY",
+            "reverses_event_id": None,
+            "replaces_event_id": None,
+            "trade_date": date(2025, 2, 10),
+            "symbol": "2330",
+            "shares": Decimal("500"),
+            "price": Decimal("1000"),
+            "cash_amount": Decimal("500000"),
+            "fee": Decimal("0"),
+            "tax": Decimal("0"),
+            "currency": "TWD",
+        },
+        {
+            "event_id": uuid4(),
+            "user_id": OWNER_A,
+            "ledger_version": 4,
+            "event_action": "REVERSAL",
+            "event_type": "BUY",
+            "reverses_event_id": buy_2,
+            "replaces_event_id": None,
+            "trade_date": date(2025, 2, 10),
+            "symbol": "2330",
+            "shares": Decimal("500"),
+            "price": Decimal("1000"),
+            "cash_amount": Decimal("500000"),
+            "fee": Decimal("0"),
+            "tax": Decimal("0"),
+            "currency": "TWD",
+        },
+        {
+            "event_id": buy_2_corr,
+            "user_id": OWNER_A,
+            "ledger_version": 5,
+            "event_action": "CORRECTION",
+            "event_type": "BUY",
+            "reverses_event_id": None,
+            "replaces_event_id": buy_2,
+            "trade_date": date(2025, 2, 10),
+            "symbol": "2330",
+            "shares": Decimal("2000"),
+            "price": Decimal("1000"),
+            "cash_amount": Decimal("2000000"),
+            "fee": Decimal("0"),
+            "tax": Decimal("0"),
+            "currency": "TWD",
+        },
+    ]
+    action = {
+        "symbol": "2330",
+        "ex_date": date(2025, 6, 12),
+        "payment_date": date(2025, 7, 10),
+        "action_type": "CASH_DIVIDEND",
+        "cash_dividend_per_share": Decimal("4.5"),
+        "stock_dividend_ratio": Decimal("0"),
+        "security_type": "common_stock",
+    }
+    draft = compute_dividend_draft(
+        user_id=OWNER_A,
+        action=action,
+        events=events,
+        ledger_version=5,
+        identity={"name": "台積電"},
+    )
+    assert draft is not None
+    assert draft["eligible_shares"] == Decimal("2000")
+    assert draft["gross_cash_amount"] == Decimal("9000")

@@ -1936,6 +1936,7 @@ class PostgresWorkspaceRepository:
     def _load_owner_ledger_events(connection: Any, user_id: UUID) -> tuple[list[dict[str, Any]], int]:
         rows = [dict(row) for row in connection.execute(
             """SELECT event_id, user_id, ledger_version, event_action, event_type,
+                      reverses_event_id, replaces_event_id,
                       trade_date, symbol, shares, price, cash_amount, fee, tax, currency
                  FROM private.ledger_events
                 WHERE user_id = %s
