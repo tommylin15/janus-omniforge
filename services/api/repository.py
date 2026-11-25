@@ -2385,7 +2385,7 @@ class PostgresWorkspaceRepository:
                     "trade_date": ledger_row["trade_date"],
                 })
 
-            connection.execute("SELECT private.refresh_current_positions(%s)", (user_id,))
+            connection.execute("SELECT private.refresh_current_positions(%s::uuid)", (user_id,))
             self._sync_supplement_demand(connection)
             final_version = int(connection.execute(
                 "SELECT COALESCE(MAX(ledger_version),0) AS version FROM private.ledger_events WHERE user_id=%s",

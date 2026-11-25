@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 import json
+import logging
 import os
 
 from packages.postgres_bundle import load_postgres_bundle
@@ -110,12 +111,13 @@ def main() -> None:
     print(f"private pipeline checkpoint={completed}")
     from .dividend_engine import dividend_auto_scan_enabled
     if dividend_auto_scan_enabled() and os.environ.get("MOBILE_LEDGER_DATABASE_URL", "").strip():
+        logger = logging.getLogger(__name__)
         try:
             scan_repo = PostgresWorkspaceRepository(os.environ["MOBILE_LEDGER_DATABASE_URL"])
             scan_summary = scan_repo.scan_all_owners_dividends(from_date=date.today() - timedelta(days=14))
-            print(json.dumps({"dividend_auto_scan": scan_summary}, sort_keys=True))
+            logger.info("dividend_auto_scan=%s", json.dumps(scan_summary, sort_keys=True))
         except Exception as error:
-            print(json.dumps({"dividend_auto_scan": {"status": "failed", "error_code": type(error).__name__[:64]}}, sort_keys=True))
+            logger.warning("dividend_auto_scan_failed=%s", type(error).__name__[:64])
 
 
 if __name__ == "__main__":
