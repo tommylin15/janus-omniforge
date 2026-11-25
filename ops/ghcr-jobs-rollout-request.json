@@ -2,15 +2,15 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "60b10da3e2ed4a5b5de3933e592cd8c246f0dcb8",
-  "release_run": "41787167591",
+  "sha": "44ad2db2f411d9d412a1ed96733a3bf03850fdda",
+  "release_run": "45532658410",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:57d981ce49e2b176092fdb371c8510d0ff9399a6cb614e3ad91df216de0f39b3",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:57d981ce49e2b176092fdb371c8510d0ff9399a6cb614e3ad91df216de0f39b3",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:6e9be75c201ec18406975951ac527f51d71a01add71fc1fca5e97ab1a66ab050",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:899e2084c1ad2c012507681d17737972a94c850c34a310b2597cb51547f78206"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:c0f92fdd71fa96b90ef04ff7f4e3c215ef0871bb073ad47b8f7dbf3db07712cd",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:c0f92fdd71fa96b90ef04ff7f4e3c215ef0871bb073ad47b8f7dbf3db07712cd",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:248714ed3dc26ddcecd281bfaa0197786cb3e3a3fe6db326ebe27ab5d2a26910",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:1c48eb274d4ba905bfc474b58432cfd5fd3c5991c59edaab969feab37c6a40ce"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "2a12f1d6ae5d2dc3dc3c208b12bfc1e32e2ac87f02ff68462a935bc056b19acc",
@@ -18,15 +18,15 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "auth_boundary_run": "41788086913",
-  "request_attempt": 73,
+  "auth_boundary_run": "45534408492",
+  "request_attempt": 74,
   "safety": "保留單一兩小時Scheduler、共同Git-ref lease、全分頁在途fence、8次唯讀canary與固定映像失敗回復；只更新映像，完整Job設定hash維持不變。",
-  "authorization": "User 2026-11-04 request '接著做' authorizes existing dev release/test/rollout; no production/new paid resources. Operator-owned true ledger data and rollback path retained.",
+  "authorization": "User 2026-11-25 requests '規劃並實作治本方案' and Antigravity CIMD MCP OAuth fix authorize existing dev release/test/rollout; no production/new paid resources. Operator-owned true ledger data and rollback path retained.",
   "rollback_source_shas": {
-    "janus-batch-controller": "5fdcdd9288d6305758935d4413f5ab92776a735e",
-    "janus-ingestion-core": "5fdcdd9288d6305758935d4413f5ab92776a735e",
-    "janus-intelligence-mart": "5fdcdd9288d6305758935d4413f5ab92776a735e",
-    "janus-private-pipeline": "5fdcdd9288d6305758935d4413f5ab92776a735e"
+    "janus-batch-controller": "60b10da3e2ed4a5b5de3933e592cd8c246f0dcb8",
+    "janus-ingestion-core": "60b10da3e2ed4a5b5de3933e592cd8c246f0dcb8",
+    "janus-intelligence-mart": "60b10da3e2ed4a5b5de3933e592cd8c246f0dcb8",
+    "janus-private-pipeline": "60b10da3e2ed4a5b5de3933e592cd8c246f0dcb8"
   },
-  "purpose": "2026-11-04 ETF weekly ingestion: rerun existing Dev four-Job rollout after first request rejected at preflight (one manually transcribed Mart digest missing a hex character). Exact rollback_images, hashes, and sources copied from read-only #41787651378; no Job/Scheduler mutations were made by prior rejection."
+  "purpose": "2026-11-25 ETF weekly catalog asia-east1 proxy rollout on existing Dev four Jobs (Release #45532658410, Auth Boundary #45534408492). Prior Jobs baseline #45535150601 PASS; rollback images pinned to 60b10da3 exact GHCR digests with existing config hashes preserved."
 }
