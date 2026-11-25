@@ -1,10 +1,10 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "da8d030c41365453a02960b5090b7140b59042a6",
+  "sha": "54f4981e75c2366a591728454601e1e83c7a71aa",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-25 DIV-01..04 升級：補齊 TWSE TWT49U + TPEx 歷史除權息與防重複對帳強化。Release #45547736972 與 0% Candidate #45548949381 PASS；驗證既有 OAuth、個人策略、Owner/Admin/MCP 與盤中行情等效性；不切流、不改 Jobs/Scheduler/PG/IAM 或 Owner 資料。",
-  "request_attempt": 72,
+  "purpose": "2026-11-25 DIV-02/03 修復：補選 reverses_event_id／replaces_event_id 解決 REVERSAL 帳本股利掃描 KeyError 503。Release #45558949538 與 0% Candidate #45559678768 PASS；驗證既有 OAuth、個人策略、Owner/Admin/MCP 與盤中行情等效性；不切流、不改 Jobs/Scheduler/PG/IAM 或 Owner 資料。",
+  "request_attempt": 73,
   "personal_strategy_access_check": true,
   "market_index_quote_check": true
 }
