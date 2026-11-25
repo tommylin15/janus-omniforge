@@ -5,6 +5,8 @@ from urllib.parse import parse_qs, urlsplit
 from fastapi import HTTPException
 
 from services.api.mcp_oauth import (
+    ANTIGRAVITY_CLIENT_ID,
+    ANTIGRAVITY_REDIRECT_URI,
     CODEX_CLIENT_ID,
     MCP_CLIENT_ID,
     MCP_REDIRECT_URI,
@@ -360,6 +362,117 @@ class McpOAuthTests(unittest.TestCase):
         self.assertNotIn(b"janus.private.write", consent.body)
         self.assertIn("MCP 不提供新增交易或股息紀錄功能".encode(), consent.body)
         self.assertIn("閒置 90 天後失效".encode(), consent.body)
+
+    def test_antigravity_cimd_authorize_consent_exchange_refresh_and_revoke(self):
+        for explicit_params in (False, True):
+            with self.subTest(explicit_params=explicit_params):
+                verifier = "antigravity-cimd-verifier" * 3
+                auth_params = {
+                    "response_type": "code",
+                    "client_id": ANTIGRAVITY_CLIENT_ID,
+                    "redirect_uri": ANTIGRAVITY_REDIRECT_URI,
+                    "code_challenge": self.oauth._pkce(verifier),
+                    "code_challenge_method": "S256",
+                    "state": "antigravity-cimd-state",
+                }
+                if explicit_params:
+                    auth_params["scope"] = "janus.private.read"
+                    auth_params["resource"] = self.settings.resource
+                response = self.oauth.begin_authorization(auth_params)
+                google_state = parse_qs(urlsplit(response.headers["location"]).query)["state"][0]
+                consent = self.oauth.google_callback({"state": google_state, "code": "google-code"})
+                self.assertIn("form-action 'self' https://chatgpt.com https://antigravity.google;", consent.headers["Content-Security-Policy"])
+                token = re.search(r"name='token' value='([^']+)'", consent.body.decode()).group(1)
+                redirect = self.oauth.complete_authorization(token, True)
+                self.assertTrue(redirect.headers["location"].startswith(ANTIGRAVITY_REDIRECT_URI + "?"))
+                query = parse_qs(urlsplit(redirect.headers["location"]).query)
+                self.assertEqual(query["iss"], [self.settings.issuer])
+                self.assertEqual(query["state"], ["antigravity-cimd-state"])
+                token_form = {
+                    "grant_type": "authorization_code",
+                    "client_id": ANTIGRAVITY_CLIENT_ID,
+                    "redirect_uri": ANTIGRAVITY_REDIRECT_URI,
+                    "code": query["code"][0],
+                    "code_verifier": verifier,
+                }
+                if explicit_params:
+                    token_form["resource"] = self.settings.resource
+                access = self.oauth.exchange_token(token_form)
+                self.assertEqual(self.oauth.verify_access_token(access["access_token"], "janus.private.read")["sub"], "owner-uuid")
+                renewed = self.oauth.exchange_token({
+                    "grant_type": "refresh_token",
+                    "client_id": ANTIGRAVITY_CLIENT_ID,
+                    "refresh_token": access["refresh_token"],
+                })
+                self.oauth.revoke_token({"client_id": ANTIGRAVITY_CLIENT_ID, "token": renewed["refresh_token"]})
+                with self.assertRaises(HTTPException):
+                    self.oauth.exchange_token({
+                        "grant_type": "refresh_token",
+                        "client_id": ANTIGRAVITY_CLIENT_ID,
+                        "refresh_token": renewed["refresh_token"],
+                    })
+
+    def test_antigravity_cimd_rejects_untrusted_clients_redirects_scopes_and_resources(self):
+        for bad_client in (
+            "https://antigravity.google.evil.test/oauth/client-metadata.json",
+            "https://antigravity.google/oauth/other.json",
+            "http://antigravity.google/oauth/client-metadata.json",
+        ):
+            with self.subTest(bad_client=bad_client), self.assertRaises(HTTPException):
+                self.oauth.begin_authorization({
+                    "response_type": "code",
+                    "client_id": bad_client,
+                    "redirect_uri": ANTIGRAVITY_REDIRECT_URI,
+                    "resource": self.settings.resource,
+                    "scope": "janus.private.read",
+                    "code_challenge": "x" * 43,
+                    "code_challenge_method": "S256",
+                    "state": "state",
+                })
+        for bad_redirect in (
+            MCP_REDIRECT_URI,
+            "https://evil.test/oauth-callback",
+            "https://antigravity.google/oauth-callback?next=evil",
+            "http://127.0.0.1:59164/callback",
+        ):
+            with self.subTest(bad_redirect=bad_redirect), self.assertRaises(HTTPException):
+                self.oauth.begin_authorization({
+                    "response_type": "code",
+                    "client_id": ANTIGRAVITY_CLIENT_ID,
+                    "redirect_uri": bad_redirect,
+                    "resource": self.settings.resource,
+                    "scope": "janus.private.read",
+                    "code_challenge": "x" * 43,
+                    "code_challenge_method": "S256",
+                    "state": "state",
+                })
+        for client_id in (MCP_CLIENT_ID, CODEX_CLIENT_ID):
+            with self.subTest(client_id=client_id), self.assertRaises(HTTPException):
+                self.oauth.begin_authorization({
+                    "response_type": "code",
+                    "client_id": client_id,
+                    "redirect_uri": ANTIGRAVITY_REDIRECT_URI,
+                    "resource": self.settings.resource,
+                    "scope": "janus.private.read",
+                    "code_challenge": "x" * 43,
+                    "code_challenge_method": "S256",
+                    "state": "state",
+                })
+        for extra in (
+            {"resource": ""},
+            {"resource": "https://evil.test/mcp"},
+            {"scope": "janus.private.write"},
+        ):
+            with self.subTest(extra=extra), self.assertRaises(HTTPException):
+                self.oauth.begin_authorization({
+                    "response_type": "code",
+                    "client_id": ANTIGRAVITY_CLIENT_ID,
+                    "redirect_uri": ANTIGRAVITY_REDIRECT_URI,
+                    "code_challenge": "x" * 43,
+                    "code_challenge_method": "S256",
+                    "state": "state",
+                    **extra,
+                })
 
 
 if __name__ == "__main__":

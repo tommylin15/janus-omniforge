@@ -20,6 +20,8 @@ SERVICE = "janus-api"
 TAGS = ("mcp-oauth", "mcp-adapter")
 BASE = "https://janus-api-2oo7qbkd5q-uc.a.run.app"
 CODEX = "https://chatgpt.com/oauth/codex/client.json"
+ANTIGRAVITY_CIMD = "https://antigravity.google/oauth/client-metadata.json"
+ANTIGRAVITY_CALLBACK = "https://antigravity.google/oauth-callback"
 LEASE = [sys.executable, "scripts/gcp/ghcr_release_lease.py"]
 
 
@@ -150,6 +152,19 @@ def probe(base, sha):
     query["redirect_uri"] = "http://127.0.0.2:59164/callback"
     if request(base + "/oauth/authorize?" + urlencode(query))[0] != 400:
         raise ValueError("loopback_negative_guard_failed")
+    agy_query = {"response_type": "code", "client_id": ANTIGRAVITY_CIMD,
+                 "redirect_uri": ANTIGRAVITY_CALLBACK, "resource": resource,
+                 "scope": "janus.private.read", "state": "bounded-antigravity-cimd-probe",
+                 "code_challenge": "x" * 43, "code_challenge_method": "S256"}
+    code, headers, _ = request(base + "/oauth/authorize?" + urlencode(agy_query))
+    target = urlsplit(headers.get("Location", ""))
+    google = parse_qs(target.query)
+    if (code != 302 or target.scheme != "https" or target.netloc != "accounts.google.com"
+            or google.get("redirect_uri") != [issuer + "/oauth/google/callback"]):
+        raise ValueError("antigravity_cimd_prelogin_failed")
+    agy_query["redirect_uri"] = "https://evil.test/oauth-callback"
+    if request(base + "/oauth/authorize?" + urlencode(agy_query))[0] != 400:
+        raise ValueError("antigravity_cimd_negative_guard_failed")
     code, _, _ = request(base + "/mcp", {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
         "params": {"name": "janus_private_context", "arguments": {"resource": "positions", "limit": 1}}})
     if code != 401:

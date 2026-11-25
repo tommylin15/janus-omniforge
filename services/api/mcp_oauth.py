@@ -25,6 +25,8 @@ from .auth import GOOGLE_ISSUERS
 MCP_CLIENT_ID = "https://chatgpt.com/oauth/client.json"
 CODEX_CLIENT_ID = "https://chatgpt.com/oauth/codex/client.json"
 MCP_REDIRECT_URI = "https://chatgpt.com/connector_platform_oauth_redirect"
+ANTIGRAVITY_CLIENT_ID = "https://antigravity.google/oauth/client-metadata.json"
+ANTIGRAVITY_REDIRECT_URI = "https://antigravity.google/oauth-callback"
 MCP_SCOPES = frozenset({"janus.sources.read", "janus.market.read", "janus.private.read",
                         "offline_access"})
 _GOOGLE_AUTHORIZE = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -208,7 +210,7 @@ class McpOAuth:
 
     @staticmethod
     def _google_client_redirect(value: str) -> bool:
-        if value == "https://antigravity.google/oauth-callback":
+        if value == ANTIGRAVITY_REDIRECT_URI:
             return True
         callback = re.fullmatch(r"http://(?:localhost|127\.0\.0\.1):([1-9][0-9]{0,4})/oauth/callback", value)
         return callback is not None and int(callback.group(1)) <= 65535
@@ -217,14 +219,15 @@ class McpOAuth:
         client_id = params.get("client_id", "")
         redirect_uri = params.get("redirect_uri", "")
         registered = self._registered_redirects(client_id)
-        scope = " ".join(dict.fromkeys((*self._scope(params.get("scope", " ".join(sorted(MCP_SCOPES)) if registered else "")).split(), "offline_access")))
+        default_optional = bool(registered) or client_id == ANTIGRAVITY_CLIENT_ID
+        scope = " ".join(dict.fromkeys((*self._scope(params.get("scope", " ".join(sorted(MCP_SCOPES)) if default_optional else "")).split(), "offline_access")))
         if params.get("response_type") != "code":
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "response_type must be code")
         if not params.get("state"):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "state is required")
         if not self._valid_client(client_id) or not self._valid_redirect(redirect_uri, client_id):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "OAuth client or redirect URI is not allowed")
-        if params.get("resource", self.settings.resource if registered else "") != self.settings.resource:
+        if params.get("resource", self.settings.resource if default_optional else "") != self.settings.resource:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "resource is required")
         challenge = params.get("code_challenge", "")
         if params.get("code_challenge_method") != "S256" or not self._valid_challenge(challenge):
@@ -301,7 +304,10 @@ class McpOAuth:
         grant_type = form.get("grant_type")
         if grant_type == "authorization_code" and not self._valid_redirect(form.get("redirect_uri", ""), form.get("client_id", "")):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "OAuth redirect URI is not allowed")
-        if "resource" not in form and self._registered_redirects(form.get("client_id", "")):
+        if "resource" not in form and (
+            self._registered_redirects(form.get("client_id", ""))
+            or form.get("client_id", "") == ANTIGRAVITY_CLIENT_ID
+        ):
             form = {**form, "resource": self.settings.resource}
         if form.get("resource") != self.settings.resource:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "resource is required")
@@ -409,12 +415,18 @@ class McpOAuth:
         return " ".join(values)
 
     def _valid_client(self, value: str) -> bool:
-        return (value == MCP_CLIENT_ID or (value.startswith("https://chatgpt.com/oauth/") and value.endswith("/client.json"))
-                or bool(self._registered_redirects(value)))
+        return (
+            value == MCP_CLIENT_ID
+            or value == ANTIGRAVITY_CLIENT_ID
+            or (value.startswith("https://chatgpt.com/oauth/") and value.endswith("/client.json"))
+            or bool(self._registered_redirects(value))
+        )
 
     def _valid_redirect(self, value: str, client_id: str) -> bool:
         if client_id.startswith("janus-dcr."):
             return value in self._registered_redirects(client_id) and self._google_client_redirect(value)
+        if client_id == ANTIGRAVITY_CLIENT_ID:
+            return self._google_client_redirect(value)
         if value == MCP_REDIRECT_URI or (value.startswith("https://chatgpt.com/connector/oauth/") and "?" not in value and "#" not in value):
             return True
         # Codex listens on an OS-selected port; never allow arbitrary localhost URLs.

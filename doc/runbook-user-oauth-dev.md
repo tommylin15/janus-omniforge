@@ -58,11 +58,11 @@ MCP tag 修復使用 `.github/workflows/ghcr-mcp-route-dev.yml`，人工 dispatc
 
 ## 3. 目前 Secret 模型
 
-### Gemini CLI／Google Antigravity OAuth 相容接線（2026-10-27）
+### Gemini CLI／Google Antigravity OAuth 相容接線（2026-10-27；2026-11-25 補齊 Antigravity CIMD）
 
 本輪新增 `/oauth/register` public-client DCR，僅接受 Gemini CLI 的
 `http://localhost:<1..65535>/oauth/callback`／`http://127.0.0.1:<1..65535>/oauth/callback`
-與 Antigravity 的精確 `https://antigravity.google/oauth-callback`。不接受任意遠端 URL、其他本機路徑、query、fragment、userinfo 或 client secret 認證。
+與 Antigravity 的精確 `https://antigravity.google/oauth-callback`。2026-11-25 同步於 `_valid_client`／`_valid_redirect` 補齊 Antigravity **Client ID Metadata Document (CIMD)** 相容：`client_id=https://antigravity.google/oauth/client-metadata.json` 搭配 `https://antigravity.google/oauth-callback`（及本機 `/oauth/callback`）。不接受任意遠端 URL、其他本機路徑、query、fragment、userinfo 或 client secret 認證。
 註冊產生簽章公開 client ID，跨 instance 重用且不新增資料表；它不是 access token、沒有 Owner 權限，也不因註冊而登入。簽章金鑰輪替後客戶端須重新註冊。
 既有 Google → Janus callback、issuer、resource、Owner allowlist 與唯讀 scope 不變。授權碼與 refresh 仍綁定實際 client／redirect／resource，並要求 S256 PKCE。
 新 DCR client 未送 resource 時只綁定現有唯一 MCP resource，明送錯誤 resource 仍拒絕；未送 scope 時以現有唯讀 scope 顯示 consent。既有 ChatGPT／Codex 的 resource 要求不變。

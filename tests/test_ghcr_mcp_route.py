@@ -160,6 +160,8 @@ def test_prelogin_probe_verifies_google_callback_and_negative_private_boundary()
                      (302, {"Location": "https://accounts.google.com/o/oauth2/v2/auth?" + route.urlencode({"redirect_uri": issuer + "/oauth/google/callback"})}, b""))],
                  (400, {}, b""),
                  (302, {"Location": "https://accounts.google.com/o/oauth2/v2/auth?" + route.urlencode({"redirect_uri": issuer + "/oauth/google/callback"})}, b""),
+                 (400, {}, b""),
+                 (302, {"Location": "https://accounts.google.com/o/oauth2/v2/auth?" + route.urlencode({"redirect_uri": issuer + "/oauth/google/callback"})}, b""),
                  (400, {}, b""), (401, {}, b""),
                  (200, {}, route.json.dumps({"result": {"tools": [
                      {"name": name, "annotations": {"readOnlyHint": True}}
@@ -171,6 +173,9 @@ def test_prelogin_probe_verifies_google_callback_and_negative_private_boundary()
     query = route.parse_qs(route.urlsplit(request.call_args_list[8].args[0]).query)
     assert query["client_id"] == [route.CODEX]
     assert query["redirect_uri"] == ["http://127.0.0.1:59164/callback"]
+    agy_query = route.parse_qs(route.urlsplit(request.call_args_list[10].args[0]).query)
+    assert agy_query["client_id"] == [route.ANTIGRAVITY_CIMD]
+    assert agy_query["redirect_uri"] == [route.ANTIGRAVITY_CALLBACK]
     registration = request.call_args_list[3]
     assert registration.args[1] == {"redirect_uris": ["http://localhost:54321/oauth/callback"]}
 
