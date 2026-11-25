@@ -49,9 +49,20 @@ class AnalysisService:
         self.repository = repository
         self.trigger = trigger
 
+    def _load_insight_v2_snapshots(self, symbols, session):
+        loader = getattr(self.repository, 'list_latest_insight_v2', None)
+        if not callable(loader) or not symbols:
+            return {}
+        return loader(symbols, session)
+
     def changes(self, symbol, session='postmarket'):
-        return self._changes([symbol], session).get(symbol, {'symbol': symbol,
-            'session': session, 'status': 'waiting', 'observations': []})
+        view = dict(self._changes([symbol], session).get(symbol, {'symbol': symbol,
+            'session': session, 'status': 'waiting', 'observations': []}))
+        if 'insight_v2' not in view:
+            snapshots = self._load_insight_v2_snapshots([symbol], session)
+            if symbol in snapshots:
+                view['insight_v2'] = snapshots[symbol]
+        return view
 
     def _changes(self, symbols, session):
         from datetime import datetime, time, timedelta
@@ -106,8 +117,21 @@ class AnalysisService:
                 items.append({**candidates[0], 'session': session, 'cutoff_at': view['cutoff_at'],
                               'price_date': view['price_date'], 'membership_priority': row['priority']})
         items.sort(key=lambda i: (i['membership_priority'], *change_rank(i), i['symbol']))
-        return {'session': session, 'items': [{k: v for k, v in i.items() if k != 'membership_priority'}
-                                            for i in items[:3]], 'status':
+        top_items = [{k: v for k, v in i.items() if k != 'membership_priority'} for i in items[:3]]
+        top_symbols = sorted({str(i['symbol']) for i in top_items if i.get('symbol')})
+        snapshots = self._load_insight_v2_snapshots(top_symbols, session) if top_symbols else {}
+        for item in top_items:
+            snap = snapshots.get(item.get('symbol'))
+            if isinstance(snap, dict) and snap.get('schema_version') == 'insight.v2':
+                primary_list = snap.get('primary_insights') or []
+                item['insight_v2_preview'] = {
+                    'schema_version': snap['schema_version'],
+                    'review_status': snap.get('review_status'),
+                    'summary_30s': snap.get('summary_30s'),
+                    'primary_insight': primary_list[0] if primary_list else None,
+                    'more_count': snap.get('more_count', 0),
+                }
+        return {'session': session, 'items': top_items, 'status':
                 'available' if len(views) == len(rows) and all(v['status'] == 'available' for v in views.values())
                 else 'partial', 'basis_note': '依已保存收盤與截止前公告；資料晚到時保留原日期。'}
 

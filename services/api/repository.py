@@ -2523,6 +2523,40 @@ class PostgresWorkspaceRepository:
             totals["status"] = "partial"
         return totals
 
+    def list_latest_insight_v2(
+        self,
+        symbols: list[str],
+        session: str = "postmarket",
+    ) -> dict[str, dict[str, Any]]:
+        """唯讀查詢公共控制面 control.stock_insight_v2_snapshots 最新洞察（不在 Page Load 呼叫 LLM）。"""
+        clean_symbols = sorted({str(s).strip().upper() for s in symbols if str(s).strip()})
+        if not clean_symbols:
+            return {}
+        mapped_session = "pre_market" if session == "premarket" else "post_market"
+        with self._connection() as connection:
+            rel = connection.execute(
+                "SELECT to_regclass('control.stock_insight_v2_snapshots') AS rel"
+            ).fetchone()
+            if not rel or rel["rel"] is None:
+                return {}
+            rows = connection.execute(
+                """SELECT DISTINCT ON (canonical_symbol) canonical_symbol, payload_json
+                     FROM control.stock_insight_v2_snapshots
+                    WHERE canonical_symbol = ANY(%s)
+                      AND session IN (%s, 'holiday')
+                    ORDER BY canonical_symbol, as_of_date DESC, updated_at DESC""",
+                (clean_symbols, mapped_session),
+            ).fetchall()
+        return {
+            str(row["canonical_symbol"]): (
+                json.loads(row["payload_json"])
+                if isinstance(row["payload_json"], str)
+                else dict(row["payload_json"])
+            )
+            for row in rows
+            if row.get("payload_json") is not None
+        }
+
 
 def repository_from_env() -> PostgresWorkspaceRepository:
     from packages.postgres_bundle import load_postgres_bundle

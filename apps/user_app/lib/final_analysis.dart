@@ -264,40 +264,13 @@ class _FinalAnalysisPanelState extends State<FinalAnalysisPanel>
         history.isNotEmpty && analysisActive(fvMap(history.first)['status']);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (!loading) ModelTimelinePanel(timeline),
-      ExpansionTile(title: const Text('模型狀態與資料口徑'), children: [
-        const Text('四個模型各看一個面向；可用不等於預測保證正確。',
-            style: TextStyle(color: fvMuted, fontSize: 12)),
-        if (loading)
-          fvBoundedState('分析資料載入中')
-        else
-          for (final role in stockRoleNames.entries)
-            Builder(builder: (context) {
-              final model =
-                  fvMap(fvMap(baseline['four_model_serving'])[role.key]);
-              final available = const {'ACTIVE_PREDICTED', 'ACTIVE_CACHED'}
-                  .contains(model['status']);
-              final current = baseline['freshness'] == 'current';
-              final state = baseline['freshness'] == 'stale'
-                  ? '資料過期'
-                  : available && current
-                      ? '模型結果可用'
-                      : '暫無可用預測';
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                    available && current
-                        ? Icons.check_circle_outline
-                        : Icons.info_outline,
-                    color: available && current ? fvTeal : fvMuted),
-                title: Text('${role.value} · $state'),
-                subtitle: Text(const {
-                  'quant': '研究相對市場的表現，不是上漲保證。',
-                  'fundamental': '研究公司營運變化，仍要核對財報。',
-                  'valuation': '研究價格與財務的關係，不是保證成交價。',
-                  'risk': '研究波動幅度，不預測漲跌方向。',
-                }[role.key]!),
-              );
-            }),
+      ExpansionTile(title: const Text('研究方法與資料口徑'), children: [
+        const ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.fact_check_outlined, color: fvTeal),
+          title: Text('確定性事實覆核 + AI 結構化摘要（已廢除四模型分數）'),
+          subtitle: Text('全面改採還原價量、財報／營收與 MOPS 公告進行 T1–T5 覆核與證據對齊摘要，不提供預測分數或買賣建議。'),
+        ),
       ]),
       ExpansionTile(title: const Text('查看模型資料來源'), children: [
         for (final item
