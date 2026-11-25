@@ -1,11 +1,14 @@
 """盤後公司行動（除權息）同步模組，掛載於既有統一盤後採集流程中。"""
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import Any, Callable
 
 from packages.corporate_actions import (
     CorporateActionRecord,
+    fetch_tpex_ex_dividend_history,
     fetch_tpex_ex_dividend_preview,
+    fetch_twse_ex_dividend_history,
     fetch_twse_ex_dividend_preview,
     merge_corporate_actions,
 )
@@ -65,15 +68,25 @@ def run_daily(
             if not row or row[0] is None:
                 return {"status": "skipped", "reason": "schema_not_installed", "upserted_count": 0}
 
-        # 於資料庫交易外抓取公開市場來源，單邊來源失敗不影響另一邊
+        # 於資料庫交易外抓取公開市場來源（含近期結果表與預告表），單邊來源失敗不影響另一邊
+        today = date.today()
+        recent_start = today - timedelta(days=14)
         batches: list[tuple[CorporateActionRecord, ...]] = []
         source_errors: dict[str, str] = {}
         for name, fetcher in (
-            ("twse", fetch_twse_ex_dividend_preview),
-            ("tpex", fetch_tpex_ex_dividend_preview),
+            ("twse_preview", lambda: fetch_twse_ex_dividend_preview(transport=transport)),
+            ("tpex_preview", lambda: fetch_tpex_ex_dividend_preview(transport=transport)),
+            (
+                "twse_history",
+                lambda: fetch_twse_ex_dividend_history(recent_start, today, transport=transport),
+            ),
+            (
+                "tpex_history",
+                lambda: fetch_tpex_ex_dividend_history(recent_start, today, transport=transport),
+            ),
         ):
             try:
-                batches.append(fetcher(transport=transport))
+                batches.append(fetcher())
             except Exception as error:
                 source_errors[name] = type(error).__name__[:64]
 

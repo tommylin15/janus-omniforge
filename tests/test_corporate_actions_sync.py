@@ -47,6 +47,10 @@ def _sample_transport(*, fail_twse: bool = False, fail_tpex: bool = False):
         if "twse.com.tw" in url:
             if fail_twse:
                 raise RuntimeError("twse timeout")
+            if "TWT49UDetail" in url:
+                return json.dumps({"stat": "ok", "fields": [], "data": []}).encode("utf-8")
+            if "TWT49U" in url:
+                return json.dumps({"stat": "OK", "fields": [], "data": []}).encode("utf-8")
             return json.dumps({
                 "fields": ["除權息日期", "股票代號", "名稱", "現金股利", "無償配股率", "發放日"],
                 "data": [["115年08月01日", "2884", "玉山金", "1.2", "0.10", "115/08/28"]],
@@ -54,6 +58,8 @@ def _sample_transport(*, fail_twse: bool = False, fail_tpex: bool = False):
         if "tpex.org.tw" in url:
             if fail_tpex:
                 raise RuntimeError("tpex timeout")
+            if "exDailyQ_result" in url:
+                return json.dumps({"stat": "ok", "tables": [{"fields": [], "data": []}]}).encode("utf-8")
             return json.dumps([
                 {
                     "SecuritiesCompanyCode": "6488",
@@ -85,7 +91,7 @@ def test_corporate_actions_sync_handles_success_partial_unavailable_and_missing_
     )
     assert res_partial["status"] == "partial"
     assert res_partial["upserted_count"] == 2
-    assert res_partial["source_errors"] == {"tpex": "RuntimeError"}
+    assert res_partial["source_errors"] == {"tpex_preview": "RuntimeError", "tpex_history": "RuntimeError"}
 
     ctrl_down = _FakeControl(schema_ready=True)
     res_down = corporate_actions_sync.run_daily(
@@ -93,7 +99,7 @@ def test_corporate_actions_sync_handles_success_partial_unavailable_and_missing_
     )
     assert res_down["status"] == "unavailable"
     assert res_down["upserted_count"] == 0
-    assert set(res_down["source_errors"]) == {"twse", "tpex"}
+    assert set(res_down["source_errors"]) == {"twse_preview", "tpex_preview", "twse_history", "tpex_history"}
     assert len(ctrl_down.cursor.upserted) == 0
 
 

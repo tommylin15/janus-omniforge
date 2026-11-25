@@ -5,10 +5,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 import json
 import re
+import time
 from typing import Any, Callable, Iterable
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -19,8 +20,9 @@ DEFAULT_PAR_VALUE = Decimal("10")
 
 TWSE_EX_PREVIEW_URL = "https://www.twse.com.tw/rwd/zh/exRight/TWT48U"
 TWSE_EX_RESULT_URL = "https://www.twse.com.tw/rwd/zh/exRight/TWT49U"
+TWSE_EX_RESULT_DETAIL_URL = "https://www.twse.com.tw/rwd/zh/exRight/TWT49UDetail"
 TPEX_EX_PREVIEW_URL = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_exright_preannounce"
-TPEX_EX_RESULT_URL = "https://www.tpex.org.tw/www/zh-tw/exright/dailyquo"
+TPEX_EX_RESULT_URL = "https://www.tpex.org.tw/web/stock/exright/dailyquo/exDailyQ_result.php"
 
 
 @dataclass(frozen=True)
@@ -49,7 +51,10 @@ def _parse_decimal(raw: Any, default: Decimal | None = ZERO) -> Decimal | None:
     if raw is None:
         return default
     text = str(raw).strip().replace(",", "")
-    if not text or text in {"-", "--", "N/A", "null", "無", "尚未公告"}:
+    for unit in ("元／股", "元/股", "股", "元"):
+        text = text.replace(unit, "")
+    text = text.strip()
+    if not text or "<" in text or text in {"-", "--", "N/A", "null", "無", "尚未公告"}:
         return default
     try:
         value = Decimal(text)
@@ -188,7 +193,7 @@ def parse_twse_ex_dividend_rows(
         symbol = str(_pick(row, "symbol", "Code", "股票代號", "公司代號", "證券代號") or "").strip().upper()
         if not re.fullmatch(r"[0-9A-Z]{4,8}", symbol):
             continue
-        ex_date = _parse_tw_date(_pick(row, "ex_date", "除權息日期", "除息日期", "除權日期", "日期"))
+        ex_date = _parse_tw_date(_pick(row, "ex_date", "除權除息日期", "除權息日期", "除息日期", "除權日期", "日期"))
         if ex_date is None:
             continue
         payment_date = _parse_tw_date(_pick(row, "payment_date", "發放日", "現金股利發放日", "股利發放日"))
@@ -203,7 +208,7 @@ def parse_twse_ex_dividend_rows(
         # 優先採用權威配股率（股／每股）；若僅提供每張配股數（千股為單位）則換算成每股比率。
         stock_ratio = _parse_decimal(_pick(row, "stock_dividend_ratio", "無償配股率", "配股率"), default=None)
         if stock_ratio is None:
-            per_thousand = _parse_decimal(_pick(row, "每仟股無償配股數", "每千股配股"), default=None)
+            per_thousand = _parse_decimal(_pick(row, "每仟股無償配股數", "每仟股無償配股", "每千股配股"), default=None)
             if per_thousand is not None:
                 stock_ratio = per_thousand / Decimal("1000")
             else:
@@ -244,7 +249,7 @@ def parse_tpex_ex_dividend_rows(
         ).strip().upper()
         if not re.fullmatch(r"[0-9A-Z]{4,8}", symbol):
             continue
-        ex_date = _parse_tw_date(_pick(row, "ex_date", "ExdividendDate", "除權息日期", "除息交易日", "除權交易日"))
+        ex_date = _parse_tw_date(_pick(row, "ex_date", "ExdividendDate", "除權息日期", "除權除息日期", "除息交易日", "除權交易日"))
         if ex_date is None:
             continue
         payment_date = _parse_tw_date(_pick(row, "payment_date", "PaymentDate", "發放日", "現金股利發放日"))
@@ -258,7 +263,7 @@ def parse_tpex_ex_dividend_rows(
         ) or ZERO
         stock_ratio = _parse_decimal(_pick(row, "stock_dividend_ratio", "StockDividendRatio", "配股率", "無償配股率"), default=None)
         if stock_ratio is None:
-            per_thousand = _parse_decimal(_pick(row, "每仟股無償配股數", "StockDividendSharesPerThousand"), default=None)
+            per_thousand = _parse_decimal(_pick(row, "每仟股無償配股數", "每仟股無償配股", "StockDividendSharesPerThousand"), default=None)
             if per_thousand is not None:
                 stock_ratio = per_thousand / Decimal("1000")
             else:
@@ -312,6 +317,174 @@ def fetch_tpex_ex_dividend_preview(
     """抓取 TPEx 除權息預告資料，支援注入 transport 進行離線測試。"""
     raw = (transport or _default_https_get)(TPEX_EX_PREVIEW_URL)
     return parse_tpex_ex_dividend_rows(raw, source_name="TPEX_OPENAPI")
+
+
+def parse_twse_twt49u_detail(payload: bytes) -> tuple[Decimal, Decimal]:
+    """解析 TWSE TWT49UDetail JSON，回傳 (每股現金股利, 每股無償配股率)。"""
+    doc = json.loads(payload)
+    rows = _extract_dict_rows(doc)
+    if not rows:
+        return ZERO, ZERO
+    row = rows[0]
+    cash = _parse_decimal(_pick(row, "(每股配發現金股利)除息", "每股配發現金股利"), default=ZERO) or ZERO
+    per_thousand = _parse_decimal(
+        _pick(row, "A. 按普通股股東持股比例每千股無償配股", "按普通股股東持股比例每千股無償配股"),
+        default=ZERO,
+    ) or ZERO
+    ratio = (per_thousand / Decimal("1000")) if per_thousand > ZERO else ZERO
+    return cash, ratio
+
+
+def parse_twse_twt49u_rows(
+    payload: bytes,
+    *,
+    detail_fetcher: Callable[[str, date], bytes] | None = None,
+    source_name: str = "TWSE_TWT49U",
+    observed_at: datetime | None = None,
+) -> tuple[CorporateActionRecord, ...]:
+    """解析 TWSE TWT49U 除權息計算結果表；遇配股（權／權息）時可選查 TWT49UDetail 拆出精確配股率。"""
+    doc = json.loads(payload)
+    now = observed_at or datetime.now(timezone.utc)
+    records: list[CorporateActionRecord] = []
+    for row in _extract_dict_rows(doc):
+        symbol = str(_pick(row, "股票代號", "symbol", "Code") or "").strip().upper()
+        if not re.fullmatch(r"[0-9A-Z]{4,8}", symbol):
+            continue
+        ex_date = _parse_tw_date(_pick(row, "資料日期", "ex_date", "除權息日期"))
+        if ex_date is None:
+            continue
+        name = str(_pick(row, "股票名稱", "company_name", "名稱") or "").strip()
+        security_type = _infer_security_type(symbol, name=name)
+        kind = str(_pick(row, "權/息") or "").strip()
+
+        cash_per_share = ZERO
+        stock_ratio = ZERO
+        if kind == "息":
+            cash_per_share = _parse_decimal(_pick(row, "權值+息值"), default=ZERO) or ZERO
+        elif "權" in kind and detail_fetcher is not None:
+            try:
+                detail_raw = detail_fetcher(symbol, ex_date)
+                cash_per_share, stock_ratio = parse_twse_twt49u_detail(detail_raw)
+            except Exception:
+                # 單筆明細暫時查詢失敗時不中斷整批歷史回補
+                continue
+        elif "息" in kind:
+            cash_per_share = _parse_decimal(_pick(row, "權值+息值"), default=ZERO) or ZERO
+
+        records.extend(
+            _build_split_records(
+                symbol=symbol,
+                market="TWSE",
+                security_type=security_type,
+                ex_date=ex_date,
+                payment_date=None,
+                cash_per_share=cash_per_share,
+                stock_ratio=stock_ratio,
+                par_value=DEFAULT_PAR_VALUE,
+                source_name=source_name,
+                observed_at=now,
+            )
+        )
+    return tuple(records)
+
+
+def parse_tpex_ex_dividend_history_rows(
+    payload: bytes,
+    *,
+    source_name: str = "TPEX_EXDAILYQ",
+    observed_at: datetime | None = None,
+) -> tuple[CorporateActionRecord, ...]:
+    """解析櫃買中心 exDailyQ_result.php 歷史除權息結果表。"""
+    return parse_tpex_ex_dividend_rows(payload, source_name=source_name, observed_at=observed_at)
+
+
+def _iter_year_ranges(start_date: date, end_date: date) -> list[tuple[date, date]]:
+    ranges: list[tuple[date, date]] = []
+    cur_year = start_date.year
+    while cur_year <= end_date.year:
+        seg_start = max(start_date, date(cur_year, 1, 1))
+        seg_end = min(end_date, date(cur_year, 12, 31))
+        if seg_start <= seg_end:
+            ranges.append((seg_start, seg_end))
+        cur_year += 1
+    return ranges
+
+
+def _roc_slash(day: date) -> str:
+    return f"{day.year - 1911:03d}/{day.month:02d}/{day.day:02d}"
+
+
+def fetch_twse_ex_dividend_history(
+    start_date: date,
+    end_date: date,
+    *,
+    transport: Callable[[str], bytes] | None = None,
+    include_rights_detail: bool = True,
+    pause_seconds: float = 0.0,
+) -> tuple[CorporateActionRecord, ...]:
+    """抓取指定區間的 TWSE TWT49U 歷史除權息計算結果。"""
+    getter = transport or _default_https_get
+
+    def detail_fetcher(symbol: str, ex_date: date) -> bytes:
+        if pause_seconds > 0:
+            time.sleep(pause_seconds)
+        detail_url = f"{TWSE_EX_RESULT_DETAIL_URL}?{urlencode({'STK_NO': symbol, 'T1': ex_date.strftime('%Y%m%d'), 'response': 'json'})}"
+        return getter(detail_url)
+
+    batches: list[tuple[CorporateActionRecord, ...]] = []
+    for seg_start, seg_end in _iter_year_ranges(start_date, end_date):
+        url = f"{TWSE_EX_RESULT_URL}?{urlencode({'startDate': seg_start.strftime('%Y%m%d'), 'endDate': seg_end.strftime('%Y%m%d'), 'response': 'json'})}"
+        raw = getter(url)
+        batches.append(
+            parse_twse_twt49u_rows(
+                raw,
+                detail_fetcher=detail_fetcher if include_rights_detail else None,
+            )
+        )
+    return merge_corporate_actions(*batches)
+
+
+def fetch_tpex_ex_dividend_history(
+    start_date: date,
+    end_date: date,
+    *,
+    transport: Callable[[str], bytes] | None = None,
+) -> tuple[CorporateActionRecord, ...]:
+    """抓取指定區間的 TPEx 歷史除權息結果表。"""
+    getter = transport or _default_https_get
+    batches: list[tuple[CorporateActionRecord, ...]] = []
+    for seg_start, seg_end in _iter_year_ranges(start_date, end_date):
+        url = f"{TPEX_EX_RESULT_URL}?{urlencode({'l': 'zh-tw', 'd': _roc_slash(seg_start), 'ed': _roc_slash(seg_end), 'o': 'json'})}"
+        raw = getter(url)
+        batches.append(parse_tpex_ex_dividend_history_rows(raw))
+    return merge_corporate_actions(*batches)
+
+
+def fetch_historical_corporate_actions(
+    start_date: date,
+    end_date: date,
+    *,
+    transport: Callable[[str], bytes] | None = None,
+    include_rights_detail: bool = True,
+    pause_seconds: float = 0.0,
+) -> tuple[CorporateActionRecord, ...]:
+    """一次抓取 TWSE TWT49U + TPEx 歷史除權息結果，並合併最新預告表去重。"""
+    batches: list[tuple[CorporateActionRecord, ...]] = [
+        fetch_twse_ex_dividend_history(
+            start_date,
+            end_date,
+            transport=transport,
+            include_rights_detail=include_rights_detail,
+            pause_seconds=pause_seconds,
+        ),
+        fetch_tpex_ex_dividend_history(start_date, end_date, transport=transport),
+    ]
+    for preview_fetcher in (fetch_twse_ex_dividend_preview, fetch_tpex_ex_dividend_preview):
+        try:
+            batches.append(preview_fetcher(transport=transport))
+        except Exception:
+            pass
+    return merge_corporate_actions(*batches)
 
 
 def merge_corporate_actions(

@@ -7,9 +7,12 @@ import json
 from uuid import uuid4
 
 from packages.corporate_actions import (
+    fetch_historical_corporate_actions,
     merge_corporate_actions,
+    parse_tpex_ex_dividend_history_rows,
     parse_tpex_ex_dividend_rows,
     parse_twse_ex_dividend_rows,
+    parse_twse_twt49u_rows,
 )
 from services.api.dividend_engine import (
     compute_dividend_draft,
@@ -283,3 +286,99 @@ def test_twse_and_tpex_parsers_and_feature_flag(monkeypatch):
     assert len(tpex_records) == 2
     merged = merge_corporate_actions(twse_records, tpex_records)
     assert len(merged) == 4
+
+
+def test_historical_twt49u_and_tpex_parsers_and_no_payment_date_reconcile():
+    # 1. TWT49U 純息與權息拆分（TWT49UDetail）
+    twt49u_payload = json.dumps({
+        "stat": "OK",
+        "fields": ["資料日期", "股票代號", "股票名稱", "除權息前收盤價", "除權息參考價", "權值+息值", "權/息"],
+        "data": [
+            ["114年06月02日", "3596", "智易", "214.00", "206.50", "7.500000", "息"],
+            ["114年07月07日", "5706", "鳳凰", "63.10", "57.47", "5.623809", "權息"],
+        ],
+    }).encode("utf-8")
+    detail_payload = json.dumps({
+        "stat": "ok",
+        "fields": ["股票代號", "股票名稱", "(每股配發現金股利)除息", "A. 按普通股股東持股比例每千股無償配股"],
+        "data": [["5706  ", "鳳凰", "2.75 元／股", "50 股"]],
+    }).encode("utf-8")
+
+    twse_hist = parse_twse_twt49u_rows(
+        twt49u_payload,
+        detail_fetcher=lambda sym, ex_d: detail_payload,
+    )
+    assert len(twse_hist) == 3
+    by_key = {(r.symbol, r.action_type): r for r in twse_hist}
+    assert by_key[("3596", "CASH_DIVIDEND")].cash_dividend_per_share == Decimal("7.500000")
+    assert by_key[("5706", "CASH_DIVIDEND")].cash_dividend_per_share == Decimal("2.75")
+    assert by_key[("5706", "STOCK_DIVIDEND")].stock_dividend_ratio == Decimal("0.05")
+
+    # 2. TPEx exDailyQ_result 歷史表（含上櫃債券 ETF 與配股）
+    tpex_hist_payload = json.dumps({
+        "stat": "ok",
+        "tables": [
+            {
+                "fields": ["除權息日期", "代號", "名稱", "現金股利", "每仟股無償配股"],
+                "data": [
+                    ["114/06/03", "00950B", "凱基A級公司債", "0.07400000", "0.00000000"],
+                    ["114/06/03", "6712", "長聖", "0.00000000", "99.99999623"],
+                ],
+            }
+        ],
+    }).encode("utf-8")
+    tpex_hist = parse_tpex_ex_dividend_history_rows(tpex_hist_payload)
+    assert len(tpex_hist) == 2
+    assert tpex_hist[0].security_type == "etf"
+    assert tpex_hist[0].cash_dividend_per_share == Decimal("0.07400000")
+    assert tpex_hist[1].action_type == "STOCK_DIVIDEND"
+    assert tpex_hist[1].stock_dividend_ratio > Decimal("0.0999")
+
+    # 3. 歷史表無 payment_date，使用者於除息後 75 天手動入帳且已扣 2.11% 二代健保，不應重複提醒
+    manual_id = uuid4()
+    events = [
+        _buy("2330", date(2025, 1, 5), "10000", 1),
+        {
+            "event_id": manual_id,
+            "user_id": OWNER_A,
+            "ledger_version": 2,
+            "event_action": "ORIGINAL",
+            "event_type": "CASH_DIV",
+            "trade_date": date(2025, 8, 29),
+            "symbol": "2330",
+            "shares": None,
+            "price": None,
+            "cash_amount": Decimal("44050"),  # 45000 扣除 950 補充保費後的實領額記在 cash_amount 也能對上
+            "fee": Decimal("10"),
+            "tax": Decimal("0"),
+            "currency": "TWD",
+        },
+    ]
+    hist_action = {
+        "symbol": "2330",
+        "ex_date": date(2025, 6, 15),
+        "payment_date": None,
+        "action_type": "CASH_DIVIDEND",
+        "cash_dividend_per_share": Decimal("4.5"),
+        "security_type": "common_stock",
+    }
+    reconciled = compute_dividend_draft(user_id=OWNER_A, action=hist_action, events=events, ledger_version=2)
+    assert reconciled["status"] == "ALREADY_RECORDED"
+    assert reconciled["confirmed_trade_id"] == manual_id
+
+    # 4. fetch_historical_corporate_actions 整合離線 transport
+    def fake_transport(url: str) -> bytes:
+        if "TWT49UDetail" in url:
+            return detail_payload
+        if "TWT49U" in url:
+            return twt49u_payload
+        if "exDailyQ_result" in url:
+            return tpex_hist_payload
+        return b"[]"
+
+    all_hist = fetch_historical_corporate_actions(
+        date(2025, 6, 1),
+        date(2025, 12, 31),
+        transport=fake_transport,
+    )
+    assert len(all_hist) == 5

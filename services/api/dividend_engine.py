@@ -102,8 +102,20 @@ def _find_matching_manual_dividend(
 ) -> dict[str, Any] | None:
     """比對帳本是否已有使用者手動輸入之同區間股利交易，防止重複提醒與入帳。"""
     target_ledger_type = ACTION_TO_LEDGER_TYPE[action_type]
-    window_end = (payment_date + timedelta(days=14)) if payment_date else (ex_date + timedelta(days=60))
+    window_start = ex_date - timedelta(days=3)
+    # 歷史結果表可能無 payment_date，放寬至除權息日後 90 天以涵蓋一般發放期
+    window_end = (payment_date + timedelta(days=21)) if payment_date else (ex_date + timedelta(days=90))
     target_symbol = symbol.strip().upper()
+    cash_tolerance = (
+        max(CASH_RECONCILE_TOLERANCE, expected_cash_gross * Decimal("0.03"))
+        if expected_cash_gross is not None
+        else CASH_RECONCILE_TOLERANCE
+    )
+    stock_tolerance = (
+        max(STOCK_RECONCILE_TOLERANCE, expected_stock_shares * Decimal("0.01"))
+        if expected_stock_shares is not None
+        else STOCK_RECONCILE_TOLERANCE
+    )
     for row in effective_events:
         if str(row.get("symbol") or "").strip().upper() != target_symbol:
             continue
@@ -112,18 +124,19 @@ def _find_matching_manual_dividend(
         trade_date = row.get("trade_date")
         if isinstance(trade_date, str):
             trade_date = date.fromisoformat(trade_date[:10])
-        if trade_date is None or not (ex_date <= trade_date <= window_end):
+        if trade_date is None or not (window_start <= trade_date <= window_end):
             continue
         if action_type == "CASH_DIVIDEND":
             gross = _to_decimal(row.get("cash_amount"))
             net = gross - _to_decimal(row.get("fee")) - _to_decimal(row.get("tax"))
-            if expected_cash_gross is not None and abs(gross - expected_cash_gross) <= CASH_RECONCILE_TOLERANCE:
-                return row
-            if expected_cash_net is not None and abs(net - expected_cash_net) <= CASH_RECONCILE_TOLERANCE:
-                return row
+            for expected in (expected_cash_gross, expected_cash_net):
+                if expected is not None and (
+                    abs(gross - expected) <= cash_tolerance or abs(net - expected) <= cash_tolerance
+                ):
+                    return row
         else:
             shares = _to_decimal(row.get("shares"))
-            if expected_stock_shares is not None and abs(shares - expected_stock_shares) <= STOCK_RECONCILE_TOLERANCE:
+            if expected_stock_shares is not None and abs(shares - expected_stock_shares) <= stock_tolerance:
                 return row
     return None
 
