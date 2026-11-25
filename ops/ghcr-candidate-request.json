@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "54f4981e75c2366a591728454601e1e83c7a71aa",
+  "sha": "d45edd2fe0e1190ebcffc46739cdfe99666ba947",
   "digest": "",
-  "release_run": "45558949538",
+  "release_run": "45561351934",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-25 DIV-02/03 修復：於 _load_owner_ledger_events 補選 reverses_event_id 與 replaces_event_id，解決含 REVERSAL 交易帳本執行股利掃描時拋出 KeyError 503；完整 Python/Flutter PASS 及四 GHCR 映像驗證 #45558949538 PASS；只部署現有 Dev API 0% Candidate，保留現役 100% 及 Jobs/Scheduler/PG/IAM/Owner；權限與邊界驗收後才切流。",
-  "request_attempt": 80
+  "purpose": "2026-11-25 DIV-03/04 升級：於待確認股利清單新增除權息日前後一個月個人帳本對照（compare_window_label + nearby_ledger_dividends）與單筆忽略按鈕；完整 Python/Flutter PASS 及四 GHCR 映像驗證 #45561351934 PASS；只部署現有 Dev API 0% Candidate，保留現役 100% 及 Jobs/Scheduler/PG/IAM/Owner；權限與邊界驗收後才切流。",
+  "request_attempt": 81
 }
