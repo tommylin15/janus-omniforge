@@ -1,5 +1,18 @@
 # Janus — AI 基礎作業規則
 
+## 0.6 廢除四模型，轉向 API + 確定性計算 + AI 結構化分析（2026-11-23 最新決策）
+
+- 使用者明確拍板正式**廢除原四個 ML／預測模型**（`01 Quant`、`02 Risk`、`03 Fundamental`、`04 Valuation` 之模型訓練、推論與 Registry 升版依賴），全面轉向 **「外部 API 數據 + 後端確定性計算 + AI 結構化分析（`StockInsightV2`）」**；本節覆蓋 §0.2、§0.3、§1.10.1 及舊 SPEC／WBS 中以四模型為現役 serving 目標之規定，且不再重開已結案研究或特徵回補訓練排程。
+- **核心與紅線**：確定性數值計算（還原價量、PE/PB 歷史分位、T1–T5 台股異常覆核規則）必須由後端確定性程式執行；核准 LLM 為 **Gemini Hydrogen**（以 `JANUS_LLM_MODEL` 環境變數管理並設 `MAX_DAILY_LLM_CALLS` / `MAX_DAILY_TOKENS` 每日上限），僅讀取通過跳脫與 `llm_input_allowed` 檢查之 `AIAnalysisInput` 產出 `LLMInsightDraft`，經 5 道 Post-Validation 驗證，失敗則降級寫入當日 `deterministic_fallback`。
+- **批次母體與隔離**：第一階段批次母體鎖定為 **「使用者自選／持股去識別聯集」**（加少量固定公開代表股）；非母體個股於 Page Load 嚴禁即時呼叫 LLM 或外部爬蟲；公共個股分析嚴禁使用 `owner_id`、持股數、成本或現金餘額。
+- **文件定位**：完整契約與 WBS（`AI-REF-01`～`AI-REF-06`）見 [API + AI 個股分析重構 SPEC](spec/ai-stock-analysis-v2.md) 與 [執行卡](execution-cards/ai-stock-analysis-v2.md)；本輪同步為 `DOC_ONLY`（未修改程式、未執行測試、未部署）。
+
+## 0.7 股利自動推算與一鍵入帳規格（2026-11-25 最新決策）
+
+- 使用者明確拍板同步支援 **「現金股利 + 股票股利」** 自動推算與 **「逐筆／批次一鍵確認入帳」** 半自動流程；完整契約與 WBS（`DIV-01`～`DIV-04`）見 [股利自動推算與一鍵入帳 SPEC](spec/dividend-auto-ledger.md) 與 [執行卡](execution-cards/dividend-auto-ledger.md)。
+- **架構紅線**：公共 `corporate_actions`（直接採用權威 `stock_dividend_ratio` 以相容彈性面額股）與私人 `private.pending_dividend_events`（依 `owner_id` 隔離）嚴格分離，私人草稿與持股重播嚴禁流入公共快取或 `AIAnalysisInput`；基準股數 $Q_{\text{ex}-1}$、毛額、匯費／二代健保（含 ETF 平準金與 KY 股例外）、配股整股與畸零股須於 Python 後端以 `decimal.Decimal` 確定性計算（零 LLM 呼叫）。
+- **帳本安全**：草稿僅寫入 `private.pending_dividend_events`；唯有使用者明確呼叫確認 API 並通過 `expected_ledger_version` 樂觀鎖與 Single DB Transaction 驗證後才寫入正式帳本；已 `CONFIRMED` 紀錄絕不被排程或補登舊交易自動修改或刪除；所有端點採 Additive 擴充。本輪同步為 `DOC_ONLY`（未修改程式、未執行測試、未部署）。
+
 ## 0.5 個人策略本輪授權（2026-10-31）
 
 使用者已將本對話的文件方案授權為：先完成AI指示，再實作PS-01～04程式並commit／push，隨後停止。**本輪不執行測試、lint、build、migration、Gemini付費呼叫、驗收或部署**；後續交其他AI依[實作／驗收交接指示](execution-cards/personal-strategy-implementation.md)接手。本條覆蓋此前本功能「只文件」限制，不擴張其他工項。需求與TradingAgents有限借鑑見[個人策略SPEC](spec/personal-strategy-briefings.md)。保留四報告全手動、每類3份、Flash-only、PG與Owner隔離。指定Drive股市僅為私人種子來源例外，不授權寫回或自動下單。

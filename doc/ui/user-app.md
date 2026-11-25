@@ -1,5 +1,11 @@
 # Janus UI — User App 頁面
 
+## 2026-11-25｜已定稿待實作 UI 契約索引（DOC_ONLY，未實作／未視覺驗收）
+
+下列兩項已定稿規格均為 `DOC_ONLY` 同步，尚未實作 Flutter UI 或進行視覺／390px 驗收：
+- **股利自動推算與一鍵入帳（`DIV-04`）**：依 [股利自動推算 SPEC §5](../spec/dividend-auto-ledger.md#5-flutter-uiux-操作流程)，不干擾既有記帳／持股精簡四欄列表；僅於 `pending_count > 0` 時在列表上方顯示輕量提示列，並提供待確認股利清單頁（同日除權息分組與已除息／已發放標籤）、逐筆微調 Bottom Sheet（匯費／二代健保／實得股數）、底部批次確認入帳列及交易紀錄頁「掃描歷史漏記股利」入口。
+- **API + AI 個股分析重構（`AI-REF-05`）**：依 [API + AI 個股分析重構 SPEC](../spec/ai-stock-analysis-v2.md)，個股與首頁移除四模型預測分數卡與重複 `validated` 摘要區塊，改為讀取 `insight_v2`／`insight_v2_preview` 呈現 30 秒速讀、單一 AI 變化卡、可點開證據標籤（Deep Link 切換對應圖表分類）與「查看更多」展開 `secondary_insights`；須通過 390px／200% 字級無溢出測試。
+
 ## 2026-11-11｜記帳「已實現損益 待更新」與紀錄頁反應慢（Dev／Live PASS；Owner UAT 已完成）
 
 - **根因**：過去 `/journal/monthly-summary`、`/journal/symbol-summary` 從 Private Mart 讀取舊的 ledger_version，發現版本落後就清空整個摘要，導致即使有真實交易仍顯示許多「待更新」。紀錄頁四支 Owner GET 併發加上 9 秒吞錯逾時；持股首屏又提前取一份未使用的歷史交易資料，增添等待。

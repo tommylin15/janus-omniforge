@@ -1,6 +1,6 @@
 # Janus / OmniForge — Agent 核心作業守則 (`AGENTS.md`)
 
-> **權威文件宣告**：本文件為 Agent 進入專案時的基礎定位與核心守則摘要。完整工程規範、最新政策覆蓋（如研究精簡、第三方補收、單一順序線 `SEQ` 等）、部署程序、安全邊界與 WBS 驗收標準，一律以 [`doc/PROJECT_RULES.md`](doc/PROJECT_RULES.md) 為唯一最高權威來源。每次開始工作前，必須先閱讀並遵守 [`doc/PROJECT_RULES.md`](doc/PROJECT_RULES.md) 與 [`doc/README.md`](doc/README.md)。
+> **權威文件宣告**：本文件為 Agent 進入專案時的基礎定位與核心守則摘要。完整工程規範、最新政策覆蓋（如研究精簡、第三方補收、單一順序線 `SEQ`、2026-11-23 廢除四模型轉 API+AI 分析、2026-11-25 股利自動推算等）、部署程序、安全邊界與 WBS 驗收標準，一律以 [`doc/PROJECT_RULES.md`](doc/PROJECT_RULES.md) 為唯一最高權威來源。每次開始工作前，必須先閱讀並遵守 [`doc/PROJECT_RULES.md`](doc/PROJECT_RULES.md) 與 [`doc/README.md`](doc/README.md)。
 
 ---
 

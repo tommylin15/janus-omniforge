@@ -1,5 +1,23 @@
 # Janus — 唯一 Active TODO
 
+## 2026-11-25｜股利自動推算與一鍵入帳（DOC_ONLY，規格已同步 GitHub，工程未啟動）
+
+- [x] **規格定稿與 GitHub 文件同步（`DOC_ONLY`）**：已將 Drive `06_股利自動推算與一鍵入帳規格書.md`（v1.0）同步至 [SPEC](spec/dividend-auto-ledger.md)、[工程卡](execution-cards/dividend-auto-ledger.md) 與 [PROJECT_RULES §0.7](PROJECT_RULES.md#07-股利自動推算與一鍵入帳規格2026-11-25-最新決策)。此項僅代表規格文件同步，**不等於**程式實作、測試、Migration 或 Dev 部署已完成（`NOT_VERIFIED`）。
+- [ ] **DIV-01**：建立 `private.pending_dividend_events` 與補齊 `corporate_actions.stock_dividend_ratio` 之可逆向 Schema Migration，確認唯一鍵 `(owner_id, canonical_symbol, ex_date, action_type)` 與來源同步口徑。
+- [ ] **DIV-02**：實作後端純 `Decimal` 確定性股利推算引擎（重播 $Q_{\text{ex}-1}$、現金／股票推算、二代健保／ETF／KY／彈性面額邏輯、同日除權息拆分、防重複比對與盤後／補掃排程），並通過 TC-01～TC-08 邊界測試。
+- [ ] **DIV-03**：實作 5 支 Additive API 端點（`/me/dividends/pending`、`scan`、`PATCH {draft_id}`、`confirm`、`dismiss`），驗證 `expected_ledger_version` 樂觀鎖 `409 Conflict`、Single DB Transaction 原子入帳與跨 Owner 隔離。
+- [ ] **DIV-04**：實作 Flutter 待確認股利輕量提示列、分組清單頁、逐筆微調 Bottom Sheet、批次一鍵確認與歷史補掃入口，完成 390px／200% 字級無溢出測試及真實 Dev 驗收。
+
+## 2026-11-23｜廢除四模型：API + 確定性計算 + AI 結構化分析重構（DOC_ONLY，規格已同步 GitHub，工程未啟動）
+
+- [x] **決策拍板（v1.2）與 GitHub 文件同步（`DOC_ONLY`）**：正式廢除原四個 ML／預測模型（Quant / Risk / Fundamental / Valuation）訓練、推論與 Registry 升版依賴，並將 Drive `05_API與AI分析重構工作包.md`（v1.2）同步至 [SPEC](spec/ai-stock-analysis-v2.md)、[工程卡](execution-cards/ai-stock-analysis-v2.md) 與 [PROJECT_RULES §0.6](PROJECT_RULES.md#06-廢除四模型轉向-api--確定性計算--ai-結構化分析2026-11-23-最新決策)。此項僅代表決策與規格同步，**不等於**程式實作、測試或 Dev 部署已完成（`NOT_VERIFIED`）。
+- [ ] **AI-REF-01**：現況盤點、治理對齊與四模型退場點清單（鎖定最新 `main` SHA，盤點 `packages/analysis_product.py`、`specialists.py`、`change_analysis.py` 與 `apps/user_app/lib/final_*.dart` 引用行號）。
+- [ ] **AI-REF-02**：實作 `AIAnalysisInput`、`LLMInsightDraft` 與 `StockInsightV2` 三層資料契約、快照欄位 Migration 與 Additive v2 單元測試（保留舊 `observations` 讀路徑）。
+- [ ] **AI-REF-03**：停用四模型推論；實作還原價量、PE/PB 分位、T1–T5 台股確定性規則（含金融／ETF／農曆年／澄清重訊例外）與外部 API Adapter（強制 `llm_input_allowed` 與 `last-success` 保護）。
+- [ ] **AI-REF-04**：實作 Gemini Hydrogen（`JANUS_LLM_MODEL` 與每日配額硬上限）分析引擎、Prompt `v2.1.0`、5 道 Post-Validation 防幻覺防線、快取鍵與確定性 `new -> ongoing` 轉態、`deterministic_fallback` 模板。
+- [ ] **AI-REF-05**：擴充 `/changes` 與 `/today-changes` Additive v2 欄位並重構 Flutter 個股／首頁 UI（30 秒速讀 + 單一 AI 變化卡 + 可點開證據標籤 + 6 大主分類圖表；非母體個股 Page Load 零 LLM 呼叫）。
+- [ ] **AI-REF-06**：以「使用者自選／持股去識別聯集」中 10 檔台股代表樣本跑通端到端管線、完成防幻覺與 Owner 隔離驗收矩陣，並取得 Dev 真實讀回與 Gemini Hydrogen Token 成本收據。
+
 ## 2026-11-11｜新用戶零資料首次使用｜工程／Dev Live PASS；新 Google 帳號真人 UAT 待驗
 
 - [x] **根因及修復**：交易新增時 Flutter Autocomplete 空查詢原本直接回傳空選單，後端 `/api/v1/me/journal/instruments?q=` 亦拒絕空字串；現在可先顯示最多 20 筆有效 TWSE／TPEx 共同股票名冊，再依名稱／代號縮小搜尋，查詢失敗明確顯示，不需先有持股、關注或交易。持股總資產卡增加「設定現金／調整現金」及空持股「新增第一筆交易」入口；現金讀取最新 `cash_version` 後以 Owner/CAS/Idempotency 寫入，首次版本 0 合法，沒有預填假餘額。Flutter 新戶回歸發現並修正現金視窗 `TextEditingController` 過早 dispose 的真實問題。

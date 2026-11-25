@@ -2,6 +2,14 @@
 
 # Janus — 工作責任與順序
 
+## DIV｜股利自動推算與一鍵入帳（2026-11-25）
+
+依 [股利自動推算與一鍵入帳 SPEC](spec/dividend-auto-ledger.md) 與 [工程卡](execution-cards/dividend-auto-ledger.md) 順序執行：`DIV-01`（Schema Migration）→ `DIV-02`（`Decimal` 推算引擎／TC-01～TC-08）→ `DIV-03`（5 支 Additive API 與樂觀鎖）→ `DIV-04`（Flutter UI/UX）。本輪為 `DOC_ONLY` 同步，程式／測試／部署均未啟動；唯一狀態在 [TODO](todo.md)。
+
+## AI-REF｜API + AI 個股分析重構（2026-11-23，廢除四模型）
+
+依 [API + AI 個股分析重構 SPEC](spec/ai-stock-analysis-v2.md) 與 [工程卡](execution-cards/ai-stock-analysis-v2.md) 順序執行：`AI-REF-01`（盤點與退場清單）→ `AI-REF-02`（三層契約與 Schema）→ `AI-REF-03`（確定性計算、T1–T5 與外部 API Adapter）→ `AI-REF-04`（Gemini Hydrogen 與 5 道防線）→ `AI-REF-05`（API Additive v2 與 Flutter UI）→ `AI-REF-06`（10 檔樣本與 Dev 驗收）。本工作線正式取代原四模型現役 serving 目標；本輪為 `DOC_ONLY` 同步，程式／測試／部署均未啟動；唯一狀態在 [TODO](todo.md)。
+
 ## LIVE-HOME-01｜今日盤中即時線圖與持股摘要（2026-11-04）
 
 依使用者要求單一工程批次執行至 Dev 發布後再集中驗收：參考 [今日首頁線圖 V1 SPEC](spec/today-live-home-2026-11-04.md)；橫跨 WBS 6（Flutter 今日頁）、4J（Owner 私有報價）、3（非 canonical 分鐘觀測）、8（測試／發布）。按 SPEC → Migration 076／API／UI → 定向＋完整測試 → Dev migration → 同版 Release／0% Candidate → Auth Boundary → 100% Promotion → Live acceptance 執行。**沿用既有 Shioaji simulation=true、QuoteRouter singleflight、60 秒可見頁面刷新，不新增模型／作業排程。** 未取得真實行情證據的子項維持待驗收，唯一進度以 [TODO](todo.md) 為準。

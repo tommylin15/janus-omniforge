@@ -1,8 +1,15 @@
 # AI 任務卡入口
 
-更新：2026-10-25。唯一 active queue：[TODO](../todo.md)；唯一現行逐項指令：[SEQ-01…08四階段任務卡](sequential-delivery.md)。每項都有文件設計、程式開發、測試驗收、部署及建議AI模型。
+更新：2026-11-25。唯一 active queue：[TODO](../todo.md)。
 
-先讀AGENTS／PROJECT_RULES，再按使用者指定SEQ-ID與階段開工；任務卡存在不是自動執行授權。本輪文件提交後停止。
+## 新增待啟動工程卡（DOC_ONLY，等待使用者指定開工）
+
+- [API + AI 個股分析重構工程卡（AI-REF-01～06）](ai-stock-analysis-v2.md)：對應 [正式 SPEC](../spec/ai-stock-analysis-v2.md)（2026-11-23 決策：廢除四模型訓練／推論，改採外部 API + 後端確定性計算 + T1–T5 + Gemini Hydrogen `StockInsightV2`）。本決策覆蓋下表 `SEQ-01`～`08` 原四模型上線目標。
+- [股利自動推算與一鍵入帳工程卡（DIV-01～04）](dividend-auto-ledger.md)：對應 [正式 SPEC](../spec/dividend-auto-ledger.md)（2026-11-25 決策：支援現金＋股票股利後端 `Decimal` 推算與樂觀鎖一鍵確認入帳）。
+
+## 既有一覽與歷史路由
+
+原四模型時期逐項指令見 [SEQ-01…08四階段任務卡](sequential-delivery.md)；個人策略接手見 [個人策略工程卡](personal-strategy.md) 與 [實作與驗收WI](personal-strategy-implementation.md)。任務卡存在不是自動執行授權；請先讀 `AGENTS.md` 與 `PROJECT_RULES.md`，再按使用者指定工作包開工。
 
 | 舊卡／ID | 現行去向 |
 |---|---|

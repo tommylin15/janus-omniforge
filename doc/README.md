@@ -1,5 +1,7 @@
 # Janus 文件入口
 
+> **API + AI 個股分析重構（2026-11-23，廢除四模型）：**[正式SPEC](spec/ai-stock-analysis-v2.md) → [WBS](wbs.md) → [唯一TODO](todo.md) → [工程卡](execution-cards/ai-stock-analysis-v2.md)（`DOC_ONLY`，工程未啟動）。
+> **股利自動推算與一鍵入帳（2026-11-25）：**[正式SPEC](spec/dividend-auto-ledger.md) → [WBS](wbs.md) → [唯一TODO](todo.md) → [工程卡](execution-cards/dividend-auto-ledger.md)（`DOC_ONLY`，工程未啟動）。
 > **個人策略功能入口（2026-10-31）：**[正式SPEC](spec/personal-strategy-briefings.md) → [WBS](wbs.md) → [唯一TODO](todo.md) → [四階段工程卡](execution-cards/personal-strategy.md)。工程已部署；測試、發布收據與剩餘使用者操作驗收以 TODO 為準。
 > 排程、備份與資料快照依 [統一批次契約](spec/unified-batch-flow.md)；部署狀態與未完成驗收以 [唯一 TODO](todo.md) 為準。
 
@@ -33,7 +35,9 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 
 ## 2. Active 文件地圖
 
-- `PROJECT_RULES.md`：治理、權限、驗證與文件維護規則。
+- `PROJECT_RULES.md`：治理、權限、驗證與文件維護規則（§0.6 廢除四模型決策、§0.7 股利自動推算決策）。
+- `spec/ai-stock-analysis-v2.md`：**API + AI 個股分析重構規格**（2026-11-23 廢除四模型、外部 API + 確定性計算 + T1–T5 + Gemini Hydrogen `StockInsightV2`，`DOC_ONLY`）。
+- `spec/dividend-auto-ledger.md`：**股利自動推算與一鍵入帳規格**（2026-11-25 現金＋股票股利 `Decimal` 推算、`private.pending_dividend_events` 與樂觀鎖確認，`DOC_ONLY`）。
 - `project-management.md`：單一執行順序、文件責任、驗收與風險決策選項。
 - `spec/valuation-range.md`：2026-10-24 最新決策改為 **04 Valuation 估值區間子契約**，第五模型已撤銷；工程進度依唯一 TODO；舊 Drive AI 交接屬歷史參考；[Drive AI 交接](https://drive.google.com/file/d/1M7pxgkeyzK_Joi4C9Z2aTSRCgdV-u5YO/view)。
 - `spec/history-seed-pipeline.md`：**全市場歷史資料種子收錄與 Serving 快取生命週期契約**；2 年 OHLCV、3 年 EPS、2 年營收、Iceberg 冷儲存與 PostgreSQL 分級熱快取（Tier 1 2年 vs Tier 2 120天）及日常自動滾動淘汰排程。

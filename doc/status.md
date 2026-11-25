@@ -1,7 +1,11 @@
 # Janus 目前狀態入口
 
-更新：2026-11-11。本頁只導航；任務狀態、殘項與下一步集中維護在 [唯一 TODO](todo.md)，避免多處複製造成版本衝突。
+更新：2026-11-25。本頁只導航；任務狀態、殘項與下一步集中維護在 [唯一 TODO](todo.md)，避免多處複製造成版本衝突。
 
+- **已同步待開發規格（`DOC_ONLY`，未實作／未測試／未部署）**：
+  - [API + AI 個股分析重構規格](spec/ai-stock-analysis-v2.md)（2026-11-23 決策：廢除四模型，改採外部 API + 後端確定性計算 + T1–T5 + Gemini Hydrogen `StockInsightV2`，工作包 `AI-REF-01`～`AI-REF-06`）。
+  - [股利自動推算與一鍵入帳規格](spec/dividend-auto-ledger.md)（2026-11-25 決策：現金＋股票股利 `Decimal` 推算與樂觀鎖一鍵確認入帳，工作包 `DIV-01`～`DIV-04`）。
+- **最新已上線 Dev 程式基準（`39c60ed1`）**：已完成 ETF 官方名冊經 `asia-east1` proxy 查詢、UI 狀態提示與 Antigravity CIMD MCP OAuth 修正之 Dev API 100% 切流與四 Jobs rollout（見 Git commit `825388a5`、`44ad2db2`、`b3b3c18f`、`39c60ed1`）。
 - [Shioaji 專屬報價轉發規格](spec/shioaji-quote-proxy.md)：位於 `asia-east1` 之專屬行情節點，重用 `janus-runtime-bundle:latest`，雙軌支援 Shioaji 與在地 TWSE MIS，本機 VM 實測 `/quotes` 正向通過。
 - [程式清理結案收據](archive/code-cleanup-2026-11-01.md)：完整 Release、候選／OAuth、四 Jobs 八次 canary、API 100% 與 MCP 路由、獨立 live 讀回均通過；工程發布與自動驗收 CLOSED／PASS。
 - [資安修補結案收據](archive/security-review-2026-11-01.md)：程式／依賴修補、完整測試、四 Jobs／API／MCP 與獨立 live 驗收通過；90 個舊公開版本 tag 已退役，19 個保留 tag 全指向修復版本。

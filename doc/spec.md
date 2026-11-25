@@ -1,5 +1,7 @@
 # Janus — Project Specification
 
+> **2026-11-23 廢除四模型｜API + AI 個股分析重構契約：**[API + AI 個股分析重構規格](spec/ai-stock-analysis-v2.md)（廢除四模型 ML 訓練／推論，改採外部 API + 後端確定性計算 + T1–T5 覆核 + Gemini Hydrogen `StockInsightV2`，`DOC_ONLY` 待開發規格，不是已上線狀態）。
+> **2026-11-25 股利自動推算契約：**[股利自動推算與一鍵入帳規格](spec/dividend-auto-ledger.md)（支援現金＋股票股利 `Decimal` 推算與樂觀鎖一鍵確認入帳，`DOC_ONLY` 待開發規格，不是已上線狀態）。
 > **2026-10-31 個人策略契約：**[個人策略、S/A/B/C與四時段報告](spec/personal-strategy-briefings.md)。先選策略再選風險、每週限改一次；觀察池可手動或週批同步；四報告全手動、每類各留3份；PG為主儲存。此為待開發規格，不是已上線狀態。
 > 排程、備份與資料快照依 [統一批次契約](spec/unified-batch-flow.md)；部署狀態與未完成驗收以 [唯一 TODO](todo.md) 為準。
 
@@ -31,6 +33,8 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 | 任務 | 必讀切片 | 條件增讀 |
 |---|---|---|
 | 產品目標、優先序、Token-first specialist、On-demand CEO、全域架構決策 | [產品目標與架構決策](spec/overview-and-decisions.md) | 涉及 API 或部署時再讀對應切片 |
+| API + AI 個股分析重構（2026-11-23 廢除四模型）、T1–T5 覆核、Gemini Hydrogen `StockInsightV2`（`DOC_ONLY`） | [API + AI 個股分析重構規格](spec/ai-stock-analysis-v2.md) | 執行順序與卡片見 [執行卡](execution-cards/ai-stock-analysis-v2.md) |
+| 股利自動推算（現金＋股票股利）、`private.pending_dividend_events` 與樂觀鎖一鍵入帳（`DOC_ONLY`） | [股利自動推算與一鍵入帳規格](spec/dividend-auto-ledger.md) | 帳本規則並讀 [持股優先契約](spec/holdings-first.md) 與 [執行卡](execution-cards/dividend-auto-ledger.md) |
 | Monorepo、服務責任、GCP 拓撲 | [Monorepo 與 GCP 拓撲](spec/repository-and-gcp.md) | 涉及 IAM／release 時讀品質與發布 |
 | Iceberg／PostgreSQL、公開／私人資料、來源、Ingestion | [儲存、資料供應與 Ingestion](spec/storage-data-and-ingestion.md) | 產製 Mart 時讀 Intelligence |
 | 全市場 2 年歷史種子收錄、Serving 快取分級與滾動淘汰 | [歷史種子收錄與 Serving 契約](spec/history-seed-pipeline.md) | 涉及歷史補齊與 PG 容量防護必讀 |

@@ -1,5 +1,7 @@
 # Janus — UI Specification
 
+> **2026-11-25 股利自動推算 UI 契約（`DOC_ONLY`，未實作）：**於記帳／持股頁精簡列表上方僅在 `pending_count > 0` 時顯示待確認股利提示列，支援跳轉待確認清單頁（同標的同日現金／股票分組）、逐筆微調 Bottom Sheet、底部固定批次確認入帳與交易紀錄頁歷史補掃入口；詳見 [股利自動推算與一鍵入帳 SPEC](spec/dividend-auto-ledger.md#5-flutter-uiux-操作流程)（非 UI 已實作宣告）。
+> **2026-11-23 個股／首頁 AI 重構 UI 契約（`DOC_ONLY`，未實作）：**移除四模型分數卡與重複 `validated` 摘要區塊，改為 30 秒速讀 + 單一 AI 變化卡 + 可點開證據標籤（Deep Link 至 6 大主分類圖表）+ 「查看更多」展開 `secondary_insights`；詳見 [API + AI 個股分析重構 SPEC](spec/ai-stock-analysis-v2.md) `AI-REF-05`（非 UI 已實作宣告）。
 > **2026-10-31 使用者覆蓋：**個人設定採「策略／自訂 → 風險 → 產出並保存，每週一次」；新增獨立個人策略唯讀頁，四模式MD rich卡片每類各3份；觀察頁A/B/C、S由帳本推導；持股頁移除筆記UI但保留歷史資料。依[正式SPEC](spec/personal-strategy-briefings.md)覆蓋舊筆記入口／平面觀察呈現，不是UI已實作宣告。
 > 排程、備份與資料快照依 [統一批次契約](spec/unified-batch-flow.md)；部署狀態與未完成驗收以 [唯一 TODO](todo.md) 為準。
 
