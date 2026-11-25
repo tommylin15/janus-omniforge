@@ -62,6 +62,15 @@ Map<String, dynamic> _pendingPayload() => {
           'estimated_remit_fee': '10',
           'estimated_nhi_fee': '0',
           'net_cash_amount': '2390',
+          'compare_window_label': '2026-07～2026-09',
+          'nearby_ledger_dividends': [
+            {
+              'event_id': 'ev-prev-1',
+              'trade_date': '2026-07-28',
+              'event_type': 'CASH_DIV',
+              'cash_amount': '2400',
+            },
+          ],
           'warnings': const <String>[],
           'status': 'PENDING',
         },
@@ -77,6 +86,8 @@ Map<String, dynamic> _pendingPayload() => {
           'estimated_stock_shares': '200',
           'fractional_shares': '0',
           'confirmed_stock_shares': '200',
+          'compare_window_label': '2026-07～2026-09',
+          'nearby_ledger_dividends': const <dynamic>[],
           'warnings': const <String>[],
           'status': 'PENDING',
         },
@@ -237,6 +248,44 @@ void main() {
     await tester.tap(find.byKey(const Key('confirm-selected-dividends')));
     await tester.pumpAndSettle();
     expect(find.textContaining('交易版本已變動'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('PendingDividendsSheet displays nearby ledger compare box and single dismiss action',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final api = _DividendFakeApi(_ledgerValues(pending: _pendingPayload()));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PendingDividendsSheet(
+            api: api,
+            now: () => DateTime.utc(2026, 9, 1),
+            initialData: _pendingPayload(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('帳本前後一個月已有紀錄（2026-07～2026-09 · 1 筆）'), findsOneWidget);
+    expect(find.textContaining('2026-07-28 · 現金股利 +2,400 元'), findsOneWidget);
+    expect(find.textContaining('帳本查無 2026-07～2026-09 同標的股利紀錄'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('dividend-dismiss-draft-cash-1')));
+    await tester.pumpAndSettle();
+
+    expect(
+      api.calls.any((c) =>
+          c['method'] == 'POST' &&
+          c['path'] == '/api/v1/me/dividends/pending/dismiss' &&
+          (c['body']['draft_ids'] as List).single == 'draft-cash-1'),
+      isTrue,
+    );
     expect(tester.takeException(), isNull);
   });
 }

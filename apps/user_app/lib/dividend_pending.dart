@@ -491,6 +491,33 @@ class _PendingDividendsSheetState extends State<PendingDividendsSheet> {
     }
   }
 
+  Future<void> dismissSingle(String draftId) async {
+    if (busy || draftId.isEmpty) return;
+    setState(() {
+      busy = true;
+      errorMessage = null;
+    });
+    try {
+      await widget.api.post(
+        '/api/v1/me/dividends/pending/dismiss',
+        {
+          'draft_ids': [draftId],
+        },
+      ).timeout(const Duration(seconds: 12));
+      selectedIds.remove(draftId);
+      await refreshList();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已忽略該筆股利草稿')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => errorMessage = '忽略失敗：$error');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final groups = <String, List<Map<String, dynamic>>>{};
@@ -771,16 +798,87 @@ class _PendingDividendsSheetState extends State<PendingDividendsSheet> {
                           style: const TextStyle(color: fvMuted, fontSize: 11),
                         ),
                       ),
+                    _buildLedgerCompareBox(row, id, isCash),
                   ],
                 ),
               ),
-              TextButton(
-                key: Key('dividend-edit-$id'),
-                onPressed: busy ? null : () => editDraft(row),
-                child: const Text('微調'),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    key: Key('dividend-edit-$id'),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: busy ? null : () => editDraft(row),
+                    child: const Text('微調'),
+                  ),
+                  TextButton(
+                    key: Key('dividend-dismiss-$id'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: fvMuted,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: busy ? null : () => dismissSingle(id),
+                    child: const Text('忽略'),
+                  ),
+                ],
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLedgerCompareBox(Map<String, dynamic> row, String id, bool isCash) {
+    final nearby = fvRows(row['nearby_ledger_dividends']).map(fvMap).toList();
+    final windowLabel = fvText(row['compare_window_label'], missing: '前後一個月');
+    final hasMatch = nearby.isNotEmpty;
+
+    return Container(
+      key: Key('dividend-ledger-compare-$id'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: hasMatch ? const Color(0xFFFFF6E5) : const Color(0xFFF4F8F8),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: hasMatch ? const Color(0xFFF0CF93) : const Color(0xFFD8E5E5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            hasMatch
+                ? '帳本前後一個月已有紀錄（$windowLabel · ${nearby.length} 筆）— 請比對是否忽略'
+                : '帳本查無 $windowLabel 同標的股利紀錄（前後一個月無紀錄，可直接加入）',
+            style: TextStyle(
+              color: hasMatch ? const Color(0xFF7A4E00) : fvMuted,
+              fontSize: 11,
+              fontWeight: hasMatch ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+          for (final rec in nearby)
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(
+                isCash
+                    ? '• ${fvText(rec['trade_date'])} · 現金股利 +${legacy.accountingNumber(rec['cash_amount'])} 元'
+                    : '• ${fvText(rec['trade_date'])} · 股票股利 +${legacy.accountingNumber(rec['shares'])} 股',
+                style: const TextStyle(
+                  color: fvInk,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
         ],
       ),
     );

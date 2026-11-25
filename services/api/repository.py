@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import calendar
 from contextlib import contextmanager
 from datetime import date, timedelta
 from decimal import Decimal
@@ -2084,6 +2085,25 @@ class PostgresWorkspaceRepository:
             if merged is not None:
                 self._upsert_pending_draft(connection, merged)
 
+    @staticmethod
+    def _dividend_compare_window(ex_date: date, payment_date: date | None) -> tuple[date, date, str]:
+        """計算待確認股利的前後一個月帳本對照區間（涵蓋發放日所在月底）。"""
+        if ex_date.month == 1:
+            window_start = date(ex_date.year - 1, 12, 1)
+        else:
+            window_start = date(ex_date.year, ex_date.month - 1, 1)
+        next_year = ex_date.year + (1 if ex_date.month == 12 else 0)
+        next_month = 1 if ex_date.month == 12 else ex_date.month + 1
+        window_end = date(next_year, next_month, calendar.monthrange(next_year, next_month)[1])
+        if payment_date is not None:
+            pay_month_end = date(
+                payment_date.year,
+                payment_date.month,
+                calendar.monthrange(payment_date.year, payment_date.month)[1],
+            )
+            window_end = max(window_end, pay_month_end)
+        return window_start, window_end, f"{window_start:%Y-%m}～{window_end:%Y-%m}"
+
     def list_pending_dividends(
         self,
         user_id: UUID,
@@ -2091,7 +2111,9 @@ class PostgresWorkspaceRepository:
         status: str = "PENDING",
         symbol: str | None = None,
     ) -> dict[str, Any]:
-        """取得使用者的待確認股利草稿清單與目前帳本版本。"""
+        """取得使用者的待確認股利草稿清單、目前帳本版本與前後一個月帳本股利對照。"""
+        from .private_pipeline import effective_ledger_events
+
         with self._connection() as connection:
             connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ledger:{user_id}",))
             self._refresh_stale_drafts_in_tx(connection, user_id)
@@ -2110,6 +2132,47 @@ class PostgresWorkspaceRepository:
                      ORDER BY ex_date DESC, symbol ASC, action_type ASC""",
                 params,
             ).fetchall()]
+            if items:
+                events, _ = self._load_owner_ledger_events(connection, user_id)
+                div_events = [
+                    ev
+                    for ev in effective_ledger_events(events)
+                    if str(ev.get("event_type") or "") in {"CASH_DIV", "STOCK_DIV"}
+                ]
+                for item in items:
+                    ex_val = item["ex_date"]
+                    if isinstance(ex_val, str):
+                        ex_val = date.fromisoformat(ex_val[:10])
+                    pay_val = item.get("payment_date")
+                    if isinstance(pay_val, str):
+                        pay_val = date.fromisoformat(pay_val[:10])
+                    w_start, w_end, w_label = self._dividend_compare_window(ex_val, pay_val)
+                    expected_type = "CASH_DIV" if item.get("action_type") == "CASH_DIVIDEND" else "STOCK_DIV"
+                    sym = str(item.get("symbol") or "").strip().upper()
+                    matches: list[dict[str, Any]] = []
+                    for ev in div_events:
+                        if str(ev.get("symbol") or "").strip().upper() != sym:
+                            continue
+                        if str(ev.get("event_type") or "") != expected_type:
+                            continue
+                        t_date = ev.get("trade_date")
+                        if isinstance(t_date, str):
+                            t_date = date.fromisoformat(t_date[:10])
+                        if isinstance(t_date, date) and w_start <= t_date <= w_end:
+                            matches.append(
+                                {
+                                    "event_id": str(ev["event_id"]),
+                                    "trade_date": t_date.isoformat(),
+                                    "event_type": str(ev["event_type"]),
+                                    "cash_amount": ev.get("cash_amount"),
+                                    "shares": ev.get("shares"),
+                                    "fee": ev.get("fee"),
+                                    "tax": ev.get("tax"),
+                                }
+                            )
+                    matches.sort(key=lambda m: m["trade_date"], reverse=True)
+                    item["compare_window_label"] = w_label
+                    item["nearby_ledger_dividends"] = matches
             pending_count = connection.execute(
                 "SELECT COUNT(*) AS cnt FROM private.pending_dividend_events WHERE user_id = %s AND status = 'PENDING'",
                 (user_id,),

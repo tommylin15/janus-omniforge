@@ -576,3 +576,127 @@ def test_load_owner_ledger_events_includes_reversal_and_correction_fields():
     assert draft is not None
     assert draft["eligible_shares"] == Decimal("2000")
     assert draft["gross_cash_amount"] == Decimal("9000")
+
+
+def test_list_pending_dividends_includes_prev_and_next_month_ledger_compare():
+    """驗證待確認股利清單回傳除權息日前後一個月帳本對照（且嚴格隔離不同 Owner）。"""
+    repo = _TestableRepository()
+    repo.db.ledger_events.extend(
+        [
+            {
+                "event_id": uuid4(),
+                "user_id": OWNER_A,
+                "ledger_version": 1,
+                "event_action": "ORIGINAL",
+                "event_type": "BUY",
+                "reverses_event_id": None,
+                "replaces_event_id": None,
+                "trade_date": date(2026, 7, 1),
+                "symbol": "00719B",
+                "shares": Decimal("30000"),
+                "price": Decimal("31"),
+                "cash_amount": Decimal("930000"),
+                "fee": Decimal("0"),
+                "tax": Decimal("0"),
+                "currency": "TWD",
+            },
+            # 前一個月（2026-09）
+            {
+                "event_id": uuid4(),
+                "user_id": OWNER_A,
+                "ledger_version": 2,
+                "event_action": "ORIGINAL",
+                "event_type": "CASH_DIV",
+                "reverses_event_id": None,
+                "replaces_event_id": None,
+                "trade_date": date(2026, 9, 25),
+                "symbol": "00719B",
+                "shares": None,
+                "price": None,
+                "cash_amount": Decimal("8090"),
+                "fee": Decimal("10"),
+                "tax": Decimal("0"),
+                "currency": "TWD",
+            },
+            # 後一個月（2026-11，刻意設不同金額以免觸發自動 ALREADY_RECORDED）
+            {
+                "event_id": uuid4(),
+                "user_id": OWNER_A,
+                "ledger_version": 3,
+                "event_action": "ORIGINAL",
+                "event_type": "CASH_DIV",
+                "reverses_event_id": None,
+                "replaces_event_id": None,
+                "trade_date": date(2026, 11, 18),
+                "symbol": "00719B",
+                "shares": None,
+                "price": None,
+                "cash_amount": Decimal("6000"),
+                "fee": Decimal("0"),
+                "tax": Decimal("0"),
+                "currency": "TWD",
+            },
+            # 超出窗口（2026-08）不應列入
+            {
+                "event_id": uuid4(),
+                "user_id": OWNER_A,
+                "ledger_version": 4,
+                "event_action": "ORIGINAL",
+                "event_type": "CASH_DIV",
+                "reverses_event_id": None,
+                "replaces_event_id": None,
+                "trade_date": date(2026, 8, 20),
+                "symbol": "00719B",
+                "shares": None,
+                "price": None,
+                "cash_amount": Decimal("7500"),
+                "fee": Decimal("0"),
+                "tax": Decimal("0"),
+                "currency": "TWD",
+            },
+            # 其他 Owner（2026-10）不應洩漏
+            {
+                "event_id": uuid4(),
+                "user_id": OWNER_B,
+                "ledger_version": 1,
+                "event_action": "ORIGINAL",
+                "event_type": "CASH_DIV",
+                "reverses_event_id": None,
+                "replaces_event_id": None,
+                "trade_date": date(2026, 10, 28),
+                "symbol": "00719B",
+                "shares": None,
+                "price": None,
+                "cash_amount": Decimal("99999"),
+                "fee": Decimal("0"),
+                "tax": Decimal("0"),
+                "currency": "TWD",
+            },
+        ]
+    )
+    repo.db.corporate_actions.extend(
+        [
+            {
+                "action_id": uuid4(),
+                "symbol": "00719B",
+                "market": "TWSE",
+                "security_type": "etf",
+                "ex_date": date(2026, 10, 22),
+                "payment_date": None,
+                "action_type": "CASH_DIVIDEND",
+                "cash_dividend_per_share": Decimal("0.27"),
+                "stock_dividend_ratio": Decimal("0"),
+                "par_value": Decimal("10"),
+                "source_name": "TWSE_TWT49U",
+            }
+        ]
+    )
+
+    repo.scan_dividends(OWNER_A)
+    listed = repo.list_pending_dividends(OWNER_A, symbol="00719B")
+    assert len(listed["items"]) == 1
+    item = listed["items"][0]
+    assert item["compare_window_label"] == "2026-09～2026-11"
+    nearby = item["nearby_ledger_dividends"]
+    assert [m["trade_date"] for m in nearby] == ["2026-11-18", "2026-09-25"]
+    assert [m["cash_amount"] for m in nearby] == [Decimal("6000"), Decimal("8090")]
