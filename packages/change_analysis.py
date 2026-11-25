@@ -190,8 +190,11 @@ def session_view(product, session, *, cutoff_at):
         item['state_label'] = STATE_LABELS[item['state']]
         items.append(item)
     prices = [item['period'] for item in items if item['kind'] == 'price']
-    return {'symbol': product['symbol'], 'session': session, 'cutoff_at': changes.get('cutoff_at'),
+    view = {'symbol': product['symbol'], 'session': session, 'cutoff_at': changes.get('cutoff_at'),
             'view_cutoff_at': cutoff_at, 'price_date': max(prices) if prices else None,
             'basis_note': '依最近已保存的收盤資料；公告各依來源時間，不視為即時或完整收盤分析。',
             'status': 'available' if items and all(i['status'] == 'available' for i in items) else 'partial',
             'observations': items, 'rule_version': RULE_VERSION}
+    if product.get('insight_v2') is not None:
+        view['insight_v2'] = product['insight_v2']
+    return view
