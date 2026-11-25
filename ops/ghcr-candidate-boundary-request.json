@@ -1,10 +1,10 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "44ad2db2f411d9d412a1ed96733a3bf03850fdda",
+  "sha": "37f0539047a234ac0ba02b1095c60e49345341f3",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-25 合併修復 ETF 名冊 asia-east1 代理與 Antigravity CIMD OAuth。Release #45532658410 與 0% Candidate #45533521474 PASS；驗證既有 OAuth、個人策略、Owner/Admin/MCP 與盤中行情等效性；不切流、不改 Jobs/Scheduler/PG/IAM 或 Owner 資料。",
-  "request_attempt": 70,
+  "purpose": "2026-11-25 DIV-01..04 現金＋股票股利自動推算與一鍵入帳（含 080 Migration #45544590751）。Release #45544861909 與 0% Candidate #45545698967 PASS；驗證既有 OAuth、個人策略、Owner/Admin/MCP 與盤中行情等效性；不切流、不改 Jobs/Scheduler/PG/IAM 或 Owner 資料。",
+  "request_attempt": 71,
   "personal_strategy_access_check": true,
   "market_index_quote_check": true
 }
