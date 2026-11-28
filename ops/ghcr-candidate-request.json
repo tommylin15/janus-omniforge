@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "3e5a1ae69990bed5d8bd7e52cc41119bfffda505",
+  "sha": "1d7ca84b1e91f112e1ad7fdac75f440347c8e6e2",
   "digest": "",
-  "release_run": "46109084892",
+  "release_run": "46113004306",
   "promotion": false,
   "scope": "janus-api-only",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "purpose": "2026-11-28 股市 03 非金融 A/B/C 觀察池鏡像同步（受限 OAuth Scope janus.watchlist.write + POST /api/v1/me/watchlist/sync）；完整 Release #46109084892 PASS；部署既有 Dev API 0% Candidate，保留現役 a9f40091 100% 及 Jobs/Scheduler/PG/IAM/Owner；權限邊界驗收後才切流。",
-  "request_attempt": 83
+  "purpose": "2026-11-28 已註冊 ETF 官方盤後 EOD OHLCV 接入與有限度回補（方案 A，1d7ca84b）：完整 Release #46113004306 PASS；部署既有 Dev API 0% Candidate，保留現役 3e5a1ae6 100% 及 Jobs/Scheduler/PG/IAM/Owner；為 Jobs Rollout 前置驗證。",
+  "request_attempt": 84
 }
