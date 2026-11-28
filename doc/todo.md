@@ -1,10 +1,11 @@
 # Janus — 唯一 Active TODO
 
-## 2026-11-28｜股市 `03_候選股與觀察池` 非金融 A/B/C（17 檔）單向鏡像回寫 `private.watchlist`（程式與測試已備妥；Dev Release／MCP Route 更新／本人 OAuth 實測同步待驗 `NOT_VERIFIED`）
+## 2026-11-28｜股市 `03_候選股與觀察池` 非金融 A/B/C（17 檔）單向鏡像回寫 `private.watchlist`（Release／Dev API 100% 切流／MCP 路由更新／Live Readback PASS；Owner 首次 OAuth 授權與實機同步待驗 `NOT_VERIFIED`）
 
 - [x] **後端受限寫入 Scope 與鏡像同步端點（本地實作＋單元測試 PASS）**：於 `services/api/mcp_oauth.py` 新增最小權限 `janus.watchlist.write`（預設未指定時仍僅發唯讀 scope，`janus.private.write` 與 `/mcp` 三支唯讀工具維持不變）；於 `services/api/models.py`、`watchlist_sync.py`、`repository.py`、`app.py` 實作 `POST /api/v1/me/watchlist/sync`（支援 `dry_run`、`mirror` 鏡像、`preserve_locked` 鎖定保留、`target_price` 評估價同步、50 檔個人／全域與策略 B 池上限、冪等鍵與樂觀鎖），並於 `tests/test_watchlist_sync.py`、`tests/test_mcp_oauth.py` 通過離線單元測試。
 - [x] **本機同步腳本與文件同步**：於 Drive `股市/scripts/sync_watchlist_to_janus.py` 實作嚴格分區解析（僅抓一 A／三 B／四 C，17 檔 + 分析目標價）、PKCE OAuth 授權與 `--dry-run`/`--apply` 同步；已同步 `股市/skills/tw-stock-weekly-scan/SKILL.md`、`doc/PROJECT_RULES.md §1.5` 與 `janusChatGPT/JANUS_PROJECT_CONTROL.md §14`。
-- [ ] **GHCR Release → Dev API 100% 切流 → `ghcr-mcp-route-dev.yml`（`mcp-oauth`/`mcp-adapter` 路由更新）→ 本人 OAuth 實測 `NOT_VERIFIED`**：待執行完整 Release 並更新線上 Dev API 及 `mcp-oauth` / `mcp-adapter` 路由後，由 Owner 本人完成 `auth-login` / `auth-exchange` 與第一次實機 `sync --dry-run` / `--apply` 讀回驗證。
+- [x] **GHCR Release → 0% Candidate → Auth Boundary → Dev API 100% 切流 → `mcp-oauth`/`mcp-adapter` 路由更新與獨立 Live Readback PASS**：固定來源 SHA **`3e5a1ae69990bed5d8bd7e52cc41119bfffda505`** 完成 Full Release [#46109084892](https://github.com/tommylin15/janus-omniforge/actions/runs/46109084892) PASS → 0% Candidate [#46109884652](https://github.com/tommylin15/janus-omniforge/actions/runs/46109884652) PASS → Auth Boundary & Parity [#46110012068](https://github.com/tommylin15/janus-omniforge/actions/runs/46110012068)（重跑一次後 PASS）→ API-only 100% Promotion [#46110374952](https://github.com/tommylin15/janus-omniforge/actions/runs/46110374952) PASS（前版 `a9f40091` 保留 rollback）→ `ghcr-mcp-route-dev.yml` [#46110482314](https://github.com/tommylin15/janus-omniforge/actions/runs/46110482314) PASS。獨立唯讀讀回確認 canonical API、`mcp-oauth`、`mcp-adapter` 之 `/app/build-id.txt` 皆為 `3e5a1ae69990bed5d8bd7e52cc41119bfffda505`、`/.well-known/oauth-authorization-server` `scopes_supported` 含 `janus.watchlist.write` 且不含 `janus.private.write`、`/health` 回傳 `200`、匿名 `POST /api/v1/me/watchlist/sync` 回傳 `401`。
+- [ ] **Owner 瀏覽器 OAuth 授權與首次實機 `sync --dry-run` / `--apply`（`NOT_VERIFIED`）**：已產出 `auth-login` 授權連結待 Owner 點擊同意並執行 `auth-exchange` 與第一次實際同步讀回。
 
 ## 2026-11-25｜股利自動推算與一鍵入帳（Dev 080 Migration／歷史除權息回補／前後月帳本對照／API 100% 切流／Owner UAT／四支盤後 Jobs Rollout 全 PASS）
 
