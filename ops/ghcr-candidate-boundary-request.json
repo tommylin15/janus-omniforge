@@ -1,10 +1,10 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "a9f40091536ab1991c4d5502ba58a7da55ddeb04",
+  "sha": "3e5a1ae69990bed5d8bd7e52cc41119bfffda505",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-25 AI-REF-01～06：三層契約、T1–T5 覆核、外部 Adapter、Prompt v2.1.0 + 5 道防線、Additive v2 端點與 Flutter 30 秒速讀／證據標籤 UI。Release #45575812631 與 0% Candidate #45576748664 PASS；驗證既有 OAuth、個人策略、Owner/Admin/MCP 與盤中行情等效性；不切流、不改 Jobs/Scheduler/PG/IAM 或 Owner 資料。",
-  "request_attempt": 75,
+  "purpose": "2026-11-28 觀察池鏡像同步（3e5a1ae6）：Release #46109084892 與 0% Candidate #46109884652 PASS；驗證既有 OAuth、個人策略、Owner/Admin/MCP 與公開行情邊界；不切流、不改 Jobs/Scheduler/PG/IAM 或 Owner 資料。",
+  "request_attempt": 76,
   "personal_strategy_access_check": true,
   "market_index_quote_check": true
 }
