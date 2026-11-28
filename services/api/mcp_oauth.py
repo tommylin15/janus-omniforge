@@ -27,8 +27,10 @@ CODEX_CLIENT_ID = "https://chatgpt.com/oauth/codex/client.json"
 MCP_REDIRECT_URI = "https://chatgpt.com/connector_platform_oauth_redirect"
 ANTIGRAVITY_CLIENT_ID = "https://antigravity.google/oauth/client-metadata.json"
 ANTIGRAVITY_REDIRECT_URI = "https://antigravity.google/oauth-callback"
-MCP_SCOPES = frozenset({"janus.sources.read", "janus.market.read", "janus.private.read",
-                        "offline_access"})
+MCP_READ_SCOPES = frozenset({"janus.sources.read", "janus.market.read", "janus.private.read",
+                             "offline_access"})
+MCP_WATCHLIST_WRITE_SCOPE = "janus.watchlist.write"
+MCP_SCOPES = MCP_READ_SCOPES | frozenset({MCP_WATCHLIST_WRITE_SCOPE})
 _GOOGLE_AUTHORIZE = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
 
@@ -187,7 +189,7 @@ class McpOAuth:
                     (["authorization_code"], ["authorization_code", "refresh_token"], ["refresh_token", "authorization_code"])
                 or metadata.get("response_types", ["code"]) != ["code"]):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid_client_metadata")
-        raw_scope = metadata.get("scope", " ".join(sorted(MCP_SCOPES)))
+        raw_scope = metadata.get("scope", " ".join(sorted(MCP_READ_SCOPES)))
         if not isinstance(raw_scope, str):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid_client_metadata")
         scope = self._scope(raw_scope)
@@ -220,7 +222,7 @@ class McpOAuth:
         redirect_uri = params.get("redirect_uri", "")
         registered = self._registered_redirects(client_id)
         default_optional = bool(registered) or client_id == ANTIGRAVITY_CLIENT_ID
-        scope = " ".join(dict.fromkeys((*self._scope(params.get("scope", " ".join(sorted(MCP_SCOPES)) if default_optional else "")).split(), "offline_access")))
+        scope = " ".join(dict.fromkeys((*self._scope(params.get("scope", " ".join(sorted(MCP_READ_SCOPES)) if default_optional else "")).split(), "offline_access")))
         if params.get("response_type") != "code":
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "response_type must be code")
         if not params.get("state"):
@@ -277,7 +279,7 @@ class McpOAuth:
                 redirect = urlsplit(state["redirect_uri"])
                 if redirect.scheme == "http" or redirect.netloc == "antigravity.google":
                     form_origins += f" {redirect.scheme}://{redirect.netloc}"
-            return Response(content=self._consent_page(self._sign(state)), media_type="text/html", headers={
+            return Response(content=self._consent_page(self._sign(state), state["scope"]), media_type="text/html", headers={
                 "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
                 "Content-Security-Policy": f"default-src 'none'; style-src 'unsafe-inline'; form-action {form_origins}; base-uri 'none'",
             })
@@ -370,9 +372,27 @@ class McpOAuth:
         params = {"error": error, "state": state.get("state", ""), "iss": self.settings.issuer}
         return Response(status_code=status.HTTP_302_FOUND, headers={"Location": f"{state['redirect_uri']}?{urlencode(params)}"})
 
-    def _consent_page(self, token: str) -> str:
+    def _consent_page(self, token: str, scope: str = "") -> str:
         safe = html.escape(token, quote=True)
-        return f"<!doctype html><meta charset='utf-8'><title>Janus MCP authorization</title><main><h1>Janus MCP authorization</h1><p>允許本次連線的 MCP 客戶端唯讀查詢已核准的 Janus 市場與私人資料；MCP 不提供新增交易或股息紀錄功能。短效存取憑證可自動續期；授權閒置 90 天後失效，你可隨時在客戶端解除連結或撤銷。</p><form method='post' action='/oauth/authorize/complete'><input type='hidden' name='token' value='{safe}'><button name='approved' value='true'>允許</button><button name='approved' value='false'>拒絕</button></form></main>"
+        scopes = set(scope.split())
+        if MCP_WATCHLIST_WRITE_SCOPE in scopes:
+            description = (
+                "允許本次連線的 MCP 客戶端唯讀查詢已核准的 Janus 市場與私人資料，"
+                "並透過專用端點同步更新個人觀察股清單（private.watchlist，包含分級、排序與目標價）；"
+                "MCP 不提供新增交易或股息紀錄功能。短效存取憑證可自動續期；授權閒置 90 天後失效，你可隨時在客戶端解除連結或撤銷。"
+            )
+        else:
+            description = (
+                "允許本次連線的 MCP 客戶端唯讀查詢已核准的 Janus 市場與私人資料；"
+                "MCP 不提供新增交易或股息紀錄功能。短效存取憑證可自動續期；授權閒置 90 天後失效，你可隨時在客戶端解除連結或撤銷。"
+            )
+        return (
+            "<!doctype html><meta charset='utf-8'><title>Janus MCP authorization</title>"
+            "<main><h1>Janus MCP authorization</h1>"
+            f"<p>{description}</p>"
+            f"<form method='post' action='/oauth/authorize/complete'><input type='hidden' name='token' value='{safe}'>"
+            "<button name='approved' value='true'>允許</button><button name='approved' value='false'>拒絕</button></form></main>"
+        )
 
     def _sign(self, payload: Mapping[str, Any]) -> str:
         encoded = self._b64(json.dumps(dict(payload), separators=(",", ":"), sort_keys=True).encode())

@@ -77,6 +77,7 @@ class McpOAuthTests(unittest.TestCase):
         self.assertEqual(metadata["token_endpoint_auth_methods_supported"], ["none"])
         self.assertEqual(metadata["grant_types_supported"], ["authorization_code", "refresh_token"])
         self.assertIn("offline_access", metadata["scopes_supported"])
+        self.assertIn("janus.watchlist.write", metadata["scopes_supported"])
         self.assertNotIn("janus.private.write", metadata["scopes_supported"])
         self.assertEqual(metadata["revocation_endpoint"], "https://api.example.test/oauth/revoke")
         self.assertEqual(metadata["revocation_endpoint_auth_methods_supported"], ["none"])
@@ -473,6 +474,80 @@ class McpOAuthTests(unittest.TestCase):
                     "state": "state",
                     **extra,
                 })
+
+    def test_default_scope_remains_read_only_and_watchlist_write_requires_explicit_opt_in(self):
+        callback = "http://127.0.0.1:44321/oauth/callback"
+        registration = self.oauth.register_client({"redirect_uris": [callback]})
+        self.assertNotIn("janus.watchlist.write", registration["scope"].split())
+        client_id = registration["client_id"]
+
+        # Default authorization (no explicit scope) must NOT grant janus.watchlist.write.
+        verifier_ro = "read-only-verifier" * 3
+        auth_ro = self.oauth.begin_authorization({
+            "response_type": "code", "client_id": client_id, "redirect_uri": callback,
+            "code_challenge": self.oauth._pkce(verifier_ro), "code_challenge_method": "S256", "state": "ro",
+        })
+        consent_ro = self.oauth.google_callback({
+            "state": parse_qs(urlsplit(auth_ro.headers["location"]).query)["state"][0], "code": "google-code",
+        })
+        self.assertNotIn("個人觀察股清單".encode(), consent_ro.body)
+        tok_ro_url = self.oauth.complete_authorization(
+            re.search(r"name='token' value='([^']+)'", consent_ro.body.decode()).group(1), True
+        ).headers["location"]
+        access_ro = self.oauth.exchange_token({
+            "grant_type": "authorization_code", "client_id": client_id, "redirect_uri": callback,
+            "code": parse_qs(urlsplit(tok_ro_url).query)["code"][0], "code_verifier": verifier_ro,
+        })
+        self.assertNotIn("janus.watchlist.write", access_ro["scope"].split())
+        with self.assertRaises(HTTPException) as denied:
+            self.oauth.verify_access_token(access_ro["access_token"], "janus.watchlist.write")
+        self.assertEqual(denied.exception.status_code, 401)
+
+        # Explicit opt-in scope grants janus.watchlist.write, survives refresh, and discloses on consent page.
+        verifier_rw = "watchlist-write-verifier" * 3
+        auth_rw = self.oauth.begin_authorization({
+            "response_type": "code", "client_id": client_id, "redirect_uri": callback,
+            "scope": "janus.private.read janus.watchlist.write offline_access",
+            "code_challenge": self.oauth._pkce(verifier_rw), "code_challenge_method": "S256", "state": "rw",
+        })
+        consent_rw = self.oauth.google_callback({
+            "state": parse_qs(urlsplit(auth_rw.headers["location"]).query)["state"][0], "code": "google-code",
+        })
+        self.assertIn("同步更新個人觀察股清單".encode(), consent_rw.body)
+        self.assertIn("MCP 不提供新增交易或股息紀錄功能".encode(), consent_rw.body)
+        self.assertIn("閒置 90 天後失效".encode(), consent_rw.body)
+        tok_rw_url = self.oauth.complete_authorization(
+            re.search(r"name='token' value='([^']+)'", consent_rw.body.decode()).group(1), True
+        ).headers["location"]
+        access_rw = self.oauth.exchange_token({
+            "grant_type": "authorization_code", "client_id": client_id, "redirect_uri": callback,
+            "code": parse_qs(urlsplit(tok_rw_url).query)["code"][0], "code_verifier": verifier_rw,
+        })
+        self.assertEqual(
+            self.oauth.verify_access_token(access_rw["access_token"], "janus.watchlist.write")["sub"],
+            "owner-uuid",
+        )
+        renewed = self.oauth.exchange_token({
+            "grant_type": "refresh_token", "client_id": client_id, "refresh_token": access_rw["refresh_token"],
+        })
+        self.assertEqual(
+            self.oauth.verify_access_token(renewed["access_token"], "janus.watchlist.write")["sub"],
+            "owner-uuid",
+        )
+        self.oauth.revoke_token({"client_id": client_id, "token": renewed["refresh_token"]})
+        with self.assertRaises(HTTPException):
+            self.oauth.exchange_token({
+                "grant_type": "refresh_token", "client_id": client_id, "refresh_token": renewed["refresh_token"],
+            })
+
+        # Retired janus.private.write remains permanently rejected.
+        with self.assertRaises(HTTPException) as retired:
+            self.oauth.begin_authorization({
+                "response_type": "code", "client_id": client_id, "redirect_uri": callback,
+                "scope": "janus.private.write",
+                "code_challenge": self.oauth._pkce(verifier_rw), "code_challenge_method": "S256", "state": "bad",
+            })
+        self.assertEqual(retired.exception.status_code, 400)
 
 
 if __name__ == "__main__":

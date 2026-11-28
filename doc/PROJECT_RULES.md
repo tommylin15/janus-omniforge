@@ -105,10 +105,11 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - 本專案的工程工作直接依本文件、active TODO／WBS／SPEC、repository implementation、tests／CI 與真實 runtime evidence 執行。除非使用者日後在 Janus 專案內明確修改本規則，否則不得以通用 workflow skill 覆蓋或包裝 Janus 專案流程。
 - **ChatGPT 對話模式不得因非系統強制的 skill 不可用、未安裝或無法呼叫而停等。** 若 repository 規則、runbook、tests／CI 與 runtime evidence 足以安全執行，直接完成修改、測試、commit、push、deployment 與 acceptance 閉環；僅系統硬性限制、§1.3 所列人工授權事項或真實 blocker 可中止受影響工作。
 
-### 1.5 MCP 唯讀限制（2026-10-09）
+### 1.5 MCP 唯讀限制（2026-10-09；2026-11-28 增補觀察池單向鏡像例外）
 
 - Janus Dev Private 與 Janus Dev Read-only v2 都只作讀取；不得使用 `janus_private_ledger_append` 或 ledger-recording skill 補登個人交易／股息，即使當前外掛快取仍宣告該工具。
-- MCP server 不得提供 ledger write；User App 記帳與其他既有非 MCP 路徑不受此限制影響。
+- MCP server（`/mcp`）不得提供 ledger write；User App 記帳與其他既有非 MCP 路徑不受此限制影響。
+- **2026-11-28 使用者明確決策例外**：核准獨立最小權限 OAuth Scope `janus.watchlist.write`（預設未請求時不授予）與專用端點 `POST /api/v1/me/watchlist/sync`，專供本人將 Drive `股市/03_候選股與觀察池` 之非金融正式 A/B/C 清單與評估目標價單向鏡像同步至本人 `private.watchlist`（保留手動 `sync_locked` 個股）。此例外嚴格鎖定於 `private.watchlist`，不開放任何帳本、現金、持股、策略或刪帳寫入權限。
 
 ### 1.6 FINOPS-AB snapshot 清理決策（2026-10-18 最新）
 

@@ -31,7 +31,7 @@ from .auth import (AuthenticatedAdmin, AuthenticatedUser, GoogleAdminAuthenticat
                    GoogleUserAuthenticator, allowed_admin_emails)
 from .context_sources import ContextSourceError, ContextSourceService, CoreContextReader
 from .mcp_adapter import McpAdapter
-from .mcp_oauth import McpOAuth, OAuthSettings, RepositoryOAuthCodeStore, parse_form
+from .mcp_oauth import MCP_WATCHLIST_WRITE_SCOPE, McpOAuth, OAuthSettings, RepositoryOAuthCodeStore, parse_form
 from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSummaryOut, MarketHomeOut,
                      BrokerProfileIn, CashPositionIn, CorrectionIn,
                      DividendConfirmIn, DividendDismissIn, DividendDraftPatchIn, DividendScanIn,
@@ -40,7 +40,7 @@ from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSumm
                      NoteIn, NoteRevisionIn, PortfolioExposureOut, PortfolioPerformanceOut,
                      PortfolioStressOut, PortfolioSummaryOut,
                      PrivateResponseOut, PublicDatasetOut, PublicVisualSeriesOut, PublicReportListOut, PublicReportOut, PublicWaitingOut,
-                     WatchlistIn, WatchlistOrderIn,
+                     WatchlistIn, WatchlistOrderIn, WatchlistSyncIn,
                      GovernanceDiffIn, GovernanceEditIn, MembershipEditIn)
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
 from .private_pipeline import ledger_net_cash_flow, stock_identity
@@ -1796,6 +1796,52 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                 current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
         result=repository.reorder(current.user_id,value.symbols,value.expected_version,idempotency_key)
         background_tasks.add_task(recalculate_private_mart_safely, current.user_id)
+        return jsonable_encoder(result)
+
+    def watchlist_sync_owner(request: Request) -> UUID:
+        """Accept either scoped OAuth (`janus.watchlist.write`) or Google OIDC ID Token."""
+        scheme, _, token = request.headers.get("Authorization", "").partition(" ")
+        token = token.strip()
+        if scheme.lower() != "bearer" or not token:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "authentication required")
+        oauth_checked_401 = False
+        oauth_unavailable = False
+        try:
+            claims = oauth_service().verify_access_token(token, MCP_WATCHLIST_WRITE_SCOPE)
+            return UUID(str(claims["sub"]))
+        except HTTPException as exc:
+            if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+                oauth_unavailable = True
+            else:
+                oauth_checked_401 = True
+        except ValueError:
+            oauth_checked_401 = True
+        try:
+            return authenticate(request).user_id
+        except HTTPException as exc:
+            if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+                if oauth_checked_401:
+                    raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid credential") from None
+                if oauth_unavailable:
+                    raise exc
+            raise
+
+    @api.post("/api/v1/me/watchlist/sync", tags=["private"], responses={200: {"model": PrivateResponseOut}})
+    def sync_watchlist_endpoint(
+        value: WatchlistSyncIn,
+        background_tasks: BackgroundTasks,
+        owner_id: UUID = Depends(watchlist_sync_owner),
+        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", min_length=8, max_length=128),
+    ):
+        if not value.dry_run and not idempotency_key:
+            raise HTTPException(
+                status_code=422,
+                detail="Idempotency-Key header is required when dry_run is false",
+            )
+        result = repository.sync_watchlist(owner_id, value, idempotency_key)
+        if not value.dry_run and not result.get("replayed") and int(result.get("changed_count") or 0) > 0:
+            background_tasks.add_task(supplement_stocks_safely)
+            background_tasks.add_task(recalculate_private_mart_safely, owner_id)
         return jsonable_encoder(result)
 
     @private.get("/export")

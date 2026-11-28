@@ -1,5 +1,11 @@
 # Janus — 唯一 Active TODO
 
+## 2026-11-28｜股市 `03_候選股與觀察池` 非金融 A/B/C（17 檔）單向鏡像回寫 `private.watchlist`（程式與測試已備妥；Dev Release／MCP Route 更新／本人 OAuth 實測同步待驗 `NOT_VERIFIED`）
+
+- [x] **後端受限寫入 Scope 與鏡像同步端點（本地實作＋單元測試 PASS）**：於 `services/api/mcp_oauth.py` 新增最小權限 `janus.watchlist.write`（預設未指定時仍僅發唯讀 scope，`janus.private.write` 與 `/mcp` 三支唯讀工具維持不變）；於 `services/api/models.py`、`watchlist_sync.py`、`repository.py`、`app.py` 實作 `POST /api/v1/me/watchlist/sync`（支援 `dry_run`、`mirror` 鏡像、`preserve_locked` 鎖定保留、`target_price` 評估價同步、50 檔個人／全域與策略 B 池上限、冪等鍵與樂觀鎖），並於 `tests/test_watchlist_sync.py`、`tests/test_mcp_oauth.py` 通過離線單元測試。
+- [x] **本機同步腳本與文件同步**：於 Drive `股市/scripts/sync_watchlist_to_janus.py` 實作嚴格分區解析（僅抓一 A／三 B／四 C，17 檔 + 分析目標價）、PKCE OAuth 授權與 `--dry-run`/`--apply` 同步；已同步 `股市/skills/tw-stock-weekly-scan/SKILL.md`、`doc/PROJECT_RULES.md §1.5` 與 `janusChatGPT/JANUS_PROJECT_CONTROL.md §14`。
+- [ ] **GHCR Release → Dev API 100% 切流 → `ghcr-mcp-route-dev.yml`（`mcp-oauth`/`mcp-adapter` 路由更新）→ 本人 OAuth 實測 `NOT_VERIFIED`**：待執行完整 Release 並更新線上 Dev API 及 `mcp-oauth` / `mcp-adapter` 路由後，由 Owner 本人完成 `auth-login` / `auth-exchange` 與第一次實機 `sync --dry-run` / `--apply` 讀回驗證。
+
 ## 2026-11-25｜股利自動推算與一鍵入帳（Dev 080 Migration／歷史除權息回補／前後月帳本對照／API 100% 切流／Owner UAT／四支盤後 Jobs Rollout 全 PASS）
 
 - [x] **規格定稿與 GitHub 文件同步（`DOC_ONLY`）**：已將 Drive `06_股利自動推算與一鍵入帳規格書.md`（v1.0）同步至 [SPEC](spec/dividend-auto-ledger.md)、[工程卡](execution-cards/dividend-auto-ledger.md) 與 [PROJECT_RULES §0.7](PROJECT_RULES.md#07-股利自動推算與一鍵入帳規格2026-11-25-最新決策)。

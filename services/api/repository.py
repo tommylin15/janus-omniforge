@@ -11,7 +11,8 @@ import os
 from typing import Any, Iterator
 from uuid import UUID, uuid4
 
-from .models import AnalysisFeedbackIn, InvestmentProfileIn, LedgerEventIn, LedgerType, NoteIn, WatchlistIn
+from .models import AnalysisFeedbackIn, InvestmentProfileIn, LedgerEventIn, LedgerType, NoteIn, WatchlistIn, WatchlistSyncIn
+from .watchlist_sync import sync_watchlist as _sync_watchlist_impl
 
 
 class ConflictError(ValueError): pass
@@ -1340,6 +1341,9 @@ class PostgresWorkspaceRepository:
             version=self._next_change_version(connection,user_id); self._change(connection,user_id,version,"watchlist-order",str(uuid4()),None)
             self._record_mutation(connection,user_id,key,"watchlist-order",str(uuid4()))
         return self.watchlist(user_id)
+
+    def sync_watchlist(self, user_id: UUID, value: WatchlistSyncIn, key: str | None) -> dict[str, Any]:
+        return _sync_watchlist_impl(self, user_id, value, key, conflict_error_cls=ConflictError)
 
     @staticmethod
     def _reap_stale_recalculations(connection: Any) -> None:

@@ -222,6 +222,31 @@ class WatchlistOrderIn(StrictModel):
     expected_version: Annotated[int, Field(ge=1)]
 
 
+class WatchlistSyncItemIn(StrictModel):
+    symbol: Annotated[str, Field(pattern=r"^[0-9A-Z.-]{1,16}$")]
+    tier: Literal["A", "B", "C"] = "C"
+    target_price: Money | None = None
+    sort_order: Annotated[int | None, Field(ge=0, le=49)] = None
+
+
+class WatchlistSyncIn(StrictModel):
+    items: Annotated[list[WatchlistSyncItemIn], Field(max_length=50)]
+    mode: Literal["mirror", "upsert_only"] = "mirror"
+    preserve_locked: bool = True
+    update_target_price: bool = True
+    clear_missing_target_price: bool = False
+    dry_run: bool = False
+    expected_version: Annotated[int | None, Field(ge=0)] = None
+    source: Annotated[str | None, Field(max_length=120)] = None
+
+    @model_validator(mode="after")
+    def validate_unique_symbols(self) -> "WatchlistSyncIn":
+        symbols = [item.symbol for item in self.items]
+        if len(symbols) != len(set(symbols)):
+            raise ValueError("duplicate symbol in watchlist sync items")
+        return self
+
+
 class CashPositionIn(StrictModel):
     """Owner sets current TWD cash directly; no bank account verification."""
     amount: Money
