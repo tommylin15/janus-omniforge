@@ -1,10 +1,10 @@
 {
   "intent": "verify-ghcr-candidate-boundary",
-  "sha": "3e5a1ae69990bed5d8bd7e52cc41119bfffda505",
+  "sha": "1d7ca84b1e91f112e1ad7fdac75f440347c8e6e2",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "purpose": "2026-11-28 觀察池鏡像同步（3e5a1ae6）：Release #46109084892 與 0% Candidate #46109884652 PASS；驗證既有 OAuth、個人策略、Owner/Admin/MCP 與公開行情邊界；不切流、不改 Jobs/Scheduler/PG/IAM 或 Owner 資料。",
-  "request_attempt": 76,
+  "purpose": "2026-11-28 已註冊 ETF 官方盤後 EOD OHLCV 接入與回補（1d7ca84b）：Release #46113004306 與 0% Candidate #46113419643 PASS；驗證既有 OAuth、個人策略、Owner/Admin/MCP 與公開行情邊界；不切流、不改 Jobs/Scheduler/PG/IAM 或 Owner 資料。",
+  "request_attempt": 77,
   "personal_strategy_access_check": true,
   "market_index_quote_check": true
 }
