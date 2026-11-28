@@ -15,11 +15,11 @@
   "rollback_config_hashes": {
     "janus-batch-controller": "2a12f1d6ae5d2dc3dc3c208b12bfc1e32e2ac87f02ff68462a935bc056b19acc",
     "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
-    "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
+    "janus-intelligence-mart": "8a0b08739945780cdc63ef6e6d780188717a6719dc0c23f657a2ef4c2b9b3df5",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
   "auth_boundary_run": "46113568866",
-  "request_attempt": 76,
+  "request_attempt": 77,
   "safety": "保留單一兩小時Scheduler、共同Git-ref lease、全分頁在途fence、8次唯讀canary與固定映像失敗回復；只更新映像，完整Job設定hash維持不變。",
   "authorization": "User 2026-11-28 reported ETF holdings stale/待行情 and explicitly approved '方案a' (ingest official TWSE/TPEx EOD OHLCV for registered ETFs and backfill recent trading days via existing Dev ingestion Job); no production or new paid resources.",
   "rollback_source_shas": {
