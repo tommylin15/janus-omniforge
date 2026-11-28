@@ -194,6 +194,83 @@ def tpex_market_volume_adapter(transport: Callable[[str], bytes] | None = None) 
     )
 
 
+_ETF_OHLCV_FIELDS: dict[str, tuple[str, str, str, str, str, str, str]] = {
+    "TWSE": ("證券代號", "成交股數", "成交金額", "開盤價", "最高價", "最低價", "收盤價"),
+    "TPEX": ("代號", "成交股數", "成交金額(元)", "開盤", "最高", "最低", "收盤"),
+}
+
+
+def parse_registered_etf_ohlcv(
+    raw: bytes | None,
+    *,
+    market: str,
+    source_id: str,
+    expected_date: date,
+    allowed_symbols: set[str] | frozenset[str],
+    observed_at: datetime,
+) -> tuple[dict[str, Any], ...]:
+    """Extract normalized daily OHLCV rows for registered ETFs from a bulk market payload."""
+    normalized_market = str(market or "").strip().upper()
+    if normalized_market not in _ETF_OHLCV_FIELDS:
+        raise ValueError("unsupported ETF OHLCV market")
+    allowed = {str(symbol).strip().upper() for symbol in allowed_symbols if str(symbol).strip()}
+    if not raw or not allowed:
+        return ()
+    document = json.loads(raw)
+    required_fields = _ETF_OHLCV_FIELDS[normalized_market]
+    code_field, volume_field, value_field, open_field, high_field, low_field, close_field = required_fields
+    snapshot_date = document.get("date") if isinstance(document, dict) else None
+    records: list[dict[str, Any]] = []
+    if isinstance(document, dict) and document.get("tables"):
+        for table in document["tables"]:
+            if not isinstance(table, dict):
+                continue
+            fields = table.get("fields") or ()
+            if not all(field in fields for field in required_fields):
+                continue
+            for values in table.get("data", ()) or ():
+                records.append(dict(zip(fields, values, strict=False)) | {"Date": snapshot_date})
+    elif isinstance(document, list):
+        records = [item for item in document if isinstance(item, dict)]
+    else:
+        return ()
+
+    observed = observed_at if observed_at.tzinfo is not None else observed_at.replace(tzinfo=timezone.utc)
+    observed_iso = observed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    expected_iso = expected_date.isoformat()
+    seen: set[str] = set()
+    rows: list[dict[str, Any]] = []
+    for item in records:
+        symbol = str(item.get(code_field) or "").strip().upper()
+        if symbol not in allowed or symbol in seen:
+            continue
+        trade_date = _date(item.get("Date") or snapshot_date)
+        if trade_date != expected_iso:
+            raise ValueError("ETF market volume response is not for requested trading date")
+        close = _number(item.get(close_field))
+        if close is None:
+            continue
+        volume_raw = _number(item.get(volume_field))
+        seen.add(symbol)
+        rows.append(
+            {
+                "symbol": symbol,
+                "market": normalized_market,
+                "trade_date": trade_date,
+                "open": _number(item.get(open_field)),
+                "high": _number(item.get(high_field)),
+                "low": _number(item.get(low_field)),
+                "close": close,
+                "volume_shares": int(volume_raw) if volume_raw is not None else None,
+                "turnover_twd": _number(item.get(value_field)),
+                "change_percent": None,
+                "source_id": source_id,
+                "observed_at": observed_iso,
+            }
+        )
+    return tuple(rows)
+
+
 @dataclass
 class CompanyProfileAdapter:
     """Official company list used to distinguish stocks and resolve names."""

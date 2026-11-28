@@ -284,6 +284,9 @@ def main() -> None:
             if supplement_mode == 'demand':
                 from .stock_supplement import run_pending
                 result = run_pending()
+            elif supplement_mode == "etf-ohlcv-backfill":
+                from .etf_ohlcv_backfill import run_from_env
+                result = run_from_env()
             elif supplement_mode == "market-history":
                 from .market_history import run_market_history
                 result = run_market_history()

@@ -489,6 +489,35 @@ class SQLiteControlPlane:
         ).fetchall()
         return tuple(row[0] for row in rows)
 
+    def registered_etf_symbols(self, market: str | None = None) -> tuple[str, ...]:
+        """Return enabled ETF/BOND_ETF symbols registered in provenance without touching equity universe."""
+        if market is not None and market not in {"TWSE", "TPEX"}:
+            raise ValueError("market must be TWSE or TPEX")
+        has_table = self.connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='official_instrument_identity_provenance'"
+        ).fetchone()
+        if has_table is None:
+            return ()
+        if market is not None:
+            rows = self.connection.execute(
+                """SELECT sm.symbol
+                   FROM stock_master sm
+                   JOIN official_instrument_identity_provenance ip ON ip.symbol = sm.symbol
+                   WHERE sm.enabled=1 AND sm.market=? AND ip.instrument_kind IN ('ETF', 'BOND_ETF')
+                   ORDER BY sm.symbol""",
+                (market,),
+            ).fetchall()
+        else:
+            rows = self.connection.execute(
+                """SELECT sm.symbol
+                   FROM stock_master sm
+                   JOIN official_instrument_identity_provenance ip ON ip.symbol = sm.symbol
+                   WHERE sm.enabled=1 AND sm.market IN ('TWSE', 'TPEX')
+                     AND ip.instrument_kind IN ('ETF', 'BOND_ETF')
+                   ORDER BY sm.symbol"""
+            ).fetchall()
+        return tuple(row[0] for row in rows)
+
     def set_stock_enabled(self, symbol: str, enabled: bool) -> None:
         cursor = self.connection.execute(
             "UPDATE stock_master SET enabled=?, updated_at=? WHERE symbol=? AND (?=0 OR market='TWSE')",

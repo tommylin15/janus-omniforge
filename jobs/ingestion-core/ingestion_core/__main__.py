@@ -19,6 +19,7 @@ from .control import DataState, ExecutionItem, ExecutionStatus, TriggerType
 from .dq import validate_ohlcv
 from .postgres_control import PostgreSQLControlPlane
 from .first_batch import dataset_adapters, effective_trading_day, stage_raw_response
+from .sources import parse_registered_etf_ohlcv
 from .stage import GcsObjectStore, StageResult, StageWriter
 from packages.duckdb_query import DuckDBIcebergCore
 
@@ -501,6 +502,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     )
                     staged.append(result.object_name)
                     stage_results.append(result)
+                    market_volume_raw = response.raw_payload if adapter.dataset_id == "market-volume" else None
                     response = replace(response, raw_payload=None)
                     if not response.rows:
                         raise ValueError("OHLCV DQ rejected all rows")
@@ -569,29 +571,61 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                                 status="complete" if expected <= received_prices else "partial",
                                 quarantined_rows=len(checked.quarantined),
                                 portfolio_received=sorted(holding_symbols & received_prices))
-                            if checked.accepted:
-                                price_rows_to_publish = [dict(row) for row in checked.accepted]
-                                price_commit = core.write(dataset_id="ohlcv", rows=price_rows_to_publish,
-                                                          execution_id=execution_id, provenance_id=result.idempotency_key,
-                                                          source_id=adapter.source_id, partition_date=as_of)
-                                if serving_projection is not None:
-                                    serving_published += serving_projection.publish(
-                                        "ohlcv",
-                                        price_rows_to_publish,
-                                        execution_id=execution_id,
-                                        provenance_id=result.idempotency_key,
-                                        source_id=adapter.source_id,
-                                        core_snapshot_id=price_commit.snapshot_id,
-                                    )
-                                core_created += price_commit.inserted
-                                core_updated += price_commit.updated
-                                core_reused += price_commit.reused
-                                iceberg_tables[price_commit.table_identifier] = {
-                                    "rows": price_commit.row_count,
-                                    "snapshot_id": price_commit.snapshot_id,
-                                    "metadata_location": price_commit.metadata_location,
+                            price_rows_to_publish = [dict(row) for row in checked.accepted]
+                        else:
+                            price_rows_to_publish = []
+                        etf_reader = getattr(control, "registered_etf_symbols", None)
+                        registered_etfs = set(etf_reader(market)) if etf_reader is not None else set()
+                        if market_volume_raw and registered_etfs:
+                            observed_at_utc = datetime.combine(as_of, datetime.min.time(), timezone.utc)
+                            etf_raw_rows = parse_registered_etf_ohlcv(
+                                market_volume_raw,
+                                market=market,
+                                source_id=adapter.source_id,
+                                expected_date=as_of,
+                                allowed_symbols=registered_etfs,
+                                observed_at=observed_at_utc,
+                            )
+                            if etf_raw_rows:
+                                etf_checked = validate_ohlcv(etf_raw_rows, analysis_as_of=as_of)
+                                etf_received = {
+                                    row["symbol"] for row in etf_checked.accepted
+                                    if str(row.get("trade_date", ""))[:10] == as_of.isoformat()
                                 }
-                                price_coverage["snapshot_id"] = price_commit.snapshot_id
+                                holding_prices_by_date.setdefault(as_of.isoformat(), set()).update(etf_received)
+                                price_coverage["etf_received_count"] = len(etf_received)
+                                seen_keys = {
+                                    (str(row.get("symbol")), str(row.get("market")), str(row.get("trade_date")))
+                                    for row in price_rows_to_publish
+                                }
+                                for row in etf_checked.accepted:
+                                    key_tuple = (str(row.get("symbol")), str(row.get("market")), str(row.get("trade_date")))
+                                    if key_tuple not in seen_keys:
+                                        seen_keys.add(key_tuple)
+                                        price_rows_to_publish.append(dict(row))
+                        if price_rows_to_publish:
+                            price_commit = core.write(dataset_id="ohlcv", rows=price_rows_to_publish,
+                                                      execution_id=execution_id, provenance_id=result.idempotency_key,
+                                                      source_id=adapter.source_id, partition_date=as_of)
+                            if serving_projection is not None:
+                                serving_published += serving_projection.publish(
+                                    "ohlcv",
+                                    price_rows_to_publish,
+                                    execution_id=execution_id,
+                                    provenance_id=result.idempotency_key,
+                                    source_id=adapter.source_id,
+                                    core_snapshot_id=price_commit.snapshot_id,
+                                )
+                            core_created += price_commit.inserted
+                            core_updated += price_commit.updated
+                            core_reused += price_commit.reused
+                            iceberg_tables[price_commit.table_identifier] = {
+                                "rows": price_commit.row_count,
+                                "snapshot_id": price_commit.snapshot_id,
+                                "metadata_location": price_commit.metadata_location,
+                            }
+                            price_coverage["snapshot_id"] = price_commit.snapshot_id
+                        market_volume_raw = None
                     if adapter.dataset_id in {"valuation", "institutional", "financials", "benchmark", "financing", "securities_lending_short", "day_trading"} and active_500:
                         date_field = "observed_date" if adapter.dataset_id == "valuation" else "trade_date"
                         received = {str(row.get("benchmark_id" if adapter.dataset_id == "benchmark" else "symbol", ""))

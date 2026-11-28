@@ -98,6 +98,40 @@ class PostgreSQLControlPlane:
             cur.execute("SELECT symbol FROM control.stock_master WHERE enabled AND market IN ('TWSE','TPEX') ORDER BY symbol")
             return tuple(row[0] for row in cur.fetchall())
 
+    def registered_etf_symbols(self, market: str | None = None) -> tuple[str, ...]:
+        """Return enabled ETF/BOND_ETF symbols registered in provenance without touching equity universe."""
+        if market is not None and market not in {"TWSE", "TPEX"}:
+            raise ValueError("market must be TWSE or TPEX")
+        with self.connection.cursor() as cur:
+            cur.execute("SELECT to_regclass('control.official_instrument_identity_provenance')")
+            exists = cur.fetchone()
+            if not exists or exists[0] is None:
+                return ()
+            if market is not None:
+                cur.execute(
+                    """SELECT sm.symbol
+                       FROM control.stock_master sm
+                       JOIN control.official_instrument_identity_provenance ip
+                         ON ip.symbol = sm.symbol
+                       WHERE sm.enabled
+                         AND sm.market = %s
+                         AND ip.instrument_kind IN ('ETF', 'BOND_ETF')
+                       ORDER BY sm.symbol""",
+                    (market,),
+                )
+            else:
+                cur.execute(
+                    """SELECT sm.symbol
+                       FROM control.stock_master sm
+                       JOIN control.official_instrument_identity_provenance ip
+                         ON ip.symbol = sm.symbol
+                       WHERE sm.enabled
+                         AND sm.market IN ('TWSE', 'TPEX')
+                         AND ip.instrument_kind IN ('ETF', 'BOND_ETF')
+                       ORDER BY sm.symbol"""
+                )
+            return tuple(row[0] for row in cur.fetchall())
+
     def full_market_snapshot(self) -> dict[str, Any]:
         with self.connection.cursor() as cur:
             cur.execute("""SELECT version,effective_from,source_snapshot FROM control.market_universe_versions

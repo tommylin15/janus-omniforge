@@ -1,0 +1,65 @@
+name: Backfill dev registered ETF official EOD OHLCV
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: Backfill start date (YYYY-MM-DD)
+        required: true
+        default: '2026-11-20'
+        type: string
+      end_date:
+        description: Backfill end date (YYYY-MM-DD)
+        required: true
+        default: '2026-11-27'
+        type: string
+      markets:
+        description: Comma-separated markets (TWSE,TPEX)
+        required: false
+        default: 'TWSE,TPEX'
+        type: string
+      symbols:
+        description: Optional comma-separated registered ETF symbols filter
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Dispatch existing Dev ingestion Job for registered ETF OHLCV backfill
+        run: |
+          python scripts/gcp/backfill_etf_ohlcv_dev.py \
+            --start-date "${{ inputs.start_date }}" \
+            --end-date "${{ inputs.end_date }}" \
+            --markets "${{ inputs.markets }}" \
+            --symbols "${{ inputs.symbols }}" \
+            --receipt /tmp/etf-ohlcv-backfill.json
+      - name: Upload backfill receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: etf-ohlcv-backfill-receipt
+          path: /tmp/etf-ohlcv-backfill.json
+          if-no-files-found: ignore
+          retention-days: 14
